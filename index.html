@@ -422,11 +422,19 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 /* ---- BTN ---- */
-.btn{padding:8px 16px;border-radius:7px;border:none;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;transition:all .14s}
-.btn-p{background:var(--brand-navy);color:#fff}.btn-p:hover{background:#13335a}
-body.light .btn-p{background:var(--brand-navy);color:#fff}body.light .btn-p:hover{background:#13335a}
-.btn-s{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}.btn-s:hover{color:var(--text);border-color:var(--accent)}
-.btn-g{background:var(--a2);color:#fff}.btn-g:hover{background:#059669}
+.btn{padding:8px 16px;border-radius:8px;border:none;font-family:var(--sans);font-size:13px;font-weight:500;cursor:pointer;transition:background .14s,color .14s,border-color .14s,box-shadow .14s,filter .14s;line-height:1.2;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ds-color-info-bg),0 0 0 4px var(--accent)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-p{background:var(--brand-navy);color:#fff}
+.btn-p:hover{background:#13335a}
+.btn-s{background:var(--bg3);color:var(--text2);border:1px solid var(--border)}
+.btn-s:hover{color:var(--text);border-color:var(--accent)}
+.btn-g{background:var(--ds-color-success);color:#fff}
+.btn-g:hover{filter:brightness(.92)}
+.btn-d{background:var(--ds-color-danger);color:#fff}
+.btn-d:hover{filter:brightness(.92)}
+.btn-link{background:none;border:none;color:var(--accent);font:500 12px/16px var(--sans);cursor:pointer;padding:0;letter-spacing:.04em}
+.btn-link:hover{color:var(--accent-2);text-decoration:underline}
 .btn-sm{padding:5px 11px;font-size:12px}
 /* ---- FORM ---- */
 .frow{display:flex;gap:11px;flex-wrap:wrap}
@@ -650,8 +658,7 @@ body.light .award-plat{color:#6d28d9}
 .sum-v3 .card{margin-bottom:18px;position:relative;overflow:hidden;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
 .sum-v3 .card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
 .sum-v3 .kpi-label{font:11px/14px var(--sans);text-transform:uppercase;letter-spacing:.22em;color:var(--text3);font-weight:600}
-.sum-v3 .btn-link{background:none;border:none;color:var(--accent);font:12px/16px var(--sans);font-weight:500;cursor:pointer;padding:0;letter-spacing:.04em}
-.sum-v3 .btn-link:hover{color:var(--accent-2)}
+/* .btn-link is now global; .sum-v3-scoped overrides removed. */
 
 /* HERO (two cards side-by-side) */
 .sum-hero{display:grid;grid-template-columns:1fr 1.2fr;gap:18px;margin-bottom:18px}
