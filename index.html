@@ -72,17 +72,17 @@
 /* ---- LIGHT MODE — Producer Stack soft pastel ---- */
 body.light{
   --bg:#F4F8FD;       /* soft cool ivory */
-  --bg2:#EAF2FB;
-  --bg3:#E0EBF7;
+  --bg2:#e8edf3;      /* aligned with prior per-class card-on-light overrides */
+  --bg3:#f0f4f8;      /* input + drop-zone fill */
   --card:#FFFFFF;
-  --border:#D6E3F2;
+  --border:#c8d3df;   /* card / table / input border — was #D6E3F2; consolidated from 15+ per-class overrides */
   --border2:#BDD0E8;
   --accent:#5BA0E8;
   --accent-2:#7BB7F5;
   --accent-deep:#0B1F3A;
-  --text:#0B1F3A;     /* wordmark navy */
-  --text2:#3D5A82;
-  --text3:#7A92B3;
+  --text:#1a2332;     /* matches prior input/text overrides */
+  --text2:#445566;
+  --text3:#7a8fa3;
   /* ---- DS LAYER 2026-05-11 — light-theme overrides ---- */
   --ds-color-success:    #2C5F4F;   /* heritage green — light theme aligns with design-system canonical */
   --ds-color-success-bg: rgba(44,95,79,.10);
@@ -102,44 +102,17 @@ body.light{
   --ds-elev-modal: 0 1px 0 rgba(11,31,58,.06) inset, 0 24px 64px -24px rgba(11,31,58,.30);
 }
 body.light .sidebar{background:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(244,248,253,.42) 100%)}
-body.light .topbar{background:#FFFFFF;border-bottom-color:#D6E3F2}
-body.light .card{background:#ffffff;border-color:#c8d3df}
-body.light .fg input,body.light .fg select,body.light .fg textarea{background:#f0f4f8;border-color:#c8d3df;color:#1a2332}
-body.light .tabs{background:#e8edf3}
-body.light .tab.active{background:#ffffff;color:#1a2332}
-body.light .carrier-card{background:#f0f4f8;border-color:#c8d3df}
-body.light .carrier-card:hover{border-color:var(--brand-blue-3)}
-body.light .stat{background:#ffffff;border-color:#c8d3df}
-/* .ptbl now driven by --border + --ds-color-neutral-bg tokens — no per-theme overrides needed */
-body.light .lead-row{background:#ffffff;border-color:#c8d3df}
-body.light .lead-row:hover{border-color:var(--brand-blue-3)}
-body.light .lead-row.sold{background:rgba(16,185,129,.05);border-color:rgba(16,185,129,.3)!important}
-body.light .lead-row-expanded{border-top-color:#e8edf3}
-body.light .lead-notes{background:#f0f4f8;border-color:#c8d3df;color:#1a2332}
-body.light .lead-act-btn{background:#f0f4f8;border-color:#c8d3df;color:#445566}
-body.light .lead-act-btn:hover{color:#1a2332;background:#ffffff}
-body.light .lead-detail-value{color:#445566}
-body.light .lead-detail-label{color:#7a8fa3}
-body.light .lead-source{color:#7a8fa3}
-body.light .lead-state{color:#7a8fa3}
-body.light .lead-status-sel-edit{background:#f0f4f8;border-color:#c8d3df;color:#1a2332}
-body.light .modal{background:#ffffff;border-color:#c8d3df}
 body.light .overlay{background:rgba(11,31,58,.42)}
-/* .alert-i/.alert-s/.alert-w now inherit from --ds-color-* tokens which are theme-aware */
-body.light .btn-s{background:#e8edf3;border-color:#c8d3df;color:#445566}
-body.light .btn-s:hover{color:var(--brand-navy);border-color:var(--brand-blue-3)}
-body.light .nav-item{color:#445566}
-body.light .nav-item:hover{color:#1a2332;background:rgba(59,130,246,.06)}
-body.light .nav-item.active{color:var(--brand-navy);border-left-color:var(--brand-blue-3);background:linear-gradient(90deg,rgba(123,183,245,.18),rgba(168,205,245,.08))}
-body.light .contract-box{background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.2)}
-/* contract-inp/pct now inherit color from --ds-color-success token (heritage green in light) */
-body.light #csv-drop-zone{background:#f0f4f8}
-body.light .cal-cell{background:#ffffff;border-color:#c8d3df}
-body.light .cal-cell.other-month{background:#f8fafc}
-body.light .cal-cell.today{background:rgba(59,130,246,.04)}
+body.light .topbar{background:var(--card);border-bottom-color:var(--border)}
+body.light .lead-row.sold{background:var(--ds-color-success-bg);border-color:var(--ds-color-success)!important}
+body.light .nav-item.active{color:var(--brand-navy);background:linear-gradient(90deg,rgba(91,160,232,.18),rgba(168,205,245,.08))}
 body.light .logo-brand{color:var(--brand-navy)}
 body.light .logo-sub{color:var(--brand-blue-3)}
-body.light .bulk-bar{background:#ffffff;border-color:#c8d3df}
+body.light .contract-box{background:var(--ds-color-success-bg);border-color:var(--ds-color-success-bg)}
+body.light .cal-cell.other-month{background:#f8fafc}
+/* All other .card/.stat/.fg/.ptbl/.lead-*/.modal/.tabs/.tab/.btn-s/.bulk-bar etc.
+   light-theme tweaks now flow from --border/--bg2/--bg3/--card/--text/--text2/--text3
+   above. Per-class overrides removed — ~30 lines collapsed into the token block. */
 /* ---- DARK MODE — refinements (default theme) ---- */
 body:not(.light){
   background:
@@ -210,9 +183,9 @@ body:not(.light) .cal-cell.today{background:rgba(143,194,247,.06)}
 .lead-check{width:18px;height:18px;border-radius:4px;border:2px solid var(--border2);appearance:none;-webkit-appearance:none;cursor:pointer;background:var(--bg3);transition:all .14s;flex-shrink:0;margin-top:2px}
 .lead-check:checked{background:var(--accent);border-color:var(--accent);background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z'/%3E%3C/svg%3E");}
 .lead-check:hover{border-color:var(--accent)}
-body.light .lead-check{background:#f0f4f8;border-color:#b5c2d0}
-body.light .toggle-track{background:#c8d3df}
-body.light .theme-toggle{background:#e8edf3;border-color:#c8d3df}
+body.light .lead-check{background:var(--bg3);border-color:var(--border2)}
+body.light .toggle-track{background:var(--border)}
+body.light .theme-toggle{background:var(--bg2);border-color:var(--border)}
 /* ---- COLLAPSED RAIL — clean look ---- */
 .sidebar:not(:hover) .logo-wrap{border-bottom-color:transparent;min-height:60px}
 .sidebar:not(:hover) .nav-lbl{height:0;padding:0;margin:0;overflow:hidden;opacity:0!important}
