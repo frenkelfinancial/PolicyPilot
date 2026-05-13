@@ -1,0 +1,42 @@
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.*.swp
+
+# Claude Code per-machine settings (keep team-shared settings.json if added later)
+.claude/settings.local.json
+
+# Logs & caches
+*.log
+.cache/
+.tmp/
+tmp/
+
+# Build outputs (preemptive — none currently)
+dist/
+build/
+coverage/
+
+# Supabase CLI working state (not source — regenerated on `supabase link`)
+supabase/.temp/
+supabase/.branches/
+
+# OS / misc
+Thumbs.db
+ehthumbs.db
+Desktop.ini

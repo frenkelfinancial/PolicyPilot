@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bonus Milestone — Direction Options</title>
+<link rel="stylesheet" href="/helper.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&family=Sora:wght@700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #070d1a;
+    color: #EAF1FB;
+    padding: 28px 32px 48px;
+    min-height: 100vh;
+    line-height: 1.5;
+    background:
+      radial-gradient(1200px 800px at 85% -10%, rgba(91,160,232,.06), transparent 60%),
+      radial-gradient(900px 700px at -10% 100%, rgba(168,205,245,.04), transparent 55%),
+      #070d1a;
+  }
+  .intro { max-width: 1180px; margin: 0 auto 26px; }
+  .intro h1 { font-family: 'Sora'; font-weight: 700; font-size: 22px; margin-bottom: 6px; color:#EAF1FB; }
+  .intro p { color:#A8BCD6; font-size: 13.5px; max-width: 720px; }
+
+  .opts { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+
+  /* Option wrapper */
+  .opt {
+    border: 1px solid #1a2b48;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #10213b 0%, #0c1a30 100%);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color .14s, box-shadow .14s, transform .14s;
+  }
+  .opt:hover { border-color: rgba(143,194,247,.55); box-shadow: 0 8px 28px -10px rgba(91,160,232,.35); transform: translateY(-1px); }
+  .opt.selected { border-color: #8FC2F7; box-shadow: 0 0 0 2px rgba(143,194,247,.25), 0 12px 32px -10px rgba(91,160,232,.4); }
+  .opt-head { display:flex; justify-content:space-between; align-items:center; padding: 16px 22px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  .opt-tag { display:flex; align-items:center; gap:10px; }
+  .letter { width: 28px; height: 28px; border-radius: 50%; background: #142239; border: 1px solid #2c4068; color: #8FC2F7; font-family:'DM Mono'; font-weight:600; display:flex; align-items:center; justify-content:center; font-size: 13px; }
+  .opt-title { font-family:'Sora'; font-weight:700; font-size: 15px; color:#EAF1FB; }
+  .opt-sub { font-size: 12px; color:#6A82A2; letter-spacing: .04em; }
+
+  /* Mock card inside */
+  .mock {
+    margin: 18px 22px 22px;
+    background: linear-gradient(180deg, #10213b 0%, #0c1a30 100%);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .mock-head { display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; }
+  .mock-label { font-family:'DM Sans'; font-size: 11px; text-transform: uppercase; letter-spacing: .22em; color: #6A82A2; font-weight:600; }
+  .mock-link { font-size: 12px; color:#8FC2F7; cursor:pointer; }
+
+  /* Shared bits */
+  .mono { font-family:'DM Mono'; font-variant-numeric: tabular-nums; }
+  .text-w { color:#EAF1FB; }
+  .text-d { color:#A8BCD6; }
+  .text-m { color:#6A82A2; }
+  .text-g { color:#5CC9A7; }
+  .text-go { color:#E0B884; }
+
+  /* OPTION A — Scorecard table */
+  .scorecard { width:100%; border-collapse: collapse; }
+  .scorecard thead th { font-size:10px; text-transform:uppercase; letter-spacing:.18em; color:#6A82A2; font-weight:600; padding:8px 12px; text-align:left; border-bottom:1px solid rgba(255,255,255,.06); }
+  .scorecard thead th.num { text-align:right; }
+  .scorecard tbody td { padding:14px 12px; border-bottom:1px solid rgba(255,255,255,.04); font-size:13.5px; }
+  .scorecard tbody tr:last-child td { border-bottom:none; }
+  .scorecard .prog-name { font-weight:600; color:#EAF1FB; font-size:14px; }
+  .scorecard .prog-sub { color:#6A82A2; font-size:11.5px; margin-top:2px; }
+  .scorecard td.num { text-align:right; font-family:'DM Mono'; font-variant-numeric: tabular-nums; }
+  .scorecard td.gap { color:#E0B884; font-weight:600; }
+  .scorecard td.payout { color:#5CC9A7; font-weight:600; }
+  .badge-tier { display:inline-block; padding:3px 9px; border-radius:4px; background: rgba(143,194,247,.12); color:#A8CDF5; font-size:11px; font-weight:600; letter-spacing:.05em; }
+  .badge-tier.next { background: rgba(92,201,167,.12); color:#5CC9A7; }
+  .badge-tier.vp-no { background: rgba(224,184,132,.12); color:#E0B884; }
+
+  /* OPTION B — Stepped ladder */
+  .ladder-row { padding:14px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+  .ladder-row:last-child { border-bottom:none; padding-bottom:4px; }
+  .ladder-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
+  .ladder-name { font-weight:600; color:#EAF1FB; font-size:14px; }
+  .ladder-meta { font-family:'DM Mono'; font-variant-numeric:tabular-nums; font-size:12px; color:#A8BCD6; }
+  .ladder-meta strong { color:#EAF1FB; font-weight:600; }
+  .ladder-track {
+    position: relative;
+    height: 36px;
+    padding-top: 14px;
+  }
+  .ladder-bg { position:absolute; left:0; right:0; top: 18px; height: 2px; background: rgba(255,255,255,.06); border-radius: 2px; }
+  .ladder-fill { position:absolute; left:0; top: 18px; height: 2px; background: #8FC2F7; border-radius: 2px; }
+  .ladder-stop {
+    position: absolute;
+    top: 14px;
+    width: 10px; height: 10px;
+    margin-left: -5px;
+    border-radius: 50%;
+    background: #0c1729;
+    border: 1.5px solid rgba(255,255,255,.18);
+    transition: all .14s;
+  }
+  .ladder-stop.reached { background:#8FC2F7; border-color:#8FC2F7; }
+  .ladder-stop.next { background:#0c1729; border-color:#5CC9A7; box-shadow: 0 0 0 3px rgba(92,201,167,.18); width:12px; height:12px; margin-left:-6px; top:13px; }
+  .ladder-lbl { position:absolute; top:-4px; transform: translateX(-50%); font-family:'DM Mono'; font-variant-numeric:tabular-nums; font-size:10.5px; color:#A8BCD6; white-space: nowrap; }
+  .ladder-lbl.reached { color:#A8CDF5; }
+  .ladder-lbl.next { color:#5CC9A7; font-weight:600; }
+  .ladder-foot { margin-top:10px; font-size:12px; color:#A8BCD6; }
+  .ladder-foot strong { color:#EAF1FB; }
+  .vp-state-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0 4px; }
+  .vp-tag { padding:4px 10px; border-radius:4px; background:rgba(224,184,132,.12); color:#E0B884; font-size:11.5px; font-weight:600; letter-spacing:.04em; }
+
+  /* OPTION C — Pace & Forecast */
+  .pace-grid { display:grid; grid-template-columns: 1fr; gap: 16px; }
+  .pace-row { display:grid; grid-template-columns: 1.6fr 1fr; gap:24px; padding:14px 0; border-bottom:1px solid rgba(255,255,255,.05); align-items:center; }
+  .pace-row:last-child { border-bottom:none; padding-bottom:4px; }
+  .pace-left { }
+  .pace-head { display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
+  .pace-name { font-weight:600; color:#EAF1FB; font-size:14px; }
+  .pace-tag {
+    padding:3px 9px; border-radius:4px; font-size:10.5px; font-weight:700; letter-spacing:.05em;
+  }
+  .pace-tag.on { background:rgba(92,201,167,.14); color:#5CC9A7; }
+  .pace-tag.behind { background:rgba(224,123,123,.14); color:#E07B7B; }
+  .pace-tag.ahead { background:rgba(143,194,247,.14); color:#A8CDF5; }
+  .pace-sub { font-size:12.5px; color:#A8BCD6; }
+  .pace-sub strong { color:#EAF1FB; font-family:'DM Mono'; font-variant-numeric:tabular-nums; }
+  .pace-forecast { font-size:11.5px; color:#6A82A2; margin-top:4px; }
+  .pace-bar-wrap { position:relative; }
+  .pace-bar { position:relative; height: 6px; background: rgba(255,255,255,.06); border-radius: 3px; overflow:hidden; }
+  .pace-bar-cur { position:absolute; left:0; top:0; bottom:0; background: #8FC2F7; border-radius:3px; }
+  .pace-bar-proj { position:absolute; top:-3px; bottom:-3px; width: 2px; background: #5CC9A7; }
+  .pace-bar-target { position:absolute; right:0; top:-3px; bottom:-3px; width: 2px; background: rgba(255,255,255,.3); }
+  .pace-bar-legend { display:flex; justify-content:space-between; font-family:'DM Mono'; font-variant-numeric:tabular-nums; font-size:10.5px; color:#6A82A2; margin-top:6px; }
+  .pace-bar-legend .cur { color:#A8CDF5; }
+  .pace-bar-legend .proj { color:#5CC9A7; }
+
+  .footer { max-width: 1180px; margin: 26px auto 0; font-size: 12px; color: #6A82A2; text-align:center; }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>Bonus Milestone — pick a direction</h1>
+  <p>All three use the Producer Stack tokens (same as the rest of the dashboard) and respect light/dark. Difference is how the milestone information itself is communicated. Same sample data across all three so you can compare apples to apples — Americo $45K of $100K, Am-Am at Silver tier, FFL at 100% contract.</p>
+</div>
+
+<div class="opts">
+
+  <!-- ============= OPTION A — Scorecard ============= -->
+  <div class="opt" data-choice="a" onclick="toggleSelect(this)">
+    <div class="opt-head">
+      <div class="opt-tag">
+        <div class="letter">A</div>
+        <div>
+          <div class="opt-title">Scorecard</div>
+          <div class="opt-sub">FINANCIAL STATEMENT FEEL · MINIMAL DECORATION · MOST DENSE</div>
+        </div>
+      </div>
+      <div class="opt-sub">Lowest visual weight</div>
+    </div>
+
+    <div class="mock">
+      <div class="mock-head">
+        <div class="mock-label">Bonus Milestones</div>
+        <div class="mock-link">Open Bonus Tracker →</div>
+      </div>
+
+      <table class="scorecard">
+        <thead>
+          <tr>
+            <th>Program</th>
+            <th>Current Tier</th>
+            <th class="num">Next Tier</th>
+            <th class="num">Gap</th>
+            <th class="num">Payout at Next</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="prog-name">Americo UFirst</div>
+              <div class="prog-sub">Cumulative AP · resets quarterly</div>
+            </td>
+            <td><span class="badge-tier">$25K Tier</span></td>
+            <td class="num">$50,000</td>
+            <td class="num gap">$5,000</td>
+            <td class="num payout">+$1,250</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="prog-name">Am-Am Bonus Bucks</div>
+              <div class="prog-sub">Tiered · monthly</div>
+            </td>
+            <td><span class="badge-tier">Silver</span></td>
+            <td class="num"><span class="badge-tier next">Gold</span></td>
+            <td class="num gap">$3,200</td>
+            <td class="num payout">+$600</td>
+          </tr>
+          <tr>
+            <td>
+              <div class="prog-name">FFL VP Track</div>
+              <div class="prog-sub">Contract-level eligibility</div>
+            </td>
+            <td><span class="badge-tier">Contract 100%</span></td>
+            <td class="num"><span class="badge-tier vp-no">VP @ 145%</span></td>
+            <td class="num gap">+45% contract</td>
+            <td class="num text-m">eligibility</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ============= OPTION B — Stepped Ladder ============= -->
+  <div class="opt" data-choice="b" onclick="toggleSelect(this)">
+    <div class="opt-head">
+      <div class="opt-tag">
+        <div class="letter">B</div>
+        <div>
+          <div class="opt-title">Stepped Ladder</div>
+          <div class="opt-sub">CALM PROGRESSION · STRUCTURED · LIGHT VISUAL ANCHOR</div>
+        </div>
+      </div>
+      <div class="opt-sub">Balanced</div>
+    </div>
+
+    <div class="mock">
+      <div class="mock-head">
+        <div class="mock-label">Bonus Milestones</div>
+        <div class="mock-link">Open Bonus Tracker →</div>
+      </div>
+
+      <!-- Americo row -->
+      <div class="ladder-row">
+        <div class="ladder-head">
+          <span class="ladder-name">Americo UFirst</span>
+          <span class="ladder-meta"><strong>$45,000</strong> of $100,000 · <span class="text-go">$5,000 to next</span></span>
+        </div>
+        <div class="ladder-track">
+          <div class="ladder-bg"></div>
+          <div class="ladder-fill" style="width:45%"></div>
+          <div class="ladder-stop reached"  style="left:10%"></div>
+          <div class="ladder-stop reached"  style="left:25%"></div>
+          <div class="ladder-stop next"     style="left:50%"></div>
+          <div class="ladder-stop"          style="left:75%"></div>
+          <div class="ladder-stop"          style="left:100%"></div>
+          <div class="ladder-lbl reached"   style="left:10%">$10K</div>
+          <div class="ladder-lbl reached"   style="left:25%">$25K</div>
+          <div class="ladder-lbl next"      style="left:50%">$50K</div>
+          <div class="ladder-lbl"           style="left:75%">$75K</div>
+          <div class="ladder-lbl"           style="left:100%">$100K</div>
+        </div>
+        <div class="ladder-foot">Next payout at <strong>$50K</strong>: <span class="text-g">+$1,250</span></div>
+      </div>
+
+      <!-- Am-Am row -->
+      <div class="ladder-row">
+        <div class="ladder-head">
+          <span class="ladder-name">Am-Am Bonus Bucks</span>
+          <span class="ladder-meta"><strong>$11,800</strong> of $20,000 · <span class="text-go">$3,200 to Gold</span></span>
+        </div>
+        <div class="ladder-track">
+          <div class="ladder-bg"></div>
+          <div class="ladder-fill" style="width:59%"></div>
+          <div class="ladder-stop reached" style="left:25%"></div>
+          <div class="ladder-stop next"    style="left:75%"></div>
+          <div class="ladder-stop"         style="left:100%"></div>
+          <div class="ladder-lbl reached"  style="left:25%">Silver · $5K</div>
+          <div class="ladder-lbl next"     style="left:75%">Gold · $15K</div>
+          <div class="ladder-lbl"          style="left:100%">Platinum · $20K</div>
+        </div>
+        <div class="ladder-foot">Next payout at <strong>Gold</strong>: <span class="text-g">+$600</span></div>
+      </div>
+
+      <!-- FFL VP row -->
+      <div class="ladder-row">
+        <div class="ladder-head">
+          <span class="ladder-name">FFL VP Track</span>
+          <span class="vp-tag">NOT YET ELIGIBLE</span>
+        </div>
+        <div class="ladder-track">
+          <div class="ladder-bg"></div>
+          <div class="ladder-fill" style="width:69%"></div>
+          <div class="ladder-stop reached" style="left:69%"></div>
+          <div class="ladder-stop next"    style="left:100%"></div>
+          <div class="ladder-lbl reached"  style="left:69%">100% · today</div>
+          <div class="ladder-lbl next"     style="left:100%">145% · VP</div>
+        </div>
+        <div class="ladder-foot">Need <strong>+45% contract</strong> for VP eligibility</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============= OPTION C — Pace & Forecast ============= -->
+  <div class="opt" data-choice="c" onclick="toggleSelect(this)">
+    <div class="opt-head">
+      <div class="opt-tag">
+        <div class="letter">C</div>
+        <div>
+          <div class="opt-title">Pace &amp; Forecast</div>
+          <div class="opt-sub">FORWARD-LOOKING · GROWTH-PROMOTING · MOST ACTIONABLE</div>
+        </div>
+      </div>
+      <div class="opt-sub">Most "intriguing"</div>
+    </div>
+
+    <div class="mock">
+      <div class="mock-head">
+        <div class="mock-label">Bonus Milestones</div>
+        <div class="mock-link">Open Bonus Tracker →</div>
+      </div>
+
+      <div class="pace-grid">
+
+        <!-- Americo -->
+        <div class="pace-row">
+          <div class="pace-left">
+            <div class="pace-head">
+              <span class="pace-name">Americo UFirst</span>
+              <span class="pace-tag on">ON PACE</span>
+            </div>
+            <div class="pace-sub"><strong>$45,000</strong> written · next tier $50K · payout <span class="text-g">+$1,250</span></div>
+            <div class="pace-forecast">At current pace you'll land at <strong style="color:#5CC9A7">$78K</strong> by quarter-end — clears the $75K tier.</div>
+          </div>
+          <div class="pace-bar-wrap">
+            <div class="pace-bar">
+              <div class="pace-bar-cur" style="width:45%"></div>
+              <div class="pace-bar-proj" style="left:78%"></div>
+              <div class="pace-bar-target"></div>
+            </div>
+            <div class="pace-bar-legend">
+              <span class="cur">$45K today</span>
+              <span class="proj">$78K projected</span>
+              <span>$100K cap</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Am-Am -->
+        <div class="pace-row">
+          <div class="pace-left">
+            <div class="pace-head">
+              <span class="pace-name">Am-Am Bonus Bucks</span>
+              <span class="pace-tag behind">BEHIND PACE</span>
+            </div>
+            <div class="pace-sub">Silver locked · <strong>$3,200</strong> to Gold · payout <span class="text-g">+$600</span></div>
+            <div class="pace-forecast">Need <strong style="color:#E07B7B">$1,100/wk</strong> for the last 3 weeks to clear Gold this month.</div>
+          </div>
+          <div class="pace-bar-wrap">
+            <div class="pace-bar">
+              <div class="pace-bar-cur" style="width:59%"></div>
+              <div class="pace-bar-proj" style="left:70%"></div>
+              <div class="pace-bar-target"></div>
+            </div>
+            <div class="pace-bar-legend">
+              <span class="cur">$11.8K today</span>
+              <span class="proj">$14K projected</span>
+              <span>Gold $15K</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- FFL VP -->
+        <div class="pace-row">
+          <div class="pace-left">
+            <div class="pace-head">
+              <span class="pace-name">FFL VP Track</span>
+              <span class="pace-tag ahead">CONTRACT 100%</span>
+            </div>
+            <div class="pace-sub">VP eligibility opens at <strong>145% contract</strong>.</div>
+            <div class="pace-forecast">Need <strong style="color:#E0B884">+45% contract</strong> — promotion path lives in Bonus Tracker.</div>
+          </div>
+          <div class="pace-bar-wrap">
+            <div class="pace-bar">
+              <div class="pace-bar-cur" style="width:69%"></div>
+              <div class="pace-bar-target"></div>
+            </div>
+            <div class="pace-bar-legend">
+              <span class="cur">100% today</span>
+              <span>&nbsp;</span>
+              <span>VP @ 145%</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">Click an option to select it · I can also mix elements across options if you like a piece of more than one</div>
+
+<script src="/helper.js"></script>
+</body>
+</html>
