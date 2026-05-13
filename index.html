@@ -110,9 +110,7 @@ body.light .tab.active{background:#ffffff;color:#1a2332}
 body.light .carrier-card{background:#f0f4f8;border-color:#c8d3df}
 body.light .carrier-card:hover{border-color:var(--brand-blue-3)}
 body.light .stat{background:#ffffff;border-color:#c8d3df}
-body.light .ptbl th{color:#7a8fa3;border-bottom-color:#c8d3df}
-body.light .ptbl td{border-bottom-color:#e8edf3;color:#445566}
-body.light .ptbl tr:hover td{background:rgba(0,0,0,.02)}
+/* .ptbl now driven by --border + --ds-color-neutral-bg tokens — no per-theme overrides needed */
 body.light .lead-row{background:#ffffff;border-color:#c8d3df}
 body.light .lead-row:hover{border-color:var(--brand-blue-3)}
 body.light .lead-row.sold{background:rgba(16,185,129,.05);border-color:rgba(16,185,129,.3)!important}
@@ -184,9 +182,7 @@ body:not(.light) .btn-s{background:#101f38;border-color:rgba(255,255,255,.07);co
 body:not(.light) .btn-s:hover{color:var(--text);border-color:rgba(143,194,247,.5);background:#142544}
 body:not(.light) .lead-act-btn{background:#101f38;border-color:rgba(255,255,255,.07)}
 body:not(.light) .lead-act-btn:hover{background:#162a48;border-color:rgba(143,194,247,.45)}
-body:not(.light) .ptbl th{border-bottom-color:rgba(255,255,255,.06)}
-body:not(.light) .ptbl td{border-bottom-color:rgba(255,255,255,.04)}
-body:not(.light) .ptbl tr:hover td{background:rgba(143,194,247,.04)}
+/* .ptbl dark overrides removed — base rules use tokens that already vary by theme */
 body:not(.light) .modal{background:#10213b;border-color:rgba(255,255,255,.06);box-shadow:0 24px 70px -20px rgba(0,0,0,.7)}
 body:not(.light) .chip{background:#0e1d35;border-color:rgba(255,255,255,.07)}
 body:not(.light) .chip:hover{border-color:rgba(143,194,247,.35);color:var(--text2)}
@@ -488,9 +484,12 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .chip.sel{background:var(--ds-color-info-bg);color:var(--ds-color-info);border-color:var(--ds-color-info)}
 /* ---- POLICY TABLE ---- */
 .ptbl{width:100%;border-collapse:collapse;font-size:13px}
-.ptbl th{text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);border-bottom:1px solid var(--border);font-weight:500}
+.ptbl thead th{position:sticky;top:0;background:var(--card);z-index:1}
+.ptbl th{text-align:left;padding:10px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);border-bottom:1px solid var(--border);font-weight:600}
 .ptbl td{padding:11px 12px;border-bottom:1px solid var(--border);color:var(--text2)}
-.ptbl tr:hover td{background:var(--ds-color-neutral-bg)}
+.ptbl tbody tr{transition:background .12s}
+.ptbl tbody tr:nth-child(even) td{background:var(--ds-color-neutral-bg)}
+.ptbl tbody tr:hover td{background:var(--ds-color-info-bg)}
 .sp{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:500}
 .sp-p{background:var(--ds-color-warning-bg);color:var(--ds-color-warning)}
 .sp-a{background:var(--ds-color-momentum-bg);color:var(--ds-color-momentum)}
@@ -801,10 +800,8 @@ body.light .status-legend .leg:hover{background:rgba(11,31,58,.06)}
 .drafts-strip-tbl{width:100%;border-collapse:collapse}
 .drafts-strip-tbl tr{transition:background .14s}
 .drafts-strip-tbl tr.clickable{cursor:pointer}
-.drafts-strip-tbl tr.clickable:hover{background:rgba(143,194,247,.04)}
-body.light .drafts-strip-tbl tr.clickable:hover{background:rgba(91,160,232,.06)}
-.drafts-strip-tbl td{padding:11px 12px;border-bottom:1px solid rgba(255,255,255,.04);font:13px/18px var(--sans);color:var(--text)}
-body.light .drafts-strip-tbl td{border-bottom-color:rgba(11,31,58,.06)}
+.drafts-strip-tbl tr.clickable:hover{background:var(--ds-color-info-bg)}
+.drafts-strip-tbl td{padding:11px 12px;border-bottom:1px solid var(--border);font:13px/18px var(--sans);color:var(--text)}
 .drafts-strip-tbl tr:last-child td{border-bottom:none}
 .drafts-strip-tbl td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;color:var(--text);font-weight:400}
 .drafts-strip-tbl td.dim{color:var(--text3)}
