@@ -2458,7 +2458,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
                 <span data-ico="key" data-size="14"></span>Connect with Google
               </button>
             </div>
-            <div class="alert alert-w mt12"><span data-ico="warning"></span><div>To use this feature, you need to configure a Google OAuth Client ID. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#fbbf24">Set up credentials here →</a> then paste your Client ID below.</div></div>
+            <div class="alert alert-w mt12"><span data-ico="warning"></span><div>To use this feature, you need to configure a Google OAuth Client ID. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" style="color:#fbbf24">Set up credentials here →</a> then paste your Client ID below.</div></div>
             <div class="fg mt12">
               <label>Google OAuth Client ID</label>
               <input type="text" id="gcal-client-id" placeholder="123456789-abc.apps.googleusercontent.com" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;width:100%" onchange="localStorage.setItem('gcal_client_id', this.value)">
@@ -4522,7 +4522,8 @@ function pulseScore(ctx){
   const activityRatio = (c.typicalWeek > 0) ? Math.min(1.5, c.lastWeekSubs / c.typicalWeek) : 0;
   const healthRatio = (c.totalStages > 0) ? (1 - (c.stalledStages / c.totalStages)) : 1;
   const raw = paceRatio * 40 + activityRatio * 30 + healthRatio * 30;
-  return Math.max(0, Math.min(100, Math.round(raw / 1.5 * 1.5)));   // clamped 0..100
+  // raw ranges 0..150 (each ratio clamped at 1.5); divide by 1.5 -> 0..100
+  return Math.max(0, Math.min(100, Math.round(raw / 1.5)));
 }
 
 // ============================================================
@@ -5032,9 +5033,11 @@ function bonusTierIntel(){
         const end   = new Date(win.end   + 'T23:59:59');
         const ap = pols.filter(p => (p.carrier || '').includes('Amicable') && _inRange(p, start, end))
                        .reduce((s,p) => s + (Number(p.ap) || 0), 0);
+        // Thresholds match the Bonus Tracker section's Silver/Gold/Platinum
+        // progress bars (ap/7500, /10000, /20000) — keep these in sync.
         const tiers = [
-          { label:'Silver',   threshold: 5000,  payout: 500 },
-          { label:'Gold',     threshold: 12000, payout: 1500 },
+          { label:'Silver',   threshold: 7500,  payout: 500 },
+          { label:'Gold',     threshold: 10000, payout: 1500 },
           { label:'Platinum', threshold: 20000, payout: 4000 },
         ];
         const cur = tiers.filter(t => ap >= t.threshold).pop();
@@ -5413,8 +5416,21 @@ function interpRate(age, gender, tobacco) {
 }
 
 function fmt$(n){ if(!isFinite(n)||isNaN(n))return'—'; return'$'+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
-function fmtPct(n){ return n.toFixed(1)+'%'; }
+function fmtPct(n){ if(!isFinite(n)||isNaN(n))return'—'; return n.toFixed(1)+'%'; }
 function escHTML(s){ if(s===null||s===undefined)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+/** Safe wrapper around JSON.parse(localStorage.getItem(...)) — never throws.
+ *  Returns `fallback` (default []) on missing key, empty value, or malformed JSON. */
+function safeParseLS(key, fallback){
+  if (fallback === undefined) fallback = [];
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null || raw === '') return fallback;
+    return JSON.parse(raw);
+  } catch (_e) {
+    console.warn('[safeParseLS] malformed JSON at', key, '— using fallback');
+    return fallback;
+  }
+}
 
 // ============================================================
 // AI HEALTH PARSER — uses Claude API
@@ -5522,6 +5538,7 @@ function parseTermHealthText() { onHealthInput('term'); }
 
 function renderHealthTags(containerId, conds) {
   const container = document.getElementById(containerId);
+  if (!container) return;
   container.innerHTML = '';
   if (!conds.length) {
     container.innerHTML = `<span style="font-size:11.5px;color:var(--text3);font-style:italic;display:inline-flex;align-items:center;gap:6px">${icon('check', {size:13})}No flagged conditions — standard/preferred health assumed</span>`;
@@ -5530,7 +5547,7 @@ function renderHealthTags(containerId, conds) {
   conds.forEach(c => {
     const tag = document.createElement('span');
     tag.style.cssText = 'display:inline-flex;align-items:center;gap:5px;background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.3);border-radius:20px;padding:3px 10px;font-size:11.5px';
-    tag.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('flag', {size:11})}${c}</span>`;
+    tag.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('flag', {size:11})}${escHTML(c)}</span>`;
     container.appendChild(tag);
   });
 }
@@ -6172,9 +6189,11 @@ function openAddPolicy() {
   // listener exists from the first time the modal opens.
   const prodSel = document.getElementById('p-product');
   const termWrap = document.getElementById('p-termLength-wrap');
-  const updateTermVis = () => { if (termWrap) termWrap.style.display = /term/i.test(prodSel.value) ? 'block' : 'none'; };
-  prodSel.onchange = updateTermVis;
-  updateTermVis();
+  if (prodSel) {
+    const updateTermVis = () => { if (termWrap) termWrap.style.display = /term/i.test(prodSel.value) ? 'block' : 'none'; };
+    prodSel.onchange = updateTermVis;
+    updateTermVis();
+  }
   document.getElementById('addPolModal').classList.add('open');
 }
 function closeModal() { document.getElementById('addPolModal').classList.remove('open'); }
@@ -6186,7 +6205,13 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   const lq = document.getElementById('leadQuoteModal');
-  if (lq && lq.classList.contains('open')) closeQuoteModal();
+  if (lq && lq.classList.contains('open')) { closeQuoteModal(); return; }
+  const ap = document.getElementById('addPolModal');
+  if (ap && ap.classList.contains('open')) { closeModal(); return; }
+  const sm = document.getElementById('soldModal');
+  if (sm && sm.classList.contains('open') && typeof closeSoldModal === 'function') { closeSoldModal(); return; }
+  const pf = document.getElementById('pipelineDrillModal');
+  if (pf && pf.classList.contains('open') && typeof closePipelineDrilldown === 'function') { closePipelineDrilldown(); return; }
 });
 
 // ---- Submit as Sold modal ----
@@ -6219,7 +6244,7 @@ function openSoldModal(lead) {
     lead.address ? ['Address', lead.address] : null,
   ].filter(Boolean);
   strip.innerHTML = fields.map(([k,v]) =>
-    `<div><span style="color:var(--text3);font-weight:500">${k}: </span><span style="color:var(--text)">${v}</span></div>`
+    `<div><span style="color:var(--text3);font-weight:500">${escHTML(k)}: </span><span style="color:var(--text)">${escHTML(v)}</span></div>`
   ).join('');
 
   // Reset premium fields
@@ -6448,18 +6473,18 @@ function renderPolicies() {
     totAdv += advComm||0;
     if(['issued','paid','approved'].includes(p.status)) issued++;
     if(p.carrier==='Americo') amAP += ap||0;
-    if(p.carrier.includes('Amicable')) amamAP += ap||0;
+    if((p.carrier||'').includes('Amicable')) amamAP += ap||0;
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="color:var(--text);font-weight:500">${p.client}</td>
-      <td>${p.carrier}</td><td style="font-size:12px">${p.product}</td>
+      <td style="color:var(--text);font-weight:500">${escHTML(p.client)}</td>
+      <td>${escHTML(p.carrier)}</td><td style="font-size:12px">${escHTML(p.product)}</td>
       <td class="mono text-b">${fmt$(monthly)}/mo</td>
       <td class="mono">${fmt$(ap)}/yr</td>
-      <td class="mono">${p.draft||'—'}</td>
-      <td class="mono text-g">${p.payDate||'—'}</td>
+      <td class="mono">${escHTML(p.draft)||'—'}</td>
+      <td class="mono text-g">${escHTML(p.payDate)||'—'}</td>
       <td class="mono text-g">${fmt$(advComm)} <span style="font-size:10px;color:var(--text3)">(${(p.commPct||0).toFixed(1)}%×75%)</span></td>
-      <td style="font-size:11px;color:var(--text3)">${p.cls}</td>
-      <td><span class="sp ${sMap[p.status]||'sp-p'}">${sLbl[p.status]||p.status}</span></td>
+      <td style="font-size:11px;color:var(--text3)">${escHTML(p.cls)}</td>
+      <td><span class="sp ${sMap[p.status]||'sp-p'}">${escHTML(sLbl[p.status]||p.status)}</span></td>
       <td><button class="del-btn" onclick="deletePolicy(${p.id})" title="Delete policy">${icon('trash',{size:14})}</button></td>
     `;
     tbody.appendChild(tr);
@@ -6798,12 +6823,12 @@ function _renderCarrierDonut(pols) {
     arc.setAttribute('stroke-dasharray', `${dash} ${C - dash}`);
     arc.setAttribute('stroke-dashoffset', offset);
     arc.setAttribute('transform','rotate(-90)');
-    arc.innerHTML = `<title>${name}: ${fmt$(val)} (${(frac*100).toFixed(1)}%)</title>`;
+    arc.innerHTML = `<title>${escHTML(name)}: ${fmt$(val)} (${(frac*100).toFixed(1)}%)</title>`;
     arcsG.appendChild(arc);
     cumulative += frac;
     legend.insertAdjacentHTML('beforeend',
       `<div class="row"><span class="swatch" style="background:${color}"></span>` +
-      `<span class="name" title="${name}">${name}</span>` +
+      `<span class="name" title="${escHTML(name)}">${escHTML(name)}</span>` +
       `<span class="amt">${fmt$(val).replace(/\.\d+$/, '')}</span></div>`);
   });
 }
@@ -7342,6 +7367,10 @@ function _wireReorder(){
   if (!root) return;
   for (const card of root.querySelectorAll('.card')){
     if (!card.id) continue;
+    // Guard against re-attaching listeners — bootDashboard is re-entrant
+    // (Supabase fires SIGNED_IN repeatedly) so this runs more than once.
+    if (card.dataset.reorderWired === '1') continue;
+    card.dataset.reorderWired = '1';
     card.setAttribute('draggable', 'true');
     card.addEventListener('dragstart', () => card.classList.add('dragging'));
     card.addEventListener('dragend',   () => card.classList.remove('dragging'));
@@ -7476,8 +7505,8 @@ function renderSummary() {
     tbody.innerHTML = upcoming.map(({p,d}) => `
       <tr class="clickable" onclick="summaryDrillTo('tracker',{policyId:${p.id}})">
         <td class="dim" style="width:120px">${fmtDay(d)}</td>
-        <td>${p.client||'—'}</td>
-        <td class="dim">${p.carrier||'—'}</td>
+        <td>${escHTML(p.client)||'—'}</td>
+        <td class="dim">${escHTML(p.carrier)||'—'}</td>
         <td class="num">${fmt$(p.monthly||0)}/mo</td>
         <td class="num">${fmt$(p.advComm||0)} adv</td>
       </tr>
@@ -8674,7 +8703,7 @@ function buildConfirmView() {
       ${mapped.map(([col, field]) => {
         const h = csvHeaders[col];
         const label = FIELD_OPTIONS.find(o=>o.value===field)?.label||field;
-        return `<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:20px;padding:3px 10px;font-size:11.5px;color:#93c5fd"><strong>${h}</strong> → ${label}</span>`;
+        return `<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:20px;padding:3px 10px;font-size:11.5px;color:#93c5fd"><strong>${escHTML(h)}</strong> → ${escHTML(label)}</span>`;
       }).join('')}
     </div>
     ${!hasName ? `<div style="padding:8px 12px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:7px;font-size:12px;color:#fbbf24;margin-bottom:8px;display:flex;align-items:center;gap:6px">${icon('warning',{size:13})}No name column mapped — leads will show as "Unknown"</div>` : ''}
@@ -8688,11 +8717,11 @@ function buildConfirmView() {
 
   const head = document.getElementById('csv-confirm-head');
   const body = document.getElementById('csv-confirm-body');
-  head.innerHTML = `<tr>${mappedCols.map(c=>`<th style="white-space:nowrap">${c.label}<div style="font-size:9.5px;font-weight:400;color:var(--text3)">${csvHeaders[c.col]}</div></th>`).join('')}</tr>`;
+  head.innerHTML = `<tr>${mappedCols.map(c=>`<th style="white-space:nowrap">${escHTML(c.label)}<div style="font-size:9.5px;font-weight:400;color:var(--text3)">${escHTML(csvHeaders[c.col])}</div></th>`).join('')}</tr>`;
   body.innerHTML = '';
   csvParsedData.slice(0, 5).forEach(row => {
     const tr = document.createElement('tr');
-    tr.innerHTML = mappedCols.map(c => `<td style="white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">${row[c.col]||''}</td>`).join('');
+    tr.innerHTML = mappedCols.map(c => `<td style="white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis">${escHTML(row[c.col])||''}</td>`).join('');
     body.appendChild(tr);
   });
   if (csvParsedData.length > 5) {
@@ -8796,7 +8825,7 @@ function cancelCSVImport() {
 // ============================================================
 let gcalViewYear = new Date().getFullYear();
 let gcalViewMonth = new Date().getMonth();
-let gcalEvents = JSON.parse(localStorage.getItem('pp_gcal_events') || '[]');
+let gcalEvents = safeParseLS('pp_gcal_events', []);
 let gcalToken = localStorage.getItem('pp_gcal_token') || null;
 
 function gcalConnect() {
@@ -8948,8 +8977,8 @@ function gcalRenderGrid() {
         const time = ev.start.includes('T') ? new Date(ev.start).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : 'All Day';
         const el = document.createElement('div');
         el.className = 'gcal-event';
-        el.title = ev.title + (ev.location ? ' @ '+ev.location : '');
-        el.innerHTML = `<div class="gcal-event-title">${ev.title}</div><div class="gcal-event-time">${time}</div>`;
+        el.title = (ev.title||'') + (ev.location ? ' @ '+ev.location : '');
+        el.innerHTML = `<div class="gcal-event-title">${escHTML(ev.title)}</div><div class="gcal-event-time">${escHTML(time)}</div>`;
         cell.appendChild(el);
       });
       if (dayEvs.length > 3) {
@@ -8984,8 +9013,8 @@ function gcalRenderList() {
       <div style="padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <div style="font-size:13px;font-weight:600;color:var(--text)">${ev.title}</div>
-            ${ev.location?`<div style="font-size:11.5px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:5px">${icon('map-pin',{size:11})}${ev.location}</div>`:''}
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${escHTML(ev.title)}</div>
+            ${ev.location?`<div style="font-size:11.5px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:5px">${icon('map-pin',{size:11})}${escHTML(ev.location)}</div>`:''}
           </div>
           <div style="text-align:right;min-width:90px">
             <div style="font-size:12px;color:#60a5fa;font-weight:500">${dateStr}</div>
@@ -9783,8 +9812,8 @@ function renderDraftsCalendar() {
         const monthly = p.monthly || +(p.ap/12).toFixed(2);
         const ev = document.createElement('div');
         ev.className = 'cal-event';
-        ev.title = `${p.client} — ${fmt$(monthly)}/mo — ${p.carrier}`;
-        ev.innerHTML = `<div class="cal-event-name">${p.client}</div><div class="cal-event-ap">${fmt$(monthly)}/mo</div>`;
+        ev.title = `${p.client||''} — ${fmt$(monthly)}/mo — ${p.carrier||''}`;
+        ev.innerHTML = `<div class="cal-event-name">${escHTML(p.client)}</div><div class="cal-event-ap">${fmt$(monthly)}/mo</div>`;
         cell.appendChild(ev);
       });
       if (dayPolicies.length > 3) {
@@ -9858,15 +9887,15 @@ function renderDraftsCalendar() {
       if (isToday2) tr.style.background = 'rgba(59,130,246,.07)';
       tr.innerHTML = `
         <td class="mono" style="color:${isPast?'var(--text3)':isToday2?'#60a5fa':'#34d399'};font-weight:400">
-          ${p.draft}${isToday2?` <span style="display:inline-flex;align-items:center;gap:4px;margin-left:4px"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#60a5fa"></span>Today</span>`:''}${isPast?` <span style="display:inline-flex;align-items:center;margin-left:4px">${icon('check',{size:12})}</span>`:''}
+          ${escHTML(p.draft)}${isToday2?` <span style="display:inline-flex;align-items:center;gap:4px;margin-left:4px"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#60a5fa"></span>Today</span>`:''}${isPast?` <span style="display:inline-flex;align-items:center;margin-left:4px">${icon('check',{size:12})}</span>`:''}
         </td>
-        <td style="color:var(--text);font-weight:500">${p.client}</td>
-        <td style="font-size:12px">${p.carrier}</td>
+        <td style="color:var(--text);font-weight:500">${escHTML(p.client)}</td>
+        <td style="font-size:12px">${escHTML(p.carrier)}</td>
         <td class="mono text-b">${fmt$(monthly)}/mo</td>
         <td class="mono">${fmt$(p.ap)}/yr</td>
         <td class="mono text-g">${fmt$(advComm)}</td>
-        <td class="mono" style="color:#fbbf24">${p.payDate||'—'}</td>
-        <td><span class="sp ${sMap[p.status]||'sp-p'}">${sLbl[p.status]||p.status}</span></td>
+        <td class="mono" style="color:#fbbf24">${escHTML(p.payDate)||'—'}</td>
+        <td><span class="sp ${sMap[p.status]||'sp-p'}">${escHTML(sLbl[p.status]||p.status)}</span></td>
       `;
       tbody.appendChild(tr);
     });
@@ -9917,8 +9946,8 @@ async function bootDashboard() {
   mountIcons();
   document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
   // 1. Optimistic hydrate from localStorage cache (instant render).
-  policies = JSON.parse(localStorage.getItem(k('ff_policies')) || '[]');
-  leads = JSON.parse(localStorage.getItem(k('pp_leads')) || '[]');
+  policies = safeParseLS(k('ff_policies'), []);
+  leads = safeParseLS(k('pp_leads'), []);
   const saved = localStorage.getItem(k('ff_contract'));
   if (saved) setContractValue(saved);
   setQuotaValue(getQuota());
