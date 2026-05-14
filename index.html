@@ -9101,6 +9101,64 @@ function itkCompanySlug(name) {
     .slice(0, 60);
 }
 
+// Strip trailing parenthetical product/series suffixes from an ITK company
+// string to get the underlying company "base name". ITK formats names as
+// "Carrier Name (Product)" and sometimes "Carrier (Sub) (Product)" — we peel
+// every trailing "(...)" group so all of a company's products fold to one row.
+//   "Americo (Eagle)"                               → "Americo"
+//   "Transamerica (Solutions) (Immediate Solution)" → "Transamerica"
+//   "Bankers Fidelity"                              → "Bankers Fidelity"
+function carrierBaseName(name) {
+  let s = String(name || '').trim();
+  let prev;
+  do { prev = s; s = s.replace(/\s*\([^()]*\)\s*$/, '').trim(); } while (s !== prev && s);
+  return s || String(name || '').trim();
+}
+
+// Normalize a carrier label/name for case- and punctuation-insensitive
+// comparison: lowercase, unify &/and, collapse hyphens/underscores/slashes and
+// whitespace to single spaces, drop other punctuation. Word boundaries kept.
+//   "American-Amicable" === "American Amicable"
+function carrierNameNorm(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[-_/]+/g, ' ')
+    .replace(/[^a-z0-9 ]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// General fold: map an ITK company name (that missed both the exact itkNames
+// lookup and every itkAliases regex) onto a curated CARRIER_REGISTRY entry by
+// company base name. Two accepted forms, both word-boundary safe:
+//   (a) normalized registry label === normalized base name of the ITK string
+//   (b) normalized registry label is a leading WORD-prefix of the normalized
+//       ITK base name — handles "Americo Instant Decision IUL" (no parens)
+//       folding into the "Americo" row.
+// The word-boundary requirement (`base.startsWith(lbl + ' ')`) keeps "Americo"
+// from absorbing "American Amicable" / "American Home Life". Only curated rows
+// are considered. On ambiguity (2+ distinct entries match) returns null so the
+// name falls through to synthetic grouping rather than being mis-attributed.
+function registryFoldMatch(itkName, registry) {
+  const base = carrierNameNorm(carrierBaseName(itkName));
+  if (!base) return null;
+  let hit = null;
+  for (const r of registry) {
+    if (r.source && r.source !== 'registry') continue;
+    const lbl = carrierNameNorm(r.label);
+    if (!lbl) continue;
+    if (lbl === base || base.startsWith(lbl + ' ')) {
+      if (hit && hit.key !== r.key) {
+        console.warn('[carriers] ITK name folds ambiguously — leaving unfolded:', itkName);
+        return null;
+      }
+      hit = r;
+    }
+  }
+  return hit;
+}
+
 // Fetch the ITK company list. `force:true` bypasses the freshness check.
 // Concurrent callers share one in-flight promise. Resolves with the cache
 // payload (whether freshly fetched or still-valid existing cache).
@@ -9161,6 +9219,11 @@ function getMergedCarrierRegistry() {
     for (const n of r.itkNames) byItkName.set(n, r);
   }
 
+  // Unmatched ITK companies get GROUPED by base name so multiple products
+  // under one brand-new company collapse into a single synthetic row instead
+  // of one row per product. Keyed by itk_<base-slug>.
+  const synthGroups = new Map();
+
   for (const co of itkCompanies) {
     if (!co || !co.name) continue;
     const match = byItkName.get(co.name);
@@ -9200,18 +9263,52 @@ function getMergedCarrierRegistry() {
       if (!aliasMatch.logoUrl) aliasMatch.logoUrl = co.logo || logoCache[co.name] || null;
       continue;
     }
-    // New ITK-only carrier — synthetic key, default color.
-    const types = Array.isArray(co.toolkits)
-      ? co.toolkits.map(tk => ITK_TOOLKIT_TO_TYPE[tk]).filter(Boolean)
-      : [];
+    // General automatic fold: no exact itkNames hit, no itkAliases hit. Fold
+    // into a curated registry row when the ITK company's base name matches
+    // (or word-prefixes) a registry label. UNION the toolkit type badges onto
+    // the parent — unlike the alias path, a true product variant *is* the
+    // same company, so its product lines belong on the row.
+    const foldInto = registryFoldMatch(co.name, registry);
+    if (foldInto) {
+      if (!foldInto.itkNames.includes(co.name)) foldInto.itkNames.push(co.name);
+      if (Array.isArray(co.toolkits)) {
+        for (const tk of co.toolkits) {
+          const t = ITK_TOOLKIT_TO_TYPE[tk];
+          if (t && !foldInto.types.includes(t)) foldInto.types.push(t);
+        }
+      }
+      if (!foldInto.logoUrl) foldInto.logoUrl = co.logo || logoCache[co.name] || null;
+      continue;
+    }
+    // New ITK-only company — group by base name into one synthetic row so
+    // e.g. "Bankers Fidelity (X)" + "Bankers Fidelity (Y)" share a single tab.
+    const baseName = carrierBaseName(co.name) || co.name;
+    const baseSlug = itkCompanySlug(baseName);
+    let g = synthGroups.get(baseSlug);
+    if (!g) {
+      g = { key: baseSlug, label: baseName, types: new Set(), itkNames: [], logoUrl: null };
+      synthGroups.set(baseSlug, g);
+    }
+    if (!g.itkNames.includes(co.name)) g.itkNames.push(co.name);
+    if (Array.isArray(co.toolkits)) {
+      for (const tk of co.toolkits) {
+        const t = ITK_TOOLKIT_TO_TYPE[tk];
+        if (t) g.types.add(t);
+      }
+    }
+    if (!g.logoUrl) g.logoUrl = co.logo || logoCache[co.name] || null;
+  }
+
+  // Emit one synthetic registry row per grouped base name.
+  for (const g of synthGroups.values()) {
     registry.push({
-      key:      itkCompanySlug(co.name),
-      label:    co.name,
-      types:    types.length ? types : ['fe'],
+      key:      g.key,
+      label:    g.label,
+      types:    g.types.size ? Array.from(g.types) : ['fe'],
       color:    '#64748b',
-      itkNames: [co.name],
+      itkNames: g.itkNames,
       source:   'itk',
-      logoUrl:  co.logo || logoCache[co.name] || null,
+      logoUrl:  g.logoUrl,
     });
   }
 
