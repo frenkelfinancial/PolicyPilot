@@ -1787,7 +1787,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <div class="text-m mt4" style="font-size:12px">Live carrier rates pulled directly from the Insurance Toolkits API — every carrier ITK returns, sorted by monthly premium.</div>
         </div>
         <div id="api-quoter-counter" class="aq-quota-pill" data-tone="ok" style="display:none">
-          <span class="aq-quota-fig"><span id="aq-quota-used">0</span> / <span id="aq-quota-limit">500</span> used</span>
+          <span class="aq-quota-fig"><span id="aq-quota-used">0</span> / <span id="aq-quota-limit">250</span> used</span>
           <span class="aq-quota-sep">·</span>
           <span id="aq-quota-reset">30-day rolling</span>
         </div>
@@ -9534,7 +9534,7 @@ function loadApiQuoterInputs() {
 // generic "Couldn't fetch rates" toast.
 // ============================================================
 const QUOTE_WINDOW_MS = 30 * 86400000;
-let _quoteQuota = { used: 0, limit: 500, resetAt: null, loaded: false };
+let _quoteQuota = { used: 0, limit: 250, resetAt: null, loaded: false };
 
 function _quoteResetDays(resetAt) {
   if (!resetAt) return null;
@@ -9557,7 +9557,7 @@ async function loadQuoteQuota() {
         .gte('created_at', since),
     ]);
     const limit = (limitRes.data && typeof limitRes.data.monthly_quote_limit === 'number')
-      ? limitRes.data.monthly_quote_limit : 500;
+      ? limitRes.data.monthly_quote_limit : 250;
     const used = countRes.count || 0;
     let resetAt = null;
     if (used >= limit) {
@@ -9701,8 +9701,8 @@ async function runApiQuote(prefilledBody) {
     // "Couldn't fetch rates" toast for an expected outcome.
     if (errBody && errBody.error === 'quota_exceeded') {
       _quoteQuota = {
-        used:    typeof errBody.used  === 'number' ? errBody.used  : (_quoteQuota.limit || 500),
-        limit:   typeof errBody.limit === 'number' ? errBody.limit : (_quoteQuota.limit || 500),
+        used:    typeof errBody.used  === 'number' ? errBody.used  : (_quoteQuota.limit || 250),
+        limit:   typeof errBody.limit === 'number' ? errBody.limit : (_quoteQuota.limit || 250),
         resetAt: errBody.resetAt || null,
         loaded:  true,
       };

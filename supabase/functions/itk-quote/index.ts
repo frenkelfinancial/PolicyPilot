@@ -6,7 +6,7 @@
 // Underwriting tab call this instead of embedding the ITK iframe.
 // ITK requires API keys server-side only.
 //
-// Quota: 500 ITK calls per agent per rolling 30 days (configurable
+// Quota: 250 ITK calls per agent per rolling 30 days (configurable
 // per agent via `public.agents.monthly_quote_limit`). Enforced here
 // because the anon key is public — a client-only check is bypassable.
 //
@@ -33,7 +33,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const ITK_BASE = "https://api.insurancetoolkits.com";
 const ALLOWED_TOOLKITS = new Set(["FEX", "TERM", "IUL"]);
 const QUOTA_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // rolling 30 days
-const QUOTA_DEFAULT   = 500;
+const QUOTA_DEFAULT   = 250;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
   body.toolkit = toolkit;
 
   // ---- Quota gate ------------------------------------------------------
-  // Read the per-agent limit (default 500 if the agents row hasn't been
+  // Read the per-agent limit (default 250 if the agents row hasn't been
   // hydrated yet — handle_new_user trigger creates it on signup, but a
   // pre-trigger account could lack the row).
   let limit = QUOTA_DEFAULT;

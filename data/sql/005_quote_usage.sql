@@ -1,11 +1,11 @@
 -- ============================================================
 -- 005_quote_usage.sql
--- ITK quote usage cap (500 / rolling 30 days, configurable per agent).
+-- ITK quote usage cap (250 / rolling 30 days, configurable per agent).
 --
 -- Two changes:
---   1. agents.monthly_quote_limit — per-agent cap, default 500. Subscription
+--   1. agents.monthly_quote_limit — per-agent cap, default 250. Subscription
 --      plan flow will bump this when paid plans ship; until then every
---      agent is locked at 500.
+--      agent is locked at 250.
 --   2. quote_usage — one row per Run Quote click (success or failure). The
 --      itk-quote edge function counts rows in the trailing 30-day window
 --      to enforce the cap and returns 429 when used >= limit.
@@ -15,10 +15,10 @@
 
 -- 1. Per-agent limit column ---------------------------------------------
 alter table public.agents
-  add column if not exists monthly_quote_limit int not null default 500;
+  add column if not exists monthly_quote_limit int not null default 250;
 
 comment on column public.agents.monthly_quote_limit is
-  'Max ITK quotes the agent can run in a rolling 30-day window. Default 500. Plan flow updates this when subscriptions land.';
+  'Max ITK quotes the agent can run in a rolling 30-day window. Default 250. Plan flow updates this when subscriptions land.';
 
 -- 2. Per-quote usage log -------------------------------------------------
 create table if not exists public.quote_usage (
