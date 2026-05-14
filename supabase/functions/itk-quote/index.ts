@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
     console.error(`[itk-quote] network error: ${msg}`);
     return json({
       ok: false,
-      error: `Network error reaching ITK: ${msg}`,
+      error: "Upstream provider unreachable",
       meta: { ms: Date.now() - start, status: 0 },
     }, 502);
   }
@@ -93,10 +93,10 @@ Deno.serve(async (req) => {
     // auth failure (our server key is wrong/revoked) for a Supabase session
     // failure (the caller's JWT is bad). They have very different fixes.
     const browserStatus = itkRes.status === 401 ? 502 : itkRes.status;
+    console.error(`[itk-quote] upstream ${itkRes.status}:`, data);
     return json({
       ok: false,
-      error: data?.error || `ITK error ${itkRes.status}`,
-      itk: data,
+      error: typeof data?.error === "string" ? data.error : `ITK error ${itkRes.status}`,
       meta: { ms, status: itkRes.status },
     }, browserStatus);
   }
