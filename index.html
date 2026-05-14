@@ -1307,6 +1307,12 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .auth-msg.ok{background:var(--ds-color-success-bg);border:1px solid var(--ds-color-success-bg);color:var(--ds-color-success)}
 .signout-btn{width:100%;margin-top:10px;padding:8px;background:transparent;border:1px solid var(--border);color:var(--text3);font-size:11.5px;border-radius:7px;cursor:pointer;font-family:var(--sans);transition:all .14s}
 .signout-btn:hover{color:var(--text);border-color:var(--accent)}
+.auth-google{width:100%;padding:10px 12px;background:#fff;color:#202124;border:1px solid #dadce0;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center;gap:10px;transition:background .14s,box-shadow .14s,border-color .14s;margin-bottom:14px}
+.auth-google:hover{background:#f8f9fa;box-shadow:0 1px 3px rgba(60,64,67,.15);border-color:#c6cacd}
+.auth-google:disabled{opacity:.55;cursor:not-allowed}
+.auth-google svg{width:18px;height:18px;flex-shrink:0}
+.auth-or{display:flex;align-items:center;gap:10px;margin:0 0 14px;color:var(--text3);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.auth-or::before,.auth-or::after{content:"";flex:1;height:1px;background:var(--border)}
 #auth-gate{background:#F4F8FD;color:#0B1F3A}
 #auth-gate .auth-card{background:#FFFFFF;border-color:#D6E3F2;box-shadow:0 8px 32px rgba(11,31,58,.12)}
 #auth-gate .auth-sub{color:#7A92B3}
@@ -1321,6 +1327,8 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 #auth-gate .auth-link{color:#7A92B3}
 #auth-gate .auth-link:hover{color:#0B1F3A}
 #auth-gate .auth-logo-img{filter:none !important}
+#auth-gate .auth-or{color:#7A92B3}
+#auth-gate .auth-or::before,#auth-gate .auth-or::after{background:#D6E3F2}
 
 /* ===== Book Intelligence (Phase 1) ===== */
 .bi-card{display:flex;gap:14px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:10px;margin-bottom:10px;transition:transform .12s,border-color .12s,box-shadow .12s}
@@ -1443,6 +1451,17 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <button class="auth-tab active" data-view="signin" onclick="authShowView('signin')">Sign in</button>
       <button class="auth-tab" data-view="signup" onclick="authShowView('signup')">Sign up</button>
     </div>
+
+    <button class="auth-google" id="auth-google-btn" onclick="authSignInWithGoogle()" type="button">
+      <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+        <path fill="#FBBC05" d="M3.964 10.707A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.039l3.007-2.332z"/>
+        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/>
+      </svg>
+      Continue with Google
+    </button>
+    <div class="auth-or">or</div>
 
     <div class="auth-msg" id="auth-msg"></div>
 
@@ -3061,6 +3080,20 @@ async function authSignIn() {
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) return authMsg(error.message, 'err');
   // onAuthStateChange handles the rest
+}
+
+async function authSignInWithGoogle() {
+  const btn = document.getElementById('auth-google-btn');
+  if (btn) btn.disabled = true;
+  authMsg('', null);
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+  if (error) {
+    authMsg(error.message, 'err');
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function authSignUp() {
