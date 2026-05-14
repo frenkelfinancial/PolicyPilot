@@ -1481,7 +1481,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   </div>
   <div class="nav-sec">
     <div class="nav-lbl">Quoter</div>
-    <div class="nav-item" onclick="nav('quoter')"><span class="ico" data-ico="currency-dollar"></span><span class="nav-lbl-text">Quote + Underwriting</span></div>
+    <div class="nav-item" onclick="nav('api-quoter')"><span class="ico" data-ico="currency-dollar"></span><span class="nav-lbl-text">Quote + Underwriting</span></div>
   </div>
   <div class="nav-sec">
     <div class="nav-lbl">Business</div>
@@ -1696,321 +1696,128 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       </div>
     </div>
 
-    <!-- ========== UNIFIED QUOTER ========== -->
-    <div class="section" id="sec-quoter">
+    <!-- ========== QUOTE + UNDERWRITING (ITK API) ========== -->
+    <div class="section" id="sec-api-quoter">
+      <style>
+        /* Scoped styles for the API Quoter tab. Token-driven so theme switching works. */
+        #sec-api-quoter .aq-podium { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--ds-space-3,12px); margin:var(--ds-space-4,16px) 0; }
+        #sec-api-quoter .aq-hero { position:relative; padding:var(--ds-space-4,16px); border:1px solid var(--border); border-radius:var(--ds-radius-lg,12px); background:var(--bg2); display:flex; flex-direction:column; gap:6px; }
+        #sec-api-quoter .aq-hero.rank-1 { border-color:var(--ds-color-success,#22c55e); box-shadow:0 0 0 1px var(--ds-color-success,#22c55e) inset; }
+        #sec-api-quoter .aq-hero .aq-rank { position:absolute; top:-10px; left:12px; background:var(--bg3); border:1px solid var(--border); border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; letter-spacing:.5px; color:var(--text2); }
+        #sec-api-quoter .aq-hero.rank-1 .aq-rank { background:var(--ds-color-success,#22c55e); color:#fff; border-color:transparent; }
+        #sec-api-quoter .aq-hero-head { display:flex; align-items:center; gap:10px; min-height:32px; }
+        #sec-api-quoter .aq-hero-logo { height:28px; max-width:90px; object-fit:contain; flex:0 0 auto; }
+        #sec-api-quoter .aq-hero-logo-fb { width:28px; height:28px; border-radius:6px; background:var(--bg3); display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--text3); flex:0 0 auto; }
+        #sec-api-quoter .aq-hero-name { font-size:13px; font-weight:600; color:var(--text); line-height:1.2; }
+        #sec-api-quoter .aq-hero-plan { font-size:11px; color:var(--text3); }
+        #sec-api-quoter .aq-hero-monthly { font-size:24px; font-weight:700; color:var(--text); }
+        #sec-api-quoter .aq-hero-monthly span { font-size:12px; font-weight:400; color:var(--text3); }
+        #sec-api-quoter .aq-hero-sub { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text3); }
+        #sec-api-quoter .aq-hero-sub strong { color:var(--text2); font-weight:600; }
+        #sec-api-quoter .aq-meta { font-size:11.5px; color:var(--text3); display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:var(--ds-space-3,12px); }
+        #sec-api-quoter .aq-meta .aq-chip { background:var(--bg3); border:1px solid var(--border); border-radius:999px; padding:2px 10px; font-size:11px; color:var(--text2); }
+        #sec-api-quoter .aq-table-wrap { margin-top:var(--ds-space-3,12px); border:1px solid var(--border); border-radius:var(--ds-radius-md,10px); overflow:hidden; background:var(--bg2); }
+        #sec-api-quoter table.aq-table { width:100%; border-collapse:collapse; font-size:13px; }
+        #sec-api-quoter table.aq-table thead th { background:var(--bg3); text-align:left; padding:9px 10px; font-size:11px; color:var(--text3); font-weight:500; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; position:sticky; top:0; }
+        #sec-api-quoter table.aq-table thead th.sort-asc::after { content:" ▲"; color:var(--text2); }
+        #sec-api-quoter table.aq-table thead th.sort-desc::after { content:" ▼"; color:var(--text2); }
+        #sec-api-quoter table.aq-table thead th.right { text-align:right; }
+        #sec-api-quoter table.aq-table tbody td { padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+        #sec-api-quoter table.aq-table tbody tr:last-child td { border-bottom:none; }
+        #sec-api-quoter table.aq-table tbody tr:hover td { background:var(--bg3); }
+        #sec-api-quoter table.aq-table td.right { text-align:right; white-space:nowrap; }
+        #sec-api-quoter table.aq-table .aq-carrier { display:flex; align-items:center; gap:8px; }
+        #sec-api-quoter table.aq-table .aq-carrier img { height:20px; max-width:60px; object-fit:contain; }
+        #sec-api-quoter table.aq-table .aq-carrier .aq-hero-logo-fb { width:20px; height:20px; font-size:9px; }
+        #sec-api-quoter .aq-loading { padding:var(--ds-space-6,32px); text-align:center; color:var(--text2); font-size:13px; }
+        #sec-api-quoter .aq-error { padding:var(--ds-space-4,16px); border:1px solid var(--ds-color-danger,#dc2626); border-radius:var(--ds-radius-md,10px); background:rgba(220,38,38,.08); color:var(--ds-color-danger,#dc2626); font-size:13px; display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+        #sec-api-quoter .aq-error strong { display:block; margin-bottom:4px; }
+        #sec-api-quoter .aq-error .btn { margin-left:auto; }
+        #sec-api-quoter .aq-empty { padding:var(--ds-space-6,32px); text-align:center; color:var(--text2); font-size:13px; }
+        #sec-api-quoter .aq-rank-cell { font-weight:700; color:var(--text2); font-size:12px; width:32px; text-align:center; }
+        @media (max-width: 900px) { #sec-api-quoter .aq-podium { grid-template-columns:1fr; } }
+      </style>
 
-      <!-- Top-level product tabs -->
-      <div class="tabs" style="margin-bottom:20px">
-        <button class="tab active" onclick="quoterTab('fe',this)"><span data-ico="shield-check" data-size="14" style="margin-right:6px"></span>Whole Life</button>
-        <button class="tab" onclick="quoterTab('term',this)"><span data-ico="file-text" data-size="14" style="margin-right:6px"></span>Term Life</button>
-        <button class="tab" onclick="quoterTab('iul',this)"><span data-ico="trend-up" data-size="14" style="margin-right:6px"></span>IUL</button>
-      </div>
-
-      <!-- ===== WHOLE LIFE / FE ===== -->
-      <div id="qt-fe">
-        <div class="card">
-          <div class="card-title">Client Information</div>
-          <div class="frow">
-            <div class="fg"><label>Age</label><input type="number" id="fe-age" placeholder="65" min="40" max="90"></div>
-            <div class="fg"><label>Gender</label>
-              <select id="fe-gender"><option value="M">Male</option><option value="F">Female</option></select>
-            </div>
-            <div class="fg"><label>Height <span style="color:var(--text3);font-size:10px">(optional)</span></label>
-              <select id="fe-height">
-                <option value="">Skip</option>
-                <option value="56">4'8"</option><option value="57">4'9"</option><option value="58">4'10"</option><option value="59">4'11"</option>
-                <option value="60">5'0"</option><option value="61">5'1"</option><option value="62">5'2"</option><option value="63">5'3"</option>
-                <option value="64">5'4"</option><option value="65">5'5"</option><option value="66">5'6"</option><option value="67">5'7"</option>
-                <option value="68">5'8"</option><option value="69">5'9"</option><option value="70">5'10"</option><option value="71">5'11"</option>
-                <option value="72">6'0"</option><option value="73">6'1"</option><option value="74">6'2"</option><option value="75">6'3"</option>
-                <option value="76">6'4"</option><option value="77">6'5"</option><option value="78">6'6"</option><option value="79">6'7"</option>
-              </select>
-            </div>
-            <div class="fg"><label>Weight <span style="color:var(--text3);font-size:10px">(optional)</span></label>
-              <input type="number" id="fe-weight" placeholder="lbs — optional" min="60" max="500" oninput="checkBuild('fe')">
-            </div>
-            <div id="fe-build-flag" style="display:none;align-self:flex-end;padding-bottom:2px">
-              <span class="badge b-no" id="fe-build-badge">Build Check</span>
-            </div>
-          </div>
-          <div class="frow mt12">
-            <div class="fg" style="min-width:180px">
-              <label>Coverage ($) — type any amount</label>
-              <input type="number" id="fe-coverage" placeholder="10000" value="10000" min="1000" step="500">
-            </div>
-            <div class="fg"><label>Tobacco</label>
-              <select id="fe-tobacco"><option value="no">Non-Tobacco</option><option value="yes">Tobacco User</option></select>
-            </div>
-            <div class="fg"><label>Payment Method</label>
-              <select id="fe-payment" onchange="onPaymentChange('fe')">
-                <option value="bank">Bank Draft / ACH</option>
-                <option value="cc">Credit / Debit Card or SSI Billing</option>
-              </select>
-            </div>
-            <div class="fg"><label>State</label>
-              <select id="fe-state">
-                <option value="">—</option>
-                <option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option>
-                <option>CO</option><option>CT</option><option>DE</option><option>DC</option><option>FL</option>
-                <option>GA</option><option>HI</option><option>ID</option><option>IL</option><option>IN</option>
-                <option>IA</option><option>KS</option><option>KY</option><option>LA</option><option>ME</option>
-                <option>MD</option><option>MA</option><option>MI</option><option>MN</option><option>MS</option>
-                <option>MO</option><option>MT</option><option>NE</option><option>NV</option><option>NH</option>
-                <option>NJ</option><option>NM</option><option>NY</option><option>NC</option><option>ND</option>
-                <option>OH</option><option>OK</option><option>OR</option><option>PA</option><option>RI</option>
-                <option>SC</option><option>SD</option><option>TN</option><option>TX</option><option>UT</option>
-                <option>VT</option><option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option>
-              </select>
-            </div>
-          </div>
-          <div id="fe-cc-notice" style="display:none" class="pay-cc mt8">
-            <span data-ico="credit-card" data-size="14" style="margin-right:6px;vertical-align:-2px"></span>Only <strong>Corebridge</strong> and <strong>Transamerica</strong> accept CC/Debit/SSI billing. Results filtered.
-          </div>
-          <div class="mt16">
-            <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Health Conditions &amp; Medications</div>
-            <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">Describe conditions, medications, symptoms — AI identifies and classifies everything automatically.</div>
-            <div style="position:relative">
-              <textarea id="fe-health-text" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 13px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;resize:vertical;min-height:72px;transition:border-color .14s" placeholder="Describe health: conditions, medications, surgeries, symptoms..." oninput="onHealthInput('fe')"></textarea>
-              <div id="fe-ai-spinner" style="display:none;position:absolute;right:10px;top:10px;font-size:11px;color:var(--ds-color-info);background:var(--bg3);padding:2px 6px;border-radius:4px">AI analyzing…</div>
-            </div>
-            <div id="fe-parsed-tags" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;min-height:10px"></div>
-          </div>
-          <div class="mt16">
-            <button class="btn btn-p" onclick="runFEQuote()">Generate Quotes</button>
-          </div>
-        </div>
-
-        <div id="fe-results" style="display:none" class="mt20">
-          <div class="verify-disclaimer">
-            ⚠ Quick estimate based on industry-average rates — <strong>verify before quoting your client.</strong> Use <strong>Verify Live →</strong> below for real-time carrier numbers.
-          </div>
-          <div class="flex jb aic mt4" style="margin-bottom:12px">
-            <div style="font-size:15px;font-weight:600">Quote Results</div>
-            <div style="font-size:11.5px;color:var(--text3)">Contract: <span class="mono text-g" id="fe-contract-disp">100%</span> &nbsp;|&nbsp; <span id="fe-client-summary" style="color:var(--text2)"></span></div>
-          </div>
-          <div class="g3" id="fe-cards"></div>
-          <div class="verify-cta" id="fe-verify-cta" style="display:none">
-            <span class="verify-cta-check">✓ Quote generated</span>
-            <span style="margin-left:auto"><button class="btn btn-p" onclick="toggleVerifyPanel('fe', true)">Verify these rates live →</button></span>
-          </div>
-          <div class="note mt8">Adv. commission = AP × comm% × 0.75 (9-month advance payout).</div>
-        </div>
-
-        <div id="fe-verify-panel" class="verify-panel">
-          <div class="verify-panel-head" onclick="toggleVerifyPanel('fe')">
-            <span class="live-dot"></span>
-            <strong>Verify with live carrier rates</strong>
-            <span style="color:var(--text3);font-size:12px">Real-time rates from Insurance Toolkits</span>
-            <span class="verify-panel-caret">›</span>
-          </div>
-          <div class="verify-panel-body">
-            <div id="fe-verify-pre" style="padding:12px 0;color:var(--text2);font-size:13px">Run an estimate above first — we'll pre-fill the client info so you don't re-type it.</div>
-            <div id="fe-verify-post" style="display:none">
-              <div style="font-size:13px;color:var(--text2);margin-top:8px">Confirmed through Insurance Toolkits</div>
-              <div class="verify-chips" id="fe-verify-chips"></div>
-              <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
-                Prefill attempted (best-effort)
-                <a id="fe-verify-stale" href="#" onclick="event.preventDefault(); reloadVerifyIframe('fe');" style="display:none;color:var(--text-g);margin-left:6px;text-decoration:underline">Re-load with new values</a>
-              </div>
-              <div id="fe-verify-iframe-slot" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff"></div>
-            </div>
-          </div>
+      <div class="flex jb aic" style="margin-bottom:18px">
+        <div>
+          <div style="font-size:15px;font-weight:600">Quote + Underwriting</div>
+          <div class="text-m mt4" style="font-size:12px">Live carrier rates pulled directly from the Insurance Toolkits API — every carrier ITK returns, sorted by monthly premium.</div>
         </div>
       </div>
 
-      <!-- ===== TERM LIFE ===== -->
-      <div id="qt-term" style="display:none">
-        <div class="card">
-          <div class="card-title">Term Life Quote</div>
-          <div class="frow">
-            <div class="fg"><label>Age</label><input type="number" id="term-age" placeholder="35" min="18" max="75"></div>
-            <div class="fg"><label>Gender</label>
-              <select id="term-gender"><option value="M">Male</option><option value="F">Female</option></select>
-            </div>
-            <div class="fg"><label>Height <span style="color:var(--text3);font-size:10px">(optional)</span></label>
-              <select id="term-height">
-                <option value="">Skip</option>
-                <option value="56">4'8"</option><option value="57">4'9"</option><option value="58">4'10"</option><option value="59">4'11"</option>
-                <option value="60">5'0"</option><option value="61">5'1"</option><option value="62">5'2"</option><option value="63">5'3"</option>
-                <option value="64">5'4"</option><option value="65">5'5"</option><option value="66">5'6"</option><option value="67">5'7"</option>
-                <option value="68">5'8"</option><option value="69">5'9"</option><option value="70">5'10"</option><option value="71">5'11"</option>
-                <option value="72">6'0"</option><option value="73">6'1"</option><option value="74">6'2"</option><option value="75">6'3"</option>
-                <option value="76">6'4"</option><option value="77">6'5"</option><option value="78">6'6"</option><option value="79">6'7"</option>
-              </select>
-            </div>
-            <div class="fg"><label>Weight <span style="color:var(--text3);font-size:10px">(optional)</span></label>
-              <input type="number" id="term-weight" placeholder="lbs — optional" oninput="checkBuild('term')">
-            </div>
-            <div id="term-build-flag" style="display:none;align-self:flex-end;padding-bottom:2px">
-              <span class="badge b-no" id="term-build-badge">Build Check</span>
-            </div>
+      <div class="card">
+        <div class="card-title">Quote inputs</div>
+        <div class="frow">
+          <div class="fg" style="min-width:160px">
+            <label>Product</label>
+            <select id="aq-product" onchange="apiQuoterToggleFields()">
+              <option value="FEX">Final Expense (Whole Life)</option>
+              <option value="TERM">Term Life</option>
+              <option value="IUL">IUL</option>
+            </select>
           </div>
-          <div class="frow mt12">
-            <div class="fg"><label>Term Length</label>
-              <select id="term-len">
-                <option value="10">10 Year</option><option value="15">15 Year</option>
-                <option value="20" selected>20 Year</option><option value="25">25 Year</option><option value="30">30 Year</option>
-              </select>
-            </div>
-            <div class="fg" style="min-width:180px">
-              <label>Coverage ($) — type any amount</label>
-              <input type="number" id="term-cov" placeholder="200000" value="200000" min="10000" step="5000">
-            </div>
-            <div class="fg"><label>Tobacco</label>
-              <select id="term-tob"><option value="no">Non-Tobacco</option><option value="yes">Tobacco</option></select>
-            </div>
-            <div class="fg"><label>Payment Method</label>
-              <select id="term-payment" onchange="onPaymentChange('term')">
-                <option value="bank">Bank Draft / ACH</option>
-                <option value="cc">Credit / Debit Card or SSI Billing</option>
-              </select>
-            </div>
-            <div class="fg"><label>State</label>
-              <select id="term-state">
-                <option value="">—</option>
-                <option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option>
-                <option>CO</option><option>CT</option><option>DE</option><option>DC</option><option>FL</option>
-                <option>GA</option><option>HI</option><option>ID</option><option>IL</option><option>IN</option>
-                <option>IA</option><option>KS</option><option>KY</option><option>LA</option><option>ME</option>
-                <option>MD</option><option>MA</option><option>MI</option><option>MN</option><option>MS</option>
-                <option>MO</option><option>MT</option><option>NE</option><option>NV</option><option>NH</option>
-                <option>NJ</option><option>NM</option><option>NY</option><option>NC</option><option>ND</option>
-                <option>OH</option><option>OK</option><option>OR</option><option>PA</option><option>RI</option>
-                <option>SC</option><option>SD</option><option>TN</option><option>TX</option><option>UT</option>
-                <option>VT</option><option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option>
-              </select>
-            </div>
+          <div class="fg"><label>Age</label><input type="number" id="aq-age" placeholder="55" min="18" max="85"></div>
+          <div class="fg"><label>Sex</label>
+            <select id="aq-sex"><option value="M">Male</option><option value="F">Female</option></select>
           </div>
-          <div id="term-cc-notice" style="display:none" class="pay-cc mt8">
-            <span data-ico="credit-card" data-size="14" style="margin-right:6px;vertical-align:-2px"></span>Only <strong>Corebridge</strong> and <strong>Transamerica</strong> accept CC/Debit/SSI billing.
-          </div>
-          <div class="mt12">
-            <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Health Conditions &amp; Medications</div>
-            <div style="position:relative">
-              <textarea id="term-health-text" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 13px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;resize:vertical;min-height:60px;transition:border-color .14s" placeholder="Describe health: conditions, medications, symptoms..." oninput="onHealthInput('term')"></textarea>
-              <div id="term-ai-spinner" style="display:none;position:absolute;right:10px;top:10px;font-size:11px;color:var(--ds-color-info);background:var(--bg3);padding:2px 6px;border-radius:4px">AI analyzing…</div>
-            </div>
-            <div id="term-parsed-tags" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;min-height:10px"></div>
-          </div>
-          <div class="mt16">
-            <button class="btn btn-p" onclick="runTermQuote()">Generate Quotes</button>
+          <div class="fg"><label>State</label>
+            <select id="aq-state">
+              <option value="">—</option>
+              <option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option>
+              <option>CO</option><option>CT</option><option>DE</option><option>DC</option><option>FL</option>
+              <option>GA</option><option>HI</option><option>ID</option><option>IL</option><option>IN</option>
+              <option>IA</option><option>KS</option><option>KY</option><option>LA</option><option>ME</option>
+              <option>MD</option><option>MA</option><option>MI</option><option>MN</option><option>MS</option>
+              <option>MO</option><option>MT</option><option>NE</option><option>NV</option><option>NH</option>
+              <option>NJ</option><option>NM</option><option>NY</option><option>NC</option><option>ND</option>
+              <option>OH</option><option>OK</option><option>OR</option><option>PA</option><option>RI</option>
+              <option>SC</option><option>SD</option><option>TN</option><option>TX</option><option>UT</option>
+              <option>VT</option><option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option>
+            </select>
           </div>
         </div>
-
-        <div id="term-results" style="display:none" class="mt20">
-          <div class="verify-disclaimer">
-            ⚠ Quick estimate based on industry-average rates — <strong>verify before quoting your client.</strong> Use <strong>Verify Live →</strong> below for real-time carrier numbers.
+        <div class="frow">
+          <div class="fg" style="min-width:180px">
+            <label>Face amount ($)</label>
+            <input type="number" id="aq-face" placeholder="15000" value="15000" min="5000" step="1000">
           </div>
-          <div class="flex jb aic" style="margin-bottom:12px">
-            <div style="font-size:15px;font-weight:600">Term Quote Results</div>
-            <div style="font-size:11.5px;color:var(--text3)">Contract: <span class="mono text-g" id="term-contract-disp">100%</span></div>
+          <div class="fg"><label>Tobacco</label>
+            <select id="aq-tobacco"><option value="no">Non-tobacco</option><option value="yes">Tobacco / Cigarettes</option></select>
           </div>
-          <div class="g3" id="term-cards"></div>
-          <div class="verify-cta" id="term-verify-cta" style="display:none">
-            <span class="verify-cta-check">✓ Quote generated</span>
-            <span style="margin-left:auto"><button class="btn btn-p" onclick="toggleVerifyPanel('term', true)">Verify these rates live →</button></span>
+          <div class="fg" id="aq-fg-term" style="display:none">
+            <label>Term length (years)</label>
+            <select id="aq-term">
+              <option value="10">10</option>
+              <option value="15">15</option>
+              <option value="20" selected>20</option>
+              <option value="25">25</option>
+              <option value="30">30</option>
+            </select>
           </div>
-          <div class="note mt8">Adv. commission = AP × comm% × 0.75 (9-month advance).</div>
+          <div class="fg" id="aq-fg-payment">
+            <label>Payment type</label>
+            <select id="aq-payment">
+              <option value="bank">Bank Draft / EFT</option>
+              <option value="card">Credit Card</option>
+            </select>
+          </div>
         </div>
-
-        <div id="term-verify-panel" class="verify-panel">
-          <div class="verify-panel-head" onclick="toggleVerifyPanel('term')">
-            <span class="live-dot"></span>
-            <strong>Verify with live carrier rates</strong>
-            <span style="color:var(--text3);font-size:12px">Real-time rates from Insurance Toolkits</span>
-            <span class="verify-panel-caret">›</span>
-          </div>
-          <div class="verify-panel-body">
-            <div id="term-verify-pre" style="padding:12px 0;color:var(--text2);font-size:13px">Run an estimate above first — we'll pre-fill the client info so you don't re-type it.</div>
-            <div id="term-verify-post" style="display:none">
-              <div style="font-size:13px;color:var(--text2);margin-top:8px">Confirmed through Insurance Toolkits</div>
-              <div class="verify-chips" id="term-verify-chips"></div>
-              <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
-                Prefill attempted (best-effort)
-                <a id="term-verify-stale" href="#" onclick="event.preventDefault(); reloadVerifyIframe('term');" style="display:none;color:var(--text-g);margin-left:6px;text-decoration:underline">Re-load with new values</a>
-              </div>
-              <div id="term-verify-iframe-slot" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff"></div>
-            </div>
-          </div>
+        <div class="alert alert-i" id="aq-iul-banner" style="display:none">
+          <span data-ico="info"></span>
+          <div>IUL quotes are <strong>premium-range estimates</strong>. Always run a full carrier illustration before binding — these numbers won't include indexed crediting, riders, or projected cash value.</div>
+        </div>
+        <div class="alert alert-i" style="margin-top:8px">
+          <span data-ico="info"></span>
+          <div>Quotes assume best-class pricing for the chosen tobacco status. Underwriting questionnaire is not yet wired up.</div>
+        </div>
+        <div class="mt16 flex aic" style="gap:12px;flex-wrap:wrap">
+          <button class="btn btn-p" onclick="runApiQuote()">Run Quote</button>
+          <span id="aq-form-hint" style="font-size:11.5px;color:var(--text3)">Fill age, sex, state, and face amount.</span>
         </div>
       </div>
 
-      <!-- ===== IUL ===== -->
-      <div id="qt-iul" style="display:none">
-        <div class="card">
-          <div class="card-title">IUL Estimate</div>
-          <div class="alert alert-i"><span data-ico="info"></span><div>IUL quotes require full carrier illustrations. These are premium range estimates only.</div></div>
-          <div class="frow">
-            <div class="fg"><label>Age</label><input type="number" id="iul-age" placeholder="35" min="18" max="70"></div>
-            <div class="fg"><label>Gender</label>
-              <select id="iul-gender"><option value="M">Male</option><option value="F">Female</option></select>
-            </div>
-            <div class="fg" style="min-width:180px">
-              <label>Death Benefit ($) — type any amount</label>
-              <input type="number" id="iul-cov" placeholder="500000" value="500000" min="50000" step="10000">
-            </div>
-            <div class="fg"><label>Health Class</label>
-              <select id="iul-health">
-                <option value="preferred">Preferred</option>
-                <option value="standard" selected>Standard</option>
-                <option value="substandard">Substandard</option>
-              </select>
-            </div>
-            <div class="fg"><label>State</label>
-              <select id="iul-state">
-                <option value="">—</option>
-                <option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option>
-                <option>CO</option><option>CT</option><option>DE</option><option>DC</option><option>FL</option>
-                <option>GA</option><option>HI</option><option>ID</option><option>IL</option><option>IN</option>
-                <option>IA</option><option>KS</option><option>KY</option><option>LA</option><option>ME</option>
-                <option>MD</option><option>MA</option><option>MI</option><option>MN</option><option>MS</option>
-                <option>MO</option><option>MT</option><option>NE</option><option>NV</option><option>NH</option>
-                <option>NJ</option><option>NM</option><option>NY</option><option>NC</option><option>ND</option>
-                <option>OH</option><option>OK</option><option>OR</option><option>PA</option><option>RI</option>
-                <option>SC</option><option>SD</option><option>TN</option><option>TX</option><option>UT</option>
-                <option>VT</option><option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option>
-              </select>
-            </div>
-          </div>
-          <div class="mt16"><button class="btn btn-p" onclick="runIULQuote()">Estimate IUL Premiums</button></div>
-        </div>
-
-        <div id="iul-results" style="display:none" class="mt20">
-          <div class="verify-disclaimer">
-            ⚠ Quick estimate based on industry-average rates — <strong>verify before quoting your client.</strong> Use <strong>Verify Live →</strong> below for real-time carrier numbers.
-          </div>
-          <div style="font-size:15px;font-weight:600;margin-bottom:12px">IUL Carrier Estimates</div>
-          <div class="g3" id="iul-cards"></div>
-          <div class="verify-cta" id="iul-verify-cta" style="display:none">
-            <span class="verify-cta-check">✓ Quote generated</span>
-            <span style="margin-left:auto"><button class="btn btn-p" onclick="toggleVerifyPanel('iul', true)">Verify these rates live →</button></span>
-          </div>
-          <div class="note mt8">IUL commissions per comp guide. Always run full carrier illustration for exact figures.</div>
-        </div>
-
-        <div id="iul-verify-panel" class="verify-panel">
-          <div class="verify-panel-head" onclick="toggleVerifyPanel('iul')">
-            <span class="live-dot"></span>
-            <strong>Verify with live carrier rates</strong>
-            <span style="color:var(--text3);font-size:12px">Real-time rates from Insurance Toolkits</span>
-            <span class="verify-panel-caret">›</span>
-          </div>
-          <div class="verify-panel-body">
-            <div id="iul-verify-pre" style="padding:12px 0;color:var(--text2);font-size:13px">Run an estimate above first — we'll pre-fill the client info so you don't re-type it.</div>
-            <div id="iul-verify-post" style="display:none">
-              <div style="font-size:13px;color:var(--text2);margin-top:8px">Confirmed through Insurance Toolkits</div>
-              <div class="verify-chips" id="iul-verify-chips"></div>
-              <div style="font-size:11px;color:var(--text3);margin-bottom:8px">
-                Prefill attempted (best-effort)
-                <a id="iul-verify-stale" href="#" onclick="event.preventDefault(); reloadVerifyIframe('iul');" style="display:none;color:var(--text-g);margin-left:6px;text-decoration:underline">Re-load with new values</a>
-              </div>
-              <div id="iul-verify-iframe-slot" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#fff"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </div><!-- /sec-quoter -->
+      <div id="api-quoter-results" style="display:none;margin-top:16px"></div>
+    </div><!-- /sec-api-quoter -->
 
     <!-- ========== POLICY TRACKER ========== -->
     <div class="section" id="sec-tracker">
@@ -9012,7 +8819,7 @@ function gcalRenderList() {
 // ============================================================
 const NAV_TITLES = {
   summary:'Summary',
-  quoter:'Quote + Underwriting',
+  'api-quoter':'Quote + Underwriting',
   tracker:'Policy Tracker',
   drafts:'Upcoming Drafts',
   bonuses:'Bonus Tracker',
@@ -9035,7 +8842,7 @@ function nav(id) {
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
   // Highlight active nav item
   const items = document.querySelectorAll('.nav-item');
-  const idxMap = { summary:0, quoter:1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, settings:8 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, settings:8 };
   if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
@@ -9510,6 +9317,385 @@ function renderExcludedBlock(excluded) {
     '<ul style="margin:8px 0 0;padding-left:20px">' + items + '</ul>' +
     '</details>';
 }
+
+// ============================================================
+// QUOTE + UNDERWRITING (ITK API) — primary quoter tab. Renders
+// every carrier ITK returns (not filtered against LOCAL_TO_ITK_*
+// maps). Calls the supabase 'itk-quote' edge function. Replaced
+// the old card-grid Quoter on 2026-05-13; section ID kept as
+// 'sec-api-quoter' to avoid renaming every helper.
+// ============================================================
+
+// Local-key → primary COMP product key, used to estimate commission for
+// the ITK quotes that happen to match a locally-known carrier. For ITK
+// carriers we don't have a comp entry for, commission column stays blank.
+const AQ_LOCAL_KEY_TO_PROD = {
+  americo:    'americo_eagle',
+  aetna:      'aetna_senior',
+  aamicable:  'aa_senior',
+  trans:      'trans_express',
+  corebridge: 'core_siwl',
+  mutual:     'mutual_fe',
+  uhl:        'uhl_premier_wl',
+  chubb:      'chubb_pref',
+  ethos:      'ethos_tawl',
+  lg:         'lg_term',
+  jh:         null,        // no COMP row yet
+  foresters:  null,
+  kcl:        null,
+  baltimore:  null,
+  elco:       null,
+  ahl:        null,
+  sbli:       null,
+  mtrust:     null,
+};
+
+const AQ_STORAGE_KEY = 'ff_api_quoter_last';
+
+let _aqLastQuotes = [];
+let _aqLastExcluded = [];
+let _aqLastMs = 0;
+let _aqLastBody = null;
+let _aqSortCol = 'monthly';
+let _aqSortDir = 'asc';
+let _aqOnSelectQuote = null; // forward-compat hook for future save-to-policy
+
+// Coerce ITK's stringy "$42.10" / "504.99" into a sortable number.
+function aqNum(v) {
+  if (typeof v === 'number') return v;
+  if (v == null) return 0;
+  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
+  return isNaN(n) ? 0 : n;
+}
+
+// Reverse-lookup an ITK company string → our local carrier key, by
+// scanning both LOCAL_TO_ITK_FE and LOCAL_TO_ITK_TERM. Used to find a
+// commission percentage for ITK quotes that match a known carrier.
+function aqLocalKeyForCompany(company) {
+  if (!company) return null;
+  const maps = [LOCAL_TO_ITK_FE, LOCAL_TO_ITK_TERM];
+  for (const m of maps) {
+    for (const [k, names] of Object.entries(m)) {
+      if (Array.isArray(names) && names.indexOf(company) !== -1) return k;
+    }
+  }
+  return null;
+}
+
+// Estimated 9-month advance commission. Returns null when we have no
+// COMP mapping for the carrier — table renders "—" rather than guessing.
+function aqEstimateCommission(company, annual) {
+  const key = aqLocalKeyForCompany(company);
+  if (!key) return null;
+  const prod = AQ_LOCAL_KEY_TO_PROD[key];
+  if (!prod) return null;
+  let pct;
+  try { pct = getCommPct(prod, getContract(), false); }
+  catch (_) { return null; }
+  if (typeof pct !== 'number' || !isFinite(pct)) return null;
+  const ann = aqNum(annual);
+  if (!ann) return null;
+  return +(ann * pct / 100 * 0.75).toFixed(2);
+}
+
+// Show/hide conditional fields based on the Product dropdown. Also
+// flips the IUL disclaimer banner.
+function apiQuoterToggleFields() {
+  const prod = (document.getElementById('aq-product') || {}).value || 'FEX';
+  const termFg = document.getElementById('aq-fg-term');
+  const payFg  = document.getElementById('aq-fg-payment');
+  const iulBan = document.getElementById('aq-iul-banner');
+  if (termFg) termFg.style.display = (prod === 'TERM') ? '' : 'none';
+  if (payFg)  payFg.style.display  = (prod === 'FEX')  ? '' : 'none';
+  if (iulBan) iulBan.style.display = (prod === 'IUL')  ? '' : 'none';
+}
+
+// Read the form into a body shape the itk-quote edge function accepts.
+// Mirrors buildQuoteRequest()'s field translations but reads from this
+// tab's input IDs and returns a plain object (no DOM coupling) so a
+// future lead-prefill caller can build the same body programmatically.
+function readApiQuoterForm() {
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const toolkit = v('aq-product') || 'FEX';
+  const body = { toolkit };
+  const age = v('aq-age');     if (age)  body.age = Number(age);
+  const sex = v('aq-sex');     if (sex)  body.sex = (sex === 'M') ? 'Male' : 'Female';
+  const st  = v('aq-state');   if (st)   body.state = st;
+  const face= v('aq-face');    if (face) body.faceAmount = Number(face);
+  const tob = v('aq-tobacco');             body.tobacco = (tob === 'yes') ? 'Cigarettes' : 'None';
+  if (toolkit === 'FEX') {
+    const pay = v('aq-payment');
+    if (pay) body.paymentType = (pay === 'bank') ? 'Bank Draft/EFT' : 'Credit Card';
+  }
+  if (toolkit === 'TERM') {
+    const tl = v('aq-term');   if (tl) body.term = Number(tl);
+  }
+  return body;
+}
+
+function saveApiQuoterInputs() {
+  try {
+    const snap = {
+      product:  (document.getElementById('aq-product')||{}).value,
+      age:      (document.getElementById('aq-age')||{}).value,
+      sex:      (document.getElementById('aq-sex')||{}).value,
+      state:    (document.getElementById('aq-state')||{}).value,
+      face:     (document.getElementById('aq-face')||{}).value,
+      tobacco:  (document.getElementById('aq-tobacco')||{}).value,
+      term:     (document.getElementById('aq-term')||{}).value,
+      payment:  (document.getElementById('aq-payment')||{}).value,
+    };
+    localStorage.setItem(AQ_STORAGE_KEY, JSON.stringify(snap));
+  } catch (_) { /* localStorage may be unavailable; never crash */ }
+}
+
+function loadApiQuoterInputs() {
+  let snap;
+  try { snap = JSON.parse(localStorage.getItem(AQ_STORAGE_KEY) || 'null'); }
+  catch (_) { snap = null; }
+  if (!snap || typeof snap !== 'object') return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val != null && val !== '') el.value = val; };
+  set('aq-product', snap.product);
+  set('aq-age',     snap.age);
+  set('aq-sex',     snap.sex);
+  set('aq-state',   snap.state);
+  set('aq-face',    snap.face);
+  set('aq-tobacco', snap.tobacco);
+  set('aq-term',    snap.term);
+  set('aq-payment', snap.payment);
+}
+
+// Main entry. `prefilledBody` is optional — passed by a future "quote
+// from lead" caller to bypass the form; for v1 it's always null.
+async function runApiQuote(prefilledBody) {
+  const body = prefilledBody || readApiQuoterForm();
+  const hint = document.getElementById('aq-form-hint');
+  const slot = document.getElementById('api-quoter-results');
+  if (!slot) return;
+
+  if (!body.age || !body.sex || !body.state || !body.faceAmount) {
+    if (hint) {
+      hint.textContent = 'Need age, sex, state, and face amount before quoting.';
+      hint.style.color = 'var(--ds-color-danger,#dc2626)';
+    }
+    return;
+  }
+  if (hint) { hint.textContent = 'Fill age, sex, state, and face amount.'; hint.style.color = 'var(--text3)'; }
+
+  if (!prefilledBody) saveApiQuoterInputs();
+  _aqLastBody = body;
+
+  slot.style.display = 'block';
+  slot.innerHTML =
+    '<div class="aq-loading">' +
+      '<div style="font-weight:500">Pulling live rates from Insurance Toolkits…</div>' +
+      '<div style="font-size:11px;color:var(--text3);margin-top:6px">' + escapeHTML(body.toolkit) +
+        ' · Age ' + escapeHTML(String(body.age)) + ' · ' + escapeHTML(body.state) +
+        ' · $' + Number(body.faceAmount).toLocaleString() + '</div>' +
+    '</div>';
+
+  let res;
+  try {
+    res = await sb.functions.invoke('itk-quote', { body });
+  } catch (e) {
+    renderApiQuoteError(slot, 'Network error', e && e.message ? e.message : String(e));
+    return;
+  }
+
+  // Unwrap edge-function error envelope (same pattern as fetchAndRenderQuotes).
+  if (res.error || !res.data || res.data.ok === false) {
+    let errBody = res.data;
+    let httpStatus = '';
+    if (!errBody && res.error && res.error.context && typeof res.error.context.json === 'function') {
+      try { errBody = await res.error.context.clone().json(); } catch {}
+      if (res.error.context.status) httpStatus = res.error.context.status;
+    }
+    const msg =
+      (errBody && errBody.error) ||
+      (errBody && errBody.itk && errBody.itk.error) ||
+      (res.error && res.error.message) ||
+      'Unknown error';
+    const status = (errBody && errBody.meta && errBody.meta.status) || httpStatus || '';
+    console.error('[api-quoter] edge function error', { status, errBody, error: res.error });
+    renderApiQuoteError(slot, 'Couldn’t fetch rates' + (status ? ' (status ' + status + ')' : ''), msg);
+    return;
+  }
+
+  const data = res.data || {};
+  _aqLastQuotes   = Array.isArray(data.quotes)   ? data.quotes   : [];
+  _aqLastExcluded = Array.isArray(data.excluded) ? data.excluded : [];
+  _aqLastMs       = (data.meta && data.meta.ms) || 0;
+  _aqSortCol = 'monthly';
+  _aqSortDir = 'asc';
+  renderApiQuoteResults();
+}
+
+function renderApiQuoteError(slot, title, detail) {
+  slot.innerHTML =
+    '<div class="aq-error">' +
+      '<div style="flex:1;min-width:200px">' +
+        '<strong>' + escapeHTML(title) + '</strong>' +
+        escapeHTML(detail || '') +
+        '<div style="font-size:11px;color:var(--text3);margin-top:8px">Check the browser console and Supabase function logs for details.</div>' +
+      '</div>' +
+      '<button class="btn btn-p" onclick="runApiQuote()">Retry</button>' +
+    '</div>';
+}
+
+function aqSortedQuotes() {
+  const col = _aqSortCol, dir = _aqSortDir;
+  const out = _aqLastQuotes.slice();
+  out.sort((a, b) => {
+    let va, vb;
+    if (col === 'company')   { va = (a.company||'').toLowerCase(); vb = (b.company||'').toLowerCase(); }
+    else if (col === 'plan') { va = (a.plan_name||a.tier_name||'').toLowerCase(); vb = (b.plan_name||b.tier_name||'').toLowerCase(); }
+    else if (col === 'comm') {
+      va = aqEstimateCommission(a.company, a.yearly);
+      vb = aqEstimateCommission(b.company, b.yearly);
+      va = (va == null) ? -Infinity : va;
+      vb = (vb == null) ? -Infinity : vb;
+    }
+    else if (col === 'annual')  { va = aqNum(a.yearly);  vb = aqNum(b.yearly); }
+    else                         { va = aqNum(a.monthly); vb = aqNum(b.monthly); }
+    if (va < vb) return dir === 'asc' ? -1 : 1;
+    if (va > vb) return dir === 'asc' ? 1 : -1;
+    return 0;
+  });
+  return out;
+}
+
+function apiQuoterSort(col) {
+  if (_aqSortCol === col) {
+    _aqSortDir = (_aqSortDir === 'asc') ? 'desc' : 'asc';
+  } else {
+    _aqSortCol = col;
+    _aqSortDir = (col === 'monthly' || col === 'annual' || col === 'comm') ? 'asc' : 'asc';
+  }
+  renderApiQuoteResults(/*reuseLast*/ true);
+}
+
+function aqLogoCell(q, size) {
+  const initials = (q.company || '?').replace(/\(.*\)/, '').trim().split(/\s+/).slice(0,2).map(w => w[0] || '').join('').toUpperCase() || '?';
+  const fallback = '<span class="aq-hero-logo-fb"' + (size ? ' style="width:' + size + 'px;height:' + size + 'px"' : '') + '>' + escapeHTML(initials) + '</span>';
+  if (!q.logo) return fallback;
+  return '<img class="aq-hero-logo"' +
+    (size ? ' style="height:' + size + 'px"' : '') +
+    ' src="' + escapeHTML(q.logo) + '" alt="' + escapeHTML(q.company || '') + '"' +
+    ' loading="lazy" referrerpolicy="no-referrer"' +
+    ' onerror="this.outerHTML=' + JSON.stringify(fallback) + '">';
+}
+
+function fmtMoney(n) {
+  if (n == null) return '—';
+  const num = typeof n === 'number' ? n : aqNum(n);
+  if (!isFinite(num)) return '—';
+  return '$' + num.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: (Number.isInteger(num) ? 0 : 2) });
+}
+
+function renderApiQuoteResults(reuseLast) {
+  const slot = document.getElementById('api-quoter-results');
+  if (!slot) return;
+  const quotes   = _aqLastQuotes;
+  const excluded = _aqLastExcluded;
+  const ms       = _aqLastMs;
+
+  if (!quotes.length) {
+    slot.innerHTML =
+      '<div class="aq-empty">No carriers returned a quote for these inputs.' +
+        (excluded.length ? ' ' + excluded.length + ' carriers excluded — see details below.' : '') +
+      '</div>' + renderExcludedBlock(excluded);
+    return;
+  }
+
+  // Podium is always top-3 by monthly ascending (independent of table sort).
+  const podium = quotes.slice().sort((a, b) => aqNum(a.monthly) - aqNum(b.monthly)).slice(0, 3);
+  const heroCards = podium.map((q, i) => {
+    const ann = aqNum(q.yearly);
+    const comm = aqEstimateCommission(q.company, q.yearly);
+    return '<div class="aq-hero rank-' + (i + 1) + '">' +
+      '<span class="aq-rank">#' + (i + 1) + '</span>' +
+      '<div class="aq-hero-head">' + aqLogoCell(q, 28) +
+        '<div style="min-width:0;flex:1"><div class="aq-hero-name">' + escapeHTML(q.company || '') + '</div>' +
+        '<div class="aq-hero-plan">' + escapeHTML(q.plan_name || q.tier_name || '') + '</div></div></div>' +
+      '<div class="aq-hero-monthly">' + fmtMoney(aqNum(q.monthly)) + '<span>/mo</span></div>' +
+      '<div class="aq-hero-sub">' +
+        '<span>' + (ann ? fmtMoney(ann) + '/yr' : '—') + '</span>' +
+        '<span>' + (comm != null ? '<strong>' + fmtMoney(comm) + '</strong> adv. comm.' : '') + '</span>' +
+      '</div>' +
+      ((q.eapp_link && q.eapp_link !== '#')
+        ? '<div style="margin-top:auto"><a href="' + escapeHTML(q.eapp_link) + '" target="_blank" rel="noopener" style="color:var(--text-g);text-decoration:underline;font-size:12px">eApp →</a></div>'
+        : '') +
+      '</div>';
+  }).join('');
+
+  const sorted = aqSortedQuotes();
+  const rows = sorted.map((q, i) => {
+    const comm = aqEstimateCommission(q.company, q.yearly);
+    const eapp = (q.eapp_link && q.eapp_link !== '#')
+      ? '<a href="' + escapeHTML(q.eapp_link) + '" target="_blank" rel="noopener" style="color:var(--text-g);text-decoration:underline;white-space:nowrap">eApp →</a>'
+      : '';
+    return '<tr>' +
+      '<td class="aq-rank-cell">' + (i + 1) + '</td>' +
+      '<td><div class="aq-carrier">' + aqLogoCell(q, 20) +
+        '<div style="min-width:0"><div style="font-weight:600;font-size:12.5px">' + escapeHTML(q.company || '') + '</div></div>' +
+      '</div></td>' +
+      '<td>' + escapeHTML(q.plan_name || q.tier_name || '') +
+        (q.warning ? '<div style="font-size:10.5px;color:#ca8a04;margin-top:2px">⚠ ' + escapeHTML(q.warning) + '</div>' : '') +
+      '</td>' +
+      '<td class="right"><strong>' + fmtMoney(aqNum(q.monthly)) + '</strong></td>' +
+      '<td class="right">' + fmtMoney(aqNum(q.yearly)) + '</td>' +
+      '<td class="right">' + (comm != null ? fmtMoney(comm) : '<span style="color:var(--text3)">—</span>') + '</td>' +
+      '<td class="right">' + eapp + '</td>' +
+    '</tr>';
+  }).join('');
+
+  const sortClass = name => 'class="' + (name === 'company' || name === 'plan' ? '' : 'right ') + (_aqSortCol === name ? ('sort-' + _aqSortDir) : '') + '"';
+  const body = _aqLastBody || {};
+  const chips = [];
+  if (body.toolkit)    chips.push('<span class="aq-chip">' + escapeHTML(body.toolkit) + '</span>');
+  if (body.age != null) chips.push('<span class="aq-chip">Age ' + escapeHTML(String(body.age)) + '</span>');
+  if (body.sex)        chips.push('<span class="aq-chip">' + escapeHTML(body.sex) + '</span>');
+  if (body.state)      chips.push('<span class="aq-chip">' + escapeHTML(body.state) + '</span>');
+  if (body.faceAmount) chips.push('<span class="aq-chip">' + fmtMoney(body.faceAmount) + '</span>');
+  if (body.tobacco)    chips.push('<span class="aq-chip">' + escapeHTML(body.tobacco === 'Cigarettes' ? 'Tobacco' : 'Non-tobacco') + '</span>');
+  if (body.term)       chips.push('<span class="aq-chip">' + escapeHTML(String(body.term)) + 'yr</span>');
+
+  slot.innerHTML =
+    '<div class="aq-meta">' +
+      '<strong style="color:var(--text2)">' + quotes.length + ' quote' + (quotes.length === 1 ? '' : 's') + ' from ITK</strong>' +
+      '<span style="color:var(--text3)">in ' + ms + 'ms</span>' +
+      chips.join('') +
+    '</div>' +
+    '<div class="aq-podium">' + heroCards + '</div>' +
+    '<div class="aq-table-wrap"><table class="aq-table">' +
+      '<thead><tr>' +
+        '<th style="width:32px">#</th>' +
+        '<th ' + sortClass('company') + ' onclick="apiQuoterSort(\'company\')">Carrier</th>' +
+        '<th ' + sortClass('plan')    + ' onclick="apiQuoterSort(\'plan\')">Plan</th>' +
+        '<th ' + sortClass('monthly') + ' onclick="apiQuoterSort(\'monthly\')">Monthly</th>' +
+        '<th ' + sortClass('annual')  + ' onclick="apiQuoterSort(\'annual\')">Annual</th>' +
+        '<th ' + sortClass('comm')    + ' onclick="apiQuoterSort(\'comm\')">Adv. Comm.</th>' +
+        '<th class="right"></th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table></div>' +
+    renderExcludedBlock(excluded);
+}
+
+// Hydrate inputs from localStorage and set conditional-field visibility.
+// Runs once at script load (script is at the bottom of the body, so the
+// form is already in the DOM by this point).
+(function apiQuoterBootstrap() {
+  function init() {
+    try { loadApiQuoterInputs(); } catch (_) {}
+    try { apiQuoterToggleFields(); } catch (_) {}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
 
 // ============================================================
 // ITK live-rate overlay — replaces rate values inside the
@@ -11738,7 +11924,7 @@ async function biCommitCSVImport() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  const idxMap = { summary:0, quoter:1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, settings:8 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, settings:8 };
   if (!saved || !(saved in idxMap) || saved === 'summary') return;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   const sec = document.getElementById('sec-' + saved);
