@@ -1770,6 +1770,14 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         #sec-api-quoter .aq-error .btn { margin-left:auto; }
         #sec-api-quoter .aq-empty { padding:var(--ds-space-6,32px); text-align:center; color:var(--text2); font-size:13px; }
         #sec-api-quoter .aq-rank-cell { font-weight:700; color:var(--text2); font-size:12px; width:32px; text-align:center; }
+        /* Quote usage cap — 500 / rolling 30 days. Pill is always visible; banner only at limit. */
+        #sec-api-quoter .aq-quota-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border:1px solid var(--border); border-radius:999px; background:var(--bg2); font-size:11.5px; color:var(--text2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+        #sec-api-quoter .aq-quota-pill[data-tone="block"] { border-color:rgba(220,38,38,.45); background:rgba(220,38,38,.10); color:var(--ds-color-danger,#dc2626); }
+        #sec-api-quoter .aq-quota-fig { font-weight:600; color:var(--text); }
+        #sec-api-quoter .aq-quota-pill[data-tone="block"] .aq-quota-fig { color:var(--ds-color-danger,#dc2626); }
+        #sec-api-quoter .aq-quota-sep { opacity:.5; }
+        #sec-api-quoter .aq-limit-banner { margin-bottom:14px; padding:12px 14px; border:1px solid rgba(220,38,38,.45); background:rgba(220,38,38,.08); border-radius:var(--ds-radius-md,10px); color:var(--text2); font-size:12.5px; line-height:1.45; }
+        #sec-api-quoter .aq-limit-banner strong { color:var(--ds-color-danger,#dc2626); font-weight:600; }
         @media (max-width: 900px) { #sec-api-quoter .aq-podium { grid-template-columns:1fr; } }
       </style>
 
@@ -1778,7 +1786,13 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <div style="font-size:15px;font-weight:600">Quote + Underwriting</div>
           <div class="text-m mt4" style="font-size:12px">Live carrier rates pulled directly from the Insurance Toolkits API — every carrier ITK returns, sorted by monthly premium.</div>
         </div>
+        <div id="api-quoter-counter" class="aq-quota-pill" data-tone="ok" style="display:none">
+          <span class="aq-quota-fig"><span id="aq-quota-used">0</span> / <span id="aq-quota-limit">500</span> used</span>
+          <span class="aq-quota-sep">·</span>
+          <span id="aq-quota-reset">30-day rolling</span>
+        </div>
       </div>
+      <div id="api-quoter-limit-banner" class="aq-limit-banner" style="display:none"></div>
 
       <div class="card">
         <div class="card-title">Quote inputs</div>
@@ -8878,6 +8892,7 @@ function nav(id) {
   } catch (e) {}
   // Section-specific init
   if (id === 'summary') renderSummary();
+  if (id === 'api-quoter') loadQuoteQuota();
   if (id === 'bonuses') updateBonusFromTracker();
   if (id === 'drafts')  renderDraftsCalendar();
   if (id === 'leads')   renderLeads();
@@ -9511,6 +9526,123 @@ function loadApiQuoterInputs() {
   set('aq-payment', snap.payment);
 }
 
+// ============================================================
+// QUOTE USAGE CAP — 500 ITK calls per rolling 30 days, configurable per
+// agent (public.agents.monthly_quote_limit). The itk-quote edge function
+// is authoritative; this client cache mirrors it for the always-visible
+// counter + a friendly pre-check so an over-cap user doesn't see the
+// generic "Couldn't fetch rates" toast.
+// ============================================================
+const QUOTE_WINDOW_MS = 30 * 86400000;
+let _quoteQuota = { used: 0, limit: 500, resetAt: null, loaded: false };
+
+function _quoteResetDays(resetAt) {
+  if (!resetAt) return null;
+  const ms = new Date(resetAt).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / 86400000));
+}
+
+async function loadQuoteQuota() {
+  if (!currentAgent || !sb) return;
+  try {
+    const since = new Date(Date.now() - QUOTE_WINDOW_MS).toISOString();
+    const [limitRes, countRes] = await Promise.all([
+      sb.from('agents')
+        .select('monthly_quote_limit')
+        .eq('id', currentAgent.id)
+        .maybeSingle(),
+      sb.from('quote_usage')
+        .select('id', { count: 'exact', head: true })
+        .eq('agent_id', currentAgent.id)
+        .gte('created_at', since),
+    ]);
+    const limit = (limitRes.data && typeof limitRes.data.monthly_quote_limit === 'number')
+      ? limitRes.data.monthly_quote_limit : 500;
+    const used = countRes.count || 0;
+    let resetAt = null;
+    if (used >= limit) {
+      // Oldest in-window row determines when the cap actually unblocks.
+      const { data: oldest } = await sb.from('quote_usage')
+        .select('created_at')
+        .eq('agent_id', currentAgent.id)
+        .gte('created_at', since)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (oldest && oldest.created_at) {
+        resetAt = new Date(new Date(oldest.created_at).getTime() + QUOTE_WINDOW_MS).toISOString();
+      }
+    }
+    _quoteQuota = { used, limit, resetAt, loaded: true };
+  } catch (e) {
+    // Don't block the UI on a transient sync hiccup; edge function stays
+    // authoritative and the counter will catch up after the next quote.
+    console.warn('[api-quoter] loadQuoteQuota failed', e && e.message ? e.message : e);
+  }
+  renderApiQuoterCounter();
+}
+
+function renderApiQuoterCounter() {
+  const pill   = document.getElementById('api-quoter-counter');
+  const usedEl = document.getElementById('aq-quota-used');
+  const limEl  = document.getElementById('aq-quota-limit');
+  const resEl  = document.getElementById('aq-quota-reset');
+  const banner = document.getElementById('api-quoter-limit-banner');
+  const runBtn = document.querySelector('#sec-api-quoter button[onclick="runApiQuote()"]');
+  if (!pill) return;
+
+  if (!_quoteQuota.loaded) {
+    pill.style.display = 'none';
+    if (banner) banner.style.display = 'none';
+    if (runBtn) { runBtn.disabled = false; runBtn.style.opacity = ''; runBtn.style.cursor = ''; runBtn.title = ''; }
+    return;
+  }
+  pill.style.display = '';
+
+  const { used, limit, resetAt } = _quoteQuota;
+  if (usedEl) usedEl.textContent = String(used);
+  if (limEl)  limEl.textContent  = String(limit);
+
+  const atLimit = used >= limit;
+  pill.setAttribute('data-tone', atLimit ? 'block' : 'ok');
+
+  if (resEl) {
+    if (atLimit) {
+      const days = _quoteResetDays(resetAt);
+      if (days == null)        resEl.textContent = 'rolls off soon';
+      else if (days <= 0)      resEl.textContent = 'rolls off today';
+      else if (days === 1)     resEl.textContent = 'rolls off in 1 day';
+      else                     resEl.textContent = 'rolls off in ' + days + ' days';
+    } else {
+      resEl.textContent = '30-day rolling';
+    }
+  }
+
+  if (banner) {
+    if (atLimit) {
+      const days = _quoteResetDays(resetAt);
+      const when = days == null
+        ? 'soon'
+        : (days <= 0 ? 'today' : (days === 1 ? 'in 1 day' : 'in ' + days + ' days'));
+      banner.innerHTML =
+        '<strong>You’ve hit your quote limit.</strong> ' +
+        escapeHTML(String(used)) + ' of ' + escapeHTML(String(limit)) +
+        ' quotes used in the last 30 days. The oldest one rolls off ' + escapeHTML(when) + '.';
+      banner.style.display = '';
+    } else {
+      banner.style.display = 'none';
+      banner.innerHTML = '';
+    }
+  }
+
+  if (runBtn) {
+    runBtn.disabled = atLimit;
+    runBtn.style.opacity = atLimit ? '0.5' : '';
+    runBtn.style.cursor  = atLimit ? 'not-allowed' : '';
+    runBtn.title = atLimit ? 'Quote limit reached — see banner above for reset date.' : '';
+  }
+}
+
 // Main entry. `prefilledBody` is optional — passed by a future "quote
 // from lead" caller to bypass the form; for v1 it's always null.
 async function runApiQuote(prefilledBody) {
@@ -9527,6 +9659,14 @@ async function runApiQuote(prefilledBody) {
     return;
   }
   if (hint) { hint.textContent = 'Fill age, sex, state, and face amount.'; hint.style.color = 'var(--text3)'; }
+
+  // Belt-and-suspenders pre-check. Edge function is authoritative; this just
+  // spares a network round-trip when we already know the agent is capped.
+  // The disabled Run button + banner already explain the state to the user.
+  if (_quoteQuota.loaded && _quoteQuota.used >= _quoteQuota.limit) {
+    renderApiQuoterCounter();
+    return;
+  }
 
   if (!prefilledBody) saveApiQuoterInputs();
   _aqLastBody = body;
@@ -9556,6 +9696,32 @@ async function runApiQuote(prefilledBody) {
       try { errBody = await res.error.context.clone().json(); } catch {}
       if (res.error.context.status) httpStatus = res.error.context.status;
     }
+    // Quota cap: special-case before the generic error renderer so the
+    // counter banner carries the message and we don't double-up with a red
+    // "Couldn't fetch rates" toast for an expected outcome.
+    if (errBody && errBody.error === 'quota_exceeded') {
+      _quoteQuota = {
+        used:    typeof errBody.used  === 'number' ? errBody.used  : (_quoteQuota.limit || 500),
+        limit:   typeof errBody.limit === 'number' ? errBody.limit : (_quoteQuota.limit || 500),
+        resetAt: errBody.resetAt || null,
+        loaded:  true,
+      };
+      renderApiQuoterCounter();
+      slot.style.display = 'none';
+      slot.innerHTML = '';
+      return;
+    }
+    // Other errors still count against the cap server-side; absorb the new
+    // counter so the UI doesn't drift from reality.
+    if (errBody && errBody.quota) {
+      _quoteQuota = {
+        used:    errBody.quota.used,
+        limit:   errBody.quota.limit,
+        resetAt: errBody.quota.resetAt,
+        loaded:  true,
+      };
+      renderApiQuoterCounter();
+    }
     const msg =
       (errBody && errBody.error) ||
       (errBody && errBody.itk && errBody.itk.error) ||
@@ -9568,6 +9734,16 @@ async function runApiQuote(prefilledBody) {
   }
 
   const data = res.data || {};
+  // Update counter from successful response so the pill ticks up live.
+  if (data.quota) {
+    _quoteQuota = {
+      used:    data.quota.used,
+      limit:   data.quota.limit,
+      resetAt: data.quota.resetAt,
+      loaded:  true,
+    };
+    renderApiQuoterCounter();
+  }
   _aqLastQuotes   = Array.isArray(data.quotes)   ? data.quotes   : [];
   _aqLastExcluded = Array.isArray(data.excluded) ? data.excluded : [];
   _aqLastMs       = (data.meta && data.meta.ms) || 0;
