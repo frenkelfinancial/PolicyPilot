@@ -22,7 +22,7 @@
 //
 // Response (200): {
 //   ok: true,
-//   companies: [{ name: string, toolkits: ('FEX'|'TERM'|'IUL')[] }, ...],
+//   companies: [{ name: string, toolkits: ('FEX'|'TERM'|'IUL')[], logo?: string }, ...],
 //   fetchedAt: string  // ISO timestamp
 // }
 // Response (4xx/5xx): { ok: false, error, meta?: { status } }
@@ -45,31 +45,41 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// Best-effort extraction of a company-name list from ITK's response.
-// The /quoter/companies/ endpoint returns an array of objects; the
-// shape isn't formally documented, so we accept anything with a
-// recognizable name field. Falls back to string entries.
-function extractNames(raw: unknown): string[] {
+type CompanyItem = { name: string; logo?: string };
+
+// Best-effort extraction of `{ name, logo? }` items from ITK's response.
+// The /quoter/companies/ endpoint returns an array; the shape isn't
+// formally documented, so we accept anything with a recognizable name
+// field. Falls back to string entries. Logo field, when present, is
+// optional and may come under any of several common keys.
+function extractCompanies(raw: unknown): CompanyItem[] {
   if (!Array.isArray(raw)) return [];
-  const names: string[] = [];
+  const out: CompanyItem[] = [];
   for (const item of raw) {
     if (typeof item === "string") {
       const s = item.trim();
-      if (s) names.push(s);
+      if (s) out.push({ name: s });
     } else if (item && typeof item === "object") {
       const rec = item as Record<string, unknown>;
       const cand =
         rec.name ?? rec.company ?? rec.company_name ?? rec.label ?? rec.title;
-      if (typeof cand === "string" && cand.trim()) names.push(cand.trim());
+      if (typeof cand === "string" && cand.trim()) {
+        const logoCand =
+          rec.logo ?? rec.logo_url ?? rec.image ?? rec.image_url ?? rec.icon;
+        const logo = typeof logoCand === "string" && logoCand.trim()
+          ? logoCand.trim()
+          : undefined;
+        out.push(logo ? { name: cand.trim(), logo } : { name: cand.trim() });
+      }
     }
   }
-  return names;
+  return out;
 }
 
 async function fetchToolkitCompanies(
   toolkit: Toolkit,
   apiKey: string,
-): Promise<{ toolkit: Toolkit; names: string[]; status: number; error?: string }> {
+): Promise<{ toolkit: Toolkit; items: CompanyItem[]; status: number; error?: string }> {
   try {
     const res = await fetch(
       `${ITK_BASE}/quoter/companies/?toolkit=${encodeURIComponent(toolkit)}`,
@@ -84,16 +94,16 @@ async function fetchToolkitCompanies(
     if (!res.ok) {
       return {
         toolkit,
-        names: [],
+        items: [],
         status: res.status,
         error: typeof data === "object" && data && "error" in data
           ? String((data as Record<string, unknown>).error)
           : text.slice(0, 200),
       };
     }
-    return { toolkit, names: extractNames(data), status: res.status };
+    return { toolkit, items: extractCompanies(data), status: res.status };
   } catch (e) {
-    return { toolkit, names: [], status: 0, error: (e as Error)?.message || String(e) };
+    return { toolkit, items: [], status: 0, error: (e as Error)?.message || String(e) };
   }
 }
 
@@ -126,13 +136,19 @@ Deno.serve(async (req) => {
   );
   const ms = Date.now() - start;
 
-  // Merge: each unique company name carries the set of toolkits it appeared in.
-  const byName = new Map<string, Set<Toolkit>>();
+  // Merge: each unique company name carries the set of toolkits it appeared
+  // in, plus the first non-empty logo URL we encounter (logos are stable
+  // per-carrier across toolkits, so first-wins is fine).
+  const byName = new Map<string, { toolkits: Set<Toolkit>; logo?: string }>();
   for (const r of results) {
-    for (const name of r.names) {
-      const existing = byName.get(name) ?? new Set<Toolkit>();
-      existing.add(r.toolkit);
-      byName.set(name, existing);
+    for (const it of r.items) {
+      let existing = byName.get(it.name);
+      if (!existing) {
+        existing = { toolkits: new Set<Toolkit>() };
+        byName.set(it.name, existing);
+      }
+      existing.toolkits.add(r.toolkit);
+      if (!existing.logo && it.logo) existing.logo = it.logo;
     }
   }
 
@@ -149,7 +165,14 @@ Deno.serve(async (req) => {
   }
 
   const companies = Array.from(byName.entries())
-    .map(([name, set]) => ({ name, toolkits: Array.from(set).sort() }))
+    .map(([name, v]) => {
+      const entry: { name: string; toolkits: Toolkit[]; logo?: string } = {
+        name,
+        toolkits: Array.from(v.toolkits).sort(),
+      };
+      if (v.logo) entry.logo = v.logo;
+      return entry;
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 
   // Partial failures: log them, but still return whatever succeeded so the
