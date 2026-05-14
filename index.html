@@ -8986,7 +8986,10 @@ const CARRIER_REGISTRY = [
   { key:'corebridge',     label:'Corebridge',          types:['fe','term'],       color:'#ec4899' },
   { key:'aetna',          label:'Aetna / Accendo',     types:['fe','term'],       color:'#10b981' },
   { key:'chubb',          label:'Chubb Life',          types:['fe','term'],       color:'#14b8a6' },
-  { key:'aamicable',      label:'American-Amicable',   types:['fe'],              color:'#8b5cf6' },
+  { key:'aamicable',      label:'American-Amicable',   types:['fe'],              color:'#8b5cf6',
+    // Fold subsidiary brands ITK returns separately (American Guardian,
+    // American Legacy, future "American-Amicable (…)" variants) into this row.
+    itkAliases:[/^American[\s-]?Amicable\b/i, /^American Guardian\b/i, /^American Legacy\b/i] },
   { key:'uhl',            label:'United Home Life',    types:['fe'],              color:'#dc2626' },
   { key:'ahl',            label:'American Home Life',  types:['fe'],              color:'#16a34a' },
   { key:'sbli',           label:'SBLI',                types:['fe'],              color:'#0284c7' },
@@ -9175,6 +9178,28 @@ function getMergedCarrierRegistry() {
       if (!match.logoUrl) match.logoUrl = co.logo || logoCache[co.name] || null;
       continue;
     }
+    // Alias fallback: no exact match — try each registry row's itkAliases
+    // regex(es). First match wins (registry order is author-controlled).
+    let aliasMatch = null;
+    let multiMatchSeen = false;
+    for (const r of registry) {
+      if (!r.itkAliases) continue;
+      if (r.itkAliases.some(rx => rx.test(co.name))) {
+        if (aliasMatch) { multiMatchSeen = true; break; }
+        aliasMatch = r;
+      }
+    }
+    if (multiMatchSeen) {
+      console.warn('[carriers] ITK name matched multiple aliases — using first:', co.name, aliasMatch && aliasMatch.key);
+    }
+    if (aliasMatch) {
+      if (!aliasMatch.itkNames.includes(co.name)) aliasMatch.itkNames.push(co.name);
+      // Intentionally NOT augmenting types from co.toolkits — registry
+      // controls which product-line badges a carrier shows; a subsidiary
+      // brand shouldn't expand the parent's type chips.
+      if (!aliasMatch.logoUrl) aliasMatch.logoUrl = co.logo || logoCache[co.name] || null;
+      continue;
+    }
     // New ITK-only carrier — synthetic key, default color.
     const types = Array.isArray(co.toolkits)
       ? co.toolkits.map(tk => ITK_TOOLKIT_TO_TYPE[tk]).filter(Boolean)
@@ -9199,6 +9224,35 @@ function getMergedCarrierRegistry() {
       if (logoCache[n]) { r.logoUrl = logoCache[n]; break; }
     }
   }
+
+  // Reconcile orphan itk_* keys in stg_carriers: when a previously-licensed
+  // subsidiary row gets folded into a registry row via alias, swap the orphan
+  // key for the registry key so the licensed-pill / quoter-filter keep working.
+  // Idempotent — subsequent loads find no orphans because we persist the fix.
+  try {
+    const stored = JSON.parse(localStorage.getItem(k('stg_carriers')) || '[]');
+    if (Array.isArray(stored) && stored.length) {
+      const liveKeys = new Set(registry.map(r => r.key));
+      let dirty = false;
+      const remapped = [];
+      for (const orig of stored) {
+        if (liveKeys.has(orig)) { remapped.push(orig); continue; }
+        if (typeof orig !== 'string' || !orig.startsWith('itk_')) { remapped.push(orig); continue; }
+        // Reverse the slug → look for a registry row whose itkNames contains
+        // a name that re-slugs to this orphan key.
+        let mapped = null;
+        for (const r of registry) {
+          for (const n of (r.itkNames || [])) {
+            if (itkCompanySlug(n) === orig) { mapped = r.key; break; }
+          }
+          if (mapped) break;
+        }
+        if (mapped) { dirty = true; if (!remapped.includes(mapped)) remapped.push(mapped); }
+        else { dirty = true; /* drop unmapped orphan */ }
+      }
+      if (dirty) localStorage.setItem(k('stg_carriers'), JSON.stringify(remapped));
+    }
+  } catch (_) { /* localStorage unavailable — no-op */ }
 
   return registry;
 }
