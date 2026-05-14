@@ -5245,46 +5245,21 @@ let healthDebounce = null;
 // Per-field caches keyed by text content
 const healthCache = {};
 
+// Routes through the `anthropic-parse` Supabase Edge Function so the
+// ANTHROPIC_API_KEY never ships to the browser. System prompt + model
+// live in supabase/functions/anthropic-parse/index.ts.
 async function aiParseHealth(text) {
   if (!text || text.trim().length < 3) return [];
-  if (healthCache[text]) return healthCache[text]; // use cache if same text
-
-  const systemPrompt = `You are a life insurance underwriting specialist helping insurance agents get a general estimate of carrier approval likelihood. Be LENIENT and realistic — insurers often approve clients with conditions at modified or graded levels that agents might expect to be declined. Many carriers have flexible underwriting and approve conditions that seem severe.
-
-Key principle: Default to the MOST FAVORABLE realistic outcome. If a condition COULD be approved at select 2 or graded, say so. Only mark "decline" for conditions that are almost universally declined (active terminal illness, organ transplant, HIV/AIDS, ALS, current dialysis, current hospice care).
-
-For COPD with oxygen — Transamerica and Corebridge can be GRADED (not decline). Americo may approve at select 2 in some cases.
-For diabetes on metformin — nearly always select 1 or select 2, NEVER decline.
-For diabetes + COPD combined — likely graded at some carriers, but NOT necessarily declined everywhere.
-Oxygen use alone — graded at Corebridge/Trans, possible decline at others, but always show graded options.
-High blood pressure controlled — always level/select 1, benign condition.
-Mental health conditions (depression, anxiety, PTSD, bipolar) — nearly always approved level or select 1.
-Past history (>2 years ago) — generally much more favorable than recent conditions.
-
-Available conditions (use EXACT names):
-AFIB / Irregular Heartbeat, Angina (Chest Pain), Angioplasty, Aneurysm, Blood Clots, Congestive Heart Failure, Coronary Artery Disease, Heart Attack (within 2 yrs), Heart Attack (2+ yrs ago), Heart Surgery (within 2 yrs), Heart Surgery (2+ yrs ago), Heart Valve Replacement, Pacemaker / Defibrillator (within 2 yrs), Pacemaker / Defibrillator (2+ yrs ago), Stent (within 2 yrs), Stent (2+ yrs ago), Asthma (Chronic), Bronchitis (Chronic), COPD (Inhaler — no oxygen), COPD (On Oxygen), Emphysema (Chronic), Pulmonary Fibrosis, Sleep Apnea (CPAP OK), Oxygen Use (not CPAP), Diabetes Type 2 — Controlled (A1C ≤ 8.6, no insulin), Diabetes Type 2 — Uncontrolled or A1C > 8.6, Diabetes Type 1 / On Insulin, Diabetic Complications (neuropathy/retinopathy), Dialysis, Cancer — Basal Cell Skin Only, Cancer — Active or Treatment within 2 yrs, Cancer — Last Treatment 2–4 yrs ago, Cancer — 4+ yrs cancer free, Melanoma (within 3 yrs), Melanoma (3+ yrs ago), Alzheimer's / Dementia / Memory Loss, ALS (Lou Gehrig's), Autism, Bipolar Disorder, Cerebral Palsy, Depression, Down's Syndrome, Epilepsy / Seizures (within 3 yrs), Epilepsy / Seizures (3+ yrs), Huntington's Disease, Mental Incapacity / Cognitive Impairment, Multiple Sclerosis (MS), Parkinson's Disease, PTSD, Schizophrenia, Cirrhosis, Crohn's Disease, Cystic Fibrosis, Hepatitis A, Hepatitis B, Hepatitis C, Kidney Disease / Kidney Failure, Liver Disease / Liver Failure, Pancreatitis, Ulcerative Colitis, Amputation (due to diabetes or disease), Amputation (trauma), Arthritis, Assisted Living / Long-Term Care Facility, Rheumatoid Arthritis, Sarcoidosis, Walker Use, Wheelchair / Scooter / Electric Cart, Blood Disorder (Hemophilia / Thrombocytopenia), Bone Marrow Transplant, HIV / AIDS / ARC, Lupus (SLE), Sickle Cell Anemia, Alcohol or Drug Abuse (within 2 yrs), Alcohol or Drug Abuse (2+ yrs clean), DUI (within 2 yrs), DUI (2+ yrs ago), Felony (within 6 months), Felony (6+ months ago), Illegal Drug Use (within 2 yrs), Illegal Drug Use (2+ yrs clean), Incarcerated / Jail, Parole or Probation (currently), Terminal Illness (death expected within 12 months), Organ Transplant, Chronic Narcotic Pain Medications (6+ fills/month), Neuropathy (not diabetic), Stroke/TIA (within 2 yrs), Stroke/TIA (2+ yrs ago)
-
-Medication mapping: insulin → Diabetes Type 1 / On Insulin; metformin/ozempic/januvia/jardiance/glipizide → Diabetes Type 2 — Controlled (A1C ≤ 8.6, no insulin); eliquis/xarelto/warfarin/plavix → Blood Clots; lisinopril/metoprolol/amlodipine/losartan/hydrochlorothiazide alone → Arthritis (benign, HBP); oxycodone/hydrocodone/morphine/fentanyl → Chronic Narcotic Pain Medications (6+ fills/month); albuterol/symbicort/advair/spiriva → Asthma (Chronic) or COPD (Inhaler — no oxygen); cpap/bipap → Sleep Apnea (CPAP OK); home oxygen/oxygen tank/supplemental oxygen → COPD (On Oxygen); humira/enbrel/methotrexate → Rheumatoid Arthritis; prozac/zoloft/lexapro/wellbutrin/sertraline → Depression; xanax/klonopin/ativan → Depression (benign); abilify/lithium/depakote → Bipolar Disorder
-
-Return ONLY a JSON array of matching condition names. No explanation, no markdown. Example: ["Diabetes Type 2 — Controlled (A1C ≤ 8.6, no insulin)", "Sleep Apnea (CPAP OK)"]`;
+  if (healthCache[text]) return healthCache[text];
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 500,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: `Client health description: "${text}"` }]
-      })
-    });
-    const data = await response.json();
-    const raw = data.content?.[0]?.text || '[]';
-    const clean = raw.replace(/```json|```/g, '').trim();
-    const parsed = JSON.parse(clean);
-    const result = Array.isArray(parsed) ? parsed : [];
-    healthCache[text] = result; // cache result
+    const { data, error } = await sb.functions.invoke('anthropic-parse', { body: { text } });
+    if (error || !data?.ok) {
+      console.error('AI health parse error:', error || data?.error);
+      return [];
+    }
+    const result = Array.isArray(data.conditions) ? data.conditions : [];
+    healthCache[text] = result;
     return result;
   } catch(e) {
     console.error('AI health parse error:', e);
@@ -7476,7 +7451,7 @@ function buildUWTable() {
       if (u === 'LEVEL' || u === 'PREFERRED' || u.startsWith('SELECT 1') || u.startsWith('SELECT1')) return 'style="color:var(--ds-color-success)"';
       return 'style="color:var(--text2)"';
     };
-    tr.innerHTML = `<td>${row[0]}</td>${row.slice(1).map(v=>`<td ${style(v)}>${v}</td>`).join('')}`;
+    tr.innerHTML = `<td>${escapeHTML(row[0])}</td>${row.slice(1).map(v=>`<td ${style(v)}>${escapeHTML(v)}</td>`).join('')}`;
     tbody.appendChild(tr);
   });
 }
@@ -8440,10 +8415,10 @@ function buildColMapper() {
         <!-- Left: CSV column info -->
         <div style="padding:14px 16px;background:var(--bg3);border-right:1px solid var(--border)">
           <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px">CSV Column ${idx+1}</div>
-          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">${header}</div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">${escapeHTML(header)}</div>
           ${previewVals.length ? `
             <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">Sample data:</div>
-            ${previewVals.map(v => `<div style="font-size:11.5px;color:var(--text2);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${v}</div>`).join('')}
+            ${previewVals.map(v => `<div style="font-size:11.5px;color:var(--text2);padding:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px">${escapeHTML(v)}</div>`).join('')}
           ` : `<div style="font-size:11.5px;color:var(--text3);font-style:italic">(no data in first 3 rows)</div>`}
         </div>
         <!-- Right: Field mapping -->
@@ -8483,7 +8458,7 @@ function updateMapperRow(sel) {
     if (!st) return;
     if (v !== 'skip' && counts[v] > 1) {
       st.style.color = '#fbbf24';
-      st.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('warning',{size:11})}Duplicate: <strong>${FIELD_OPTIONS.find(o=>o.value===v)?.label||v}</strong> mapped to ${counts[v]} columns</span>`;
+      st.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('warning',{size:11})}Duplicate: <strong>${escapeHTML(FIELD_OPTIONS.find(o=>o.value===v)?.label||v)}</strong> mapped to ${counts[v]} columns</span>`;
     }
   });
 }
