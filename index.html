@@ -1706,8 +1706,13 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         #sec-api-quoter .aq-hero .aq-rank { position:absolute; top:-10px; left:12px; background:var(--bg3); border:1px solid var(--border); border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; letter-spacing:.5px; color:var(--text2); }
         #sec-api-quoter .aq-hero.rank-1 .aq-rank { background:var(--ds-color-success,#22c55e); color:#fff; border-color:transparent; }
         #sec-api-quoter .aq-hero-head { display:flex; align-items:center; gap:10px; min-height:32px; }
-        #sec-api-quoter .aq-hero-logo { height:28px; max-width:90px; object-fit:contain; flex:0 0 auto; }
+        #sec-api-quoter .aq-hero-logo { max-width:100%; max-height:100%; object-fit:contain; }
         #sec-api-quoter .aq-hero-logo-fb { width:28px; height:28px; border-radius:6px; background:var(--bg3); display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--text3); flex:0 0 auto; }
+        /* Always-light chip — carrier logos are designed for light backgrounds; in dark mode a var(--bg) chip would hide black/dark logos. */
+        #sec-api-quoter .aq-logo-box { display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; border:1px solid rgba(0,0,0,.08); border-radius:10px; background:#fff; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+        #sec-api-quoter .aq-hero-head .aq-logo-box { width:56px; height:56px; border-radius:12px; padding:6px; }
+        #sec-api-quoter .aq-hero-head .aq-logo-box img { max-width:100%; max-height:100%; height:auto; object-fit:contain; }
+        #sec-api-quoter .aq-hero-head .aq-logo-box .aq-hero-logo-fb { width:100%; height:100%; border:none; border-radius:0; background:transparent; color:#374151; font-size:15px; }
         #sec-api-quoter .aq-hero-name { font-size:13px; font-weight:600; color:var(--text); line-height:1.2; }
         #sec-api-quoter .aq-hero-plan { font-size:11px; color:var(--text3); }
         #sec-api-quoter .aq-hero-monthly { font-size:24px; font-weight:700; color:var(--text); }
@@ -1726,9 +1731,20 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         #sec-api-quoter table.aq-table tbody tr:last-child td { border-bottom:none; }
         #sec-api-quoter table.aq-table tbody tr:hover td { background:var(--bg3); }
         #sec-api-quoter table.aq-table td.right { text-align:right; white-space:nowrap; }
-        #sec-api-quoter table.aq-table .aq-carrier { display:flex; align-items:center; gap:8px; }
-        #sec-api-quoter table.aq-table .aq-carrier img { height:20px; max-width:60px; object-fit:contain; }
-        #sec-api-quoter table.aq-table .aq-carrier .aq-hero-logo-fb { width:20px; height:20px; font-size:9px; }
+        #sec-api-quoter table.aq-table .aq-carrier { display:flex; align-items:center; gap:12px; min-width:0; }
+        #sec-api-quoter table.aq-table .aq-carrier .aq-logo-box { width:44px; height:44px; padding:5px; }
+        #sec-api-quoter table.aq-table .aq-carrier .aq-logo-box img { max-width:100%; max-height:100%; height:auto; object-fit:contain; }
+        #sec-api-quoter table.aq-table .aq-carrier .aq-logo-box .aq-hero-logo-fb { width:100%; height:100%; border:none; border-radius:0; background:transparent; color:#374151; font-size:12px; }
+        #sec-api-quoter table.aq-table .aq-carrier-name { font-weight:600; font-size:13px; color:var(--text); line-height:1.25; }
+        #sec-api-quoter table.aq-table th:nth-child(2),
+        #sec-api-quoter table.aq-table td:nth-child(2) { min-width:220px; width:26%; }
+        #sec-api-quoter table.aq-table th:nth-child(3),
+        #sec-api-quoter table.aq-table td:nth-child(3) { min-width:200px; }
+        #sec-api-quoter .aq-warn { margin-top:4px; }
+        #sec-api-quoter .aq-warn summary { display:inline-flex; align-items:center; gap:4px; cursor:pointer; font-size:10.5px; color:#ca8a04; font-weight:600; border:1px solid rgba(202,138,4,.35); background:rgba(202,138,4,.08); padding:1px 8px; border-radius:999px; list-style:none; }
+        #sec-api-quoter .aq-warn summary::-webkit-details-marker { display:none; }
+        #sec-api-quoter .aq-warn[open] summary { background:rgba(202,138,4,.18); }
+        #sec-api-quoter .aq-warn-body { margin-top:6px; padding:8px 10px; font-size:11.5px; color:var(--text2); background:rgba(202,138,4,.06); border-left:2px solid #ca8a04; border-radius:4px; max-width:520px; line-height:1.4; }
         #sec-api-quoter .aq-loading { padding:var(--ds-space-6,32px); text-align:center; color:var(--text2); font-size:13px; }
         #sec-api-quoter .aq-error { padding:var(--ds-space-4,16px); border:1px solid var(--ds-color-danger,#dc2626); border-radius:var(--ds-radius-md,10px); background:rgba(220,38,38,.08); color:var(--ds-color-danger,#dc2626); font-size:13px; display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
         #sec-api-quoter .aq-error strong { display:block; margin-bottom:4px; }
@@ -1812,6 +1828,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
         <div class="mt16 flex aic" style="gap:12px;flex-wrap:wrap">
           <button class="btn btn-p" onclick="runApiQuote()">Run Quote</button>
+          <button class="btn" type="button" onclick="clearApiQuoterForm()">Clear</button>
           <span id="aq-form-hint" style="font-size:11.5px;color:var(--text3)">Fill age, sex, state, and face amount.</span>
         </div>
       </div>
@@ -9449,6 +9466,27 @@ function saveApiQuoterInputs() {
   } catch (_) { /* localStorage may be unavailable; never crash */ }
 }
 
+function clearApiQuoterForm() {
+  const reset = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === 'SELECT') {
+      const def = Array.from(el.options).find(o => o.defaultSelected) || el.options[0];
+      if (def) el.value = def.value;
+    } else {
+      el.value = el.defaultValue || '';
+    }
+  };
+  ['aq-product','aq-age','aq-sex','aq-state','aq-face','aq-tobacco','aq-term','aq-payment'].forEach(reset);
+  try { localStorage.removeItem(AQ_STORAGE_KEY); } catch (_) {}
+  const slot = document.getElementById('api-quoter-results');
+  if (slot) { slot.style.display = 'none'; slot.innerHTML = ''; }
+  const hint = document.getElementById('aq-form-hint');
+  if (hint) { hint.textContent = 'Fill age, sex, state, and face amount.'; hint.style.color = 'var(--text3)'; }
+  _aqLastQuotes = []; _aqLastExcluded = []; _aqLastBody = null; _aqLastMs = 0;
+  try { apiQuoterToggleFields(); } catch (_) {}
+}
+
 function loadApiQuoterInputs() {
   let snap;
   try { snap = JSON.parse(localStorage.getItem(AQ_STORAGE_KEY) || 'null'); }
@@ -9574,15 +9612,30 @@ function apiQuoterSort(col) {
   renderApiQuoteResults(/*reuseLast*/ true);
 }
 
-function aqLogoCell(q, size) {
+function aqLogoFallback(img) {
+  if (!img || !img.parentNode) return;
+  const initials = img.getAttribute('data-fb-initials') || '?';
+  const span = document.createElement('span');
+  span.className = 'aq-hero-logo-fb';
+  span.textContent = initials;
+  img.replaceWith(span);
+}
+
+function aqCleanCompany(name) {
+  if (!name) return '';
+  return String(name).replace(/\s*\([^)]*\)\s*$/, '').trim() || String(name);
+}
+
+function aqLogoCell(q /* size param ignored — .aq-logo-box owns sizing */) {
   const initials = (q.company || '?').replace(/\(.*\)/, '').trim().split(/\s+/).slice(0,2).map(w => w[0] || '').join('').toUpperCase() || '?';
-  const fallback = '<span class="aq-hero-logo-fb"' + (size ? ' style="width:' + size + 'px;height:' + size + 'px"' : '') + '>' + escapeHTML(initials) + '</span>';
-  if (!q.logo) return fallback;
+  if (!q.logo) {
+    return '<span class="aq-hero-logo-fb">' + escapeHTML(initials) + '</span>';
+  }
   return '<img class="aq-hero-logo"' +
-    (size ? ' style="height:' + size + 'px"' : '') +
     ' src="' + escapeHTML(q.logo) + '" alt="' + escapeHTML(q.company || '') + '"' +
     ' loading="lazy" referrerpolicy="no-referrer"' +
-    ' onerror="this.outerHTML=' + JSON.stringify(fallback) + '">';
+    ' data-fb-initials="' + escapeHTML(initials) + '"' +
+    ' onerror="aqLogoFallback(this)">';
 }
 
 function fmtMoney(n) {
@@ -9614,8 +9667,8 @@ function renderApiQuoteResults(reuseLast) {
     const comm = aqEstimateCommission(q.company, q.yearly);
     return '<div class="aq-hero rank-' + (i + 1) + '">' +
       '<span class="aq-rank">#' + (i + 1) + '</span>' +
-      '<div class="aq-hero-head">' + aqLogoCell(q, 28) +
-        '<div style="min-width:0;flex:1"><div class="aq-hero-name">' + escapeHTML(q.company || '') + '</div>' +
+      '<div class="aq-hero-head"><span class="aq-logo-box">' + aqLogoCell(q, 28) + '</span>' +
+        '<div style="min-width:0;flex:1"><div class="aq-hero-name" title="' + escapeHTML(q.company || '') + '">' + escapeHTML(aqCleanCompany(q.company)) + '</div>' +
         '<div class="aq-hero-plan">' + escapeHTML(q.plan_name || q.tier_name || '') + '</div></div></div>' +
       '<div class="aq-hero-monthly">' + fmtMoney(aqNum(q.monthly)) + '<span>/mo</span></div>' +
       '<div class="aq-hero-sub">' +
@@ -9636,11 +9689,14 @@ function renderApiQuoteResults(reuseLast) {
       : '';
     return '<tr>' +
       '<td class="aq-rank-cell">' + (i + 1) + '</td>' +
-      '<td><div class="aq-carrier">' + aqLogoCell(q, 20) +
-        '<div style="min-width:0"><div style="font-weight:600;font-size:12.5px">' + escapeHTML(q.company || '') + '</div></div>' +
+      '<td><div class="aq-carrier"><span class="aq-logo-box">' + aqLogoCell(q, 20) + '</span>' +
+        '<div style="min-width:0"><div class="aq-carrier-name" title="' + escapeHTML(q.company || '') + '">' + escapeHTML(aqCleanCompany(q.company)) + '</div></div>' +
       '</div></td>' +
       '<td>' + escapeHTML(q.plan_name || q.tier_name || '') +
-        (q.warning ? '<div style="font-size:10.5px;color:#ca8a04;margin-top:2px">⚠ ' + escapeHTML(q.warning) + '</div>' : '') +
+        (q.warning
+          ? '<details class="aq-warn"><summary title="' + escapeHTML(q.warning) + '">⚠ Underwriting note</summary>' +
+            '<div class="aq-warn-body">' + escapeHTML(q.warning) + '</div></details>'
+          : '') +
       '</td>' +
       '<td class="right"><strong>' + fmtMoney(aqNum(q.monthly)) + '</strong></td>' +
       '<td class="right">' + fmtMoney(aqNum(q.yearly)) + '</td>' +
