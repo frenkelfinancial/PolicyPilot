@@ -2,16 +2,17 @@
 // supabase/functions/itk-companies/index.ts
 //
 // Returns the union of carriers that Insurance Toolkits (ITK)
-// supports across FEX / TERM / IUL toolkits, so the Settings →
-// Carriers tab can show every carrier ITK might return — not
-// just the ~28 we've hardcoded locally.
+// supports across FEX / TERM / IUL toolkits, joined against the
+// shared `itk_carrier_logos` table so every agent gets carrier
+// logos without first running quotes on their own device.
 //
 // Pure metadata read. Does NOT touch quote_usage; this endpoint
 // is intentionally cheap so the client can refresh on demand
 // without burning the 250-per-30-days quote cap.
 //
-// Required secret (shared with itk-quote):
+// Required secrets (shared with itk-quote):
 //   - ITK_API_KEY
+//   - SUPABASE_SERVICE_ROLE_KEY  (auto-injected by Edge runtime)
 //
 // Auth: platform verify_jwt = true rejects anon callers before
 // this runs. We don't re-verify because we have no per-user
@@ -27,6 +28,8 @@
 // }
 // Response (4xx/5xx): { ok: false, error, meta?: { status } }
 // ============================================================
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const ITK_BASE = "https://api.insurancetoolkits.com";
 const ALLOWED_TOOLKITS = ["FEX", "TERM", "IUL"] as const;
@@ -174,6 +177,42 @@ Deno.serve(async (req) => {
       return entry;
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Overlay logos from the shared `itk_carrier_logos` table. Lets every
+  // agent's Carriers tab paint logos without first running quotes on
+  // their own device. DB values win over whatever ITK returned (rare —
+  // ITK's companies endpoint typically doesn't ship logos) because the
+  // DB is sourced from actual quote responses where logos are reliable.
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY && companies.length) {
+    try {
+      const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: logos, error } = await admin
+        .from("itk_carrier_logos")
+        .select("company_name, logo_url")
+        .in("company_name", companies.map((c) => c.name));
+      if (error) {
+        console.warn("[itk-companies] logo join failed:", error.message);
+      } else if (logos && logos.length) {
+        const logoMap = new Map<string, string>();
+        for (const row of logos) {
+          if (row?.company_name && row?.logo_url) {
+            logoMap.set(row.company_name, row.logo_url);
+          }
+        }
+        for (const c of companies) {
+          const dbLogo = logoMap.get(c.name);
+          if (dbLogo) c.logo = dbLogo;
+        }
+      }
+    } catch (e) {
+      // Better to ship the carrier list with no logos than fail entirely.
+      console.warn("[itk-companies] logo join threw:", (e as Error)?.message);
+    }
+  }
 
   // Partial failures: log them, but still return whatever succeeded so the
   // user gets the carriers from the toolkits that did work.
