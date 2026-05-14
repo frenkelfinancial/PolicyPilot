@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL      = Deno.env.get("SUPABASE_URL") ?? "";
   const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const authHeader = req.headers.get("Authorization") ?? "";
 
   // Authenticated client — forwards the caller's JWT so RLS applies and
@@ -215,6 +216,14 @@ Deno.serve(async (req) => {
     }, browserStatus);
   }
 
+  // Harvest carrier logos from the quote response into the shared
+  // `itk_carrier_logos` table so every agent's Settings → Carriers tab
+  // gets them without having to run quotes on their own device first.
+  // Fire-and-forget — never blocks the response.
+  if (SUPABASE_SERVICE_ROLE_KEY) {
+    void upsertCarrierLogos(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, data?.quotes);
+  }
+
   return json({
     ok: true,
     quotes: data?.quotes || [],
@@ -223,6 +232,43 @@ Deno.serve(async (req) => {
     quota: { used: used + 1, limit, resetAt: null },
   });
 });
+
+// Upsert any `{ company_name, logo_url }` pairs found in a quotes array
+// into public.itk_carrier_logos. Uses a service-role client because the
+// table has no INSERT policy for the authenticated role — logos are
+// shared across all agents and written only by trusted server code.
+async function upsertCarrierLogos(
+  supabaseUrl: string,
+  serviceKey: string,
+  quotes: unknown,
+) {
+  if (!Array.isArray(quotes) || !quotes.length) return;
+  const seen = new Map<string, string>();
+  for (const q of quotes) {
+    if (!q || typeof q !== "object") continue;
+    const rec = q as Record<string, unknown>;
+    const company = typeof rec.company === "string" ? rec.company.trim() : "";
+    const logo    = typeof rec.logo    === "string" ? rec.logo.trim()    : "";
+    if (!company || !logo) continue;
+    if (!seen.has(company)) seen.set(company, logo);
+  }
+  if (!seen.size) return;
+  const rows = Array.from(seen.entries()).map(([company_name, logo_url]) => ({
+    company_name,
+    logo_url,
+  }));
+  try {
+    const admin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { error } = await admin
+      .from("itk_carrier_logos")
+      .upsert(rows, { onConflict: "company_name" });
+    if (error) console.warn(`[itk-quote] logo upsert failed:`, error.message);
+  } catch (e) {
+    console.warn(`[itk-quote] logo upsert threw:`, (e as Error)?.message);
+  }
+}
 
 // Fire-and-forget usage write. RLS check is `auth.uid() = agent_id`, so the
 // row only inserts when the JWT subject matches userId — defense in depth.
