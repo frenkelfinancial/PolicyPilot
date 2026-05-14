@@ -1402,6 +1402,8 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .stg-carrier-info{flex:1;min-width:0}
 .stg-carrier-name{font-size:12.5px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
 .stg-carrier-type{display:inline-block;font-size:9px;font-weight:600;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;margin-top:3px;text-transform:uppercase;letter-spacing:.06em}
+.stg-carrier-itk{display:inline-block;font-size:9px;font-weight:700;color:#0b3d91;background:rgba(91,160,232,.18);border:1px solid rgba(91,160,232,.5);border-radius:3px;padding:1px 5px;margin-left:4px;text-transform:uppercase;letter-spacing:.06em}
+body.light .stg-carrier-itk{color:#0b3d91;background:rgba(91,160,232,.2);border-color:rgba(91,160,232,.55)}
 .stg-carrier-toggle{width:30px;height:17px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;position:relative;flex-shrink:0;transition:background .12s,border-color .12s}
 .stg-carrier-toggle::after{content:"";position:absolute;left:2px;top:2px;width:11px;height:11px;border-radius:50%;background:var(--text3);transition:transform .12s,background .12s}
 .stg-carrier-card.contracted .stg-carrier-toggle{background:var(--accent);border-color:var(--accent)}
@@ -2530,8 +2532,9 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div id="stg-carriers" style="display:none">
         <div class="alert alert-i" style="margin-bottom:16px">
           <span data-ico="info"></span>
-          <div>Toggle the carriers you are contracted with. Each card shows all product lines that carrier offers — one toggle covers all of them.</div>
+          <div>Toggle the carriers you are contracted with. Each card shows all product lines that carrier offers — one toggle covers all of them. Selecting only some carriers filters the <strong>Quote + Underwriting</strong> tab to those carriers; leaving them all off shows every carrier ITK returns.</div>
         </div>
+        <div id="stg-carrier-status" style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;font-size:11.5px;color:var(--text3)"></div>
         <div id="stg-carrier-grid"></div>
       </div>
 
@@ -8948,6 +8951,143 @@ function getContractedCarriers() {
   try { return JSON.parse(localStorage.getItem(k('stg_carriers')) || '[]'); } catch(e) { return []; }
 }
 
+// ============================================================
+// ITK Carriers — full carrier list pulled from the ITK
+// `/quoter/companies/` endpoint via the `itk-companies` edge
+// function. Merged into CARRIER_REGISTRY so the Settings tab
+// shows every carrier ITK can return (not just the curated set),
+// and so the API Quoter can hide carriers the agent isn't
+// licensed to sell.
+//
+// Pure metadata read — doesn't count against the 250 quote cap.
+// Cached in localStorage; refreshed weekly or on user request.
+// ============================================================
+const ITK_COMPANIES_TTL_MS = 7 * 24 * 60 * 60 * 1000; // refresh weekly
+const ITK_TOOLKIT_TO_TYPE = { FEX:'fe', TERM:'term', IUL:'iul' };
+let _itkCompaniesLoading = null; // Promise gate against parallel fetches
+
+function getItkCompaniesCache() {
+  try {
+    const raw = localStorage.getItem(k('itk_companies_v1'));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.companies)) return null;
+    return parsed;
+  } catch(e) { return null; }
+}
+
+function setItkCompaniesCache(payload) {
+  try { localStorage.setItem(k('itk_companies_v1'), JSON.stringify(payload)); } catch(e) {}
+}
+
+function itkCompaniesCacheIsFresh(cache) {
+  if (!cache || !cache.fetchedAt) return false;
+  const age = Date.now() - new Date(cache.fetchedAt).getTime();
+  return isFinite(age) && age >= 0 && age < ITK_COMPANIES_TTL_MS;
+}
+
+// Stable, collision-resistant slug for synthetic ITK-only carrier keys.
+// Prefixed with `itk_` so we never overlap a hand-curated CARRIER_REGISTRY key.
+function itkCompanySlug(name) {
+  return 'itk_' + String(name||'')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 60);
+}
+
+// Fetch the ITK company list. `force:true` bypasses the freshness check.
+// Concurrent callers share one in-flight promise. Resolves with the cache
+// payload (whether freshly fetched or still-valid existing cache).
+async function loadItkCompanies(opts) {
+  const force = !!(opts && opts.force);
+  const cached = getItkCompaniesCache();
+  if (!force && itkCompaniesCacheIsFresh(cached)) return cached;
+  if (_itkCompaniesLoading) return _itkCompaniesLoading;
+  _itkCompaniesLoading = (async () => {
+    try {
+      const res = await sb.functions.invoke('itk-companies', { body: {} });
+      if (res.error || !res.data || res.data.ok === false) {
+        const msg = (res.data && res.data.error) || (res.error && res.error.message) || 'Unknown error';
+        console.error('[itk-companies] fetch failed', { error: msg, raw: res });
+        return cached; // fall back to stale cache rather than wiping it
+      }
+      const payload = {
+        companies: Array.isArray(res.data.companies) ? res.data.companies : [],
+        fetchedAt: res.data.fetchedAt || new Date().toISOString(),
+      };
+      setItkCompaniesCache(payload);
+      return payload;
+    } catch (e) {
+      console.error('[itk-companies] network error', e);
+      return cached;
+    } finally {
+      _itkCompaniesLoading = null;
+    }
+  })();
+  return _itkCompaniesLoading;
+}
+
+// Unified carrier list = curated CARRIER_REGISTRY + every ITK company we
+// haven't already mapped via LOCAL_TO_ITK_FE/TERM. Used by:
+//   - Settings → Carriers grid (render all toggleable carriers)
+//   - API Quoter filter (map an ITK quote.company → registry key)
+//
+// Each returned entry has the same shape as CARRIER_REGISTRY entries plus:
+//   itkNames: string[]   the ITK company strings that resolve to this key
+//   source:   'registry' | 'itk'
+function getMergedCarrierRegistry() {
+  const registry = CARRIER_REGISTRY.map(c => {
+    const itkNames = [
+      ...(LOCAL_TO_ITK_FE[c.key]   || []),
+      ...(LOCAL_TO_ITK_TERM[c.key] || []),
+    ];
+    return { ...c, types: c.types.slice(), itkNames, source: 'registry' };
+  });
+
+  const cache = getItkCompaniesCache();
+  const itkCompanies = (cache && Array.isArray(cache.companies)) ? cache.companies : [];
+
+  // Fast lookup: ITK name → registry entry. Built only over registry rows
+  // that actually have ITK mappings.
+  const byItkName = new Map();
+  for (const r of registry) {
+    for (const n of r.itkNames) byItkName.set(n, r);
+  }
+
+  for (const co of itkCompanies) {
+    if (!co || !co.name) continue;
+    const match = byItkName.get(co.name);
+    if (match) {
+      // Augment with any toolkit ITK now reports for this carrier so the
+      // type badges stay accurate. e.g. registry has ['fe','term'] but ITK
+      // also returns it under IUL → we add 'iul'.
+      if (Array.isArray(co.toolkits)) {
+        for (const tk of co.toolkits) {
+          const t = ITK_TOOLKIT_TO_TYPE[tk];
+          if (t && !match.types.includes(t)) match.types.push(t);
+        }
+      }
+      continue;
+    }
+    // New ITK-only carrier — synthetic key, default color.
+    const types = Array.isArray(co.toolkits)
+      ? co.toolkits.map(tk => ITK_TOOLKIT_TO_TYPE[tk]).filter(Boolean)
+      : [];
+    registry.push({
+      key:      itkCompanySlug(co.name),
+      label:    co.name,
+      types:    types.length ? types : ['fe'],
+      color:    '#64748b',
+      itkNames: [co.name],
+      source:   'itk',
+    });
+  }
+
+  return registry;
+}
+
 // Master display list for policy-tracker carrier dropdowns (label → registry key mapping)
 const TRACKER_CARRIER_LIST = [
   { key:'americo',    label:'Americo' },
@@ -9010,25 +9150,70 @@ function settingsTab(id, el) {
 
 function _carrierCardHTML(c, contracted) {
   const on = contracted.includes(c.key);
-  const typeBadge = c.types.map(t => TYPE_SHORT[t]).join(' · ');
-  return `<div class="stg-carrier-card${on ? ' contracted' : ''}" onclick="toggleCarrier('${c.key}',this)" data-key="${c.key}">
-    <div class="stg-carrier-dot" style="background:${c.color}"></div>
+  const typeBadge = c.types.map(t => TYPE_SHORT[t]).filter(Boolean).join(' · ');
+  const itkBadge = c.source === 'itk'
+    ? ' <span class="stg-carrier-itk" title="Discovered via Insurance Toolkits API">ITK</span>'
+    : '';
+  return `<div class="stg-carrier-card${on ? ' contracted' : ''}" onclick="toggleCarrier('${escapeHTML(c.key)}',this)" data-key="${escapeHTML(c.key)}">
+    <div class="stg-carrier-dot" style="background:${escapeHTML(c.color || '#64748b')}"></div>
     <div class="stg-carrier-info">
-      <div class="stg-carrier-name">${c.label}</div>
-      <div class="stg-carrier-type">${typeBadge}</div>
+      <div class="stg-carrier-name" title="${escapeHTML(c.label)}">${escapeHTML(c.label)}</div>
+      <div class="stg-carrier-type">${escapeHTML(typeBadge)}${itkBadge}</div>
     </div>
     <div class="stg-carrier-toggle"></div>
   </div>`;
 }
 
+function _renderCarrierStatusRow() {
+  const row = document.getElementById('stg-carrier-status');
+  if (!row) return;
+  const cache = getItkCompaniesCache();
+  const loading = !!_itkCompaniesLoading;
+  let left;
+  if (loading && !cache) {
+    left = '<span>Loading carrier list from Insurance Toolkits…</span>';
+  } else if (cache && cache.fetchedAt) {
+    const d = new Date(cache.fetchedAt);
+    const when = isFinite(d.getTime())
+      ? d.toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' })
+      : 'recently';
+    left = '<span>Carrier list updated ' + escapeHTML(when) + (loading ? ' · refreshing…' : '') + '</span>';
+  } else {
+    left = '<span>Carrier list not yet loaded.</span>';
+  }
+  const right = loading
+    ? '<span style="opacity:.6">Refresh</span>'
+    : '<a href="#" onclick="refreshItkCompanies(event)" style="color:var(--text-g);text-decoration:underline">Refresh</a>';
+  row.innerHTML = left + right;
+}
+
+async function refreshItkCompanies(ev) {
+  if (ev && ev.preventDefault) ev.preventDefault();
+  _renderCarrierStatusRow(); // reflect spinner via re-render after kick
+  await loadItkCompanies({ force: true });
+  renderCarrierGrid();
+}
+
 function renderCarrierGrid() {
-  const contracted = getContractedCarriers();
   const grid = document.getElementById('stg-carrier-grid');
   if (!grid) return;
+  const contracted = getContractedCarriers();
   grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:7px';
-  const sorted = [...CARRIER_REGISTRY].sort((a, b) => a.label.localeCompare(b.label));
+  const sorted = getMergedCarrierRegistry().sort((a, b) => a.label.localeCompare(b.label));
   grid.innerHTML = sorted.map(c => _carrierCardHTML(c, contracted)).join('');
   mountIcons(grid);
+  _renderCarrierStatusRow();
+
+  // Fire-and-forget refresh if cache is empty or stale. Re-renders on resolve
+  // so the first-paint never blocks on a network round trip.
+  const cache = getItkCompaniesCache();
+  if (!cache || !itkCompaniesCacheIsFresh(cache)) {
+    loadItkCompanies().then(updated => {
+      if (updated && document.getElementById('stg-carriers').style.display !== 'none') {
+        renderCarrierGrid();
+      }
+    });
+  }
 }
 
 function toggleCarrier(key, el) {
@@ -9764,9 +9949,64 @@ function renderApiQuoteError(slot, title, detail) {
     '</div>';
 }
 
-function aqSortedQuotes() {
+// Map an ITK quote's `company` string to the merged-registry key it belongs
+// to. Falls through to a synthetic `itk_*` key for unmapped names so a quote
+// from a brand-new ITK carrier is still filterable once the user toggles it
+// in Settings. Returns null only for quotes that have no company at all.
+function aqQuoteToRegistryKey(quote) {
+  if (!quote || !quote.company) return null;
+  const name = quote.company;
+  const registry = getMergedCarrierRegistry();
+  for (const entry of registry) {
+    if (entry.itkNames && entry.itkNames.indexOf(name) !== -1) return entry.key;
+  }
+  return itkCompanySlug(name);
+}
+
+// Split _aqLastQuotes into { visible, hidden } based on the agent's
+// contracted-carrier list. Empty contracted list = pass-through (show all),
+// matching the convention used by FE/Term/IUL card grids.
+function aqPartitionQuotes() {
+  const contracted = getContractedCarriers();
+  const all = _aqLastQuotes.slice();
+  if (!contracted.length) return { visible: all, hidden: [] };
+  const set = new Set(contracted);
+  const visible = [];
+  const hidden  = [];
+  for (const q of all) {
+    const key = aqQuoteToRegistryKey(q);
+    if (key && set.has(key)) visible.push(q);
+    else hidden.push(q);
+  }
+  return { visible, hidden };
+}
+
+// Hidden-by-license details block. Mirrors renderExcludedBlock's styling so
+// the API Quoter has a consistent "look further down" affordance.
+function renderHiddenByLicenseBlock(hidden) {
+  if (!hidden || !hidden.length) return '';
+  // De-dupe by company so multi-plan carriers (e.g. Americo HMS + Continuation)
+  // collapse to one row in the hidden list.
+  const seen = new Set();
+  const names = [];
+  for (const q of hidden) {
+    const n = q.company || '';
+    if (!n || seen.has(n)) continue;
+    seen.add(n);
+    names.push(n);
+  }
+  const items = names.map(n => '<li style="margin-bottom:4px">' + escapeHTML(n) + '</li>').join('');
+  return '<details style="padding:10px 12px;font-size:12px;color:var(--text2);border-top:1px solid var(--border);background:var(--bg2)">' +
+    '<summary style="cursor:pointer">' + names.length + ' carrier' + (names.length === 1 ? '' : 's') +
+      ' hidden — not in your licensed list. <a href="#" onclick="nav(\'settings\');return false" style="color:var(--text-g);text-decoration:underline">Manage in Settings → Carriers</a></summary>' +
+    '<ul style="margin:8px 0 0;padding-left:20px">' + items + '</ul>' +
+  '</details>';
+}
+
+function aqSortedQuotes(list) {
   const col = _aqSortCol, dir = _aqSortDir;
-  const out = _aqLastQuotes.slice();
+  const source = Array.isArray(list) ? list : _aqLastQuotes;
+  const out = source.slice();
   out.sort((a, b) => {
     let va, vb;
     if (col === 'company')   { va = (a.company||'').toLowerCase(); vb = (b.company||'').toLowerCase(); }
@@ -9832,15 +10072,33 @@ function fmtMoney(n) {
 function renderApiQuoteResults(reuseLast) {
   const slot = document.getElementById('api-quoter-results');
   if (!slot) return;
-  const quotes   = _aqLastQuotes;
-  const excluded = _aqLastExcluded;
-  const ms       = _aqLastMs;
+  const allQuotes = _aqLastQuotes;
+  const excluded  = _aqLastExcluded;
+  const ms        = _aqLastMs;
 
-  if (!quotes.length) {
+  if (!allQuotes.length) {
     slot.innerHTML =
       '<div class="aq-empty">No carriers returned a quote for these inputs.' +
         (excluded.length ? ' ' + excluded.length + ' carriers excluded — see details below.' : '') +
       '</div>' + renderExcludedBlock(excluded);
+    return;
+  }
+
+  const partition = aqPartitionQuotes();
+  const quotes = partition.visible;
+  const hidden = partition.hidden;
+
+  // Distinct empty state for "ITK returned quotes but the user has none of
+  // those carriers checked" — different from "ITK returned nothing" above.
+  if (!quotes.length) {
+    slot.innerHTML =
+      '<div class="aq-empty">All ' + allQuotes.length + ' returned carrier' +
+        (allQuotes.length === 1 ? '' : 's') +
+        ' are filtered out by your licensed-carriers list. ' +
+        '<a href="#" onclick="nav(\'settings\');return false" style="color:var(--text-g);text-decoration:underline">Manage in Settings → Carriers</a>' +
+      '</div>' +
+      renderHiddenByLicenseBlock(hidden) +
+      renderExcludedBlock(excluded);
     return;
   }
 
@@ -9865,7 +10123,7 @@ function renderApiQuoteResults(reuseLast) {
       '</div>';
   }).join('');
 
-  const sorted = aqSortedQuotes();
+  const sorted = aqSortedQuotes(quotes);
   const rows = sorted.map((q, i) => {
     const comm = aqEstimateCommission(q.company, q.yearly);
     const eapp = (q.eapp_link && q.eapp_link !== '#')
@@ -9900,9 +10158,14 @@ function renderApiQuoteResults(reuseLast) {
   if (body.tobacco)    chips.push('<span class="aq-chip">' + escapeHTML(body.tobacco === 'Cigarettes' ? 'Tobacco' : 'Non-tobacco') + '</span>');
   if (body.term)       chips.push('<span class="aq-chip">' + escapeHTML(String(body.term)) + 'yr</span>');
 
+  const metaQuoteLine = hidden.length
+    ? '<strong style="color:var(--text2)">' + quotes.length + ' of ' + allQuotes.length +
+      ' quote' + (allQuotes.length === 1 ? '' : 's') + ' from ITK</strong>'
+    : '<strong style="color:var(--text2)">' + quotes.length + ' quote' + (quotes.length === 1 ? '' : 's') + ' from ITK</strong>';
+
   slot.innerHTML =
     '<div class="aq-meta">' +
-      '<strong style="color:var(--text2)">' + quotes.length + ' quote' + (quotes.length === 1 ? '' : 's') + ' from ITK</strong>' +
+      metaQuoteLine +
       '<span style="color:var(--text3)">in ' + ms + 'ms</span>' +
       chips.join('') +
     '</div>' +
@@ -9919,6 +10182,7 @@ function renderApiQuoteResults(reuseLast) {
       '</tr></thead>' +
       '<tbody>' + rows + '</tbody>' +
     '</table></div>' +
+    renderHiddenByLicenseBlock(hidden) +
     renderExcludedBlock(excluded);
 }
 
