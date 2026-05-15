@@ -7879,7 +7879,26 @@ const softphone = (() => {
     const { token, callerId } = r.data;
     state.callerId = callerId || '';
 
-    // Step 2 — load + connect SDK
+    // Step 2a — request microphone permission BEFORE touching the SDK.
+    // SignalWire's @signalwire/js subscribes to device-change events as
+    // part of dial(), which the browser refuses to expose until the user
+    // has granted mic access at least once. Without this, the SDK throws
+    // "You must ask the user for permissions before being able to listen
+    // for device changes" and the dial never reaches the wire.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // We don't need to keep this stream open — the SDK will request its
+      // own when dial() runs. Releasing it avoids holding the mic LED on
+      // during the brief pre-dial window.
+      stream.getTracks().forEach(t => t.stop());
+    } catch (e) {
+      const msg = (e && e.name === 'NotAllowedError')
+        ? 'Microphone permission denied. Click the 🎤 icon in your browser address bar to allow it, then try again.'
+        : `Microphone unavailable: ${(e && e.message) || e}`;
+      return { ok: false, reason: 'mic_permission', detail: msg };
+    }
+
+    // Step 2b — load + connect SDK
     let client, call;
     try {
       const SW = await _loadSDK();
@@ -7980,6 +7999,11 @@ const softphone = (() => {
     if (result.reason === 'minute_cap_exceeded') {
       const d = (result.detail && typeof result.detail === 'object') ? result.detail : {};
       showToast(`Out of minutes this month (${d.minutesUsed||'?'}/${d.minutesCap||'?'}).`, '#dc2626');
+      close();
+      return;
+    }
+    if (result.reason === 'mic_permission') {
+      showToast(String(result.detail || 'Microphone access required to make calls.'), '#dc2626');
       close();
       return;
     }
