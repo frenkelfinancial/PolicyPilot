@@ -1764,67 +1764,72 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     <!-- ========== QUOTE + UNDERWRITING (ITK API) ========== -->
     <div class="section" id="sec-api-quoter">
       <style>
-        /* Scoped styles for the API Quoter tab. Token-driven so theme switching works. */
-        #sec-api-quoter .aq-podium { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--ds-space-3,12px); margin:var(--ds-space-4,16px) 0; }
-        #sec-api-quoter .aq-hero { position:relative; padding:var(--ds-space-4,16px); border:1px solid var(--border); border-radius:var(--ds-radius-lg,12px); background:var(--bg2); display:flex; flex-direction:column; gap:6px; }
-        #sec-api-quoter .aq-hero.rank-1 { border-color:var(--ds-color-success,#22c55e); box-shadow:0 0 0 1px var(--ds-color-success,#22c55e) inset; }
-        #sec-api-quoter .aq-hero .aq-rank { position:absolute; top:-10px; left:12px; background:var(--bg3); border:1px solid var(--border); border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; letter-spacing:.5px; color:var(--text2); }
-        #sec-api-quoter .aq-hero.rank-1 .aq-rank { background:var(--ds-color-success,#22c55e); color:#fff; border-color:transparent; }
-        #sec-api-quoter .aq-hero-head { display:flex; align-items:center; gap:10px; min-height:32px; }
-        #sec-api-quoter .aq-hero-logo { max-width:100%; max-height:100%; object-fit:contain; }
-        #sec-api-quoter .aq-hero-logo-fb { width:28px; height:28px; border-radius:6px; background:var(--bg3); display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--text3); flex:0 0 auto; }
+        /* Scoped styles for the API Quoter — shared by the standalone tab (#sec-api-quoter)
+           and the Leads-tab quote modal (#leadApiQuoteModal) so both render identically. */
+        #sec-api-quoter .aq-podium, #leadApiQuoteModal .aq-podium { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--ds-space-3,12px); margin:var(--ds-space-4,16px) 0; }
+        #sec-api-quoter .aq-hero, #leadApiQuoteModal .aq-hero { position:relative; padding:var(--ds-space-4,16px); border:1px solid var(--border); border-radius:var(--ds-radius-lg,12px); background:var(--bg2); display:flex; flex-direction:column; gap:6px; }
+        #sec-api-quoter .aq-hero.rank-1, #leadApiQuoteModal .aq-hero.rank-1 { border-color:var(--ds-color-success,#22c55e); box-shadow:0 0 0 1px var(--ds-color-success,#22c55e) inset; }
+        #sec-api-quoter .aq-hero .aq-rank, #leadApiQuoteModal .aq-hero .aq-rank { position:absolute; top:-10px; left:12px; background:var(--bg3); border:1px solid var(--border); border-radius:999px; padding:2px 9px; font-size:10px; font-weight:700; letter-spacing:.5px; color:var(--text2); }
+        #sec-api-quoter .aq-hero.rank-1 .aq-rank, #leadApiQuoteModal .aq-hero.rank-1 .aq-rank { background:var(--ds-color-success,#22c55e); color:#fff; border-color:transparent; }
+        #sec-api-quoter .aq-hero-head, #leadApiQuoteModal .aq-hero-head { display:flex; align-items:center; gap:10px; min-height:32px; }
+        #sec-api-quoter .aq-hero-logo, #leadApiQuoteModal .aq-hero-logo { max-width:100%; max-height:100%; object-fit:contain; }
+        #sec-api-quoter .aq-hero-logo-fb, #leadApiQuoteModal .aq-hero-logo-fb { width:28px; height:28px; border-radius:6px; background:var(--bg3); display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:var(--text3); flex:0 0 auto; }
         /* Always-light chip — carrier logos are designed for light backgrounds; in dark mode a var(--bg) chip would hide black/dark logos. */
-        #sec-api-quoter .aq-logo-box { display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; border:1px solid rgba(0,0,0,.08); border-radius:10px; background:#fff; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.06); }
-        #sec-api-quoter .aq-hero-head .aq-logo-box { width:56px; height:56px; border-radius:12px; padding:6px; }
-        #sec-api-quoter .aq-hero-head .aq-logo-box img { max-width:100%; max-height:100%; height:auto; object-fit:contain; }
-        #sec-api-quoter .aq-hero-head .aq-logo-box .aq-hero-logo-fb { width:100%; height:100%; border:none; border-radius:0; background:transparent; color:#374151; font-size:15px; }
-        #sec-api-quoter .aq-hero-name { font-size:13px; font-weight:600; color:var(--text); line-height:1.2; }
-        #sec-api-quoter .aq-hero-plan { font-size:11px; color:var(--text3); }
-        #sec-api-quoter .aq-hero-monthly { font-size:24px; font-weight:700; color:var(--text); }
-        #sec-api-quoter .aq-hero-monthly span { font-size:12px; font-weight:400; color:var(--text3); }
-        #sec-api-quoter .aq-hero-sub { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text3); }
-        #sec-api-quoter .aq-hero-sub strong { color:var(--text2); font-weight:600; }
-        #sec-api-quoter .aq-meta { font-size:11.5px; color:var(--text3); display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:var(--ds-space-3,12px); }
-        #sec-api-quoter .aq-meta .aq-chip { background:var(--bg3); border:1px solid var(--border); border-radius:999px; padding:2px 10px; font-size:11px; color:var(--text2); }
-        #sec-api-quoter .aq-table-wrap { margin-top:var(--ds-space-3,12px); border:1px solid var(--border); border-radius:var(--ds-radius-md,10px); overflow:hidden; background:var(--bg2); }
-        #sec-api-quoter table.aq-table { width:100%; border-collapse:collapse; font-size:13px; }
-        #sec-api-quoter table.aq-table thead th { background:var(--bg3); text-align:left; padding:9px 10px; font-size:11px; color:var(--text3); font-weight:500; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; position:sticky; top:0; }
-        #sec-api-quoter table.aq-table thead th.sort-asc::after { content:" ▲"; color:var(--text2); }
-        #sec-api-quoter table.aq-table thead th.sort-desc::after { content:" ▼"; color:var(--text2); }
-        #sec-api-quoter table.aq-table thead th.right { text-align:right; }
-        #sec-api-quoter table.aq-table tbody td { padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
-        #sec-api-quoter table.aq-table tbody tr:last-child td { border-bottom:none; }
-        #sec-api-quoter table.aq-table tbody tr:hover td { background:var(--bg3); }
-        #sec-api-quoter table.aq-table td.right { text-align:right; white-space:nowrap; }
-        #sec-api-quoter table.aq-table .aq-carrier { display:flex; align-items:center; gap:12px; min-width:0; }
-        #sec-api-quoter table.aq-table .aq-carrier .aq-logo-box { width:44px; height:44px; padding:5px; }
-        #sec-api-quoter table.aq-table .aq-carrier .aq-logo-box img { max-width:100%; max-height:100%; height:auto; object-fit:contain; }
-        #sec-api-quoter table.aq-table .aq-carrier .aq-logo-box .aq-hero-logo-fb { width:100%; height:100%; border:none; border-radius:0; background:transparent; color:#374151; font-size:12px; }
-        #sec-api-quoter table.aq-table .aq-carrier-name { font-weight:600; font-size:13px; color:var(--text); line-height:1.25; }
-        #sec-api-quoter table.aq-table th:nth-child(2),
-        #sec-api-quoter table.aq-table td:nth-child(2) { min-width:220px; width:26%; }
-        #sec-api-quoter table.aq-table th:nth-child(3),
-        #sec-api-quoter table.aq-table td:nth-child(3) { min-width:200px; }
-        #sec-api-quoter .aq-warn { margin-top:4px; }
-        #sec-api-quoter .aq-warn summary { display:inline-flex; align-items:center; gap:4px; cursor:pointer; font-size:10.5px; color:#ca8a04; font-weight:600; border:1px solid rgba(202,138,4,.35); background:rgba(202,138,4,.08); padding:1px 8px; border-radius:999px; list-style:none; }
-        #sec-api-quoter .aq-warn summary::-webkit-details-marker { display:none; }
-        #sec-api-quoter .aq-warn[open] summary { background:rgba(202,138,4,.18); }
-        #sec-api-quoter .aq-warn-body { margin-top:6px; padding:8px 10px; font-size:11.5px; color:var(--text2); background:rgba(202,138,4,.06); border-left:2px solid #ca8a04; border-radius:4px; max-width:520px; line-height:1.4; }
-        #sec-api-quoter .aq-loading { padding:var(--ds-space-6,32px); text-align:center; color:var(--text2); font-size:13px; }
-        #sec-api-quoter .aq-error { padding:var(--ds-space-4,16px); border:1px solid var(--ds-color-danger,#dc2626); border-radius:var(--ds-radius-md,10px); background:rgba(220,38,38,.08); color:var(--ds-color-danger,#dc2626); font-size:13px; display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
-        #sec-api-quoter .aq-error strong { display:block; margin-bottom:4px; }
-        #sec-api-quoter .aq-error .btn { margin-left:auto; }
-        #sec-api-quoter .aq-empty { padding:var(--ds-space-6,32px); text-align:center; color:var(--text2); font-size:13px; }
-        #sec-api-quoter .aq-rank-cell { font-weight:700; color:var(--text2); font-size:12px; width:32px; text-align:center; }
+        #sec-api-quoter .aq-logo-box, #leadApiQuoteModal .aq-logo-box { display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; border:1px solid rgba(0,0,0,.08); border-radius:10px; background:#fff; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.06); }
+        #sec-api-quoter .aq-hero-head .aq-logo-box, #leadApiQuoteModal .aq-hero-head .aq-logo-box { width:56px; height:56px; border-radius:12px; padding:6px; }
+        #sec-api-quoter .aq-hero-head .aq-logo-box img, #leadApiQuoteModal .aq-hero-head .aq-logo-box img { max-width:100%; max-height:100%; height:auto; object-fit:contain; }
+        #sec-api-quoter .aq-hero-head .aq-logo-box .aq-hero-logo-fb, #leadApiQuoteModal .aq-hero-head .aq-logo-box .aq-hero-logo-fb { width:100%; height:100%; border:none; border-radius:0; background:transparent; color:#374151; font-size:15px; }
+        #sec-api-quoter .aq-hero-name, #leadApiQuoteModal .aq-hero-name { font-size:13px; font-weight:600; color:var(--text); line-height:1.2; }
+        #sec-api-quoter .aq-hero-plan, #leadApiQuoteModal .aq-hero-plan { font-size:11px; color:var(--text3); }
+        #sec-api-quoter .aq-hero-monthly, #leadApiQuoteModal .aq-hero-monthly { font-size:24px; font-weight:700; color:var(--text); }
+        #sec-api-quoter .aq-hero-monthly span, #leadApiQuoteModal .aq-hero-monthly span { font-size:12px; font-weight:400; color:var(--text3); }
+        #sec-api-quoter .aq-hero-sub, #leadApiQuoteModal .aq-hero-sub { display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text3); }
+        #sec-api-quoter .aq-hero-sub strong, #leadApiQuoteModal .aq-hero-sub strong { color:var(--text2); font-weight:600; }
+        #sec-api-quoter .aq-meta, #leadApiQuoteModal .aq-meta { font-size:11.5px; color:var(--text3); display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-top:var(--ds-space-3,12px); }
+        #sec-api-quoter .aq-meta .aq-chip, #leadApiQuoteModal .aq-meta .aq-chip { background:var(--bg3); border:1px solid var(--border); border-radius:999px; padding:2px 10px; font-size:11px; color:var(--text2); }
+        #sec-api-quoter .aq-table-wrap, #leadApiQuoteModal .aq-table-wrap { margin-top:var(--ds-space-3,12px); border:1px solid var(--border); border-radius:var(--ds-radius-md,10px); overflow:hidden; background:var(--bg2); }
+        #sec-api-quoter table.aq-table, #leadApiQuoteModal table.aq-table { width:100%; border-collapse:collapse; font-size:13px; }
+        #sec-api-quoter table.aq-table thead th, #leadApiQuoteModal table.aq-table thead th { background:var(--bg3); text-align:left; padding:9px 10px; font-size:11px; color:var(--text3); font-weight:500; border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap; position:sticky; top:0; }
+        #sec-api-quoter table.aq-table thead th.sort-asc::after, #leadApiQuoteModal table.aq-table thead th.sort-asc::after { content:" ▲"; color:var(--text2); }
+        #sec-api-quoter table.aq-table thead th.sort-desc::after, #leadApiQuoteModal table.aq-table thead th.sort-desc::after { content:" ▼"; color:var(--text2); }
+        #sec-api-quoter table.aq-table thead th.right, #leadApiQuoteModal table.aq-table thead th.right { text-align:right; }
+        #sec-api-quoter table.aq-table tbody td, #leadApiQuoteModal table.aq-table tbody td { padding:9px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+        #sec-api-quoter table.aq-table tbody tr:last-child td, #leadApiQuoteModal table.aq-table tbody tr:last-child td { border-bottom:none; }
+        #sec-api-quoter table.aq-table tbody tr:hover td, #leadApiQuoteModal table.aq-table tbody tr:hover td { background:var(--bg3); }
+        #sec-api-quoter table.aq-table td.right, #leadApiQuoteModal table.aq-table td.right { text-align:right; white-space:nowrap; }
+        #sec-api-quoter table.aq-table .aq-carrier, #leadApiQuoteModal table.aq-table .aq-carrier { display:flex; align-items:center; gap:12px; min-width:0; }
+        #sec-api-quoter table.aq-table .aq-carrier .aq-logo-box, #leadApiQuoteModal table.aq-table .aq-carrier .aq-logo-box { width:44px; height:44px; padding:5px; }
+        #sec-api-quoter table.aq-table .aq-carrier .aq-logo-box img, #leadApiQuoteModal table.aq-table .aq-carrier .aq-logo-box img { max-width:100%; max-height:100%; height:auto; object-fit:contain; }
+        #sec-api-quoter table.aq-table .aq-carrier .aq-logo-box .aq-hero-logo-fb, #leadApiQuoteModal table.aq-table .aq-carrier .aq-logo-box .aq-hero-logo-fb { width:100%; height:100%; border:none; border-radius:0; background:transparent; color:#374151; font-size:12px; }
+        #sec-api-quoter table.aq-table .aq-carrier-name, #leadApiQuoteModal table.aq-table .aq-carrier-name { font-weight:600; font-size:13px; color:var(--text); line-height:1.25; }
+        #sec-api-quoter table.aq-table th:nth-child(2), #leadApiQuoteModal table.aq-table th:nth-child(2),
+        #sec-api-quoter table.aq-table td:nth-child(2), #leadApiQuoteModal table.aq-table td:nth-child(2) { min-width:220px; width:26%; }
+        #sec-api-quoter table.aq-table th:nth-child(3), #leadApiQuoteModal table.aq-table th:nth-child(3),
+        #sec-api-quoter table.aq-table td:nth-child(3), #leadApiQuoteModal table.aq-table td:nth-child(3) { min-width:200px; }
+        #sec-api-quoter .aq-warn, #leadApiQuoteModal .aq-warn { margin-top:4px; }
+        #sec-api-quoter .aq-warn summary, #leadApiQuoteModal .aq-warn summary { display:inline-flex; align-items:center; gap:4px; cursor:pointer; font-size:10.5px; color:#ca8a04; font-weight:600; border:1px solid rgba(202,138,4,.35); background:rgba(202,138,4,.08); padding:1px 8px; border-radius:999px; list-style:none; }
+        #sec-api-quoter .aq-warn summary::-webkit-details-marker, #leadApiQuoteModal .aq-warn summary::-webkit-details-marker { display:none; }
+        #sec-api-quoter .aq-warn[open] summary, #leadApiQuoteModal .aq-warn[open] summary { background:rgba(202,138,4,.18); }
+        #sec-api-quoter .aq-warn-body, #leadApiQuoteModal .aq-warn-body { margin-top:6px; padding:8px 10px; font-size:11.5px; color:var(--text2); background:rgba(202,138,4,.06); border-left:2px solid #ca8a04; border-radius:4px; max-width:520px; line-height:1.4; }
+        #sec-api-quoter .aq-loading, #leadApiQuoteModal .aq-loading { padding:var(--ds-space-6,32px); text-align:center; color:var(--text2); font-size:13px; }
+        #sec-api-quoter .aq-error, #leadApiQuoteModal .aq-error { padding:var(--ds-space-4,16px); border:1px solid var(--ds-color-danger,#dc2626); border-radius:var(--ds-radius-md,10px); background:rgba(220,38,38,.08); color:var(--ds-color-danger,#dc2626); font-size:13px; display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+        #sec-api-quoter .aq-error strong, #leadApiQuoteModal .aq-error strong { display:block; margin-bottom:4px; }
+        #sec-api-quoter .aq-error .btn, #leadApiQuoteModal .aq-error .btn { margin-left:auto; }
+        #sec-api-quoter .aq-empty, #leadApiQuoteModal .aq-empty { padding:var(--ds-space-6,32px); text-align:center; color:var(--text2); font-size:13px; }
+        #sec-api-quoter .aq-rank-cell, #leadApiQuoteModal .aq-rank-cell { font-weight:700; color:var(--text2); font-size:12px; width:32px; text-align:center; }
+        /* Health overlay badge — appended to carrier rows/podium cards (tab + modal). */
+        #sec-api-quoter .aq-uw-badge, #leadApiQuoteModal .aq-uw-badge { display:inline-block; margin-left:8px; vertical-align:middle; }
+        #sec-api-quoter .aq-hero .aq-uw-badge, #leadApiQuoteModal .aq-hero .aq-uw-badge { margin-left:0; margin-top:4px; }
+        #sec-api-quoter .laq-health-note, #leadApiQuoteModal .laq-health-note { font-size:11px; color:var(--text3); margin-top:6px; line-height:1.4; }
         /* Quote usage cap — 500 / rolling 30 days. Pill is always visible; banner only at limit. */
-        #sec-api-quoter .aq-quota-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border:1px solid var(--border); border-radius:999px; background:var(--bg2); font-size:11.5px; color:var(--text2); font-variant-numeric:tabular-nums; white-space:nowrap; }
-        #sec-api-quoter .aq-quota-pill[data-tone="block"] { border-color:rgba(220,38,38,.45); background:rgba(220,38,38,.10); color:var(--ds-color-danger,#dc2626); }
-        #sec-api-quoter .aq-quota-fig { font-weight:600; color:var(--text); }
-        #sec-api-quoter .aq-quota-pill[data-tone="block"] .aq-quota-fig { color:var(--ds-color-danger,#dc2626); }
-        #sec-api-quoter .aq-quota-sep { opacity:.5; }
-        #sec-api-quoter .aq-limit-banner { margin-bottom:14px; padding:12px 14px; border:1px solid rgba(220,38,38,.45); background:rgba(220,38,38,.08); border-radius:var(--ds-radius-md,10px); color:var(--text2); font-size:12.5px; line-height:1.45; }
-        #sec-api-quoter .aq-limit-banner strong { color:var(--ds-color-danger,#dc2626); font-weight:600; }
-        @media (max-width: 900px) { #sec-api-quoter .aq-podium { grid-template-columns:1fr; } }
+        #sec-api-quoter .aq-quota-pill, #leadApiQuoteModal .aq-quota-pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border:1px solid var(--border); border-radius:999px; background:var(--bg2); font-size:11.5px; color:var(--text2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+        #sec-api-quoter .aq-quota-pill[data-tone="block"], #leadApiQuoteModal .aq-quota-pill[data-tone="block"] { border-color:rgba(220,38,38,.45); background:rgba(220,38,38,.10); color:var(--ds-color-danger,#dc2626); }
+        #sec-api-quoter .aq-quota-fig, #leadApiQuoteModal .aq-quota-fig { font-weight:600; color:var(--text); }
+        #sec-api-quoter .aq-quota-pill[data-tone="block"] .aq-quota-fig, #leadApiQuoteModal .aq-quota-pill[data-tone="block"] .aq-quota-fig { color:var(--ds-color-danger,#dc2626); }
+        #sec-api-quoter .aq-quota-sep, #leadApiQuoteModal .aq-quota-sep { opacity:.5; }
+        #sec-api-quoter .aq-limit-banner, #leadApiQuoteModal .aq-limit-banner { margin-bottom:14px; padding:12px 14px; border:1px solid rgba(220,38,38,.45); background:rgba(220,38,38,.08); border-radius:var(--ds-radius-md,10px); color:var(--text2); font-size:12.5px; line-height:1.45; }
+        #sec-api-quoter .aq-limit-banner strong, #leadApiQuoteModal .aq-limit-banner strong { color:var(--ds-color-danger,#dc2626); font-weight:600; }
+        @media (max-width: 900px) { #sec-api-quoter .aq-podium, #leadApiQuoteModal .aq-podium { grid-template-columns:1fr; } }
       </style>
 
       <div class="flex jb aic" style="margin-bottom:18px">
@@ -1901,9 +1906,12 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <span data-ico="info"></span>
           <div>IUL quotes are <strong>premium-range estimates</strong>. Always run a full carrier illustration before binding — these numbers won't include indexed crediting, riders, or projected cash value.</div>
         </div>
-        <div class="alert alert-i" style="margin-top:8px">
-          <span data-ico="info"></span>
-          <div>Quotes assume best-class pricing for the chosen tobacco status. Underwriting questionnaire is not yet wired up.</div>
+        <div class="fg" style="margin-top:10px">
+          <label>Health conditions &amp; medications</label>
+          <textarea id="aq-health-text" rows="2" placeholder="e.g. Type 2 diabetes (controlled), high blood pressure, former smoker quit 2019"></textarea>
+          <div id="aq-health-spinner" style="display:none;font-size:11.5px;color:var(--text3);margin-top:6px">Parsing health conditions…</div>
+          <div id="aq-health-tags" style="margin-top:8px"></div>
+          <div class="laq-health-note">Health drives the local approval-class estimate only — it is <strong>not</strong> sent to the carrier rate API. Approval badges cover Americo, Aetna, American-Amicable, Transamerica, and Corebridge.</div>
         </div>
         <div class="mt16 flex aic" style="gap:12px;flex-wrap:wrap">
           <button class="btn btn-p" onclick="runApiQuote()">Run Quote</button>
@@ -2927,202 +2935,110 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   </div>
 </div>
 
-<!-- LEAD-QUOTE MODAL -- mirrors #sec-quoter with m- prefixed IDs.
-     Refactored quote handlers (runFEQuote, runTermQuote, runIULQuote) accept a pfx
-     argument so this modal and the standalone Quoter section share one source of
-     logic. The modal has no sub-tabs or verify panel (out of scope). -->
+<!-- LEAD-QUOTE MODAL — embeds the live API quoter (itk-quote edge function),
+     prefilled from the selected lead. laq- prefixed IDs keep it fully isolated
+     from the standalone #sec-api-quoter tab; shared CSS covers both. Health text
+     drives a LOCAL approval-class overlay only — it is never sent to ITK. -->
 
-<div class="overlay" id="leadQuoteModal">
+<div class="overlay" id="leadApiQuoteModal">
   <div class="modal modal-wide">
     <div class="mhdr">
       <div>
-        <div class="mtitle">Quote for <span id="m-lead-name">—</span></div>
-        <div style="font-size:12px;color:var(--text3);margin-top:3px" id="m-lead-sub">—</div>
+        <div class="mtitle">Quote for <span id="laq-lead-name">—</span></div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px" id="laq-lead-sub">—</div>
       </div>
-      <button class="mclose" onclick="closeQuoteModal()" data-ico="x" data-size="14"></button>
+      <button class="mclose" onclick="closeLeadApiQuote()" data-ico="x" data-size="14"></button>
     </div>
 
-    <!-- Prefilled lead info strip (populated by openQuoteModal) -->
-    <div class="modal-lead-strip" id="m-lead-strip"></div>
+    <!-- Prefilled lead info strip (populated by openQuoteForLead) -->
+    <div class="modal-lead-strip" id="laq-lead-strip"></div>
 
-    <!-- Top-level product tabs -->
-    <div class="tabs" style="margin-bottom:20px">
-      <button class="tab active" onclick="quoterTab('fe',this,'m-')"><span data-ico="shield-check" data-size="14" style="margin-right:6px"></span>Whole Life</button>
-      <button class="tab" onclick="quoterTab('term',this,'m-')"><span data-ico="file-text" data-size="14" style="margin-right:6px"></span>Term Life</button>
-      <button class="tab" onclick="quoterTab('iul',this,'m-')"><span data-ico="trend-up" data-size="14" style="margin-right:6px"></span>IUL</button>
-    </div>
-
-    <!-- ===== WHOLE LIFE / FE ===== -->
-    <div id="m-qt-fe">
-      <div class="card">
-        <div class="card-title">Client Information</div>
-        <div class="frow">
-          <div class="fg"><label>Age</label><input type="number" id="m-fe-age" placeholder="65" min="40" max="90"></div>
-          <div class="fg"><label>Gender</label>
-            <select id="m-fe-gender"><option value="M">Male</option><option value="F">Female</option></select>
-          </div>
-          <div class="fg"><label>Height <span style="color:var(--text3);font-size:10px">(optional)</span></label>
-            <select id="m-fe-height">
-              <option value="">Skip</option>
-              <option value="56">4'8"</option><option value="57">4'9"</option><option value="58">4'10"</option><option value="59">4'11"</option>
-              <option value="60">5'0"</option><option value="61">5'1"</option><option value="62">5'2"</option><option value="63">5'3"</option>
-              <option value="64">5'4"</option><option value="65">5'5"</option><option value="66">5'6"</option><option value="67">5'7"</option>
-              <option value="68">5'8"</option><option value="69">5'9"</option><option value="70">5'10"</option><option value="71">5'11"</option>
-              <option value="72">6'0"</option><option value="73">6'1"</option><option value="74">6'2"</option><option value="75">6'3"</option>
-              <option value="76">6'4"</option><option value="77">6'5"</option><option value="78">6'6"</option><option value="79">6'7"</option>
-            </select>
-          </div>
-          <div class="fg"><label>Weight <span style="color:var(--text3);font-size:10px">(optional)</span></label>
-            <input type="number" id="m-fe-weight" placeholder="lbs — optional" min="60" max="500" oninput="checkBuild('fe','m-')">
-          </div>
-          <div id="m-fe-build-flag" style="display:none;align-self:flex-end;padding-bottom:2px">
-            <span class="badge b-no" id="m-fe-build-badge">Build Check</span>
-          </div>
-        </div>
-        <div class="frow mt12">
-          <div class="fg" style="min-width:180px">
-            <label>Coverage ($) — type any amount</label>
-            <input type="number" id="m-fe-coverage" placeholder="10000" value="10000" min="1000" step="500">
-          </div>
-          <div class="fg"><label>Tobacco</label>
-            <select id="m-fe-tobacco"><option value="no">Non-Tobacco</option><option value="yes">Tobacco User</option></select>
-          </div>
-          <div class="fg"><label>Payment Method</label>
-            <select id="m-fe-payment" onchange="onPaymentChange('fe','m-')">
-              <option value="bank">Bank Draft / ACH</option>
-              <option value="cc">Credit / Debit Card or SSI Billing</option>
-            </select>
-          </div>
-        </div>
-        <div id="m-fe-cc-notice" style="display:none" class="pay-cc mt8">
-          <span data-ico="credit-card" data-size="14" style="margin-right:6px;vertical-align:-2px"></span>Only <strong>Corebridge</strong> and <strong>Transamerica</strong> accept CC/Debit/SSI billing. Results filtered.
-        </div>
-        <div class="mt16">
-          <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Health Conditions &amp; Medications</div>
-          <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">Describe conditions, medications, symptoms — AI identifies and classifies everything automatically.</div>
-          <div style="position:relative">
-            <textarea id="m-fe-health-text" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 13px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;resize:vertical;min-height:72px;transition:border-color .14s" placeholder="Describe health: conditions, medications, surgeries, symptoms..." oninput="onHealthInput('fe','m-')"></textarea>
-            <div id="m-fe-ai-spinner" style="display:none;position:absolute;right:10px;top:10px;font-size:11px;color:var(--ds-color-info);background:var(--bg3);padding:2px 6px;border-radius:4px">AI analyzing…</div>
-          </div>
-          <div id="m-fe-parsed-tags" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;min-height:10px"></div>
-        </div>
-        <div class="mt16">
-          <button class="btn btn-p" onclick="runFEQuote('m-')">Generate Quotes</button>
-        </div>
-      </div>
-      <div id="m-fe-results" style="display:none" class="mt20">
-        <div class="flex jb aic mt4" style="margin-bottom:12px">
-          <div style="font-size:15px;font-weight:600">Quote Results</div>
-          <div style="font-size:11.5px;color:var(--text3)">Contract: <span class="mono text-g" id="m-fe-contract-disp">100%</span> &nbsp;|&nbsp; <span id="m-fe-client-summary" style="color:var(--text2)"></span></div>
-        </div>
-        <div class="g3" id="m-fe-cards"></div>
-        <div class="note mt8">Estimates only — always verify in carrier portal. Adv. commission = AP × comm% × 0.75 (9-month advance payout).</div>
+    <div class="flex jb aic" style="margin-bottom:12px">
+      <div style="font-size:12px;color:var(--text3)">Live carrier rates pulled directly from the Insurance Toolkits API.</div>
+      <div id="laq-counter" class="aq-quota-pill" data-tone="ok" style="display:none">
+        <span class="aq-quota-fig"><span id="laq-quota-used">0</span> / <span id="laq-quota-limit">250</span> used</span>
+        <span class="aq-quota-sep">·</span>
+        <span id="laq-quota-reset">30-day rolling</span>
       </div>
     </div>
+    <div id="laq-limit-banner" class="aq-limit-banner" style="display:none"></div>
 
-    <!-- ===== TERM LIFE ===== -->
-    <div id="m-qt-term" style="display:none">
-      <div class="card">
-        <div class="card-title">Term Life Quote</div>
-        <div class="frow">
-          <div class="fg"><label>Age</label><input type="number" id="m-term-age" placeholder="35" min="18" max="75"></div>
-          <div class="fg"><label>Gender</label>
-            <select id="m-term-gender"><option value="M">Male</option><option value="F">Female</option></select>
-          </div>
-          <div class="fg"><label>Height <span style="color:var(--text3);font-size:10px">(optional)</span></label>
-            <select id="m-term-height">
-              <option value="">Skip</option>
-              <option value="56">4'8"</option><option value="57">4'9"</option><option value="58">4'10"</option><option value="59">4'11"</option>
-              <option value="60">5'0"</option><option value="61">5'1"</option><option value="62">5'2"</option><option value="63">5'3"</option>
-              <option value="64">5'4"</option><option value="65">5'5"</option><option value="66">5'6"</option><option value="67">5'7"</option>
-              <option value="68">5'8"</option><option value="69">5'9"</option><option value="70">5'10"</option><option value="71">5'11"</option>
-              <option value="72">6'0"</option><option value="73">6'1"</option><option value="74">6'2"</option><option value="75">6'3"</option>
-              <option value="76">6'4"</option><option value="77">6'5"</option><option value="78">6'6"</option><option value="79">6'7"</option>
-            </select>
-          </div>
-          <div class="fg"><label>Weight <span style="color:var(--text3);font-size:10px">(optional)</span></label>
-            <input type="number" id="m-term-weight" placeholder="lbs — optional" oninput="checkBuild('term','m-')">
-          </div>
-          <div id="m-term-build-flag" style="display:none;align-self:flex-end;padding-bottom:2px">
-            <span class="badge b-no" id="m-term-build-badge">Build Check</span>
-          </div>
+    <div class="card">
+      <div class="card-title">Quote inputs</div>
+      <div class="frow">
+        <div class="fg" style="min-width:160px">
+          <label>Product</label>
+          <select id="laq-product" onchange="laqToggleFields()">
+            <option value="FEX">Final Expense (Whole Life)</option>
+            <option value="TERM">Term Life</option>
+            <option value="IUL">IUL</option>
+          </select>
         </div>
-        <div class="frow mt12">
-          <div class="fg"><label>Term Length</label>
-            <select id="m-term-len">
-              <option value="10">10 Year</option><option value="15">15 Year</option>
-              <option value="20" selected>20 Year</option><option value="25">25 Year</option><option value="30">30 Year</option>
-            </select>
-          </div>
-          <div class="fg" style="min-width:180px">
-            <label>Coverage ($) — type any amount</label>
-            <input type="number" id="m-term-cov" placeholder="200000" value="200000" min="10000" step="5000">
-          </div>
-          <div class="fg"><label>Tobacco</label>
-            <select id="m-term-tob"><option value="no">Non-Tobacco</option><option value="yes">Tobacco</option></select>
-          </div>
-          <div class="fg"><label>Payment Method</label>
-            <select id="m-term-payment" onchange="onPaymentChange('term','m-')">
-              <option value="bank">Bank Draft / ACH</option>
-              <option value="cc">Credit / Debit Card or SSI Billing</option>
-            </select>
-          </div>
+        <div class="fg"><label>Age</label><input type="number" id="laq-age" placeholder="55" min="18" max="85"></div>
+        <div class="fg"><label>Sex</label>
+          <select id="laq-sex"><option value="M">Male</option><option value="F">Female</option></select>
         </div>
-        <div id="m-term-cc-notice" style="display:none" class="pay-cc mt8">
-          <span data-ico="credit-card" data-size="14" style="margin-right:6px;vertical-align:-2px"></span>Only <strong>Corebridge</strong> and <strong>Transamerica</strong> accept CC/Debit/SSI billing.
-        </div>
-        <div class="mt12">
-          <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">Health Conditions &amp; Medications</div>
-          <div style="position:relative">
-            <textarea id="m-term-health-text" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 13px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;resize:vertical;min-height:60px;transition:border-color .14s" placeholder="Describe health: conditions, medications, symptoms..." oninput="onHealthInput('term','m-')"></textarea>
-            <div id="m-term-ai-spinner" style="display:none;position:absolute;right:10px;top:10px;font-size:11px;color:var(--ds-color-info);background:var(--bg3);padding:2px 6px;border-radius:4px">AI analyzing…</div>
-          </div>
-          <div id="m-term-parsed-tags" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;min-height:10px"></div>
-        </div>
-        <div class="mt16">
-          <button class="btn btn-p" onclick="runTermQuote('m-')">Generate Quotes</button>
+        <div class="fg"><label>State</label>
+          <select id="laq-state">
+            <option value="">—</option>
+            <option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option>
+            <option>CO</option><option>CT</option><option>DE</option><option>DC</option><option>FL</option>
+            <option>GA</option><option>HI</option><option>ID</option><option>IL</option><option>IN</option>
+            <option>IA</option><option>KS</option><option>KY</option><option>LA</option><option>ME</option>
+            <option>MD</option><option>MA</option><option>MI</option><option>MN</option><option>MS</option>
+            <option>MO</option><option>MT</option><option>NE</option><option>NV</option><option>NH</option>
+            <option>NJ</option><option>NM</option><option>NY</option><option>NC</option><option>ND</option>
+            <option>OH</option><option>OK</option><option>OR</option><option>PA</option><option>RI</option>
+            <option>SC</option><option>SD</option><option>TN</option><option>TX</option><option>UT</option>
+            <option>VT</option><option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option>
+          </select>
         </div>
       </div>
-      <div id="m-term-results" style="display:none" class="mt20">
-        <div class="flex jb aic" style="margin-bottom:12px">
-          <div style="font-size:15px;font-weight:600">Term Quote Results</div>
-          <div style="font-size:11.5px;color:var(--text3)">Contract: <span class="mono text-g" id="m-term-contract-disp">100%</span></div>
+      <div class="frow">
+        <div class="fg" style="min-width:180px">
+          <label>Face amount ($)</label>
+          <input type="number" id="laq-face" placeholder="15000" value="15000" min="5000" step="1000">
         </div>
-        <div class="g3" id="m-term-cards"></div>
-        <div class="note mt8">Adv. commission = AP × comm% × 0.75 (9-month advance).</div>
+        <div class="fg"><label>Tobacco</label>
+          <select id="laq-tobacco"><option value="no">Non-tobacco</option><option value="yes">Tobacco / Cigarettes</option></select>
+        </div>
+        <div class="fg" id="laq-fg-term" style="display:none">
+          <label>Term length (years)</label>
+          <select id="laq-term">
+            <option value="10">10</option>
+            <option value="15">15</option>
+            <option value="20" selected>20</option>
+            <option value="25">25</option>
+            <option value="30">30</option>
+          </select>
+        </div>
+        <div class="fg" id="laq-fg-payment">
+          <label>Payment type</label>
+          <select id="laq-payment">
+            <option value="bank">Bank Draft / EFT</option>
+            <option value="card">Credit Card</option>
+          </select>
+        </div>
+      </div>
+      <div class="alert alert-i" id="laq-iul-banner" style="display:none">
+        <span data-ico="info"></span>
+        <div>IUL quotes are <strong>premium-range estimates</strong>. Always run a full carrier illustration before binding — these numbers won't include indexed crediting, riders, or projected cash value.</div>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <label>Health conditions &amp; medications</label>
+        <textarea id="laq-health-text" rows="2" placeholder="e.g. Type 2 diabetes (controlled), high blood pressure, former smoker quit 2019"></textarea>
+        <div id="laq-health-spinner" style="display:none;font-size:11.5px;color:var(--text3);margin-top:6px">Parsing health conditions…</div>
+        <div id="laq-health-tags" style="margin-top:8px"></div>
+        <div class="laq-health-note">Health drives the local approval-class estimate only — it is <strong>not</strong> sent to the carrier rate API. Approval badges cover Americo, Aetna, American-Amicable, Transamerica, and Corebridge.</div>
+      </div>
+      <div class="mt16 flex aic" style="gap:12px;flex-wrap:wrap">
+        <button class="btn btn-p" onclick="runLeadApiQuote()">Run Quote</button>
+        <button class="btn" type="button" onclick="clearLeadApiQuote()">Clear</button>
+        <span id="laq-form-hint" style="font-size:11.5px;color:var(--text3)">Fill age, sex, state, and face amount.</span>
       </div>
     </div>
 
-    <!-- ===== IUL ===== -->
-    <div id="m-qt-iul" style="display:none">
-      <div class="card">
-        <div class="card-title">IUL Estimate</div>
-        <div class="alert alert-i"><span data-ico="info"></span><div>IUL quotes require full carrier illustrations. These are premium range estimates only.</div></div>
-        <div class="frow">
-          <div class="fg"><label>Age</label><input type="number" id="m-iul-age" placeholder="35" min="18" max="70"></div>
-          <div class="fg"><label>Gender</label>
-            <select id="m-iul-gender"><option value="M">Male</option><option value="F">Female</option></select>
-          </div>
-          <div class="fg" style="min-width:180px">
-            <label>Death Benefit ($) — type any amount</label>
-            <input type="number" id="m-iul-cov" placeholder="500000" value="500000" min="50000" step="10000">
-          </div>
-          <div class="fg"><label>Health Class</label>
-            <select id="m-iul-health">
-              <option value="preferred">Preferred</option>
-              <option value="standard" selected>Standard</option>
-              <option value="substandard">Substandard</option>
-            </select>
-          </div>
-        </div>
-        <div class="mt16"><button class="btn btn-p" onclick="runIULQuote('m-')">Estimate IUL Premiums</button></div>
-      </div>
-      <div id="m-iul-results" style="display:none" class="mt20">
-        <div style="font-size:15px;font-weight:600;margin-bottom:12px">IUL Carrier Estimates</div>
-        <div class="g3" id="m-iul-cards"></div>
-        <div class="note mt8">IUL commissions per comp guide. Always run full carrier illustration for exact figures.</div>
-      </div>
-    </div>
+    <div id="laq-results" style="display:none;margin-top:16px"></div>
 
   </div>
 </div>
@@ -5278,65 +5194,6 @@ function dsInitPlayground(){
   ));
 }
 
-// ============================================================
-// RATE ENGINE — Final Expense
-// Monthly premium per $1,000 face amount
-// Sourced from published FE rate structures (industry standard approximation)
-// These match typical Americo Eagle Select, Transamerica Express, etc.
-// ============================================================
-const FE_RATES = {
-  // [age_bracket, M_nt, M_tb, F_nt, F_tb] per $1000/mo
-  // Ages 40-90 in 5yr bands. Rates are for SELECT/LEVEL class.
-  // GRADED adds ~40-50%, GI/ROP adds ~65-80%
-  americo_eagle: {
-    //  age  M-NT    M-TB   F-NT   F-TB
-    rates: [
-      [40, 1.95, 2.78, 1.48, 2.11],
-      [45, 2.47, 3.52, 1.87, 2.67],
-      [50, 3.24, 4.62, 2.46, 3.51],
-      [55, 4.28, 6.10, 3.24, 4.62],
-      [60, 5.73, 8.16, 4.34, 6.18],
-      [65, 7.89, 11.25, 5.97, 8.51],
-      [70, 11.04, 15.73, 8.35, 11.90],
-      [75, 15.87, 22.62, 12.00, 17.11],
-      [80, 23.51, 33.52, 17.79, 25.35],
-      [85, 34.83, 49.63, 26.36, 37.56],
-      [90, 51.62, 73.55, 39.05, 55.65],
-    ],
-    products: ['eagle_select','standard']
-  },
-};
-
-// Per carrier, rates relative to Americo Eagle as 1.0 baseline
-// Multipliers for: [select1, select2_or_std, graded_or_modified]
-const CARRIER_MULTS = {
-  americo:    { label:'Americo (Eagle Select)',    dot:'#3b82f6', s1:1.00, s2:1.14, gr:1.52, prod_s1:'americo_eagle', prod_gr:'americo_eagle', compS1:'americo_eagle', compGr:'americo_eagle', age_max:85 },
-  aetna:      { label:'Aetna / Accendo',           dot:'#10b981', s1:0.97, s2:1.11, gr:1.48, prod_s1:'aetna_senior', prod_gr:'aetna_senior',   compS1:'aetna_senior',  compGr:'aetna_senior',  age_max:85 },
-  aamicable:  { label:'American-Amicable',         dot:'#8b5cf6', s1:1.01, s2:1.16, gr:1.54, prod_s1:'aa_senior',    prod_gr:'aa_senior',     compS1:'aa_senior',     compGr:'aa_senior',     age_max:80 },
-  trans:      { label:'Transamerica Express',      dot:'#f59e0b', s1:0.96, s2:1.10, gr:1.45, prod_s1:'trans_express',prod_gr:'trans_graded',  compS1:'trans_express', compGr:'trans_graded',  age_max:85 },
-  corebridge: { label:'Corebridge (SIWL)',          dot:'#ec4899', s1:1.03, s2:1.18, gr:1.62, prod_s1:'core_siwl',   prod_gr:'core_graded',   compS1:'core_siwl',     compGr:'core_graded',   age_max:85 },
-  chubb:      { label:'Chubb',                     dot:'#14b8a6', s1:0.99, s2:1.13, gr:1.58, prod_s1:'chubb_pref',  prod_gr:'chubb_graded',  compS1:'chubb_pref',    compGr:'chubb_graded',  age_max:80 },
-  mutual:     { label:'Mutual of Omaha (FE)',       dot:'#06b6d4', s1:1.00, s2:1.13, gr:1.50, prod_s1:'mutual_fe',        prod_gr:'mutual_fe',          compS1:'mutual_fe',          compGr:'mutual_fe',          age_max:85 },
-  uhl:        { label:'United Home Life',           dot:'#dc2626', s1:0.96, s2:1.10, gr:1.50, prod_s1:'uhl_premier_wl',    prod_gr:'uhl_graded_wl',      compS1:'uhl_premier_wl',     compGr:'uhl_graded_wl',      age_max:85 },
-  ahl:        { label:'American Home Life',         dot:'#16a34a', s1:0.94, s2:1.08, gr:1.44, prod_s1:'ahl_fe',            prod_gr:'ahl_fe',              compS1:'ahl_fe',              compGr:'ahl_fe',              age_max:80 },
-  sbli:       { label:'SBLI',                       dot:'#0284c7', s1:0.95, s2:1.09, gr:1.46, prod_s1:'sbli_fex',          prod_gr:'sbli_fex',            compS1:'sbli_fex',            compGr:'sbli_fex',            age_max:85 },
-  baltimore:  { label:'Baltimore Life',             dot:'#7c3aed', s1:0.99, s2:1.13, gr:1.49, prod_s1:'baltimore_sgfe',    prod_gr:'baltimore_sgfe',      compS1:'baltimore_sgfe',      compGr:'baltimore_sgfe',      age_max:80 },
-  elco:       { label:'Elco Mutual',                dot:'#0891b2', s1:1.02, s2:1.16, gr:1.55, prod_s1:'elco_fe_imm',       prod_gr:'elco_fe_imm',         compS1:'elco_fe_imm',         compGr:'elco_fe_imm',         age_max:80 },
-  mtrust:     { label:'Mutual Trust Life',          dot:'#059669', s1:1.01, s2:1.15, gr:1.53, prod_s1:'mtrust_home_prot',  prod_gr:'mtrust_dignity',      compS1:'mtrust_home_prot',    compGr:'mtrust_dignity',      age_max:85 },
-};
-
-function interpRate(age, gender, tobacco) {
-  const tbl = FE_RATES.americo_eagle.rates;
-  const gTob = gender==='M' ? (tobacco ? 1 : 0) : (tobacco ? 3 : 2);
-  let lo=tbl[0], hi=tbl[tbl.length-1];
-  for(let i=0;i<tbl.length-1;i++){
-    if(age>=tbl[i][0] && age<tbl[i+1][0]){lo=tbl[i];hi=tbl[i+1];break;}
-    if(age>=tbl[tbl.length-1][0]){lo=hi=tbl[tbl.length-1];break;}
-  }
-  const t = lo[0]===hi[0] ? 0 : (age-lo[0])/(hi[0]-lo[0]);
-  return lo[gTob+1] + t*(hi[gTob+1]-lo[gTob+1]);
-}
-
 function fmt$(n){ if(!isFinite(n)||isNaN(n))return'—'; return'$'+n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,','); }
 function fmtPct(n){ if(!isFinite(n)||isNaN(n))return'—'; return n.toFixed(1)+'%'; }
 function escHTML(s){ if(s===null||s===undefined)return''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -5357,7 +5214,6 @@ function safeParseLS(key, fallback){
 // ============================================================
 // AI HEALTH PARSER — uses Claude API
 // ============================================================
-let healthDebounce = null;
 // Per-field caches keyed by text content
 const healthCache = {};
 
@@ -5383,56 +5239,6 @@ async function aiParseHealth(text) {
   }
 }
 
-// Per-prefix caches so the lead-quote modal ('m-') doesn't clobber the main quoter ('').
-let feLastParsedConds = { '': [], 'm-': [] };
-let termLastParsedConds = { '': [], 'm-': [] };
-
-// Single unified input handler — auto-clears cache and re-analyzes
-function onHealthInput(prefix, pfx='') {
-  const text = document.getElementById(pfx+prefix+'-health-text').value.trim();
-  const tagsEl = document.getElementById(pfx+prefix+'-parsed-tags');
-  const spinnerEl = document.getElementById(pfx+prefix+'-ai-spinner');
-
-  // Always clear previous results immediately so they don't linger
-  if (prefix === 'fe') feLastParsedConds[pfx] = [];
-  else termLastParsedConds[pfx] = [];
-  tagsEl.innerHTML = '';
-
-  clearTimeout(healthDebounce);
-  if (!text) return;
-
-  // Show analyzing state immediately
-  tagsEl.innerHTML = '<span style="font-size:11.5px;color:var(--text3);font-style:italic">Analyzing...</span>';
-  spinnerEl.style.display = 'block';
-
-  healthDebounce = setTimeout(async () => {
-    const conds = await aiParseHealth(text);
-    spinnerEl.style.display = 'none';
-    if (prefix === 'fe') feLastParsedConds[pfx] = conds;
-    else termLastParsedConds[pfx] = conds;
-    renderHealthTags(pfx+prefix+'-parsed-tags', conds);
-    // Auto-update term health class dropdown
-    if (prefix === 'term') {
-      const cw = {};
-      ['am','at','aa','tr','co'].forEach(k => {
-        cw[k] = worstClass(conds.map(c => UW_CLASS[c]?.[k]||'level'));
-      });
-      const ow = worstClass(Object.values(cw));
-      const sel = document.getElementById(pfx+'term-health');
-      if (sel) {
-        if (ow==='decline') sel.value='graded';
-        else if (['graded','rop','modified','gi','check','oxygen','immediate'].includes(ow)) sel.value='graded';
-        else if (['select2','standard'].includes(ow)) sel.value='standard';
-        else sel.value='preferred';
-      }
-    }
-  }, 800);
-}
-
-// Keep old names for backward compatibility
-function parseHealthText() { onHealthInput('fe'); }
-function parseTermHealthText() { onHealthInput('term'); }
-
 function renderHealthTags(containerId, conds) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -5448,17 +5254,6 @@ function renderHealthTags(containerId, conds) {
     container.appendChild(tag);
   });
 }
-
-function parseHealthInput(text, pfx='') { return feLastParsedConds[pfx] || []; }
-
-function clearHealthText() {
-  const el = document.getElementById('fe-health-text');
-  if (el) { el.value = ''; }
-  document.getElementById('fe-parsed-tags').innerHTML = '';
-  feLastParsedConds[''] = [];
-}
-
-function buildConditions() { /* no-op */ }
 
 // Health class lookup: condition → { americo, aetna, aa, trans, core }
 // Values: 'level','select2','graded','rop','decline','gi','preferred','standard'
@@ -5656,416 +5451,6 @@ const LOCAL_TO_ITK_TERM = {
 };
 
 // ============================================================
-// FINAL EXPENSE QUOTE ENGINE
-// ============================================================
-async function runFEQuote(pfx='') {
-  const age = parseInt(document.getElementById(pfx+'fe-age').value);
-  const gender = document.getElementById(pfx+'fe-gender').value;
-  const coverage = parseInt(document.getElementById(pfx+'fe-coverage').value);
-  const tobacco = document.getElementById(pfx+'fe-tobacco').value === 'yes';
-  const payment = document.getElementById(pfx+'fe-payment').value;
-  const contract = getContract();
-  const healthText = document.getElementById(pfx+'fe-health-text').value.trim();
-
-  const heightIn = parseInt(document.getElementById(pfx+'fe-height').value) || 0;
-  const weight = parseInt(document.getElementById(pfx+'fe-weight').value) || 0;
-  const buildFail = heightIn && weight ? !checkBuildOk(heightIn, weight) : false;
-
-  if (!age || age < 40 || age > 90) { alert('Please enter an age between 40 and 90.'); return; }
-  if (!coverage || coverage < 1000) { alert('Please enter a valid coverage amount.'); return; }
-
-  // Use cached AI parse, or re-run if text changed and cache is empty
-  let conditions = feLastParsedConds[pfx] || [];
-  if (healthText && conditions.length === 0) {
-    document.getElementById(pfx+'fe-ai-spinner').style.display = 'block';
-    document.getElementById(pfx+'fe-parsed-tags').innerHTML = '<span style="font-size:11.5px;color:var(--ds-color-info)">AI analyzing health conditions…</span>';
-    conditions = await aiParseHealth(healthText);
-    feLastParsedConds[pfx] = conditions;
-    document.getElementById(pfx+'fe-ai-spinner').style.display = 'none';
-    renderHealthTags(pfx+'fe-parsed-tags', conditions, healthText);
-  }
-
-  // Per carrier UW class from parsed conditions
-  const carrierKeys = ['am','at','aa','tr','co'];
-  const carrierWorst = {};
-  carrierKeys.forEach(k => {
-    const classes = conditions.map(c => UW_CLASS[c]?.[k] || 'level');
-    if (buildFail) classes.push('select2');
-    carrierWorst[k] = worstClass(classes);
-  });
-
-  document.getElementById(pfx+'fe-results').style.display = 'block';
-  document.getElementById(pfx+'fe-contract-disp').textContent = contract + '%';
-  document.getElementById(pfx+'fe-client-summary').textContent =
-    `Age ${age} ${gender==='M'?'Male':'Female'} / $${(coverage/1000).toFixed(0)}k / ${tobacco?'Tobacco':'Non-Tobacco'}${payment==='cc'?' / CC Only':''}`;
-
-  const baseRate = interpRate(age, gender, tobacco);
-  const units = coverage / 1000;
-
-  const container = document.getElementById(pfx+'fe-cards');
-  container.innerHTML = '';
-
-  // All carriers — filter to cc-only if payment is cc
-  let carriersToShow = [
-    { key:'americo',    uwKey:'am', label:'Americo',             dot:'#3b82f6', prodS1:'americo_eagle', prodGr:'americo_eagle', eapp:'Americo',           ccOk:false },
-    { key:'aetna',      uwKey:'at', label:'Aetna / Accendo',     dot:'#10b981', prodS1:'aetna_senior',  prodGr:'aetna_senior',  eapp:'Aetna / Accendo',   ccOk:false },
-    { key:'aamicable',  uwKey:'aa', label:'American-Amicable',   dot:'#8b5cf6', prodS1:'aa_senior',     prodGr:'aa_senior',     eapp:'American-Amicable', ccOk:false },
-    { key:'trans',      uwKey:'tr', label:'Transamerica',        dot:'#f59e0b', prodS1:'trans_express', prodGr:'trans_graded',  eapp:'Transamerica',      ccOk:true  },
-    { key:'corebridge', uwKey:'co', label:'Corebridge',          dot:'#ec4899', prodS1:'core_siwl',       prodGr:'core_graded',      eapp:'Corebridge',        ccOk:true  },
-    { key:'chubb',      uwKey:'am', label:'Chubb',               dot:'#14b8a6', prodS1:'chubb_pref',      prodGr:'chubb_graded',     eapp:'Chubb',             ccOk:false },
-    { key:'mutual',     uwKey:'am', label:'Mutual of Omaha',     dot:'#06b6d4', prodS1:'mutual_fe',       prodGr:'mutual_fe',        eapp:'Mutual of Omaha',   ccOk:false },
-    { key:'uhl',        uwKey:'am', label:'United Home Life',    dot:'#dc2626', prodS1:'uhl_premier_wl',  prodGr:'uhl_graded_wl',    eapp:'United Home Life',  ccOk:false },
-    { key:'ahl',        uwKey:'am', label:'American Home Life',  dot:'#16a34a', prodS1:'ahl_fe',          prodGr:'ahl_fe',           eapp:'Amer. Home Life',   ccOk:false },
-    { key:'sbli',       uwKey:'am', label:'SBLI',                dot:'#0284c7', prodS1:'sbli_fex',        prodGr:'sbli_fex',         eapp:'SBLI',              ccOk:false },
-    { key:'baltimore',  uwKey:'am', label:'Baltimore Life',      dot:'#7c3aed', prodS1:'baltimore_sgfe',  prodGr:'baltimore_sgfe',   eapp:'Baltimore Life',    ccOk:false },
-    { key:'elco',       uwKey:'am', label:'Elco Mutual',         dot:'#0891b2', prodS1:'elco_fe_imm',     prodGr:'elco_fe_imm',      eapp:'Elco Mutual',       ccOk:false },
-    { key:'mtrust',     uwKey:'am', label:'Mutual Trust Life',   dot:'#059669', prodS1:'mtrust_home_prot',prodGr:'mtrust_dignity',   eapp:'Mutual Trust',      ccOk:false },
-  ];
-
-  if (payment === 'cc') {
-    carriersToShow = carriersToShow.filter(c => c.ccOk);
-  }
-  // Filter to contracted carriers only (if agent has set any)
-  const _feContracted = getContractedCarriers();
-  if (_feContracted.length > 0) carriersToShow = carriersToShow.filter(c => _feContracted.includes(c.key));
-
-  carriersToShow.forEach(c => {
-    const cm = CARRIER_MULTS[c.key] || CARRIER_MULTS.americo;
-    const uwCls = carrierWorst[c.uwKey] || 'level';
-
-    // 3-way approval logic
-    // 'non_instant' = check/modified/stent/immediate (needs home office review)
-    let approvalStatus = 'approved';
-    if (uwCls === 'decline') approvalStatus = 'declined';
-    else if (['graded','rop','gi','oxygen'].includes(uwCls)) approvalStatus = 'graded';
-    else if (['modified','check','stent','immediate'].includes(uwCls)) approvalStatus = 'non_instant';
-
-    const rateS1 = +(baseRate * cm.s1 * units).toFixed(2);
-    const rateS2 = +(baseRate * cm.s2 * units).toFixed(2);
-    const rateGr = +(baseRate * cm.gr * units).toFixed(2);
-
-    let bestMonthly = rateS1;
-    let bestClass = 'Select 1 / Level';
-    let isGraded = false;
-
-    if (uwCls === 'select2' || uwCls === 'standard') {
-      bestMonthly = rateS2; bestClass = 'Select 2 / Standard';
-    } else if (['graded','rop','modified','gi','check','oxygen','immediate','stent'].includes(uwCls)) {
-      bestMonthly = rateGr; bestClass = 'Graded / Modified'; isGraded = true;
-    }
-
-    const annualAP = +(bestMonthly * 12).toFixed(2);
-    const commPct = isGraded
-      ? getCommPct(c.prodGr, contract, true)
-      : getCommPct(c.prodS1, contract, false);
-    // ADV COMMISSION = AP × comm% × 0.75 (9-month advance)
-    const advComm = +(annualAP * commPct / 100 * 0.75).toFixed(2);
-
-    // Badge
-    const badgeCls = approvalStatus === 'approved' ? 'b-ok'
-                   : approvalStatus === 'non_instant' ? 'b-nr'
-                   : approvalStatus === 'graded' ? 'b-gr'
-                   : 'b-no';
-    const badgeIco = approvalStatus === 'approved' ? icon('check', {size:11})
-                   : approvalStatus === 'non_instant' ? icon('clock', {size:11})
-                   : approvalStatus === 'graded' ? icon('warning', {size:11})
-                   : icon('x', {size:11});
-    const badgeLbl = approvalStatus === 'approved' ? 'Approved'
-                   : approvalStatus === 'non_instant' ? 'Non-Instant Approval'
-                   : approvalStatus === 'graded' ? 'Graded/Modified'
-                   : 'Declined';
-    const badgeTxt = `<span style="display:inline-flex;align-items:center;gap:5px">${badgeIco}${badgeLbl}</span>`;
-    const commColor = isGraded ? 'y' : 'g';
-    const eappUrl = EAPP_URLS[c.eapp] || '#';
-
-    const div = document.createElement('div');
-    div.className = 'carrier-card';
-    div.dataset.carrierKey = c.key;
-    div.dataset.product = 'fe';
-    div.dataset.commPct = commPct;
-    div.dataset.commCut = isGraded ? '1' : '0';
-    div.innerHTML = `
-      <div class="ch" style="flex-wrap:wrap;gap:6px">
-        <div class="cname"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c.dot};margin-right:6px;vertical-align:middle"></span>${c.label}</div>
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-          <div class="badge ${badgeCls}">${badgeTxt}</div>
-          <a href="${eappUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--ds-color-info);font-size:11px;font-weight:600;text-decoration:none;transition:all .14s" onmouseover="this.style.background='rgba(59,130,246,.28)'" onmouseout="this.style.background='rgba(59,130,246,.15)'">${icon('arrow-square-out',{size:11})}E-App</a>
-        </div>
-      </div>
-      ${approvalStatus !== 'declined' ? `
-      <div class="rrow"><div class="rlbl">UW Class</div><div class="rval ${commColor}">${bestClass}</div></div>
-      <div class="rrow"><div class="rlbl">Best Available Monthly</div><div class="rval"><strong>${fmt$(bestMonthly)}/mo</strong></div></div>
-      <div class="rrow"><div class="rlbl">Select 1 / Level /mo</div><div class="rval">${fmt$(rateS1)}</div></div>
-      <div class="rrow"><div class="rlbl">Select 2 / Standard /mo</div><div class="rval">${fmt$(rateS2)}</div></div>
-      <div class="rrow"><div class="rlbl">Graded /mo</div><div class="rval y">${fmt$(rateGr)}</div></div>
-      <div class="rrow"><div class="rlbl">Annual Premium (best avail.)</div><div class="rval b">${fmt$(annualAP)}</div></div>
-      <div class="comm-box">
-        <div>
-          <div class="comm-lbl">Est. Adv. Commission @ ${contract}% → ${fmtPct(commPct)} eff.</div>
-          <div style="font-size:10px;color:var(--text3)">AP × ${fmtPct(commPct)} × 75% = 9-mo advance${isGraded ? ' · graded cut applied' : ''}</div>
-        </div>
-        <div class="comm-amt ${commColor}">${fmt$(advComm)}</div>
-      </div>
-      ` : `
-      <div style="padding:16px 0;text-align:center;color:var(--ds-color-danger);font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px">${icon('x',{size:14})}Not eligible based on health conditions</div>
-      <a href="${eappUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:6px;color:#4e6480;font-size:11px">Still want to try? Open E-App ↗</a>
-      `}
-    `;
-    container.appendChild(div);
-  });
-
-  document.getElementById(pfx+'fe-results').scrollIntoView({behavior:'smooth',block:'start'});
-
-  if (!pfx) {
-    // ITK live-rate overlay: replace local FE rates inside each carrier card
-    // with real carrier rates from the proxy. Fire-and-forget; cards stay
-    // visible with local estimates while in flight, update in place on resolve.
-    fetchItkOverlay('fe', buildQuoteRequest('fe', 'FEX'));
-    window._verifyArmed.fe = true;
-    const cta = document.getElementById('fe-verify-cta');
-    if (cta) cta.style.display = 'flex';
-    setVerifyChips('fe');
-    if (window._verifyOpen.fe) {
-      const preEl  = document.getElementById('fe-verify-pre');
-      const postEl = document.getElementById('fe-verify-post');
-      if (preEl)  preEl.style.display  = 'none';
-      if (postEl) postEl.style.display = 'block';
-      if (!window._verifyLoaded.fe) {
-        const cfg = VERIFY_CONFIG.fe;
-        if (cfg && cfg.toolkit) {
-          // API mode: fetch quotes via Supabase edge function
-          window._verifyLoaded.fe = true;
-          fetchAndRenderQuotes('fe');
-        } else {
-          // Legacy iframe path (kept for safety while TERM/IUL still use it)
-          const slot = document.getElementById('fe-verify-iframe-slot');
-          if (slot) {
-            const url = buildPrefillUrl('fe');
-            slot.innerHTML = '<iframe style="border:none;height:820px;width:100%;display:block" src="' + url + '" loading="lazy"></iframe>';
-            window._verifyLoaded.fe = true;
-            window._verifyLastUrl.fe = url;
-          }
-        }
-      }
-    }
-  }
-}
-
-// ============================================================
-// TERM QUOTE
-// ============================================================
-function runTermQuote(pfx='') {
-  const age = parseInt(document.getElementById(pfx+'term-age').value);
-  const gender = document.getElementById(pfx+'term-gender').value;
-  const term = parseInt(document.getElementById(pfx+'term-len').value);
-  const coverage = parseInt(document.getElementById(pfx+'term-cov').value);
-  const tobacco = document.getElementById(pfx+'term-tob').value === 'yes';
-  const payment = document.getElementById(pfx+'term-payment').value;
-  const contract = getContract();
-  if (!age) { alert('Enter an age.'); return; }
-
-  // Parse health from text
-  const healthText = document.getElementById(pfx+'term-health-text').value;
-  const conditions = parseHealthInput(healthText, pfx);
-  const carrierKeys = ['am','at','aa','tr','co'];
-  const carrierWorst = {};
-  carrierKeys.forEach(k => {
-    const classes = conditions.map(c => UW_CLASS[c]?.[k] || 'level');
-    carrierWorst[k] = worstClass(classes);
-  });
-  const overallClass = worstClass(Object.values(carrierWorst));
-  let health = 'preferred';
-  if (['decline','gi','graded','rop','oxygen'].includes(overallClass)) health = 'graded';
-  else if (['select2','standard','modified','check','immediate','stent'].includes(overallClass)) health = 'standard';
-
-  document.getElementById(pfx+'term-results').style.display = 'block';
-  document.getElementById(pfx+'term-contract-disp').textContent = contract + '%';
-
-  const ageF = Math.pow(1.048, Math.max(0, age - 30));
-  const termF = {10:0.88,15:1.0,20:1.18,25:1.36,30:1.60}[term] || 1.0;
-  const gF = gender === 'M' ? 1.0 : 0.80;
-  const tobF = tobacco ? 2.60 : 1.0;
-  const hF = health === 'preferred' ? 0.82 : health === 'standard' ? 1.0 : 1.50;
-  const baseAnnual = 1.10 * ageF * termF * gF * tobF * hF * (coverage / 1000);
-  const isGraded = health === 'graded';
-
-  let termCarriers = [
-    { key:'americo',    name:'Americo',          dot:'#3b82f6', mult:1.00, prod:'americo_term', eapp:'Americo',           ccOk:false },
-    { key:'aetna',      name:'Aetna / Accendo',  dot:'#10b981', mult:0.97, prod:'aetna_senior', eapp:'Aetna / Accendo',   ccOk:false },
-    { key:'trans',      name:'Transamerica',     dot:'#f59e0b', mult:0.96, prod:'trans_express',eapp:'Transamerica',      ccOk:true  },
-    { key:'chubb',      name:'Chubb',            dot:'#14b8a6', mult:0.99, prod:'chubb_pref',   eapp:'Chubb',             ccOk:false },
-    { key:'ethos',      name:'Ethos',            dot:'#f97316', mult:1.02, prod:'ethos_tawl',   eapp:'Ethos',             ccOk:false },
-    { key:'mutual',     name:'Mutual of Omaha',  dot:'#06b6d4', mult:1.01, prod:'mutual_fe',    eapp:'Mutual of Omaha',   ccOk:false },
-    { key:'corebridge', name:'Corebridge',       dot:'#ec4899', mult:1.03, prod:'core_siwl',              eapp:'Corebridge',        ccOk:true  },
-    { key:'lg',         name:'Legal & General', dot:'#b91c1c', mult:0.92, prod:'lg_term',                eapp:'Legal & General',   ccOk:false },
-    { key:'jh',         name:'John Hancock',    dot:'#92400e', mult:0.94, prod:'jh_simple_term',         eapp:'John Hancock',      ccOk:false },
-    { key:'foresters',  name:'Foresters',       dot:'#14532d', mult:0.97, prod:'foresters_your_term',    eapp:'Foresters',         ccOk:false },
-    { key:'kcl',        name:'Kansas City Life',dot:'#1e3a8a', mult:0.96, prod:'kcl_sig_term_si',        eapp:'Kansas City Life',  ccOk:false },
-  ];
-
-  if (payment === 'cc') termCarriers = termCarriers.filter(c => c.ccOk);
-  // Filter to contracted carriers only (if agent has set any)
-  const _termContracted = getContractedCarriers();
-  if (_termContracted.length > 0) termCarriers = termCarriers.filter(c => _termContracted.includes(c.key));
-
-  const container = document.getElementById(pfx+'term-cards');
-  container.innerHTML = '';
-
-  // Approval status for term
-  const approvalBadge = isGraded ? 'b-gr' : (overallClass === 'modified' || overallClass === 'check' ? 'b-nr' : 'b-ok');
-  const approvalTxt = isGraded
-    ? `<span style="display:inline-flex;align-items:center;gap:5px">${icon('warning',{size:11})}Graded</span>`
-    : (overallClass === 'modified' || overallClass === 'check'
-        ? `<span style="display:inline-flex;align-items:center;gap:5px">${icon('clock',{size:11})}Non-Instant</span>`
-        : `<span style="display:inline-flex;align-items:center;gap:5px">${icon('check',{size:11})}Available</span>`);
-
-  termCarriers.forEach(c => {
-    const annualAP = +(baseAnnual * c.mult).toFixed(2);
-    const monthly = +(annualAP / 12).toFixed(2);
-    const commPct = getCommPct(c.prod, contract, isGraded);
-    const advComm = +(annualAP * commPct / 100 * 0.75).toFixed(2);
-    const eappUrl = EAPP_URLS[c.eapp] || '#';
-
-    const div = document.createElement('div');
-    div.className = 'carrier-card';
-    div.dataset.carrierKey = c.key;
-    div.dataset.product = 'term';
-    div.dataset.commPct = commPct;
-    div.dataset.commCut = isGraded ? '1' : '0';
-    div.innerHTML = `
-      <div class="ch" style="flex-wrap:wrap;gap:6px">
-        <div class="cname"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c.dot};margin-right:6px;vertical-align:middle"></span>${c.name}</div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <div class="badge ${approvalBadge}">${approvalTxt}</div>
-          <a href="${eappUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--ds-color-info);font-size:11px;font-weight:600;text-decoration:none" onmouseover="this.style.background='rgba(59,130,246,.28)'" onmouseout="this.style.background='rgba(59,130,246,.15)'">${icon('arrow-square-out',{size:11})}E-App</a>
-        </div>
-      </div>
-      <div class="rrow"><div class="rlbl">Monthly Premium</div><div class="rval"><strong>${fmt$(monthly)}/mo</strong></div></div>
-      <div class="rrow"><div class="rlbl">Annual Premium</div><div class="rval b">${fmt$(annualAP)}</div></div>
-      <div class="rrow"><div class="rlbl">Term / Coverage / Health</div><div class="rval">${term}yr / $${(coverage/1000).toFixed(0)}k / ${health}</div></div>
-      <div class="comm-box">
-        <div><div class="comm-lbl">Est. Adv. Commission @ ${contract}% → ${fmtPct(commPct)} eff.</div>
-        <div style="font-size:10px;color:var(--text3)">AP × ${fmtPct(commPct)} × 75% = 9-mo advance</div></div>
-        <div class="comm-amt ${isGraded?'y':'g'}">${fmt$(advComm)}</div>
-      </div>
-    `;
-    container.appendChild(div);
-  });
-
-  if (!pfx) {
-    // ITK live-rate overlay for Term. Passes 'TERM' as fallback toolkit since
-    // VERIFY_CONFIG.term has no `toolkit` (verify panel stays on iframe).
-    fetchItkOverlay('term', buildQuoteRequest('term', 'TERM'));
-    window._verifyArmed.term = true;
-    const cta = document.getElementById('term-verify-cta');
-    if (cta) cta.style.display = 'flex';
-    setVerifyChips('term');
-    if (window._verifyOpen.term) {
-      const preEl  = document.getElementById('term-verify-pre');
-      const postEl = document.getElementById('term-verify-post');
-      if (preEl)  preEl.style.display  = 'none';
-      if (postEl) postEl.style.display = 'block';
-      if (!window._verifyLoaded.term) {
-        const slot = document.getElementById('term-verify-iframe-slot');
-        if (slot) {
-          const url = buildPrefillUrl('term');
-          slot.innerHTML = '<iframe style="border:none;height:820px;width:100%;display:block" src="' + url + '" loading="lazy"></iframe>';
-          window._verifyLoaded.term = true;
-          window._verifyLastUrl.term = url;
-        }
-      }
-    }
-  }
-}
-
-// ============================================================
-// IUL QUOTE
-// ============================================================
-function runIULQuote(pfx='') {
-  const age = parseInt(document.getElementById(pfx+'iul-age').value);
-  const gender = document.getElementById(pfx+'iul-gender').value;
-  const coverage = parseInt(document.getElementById(pfx+'iul-cov').value);
-  const health = document.getElementById(pfx+'iul-health').value;
-  const contract = getContract();
-  if (!age) { alert('Enter an age.'); return; }
-
-  document.getElementById(pfx+'iul-results').style.display = 'block';
-
-  const hF = {preferred:0.82,standard:1.0,substandard:1.35}[health] || 1.0;
-  const gF = gender === 'M' ? 1.0 : 0.84;
-  const ageF = Math.pow(1.05, Math.max(0, age - 30));
-  const base = 2.20 * ageF * gF * hF * (coverage / 1000);
-
-  let iulCarriers = [
-    { key:'americo',   name:'Americo (Intelligent Health IUL)', dot:'#3b82f6', mult:1.00, prod:'aetna_iul',           eapp:'Americo' },
-    { key:'mutual',    name:'Mutual of Omaha (IULE)',           dot:'#06b6d4', mult:1.06, prod:'mutual_iule',         eapp:'Mutual of Omaha' },
-    { key:'ethos',     name:'Ethos',                           dot:'#f97316', mult:0.98, prod:'ethos_tawl',          eapp:'Ethos' },
-    { key:'trans',     name:'Transamerica FFIUL',              dot:'#f59e0b', mult:1.08, prod:'trans_ffiul',         eapp:'Transamerica' },
-    { key:'kcl',       name:'Kansas City Life IUL',            dot:'#1e3a8a', mult:1.00, prod:'kcl_iul',             eapp:'Kansas City Life' },
-    { key:'foresters', name:'Foresters SmartUL',               dot:'#14532d', mult:1.02, prod:'foresters_smartul',   eapp:'Foresters' },
-  ];
-  // Filter to contracted carriers only (if agent has set any)
-  const _iulContracted = getContractedCarriers();
-  if (_iulContracted.length > 0) iulCarriers = iulCarriers.filter(c => _iulContracted.includes(c.key));
-
-  const container = document.getElementById(pfx+'iul-cards');
-  container.innerHTML = '';
-  iulCarriers.forEach(c => {
-    const minMonthly = +(base * c.mult).toFixed(2);
-    const recMonthly = +(minMonthly * 1.55).toFixed(2);
-    const annualAP = +(recMonthly * 12).toFixed(2);
-    const commPct = getCommPct(c.prod, contract, false);
-    const advComm = +(annualAP * commPct / 100 * 0.75).toFixed(2);
-    const isSubstd = health === 'substandard';
-    const eappUrl = EAPP_URLS[c.eapp] || '#';
-
-    const div = document.createElement('div');
-    div.className = 'carrier-card';
-    div.innerHTML = `
-      <div class="ch" style="flex-wrap:wrap;gap:6px">
-        <div class="cname"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${c.dot};margin-right:6px;vertical-align:middle"></span>${c.name}</div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <div class="badge ${isSubstd?'b-gr':'b-ok'}">${isSubstd?`<span style="display:inline-flex;align-items:center;gap:5px">${icon('warning',{size:11})}Modified</span>`:`<span style="display:inline-flex;align-items:center;gap:5px">${icon('check',{size:11})}Available</span>`}</div>
-          <a href="${eappUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:6px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:var(--ds-color-info);font-size:11px;font-weight:600;text-decoration:none" onmouseover="this.style.background='rgba(59,130,246,.28)'" onmouseout="this.style.background='rgba(59,130,246,.15)'">${icon('arrow-square-out',{size:11})}E-App</a>
-        </div>
-      </div>
-      <div class="rrow"><div class="rlbl">Min Monthly Premium</div><div class="rval">${fmt$(minMonthly)}/mo</div></div>
-      <div class="rrow"><div class="rlbl">Recommended Monthly</div><div class="rval g"><strong>${fmt$(recMonthly)}/mo</strong></div></div>
-      <div class="rrow"><div class="rlbl">Annual (rec.)</div><div class="rval b">${fmt$(annualAP)}</div></div>
-      <div class="rrow"><div class="rlbl">Death Benefit</div><div class="rval">$${(coverage/1000).toFixed(0)}k+</div></div>
-      <div class="comm-box">
-        <div><div class="comm-lbl">Est. Adv. Commission @ ${contract}% → ${fmtPct(commPct)} eff.</div>
-        <div style="font-size:10px;color:var(--text3)">AP × ${fmtPct(commPct)} × 75% = 9-mo advance</div></div>
-        <div class="comm-amt g">${fmt$(advComm)}</div>
-      </div>
-    `;
-    container.appendChild(div);
-  });
-
-  if (!pfx) {
-    window._verifyArmed.iul = true;
-    const cta = document.getElementById('iul-verify-cta');
-    if (cta) cta.style.display = 'flex';
-    setVerifyChips('iul');
-    if (window._verifyOpen.iul) {
-      const preEl  = document.getElementById('iul-verify-pre');
-      const postEl = document.getElementById('iul-verify-post');
-      if (preEl)  preEl.style.display  = 'none';
-      if (postEl) postEl.style.display = 'block';
-      if (!window._verifyLoaded.iul) {
-        const slot = document.getElementById('iul-verify-iframe-slot');
-        if (slot) {
-          const url = buildPrefillUrl('iul');
-          slot.innerHTML = '<iframe style="border:none;height:820px;width:100%;display:block" src="' + url + '" loading="lazy"></iframe>';
-          window._verifyLoaded.iul = true;
-          window._verifyLastUrl.iul = url;
-        }
-      }
-    }
-  }
-}
-
-// ============================================================
 // POLICY TRACKER
 // ============================================================
 // Hydrated from namespaced storage in bootDashboard() once auth resolves.
@@ -6097,12 +5482,12 @@ function closeModal() { document.getElementById('addPolModal').classList.remove(
 document.addEventListener('click', e => {
   if (e.target.id === 'addPolModal') closeModal();
   if (e.target.id === 'soldModal') closeSoldModal();
-  if (e.target.id === 'leadQuoteModal') closeQuoteModal();
+  if (e.target.id === 'leadApiQuoteModal') closeLeadApiQuote();
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
-  const lq = document.getElementById('leadQuoteModal');
-  if (lq && lq.classList.contains('open')) { closeQuoteModal(); return; }
+  const lq = document.getElementById('leadApiQuoteModal');
+  if (lq && lq.classList.contains('open')) { closeLeadApiQuote(); return; }
   const ap = document.getElementById('addPolModal');
   if (ap && ap.classList.contains('open')) { closeModal(); return; }
   const sm = document.getElementById('soldModal');
@@ -8169,28 +7554,103 @@ function toggleLeadExpand(lid) {
   if (row) row.classList.toggle('expanded', expandedLeadIds.has(lid));
 }
 
-// Open the lead-quote modal prefilled with lead data. Modal mirrors #sec-quoter
-// with m- prefixed IDs and shares logic via pfx-aware quote handlers.
+// ============================================================
+// LEADS-TAB API QUOTER MODAL — opens the live API quoter (#leadApiQuoteModal)
+// prefilled from a lead. Reuses the API quoter core (runApiQuote /
+// renderApiQuoteResults) via the _aqCtx indirection, and layers a LOCAL
+// approval-class overlay on top from the health-conditions textarea.
+// ============================================================
+let _aqHealthCw = null; // cached per-carrier worst UW class for badge re-injection (tab + modal)
+
+// Show/hide conditional fields based on the modal's Product dropdown.
+function laqToggleFields() {
+  const prod = (document.getElementById('laq-product') || {}).value || 'FEX';
+  const termFg = document.getElementById('laq-fg-term');
+  const payFg  = document.getElementById('laq-fg-payment');
+  const iulBan = document.getElementById('laq-iul-banner');
+  if (termFg) termFg.style.display = (prod === 'TERM') ? '' : 'none';
+  if (payFg)  payFg.style.display  = (prod === 'FEX')  ? '' : 'none';
+  if (iulBan) iulBan.style.display = (prod === 'IUL')  ? '' : 'none';
+}
+
+// Read the modal form into the body shape the itk-quote edge function accepts.
+// Mirrors readApiQuoterForm() but reads the laq- prefixed inputs.
+function readLeadApiQuoterForm() {
+  const v = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const toolkit = v('laq-product') || 'FEX';
+  const body = { toolkit };
+  const age = v('laq-age');     if (age)  body.age = Number(age);
+  const sex = v('laq-sex');     if (sex)  body.sex = (sex === 'M') ? 'Male' : 'Female';
+  const st  = v('laq-state');   if (st)   body.state = st;
+  const face= v('laq-face');    if (face) body.faceAmount = Number(face);
+  const tob = v('laq-tobacco');           body.tobacco = (tob === 'yes') ? 'Cigarettes' : 'None';
+  if (toolkit === 'FEX') {
+    const pay = v('laq-payment');
+    if (pay) body.paymentType = (pay === 'bank') ? 'Bank Draft/EFT' : 'Credit Card';
+  }
+  if (toolkit === 'TERM') {
+    const tl = v('laq-term');   if (tl) body.term = Number(tl);
+  }
+  return body;
+}
+
+// Reset modal inputs/results to defaults so a previous lead doesn't bleed in.
+function clearLeadApiQuote() {
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  setVal('laq-product', 'FEX');
+  setVal('laq-age', '');
+  setVal('laq-sex', 'M');
+  setVal('laq-state', '');
+  setVal('laq-face', '15000');
+  setVal('laq-tobacco', 'no');
+  setVal('laq-term', '20');
+  setVal('laq-payment', 'bank');
+  setVal('laq-health-text', '');
+  const tags = document.getElementById('laq-health-tags'); if (tags) tags.innerHTML = '';
+  const spin = document.getElementById('laq-health-spinner'); if (spin) spin.style.display = 'none';
+  const slot = document.getElementById('laq-results');
+  if (slot) { slot.style.display = 'none'; slot.innerHTML = ''; }
+  const hint = document.getElementById('laq-form-hint');
+  if (hint) { hint.textContent = 'Fill age, sex, state, and face amount.'; hint.style.color = 'var(--text3)'; }
+  _aqHealthCw = null;
+  try { laqToggleFields(); } catch (_) {}
+}
+
+function closeLeadApiQuote() {
+  const overlay = document.getElementById('leadApiQuoteModal');
+  if (overlay) overlay.classList.remove('open');
+}
+
+// Modal Run handler — points the API quoter core at the modal, then runs the
+// live quote. runApiQuote() applies the health-overlay badges itself.
+async function runLeadApiQuote() {
+  _aqCtx = {
+    resultsId: 'laq-results', source: 'modal', hintId: 'laq-form-hint',
+    healthTextId: 'laq-health-text', healthTagsId: 'laq-health-tags', healthSpinnerId: 'laq-health-spinner',
+  };
+  const body = readLeadApiQuoterForm();
+  await runApiQuote(body);
+}
+
+// Open the modal prefilled from a lead. Wired to the .lead-quote-btn rows.
 function openQuoteForLead(lid) {
   const lead = leads.find(l => String(l.id) === String(lid));
   if (!lead) return;
-  openQuoteModal(lead);
-}
-
-function openQuoteModal(lead) {
-  const overlay = document.getElementById('leadQuoteModal');
+  const overlay = document.getElementById('leadApiQuoteModal');
   if (!overlay) return;
-  document.getElementById('m-lead-name').textContent = lead.name || 'Unknown Lead';
-  document.getElementById('m-lead-sub').textContent =
+
+  document.getElementById('laq-lead-name').textContent = lead.name || 'Unknown Lead';
+  document.getElementById('laq-lead-sub').textContent =
     [lead.phone, lead.email].filter(Boolean).join(' · ') || '—';
 
-  // Lead info strip (shows whatever fields the lead has)
-  const strip = document.getElementById('m-lead-strip');
+  // Lead info strip (shows whatever fields the lead has).
+  const strip = document.getElementById('laq-lead-strip');
   const fields = [
     lead.state           ? ['State', lead.state] : null,
     lead.dob             ? ['DOB', lead.dob] : null,
     lead.age             ? ['Age', lead.age] : null,
     lead.gender          ? ['Gender', lead.gender] : null,
+    lead.tobacco         ? ['Tobacco', lead.tobacco] : null,
     lead.coverage_wanted ? ['Coverage Wanted', lead.coverage_wanted] : null,
     lead.source          ? ['Source', lead.source] : null,
     lead.military_branch ? ['Branch', lead.military_branch] : null,
@@ -8200,64 +7660,9 @@ function openQuoteModal(lead) {
     ? fields.map(([k,v]) => `<div><span class="lbl">${k}:</span><span>${escapeHTML(String(v))}</span></div>`).join('')
     : '<div style="color:var(--text3)">No additional lead data</div>';
 
-  resetQuoteModal();
-  prefillQuoteModal(lead);
+  // Reset to defaults, then prefill from the lead.
+  clearLeadApiQuote();
 
-  // Always start on the FE tab (agent's primary product).
-  const tabs = overlay.querySelectorAll('.tabs > .tab');
-  tabs.forEach(t => t.classList.remove('active'));
-  if (tabs[0]) tabs[0].classList.add('active');
-  document.getElementById('m-qt-fe').style.display = 'block';
-  document.getElementById('m-qt-term').style.display = 'none';
-  document.getElementById('m-qt-iul').style.display = 'none';
-
-  overlay.classList.add('open');
-}
-
-function closeQuoteModal() {
-  const overlay = document.getElementById('leadQuoteModal');
-  if (overlay) overlay.classList.remove('open');
-}
-
-// Wipe inputs/results so a previous lead's data doesn't bleed into this one.
-function resetQuoteModal() {
-  ['m-fe-age','m-term-age','m-iul-age',
-   'm-fe-weight','m-term-weight',
-   'm-fe-health-text','m-term-health-text'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  ['m-fe-height','m-term-height'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  ['m-fe-gender','m-term-gender','m-iul-gender'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = 'M';
-  });
-  ['m-fe-tobacco','m-term-tob'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = 'no';
-  });
-  ['m-fe-payment','m-term-payment'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = 'bank';
-  });
-  const feCov = document.getElementById('m-fe-coverage'); if (feCov) feCov.value = '10000';
-  const tCov  = document.getElementById('m-term-cov');    if (tCov)  tCov.value  = '200000';
-  const iCov  = document.getElementById('m-iul-cov');     if (iCov)  iCov.value  = '500000';
-  const tLen  = document.getElementById('m-term-len');    if (tLen)  tLen.value  = '20';
-  const iHc   = document.getElementById('m-iul-health');  if (iHc)   iHc.value   = 'standard';
-  ['m-fe-results','m-term-results','m-iul-results',
-   'm-fe-cc-notice','m-term-cc-notice',
-   'm-fe-build-flag','m-term-build-flag',
-   'm-fe-ai-spinner','m-term-ai-spinner'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.style.display = 'none';
-  });
-  ['m-fe-parsed-tags','m-term-parsed-tags',
-   'm-fe-cards','m-term-cards','m-iul-cards'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.innerHTML = '';
-  });
-  feLastParsedConds['m-'] = [];
-  termLastParsedConds['m-'] = [];
-}
-
-function prefillQuoteModal(lead) {
   // Age — use lead.age, fall back to computing from DOB.
   let age = (lead.age != null && lead.age !== '') ? parseInt(lead.age) : null;
   if (!age && lead.dob) {
@@ -8270,32 +7675,143 @@ function prefillQuoteModal(lead) {
       if (a > 0 && a < 120) age = a;
     }
   }
-  if (age) {
-    ['m-fe-age','m-term-age','m-iul-age'].forEach(id => {
-      const el = document.getElementById(id); if (el) el.value = age;
-    });
-  }
+  if (age) { const el = document.getElementById('laq-age'); if (el) el.value = age; }
 
-  // Gender — accept M/F or full words / m/f / male/female.
+  // Gender — accept M/F or full words / male/female.
   if (lead.gender) {
     const g = String(lead.gender).trim().toUpperCase();
     const v = (g === 'M' || g.startsWith('MALE')) ? 'M'
             : (g === 'F' || g.startsWith('FEMALE')) ? 'F' : null;
-    if (v) {
-      ['m-fe-gender','m-term-gender','m-iul-gender'].forEach(id => {
-        const el = document.getElementById(id); if (el) el.value = v;
-      });
-    }
+    if (v) { const el = document.getElementById('laq-sex'); if (el) el.value = v; }
   }
 
-  // Coverage — strip non-digits and apply to the FE tab (the agent's primary product).
+  // State — only apply when it matches a known option.
+  if (lead.state) {
+    const st = String(lead.state).trim().toUpperCase();
+    const sel = document.getElementById('laq-state');
+    if (sel && Array.from(sel.options).some(o => o.value === st)) sel.value = st;
+  }
+
+  // Tobacco — map truthy / "yes" / "tobacco" / "smoker" to Tobacco.
+  if (lead.tobacco) {
+    const t = String(lead.tobacco).trim().toLowerCase();
+    const isTob = ['yes','y','true','tobacco','smoker','cigarettes'].includes(t);
+    const el = document.getElementById('laq-tobacco');
+    if (el && isTob) el.value = 'yes';
+  }
+
+  // Face amount — strip non-digits from coverage_wanted.
   if (lead.coverage_wanted) {
     const num = String(lead.coverage_wanted).replace(/[^\d]/g, '');
-    if (num) {
-      const el = document.getElementById('m-fe-coverage');
-      if (el) el.value = num;
-    }
+    if (num) { const el = document.getElementById('laq-face'); if (el) el.value = num; }
   }
+
+  // Health textarea: leads carry no health field today — leave it blank for the
+  // agent to fill. TODO: prefill from lead.health / lead.notes if such a field
+  // is added to the lead schema later.
+
+  laqToggleFields();
+  renderApiQuoterCounter('modal');
+  overlay.classList.add('open');
+}
+
+// ---- Health overlay (local approval-class badges) -----------------------
+// UW_CLASS only covers 5 carriers; map each to the substrings ITK uses in its
+// `company` field. Carriers outside this set get no badge — documented limit.
+const LAQ_HEALTH_CARRIER_KEYS = {
+  am: ['americo'],
+  at: ['aetna', 'accendo'],
+  aa: ['american-amicable', 'american amicable', 'occidental'],
+  tr: ['transamerica'],
+  co: ['corebridge', 'aig'],
+};
+
+// Given an ITK company string, return its UW_CLASS key ('am'|'at'|'aa'|'tr'|'co')
+// or null when the carrier isn't one of the five we have underwriting data for.
+function laqHealthKeyForCompany(company) {
+  if (!company) return null;
+  const c = String(company).toLowerCase();
+  for (const [key, tokens] of Object.entries(LAQ_HEALTH_CARRIER_KEYS)) {
+    if (tokens.some(t => c.indexOf(t) !== -1)) return key;
+  }
+  return null;
+}
+
+// Parse the active context's health textarea, compute per-carrier worst
+// underwriting class, and paint approval badges onto the rendered results.
+// Health is NOT sent to ITK — this is a purely local estimate. Serves both the
+// Leads-tab modal and the standalone "Quote + Underwriting" tab via _aqCtx;
+// triggered by runApiQuote() after a successful render.
+async function applyApiHealthOverlay() {
+  const textId    = _aqCtx.healthTextId;
+  const tagsId    = _aqCtx.healthTagsId;
+  const spinnerId = _aqCtx.healthSpinnerId;
+  if (!textId) return; // context has no health input wired up
+  const ta = document.getElementById(textId);
+  const text = ta ? ta.value.trim() : '';
+  const spinner = spinnerId ? document.getElementById(spinnerId) : null;
+
+  if (!text) {
+    _aqHealthCw = null;
+    if (tagsId) renderHealthTags(tagsId, []);
+    reapplyApiHealthBadges();
+    return;
+  }
+
+  if (spinner) spinner.style.display = 'block';
+  let conds = [];
+  try { conds = await aiParseHealth(text); }
+  finally { if (spinner) spinner.style.display = 'none'; }
+
+  if (tagsId) renderHealthTags(tagsId, conds);
+
+  // Worst class per covered carrier across all parsed conditions.
+  const cw = {};
+  ['am', 'at', 'aa', 'tr', 'co'].forEach(k => {
+    cw[k] = worstClass(conds.map(c => (UW_CLASS[c] && UW_CLASS[c][k]) || 'level'));
+  });
+  _aqHealthCw = cw;
+  reapplyApiHealthBadges();
+}
+
+// Synchronously (re-)inject the approval badges into the active results
+// container (_aqCtx.resultsId). Called by applyApiHealthOverlay and again by
+// renderApiQuoteResults after a sort, which rebuilds the table and wipes any
+// previously injected badges. Safe no-op when no health has been parsed.
+function reapplyApiHealthBadges() {
+  const root = document.getElementById(_aqCtx.resultsId);
+  if (!root) return;
+  // Clear stale badges first (covers the "health text cleared" case too).
+  root.querySelectorAll('.aq-uw-badge').forEach(el => el.remove());
+  const cw = _aqHealthCw;
+  if (!cw) return;
+
+  const TONE = { approved: 'b-ok', non_instant: 'b-ok', graded: 'b-gr', declined: 'b-no' };
+  const LABEL = { approved: 'Likely approved', non_instant: 'Likely standard', graded: 'Likely graded', declined: 'Likely DECLINE' };
+
+  const badgeFor = (company) => {
+    const key = laqHealthKeyForCompany(company);
+    if (!key) return null;
+    const approval = classToApproval(cw[key]);
+    const span = document.createElement('span');
+    span.className = 'badge ' + (TONE[approval] || 'b-ok') + ' aq-uw-badge';
+    span.textContent = LABEL[approval] || 'Likely approved';
+    return span;
+  };
+
+  // Table rows — append into the carrier cell (2nd <td>).
+  root.querySelectorAll('table.aq-table tr[data-company]').forEach(tr => {
+    const badge = badgeFor(tr.getAttribute('data-company'));
+    if (!badge) return;
+    const cell = tr.querySelector('td:nth-child(2) .aq-carrier > div') || tr.querySelector('td:nth-child(2)');
+    if (cell) cell.appendChild(badge);
+  });
+
+  // Podium cards — append to the card itself.
+  root.querySelectorAll('.aq-hero[data-company]').forEach(card => {
+    const badge = badgeFor(card.getAttribute('data-company'));
+    if (badge) card.appendChild(badge);
+  });
 }
 
 // Convert status pill into an inline <select> for manual override (full status list).
@@ -9663,14 +9179,6 @@ async function saveAccountPassword() {
   setTimeout(() => { msg.textContent = ''; }, 4000);
 }
 
-// Quoter product tab switcher
-function quoterTab(id, el, pfx='') {
-  // Deactivate sibling tabs first so the modal's tab strip stays correct.
-  el.parentElement.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  ['fe','term','iul'].forEach(k=>{ const el2=document.getElementById(pfx+'qt-'+k); if(el2) el2.style.display=k===id?'block':'none'; });
-}
-
 // ============================================================
 // VERIFY PANEL — wraps Insurance Toolkits live rates iframe
 // ============================================================
@@ -9970,6 +9478,16 @@ let _aqSortCol = 'monthly';
 let _aqSortDir = 'asc';
 let _aqOnSelectQuote = null; // forward-compat hook for future save-to-policy
 
+// Active-target indirection so the API quoter core (runApiQuote /
+// renderApiQuoteResults / apiQuoterSort / counter) can render into either
+// the standalone "Quote + Underwriting" tab OR the Leads-tab quote modal.
+// The tab path resets this to tab context; runLeadApiQuote() sets modal
+// context before calling runApiQuote().
+let _aqCtx = {
+  resultsId: 'api-quoter-results', source: 'tab', hintId: 'aq-form-hint',
+  healthTextId: 'aq-health-text', healthTagsId: 'aq-health-tags', healthSpinnerId: 'aq-health-spinner',
+};
+
 // Coerce ITK's stringy "$42.10" / "504.99" into a sortable number.
 function aqNum(v) {
   if (typeof v === 'number') return v;
@@ -10076,6 +9594,11 @@ function clearApiQuoterForm() {
   if (slot) { slot.style.display = 'none'; slot.innerHTML = ''; }
   const hint = document.getElementById('aq-form-hint');
   if (hint) { hint.textContent = 'Fill age, sex, state, and face amount.'; hint.style.color = 'var(--text3)'; }
+  // Health overlay — clear textarea, parsed tags, spinner, and cached classes.
+  const ht = document.getElementById('aq-health-text'); if (ht) ht.value = '';
+  const htags = document.getElementById('aq-health-tags'); if (htags) htags.innerHTML = '';
+  const hspin = document.getElementById('aq-health-spinner'); if (hspin) hspin.style.display = 'none';
+  _aqHealthCw = null;
   _aqLastQuotes = []; _aqLastExcluded = []; _aqLastBody = null; _aqLastMs = 0;
   try { apiQuoterToggleFields(); } catch (_) {}
 }
@@ -10152,13 +9675,16 @@ async function loadQuoteQuota() {
   renderApiQuoterCounter();
 }
 
-function renderApiQuoterCounter() {
-  const pill   = document.getElementById('api-quoter-counter');
-  const usedEl = document.getElementById('aq-quota-used');
-  const limEl  = document.getElementById('aq-quota-limit');
-  const resEl  = document.getElementById('aq-quota-reset');
-  const banner = document.getElementById('api-quoter-limit-banner');
-  const runBtn = document.querySelector('#sec-api-quoter button[onclick="runApiQuote()"]');
+function renderApiQuoterCounter(scope) {
+  const modal  = scope === 'modal';
+  const pill   = document.getElementById(modal ? 'laq-counter'        : 'api-quoter-counter');
+  const usedEl = document.getElementById(modal ? 'laq-quota-used'     : 'aq-quota-used');
+  const limEl  = document.getElementById(modal ? 'laq-quota-limit'    : 'aq-quota-limit');
+  const resEl  = document.getElementById(modal ? 'laq-quota-reset'    : 'aq-quota-reset');
+  const banner = document.getElementById(modal ? 'laq-limit-banner'   : 'api-quoter-limit-banner');
+  const runBtn = document.querySelector(modal
+    ? '#leadApiQuoteModal button[onclick="runLeadApiQuote()"]'
+    : '#sec-api-quoter button[onclick="runApiQuote()"]');
   if (!pill) return;
 
   if (!_quoteQuota.loaded) {
@@ -10216,9 +9742,15 @@ function renderApiQuoterCounter() {
 // Main entry. `prefilledBody` is optional — passed by a future "quote
 // from lead" caller to bypass the form; for v1 it's always null.
 async function runApiQuote(prefilledBody) {
+  // Tab path (no prefilled body) always renders into the tab; the modal
+  // path sets _aqCtx itself before calling in with a body.
+  if (!prefilledBody) _aqCtx = {
+    resultsId: 'api-quoter-results', source: 'tab', hintId: 'aq-form-hint',
+    healthTextId: 'aq-health-text', healthTagsId: 'aq-health-tags', healthSpinnerId: 'aq-health-spinner',
+  };
   const body = prefilledBody || readApiQuoterForm();
-  const hint = document.getElementById('aq-form-hint');
-  const slot = document.getElementById('api-quoter-results');
+  const hint = document.getElementById(_aqCtx.hintId);
+  const slot = document.getElementById(_aqCtx.resultsId);
   if (!slot) return;
 
   if (!body.age || !body.sex || !body.state || !body.faceAmount) {
@@ -10230,11 +9762,29 @@ async function runApiQuote(prefilledBody) {
   }
   if (hint) { hint.textContent = 'Fill age, sex, state, and face amount.'; hint.style.color = 'var(--text3)'; }
 
+  // Carrier-license gate — an agent can only place business with carriers they
+  // are contracted for (Settings → Carriers). With nothing configured there's
+  // no licensed carrier to quote, so block here BEFORE the API call rather than
+  // spend a quota credit on a quote the agent couldn't act on.
+  if (!getContractedCarriers().length) {
+    if (hint) {
+      hint.textContent = 'Set up your licensed carriers first.';
+      hint.style.color = 'var(--ds-color-danger,#dc2626)';
+    }
+    slot.style.display = 'block';
+    slot.innerHTML =
+      '<div class="aq-empty">No licensed carriers configured. Add the carriers you’re ' +
+      'contracted to sell in <a href="#" onclick="nav(\'settings\');return false" ' +
+      'style="color:var(--text-g);text-decoration:underline">Settings → Carriers</a> — ' +
+      'the quoter only shows carriers you’re approved for.</div>';
+    return;
+  }
+
   // Belt-and-suspenders pre-check. Edge function is authoritative; this just
   // spares a network round-trip when we already know the agent is capped.
   // The disabled Run button + banner already explain the state to the user.
   if (_quoteQuota.loaded && _quoteQuota.used >= _quoteQuota.limit) {
-    renderApiQuoterCounter();
+    renderApiQuoterCounter(_aqCtx.source);
     return;
   }
 
@@ -10276,7 +9826,7 @@ async function runApiQuote(prefilledBody) {
         resetAt: errBody.resetAt || null,
         loaded:  true,
       };
-      renderApiQuoterCounter();
+      renderApiQuoterCounter(_aqCtx.source);
       slot.style.display = 'none';
       slot.innerHTML = '';
       return;
@@ -10290,7 +9840,7 @@ async function runApiQuote(prefilledBody) {
         resetAt: errBody.quota.resetAt,
         loaded:  true,
       };
-      renderApiQuoterCounter();
+      renderApiQuoterCounter(_aqCtx.source);
     }
     const msg =
       (errBody && errBody.error) ||
@@ -10312,7 +9862,7 @@ async function runApiQuote(prefilledBody) {
       resetAt: data.quota.resetAt,
       loaded:  true,
     };
-    renderApiQuoterCounter();
+    renderApiQuoterCounter(_aqCtx.source);
   }
   _aqLastQuotes   = Array.isArray(data.quotes)   ? data.quotes   : [];
   _aqLastExcluded = Array.isArray(data.excluded) ? data.excluded : [];
@@ -10322,6 +9872,10 @@ async function runApiQuote(prefilledBody) {
   // Side-effect: harvest carrier logos for the Settings → Carriers table.
   try { cacheItkLogoFromQuotes(_aqLastQuotes); } catch (_) {}
   renderApiQuoteResults();
+  // Layer the local health-overlay badges on top (no-op when the active
+  // context has no health input or the health box is empty).
+  try { await applyApiHealthOverlay(); }
+  catch (e) { console.warn('[aq] health overlay failed', e); }
 }
 
 function renderApiQuoteError(slot, title, detail) {
@@ -10351,12 +9905,14 @@ function aqQuoteToRegistryKey(quote) {
 }
 
 // Split _aqLastQuotes into { visible, hidden } based on the agent's
-// contracted-carrier list. Empty contracted list = pass-through (show all),
-// matching the convention used by FE/Term/IUL card grids.
+// contracted-carrier list. Empty contracted list = nothing visible: an agent
+// can only quote carriers they're approved for, and runApiQuote() already
+// blocks the API call when no carriers are configured — this is the defensive
+// fallback for any stale re-render (e.g. apiQuoterSort after the list changed).
 function aqPartitionQuotes() {
   const contracted = getContractedCarriers();
   const all = _aqLastQuotes.slice();
-  if (!contracted.length) return { visible: all, hidden: [] };
+  if (!contracted.length) return { visible: [], hidden: [] };
   const set = new Set(contracted);
   const visible = [];
   const hidden  = [];
@@ -10457,7 +10013,7 @@ function fmtMoney(n) {
 }
 
 function renderApiQuoteResults(reuseLast) {
-  const slot = document.getElementById('api-quoter-results');
+  const slot = document.getElementById(_aqCtx.resultsId);
   if (!slot) return;
   const allQuotes = _aqLastQuotes;
   const excluded  = _aqLastExcluded;
@@ -10494,7 +10050,7 @@ function renderApiQuoteResults(reuseLast) {
   const heroCards = podium.map((q, i) => {
     const ann = aqNum(q.yearly);
     const comm = aqEstimateCommission(q.company, q.yearly);
-    return '<div class="aq-hero rank-' + (i + 1) + '">' +
+    return '<div class="aq-hero rank-' + (i + 1) + '" data-company="' + escapeHTML(q.company || '') + '">' +
       '<span class="aq-rank">#' + (i + 1) + '</span>' +
       '<div class="aq-hero-head"><span class="aq-logo-box">' + aqLogoCell(q, 28) + '</span>' +
         '<div style="min-width:0;flex:1"><div class="aq-hero-name" title="' + escapeHTML(q.company || '') + '">' + escapeHTML(aqCleanCompany(q.company)) + '</div>' +
@@ -10516,7 +10072,7 @@ function renderApiQuoteResults(reuseLast) {
     const eapp = (q.eapp_link && q.eapp_link !== '#')
       ? '<a href="' + escapeHTML(q.eapp_link) + '" target="_blank" rel="noopener" style="color:var(--text-g);text-decoration:underline;white-space:nowrap">eApp →</a>'
       : '';
-    return '<tr>' +
+    return '<tr data-company="' + escapeHTML(q.company || '') + '">' +
       '<td class="aq-rank-cell">' + (i + 1) + '</td>' +
       '<td><div class="aq-carrier"><span class="aq-logo-box">' + aqLogoCell(q, 20) + '</span>' +
         '<div style="min-width:0"><div class="aq-carrier-name" title="' + escapeHTML(q.company || '') + '">' + escapeHTML(aqCleanCompany(q.company)) + '</div></div>' +
@@ -10571,6 +10127,10 @@ function renderApiQuoteResults(reuseLast) {
     '</table></div>' +
     renderHiddenByLicenseBlock(hidden) +
     renderExcludedBlock(excluded);
+
+  // Re-inject the health-overlay badges after a (re)render — e.g. when
+  // apiQuoterSort() rebuilds the table. Safe no-op when no health is parsed.
+  try { reapplyApiHealthBadges(); } catch (_) {}
 }
 
 // Hydrate inputs from localStorage and set conditional-field visibility.
