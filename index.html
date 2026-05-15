@@ -2424,6 +2424,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
               <option value="200">200/page</option>
               <option value="9999">All</option>
             </select>
+            <button class="btn btn-s btn-sm" onclick="openAddLeadModal()" style="margin-right:6px">+ Add Lead</button>
             <button class="btn btn-p btn-sm" onclick="openImportModal()">+ Import Leads</button>
           </div>
         </div>
@@ -2925,6 +2926,54 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     <div class="flex gap8 mt16">
       <button class="btn btn-s btn-sm" onclick="biCloseSetupModal()">Cancel</button>
       <button class="btn btn-g btn-sm" onclick="biSaveSetup()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Save &amp; Score</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD LEAD MANUALLY MODAL -->
+<div class="overlay" id="addLeadModal">
+  <div class="modal" style="width:520px;max-width:95vw">
+    <div class="mhdr"><div class="mtitle">Add Lead</div><button class="mclose" onclick="closeAddLeadModal()" data-ico="x" data-size="14"></button></div>
+    <div style="padding:6px 0 0">
+      <div class="frow">
+        <div class="fg">
+          <label>First Name</label>
+          <input type="text" id="al-first" placeholder="Jane" autocomplete="off">
+        </div>
+        <div class="fg">
+          <label>Last Name</label>
+          <input type="text" id="al-last" placeholder="Doe" autocomplete="off">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:10px">
+        <div class="fg">
+          <label>Phone <span style="color:#dc2626">*</span></label>
+          <input type="tel" id="al-phone" placeholder="(555) 123-4567" autocomplete="off">
+        </div>
+        <div class="fg">
+          <label>Email</label>
+          <input type="email" id="al-email" placeholder="jane@example.com" autocomplete="off">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:10px">
+        <div class="fg">
+          <label>State</label>
+          <input type="text" id="al-state" placeholder="TX" maxlength="2" autocomplete="off" style="text-transform:uppercase">
+        </div>
+        <div class="fg">
+          <label>Age</label>
+          <input type="number" id="al-age" placeholder="65" min="18" max="120" autocomplete="off">
+        </div>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <label>Notes</label>
+        <textarea id="al-notes" rows="2" placeholder="Source, context, anything to remember…" autocomplete="off" style="resize:vertical"></textarea>
+      </div>
+      <div id="al-msg" style="font-size:12px;color:#dc2626;margin-top:8px;min-height:18px"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button class="btn btn-s btn-sm" onclick="closeAddLeadModal()">Cancel</button>
+        <button class="btn btn-p btn-sm" onclick="saveManualLead()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Save Lead</button>
+      </div>
     </div>
   </div>
 </div>
@@ -8866,6 +8915,84 @@ function parseCSV(text) {
 }
 
 function detectFieldMap(headers) { return {}; } // legacy stub
+
+// ─── Manual single-lead add (next to Import Leads) ───────────────────────
+// Opens the add-lead modal, clears any leftover form state, focuses the
+// first input. Phone is the only required field; everything else is
+// optional. Phone runs through toE164() so any common format (paren,
+// dash, no-prefix) is accepted.
+function openAddLeadModal() {
+  ['al-first','al-last','al-phone','al-email','al-state','al-age','al-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const msg = document.getElementById('al-msg');
+  if (msg) msg.textContent = '';
+  const modal = document.getElementById('addLeadModal');
+  if (modal) modal.classList.add('open');
+  setTimeout(() => {
+    const first = document.getElementById('al-first');
+    if (first) first.focus();
+  }, 0);
+}
+
+function closeAddLeadModal() {
+  const modal = document.getElementById('addLeadModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function saveManualLead() {
+  const first = (document.getElementById('al-first').value || '').trim();
+  const last  = (document.getElementById('al-last').value  || '').trim();
+  const phone = (document.getElementById('al-phone').value || '').trim();
+  const email = (document.getElementById('al-email').value || '').trim();
+  const state = (document.getElementById('al-state').value || '').trim().toUpperCase();
+  const age   = (document.getElementById('al-age').value   || '').trim();
+  const notes = (document.getElementById('al-notes').value || '').trim();
+  const msg   = document.getElementById('al-msg');
+  if (msg) msg.textContent = '';
+
+  if (!phone) { if (msg) msg.textContent = 'Phone is required.'; return; }
+  const phoneE164 = toE164(phone);
+  if (!phoneE164) { if (msg) msg.textContent = 'Phone must be a valid US number.'; return; }
+
+  // Don't silently swallow duplicates — if the same phone already exists,
+  // surface it so the agent can decide whether to merge manually.
+  const dupe = leads.find(l => toE164(l.phone) === phoneE164);
+  if (dupe) {
+    if (msg) msg.textContent = `A lead with this phone already exists: ${escapeHTML(dupe.name||'Unknown')}.`;
+    return;
+  }
+
+  const name = [first, last].filter(Boolean).join(' ').trim() || 'Unknown';
+  const lead = {
+    id: genLeadId(),
+    name,
+    first_name: first || undefined,
+    last_name:  last  || undefined,
+    phone: phoneE164,
+    email: email || undefined,
+    state: state || undefined,
+    age:   age ? parseInt(age, 10) : undefined,
+    notes: notes || undefined,
+    source: 'manual',
+    status: 'new',
+    importedAt: new Date().toISOString(),
+  };
+
+  leads.unshift(lead);
+  saveLeads();
+  // Reset filters/tab so the new lead is visible — otherwise an active
+  // 'no_answer' filter would hide it and the toast would feel like a lie.
+  if (typeof currentLeadTab !== 'undefined' && currentLeadTab !== 'all' && currentLeadTab !== 'new') {
+    currentLeadTab = 'all';
+    document.querySelectorAll('#sec-leads .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'all'));
+  }
+  leadsCurrentPage = 1;
+  renderLeads();
+  closeAddLeadModal();
+  showToast(`Added ${name}`, '#10b981');
+}
 
 function importCSVLeads() {
   // Build final field map from user selections
