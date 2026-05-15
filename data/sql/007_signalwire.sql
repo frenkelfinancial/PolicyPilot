@@ -54,11 +54,14 @@ create table if not exists public.calls (
 comment on table public.calls is
   'One row per dial. Drives the monthly-minute cap (sum duration_sec where started_at in current month) and per-agent activity history.';
 
+-- Covers both the agent-history list (ORDER BY started_at DESC) and
+-- the monthly-sum window (WHERE started_at >= <month_start>). A second
+-- functional index on date_trunc('month', started_at) was considered
+-- but rejected: date_trunc on timestamptz isn't IMMUTABLE, so Postgres
+-- refuses the index, and a simple range scan on this composite index
+-- is fast enough for the per-agent month sum.
 create index if not exists calls_agent_started_idx
   on public.calls (agent_id, started_at desc);
-
-create index if not exists calls_month_idx
-  on public.calls (agent_id, date_trunc('month', started_at));
 
 -- 4. RLS -----------------------------------------------------------------
 alter table public.calls enable row level security;
