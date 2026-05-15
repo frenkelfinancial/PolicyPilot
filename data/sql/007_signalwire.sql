@@ -71,15 +71,26 @@ create policy "calls_select_own"
   on public.calls for select
   using (auth.uid() = agent_id);
 
+-- Admin check helper. SECURITY DEFINER lets this function bypass RLS
+-- on its own SELECT, which is what breaks the recursion cycle: a naive
+-- `exists (select 1 from agents where ... is_admin)` inside an agents
+-- policy re-fires the same policy, producing 42P17 infinite recursion.
+create or replace function public.is_admin_agent()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select coalesce((select is_admin from public.agents where id = auth.uid()), false);
+$$;
+
+grant execute on function public.is_admin_agent() to authenticated;
+
 drop policy if exists "calls_select_admin" on public.calls;
 create policy "calls_select_admin"
   on public.calls for select
-  using (
-    exists (
-      select 1 from public.agents a
-       where a.id = auth.uid() and a.is_admin = true
-    )
-  );
+  using (public.is_admin_agent());
 
 drop policy if exists "calls_insert_own" on public.calls;
 create policy "calls_insert_own"
@@ -101,19 +112,9 @@ create policy "calls_update_own"
 drop policy if exists "agents_update_admin" on public.agents;
 create policy "agents_update_admin"
   on public.agents for update
-  using (
-    exists (
-      select 1 from public.agents a
-       where a.id = auth.uid() and a.is_admin = true
-    )
-  );
+  using (public.is_admin_agent());
 
 drop policy if exists "agents_select_admin" on public.agents;
 create policy "agents_select_admin"
   on public.agents for select
-  using (
-    exists (
-      select 1 from public.agents a
-       where a.id = auth.uid() and a.is_admin = true
-    )
-  );
+  using (public.is_admin_agent());
