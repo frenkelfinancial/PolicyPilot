@@ -9829,7 +9829,11 @@ async function _renderAdminAssignments(myId) {
         const { error } = await sb.from('agents').update({ [field]: value }).eq('id', agentId);
         if (error) throw error;
         showToast('Saved', '#10b981');
-        await _renderAdminAssignments(myId);
+        // Re-render the whole tab — picks up the change in both the
+        // admin table AND the My Calling Settings card at the top,
+        // which would otherwise stay stale if the edit was on the
+        // current agent's own row.
+        await renderCallingSettings();
       } catch (err) {
         console.warn('[admin assignments] update failed', err);
         showToast(`Save failed: ${err.message || err}`, '#dc2626');
