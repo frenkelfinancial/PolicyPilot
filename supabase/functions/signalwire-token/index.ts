@@ -141,14 +141,23 @@ Deno.serve(async (req) => {
     }, 429);
   }
 
-  // ---- Mint JWT via SignalWire REST ---------------------------------
-  // Endpoint convention varies by SignalWire SDK generation. As of the
-  // latest Call Fabric Browser SDK (@signalwire/js v3+), the JWT-mint
-  // endpoint is /api/relay/rest/jwt with Basic auth and a JSON body
-  // referencing the subscriber resource. If SignalWire later rewrites
-  // the API, the only change should be this fetch block.
+  // ---- Mint Subscriber Token via SignalWire REST --------------------
+  // Call Fabric Browser SDK (@signalwire/js v3) requires a "Subscriber
+  // Access Token" minted by /api/fabric/subscribers/tokens — NOT the
+  // older Relay /api/relay/rest/jwt endpoint, which mints tokens for
+  // the legacy Relay SDK only. Using the wrong endpoint returns a
+  // valid-looking token that the browser SDK then fails to use with
+  // "Authentication service failed with status 401 Unauthorized"
+  // when it opens its WebSocket.
+  //
+  // Body fields (per SignalWire docs):
+  //   reference   required — any string that identifies this subscriber
+  //               (commonly an email). Auto-created if it doesn't exist.
+  //   expire_at   optional — unix-seconds expiry (defaults to 2h).
+  //
+  // Response shape: { subscriber_id, token, refresh_token }
   const space = spaceUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "");
-  const swEndpoint = `https://${space}/api/relay/rest/jwt`;
+  const swEndpoint = `https://${space}/api/fabric/subscribers/tokens`;
   const swAuth = "Basic " + btoa(`${projectId}:${apiToken}`);
 
   const start = Date.now();
@@ -161,12 +170,8 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        // Some SignalWire SDK versions accept `resource`; others `reference`.
-        // Both fields are sent here for compatibility — extra fields are
-        // ignored by SignalWire when the server doesn't recognize them.
-        resource: subscriberId,
         reference: subscriberId,
-        expires_in: 3600,
+        expire_at: Math.floor(Date.now() / 1000) + 3600,
       }),
     });
   } catch (e) {
@@ -188,7 +193,7 @@ Deno.serve(async (req) => {
     }, 502);
   }
 
-  const token = data?.jwt_token || data?.token || "";
+  const token = data?.token || "";
   if (!token) {
     console.error(`[signalwire-token] empty token in response:`, data);
     return json({ ok: false, error: "SignalWire returned no token" }, 502);
