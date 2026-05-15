@@ -9801,7 +9801,10 @@ async function _renderAdminAssignments(myId) {
       const isInt    = e.currentTarget.dataset.type === 'int';
       const current  = e.currentTarget.textContent.replace(/\s*min$/, '').replace(/^—.*—$/, '').trim();
 
-      const raw = window.prompt(promptStr, current);
+      // Custom modal (not window.prompt — Chrome blocks prompt() in many
+      // contexts with "prompt() is not supported"). Resolves to the entered
+      // string, or null on Cancel / Escape / overlay-click.
+      const raw = await _promptModal(promptStr, current);
       if (raw == null) return;     // cancelled
       const trimmed = raw.trim();
       let value = trimmed === '' ? null : trimmed;
@@ -9824,6 +9827,37 @@ async function _renderAdminAssignments(myId) {
         console.warn('[admin assignments] update failed', err);
         showToast(`Save failed: ${err.message || err}`, '#dc2626');
       }
+    });
+  });
+}
+
+// Promise-based input modal. Drop-in replacement for window.prompt(),
+// which Chrome refuses to render in many contexts. Resolves to the
+// entered string, or null on Cancel / Escape / overlay click.
+function _promptModal(title, currentValue) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)';
+    overlay.innerHTML = `
+      <div role="dialog" aria-modal="true" style="background:var(--bg2,#0f172a);border:1px solid var(--border,#1e293b);border-radius:14px;padding:18px 18px 16px;min-width:340px;max-width:480px;box-shadow:0 18px 48px rgba(0,0,0,.5);color:var(--text,#e2e8f0)">
+        <div style="font-size:13px;font-weight:600;color:var(--text2,#94a3b8);margin-bottom:10px;line-height:1.4">${escapeHTML(title || '')}</div>
+        <input type="text" class="_pm-input" value="${escapeHTML(currentValue || '')}" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#1e293b);background:rgba(255,255,255,.04);color:var(--text,#e2e8f0);font-size:14px;outline:none">
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+          <button type="button" class="_pm-cancel" style="padding:7px 14px;border-radius:8px;background:transparent;border:1px solid var(--border,#1e293b);color:var(--text,#e2e8f0);font-size:13px;cursor:pointer">Cancel</button>
+          <button type="button" class="_pm-ok"     style="padding:7px 14px;border-radius:8px;background:#3b82f6;border:1px solid #2563eb;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('._pm-input');
+    setTimeout(() => { input.focus(); input.select(); }, 0);
+    const done = (v) => { overlay.remove(); resolve(v); };
+    overlay.querySelector('._pm-cancel').addEventListener('click', () => done(null));
+    overlay.querySelector('._pm-ok').addEventListener('click', () => done(input.value));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(null); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter')  { e.preventDefault(); done(input.value); }
+      if (e.key === 'Escape') { e.preventDefault(); done(null); }
     });
   });
 }
