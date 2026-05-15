@@ -1484,6 +1484,157 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     --ds-duration-slow: 0ms;
   }
 }
+
+/* ── SoftphonePanel — bottom-right floating dialer (SignalWire WIP) ────── */
+.sp-panel{
+  position:fixed; right:24px; bottom:24px; z-index:9000;
+  width:320px; border-radius:16px;
+  background:var(--bg2,#0f172a);
+  border:1px solid var(--border,#1e293b);
+  box-shadow:0 18px 48px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.3);
+  overflow:hidden;
+  animation: sp-slide-up var(--ds-duration-base,180ms) ease-out;
+  color:var(--text,#e2e8f0);
+}
+@keyframes sp-slide-up { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.sp-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 14px;
+  background:linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.05));
+  border-bottom:1px solid var(--border,#1e293b);
+}
+.sp-head-title{ font-size:13px; font-weight:600; letter-spacing:.2px; }
+.sp-head-state{
+  display:inline-block; width:8px; height:8px; border-radius:50%;
+  background:#94a3b8; margin-right:8px; vertical-align:1px;
+}
+.sp-panel[data-phase="ringing-out"] .sp-head-state,
+.sp-panel[data-phase="ringing-in"]  .sp-head-state { background:#fbbf24; animation:sp-pulse 1s ease-in-out infinite; }
+.sp-panel[data-phase="connected"]   .sp-head-state { background:#10b981; }
+.sp-panel[data-phase="ended"]       .sp-head-state { background:#94a3b8; }
+@keyframes sp-pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+.sp-head-close{
+  background:transparent; border:none; color:var(--text2,#94a3b8);
+  font-size:20px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:6px;
+}
+.sp-head-close:hover{ color:var(--text,#e2e8f0); background:rgba(255,255,255,.06); }
+.sp-body{ padding:16px 16px 18px; }
+.sp-callee{
+  display:flex; align-items:center; gap:12px; margin-bottom:10px;
+}
+.sp-avatar{
+  width:44px; height:44px; border-radius:50%;
+  background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:600; color:#fff;
+  flex-shrink:0;
+}
+.sp-callee-meta{ min-width:0; flex:1; }
+.sp-callee-name{
+  font-size:14px; font-weight:600;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.sp-callee-phone{
+  font-size:12px; color:var(--text2,#94a3b8); margin-top:1px;
+}
+.sp-timer{
+  text-align:center; font-size:26px; font-weight:300; letter-spacing:1px;
+  padding:6px 0 14px; color:var(--text,#e2e8f0);
+}
+.sp-panel[data-phase="ringing-out"] .sp-timer::after{ content:'Calling…'; }
+.sp-panel[data-phase="ringing-in"]  .sp-timer::after{ content:'Incoming…'; }
+.sp-panel[data-phase="ringing-out"] .sp-timer,
+.sp-panel[data-phase="ringing-in"]  .sp-timer { font-size:15px; padding:14px 0 16px; color:var(--text2,#94a3b8); }
+.sp-panel[data-phase="ringing-out"] .sp-timer .sp-timer-val,
+.sp-panel[data-phase="ringing-in"]  .sp-timer .sp-timer-val { display:none; }
+.sp-controls{
+  display:grid; grid-template-columns:1fr 1fr; gap:8px;
+}
+.sp-btn{
+  display:flex; align-items:center; justify-content:center; gap:6px;
+  padding:10px 12px; border-radius:10px;
+  border:1px solid var(--border,#1e293b);
+  background:rgba(255,255,255,.04);
+  color:var(--text,#e2e8f0);
+  font-size:13px; font-weight:600; cursor:pointer;
+  transition: background var(--ds-duration-fast,120ms);
+}
+.sp-btn:hover{ background:rgba(255,255,255,.08); }
+.sp-btn-mute.is-muted{ background:rgba(251,191,36,.18); border-color:rgba(251,191,36,.45); color:#fbbf24; }
+.sp-btn-hangup{
+  background:#dc2626; border-color:#b91c1c; color:#fff;
+}
+.sp-btn-hangup:hover{ background:#b91c1c; }
+.sp-btn-accept{
+  background:#10b981; border-color:#059669; color:#fff;
+}
+.sp-btn-accept:hover{ background:#059669; }
+.sp-outcome{
+  margin-top:14px; padding-top:14px;
+  border-top:1px dashed var(--border,#1e293b);
+}
+.sp-outcome-lbl{
+  font-size:12px; color:var(--text2,#94a3b8);
+  margin-bottom:8px; font-weight:600;
+}
+.sp-outcome-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:6px;
+}
+.sp-out-btn{
+  padding:8px 10px; border-radius:8px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border,#1e293b);
+  color:var(--text,#e2e8f0);
+  font-size:12px; font-weight:600; cursor:pointer;
+  transition: background var(--ds-duration-fast,120ms);
+}
+.sp-out-btn:hover{ background:rgba(255,255,255,.10); }
+.sp-out-btn-sold{ background:rgba(16,185,129,.14); border-color:rgba(16,185,129,.45); color:#34d399; }
+.sp-out-btn-sold:hover{ background:rgba(16,185,129,.22); }
+.sp-out-btn-skip{ color:var(--text2,#94a3b8); }
+.sp-stub-banner{
+  margin-top:12px; padding:8px 10px;
+  border-radius:8px;
+  background:rgba(251,191,36,.10);
+  border:1px solid rgba(251,191,36,.30);
+  color:#fbbf24;
+  font-size:11px; line-height:1.45;
+  display:flex; align-items:flex-start; gap:6px;
+}
+.sp-stub-banner span[data-ico]{ flex-shrink:0; margin-top:1px; }
+
+/* ── Settings → Calling tab ─────────────────────────────────────────────── */
+.stg-cl-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
+.stg-cl-stat{
+  font-size:22px; font-weight:600; letter-spacing:.3px;
+  color:var(--text,#e2e8f0);
+}
+.stg-cl-stat .stg-cl-sub{
+  font-size:12px; color:var(--text2,#94a3b8); font-weight:500;
+  margin-left:6px;
+}
+.stg-cl-bar{
+  margin-top:10px; height:6px; border-radius:3px;
+  background:rgba(255,255,255,.06); overflow:hidden;
+}
+.stg-cl-bar-fill{
+  height:100%; background:linear-gradient(90deg,#3b82f6,#8b5cf6);
+  border-radius:3px; transition: width .4s ease;
+}
+.stg-cl-bar-fill.over{ background:linear-gradient(90deg,#dc2626,#f59e0b); }
+.stg-cl-table{ width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
+.stg-cl-table th, .stg-cl-table td{
+  text-align:left; padding:8px 10px;
+  border-bottom:1px solid var(--border,#1e293b);
+}
+.stg-cl-table th{ color:var(--text2,#94a3b8); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; }
+.stg-cl-table td.mono{ font-family:'SF Mono', Menlo, monospace; font-size:12.5px; }
+.stg-cl-admin-tag{
+  display:inline-block; padding:2px 8px; border-radius:99px;
+  background:rgba(139,92,246,.18); color:#a78bfa;
+  font-size:10.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+  margin-left:8px; vertical-align:1px;
+}
 </style>
 </head>
 <body>
@@ -2273,6 +2424,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
               <option value="200">200/page</option>
               <option value="9999">All</option>
             </select>
+            <button class="btn btn-s btn-sm" onclick="openAddLeadModal()" style="margin-right:6px">+ Add Lead</button>
             <button class="btn btn-p btn-sm" onclick="openImportModal()">+ Import Leads</button>
           </div>
         </div>
@@ -2484,6 +2636,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div class="tabs" style="margin-bottom:22px">
         <button class="tab active" onclick="settingsTab('account',this)"><span data-ico="user" data-size="14" style="margin-right:6px"></span>Account</button>
         <button class="tab" onclick="settingsTab('carriers',this)"><span data-ico="buildings" data-size="14" style="margin-right:6px"></span>Carriers</button>
+        <button class="tab" onclick="settingsTab('calling',this)"><span data-ico="phone" data-size="14" style="margin-right:6px"></span>Calling</button>
       </div>
 
       <!-- ── ACCOUNT TAB ── -->
@@ -2612,6 +2765,82 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
       </div>
 
+      <!-- ── CALLING TAB (SignalWire) ── -->
+      <div id="stg-calling" style="display:none">
+        <div class="alert alert-i" style="margin-bottom:16px">
+          <span data-ico="info"></span>
+          <div>In-dashboard calling via <strong>SignalWire</strong>. The firm operates a shared SignalWire account; admins assign a caller-ID number and a monthly minute cap to each agent below.</div>
+        </div>
+
+        <div class="stg-cl-grid">
+          <!-- My calling settings -->
+          <div class="card">
+            <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="phone" data-size="13"></span>My Calling Settings</div>
+            <div class="frow">
+              <div class="fg">
+                <label>My caller-ID number</label>
+                <input type="text" id="stg-cl-my-number" value="—" readonly style="opacity:.7;cursor:not-allowed">
+              </div>
+              <div class="fg">
+                <label>SignalWire identity</label>
+                <input type="text" id="stg-cl-my-subscriber" value="—" readonly style="opacity:.7;cursor:not-allowed">
+              </div>
+            </div>
+            <div style="margin-top:14px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <div class="stg-cl-stat"><span id="stg-cl-min-used">0</span> <span class="stg-cl-sub">/ <span id="stg-cl-min-cap">500</span> min this month</span></div>
+                <div style="font-size:11.5px;color:var(--text2);"><span id="stg-cl-min-pct">0%</span> used</div>
+              </div>
+              <div class="stg-cl-bar"><div class="stg-cl-bar-fill" id="stg-cl-min-bar" style="width:0%"></div></div>
+            </div>
+            <div style="font-size:11.5px;color:var(--text2);line-height:1.45;margin-top:12px">
+              Your monthly minute cap prevents runaway cost. Need more? Ask an admin to raise the limit.
+            </div>
+          </div>
+
+          <!-- Mic permissions hint -->
+          <div class="card">
+            <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="lightbulb" data-size="13"></span>First-Call Setup</div>
+            <ul style="font-size:12.5px;color:var(--text2);line-height:1.6;padding-left:18px;margin:0">
+              <li>The first time you click <strong>Call</strong> on a lead, your browser will ask for microphone permission. Allow it.</li>
+              <li>Plug in a headset for best call quality — laptop speakers cause echo for the lead.</li>
+              <li>Calls auto-tag as <strong>No Answer</strong> if you hang up in the first 15 seconds. Longer calls prompt you for the outcome.</li>
+              <li>To dial without the softphone (e.g. on mobile), open the lead and tap the phone number directly.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Admin section — agent assignments -->
+        <div id="stg-cl-admin" style="display:none;margin-top:18px">
+          <div class="card">
+            <div class="card-title" style="display:flex;align-items:center;gap:8px">
+              <span data-ico="users" data-size="13"></span>
+              Agent Assignments
+              <span class="stg-cl-admin-tag">Admin</span>
+            </div>
+            <div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px">
+              Each agent gets one SignalWire number for outbound caller-ID and a monthly minute cap. Click a row to edit.
+            </div>
+            <div style="overflow-x:auto">
+              <table class="stg-cl-table">
+                <thead>
+                  <tr>
+                    <th>Agent</th>
+                    <th>Caller-ID</th>
+                    <th>Subscriber</th>
+                    <th>Cap</th>
+                    <th>Used</th>
+                  </tr>
+                </thead>
+                <tbody id="stg-cl-agents-tbody">
+                  <tr><td colspan="5" style="text-align:center;color:var(--text2);padding:18px">Loading…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div><!-- /sec-settings -->
 
   </div><!-- /content -->
@@ -2697,6 +2926,54 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     <div class="flex gap8 mt16">
       <button class="btn btn-s btn-sm" onclick="biCloseSetupModal()">Cancel</button>
       <button class="btn btn-g btn-sm" onclick="biSaveSetup()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Save &amp; Score</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD LEAD MANUALLY MODAL -->
+<div class="overlay" id="addLeadModal">
+  <div class="modal" style="width:520px;max-width:95vw">
+    <div class="mhdr"><div class="mtitle">Add Lead</div><button class="mclose" onclick="closeAddLeadModal()" data-ico="x" data-size="14"></button></div>
+    <div style="padding:6px 0 0">
+      <div class="frow">
+        <div class="fg">
+          <label>First Name</label>
+          <input type="text" id="al-first" placeholder="Jane" autocomplete="off">
+        </div>
+        <div class="fg">
+          <label>Last Name</label>
+          <input type="text" id="al-last" placeholder="Doe" autocomplete="off">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:10px">
+        <div class="fg">
+          <label>Phone <span style="color:#dc2626">*</span></label>
+          <input type="tel" id="al-phone" placeholder="(555) 123-4567" autocomplete="off">
+        </div>
+        <div class="fg">
+          <label>Email</label>
+          <input type="email" id="al-email" placeholder="jane@example.com" autocomplete="off">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:10px">
+        <div class="fg">
+          <label>State</label>
+          <input type="text" id="al-state" placeholder="TX" maxlength="2" autocomplete="off" style="text-transform:uppercase">
+        </div>
+        <div class="fg">
+          <label>Age</label>
+          <input type="number" id="al-age" placeholder="65" min="18" max="120" autocomplete="off">
+        </div>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <label>Notes</label>
+        <textarea id="al-notes" rows="2" placeholder="Source, context, anything to remember…" autocomplete="off" style="resize:vertical"></textarea>
+      </div>
+      <div id="al-msg" style="font-size:12px;color:#dc2626;margin-top:8px;min-height:18px"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+        <button class="btn btn-s btn-sm" onclick="closeAddLeadModal()">Cancel</button>
+        <button class="btn btn-p btn-sm" onclick="saveManualLead()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Save Lead</button>
+      </div>
     </div>
   </div>
 </div>
@@ -7058,6 +7335,17 @@ function formatPhone(raw) {
   return String(raw);
 }
 
+// E.164 normalize for telephony APIs (SignalWire). Returns '' on bad input.
+// Examples: '(415) 555-1234' → '+14155551234'; '1-415-555-1234' → '+14155551234'.
+function toE164(raw, defaultCountry = '1') {
+  const d = String(raw||'').replace(/\D/g,'');
+  if (!d) return '';
+  if (String(raw).trim().startsWith('+')) return '+' + d;
+  if (d.length === 10) return `+${defaultCountry}${d}`;
+  if (d.length === 11 && d[0] === '1') return `+${d}`;
+  return '';
+}
+
 const STATUS_CONFIG = {
   new:            { label:'New',               color:'#60a5fa', bg:'rgba(59,130,246,.12)',  inDropdown:true  },
   called:         { label:'Called',            color:'#34d399', bg:'rgba(16,185,129,.12)',  inDropdown:true  },
@@ -7307,7 +7595,7 @@ function renderLeads() {
           <div class="lead-ident">
             <div class="lead-name-row">
               <div class="lead-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
-              <a href="${callHref}" class="lead-call-link" data-lid="${lid}" style="text-decoration:none" aria-label="Call ${escapeHTML(lead.name||'lead')}"><button class="lead-act-btn call" title="Dial ${escapeHTML(formatPhone(lead.phone)||lead.phone||'')}" aria-label="Dial">${icon('phone',{size:16})}</button></a>
+              <button class="lead-act-btn call lead-call-btn" data-lid="${lid}" data-phone-href="${callHref}" title="Dial ${escapeHTML(formatPhone(lead.phone)||lead.phone||'')}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${icon('phone',{size:16})}</button>
               <button class="lead-act-btn quote lead-quote-btn" data-lid="${lid}" title="Open Quoter prefilled for this lead">Quote</button>
             </div>
             ${nameSubHTML}
@@ -7343,8 +7631,19 @@ function renderLeads() {
     cb.addEventListener('change', e => toggleLeadSelect(e.target.dataset.lid, e.target.checked));
     cb.addEventListener('click', e => e.stopPropagation()); // don't toggle expand
   });
-  container.querySelectorAll('.lead-call-link').forEach(a => {
-    a.addEventListener('click', e => e.stopPropagation()); // dialing shouldn't toggle expand
+  container.querySelectorAll('.lead-call-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation(); // dialing shouldn't toggle expand
+      const lid = e.currentTarget.dataset.lid;
+      // Graceful degradation: if SignalWire isn't configured for this agent
+      // yet, fall back to the OS dialer via the original tel: href.
+      if (window.softphone && !softphone.unavailable) {
+        softphone.dial(lid);
+      } else {
+        const href = e.currentTarget.dataset.phoneHref || '#';
+        if (href !== '#') window.location.href = href;
+      }
+    });
   });
   container.querySelectorAll('.lead-act-cb').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -7419,6 +7718,480 @@ function showUndoToast(msg, color, undoFn) {
     setTimeout(()=>toast.remove(),400);
   }, 5000);
 }
+
+// ============================================================
+// SOFTPHONE — In-dashboard dialer for the Leads tab, backed by
+// SignalWire Call Fabric Browser SDK.
+//
+// Flow:
+//   1. dial(leadId) — fetch a 1-hour JWT from the `signalwire-token`
+//      Supabase edge function (which reads SIGNALWIRE_* secrets and
+//      enforces the per-agent monthly minute cap).
+//   2. Lazy-import @signalwire/js, open a Call Fabric client, dial the
+//      lead's E.164 number with the agent's assigned caller-ID.
+//   3. Wire SDK events (active/answered/ended/destroy) to the panel's
+//      state machine: ringing-out → connected → ended.
+//   4. On hangup, insert a row into public.calls (agent_id, lead_id,
+//      phone_from/to, duration, outcome).
+//   5. Auto-tag <15s calls as no_answer; longer calls open the outcome
+//      picker (Appointment / Objections / Not Interested / Sold).
+//
+// Fallback: any failure in steps 1–2 (secrets not configured, SDK
+// fails to load, upstream SignalWire down) flips the panel into stub
+// mode — a yellow banner appears and the call is simulated so the
+// agent can still update lead status. Errors are logged to console.
+//
+// Public surface (window.softphone):
+//   .dial(leadId)        Start an outbound call to a lead.
+//   .hangup()            End the active call.
+//   .toggleMute()        Mute/unmute mic (forwarded to SDK when live).
+//   .setOutcome(status)  Set lead status from outcome picker.
+//   .close()             Hide panel + tear down SDK.
+//   .isAdmin()           Cached value from public.agents.is_admin.
+//   .loadAdminFlag()     Refresh the admin cache from Supabase.
+//   .unavailable         Reserved for future "no creds" hard-disable.
+//   .stub                true while a fallback simulated call is running.
+//   .state               Read-only state snapshot.
+// ============================================================
+const softphone = (() => {
+  // ── State ──
+  const state = {
+    phase: 'idle',          // idle | ringing-out | ringing-in | connected | ended
+    leadId: null,
+    leadName: '',
+    phoneFmt: '',
+    targetE164: '',         // E.164 destination — used for calls-table insert
+    callerId: '',           // E.164 caller-ID — returned by signalwire-token
+    direction: 'outbound',  // 'outbound' | 'inbound'
+    startedAt: 0,
+    durationSec: 0,
+    muted: false,
+    timerHandle: null,
+    ringHandle: null,
+    stubMode: false,        // flips true when SDK or token mint fails → simulated call
+    client: null,           // @signalwire/js Call Fabric client
+    call: null,             // active call object
+    callRowId: null,        // id of the public.calls row inserted on hangup
+  };
+
+  const NO_ANSWER_THRESHOLD_SEC = 15;      // ≤ this → auto-tag no_answer, no prompt
+  const SDK_URL = 'https://esm.sh/@signalwire/js@3';
+
+  // SDK lazy-loader. Bundle is ~200KB; we only fetch it on first real dial.
+  let _sdkPromise = null;
+  async function _loadSDK() {
+    if (_sdkPromise) return _sdkPromise;
+    _sdkPromise = (async () => {
+      const mod = await import(SDK_URL);
+      // @signalwire/js exports the factory under multiple names across
+      // versions — normalize so the call site doesn't care.
+      const SW = mod.SignalWire || mod.default || mod;
+      if (typeof SW !== 'function') throw new Error('SignalWire export not callable');
+      return SW;
+    })();
+    return _sdkPromise;
+  }
+
+  function _el(id) { return document.getElementById(id); }
+  function _panel() { return _el('softphone-panel'); }
+
+  function _fmtTimer(sec) {
+    const m = Math.floor(sec/60); const s = sec%60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+  function _initialsFor(name) {
+    return (name||'?').trim().split(/\s+/).slice(0,2).map(w => (w[0]||'').toUpperCase()).join('') || '?';
+  }
+
+  // ── Render ─────────────────────────────────────────────────
+  function _render() {
+    const panel = _panel(); if (!panel) return;
+    panel.dataset.phase = state.phase;
+    panel.style.display = (state.phase === 'idle') ? 'none' : '';
+
+    if (state.phase === 'idle') return;
+
+    _el('sp-callee-name').textContent  = state.leadName || 'Unknown';
+    _el('sp-callee-phone').textContent = state.phoneFmt || '—';
+    _el('sp-avatar').textContent       = _initialsFor(state.leadName);
+    _el('sp-timer').textContent        = _fmtTimer(state.durationSec);
+
+    const title = (
+      state.phase === 'ringing-out' ? 'Calling…' :
+      state.phase === 'ringing-in'  ? 'Incoming' :
+      state.phase === 'connected'   ? 'On Call' :
+      state.phase === 'ended'       ? 'Call Ended' : 'Phone'
+    );
+    _el('sp-head-title').textContent = title;
+
+    // Control sets
+    _el('sp-controls-active').style.display  = (state.phase === 'ringing-in') ? 'none' : '';
+    _el('sp-controls-inbound').style.display = (state.phase === 'ringing-in') ? '' : 'none';
+
+    // Mute label
+    const muteBtn = _el('sp-mute');
+    muteBtn.classList.toggle('is-muted', state.muted);
+    _el('sp-mute-lbl').textContent = state.muted ? 'Muted' : 'Mute';
+
+    // Outcome picker only after ended-with-conversation
+    _el('sp-outcome').style.display = (state.phase === 'ended' && state.durationSec >= NO_ANSWER_THRESHOLD_SEC) ? '' : 'none';
+
+    // Stub banner only when the real path failed and we're simulating
+    _el('sp-stub-banner').style.display = state.stubMode ? '' : 'none';
+
+    // Re-mount icons in case the panel was just shown
+    if (typeof mountIcons === 'function') mountIcons(panel);
+  }
+
+  // ── Timer ──────────────────────────────────────────────────
+  function _startTimer() {
+    state.startedAt = Date.now();
+    state.durationSec = 0;
+    if (state.timerHandle) clearInterval(state.timerHandle);
+    state.timerHandle = setInterval(() => {
+      state.durationSec = Math.floor((Date.now() - state.startedAt) / 1000);
+      const tEl = _el('sp-timer');
+      if (tEl) tEl.textContent = _fmtTimer(state.durationSec);
+    }, 1000);
+  }
+  function _stopTimer() {
+    if (state.timerHandle) { clearInterval(state.timerHandle); state.timerHandle = null; }
+  }
+
+  // ── Real-dial path ────────────────────────────────────────
+  // Mints a JWT via the signalwire-token edge function, loads the SDK,
+  // opens a Call Fabric session, and wires SDK events into our state
+  // machine. Returns { ok: true } on success or { ok: false, reason }
+  // so dial() can decide whether to surface a specific error or fall
+  // back to stub mode.
+  async function _realDial(phoneE164) {
+    // Step 1 — mint JWT
+    let r;
+    try {
+      r = await sb.functions.invoke('signalwire-token', { body: {} });
+    } catch (e) {
+      return { ok: false, reason: 'network', detail: (e && e.message) || String(e) };
+    }
+    if (r.error)  return { ok: false, reason: 'invoke', detail: r.error.message || 'invoke failed' };
+    if (!r.data)  return { ok: false, reason: 'empty',  detail: 'empty response' };
+    if (!r.data.ok) return { ok: false, reason: r.data.error || 'unknown', detail: r.data };
+
+    const { token, callerId } = r.data;
+    state.callerId = callerId || '';
+
+    // Step 2a — request microphone permission BEFORE touching the SDK.
+    // SignalWire's @signalwire/js subscribes to device-change events as
+    // part of dial(), which the browser refuses to expose until the user
+    // has granted mic access at least once. Without this, the SDK throws
+    // "You must ask the user for permissions before being able to listen
+    // for device changes" and the dial never reaches the wire.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // We don't need to keep this stream open — the SDK will request its
+      // own when dial() runs. Releasing it avoids holding the mic LED on
+      // during the brief pre-dial window.
+      stream.getTracks().forEach(t => t.stop());
+    } catch (e) {
+      const msg = (e && e.name === 'NotAllowedError')
+        ? 'Microphone permission denied. Click the 🎤 icon in your browser address bar to allow it, then try again.'
+        : `Microphone unavailable: ${(e && e.message) || e}`;
+      return { ok: false, reason: 'mic_permission', detail: msg };
+    }
+
+    // Step 2b — load + connect SDK
+    let client, call;
+    try {
+      const SW = await _loadSDK();
+      client = await SW({ token });
+      state.client = client;
+      // Call Fabric dial — PSTN destinations are passed as E.164 strings.
+      // If your SignalWire space requires SWML-script routing for outbound
+      // PSTN, this is where to switch `to:` to the SWML resource address.
+      call = await client.dial({
+        to:    phoneE164,
+        from:  callerId || undefined,
+        audio: true,
+        video: false,
+      });
+      state.call = call;
+    } catch (e) {
+      return { ok: false, reason: 'sdk', detail: (e && e.message) || String(e) };
+    }
+
+    // Step 3 — wire SDK events. Different SDK generations name these
+    // differently; we listen to all the common ones and dedupe via phase.
+    const onConnected = () => {
+      if (state.phase !== 'ringing-out') return;
+      state.phase = 'connected';
+      _startTimer();
+      _render();
+    };
+    const onEnded = () => {
+      if (state.phase === 'idle' || state.phase === 'ended') return;
+      _stopTimer();
+      const wasConnected = (state.phase === 'connected');
+      const dur = state.durationSec;
+      state.phase = 'ended';
+      _render();
+      _logCall();
+      if (!wasConnected || dur < NO_ANSWER_THRESHOLD_SEC) {
+        _applyOutcome('no_answer', { auto: true });
+        setTimeout(close, 1200);
+      }
+    };
+    try {
+      if (typeof call.on === 'function') {
+        call.on('active',    onConnected);
+        call.on('answered',  onConnected);
+        call.on('ended',     onEnded);
+        call.on('destroy',   onEnded);
+        call.on('call.state', (ev) => {
+          const s = (ev && (ev.call_state || ev.state || '')) || '';
+          if (s === 'active' || s === 'answered') onConnected();
+          if (s === 'ended'  || s === 'destroyed' || s === 'failed') onEnded();
+        });
+      }
+    } catch (e) {
+      console.warn('[softphone] event wiring partially failed', e);
+    }
+
+    return { ok: true };
+  }
+
+  // ── Public API ────────────────────────────────────────────
+  async function dial(leadId) {
+    // `leads` is module-scoped (let leads = [] at top of this script tag),
+    // so a bare reference works from inside the IIFE.
+    const lead = (typeof leads !== 'undefined' ? leads : []).find(l => String(l.id) === String(leadId));
+    if (!lead) { showToast('Lead not found', '#dc2626'); return; }
+    const phoneE164 = toE164(lead.phone);
+    if (!phoneE164) {
+      showToast('No valid phone number for this lead', '#dc2626');
+      return;
+    }
+
+    // Optimistic UI: show "Calling…" immediately while we mint the token.
+    state.phase       = 'ringing-out';
+    state.leadId      = String(leadId);
+    state.leadName    = lead.name || `${lead.first_name||''} ${lead.last_name||''}`.trim() || 'Unknown';
+    state.phoneFmt    = formatPhone(lead.phone) || lead.phone;
+    state.targetE164  = phoneE164;
+    state.callerId    = '';
+    state.direction   = 'outbound';
+    state.muted       = false;
+    state.durationSec = 0;
+    state.client      = null;
+    state.call        = null;
+    state.callRowId   = null;
+    state.stubMode    = false;
+    _render();
+
+    // Try the real path.
+    const result = await _realDial(phoneE164);
+    if (result.ok) return;
+
+    // Map specific errors to actionable toasts.
+    if (result.reason === 'not_assigned') {
+      showToast('Ask your admin to assign you a SignalWire caller-ID first.', '#dc2626');
+      close();
+      return;
+    }
+    if (result.reason === 'minute_cap_exceeded') {
+      const d = (result.detail && typeof result.detail === 'object') ? result.detail : {};
+      showToast(`Out of minutes this month (${d.minutesUsed||'?'}/${d.minutesCap||'?'}).`, '#dc2626');
+      close();
+      return;
+    }
+    if (result.reason === 'mic_permission') {
+      showToast(String(result.detail || 'Microphone access required to make calls.'), '#dc2626');
+      close();
+      return;
+    }
+
+    // Everything else (secrets not configured on server, SDK won't load,
+    // upstream SignalWire down) → fall back to stub mode so the UI keeps
+    // working and the agent can at least update the lead status. The
+    // yellow stub banner makes the degraded state visible.
+    console.warn('[softphone] falling back to stub mode:', result);
+    state.stubMode = true;
+    _render();
+    if (state.ringHandle) clearTimeout(state.ringHandle);
+    state.ringHandle = setTimeout(() => {
+      if (state.phase !== 'ringing-out') return;
+      state.phase = 'connected';
+      _startTimer();
+      _render();
+    }, 1500);
+  }
+
+  function hangup() {
+    if (state.phase === 'idle' || state.phase === 'ended') return;
+    if (state.ringHandle) { clearTimeout(state.ringHandle); state.ringHandle = null; }
+
+    // End the live SDK call. In real mode the SDK's 'ended' event fires
+    // onEnded for us; we also do local cleanup synchronously so stuck
+    // connections don't leave the UI hanging on "On Call" forever.
+    if (state.call) {
+      try { state.call.hangup && state.call.hangup(); } catch (e) { console.warn('[softphone] hangup threw', e); }
+    }
+
+    _stopTimer();
+    const wasConnected = (state.phase === 'connected');
+    const dur = state.durationSec;
+    state.phase = 'ended';
+    _render();
+
+    _logCall();
+
+    // Auto-outcome logic: short calls = no_answer, long calls = prompt.
+    if (!wasConnected || dur < NO_ANSWER_THRESHOLD_SEC) {
+      _applyOutcome('no_answer', { auto: true });
+      setTimeout(close, 1200);
+    }
+    // Otherwise the outcome picker is already visible (rendered above).
+  }
+
+  function toggleMute() {
+    state.muted = !state.muted;
+    _render();
+    // Forward to the SDK if a live call is running.
+    if (state.call) {
+      try {
+        if (state.muted) (state.call.audioMute   || (()=>{})).call(state.call);
+        else             (state.call.audioUnmute || (()=>{})).call(state.call);
+      } catch (e) { console.warn('[softphone] mute SDK call failed', e); }
+    }
+  }
+
+  // ── Call logging ──────────────────────────────────────────
+  // Insert one row into public.calls when an outbound call ends.
+  // Outcome is left null here; setOutcome()/auto-no_answer update it.
+  async function _logCall() {
+    if (state.stubMode) return;                           // no rows for simulated calls
+    if (!state.targetE164) return;
+    if (!currentAgent || !currentAgent.id) return;
+    try {
+      const { data, error } = await sb.from('calls').insert({
+        agent_id:     currentAgent.id,
+        lead_id:      state.leadId || null,
+        direction:    state.direction,
+        phone_from:   state.callerId || '',
+        phone_to:     state.targetE164,
+        started_at:   new Date(state.startedAt || Date.now()).toISOString(),
+        ended_at:     new Date().toISOString(),
+        duration_sec: state.durationSec || 0,
+      }).select('id').maybeSingle();
+      if (error) { console.warn('[softphone] log call failed', error.message); return; }
+      state.callRowId = (data && data.id) || null;
+    } catch (e) {
+      console.warn('[softphone] log call threw', e);
+    }
+  }
+
+  function setOutcome(status) {
+    _applyOutcome(status, { auto: false });
+    close();
+  }
+
+  function _applyOutcome(status, opts) {
+    opts = opts || {};
+    const lid = state.leadId;
+    if (!lid) return;
+    if (status) {
+      // Reuse the existing lead-status mutator if available; otherwise fall
+      // back to a direct write + render.
+      if (typeof setLeadStatusQuick === 'function') {
+        setLeadStatusQuick(lid, status);
+      } else if (typeof leads !== 'undefined') {
+        const lead = leads.find(l => String(l.id) === String(lid));
+        if (lead) {
+          lead.status = status;
+          if (typeof saveLeads === 'function') saveLeads();
+          if (typeof renderLeads === 'function') renderLeads();
+        }
+      }
+      // Persist the outcome on the calls row so admin reports can slice by
+      // it. Best-effort — failure here doesn't block the UI flow.
+      if (state.callRowId) {
+        sb.from('calls').update({ outcome: status }).eq('id', state.callRowId).then(({ error }) => {
+          if (error) console.warn('[softphone] outcome update failed', error.message);
+        });
+      }
+      const label = (typeof STATUS_CONFIG !== 'undefined' && STATUS_CONFIG[status] && STATUS_CONFIG[status].label) || status;
+      showToast(`${opts.auto ? 'Auto-marked' : 'Marked'} as ${label}`, '#10b981');
+    }
+  }
+
+  function close() {
+    _stopTimer();
+    if (state.ringHandle) { clearTimeout(state.ringHandle); state.ringHandle = null; }
+    // Tear down any live SDK objects so WebRTC resources release.
+    if (state.call)   { try { state.call.hangup    && state.call.hangup();    } catch {} state.call   = null; }
+    if (state.client) { try { state.client.disconnect && state.client.disconnect(); } catch {} state.client = null; }
+    state.phase     = 'idle';
+    state.leadId    = null;
+    state.callRowId = null;
+    state.stubMode  = false;
+    _render();
+  }
+
+  // Admin check — backed by public.agents.is_admin (loaded once after
+  // auth lands). Callers that need to know synchronously read isAdmin();
+  // call _loadAdminFlag() first if you want a fresh value.
+  let _isAdminCache = false;
+  async function _loadAdminFlag() {
+    if (!currentAgent || !currentAgent.id) return;
+    try {
+      const { data } = await sb.from('agents').select('is_admin').eq('id', currentAgent.id).maybeSingle();
+      _isAdminCache = !!(data && data.is_admin);
+    } catch (e) {
+      console.warn('[softphone] admin flag load failed', e);
+    }
+  }
+  function isAdmin() { return _isAdminCache; }
+
+  // ── Wire up DOM listeners on first interaction ────────────
+  // Lazy-bound on first dial — the panel markup is static, so handlers
+  // attach once and persist.
+  let _bound = false;
+  function _bindOnce() {
+    if (_bound) return; _bound = true;
+    _el('sp-close').addEventListener('click', () => {
+      if (state.phase === 'connected' || state.phase === 'ringing-out' || state.phase === 'ringing-in') hangup();
+      else close();
+    });
+    _el('sp-hangup').addEventListener('click', hangup);
+    _el('sp-mute').addEventListener('click', toggleMute);
+    _el('sp-decline').addEventListener('click', hangup);
+    _el('sp-accept').addEventListener('click', () => {
+      // Phase C: real inbound accept. Phase A stub: flip to connected.
+      state.phase = 'connected';
+      _startTimer();
+      _render();
+    });
+    document.querySelectorAll('#sp-outcome .sp-out-btn').forEach(btn => {
+      btn.addEventListener('click', () => setOutcome(btn.dataset.outcome));
+    });
+  }
+
+  // Bind as soon as the panel exists.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _bindOnce);
+  } else {
+    // markup is at end of body, so DOM is ready by the time this loads
+    setTimeout(_bindOnce, 0);
+  }
+
+  return {
+    dial, hangup, toggleMute, setOutcome, close, isAdmin,
+    loadAdminFlag: _loadAdminFlag,
+    get state() { return { ...state }; },
+    get unavailable() { return false; },   // reserved for future "no creds" hard-disable
+    get stub()        { return state.stubMode; },
+  };
+})();
+// Expose for inline onclick handlers and dev-tools probing
+window.softphone = softphone;
 
 function clearBulkSelection() {
   selectedLeadIds.clear();
@@ -8166,6 +8939,84 @@ function parseCSV(text) {
 }
 
 function detectFieldMap(headers) { return {}; } // legacy stub
+
+// ─── Manual single-lead add (next to Import Leads) ───────────────────────
+// Opens the add-lead modal, clears any leftover form state, focuses the
+// first input. Phone is the only required field; everything else is
+// optional. Phone runs through toE164() so any common format (paren,
+// dash, no-prefix) is accepted.
+function openAddLeadModal() {
+  ['al-first','al-last','al-phone','al-email','al-state','al-age','al-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const msg = document.getElementById('al-msg');
+  if (msg) msg.textContent = '';
+  const modal = document.getElementById('addLeadModal');
+  if (modal) modal.classList.add('open');
+  setTimeout(() => {
+    const first = document.getElementById('al-first');
+    if (first) first.focus();
+  }, 0);
+}
+
+function closeAddLeadModal() {
+  const modal = document.getElementById('addLeadModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function saveManualLead() {
+  const first = (document.getElementById('al-first').value || '').trim();
+  const last  = (document.getElementById('al-last').value  || '').trim();
+  const phone = (document.getElementById('al-phone').value || '').trim();
+  const email = (document.getElementById('al-email').value || '').trim();
+  const state = (document.getElementById('al-state').value || '').trim().toUpperCase();
+  const age   = (document.getElementById('al-age').value   || '').trim();
+  const notes = (document.getElementById('al-notes').value || '').trim();
+  const msg   = document.getElementById('al-msg');
+  if (msg) msg.textContent = '';
+
+  if (!phone) { if (msg) msg.textContent = 'Phone is required.'; return; }
+  const phoneE164 = toE164(phone);
+  if (!phoneE164) { if (msg) msg.textContent = 'Phone must be a valid US number.'; return; }
+
+  // Don't silently swallow duplicates — if the same phone already exists,
+  // surface it so the agent can decide whether to merge manually.
+  const dupe = leads.find(l => toE164(l.phone) === phoneE164);
+  if (dupe) {
+    if (msg) msg.textContent = `A lead with this phone already exists: ${escapeHTML(dupe.name||'Unknown')}.`;
+    return;
+  }
+
+  const name = [first, last].filter(Boolean).join(' ').trim() || 'Unknown';
+  const lead = {
+    id: genLeadId(),
+    name,
+    first_name: first || undefined,
+    last_name:  last  || undefined,
+    phone: phoneE164,
+    email: email || undefined,
+    state: state || undefined,
+    age:   age ? parseInt(age, 10) : undefined,
+    notes: notes || undefined,
+    source: 'manual',
+    status: 'new',
+    importedAt: new Date().toISOString(),
+  };
+
+  leads.unshift(lead);
+  saveLeads();
+  // Reset filters/tab so the new lead is visible — otherwise an active
+  // 'no_answer' filter would hide it and the toast would feel like a lie.
+  if (typeof currentLeadTab !== 'undefined' && currentLeadTab !== 'all' && currentLeadTab !== 'new') {
+    currentLeadTab = 'all';
+    document.querySelectorAll('#sec-leads .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'all'));
+  }
+  leadsCurrentPage = 1;
+  renderLeads();
+  closeAddLeadModal();
+  showToast(`Added ${name}`, '#10b981');
+}
 
 function importCSVLeads() {
   // Build final field map from user selections
@@ -8925,9 +9776,252 @@ function filterBonusTabs() {
 function settingsTab(id, el) {
   el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('stg-account').style.display = id === 'account' ? '' : 'none';
+  document.getElementById('stg-account').style.display  = id === 'account'  ? '' : 'none';
   document.getElementById('stg-carriers').style.display = id === 'carriers' ? '' : 'none';
+  document.getElementById('stg-calling').style.display  = id === 'calling'  ? '' : 'none';
   if (id === 'carriers') renderCarrierGrid();
+  if (id === 'calling')  renderCallingSettings();
+}
+
+// Render the Settings → Calling tab. Fetches the agent's own SignalWire
+// assignment + this-month minute usage from Supabase; if the agent is
+// flagged is_admin, also loads the full agent-assignments table for
+// inline editing of caller-ID, subscriber, and minute cap.
+async function renderCallingSettings() {
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const setVal  = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+
+  // Loading placeholders
+  setVal('stg-cl-my-number',     'Loading…');
+  setVal('stg-cl-my-subscriber', 'Loading…');
+  setText('stg-cl-min-used', '…');
+  setText('stg-cl-min-cap',  '…');
+  setText('stg-cl-min-pct',  '…');
+
+  if (!currentAgent || !currentAgent.id) {
+    setVal('stg-cl-my-number',     '— not signed in —');
+    setVal('stg-cl-my-subscriber', '— not signed in —');
+    return;
+  }
+
+  // 1. My agent row (caller-ID, subscriber, cap, admin flag)
+  let me = null;
+  try {
+    const { data, error } = await sb
+      .from('agents')
+      .select('signalwire_caller_id, signalwire_subscriber_id, monthly_minute_limit, is_admin')
+      .eq('id', currentAgent.id)
+      .maybeSingle();
+    if (error) throw error;
+    me = data || {};
+  } catch (e) {
+    console.warn('[calling settings] agent row fetch failed', e);
+    setVal('stg-cl-my-number',     '— error loading —');
+    setVal('stg-cl-my-subscriber', '— error loading —');
+    return;
+  }
+
+  const callerId     = me.signalwire_caller_id     || '— not assigned —';
+  const subscriberId = me.signalwire_subscriber_id || '— not assigned —';
+  const cap          = (typeof me.monthly_minute_limit === 'number') ? me.monthly_minute_limit : 500;
+
+  setVal('stg-cl-my-number',     callerId);
+  setVal('stg-cl-my-subscriber', subscriberId);
+
+  // 2. This-month minute usage = sum(duration_sec) / 60
+  let used = 0;
+  try {
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0,0,0,0);
+    const { data: rows, error } = await sb
+      .from('calls')
+      .select('duration_sec')
+      .eq('agent_id', currentAgent.id)
+      .gte('started_at', monthStart.toISOString());
+    if (error) throw error;
+    const seconds = (rows || []).reduce((s, r) => s + (r.duration_sec || 0), 0);
+    used = Math.floor(seconds / 60);
+  } catch (e) {
+    console.warn('[calling settings] minute usage fetch failed', e);
+  }
+
+  setText('stg-cl-min-used', used);
+  setText('stg-cl-min-cap',  cap);
+  const pct = cap > 0 ? Math.round(100 * used / cap) : 0;
+  setText('stg-cl-min-pct', pct + '%');
+  const bar = document.getElementById('stg-cl-min-bar');
+  if (bar) {
+    bar.style.width = Math.min(100, pct) + '%';
+    bar.classList.toggle('over', pct >= 90);
+  }
+
+  // 3. Refresh the cached admin flag the softphone reads
+  if (window.softphone && softphone.loadAdminFlag) {
+    await softphone.loadAdminFlag();
+  }
+
+  // 4. Admin: agent assignments table
+  const adminBox = document.getElementById('stg-cl-admin');
+  const showAdmin = !!me.is_admin;
+  if (adminBox) adminBox.style.display = showAdmin ? '' : 'none';
+  if (showAdmin) await _renderAdminAssignments(currentAgent.id);
+
+  if (typeof mountIcons === 'function') mountIcons(document.getElementById('stg-calling'));
+}
+
+// Render the admin "Agent Assignments" table. Loads every agents row +
+// each agent's this-month minute usage in one trip, then sorts by name.
+async function _renderAdminAssignments(myId) {
+  const tbody = document.getElementById('stg-cl-agents-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:18px">Loading…</td></tr>`;
+
+  let agents = [];
+  try {
+    const { data, error } = await sb
+      .from('agents')
+      .select('id, display_name, email, signalwire_caller_id, signalwire_subscriber_id, monthly_minute_limit, is_admin');
+    if (error) throw error;
+    agents = data || [];
+  } catch (e) {
+    console.warn('[admin assignments] agents fetch failed', e);
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#dc2626;padding:18px">Couldn't load agents.</td></tr>`;
+    return;
+  }
+
+  // Pull this-month minute usage for everyone in one query.
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0,0,0,0);
+  const usageByAgent = new Map();
+  try {
+    const { data: rows, error } = await sb
+      .from('calls')
+      .select('agent_id, duration_sec')
+      .gte('started_at', monthStart.toISOString());
+    if (error) throw error;
+    for (const r of (rows || [])) {
+      usageByAgent.set(r.agent_id, (usageByAgent.get(r.agent_id) || 0) + (r.duration_sec || 0));
+    }
+  } catch (e) {
+    console.warn('[admin assignments] usage fetch failed', e);
+  }
+
+  agents.sort((a, b) => (a.display_name || a.email || '').localeCompare(b.display_name || b.email || ''));
+
+  if (!agents.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:18px">No agents found</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = agents.map(a => {
+    const usedMin = Math.floor((usageByAgent.get(a.id) || 0) / 60);
+    const cap     = (typeof a.monthly_minute_limit === 'number') ? a.monthly_minute_limit : 500;
+    const isMe    = a.id === myId;
+    const adminTag = a.is_admin ? `<span class="stg-cl-admin-tag">Admin</span>` : '';
+    return `
+      <tr data-agent-id="${escapeHTML(a.id)}">
+        <td>
+          <div style="font-weight:600">${escapeHTML(a.display_name || '(no name)')}${isMe ? ' <em style="font-size:11px;color:var(--text2);font-style:normal">(you)</em>' : ''}${adminTag}</div>
+          <div style="font-size:11px;color:var(--text2)">${escapeHTML(a.email || '')}</div>
+        </td>
+        <td class="mono">
+          <a href="#" class="stg-cl-edit" data-field="signalwire_caller_id" data-prompt="Caller-ID number in E.164 format (e.g. +14155550142)">${escapeHTML(a.signalwire_caller_id || '— assign —')}</a>
+        </td>
+        <td class="mono">
+          <a href="#" class="stg-cl-edit" data-field="signalwire_subscriber_id" data-prompt="Call Fabric Subscriber address (e.g. agent-name)">${escapeHTML(a.signalwire_subscriber_id || '— assign —')}</a>
+        </td>
+        <td class="mono">
+          <a href="#" class="stg-cl-edit" data-field="monthly_minute_limit" data-prompt="Monthly minute cap (integer)" data-type="int">${cap} min</a>
+        </td>
+        <td class="mono" style="${usedMin >= cap ? 'color:#dc2626;font-weight:600' : ''}">${usedMin} min</td>
+      </tr>
+    `;
+  }).join('');
+
+  // Bind inline-edit handlers — uses prompt() per [[Patterns/Inline Prompt Row Field]].
+  tbody.querySelectorAll('.stg-cl-edit').forEach(a => {
+    a.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const row    = e.currentTarget.closest('tr');
+      const agentId = row && row.dataset.agentId;
+      if (!agentId) return;
+      const field    = e.currentTarget.dataset.field;
+      const promptStr = e.currentTarget.dataset.prompt || 'New value';
+      const isInt    = e.currentTarget.dataset.type === 'int';
+      const current  = e.currentTarget.textContent.replace(/\s*min$/, '').replace(/^—.*—$/, '').trim();
+
+      // Custom modal (not window.prompt — Chrome blocks prompt() in many
+      // contexts with "prompt() is not supported"). Resolves to the entered
+      // string, or null on Cancel / Escape / overlay-click.
+      const raw = await _promptModal(promptStr, current);
+      if (raw == null) return;     // cancelled
+      const trimmed = raw.trim();
+      let value = trimmed === '' ? null : trimmed;
+      if (isInt && value != null) {
+        const n = parseInt(value, 10);
+        if (!Number.isFinite(n) || n < 0) { showToast('Invalid integer', '#dc2626'); return; }
+        value = n;
+      }
+      // Auto-normalize caller-ID to E.164 — pasted values like
+      // '+1 (262) 310-9913' or '(262) 310-9913' get rewritten to
+      // '+12623109913' before the database update.
+      if (field === 'signalwire_caller_id' && value) {
+        const normalized = toE164(value);
+        if (!normalized) {
+          showToast('Caller-ID must be a valid US phone number', '#dc2626');
+          return;
+        }
+        value = normalized;
+      }
+
+      try {
+        const { error } = await sb.from('agents').update({ [field]: value }).eq('id', agentId);
+        if (error) throw error;
+        showToast('Saved', '#10b981');
+        // Re-render the whole tab — picks up the change in both the
+        // admin table AND the My Calling Settings card at the top,
+        // which would otherwise stay stale if the edit was on the
+        // current agent's own row.
+        await renderCallingSettings();
+      } catch (err) {
+        console.warn('[admin assignments] update failed', err);
+        showToast(`Save failed: ${err.message || err}`, '#dc2626');
+      }
+    });
+  });
+}
+
+// Promise-based input modal. Drop-in replacement for window.prompt(),
+// which Chrome refuses to render in many contexts. Resolves to the
+// entered string, or null on Cancel / Escape / overlay click.
+function _promptModal(title, currentValue) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:10000;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)';
+    overlay.innerHTML = `
+      <div role="dialog" aria-modal="true" style="background:var(--bg2,#0f172a);border:1px solid var(--border,#1e293b);border-radius:14px;padding:18px 18px 16px;min-width:340px;max-width:480px;box-shadow:0 18px 48px rgba(0,0,0,.5);color:var(--text,#e2e8f0)">
+        <div style="font-size:13px;font-weight:600;color:var(--text2,#94a3b8);margin-bottom:10px;line-height:1.4">${escapeHTML(title || '')}</div>
+        <input type="text" class="_pm-input" value="${escapeHTML(currentValue || '')}" style="width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border,#1e293b);background:rgba(255,255,255,.04);color:var(--text,#e2e8f0);font-size:14px;outline:none">
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+          <button type="button" class="_pm-cancel" style="padding:7px 14px;border-radius:8px;background:transparent;border:1px solid var(--border,#1e293b);color:var(--text,#e2e8f0);font-size:13px;cursor:pointer">Cancel</button>
+          <button type="button" class="_pm-ok"     style="padding:7px 14px;border-radius:8px;background:#3b82f6;border:1px solid #2563eb;color:#fff;font-size:13px;font-weight:600;cursor:pointer">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('._pm-input');
+    setTimeout(() => { input.focus(); input.select(); }, 0);
+    const done = (v) => { overlay.remove(); resolve(v); };
+    overlay.querySelector('._pm-cancel').addEventListener('click', () => done(null));
+    overlay.querySelector('._pm-ok').addEventListener('click', () => done(input.value));
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) done(null); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter')  { e.preventDefault(); done(input.value); }
+      if (e.key === 'Escape') { e.preventDefault(); done(null); }
+    });
+  });
 }
 
 // Two-letter initials chip for a carrier label. Mirrors aqLogoCell's
@@ -12393,5 +13487,46 @@ document.addEventListener('DOMContentLoaded', () => {
   subscribeAuth();
 });
 </script>
+
+<!-- ── SoftphonePanel — bottom-right floating dialer (SignalWire, Phase A: stubbed) ── -->
+<div id="softphone-panel" class="sp-panel" data-phase="idle" style="display:none" role="dialog" aria-label="Phone call" aria-live="polite">
+  <div class="sp-head">
+    <div class="sp-head-title"><span class="sp-head-state"></span><span id="sp-head-title">Phone</span></div>
+    <button type="button" class="sp-head-close" id="sp-close" aria-label="Close" title="Close">×</button>
+  </div>
+  <div class="sp-body">
+    <div class="sp-callee">
+      <div class="sp-avatar" id="sp-avatar">?</div>
+      <div class="sp-callee-meta">
+        <div class="sp-callee-name" id="sp-callee-name">—</div>
+        <div class="sp-callee-phone mono" id="sp-callee-phone">—</div>
+      </div>
+    </div>
+    <div class="sp-timer"><span class="sp-timer-val" id="sp-timer">00:00</span></div>
+    <div class="sp-controls" id="sp-controls-active">
+      <button type="button" class="sp-btn sp-btn-mute" id="sp-mute"><span id="sp-mute-lbl">Mute</span></button>
+      <button type="button" class="sp-btn sp-btn-hangup" id="sp-hangup"><span data-ico="x" data-size="16"></span>Hang Up</button>
+    </div>
+    <div class="sp-controls" id="sp-controls-inbound" style="display:none">
+      <button type="button" class="sp-btn" id="sp-decline"><span data-ico="x" data-size="16"></span>Decline</button>
+      <button type="button" class="sp-btn sp-btn-accept" id="sp-accept"><span data-ico="phone" data-size="16"></span>Accept</button>
+    </div>
+    <div class="sp-outcome" id="sp-outcome" style="display:none">
+      <div class="sp-outcome-lbl">How did the call go?</div>
+      <div class="sp-outcome-grid">
+        <button type="button" class="sp-out-btn" data-outcome="appointment">Appointment</button>
+        <button type="button" class="sp-out-btn" data-outcome="social_obj">Social Obj.</button>
+        <button type="button" class="sp-out-btn" data-outcome="banking_obj">Banking Obj.</button>
+        <button type="button" class="sp-out-btn" data-outcome="not_interested">Not Interested</button>
+        <button type="button" class="sp-out-btn sp-out-btn-sold" data-outcome="sold">Sold</button>
+        <button type="button" class="sp-out-btn sp-out-btn-skip" data-outcome="">Skip</button>
+      </div>
+    </div>
+    <div class="sp-stub-banner" id="sp-stub-banner">
+      <span data-ico="warning" data-size="13"></span>
+      <span>Simulated call — SignalWire couldn't be reached. Check Settings → Calling, or the server console.</span>
+    </div>
+  </div>
+</div>
 </body>
 </html>
