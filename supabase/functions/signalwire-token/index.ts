@@ -12,7 +12,7 @@
 // month and returns 429 when the agent is at/over the cap.
 //
 // Required secrets (set via `supabase secrets set` or dashboard):
-//   - SIGNALWIRE_SPACE_URL    e.g. frenkelfinancial.signalwire.com  (no scheme)
+//   - SIGNALWIRE_SPACE_URL    e.g. producerstack.signalwire.com  (no scheme)
 //   - SIGNALWIRE_PROJECT_ID   UUID from SignalWire dashboard
 //   - SIGNALWIRE_API_TOKEN    Secret API token (NEVER expose to browser)
 //
