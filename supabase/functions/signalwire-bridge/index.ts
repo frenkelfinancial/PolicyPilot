@@ -125,18 +125,30 @@ Deno.serve(async (req) => {
   }
 
   // ---- Load lead's phone -------------------------------------
+  // The leads table stores the agent's lead objects as JSONB blobs:
+  //   public.leads { id (uuid PK), agent_id, client_id (frontend's
+  //   own string id, e.g. 'mp6gp3e0xy314'), data (jsonb), … }
+  // The frontend's lead.id is the client_id column, NOT the uuid PK,
+  // and per-lead fields (phone, name, state, ...) live inside
+  // data — there's no top-level phone column. RLS already constrains
+  // SELECTs to (agent_id = auth.uid()) so no explicit agent filter
+  // is needed here.
   let leadPhone = "";
   try {
     const { data: lead, error } = await userClient
       .from("leads")
-      .select("phone")
-      .eq("id", leadId)
+      .select("data")
+      .eq("client_id", leadId)
       .maybeSingle();
     if (error) throw error;
-    leadPhone = (lead?.phone as string) || "";
+    const leadData = (lead?.data as { phone?: string } | null) || null;
+    leadPhone = (leadData?.phone as string) || "";
   } catch (e) {
     console.error(`[signalwire-bridge] lead lookup failed for ${leadId}:`, (e as Error)?.message);
-    return json({ ok: false, error: "Couldn't load that lead. Please retry." }, 503);
+    return json({
+      ok: false,
+      error: `Couldn't load that lead: ${(e as Error)?.message || 'unknown error'}`,
+    }, 503);
   }
   if (!leadPhone) return json({ ok: false, error: "Lead has no phone on file" }, 400);
 
