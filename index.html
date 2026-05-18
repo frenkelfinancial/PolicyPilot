@@ -7776,7 +7776,15 @@ const softphone = (() => {
   };
 
   const NO_ANSWER_THRESHOLD_SEC = 15;      // ≤ this → auto-tag no_answer, no prompt
-  const SDK_URL = 'https://esm.sh/@signalwire/js@3';
+  // jsdelivr's +esm endpoint returns a single self-contained ES-module
+  // bundle (deps inlined). We were previously using esm.sh, which
+  // serves the SDK as a graph of separately-fetched submodules; Safari
+  // is strict about CORS + MIME on every link in that chain and a
+  // single bad hop kills the whole import with the cryptic
+  // "Importing a module script failed." That bug is reproducible on
+  // current Safari with esm.sh + @signalwire/js. jsdelivr +esm sidesteps
+  // it entirely.
+  const SDK_URL = 'https://cdn.jsdelivr.net/npm/@signalwire/js@3/+esm';
 
   // SDK lazy-loader. Bundle is ~200KB; we only fetch it on first real dial.
   let _sdkPromise = null;
