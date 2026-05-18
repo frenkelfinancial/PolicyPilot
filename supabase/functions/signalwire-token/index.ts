@@ -1,4 +1,17 @@
 // ============================================================
+// ⚠️ DEPRECATED (2026-05-17) — superseded by signalwire-bridge.
+//
+// This function was the browser-SDK path (Phases A+B) that
+// minted Call Fabric Subscriber Tokens. The browser SDK route
+// could not be made to dial PSTN out of our ProducerStack space
+// without an SWML routing resource, so we pivoted to a REST
+// agent-bridge flow (Phase D). See:
+//   - docs/superpowers/specs/2026-05-17-signalwire-agent-bridge-design.md
+//   - supabase/functions/signalwire-bridge/index.ts
+//
+// Left deployed but unused for ~2 weeks of operational soak on
+// the new path, then delete. Frontend no longer invokes it.
+// ============================================================
 // supabase/functions/signalwire-token/index.ts
 //
 // Mints a short-lived (1 hour) SignalWire browser JWT for the
