@@ -7925,7 +7925,26 @@ const softphone = (() => {
     } catch (e) {
       return { ok: false, reason: 'network', detail: (e && e.message) || String(e) };
     }
-    if (r.error)         return { ok: false, reason: 'invoke',  detail: r.error.message || 'invoke failed' };
+    // Supabase JS v2 wraps non-2xx responses as a FunctionsHttpError
+    // and sets r.data to null — the actual response body lives on
+    // r.error.context (a Response object). Without unpacking it, every
+    // edge-function business error (not_assigned, minute_cap_exceeded,
+    // signalwire_unreachable, etc.) collapses into the same useless
+    // "Edge Function returned a non-2xx status code" message. So we
+    // peek into context.json() to recover the specific reason.
+    if (r.error) {
+      let body = null;
+      try {
+        if (r.error.context && typeof r.error.context.json === 'function') {
+          body = await r.error.context.clone().json();
+        }
+      } catch { /* body wasn't JSON; fall through */ }
+      if (body && body.error) {
+        return { ok: false, reason: body.error, detail: body };
+      }
+      const status = (r.error.context && r.error.context.status) || '?';
+      return { ok: false, reason: 'invoke', detail: `HTTP ${status}: ${r.error.message || 'invoke failed'}` };
+    }
     if (!r.data)         return { ok: false, reason: 'empty',   detail: 'empty response' };
     if (!r.data.ok)      return { ok: false, reason: r.data.error || 'unknown', detail: r.data };
     if (!r.data.callSid) return { ok: false, reason: 'no_sid',  detail: 'response missing callSid' };
