@@ -7769,6 +7769,7 @@ const softphone = (() => {
     timerHandle: null,
     ringHandle: null,
     stubMode: false,        // flips true when SDK or token mint fails → simulated call
+    stubReason: '',         // human-readable reason for stub mode — rendered into the yellow banner so non-devs can see SDK errors without opening dev tools
     client: null,           // @signalwire/js Call Fabric client
     call: null,             // active call object
     callRowId: null,        // id of the public.calls row inserted on hangup
@@ -7801,6 +7802,24 @@ const softphone = (() => {
   }
   function _initialsFor(name) {
     return (name||'?').trim().split(/\s+/).slice(0,2).map(w => (w[0]||'').toUpperCase()).join('') || '?';
+  }
+
+  // Turn a _realDial failure result into a short, human-readable string
+  // for the yellow stub banner. Truncates long detail strings to keep
+  // the panel from blowing up vertically.
+  function _formatStubReason(result) {
+    if (!result) return 'Simulated — unknown failure (no result object).';
+    const reason = result.reason || 'unknown';
+    let detail = '';
+    if (result.detail != null) {
+      if (typeof result.detail === 'string') detail = result.detail;
+      else if (result.detail && typeof result.detail === 'object') {
+        if (result.detail.message) detail = String(result.detail.message);
+        else { try { detail = JSON.stringify(result.detail); } catch { detail = String(result.detail); } }
+      } else detail = String(result.detail);
+    }
+    if (detail.length > 240) detail = detail.slice(0, 240) + '…';
+    return `Simulated — ${reason}${detail ? ': ' + detail : ''}`;
   }
 
   // ── Render ─────────────────────────────────────────────────
@@ -7836,8 +7855,16 @@ const softphone = (() => {
     // Outcome picker only after ended-with-conversation
     _el('sp-outcome').style.display = (state.phase === 'ended' && state.durationSec >= NO_ANSWER_THRESHOLD_SEC) ? '' : 'none';
 
-    // Stub banner only when the real path failed and we're simulating
+    // Stub banner only when the real path failed and we're simulating.
+    // When we have a specific failure reason from _realDial, surface it
+    // in the banner text — saves the user from having to open dev tools
+    // to find out why SignalWire couldn't be reached.
     _el('sp-stub-banner').style.display = state.stubMode ? '' : 'none';
+    const stubTextEl = _el('sp-stub-banner-text');
+    if (stubTextEl) {
+      stubTextEl.textContent = state.stubReason
+        || "Simulated call — SignalWire couldn't be reached. Check Settings → Calling, or the server console.";
+    }
 
     // Re-mount icons in case the panel was just shown
     if (typeof mountIcons === 'function') mountIcons(panel);
@@ -7984,6 +8011,7 @@ const softphone = (() => {
     state.call        = null;
     state.callRowId   = null;
     state.stubMode    = false;
+    state.stubReason  = '';
     _render();
 
     // Try the real path.
@@ -8011,9 +8039,12 @@ const softphone = (() => {
     // Everything else (secrets not configured on server, SDK won't load,
     // upstream SignalWire down) → fall back to stub mode so the UI keeps
     // working and the agent can at least update the lead status. The
-    // yellow stub banner makes the degraded state visible.
+    // yellow stub banner makes the degraded state visible and now shows
+    // the exact failure reason so the user doesn't need dev tools to
+    // know what to fix.
     console.warn('[softphone] falling back to stub mode:', result);
-    state.stubMode = true;
+    state.stubMode   = true;
+    state.stubReason = _formatStubReason(result);
     _render();
     if (state.ringHandle) clearTimeout(state.ringHandle);
     state.ringHandle = setTimeout(() => {
@@ -8128,10 +8159,11 @@ const softphone = (() => {
     // Tear down any live SDK objects so WebRTC resources release.
     if (state.call)   { try { state.call.hangup    && state.call.hangup();    } catch {} state.call   = null; }
     if (state.client) { try { state.client.disconnect && state.client.disconnect(); } catch {} state.client = null; }
-    state.phase     = 'idle';
-    state.leadId    = null;
-    state.callRowId = null;
-    state.stubMode  = false;
+    state.phase      = 'idle';
+    state.leadId     = null;
+    state.callRowId  = null;
+    state.stubMode   = false;
+    state.stubReason = '';
     _render();
   }
 
@@ -13524,7 +13556,7 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
     <div class="sp-stub-banner" id="sp-stub-banner">
       <span data-ico="warning" data-size="13"></span>
-      <span>Simulated call — SignalWire couldn't be reached. Check Settings → Calling, or the server console.</span>
+      <span id="sp-stub-banner-text">Simulated call — SignalWire couldn't be reached. Check Settings → Calling, or the server console.</span>
     </div>
   </div>
 </div>
