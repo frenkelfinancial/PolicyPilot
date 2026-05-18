@@ -2786,6 +2786,15 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
                 <input type="text" id="stg-cl-my-subscriber" value="—" readonly style="opacity:.7;cursor:not-allowed">
               </div>
             </div>
+            <div class="frow" style="margin-top:10px">
+              <div class="fg" style="flex:1">
+                <label>My phone <span style="color:var(--text2);font-weight:400">(SignalWire rings this number first, then bridges to the lead)</span></label>
+                <div id="stg-cl-my-phone-wrap" style="display:flex;align-items:center;gap:10px">
+                  <span id="stg-cl-my-phone" class="mono" style="font-size:13px">— not set —</span>
+                  <a href="#" id="stg-cl-my-phone-edit" style="font-size:12px;color:var(--ds-color-info,#3b82f6);text-decoration:none">Edit</a>
+                </div>
+              </div>
+            </div>
             <div style="margin-top:14px">
               <div style="display:flex;justify-content:space-between;align-items:baseline">
                 <div class="stg-cl-stat"><span id="stg-cl-min-used">0</span> <span class="stg-cl-sub">/ <span id="stg-cl-min-cap">500</span> min this month</span></div>
@@ -2798,14 +2807,14 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             </div>
           </div>
 
-          <!-- Mic permissions hint -->
+          <!-- How calling works -->
           <div class="card">
-            <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="lightbulb" data-size="13"></span>First-Call Setup</div>
+            <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="lightbulb" data-size="13"></span>How Calling Works</div>
             <ul style="font-size:12.5px;color:var(--text2);line-height:1.6;padding-left:18px;margin:0">
-              <li>The first time you click <strong>Call</strong> on a lead, your browser will ask for microphone permission. Allow it.</li>
-              <li>Plug in a headset for best call quality — laptop speakers cause echo for the lead.</li>
-              <li>Calls auto-tag as <strong>No Answer</strong> if you hang up in the first 15 seconds. Longer calls prompt you for the outcome.</li>
-              <li>To dial without the softphone (e.g. on mobile), open the lead and tap the phone number directly.</li>
+              <li>Click <strong>Call</strong> on a lead. <strong>Your phone</strong> rings within a few seconds — pick up to start the call.</li>
+              <li>As soon as you answer, SignalWire dials the lead and bridges the two calls together. Both sides see your caller-ID number.</li>
+              <li>Calls auto-tag as <strong>No Answer</strong> if the bridge lasts under 15 seconds. Longer calls prompt you for the outcome.</li>
+              <li>Hang up from either your phone or the dashboard's <strong>Hang Up</strong> button — both drop the call.</li>
             </ul>
           </div>
         </div>
@@ -2827,13 +2836,14 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
                   <tr>
                     <th>Agent</th>
                     <th>Caller-ID</th>
+                    <th>Agent Phone</th>
                     <th>Subscriber</th>
                     <th>Cap</th>
                     <th>Used</th>
                   </tr>
                 </thead>
                 <tbody id="stg-cl-agents-tbody">
-                  <tr><td colspan="5" style="text-align:center;color:var(--text2);padding:18px">Loading…</td></tr>
+                  <tr><td colspan="6" style="text-align:center;color:var(--text2);padding:18px">Loading…</td></tr>
                 </tbody>
               </table>
             </div>
@@ -9834,6 +9844,7 @@ async function renderCallingSettings() {
   // Loading placeholders
   setVal('stg-cl-my-number',     'Loading…');
   setVal('stg-cl-my-subscriber', 'Loading…');
+  setText('stg-cl-my-phone',     'Loading…');
   setText('stg-cl-min-used', '…');
   setText('stg-cl-min-cap',  '…');
   setText('stg-cl-min-pct',  '…');
@@ -9841,15 +9852,16 @@ async function renderCallingSettings() {
   if (!currentAgent || !currentAgent.id) {
     setVal('stg-cl-my-number',     '— not signed in —');
     setVal('stg-cl-my-subscriber', '— not signed in —');
+    setText('stg-cl-my-phone',     '— not signed in —');
     return;
   }
 
-  // 1. My agent row (caller-ID, subscriber, cap, admin flag)
+  // 1. My agent row (caller-ID, subscriber, agent_phone, cap, admin flag)
   let me = null;
   try {
     const { data, error } = await sb
       .from('agents')
-      .select('signalwire_caller_id, signalwire_subscriber_id, monthly_minute_limit, is_admin')
+      .select('signalwire_caller_id, signalwire_subscriber_id, agent_phone, monthly_minute_limit, is_admin')
       .eq('id', currentAgent.id)
       .maybeSingle();
     if (error) throw error;
@@ -9858,15 +9870,50 @@ async function renderCallingSettings() {
     console.warn('[calling settings] agent row fetch failed', e);
     setVal('stg-cl-my-number',     '— error loading —');
     setVal('stg-cl-my-subscriber', '— error loading —');
+    setText('stg-cl-my-phone',     '— error loading —');
     return;
   }
 
   const callerId     = me.signalwire_caller_id     || '— not assigned —';
   const subscriberId = me.signalwire_subscriber_id || '— not assigned —';
+  const agentPhone   = me.agent_phone              || '— not set —';
   const cap          = (typeof me.monthly_minute_limit === 'number') ? me.monthly_minute_limit : 500;
 
   setVal('stg-cl-my-number',     callerId);
   setVal('stg-cl-my-subscriber', subscriberId);
+  setText('stg-cl-my-phone',     agentPhone);
+
+  // Wire the "Edit" link next to My phone — each agent sets their
+  // own pickup number, no admin involvement needed. Re-bind every
+  // render so we don't accumulate listeners across renders.
+  const phoneEdit = document.getElementById('stg-cl-my-phone-edit');
+  if (phoneEdit) {
+    phoneEdit.onclick = async (e) => {
+      e.preventDefault();
+      const current = (me.agent_phone || '');
+      const raw = await _promptModal(
+        'Your personal phone in E.164 (e.g. +14155550142). SignalWire calls this number first, then bridges you to the lead.',
+        current,
+      );
+      if (raw == null) return;
+      const trimmed = raw.trim();
+      let value = trimmed === '' ? null : trimmed;
+      if (value) {
+        const norm = toE164(value);
+        if (!norm) { showToast('Must be a valid US phone number', '#dc2626'); return; }
+        value = norm;
+      }
+      try {
+        const { error } = await sb.from('agents').update({ agent_phone: value }).eq('id', currentAgent.id);
+        if (error) throw error;
+        showToast('Saved', '#10b981');
+        await renderCallingSettings();
+      } catch (err) {
+        console.warn('[calling settings] agent_phone update failed', err);
+        showToast(`Save failed: ${err.message || err}`, '#dc2626');
+      }
+    };
+  }
 
   // 2. This-month minute usage = sum(duration_sec) / 60
   let used = 0;
@@ -9915,18 +9962,18 @@ async function renderCallingSettings() {
 async function _renderAdminAssignments(myId) {
   const tbody = document.getElementById('stg-cl-agents-tbody');
   if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:18px">Loading…</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:18px">Loading…</td></tr>`;
 
   let agents = [];
   try {
     const { data, error } = await sb
       .from('agents')
-      .select('id, display_name, email, signalwire_caller_id, signalwire_subscriber_id, monthly_minute_limit, is_admin');
+      .select('id, display_name, email, signalwire_caller_id, signalwire_subscriber_id, agent_phone, monthly_minute_limit, is_admin');
     if (error) throw error;
     agents = data || [];
   } catch (e) {
     console.warn('[admin assignments] agents fetch failed', e);
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#dc2626;padding:18px">Couldn't load agents.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#dc2626;padding:18px">Couldn't load agents.</td></tr>`;
     return;
   }
 
@@ -9951,7 +9998,7 @@ async function _renderAdminAssignments(myId) {
   agents.sort((a, b) => (a.display_name || a.email || '').localeCompare(b.display_name || b.email || ''));
 
   if (!agents.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--text2);padding:18px">No agents found</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:18px">No agents found</td></tr>`;
     return;
   }
 
@@ -9968,6 +10015,9 @@ async function _renderAdminAssignments(myId) {
         </td>
         <td class="mono">
           <a href="#" class="stg-cl-edit" data-field="signalwire_caller_id" data-prompt="Caller-ID number in E.164 format (e.g. +14155550142)">${escapeHTML(a.signalwire_caller_id || '— assign —')}</a>
+        </td>
+        <td class="mono">
+          <a href="#" class="stg-cl-edit" data-field="agent_phone" data-prompt="Agent's personal phone in E.164 (e.g. +14155550142). SignalWire calls this number first when bridging.">${escapeHTML(a.agent_phone || '— assign —')}</a>
         </td>
         <td class="mono">
           <a href="#" class="stg-cl-edit" data-field="signalwire_subscriber_id" data-prompt="Call Fabric Subscriber address (e.g. agent-name)">${escapeHTML(a.signalwire_subscriber_id || '— assign —')}</a>
@@ -10004,13 +10054,18 @@ async function _renderAdminAssignments(myId) {
         if (!Number.isFinite(n) || n < 0) { showToast('Invalid integer', '#dc2626'); return; }
         value = n;
       }
-      // Auto-normalize caller-ID to E.164 — pasted values like
-      // '+1 (262) 310-9913' or '(262) 310-9913' get rewritten to
-      // '+12623109913' before the database update.
-      if (field === 'signalwire_caller_id' && value) {
+      // Auto-normalize caller-ID and agent_phone to E.164 — pasted
+      // values like '+1 (262) 310-9913' or '(262) 310-9913' get
+      // rewritten to '+12623109913' before the database update.
+      if ((field === 'signalwire_caller_id' || field === 'agent_phone') && value) {
         const normalized = toE164(value);
         if (!normalized) {
-          showToast('Caller-ID must be a valid US phone number', '#dc2626');
+          showToast(
+            field === 'agent_phone'
+              ? 'Agent phone must be a valid US phone number'
+              : 'Caller-ID must be a valid US phone number',
+            '#dc2626',
+          );
           return;
         }
         value = normalized;
