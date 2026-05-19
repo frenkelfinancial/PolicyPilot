@@ -11164,8 +11164,9 @@ async function pbApplyPlanChange() {
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
     const { error } = await sb.from('agents').update({
-      plan_id: plan.id,
+      plan_id:              plan.id,
       monthly_minute_limit: plan.monthly_minutes,
+      monthly_quote_limit:  plan.monthly_quote_limit,
     }).eq('id', currentAgent.id);
     if (error) throw error;
     showToast(`Switched to ${plan.name}`, '#10b981');
