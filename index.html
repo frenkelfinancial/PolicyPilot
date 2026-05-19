@@ -10561,14 +10561,19 @@ async function renderPhoneBook() {
   monthStart.setUTCDate(1);
   monthStart.setUTCHours(0,0,0,0);
 
-  // 4 parallel reads. None of them depends on another; failures
+  // Quote usage uses a rolling 30-day window (itk-quote enforces this,
+  // see supabase/functions/itk-quote/index.ts). Minutes are calendar-
+  // month-since-the-1st; quotes are trailing-30-days. Keep both.
+  const quoteWindowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // 6 parallel reads. None of them depends on another; failures
   // are caught individually so one error doesn't blank the tab.
-  const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes] = await Promise.all([
+  const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes] = await Promise.all([
     sb.from('agents')
-      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, plan_id')
+      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id')
       .eq('id', currentAgent.id).maybeSingle(),
     sb.from('plans')
-      .select('id, slug, name, monthly_minutes, monthly_cost, sort_order')
+      .select('id, slug, name, monthly_minutes, monthly_quote_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
       .eq('active', true).order('sort_order', { ascending: true }),
     sb.from('phone_numbers')
       .select('id, e164, friendly_name, locality, region, sw_phone_sid, monthly_cost, is_primary, status, purchased_at')
@@ -10584,6 +10589,10 @@ async function renderPhoneBook() {
       .select('duration_sec')
       .eq('agent_id', currentAgent.id)
       .gte('started_at', monthStart.toISOString()),
+    sb.from('quote_usage')
+      .select('id', { count: 'exact', head: true })
+      .eq('agent_id', currentAgent.id)
+      .gte('created_at', quoteWindowStart.toISOString()),
   ]);
 
   if (agentRes.error)      console.warn('[phonebook] agent fetch failed', agentRes.error);
@@ -10591,6 +10600,7 @@ async function renderPhoneBook() {
   if (numbersRes.error)    console.warn('[phonebook] numbers fetch failed', numbersRes.error);
   if (callsRes.error)      console.warn('[phonebook] calls fetch failed', callsRes.error);
   if (monthCallsRes.error) console.warn('[phonebook] minute usage fetch failed', monthCallsRes.error);
+  if (quoteUsageRes.error) console.warn('[phonebook] quote usage fetch failed', quoteUsageRes.error);
 
   _pbAgent        = agentRes.data || {};
   _pbPlans        = plansRes.data || [];
@@ -10601,8 +10611,9 @@ async function renderPhoneBook() {
   const usedSec = (monthCallsRes.data || []).reduce(
     (s, r) => s + (r.duration_sec || 0), 0);
   const usedMin = Math.floor(usedSec / 60);
+  const quotesUsed = quoteUsageRes.count || 0;
 
-  pbRenderPlanCard(_pbAgent, usedMin);
+  pbRenderPlanCard(_pbAgent, usedMin, quotesUsed);
   pbRenderPickupCard(_pbAgent);
   pbRenderNumbersList(_pbNumbers);
   pbRenderCalls();
