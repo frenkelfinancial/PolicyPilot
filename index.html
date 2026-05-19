@@ -3178,7 +3178,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div class="pb-empty">Loading plans…</div>
     </div>
     <div class="pb-billing-note" id="pb-billing-note">
-      Billing isn't wired up yet — for now this just updates your monthly minute cap. Real payment processing is coming soon.
+      Billing isn't wired up yet — switching plans just updates your monthly minute and quote caps right now. Included numbers absorb the SignalWire per-number fee up to your plan's count; "extras" are informational ($1.50/mo each) until payment processing lands.
     </div>
     <div class="flex gap8 mt16" style="justify-content:flex-end">
       <button class="btn btn-s btn-sm" onclick="pbCloseUpgradeModal()">Cancel</button>
@@ -11126,12 +11126,17 @@ function pbRenderUpgradeOptions() {
   }
   wrap.innerHTML = _pbPlans.map(p => {
     const isCurrent = p.id === currentId;
+    const mins   = Number(p.monthly_minutes || 0).toLocaleString();
+    const quotes = Number(p.monthly_quote_limit || 0).toLocaleString();
+    const nums   = Number(p.included_numbers || 0);
     return `
       <label class="pb-plan-opt ${isCurrent ? 'current' : ''}" data-id="${escapeHTML(p.id)}">
         <input type="radio" name="pb-upgrade-plan" value="${escapeHTML(p.id)}" ${isCurrent ? 'disabled checked' : ''}>
         <div class="pb-plan-opt-body">
           <div class="pb-plan-opt-name">${escapeHTML(p.name)}${isCurrent ? '<span class="pb-plan-opt-current">Current</span>' : ''}</div>
-          <div class="pb-plan-opt-detail">${Number(p.monthly_minutes).toLocaleString()} minutes per month</div>
+          <div class="pb-plan-opt-detail">${mins} minutes / month</div>
+          <div class="pb-plan-opt-detail">${quotes} live quotes / month</div>
+          <div class="pb-plan-opt-detail">${nums} phone number${nums === 1 ? '' : 's'} included</div>
         </div>
         <div class="pb-plan-opt-price">$${Number(p.monthly_cost).toFixed(2)}/mo</div>
       </label>
