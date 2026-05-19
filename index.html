@@ -1673,6 +1673,13 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 #sec-phonebook .pb-plan-renews{
   margin-top:10px; font-size:11.5px; color:var(--text3);
 }
+#sec-phonebook .pb-plan-numbers,
+#sec-phonebook .pb-plan-retention{
+  font-size:12px;
+  color:var(--text2);
+  margin-top:4px;
+}
+#sec-phonebook .pb-plan-numbers.over{ color:var(--ds-color-warning); }
 #sec-phonebook .pb-plan-upgrade{ margin-top:14px; }
 
 /* Pickup card */
@@ -2871,6 +2878,13 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             <span><span id="pb-plan-min-used">0</span> / <span id="pb-plan-min-cap-2">—</span> min used</span>
             <span id="pb-plan-pct">0%</span>
           </div>
+          <div class="pb-bar"><div class="pb-bar-fill" id="pb-plan-q-bar" style="width:0%"></div></div>
+          <div class="pb-bar-meta">
+            <span><span id="pb-plan-q-used">0</span> / <span id="pb-plan-q-cap">—</span> quotes used (last 30 days)</span>
+            <span id="pb-plan-q-pct">0%</span>
+          </div>
+          <div class="pb-plan-numbers" id="pb-plan-numbers">—</div>
+          <div class="pb-plan-retention" id="pb-plan-retention">—</div>
           <div class="pb-plan-renews">Resets <span id="pb-plan-renews">—</span></div>
           <button class="btn btn-g pb-plan-upgrade" id="pb-plan-upgrade-btn" onclick="pbOpenUpgradeModal()">Upgrade Plan</button>
         </div>
@@ -10654,7 +10668,7 @@ async function renderPhoneBook() {
   if (typeof mountIcons === 'function') mountIcons(document.getElementById('sec-phonebook'));
 }
 
-function pbRenderPlanCard(agent, usedMin) {
+function pbRenderPlanCard(agent, usedMin, quotesUsed) {
   // Look up the agent's current plan from the catalog we fetched in
   // parallel — avoids a PostgREST foreign-key embed that can stall
   // while the schema cache is still warming up after a migration.
@@ -10669,6 +10683,12 @@ function pbRenderPlanCard(agent, usedMin) {
   const planPct  = document.getElementById('pb-plan-pct');
   const planBar  = document.getElementById('pb-plan-bar');
   const renews   = document.getElementById('pb-plan-renews');
+  const qBar     = document.getElementById('pb-plan-q-bar');
+  const qUsedEl  = document.getElementById('pb-plan-q-used');
+  const qCapEl   = document.getElementById('pb-plan-q-cap');
+  const qPctEl   = document.getElementById('pb-plan-q-pct');
+  const numEl    = document.getElementById('pb-plan-numbers');
+  const retEl    = document.getElementById('pb-plan-retention');
 
   // monthly_minute_limit on agents is the authoritative cap (the
   // bridge function reads it). plans.monthly_minutes should agree
@@ -10692,6 +10712,36 @@ function pbRenderPlanCard(agent, usedMin) {
     planBar.classList.toggle('warn', pct >= 75 && pct < 90);
     planBar.classList.toggle('over', pct >= 90);
   }
+
+  // Quote bar — sourced from plan.monthly_quote_limit if a plan is
+  // attached; falls back to agent.monthly_quote_limit (which the
+  // itk-quote function reads as the authoritative cap).
+  const qCap =
+    (plan && typeof plan.monthly_quote_limit === 'number' && plan.monthly_quote_limit > 0) ? plan.monthly_quote_limit :
+    (typeof agent.monthly_quote_limit === 'number') ? agent.monthly_quote_limit : 250;
+  const qPct = qCap > 0 ? Math.min(100, Math.round(100 * (quotesUsed || 0) / qCap)) : 0;
+
+  if (qUsedEl) qUsedEl.textContent = (quotesUsed || 0).toLocaleString();
+  if (qCapEl)  qCapEl.textContent  = qCap.toLocaleString();
+  if (qPctEl)  qPctEl.textContent  = qPct + '%';
+  if (qBar) {
+    qBar.style.width = qPct + '%';
+    qBar.classList.toggle('warn', qPct >= 75 && qPct < 90);
+    qBar.classList.toggle('over', qPct >= 90);
+  }
+
+  // Numbers count — needs the owned count, which lives in module-scope
+  // _pbNumbers (already populated by renderPhoneBook before this call).
+  const ownedCount    = Array.isArray(_pbNumbers) ? _pbNumbers.length : 0;
+  const includedCount = (plan && typeof plan.included_numbers === 'number') ? plan.included_numbers : 0;
+  if (numEl) {
+    numEl.textContent = `Numbers: ${ownedCount} of ${includedCount} included`;
+    numEl.classList.toggle('over', ownedCount > includedCount);
+  }
+
+  // Recording retention — informational; no purge job exists yet.
+  const retDays = (plan && typeof plan.recording_retention_days === 'number') ? plan.recording_retention_days : 30;
+  if (retEl) retEl.textContent = `Recordings kept for ${retDays} days`;
 
   // Cap resets on the 1st of next month.
   if (renews) {
