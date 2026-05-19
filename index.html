@@ -1725,6 +1725,16 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 #sec-phonebook .pb-empty{
   padding:20px 0; text-align:center; color:var(--text2); font-size:13px;
 }
+#sec-phonebook .pb-fallback-banner{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:10px 12px; margin:6px 0 10px;
+  background:rgba(59,130,246,.06); border:1px solid rgba(59,130,246,.18);
+  border-radius:8px; font-size:12px; color:var(--text2); line-height:1.5;
+}
+#sec-phonebook .pb-fallback-banner code{
+  font-family:'SF Mono', Menlo, monospace; font-size:11.5px;
+  background:rgba(255,255,255,.06); padding:1px 5px; border-radius:4px; color:var(--text);
+}
 
 /* Filter dropdown */
 #sec-phonebook .pb-filter{
@@ -10457,6 +10467,7 @@ function _promptModal(title, currentValue) {
 let _pbAgent          = null;   // agents row + joined plan
 let _pbPlans          = [];     // catalog of plans
 let _pbNumbers        = [];     // phone_numbers rows for this agent
+let _pbNumbersError   = null;   // last phone_numbers fetch error (eg. table missing)
 let _pbCalls          = [];     // recent calls (cached for sort/filter)
 let _pbCallSort       = { col: 'started_at', dir: 'desc' };
 let _pbCallFilter     = 'all';
@@ -10581,10 +10592,11 @@ async function renderPhoneBook() {
   if (callsRes.error)      console.warn('[phonebook] calls fetch failed', callsRes.error);
   if (monthCallsRes.error) console.warn('[phonebook] minute usage fetch failed', monthCallsRes.error);
 
-  _pbAgent   = agentRes.data || {};
-  _pbPlans   = plansRes.data || [];
-  _pbNumbers = numbersRes.data || [];
-  _pbCalls   = callsRes.data || [];
+  _pbAgent        = agentRes.data || {};
+  _pbPlans        = plansRes.data || [];
+  _pbNumbers      = numbersRes.data || [];
+  _pbNumbersError = numbersRes.error || null;
+  _pbCalls        = callsRes.data || [];
 
   const usedSec = (monthCallsRes.data || []).reduce(
     (s, r) => s + (r.duration_sec || 0), 0);
@@ -10709,10 +10721,32 @@ function pbRenderPickupCard(agent) {
 function pbRenderNumbersList(numbers) {
   const list   = document.getElementById('pb-numbers-list');
   const countE = document.getElementById('pb-numbers-count');
-  if (countE) countE.textContent = numbers.length;
   if (!list) return;
 
-  if (!numbers.length) {
+  // Fallback: agent has a signalwire_caller_id assigned (the Phase B
+  // legacy model) but no phone_numbers rows yet — either the 009
+  // migration hasn't been pasted into Supabase, or an admin assigned
+  // them a number after the backfill ran. Synthesize a virtual row
+  // so the agent sees their existing caller-ID immediately.
+  let rows = numbers;
+  let synthesized = false;
+  if (!rows.length && _pbAgent && _pbAgent.signalwire_caller_id) {
+    rows = [{
+      id:           null,
+      e164:         _pbAgent.signalwire_caller_id,
+      friendly_name: null,
+      locality:     null,
+      region:       null,
+      monthly_cost: 0,
+      is_primary:   true,
+      _virtual:     true,
+    }];
+    synthesized = true;
+  }
+
+  if (countE) countE.textContent = rows.length;
+
+  if (!rows.length) {
     list.innerHTML = `
       <div class="pb-empty">
         You don't own any numbers yet. Click <strong>Buy Number</strong> above to acquire your first one.
@@ -10720,9 +10754,20 @@ function pbRenderNumbersList(numbers) {
     return;
   }
 
-  list.innerHTML = numbers.map(n => {
+  const banner = synthesized
+    ? `<div class="pb-fallback-banner">
+         <span data-ico="info" data-size="14"></span>
+         <div>
+           Showing the number assigned to you on the <strong>agents</strong> table. To unlock buying additional numbers and full inventory tracking, paste <code>data/sql/009_phone_book.sql</code> into the Supabase SQL Editor — the backfill will move this number into your inventory.
+         </div>
+       </div>`
+    : '';
+
+  list.innerHTML = banner + rows.map(n => {
     const loc = [n.locality, n.region].filter(Boolean).join(', ') || (n.friendly_name && n.friendly_name !== n.e164 ? n.friendly_name : '—');
-    const cost = `$${Number(n.monthly_cost || 0).toFixed(2)}/mo`;
+    const cost = n._virtual
+      ? '<span style="color:var(--text3);font-style:italic">assigned</span>'
+      : `$${Number(n.monthly_cost || 0).toFixed(2)}/mo`;
     const primaryCol = n.is_primary
       ? `<span class="pb-number-primary">Primary</span>`
       : `<button type="button" class="pb-number-setprimary" data-id="${escapeHTML(n.id)}" data-e164="${escapeHTML(n.e164)}">Set as primary</button>`;
@@ -10731,7 +10776,7 @@ function pbRenderNumbersList(numbers) {
         <div class="pb-number-e164">${escapeHTML(_pbFmtPhone(n.e164))}</div>
         <div class="pb-number-loc">${escapeHTML(loc)}</div>
         <div>${primaryCol}</div>
-        <div class="pb-number-cost">${escapeHTML(cost)}</div>
+        <div class="pb-number-cost">${cost}</div>
       </div>
     `;
   }).join('');
@@ -10741,6 +10786,8 @@ function pbRenderNumbersList(numbers) {
       pbSetNumberAsPrimary(btn.dataset.id, btn.dataset.e164);
     });
   });
+
+  if (synthesized && typeof mountIcons === 'function') mountIcons(list);
 }
 
 // Two-step UPDATE: clear the existing primary first, then flip the
