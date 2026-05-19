@@ -3,7 +3,9 @@
 -- Phone Book tab (Phase E).
 --
 -- Adds:
---   • public.plans          — tiered subscription plans for outbound minutes
+--   • public.plans          — tiered subscription plans for the Phone Book
+--                             (Basic/Pro/Max; bundles minutes + ITK quotes
+--                             + included DIDs + recording retention)
 --   • public.agents.plan_id — FK to the agent's current plan
 --   • public.phone_numbers  — per-agent inventory of owned SignalWire DIDs
 --
@@ -18,30 +20,35 @@
 
 -- 1. Plans ---------------------------------------------------------------
 create table if not exists public.plans (
-  id              uuid primary key default gen_random_uuid(),
-  slug            text not null unique,
-  name            text not null,
-  monthly_minutes int  not null,
-  monthly_cost    numeric(8,2) not null,
-  sort_order      int  not null default 0,
-  active          boolean not null default true,
-  created_at      timestamptz not null default now()
+  id                        uuid primary key default gen_random_uuid(),
+  slug                      text not null unique,
+  name                      text not null,
+  monthly_minutes           int  not null,
+  monthly_quote_limit       int  not null default 0,
+  included_numbers          int  not null default 0,
+  recording_retention_days  int  not null default 30,
+  monthly_cost              numeric(8,2) not null,
+  sort_order                int  not null default 0,
+  active                    boolean not null default true,
+  created_at                timestamptz not null default now()
 );
 
 comment on table public.plans is
-  'Subscription tiers that govern an agent''s monthly outbound minute allowance. Phone Book shows current plan + lets agents upgrade. Billing is not wired up yet — upgrading just bumps plan_id and the denormalized agents.monthly_minute_limit.';
+  'Subscription tiers for the Phone Book. Each plan bundles four caps: monthly_minutes (outbound calling), monthly_quote_limit (ITK live quotes, rolling 30-day), included_numbers (DIDs absorbed by the plan), recording_retention_days. Billing is not wired up — upgrading bumps plan_id and denormalizes the minute + quote caps onto public.agents for the edge functions to read.';
 
-insert into public.plans (slug, name, monthly_minutes, monthly_cost, sort_order) values
-  ('starter', 'Starter',  500,  25.00, 1),
-  ('pro',     'Pro',     1500,  60.00, 2),
-  ('scale',   'Scale',   5000, 150.00, 3)
+insert into public.plans
+  (slug, name, monthly_minutes, monthly_quote_limit, included_numbers, recording_retention_days, monthly_cost, sort_order)
+values
+  ('basic', 'Basic',    750,    250,  1,  30,  29.00, 1),
+  ('pro',   'Pro',    2500,   1000,  3,  90,  79.00, 2),
+  ('max',   'Max',   10000,  10000, 10, 365, 199.00, 3)
 on conflict (slug) do nothing;
 
 alter table public.agents
   add column if not exists plan_id uuid references public.plans(id);
 
 comment on column public.agents.plan_id is
-  'Current subscription plan. monthly_minute_limit is denormalized from plans.monthly_minutes whenever this changes (kept for the existing signalwire-bridge cap lookup).';
+  'Current subscription plan. agents.monthly_minute_limit AND agents.monthly_quote_limit are denormalized from the plan whenever this changes — edge functions (signalwire-bridge, itk-quote) read those agent-level columns directly.';
 
 -- Backfill plan_id for every existing agent: pick the smallest plan whose
 -- monthly_minutes >= the agent's current monthly_minute_limit. Anyone with
