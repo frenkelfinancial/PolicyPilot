@@ -10565,7 +10565,7 @@ async function renderPhoneBook() {
   // are caught individually so one error doesn't blank the tab.
   const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes] = await Promise.all([
     sb.from('agents')
-      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, plan_id, plans(id, slug, name, monthly_minutes, monthly_cost, sort_order)')
+      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, plan_id')
       .eq('id', currentAgent.id).maybeSingle(),
     sb.from('plans')
       .select('id, slug, name, monthly_minutes, monthly_cost, sort_order')
@@ -10644,7 +10644,12 @@ async function renderPhoneBook() {
 }
 
 function pbRenderPlanCard(agent, usedMin) {
-  const plan = agent && agent.plans;
+  // Look up the agent's current plan from the catalog we fetched in
+  // parallel — avoids a PostgREST foreign-key embed that can stall
+  // while the schema cache is still warming up after a migration.
+  const plan = (agent && agent.plan_id)
+    ? _pbPlans.find(p => p.id === agent.plan_id) || null
+    : null;
   const planName = document.getElementById('pb-plan-name');
   const planCap  = document.getElementById('pb-plan-min-cap');
   const planCap2 = document.getElementById('pb-plan-min-cap-2');
