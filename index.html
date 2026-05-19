@@ -1818,6 +1818,15 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 .pb-modal .pb-search-hint{
   font-size:11.5px; color:var(--text2); margin-top:10px; line-height:1.5;
 }
+.pb-modal .pb-included-pill{
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:6px;
+  font-size:11.5px;
+  font-weight:600;
+  background:rgba(16,185,129,.18);
+  color:#34d399;
+}
 
 /* Upgrade plan modal */
 .pb-upgrade-modal{ width:560px; max-width:95vw; }
@@ -10970,6 +10979,17 @@ document.addEventListener('click', (e) => {
 });
 
 // ── Buy Number modal ────────────────────────────────────────
+// Returns how many additional numbers the agent can buy before they
+// start adding to their subscription fee. 0 means "all included slots
+// are used; the next one is an extra."
+function _pbIncludedRemaining() {
+  if (!_pbAgent || !_pbAgent.plan_id || !Array.isArray(_pbPlans)) return 0;
+  const plan = _pbPlans.find(p => p.id === _pbAgent.plan_id);
+  if (!plan || typeof plan.included_numbers !== 'number') return 0;
+  const owned = Array.isArray(_pbNumbers) ? _pbNumbers.length : 0;
+  return Math.max(0, plan.included_numbers - owned);
+}
+
 function pbOpenBuyModal() {
   const m = document.getElementById('pbBuyModal');
   if (!m) return;
@@ -11031,16 +11051,23 @@ async function pbSearchNumbers() {
       wrap.style.display = 'none';
       return;
     }
-    status.textContent = `${list.length} numbers available for ${area}. Click Buy to purchase ($1.00/mo each).`;
+    const remaining = _pbIncludedRemaining();
+    const hint = remaining > 0
+      ? `${remaining} included with your plan, $1.50/mo each after that (billing not yet active).`
+      : `All included slots used — $1.50/mo each (billing not yet active).`;
+    status.textContent = `${list.length} numbers available for ${area}. ${hint}`;
     wrap.style.display = '';
     tbody.innerHTML = list.map((n, i) => {
-      const cost = `$${Number(n.monthly_cost || 1).toFixed(2)}`;
+      const isIncluded = i < remaining;
+      const label = isIncluded
+        ? `<span class="pb-included-pill">Included</span>`
+        : `<span class="mono">$1.50/mo</span>`;
       return `
         <tr>
           <td class="mono">${escapeHTML(_pbFmtPhone(n.phone_number))}</td>
           <td>${escapeHTML(n.locality || '—')}</td>
           <td>${escapeHTML(n.region || '—')}</td>
-          <td style="text-align:right;font-variant-numeric:tabular-nums">${escapeHTML(cost)}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${label}</td>
           <td style="text-align:right">
             <button class="btn btn-g btn-sm pb-buy-btn" data-idx="${i}">Buy</button>
           </td>
@@ -11065,11 +11092,16 @@ async function pbSearchNumbers() {
 
 async function pbConfirmBuy(n, btn) {
   const e164 = n.phone_number;
-  const ok = window.confirm(
-    `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-    `This adds approximately $1.00/month to your SignalWire bill plus per-minute usage. ` +
-    `The number will appear in your inventory immediately.`,
-  );
+  const remaining = _pbIncludedRemaining();
+  const msg = remaining > 0
+    ? `Purchase ${_pbFmtPhone(e164)}?\n\n` +
+      `This number is included with your plan — no extra subscription charge. ` +
+      `SignalWire's own per-number fee still applies to your SignalWire account.`
+    : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
+      `This is beyond your plan's included numbers. When billing goes live this ` +
+      `will add $1.50/mo to your subscription; today the charge is informational only. ` +
+      `SignalWire's own per-number fee applies regardless.`;
+  const ok = window.confirm(msg);
   if (!ok) return;
 
   if (btn) { btn.disabled = true; btn.textContent = 'Buying…'; }
