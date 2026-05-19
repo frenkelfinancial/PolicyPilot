@@ -1635,6 +1635,233 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   font-size:10.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
   margin-left:8px; vertical-align:1px;
 }
+
+/* ── Phone Book tab ─────────────────────────────────────────────────────── */
+#sec-phonebook .pb-header{
+  display:flex; align-items:flex-end; justify-content:space-between;
+  gap:18px; margin-bottom:22px; flex-wrap:wrap;
+}
+#sec-phonebook .pb-header-title{ font-size:22px; font-weight:600; color:var(--text); }
+#sec-phonebook .pb-header-sub{ font-size:13px; color:var(--text2); margin-top:4px; }
+#sec-phonebook .pb-top-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px;
+}
+@media (max-width:880px){ #sec-phonebook .pb-top-grid{ grid-template-columns:1fr; } }
+
+/* Plan card */
+#sec-phonebook .pb-card-plan .pb-plan-name{
+  font-size:22px; font-weight:700; letter-spacing:.3px;
+  color:var(--text); margin-top:6px;
+}
+#sec-phonebook .pb-card-plan .pb-plan-cap{
+  font-size:12.5px; color:var(--text2); margin-top:3px;
+}
+#sec-phonebook .pb-bar{
+  margin-top:14px; height:8px; border-radius:4px;
+  background:rgba(255,255,255,.06); overflow:hidden;
+}
+#sec-phonebook .pb-bar-fill{
+  height:100%; background:linear-gradient(90deg,#3b82f6,#8b5cf6);
+  border-radius:4px; transition:width .4s ease;
+}
+#sec-phonebook .pb-bar-fill.warn{ background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+#sec-phonebook .pb-bar-fill.over{ background:linear-gradient(90deg,#dc2626,#f59e0b); }
+#sec-phonebook .pb-bar-meta{
+  display:flex; justify-content:space-between; align-items:baseline;
+  font-size:11.5px; color:var(--text2); margin-top:6px; font-variant-numeric:tabular-nums;
+}
+#sec-phonebook .pb-plan-renews{
+  margin-top:10px; font-size:11.5px; color:var(--text3);
+}
+#sec-phonebook .pb-plan-numbers,
+#sec-phonebook .pb-plan-retention{
+  font-size:12px;
+  color:var(--text2);
+  margin-top:4px;
+}
+#sec-phonebook .pb-plan-numbers.over{ color:var(--ds-color-warning); }
+#sec-phonebook .pb-plan-upgrade{ margin-top:14px; }
+
+/* Pickup card */
+#sec-phonebook .pb-card-pickup .pb-pickup-num{
+  font-size:22px; font-weight:600; color:var(--text);
+  margin-top:6px; letter-spacing:.4px;
+}
+#sec-phonebook .pb-card-pickup .pb-pickup-edit{
+  display:inline-block; font-size:12px;
+  color:var(--ds-color-info,#3b82f6); text-decoration:none; margin-top:4px;
+}
+#sec-phonebook .pb-card-pickup .pb-pickup-edit:hover{ text-decoration:underline; }
+#sec-phonebook .pb-card-pickup .pb-pickup-help{
+  font-size:11.5px; color:var(--text2); line-height:1.55; margin-top:14px;
+}
+
+/* Counts */
+#sec-phonebook .pb-count{
+  font-size:11.5px; color:var(--text2); font-weight:500;
+  background:rgba(255,255,255,.05); padding:2px 8px; border-radius:99px;
+  margin-left:4px;
+}
+
+/* My Numbers list */
+#sec-phonebook .pb-card-numbers{ margin-bottom:18px; }
+#sec-phonebook .pb-numbers-list{ margin-top:6px; }
+#sec-phonebook .pb-number-row{
+  display:flex; align-items:center; gap:14px;
+  padding:12px 0; border-bottom:1px solid var(--border,#1e293b);
+}
+#sec-phonebook .pb-number-row:last-child{ border-bottom:none; }
+#sec-phonebook .pb-number-e164{
+  font-family:'SF Mono', Menlo, monospace; font-size:14.5px; font-weight:600; color:var(--text);
+  min-width:170px;
+}
+#sec-phonebook .pb-number-loc{ font-size:12.5px; color:var(--text2); flex:1; min-width:130px; }
+#sec-phonebook .pb-number-primary{
+  display:inline-block; padding:2px 9px; border-radius:99px;
+  background:rgba(16,185,129,.15); color:#34d399;
+  font-size:10.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+}
+#sec-phonebook .pb-number-setprimary{
+  font-size:12px; color:var(--ds-color-info,#3b82f6);
+  background:none; border:none; cursor:pointer; padding:0;
+}
+#sec-phonebook .pb-number-setprimary:hover{ text-decoration:underline; }
+#sec-phonebook .pb-number-cost{
+  font-size:12px; color:var(--text2); font-variant-numeric:tabular-nums; min-width:60px; text-align:right;
+}
+#sec-phonebook .pb-empty{
+  padding:20px 0; text-align:center; color:var(--text2); font-size:13px;
+}
+#sec-phonebook .pb-fallback-banner{
+  display:flex; align-items:flex-start; gap:10px;
+  padding:10px 12px; margin:6px 0 10px;
+  background:rgba(59,130,246,.06); border:1px solid rgba(59,130,246,.18);
+  border-radius:8px; font-size:12px; color:var(--text2); line-height:1.5;
+}
+#sec-phonebook .pb-fallback-banner code{
+  font-family:'SF Mono', Menlo, monospace; font-size:11.5px;
+  background:rgba(255,255,255,.06); padding:1px 5px; border-radius:4px; color:var(--text);
+}
+
+/* Filter dropdown */
+#sec-phonebook .pb-filter{
+  padding:5px 10px; border:1px solid var(--border); border-radius:6px;
+  background:var(--bg2); color:var(--text); font-size:12px; cursor:pointer;
+}
+
+/* Call log table */
+#sec-phonebook .pb-card-calls{ margin-bottom:18px; }
+#sec-phonebook .pb-calls-wrap{
+  margin-top:8px; max-height:560px; overflow:auto;
+  border:1px solid var(--border); border-radius:var(--ds-radius-md,10px);
+}
+#sec-phonebook table.pb-calls-table{ width:100%; border-collapse:collapse; font-size:13px; }
+#sec-phonebook .pb-calls-table thead th{
+  background:var(--bg3); position:sticky; top:0;
+  text-align:left; padding:9px 12px;
+  font-size:11px; color:var(--text3); font-weight:500;
+  text-transform:uppercase; letter-spacing:.08em;
+  border-bottom:1px solid var(--border);
+  white-space:nowrap; user-select:none;
+}
+#sec-phonebook .pb-calls-table thead th.right{ text-align:right; }
+#sec-phonebook .pb-calls-table thead th.pb-sortable{ cursor:pointer; }
+#sec-phonebook .pb-calls-table thead th.pb-sortable:hover{ color:var(--text); }
+#sec-phonebook .pb-calls-table thead th.pb-sort-asc::after{ content:' ▲'; font-size:9px; }
+#sec-phonebook .pb-calls-table thead th.pb-sort-desc::after{ content:' ▼'; font-size:9px; }
+#sec-phonebook .pb-calls-table tbody td{
+  padding:8px 12px; border-bottom:1px solid var(--border); vertical-align:middle;
+}
+#sec-phonebook .pb-calls-table tbody td.mono{
+  font-family:'SF Mono', Menlo, monospace; font-size:12px; color:var(--text2);
+}
+#sec-phonebook .pb-calls-table tbody td.right{ text-align:right; font-variant-numeric:tabular-nums; }
+#sec-phonebook .pb-calls-table tbody tr:last-child td{ border-bottom:none; }
+#sec-phonebook .pb-calls-table tbody tr:hover td{ background:var(--bg3); }
+#sec-phonebook .pb-call-chip{
+  display:inline-block; padding:2px 8px; border-radius:99px;
+  font-size:10.5px; font-weight:600; letter-spacing:.3px;
+}
+#sec-phonebook .pb-call-chip.ok      { background:rgba(16,185,129,.15);  color:#34d399; }
+#sec-phonebook .pb-call-chip.live    { background:rgba(59,130,246,.15);  color:#60a5fa; }
+#sec-phonebook .pb-call-chip.miss    { background:rgba(245,158,11,.15);  color:#fbbf24; }
+#sec-phonebook .pb-call-chip.fail    { background:rgba(220,38,38,.15);   color:#f87171; }
+#sec-phonebook .pb-call-chip.neutral { background:rgba(148,163,184,.15); color:#cbd5e1; }
+
+/* Buy Number modal */
+.pb-modal{ width:680px; max-width:95vw; }
+.pb-modal .pb-search-row{
+  display:flex; gap:10px; align-items:flex-end; margin-bottom:14px;
+}
+.pb-modal .pb-search-row .fg{ flex:1; }
+.pb-modal .pb-search-results{
+  max-height:340px; overflow:auto;
+  border:1px solid var(--border); border-radius:8px;
+}
+.pb-modal table.pb-search-table{ width:100%; border-collapse:collapse; font-size:13px; }
+.pb-modal .pb-search-table th{
+  background:var(--bg3); position:sticky; top:0;
+  text-align:left; padding:8px 11px; font-size:11px;
+  color:var(--text3); font-weight:500; text-transform:uppercase; letter-spacing:.06em;
+  border-bottom:1px solid var(--border);
+}
+.pb-modal .pb-search-table td{
+  padding:9px 11px; border-bottom:1px solid var(--border); vertical-align:middle;
+}
+.pb-modal .pb-search-table tr:last-child td{ border-bottom:none; }
+.pb-modal .pb-search-table td.mono{
+  font-family:'SF Mono', Menlo, monospace; font-size:13px; font-weight:600; color:var(--text);
+}
+.pb-modal .pb-search-table .pb-buy-btn{
+  padding:5px 12px; font-size:12px;
+}
+.pb-modal .pb-search-hint{
+  font-size:11.5px; color:var(--text2); margin-top:10px; line-height:1.5;
+}
+.pb-modal .pb-included-pill{
+  display:inline-block;
+  padding:2px 8px;
+  border-radius:6px;
+  font-size:11.5px;
+  font-weight:600;
+  background:rgba(16,185,129,.18);
+  color:#34d399;
+}
+
+/* Upgrade plan modal */
+.pb-upgrade-modal{ width:560px; max-width:95vw; }
+.pb-upgrade-modal .pb-plan-options{
+  display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:14px;
+}
+.pb-upgrade-modal .pb-plan-opt{
+  display:flex; align-items:center; gap:14px;
+  padding:14px 16px; border:1px solid var(--border); border-radius:10px;
+  background:var(--bg2); cursor:pointer; transition:border-color .15s, background .15s;
+}
+.pb-upgrade-modal .pb-plan-opt:hover{ border-color:var(--ds-color-info,#3b82f6); }
+.pb-upgrade-modal .pb-plan-opt.current{
+  border-color:rgba(16,185,129,.4); background:rgba(16,185,129,.05); cursor:not-allowed;
+}
+.pb-upgrade-modal .pb-plan-opt.selected{
+  border-color:var(--ds-color-info,#3b82f6);
+  background:rgba(59,130,246,.07);
+}
+.pb-upgrade-modal .pb-plan-opt input[type=radio]{ accent-color:var(--ds-color-info,#3b82f6); }
+.pb-upgrade-modal .pb-plan-opt-body{ flex:1; }
+.pb-upgrade-modal .pb-plan-opt-name{ font-size:15px; font-weight:600; color:var(--text); }
+.pb-upgrade-modal .pb-plan-opt-detail{ font-size:12px; color:var(--text2); margin-top:2px; }
+.pb-upgrade-modal .pb-plan-opt-price{ font-size:14px; color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+.pb-upgrade-modal .pb-plan-opt-current{
+  display:inline-block; padding:2px 8px; border-radius:99px;
+  background:rgba(16,185,129,.15); color:#34d399;
+  font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+  margin-left:6px;
+}
+.pb-upgrade-modal .pb-billing-note{
+  font-size:11.5px; color:var(--text2); line-height:1.5;
+  padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+  background:rgba(245,158,11,.06);
+}
 </style>
 </head>
 <body>
@@ -1713,6 +1940,8 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   <div class="nav-sec">
     <div class="nav-lbl">Integrations</div>
     <div class="nav-item" onclick="nav('calendar')"><span class="ico" data-ico="calendar-check"></span><span class="nav-lbl-text">Calendar</span></div>
+
+    <div class="nav-item" onclick="nav('phonebook')"><span class="ico" data-ico="phone"></span><span class="nav-lbl-text">Phone Book</span></div>
   </div>
   <div class="sidebar-bot">
     <div class="nav-item" onclick="nav('settings')"><span class="ico" data-ico="gear"></span><span class="nav-lbl-text">Settings</span></div>
@@ -2629,6 +2858,106 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div id="bi-card-list" class="mt16"></div>
     </div>
 
+    <!-- ========== PHONE BOOK ========== -->
+    <div class="section" id="sec-phonebook">
+
+      <!-- Top action row -->
+      <div class="pb-header">
+        <div class="pb-header-l">
+          <div class="pb-header-title">Phone Book</div>
+          <div class="pb-header-sub">Manage your SignalWire numbers, plan, and call history.</div>
+        </div>
+        <div class="pb-header-r">
+          <button class="btn btn-p" onclick="pbOpenBuyModal()">
+            <span data-ico="plus" data-size="13" style="margin-right:6px"></span>Buy Number
+          </button>
+        </div>
+      </div>
+
+      <!-- Row 1: Plan + Pickup Phone -->
+      <div class="pb-top-grid">
+        <div class="card pb-card-plan">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            <span data-ico="trophy" data-size="13"></span>My Plan
+          </div>
+          <div class="pb-plan-name" id="pb-plan-name">Loading…</div>
+          <div class="pb-plan-cap"><span id="pb-plan-min-cap">—</span> minutes/month · <span id="pb-plan-cost">$—</span>/mo</div>
+          <div class="pb-bar"><div class="pb-bar-fill" id="pb-plan-bar" style="width:0%"></div></div>
+          <div class="pb-bar-meta">
+            <span><span id="pb-plan-min-used">0</span> / <span id="pb-plan-min-cap-2">—</span> min used</span>
+            <span id="pb-plan-pct">0%</span>
+          </div>
+          <div class="pb-bar"><div class="pb-bar-fill" id="pb-plan-q-bar" style="width:0%"></div></div>
+          <div class="pb-bar-meta">
+            <span><span id="pb-plan-q-used">0</span> / <span id="pb-plan-q-cap">—</span> quotes used (last 30 days)</span>
+            <span id="pb-plan-q-pct">0%</span>
+          </div>
+          <div class="pb-plan-numbers" id="pb-plan-numbers">—</div>
+          <div class="pb-plan-retention" id="pb-plan-retention">—</div>
+          <div class="pb-plan-renews">Resets <span id="pb-plan-renews">—</span></div>
+          <button class="btn btn-g pb-plan-upgrade" id="pb-plan-upgrade-btn" onclick="pbOpenUpgradeModal()">Upgrade Plan</button>
+        </div>
+
+        <div class="card pb-card-pickup">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            <span data-ico="phone" data-size="13"></span>My Pickup Phone
+          </div>
+          <div class="pb-pickup-num mono" id="pb-pickup-num">— not set —</div>
+          <a href="#" class="pb-pickup-edit" id="pb-pickup-edit">Edit number</a>
+          <div class="pb-pickup-help">
+            SignalWire rings this number first when you place a call from the dashboard, then bridges you to the lead.
+            Both sides see your <strong>primary</strong> number as the caller-ID.
+          </div>
+        </div>
+      </div>
+
+      <!-- My Numbers list -->
+      <div class="card pb-card-numbers">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px">
+          <span data-ico="phone" data-size="13"></span>My Numbers
+          <span class="pb-count" id="pb-numbers-count">0</span>
+        </div>
+        <div id="pb-numbers-list" class="pb-numbers-list">
+          <div class="pb-empty">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Call log -->
+      <div class="card pb-card-calls">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span data-ico="clipboard-text" data-size="13"></span>Recent Calls
+            <span class="pb-count" id="pb-calls-count">0</span>
+          </div>
+          <select id="pb-calls-filter" class="pb-filter" onchange="pbRenderCalls()">
+            <option value="all">All outcomes</option>
+            <option value="answered">Answered only</option>
+            <option value="no-answer">No answer</option>
+            <option value="failed">Failed</option>
+          </select>
+        </div>
+        <div class="pb-calls-wrap">
+          <table class="pb-calls-table" id="pb-calls-table">
+            <thead>
+              <tr>
+                <th class="pb-sortable" data-sort="started_at">Time</th>
+                <th>Lead</th>
+                <th>From</th>
+                <th>To</th>
+                <th class="right pb-sortable" data-sort="duration_sec">Duration</th>
+                <th>Status</th>
+                <th>Outcome</th>
+              </tr>
+            </thead>
+            <tbody id="pb-calls-tbody">
+              <tr><td colspan="7" class="pb-empty">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /sec-phonebook -->
+
     <!-- ========== SETTINGS ========== -->
     <div class="section" id="sec-settings">
 
@@ -2769,53 +3098,8 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div id="stg-calling" style="display:none">
         <div class="alert alert-i" style="margin-bottom:16px">
           <span data-ico="info"></span>
-          <div>In-dashboard calling via <strong>SignalWire</strong>. The firm operates a shared SignalWire account; admins assign a caller-ID number and a monthly minute cap to each agent below.</div>
-        </div>
-
-        <div class="stg-cl-grid">
-          <!-- My calling settings -->
-          <div class="card">
-            <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="phone" data-size="13"></span>My Calling Settings</div>
-            <div class="frow">
-              <div class="fg">
-                <label>My caller-ID number</label>
-                <input type="text" id="stg-cl-my-number" value="—" readonly style="opacity:.7;cursor:not-allowed">
-              </div>
-              <div class="fg">
-                <label>SignalWire identity</label>
-                <input type="text" id="stg-cl-my-subscriber" value="—" readonly style="opacity:.7;cursor:not-allowed">
-              </div>
-            </div>
-            <div class="frow" style="margin-top:10px">
-              <div class="fg" style="flex:1">
-                <label>My phone <span style="color:var(--text2);font-weight:400">(SignalWire rings this number first, then bridges to the lead)</span></label>
-                <div id="stg-cl-my-phone-wrap" style="display:flex;align-items:center;gap:10px">
-                  <span id="stg-cl-my-phone" class="mono" style="font-size:13px">— not set —</span>
-                  <a href="#" id="stg-cl-my-phone-edit" style="font-size:12px;color:var(--ds-color-info,#3b82f6);text-decoration:none">Edit</a>
-                </div>
-              </div>
-            </div>
-            <div style="margin-top:14px">
-              <div style="display:flex;justify-content:space-between;align-items:baseline">
-                <div class="stg-cl-stat"><span id="stg-cl-min-used">0</span> <span class="stg-cl-sub">/ <span id="stg-cl-min-cap">500</span> min this month</span></div>
-                <div style="font-size:11.5px;color:var(--text2);"><span id="stg-cl-min-pct">0%</span> used</div>
-              </div>
-              <div class="stg-cl-bar"><div class="stg-cl-bar-fill" id="stg-cl-min-bar" style="width:0%"></div></div>
-            </div>
-            <div style="font-size:11.5px;color:var(--text2);line-height:1.45;margin-top:12px">
-              Your monthly minute cap prevents runaway cost. Need more? Ask an admin to raise the limit.
-            </div>
-          </div>
-
-          <!-- How calling works -->
-          <div class="card">
-            <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="lightbulb" data-size="13"></span>How Calling Works</div>
-            <ul style="font-size:12.5px;color:var(--text2);line-height:1.6;padding-left:18px;margin:0">
-              <li>Click <strong>Call</strong> on a lead. <strong>Your phone</strong> rings within a few seconds — pick up to start the call.</li>
-              <li>As soon as you answer, SignalWire dials the lead and bridges the two calls together. Both sides see your caller-ID number.</li>
-              <li>Calls auto-tag as <strong>No Answer</strong> if the bridge lasts under 15 seconds. Longer calls prompt you for the outcome.</li>
-              <li>Hang up from either your phone or the dashboard's <strong>Hang Up</strong> button — both drop the call.</li>
-            </ul>
+          <div>
+            Your personal calling settings — number, pickup phone, plan, minutes used, and call history — live in the new <a href="#" onclick="event.preventDefault();nav('phonebook')" style="color:var(--ds-color-info);font-weight:600">Phone Book</a> tab. This page is for firm-wide admin tasks only.
           </div>
         </div>
 
@@ -2855,6 +3139,62 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
   </div><!-- /content -->
 </div><!-- /main -->
+
+<!-- PHONE BOOK — BUY NUMBER MODAL -->
+<div class="overlay" id="pbBuyModal">
+  <div class="modal pb-modal">
+    <div class="mhdr">
+      <div class="mtitle">Buy a phone number</div>
+      <button class="mclose" onclick="pbCloseBuyModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div class="alert alert-i" style="margin-bottom:14px">
+      <span data-ico="info"></span>
+      <div>Search US Local numbers by 3-digit area code. SignalWire bills <strong>~$1.00/month</strong> per number plus usage. Purchases are immediate.</div>
+    </div>
+    <div class="pb-search-row">
+      <div class="fg">
+        <label>Area code</label>
+        <input type="text" id="pb-buy-areacode" inputmode="numeric" maxlength="3" pattern="\d{3}" placeholder="e.g. 512" autocomplete="off">
+      </div>
+      <button class="btn btn-p" id="pb-buy-search-btn" onclick="pbSearchNumbers()">Search</button>
+    </div>
+    <div id="pb-buy-status" class="pb-search-hint" style="display:none"></div>
+    <div id="pb-buy-results-wrap" class="pb-search-results" style="display:none">
+      <table class="pb-search-table">
+        <thead>
+          <tr>
+            <th>Number</th>
+            <th>City</th>
+            <th>State</th>
+            <th style="text-align:right">Cost</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="pb-buy-results-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- PHONE BOOK — UPGRADE PLAN MODAL -->
+<div class="overlay" id="pbUpgradeModal">
+  <div class="modal pb-upgrade-modal">
+    <div class="mhdr">
+      <div class="mtitle">Change plan</div>
+      <button class="mclose" onclick="pbCloseUpgradeModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div class="pb-plan-options" id="pb-upgrade-options">
+      <div class="pb-empty">Loading plans…</div>
+    </div>
+    <div class="pb-billing-note" id="pb-billing-note">
+      Billing isn't wired up yet — switching plans just updates your monthly minute and quote caps right now. Included numbers absorb the SignalWire per-number fee up to your plan's count; "extras" are informational ($1.50/mo each) until payment processing lands.
+    </div>
+    <div class="flex gap8 mt16" style="justify-content:flex-end">
+      <button class="btn btn-s btn-sm" onclick="pbCloseUpgradeModal()">Cancel</button>
+      <button class="btn btn-g btn-sm" id="pb-upgrade-confirm" onclick="pbApplyPlanChange()" disabled>Switch plan</button>
+    </div>
+  </div>
+</div>
 
 <!-- BOOK INTELLIGENCE — CSV IMPORT MODAL -->
 <div class="overlay" id="biImportModal">
@@ -9360,6 +9700,7 @@ const NAV_TITLES = {
   leads:'Leads',
   'book-intel':'Book Intelligence',
   calendar:'Calendar',
+  phonebook:'Phone Book',
   settings:'Settings',
 };
 
@@ -9376,7 +9717,7 @@ function nav(id) {
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
   // Highlight active nav item
   const items = document.querySelectorAll('.nav-item');
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, settings:8 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, phonebook:8, settings:9 };
   if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
@@ -9393,7 +9734,10 @@ function nav(id) {
   if (id === 'leads')   renderLeads();
   if (id === 'book-intel') renderBookIntel();
   if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
+  if (id === 'phonebook') renderPhoneBook();
   if (id === 'settings') initSettingsSection();
+  // Tear down the Phone Book's live-calls subscription whenever we leave it.
+  if (id !== 'phonebook' && typeof _pbTeardown === 'function') _pbTeardown();
 }
 
 // ============================================================
@@ -10127,6 +10471,761 @@ function _promptModal(title, currentValue) {
     });
   });
 }
+
+// ============================================================
+// PHONE BOOK TAB — agent-facing self-service for telephony.
+//
+// Renders four widgets (Plan, Pickup Phone, My Numbers, Recent
+// Calls), all backed by Supabase. Buy-number flow proxies through
+// the `signalwire-search-numbers` + `signalwire-buy-number` edge
+// functions; minute usage is the same per-month sum the bridge
+// function uses; primary-number toggles mirror into
+// agents.signalwire_caller_id so signalwire-bridge picks the
+// chosen number without code changes.
+// ============================================================
+
+// Module state — persists across re-renders so the call log keeps
+// its sort/filter and Realtime channel can be torn down when
+// navigating away.
+let _pbAgent          = null;   // agents row + joined plan
+let _pbPlans          = [];     // catalog of plans
+let _pbNumbers        = [];     // phone_numbers rows for this agent
+let _pbNumbersError   = null;   // last phone_numbers fetch error (eg. table missing)
+let _pbCalls          = [];     // recent calls (cached for sort/filter)
+let _pbCallSort       = { col: 'started_at', dir: 'desc' };
+let _pbCallFilter     = 'all';
+let _pbRealtimeCh     = null;
+let _pbBuyResults     = [];
+let _pbSelectedPlanId = null;
+
+// Fire-and-forget teardown for the Realtime channel — wired into
+// nav() so leaving the tab stops the live updates immediately.
+function _pbTeardown() {
+  if (_pbRealtimeCh) {
+    try { sb.removeChannel(_pbRealtimeCh); } catch (e) {}
+    _pbRealtimeCh = null;
+  }
+}
+
+// Format an E.164 number as "+1 (555) 867-5309" for US, otherwise
+// fall back to the raw E.164. Phone Book is US-only for now.
+function _pbFmtPhone(e164) {
+  if (!e164) return '—';
+  const m = String(e164).match(/^\+1(\d{3})(\d{3})(\d{4})$/);
+  if (m) return `+1 (${m[1]}) ${m[2]}-${m[3]}`;
+  return String(e164);
+}
+
+// "12:34" / "1:08:32" duration from seconds. Returns "—" for null.
+function _pbFmtDur(sec) {
+  if (sec == null) return '—';
+  const s = Math.max(0, Math.floor(sec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  const pad = n => String(n).padStart(2, '0');
+  return h ? `${h}:${pad(m)}:${pad(r)}` : `${m}:${pad(r)}`;
+}
+
+// Local-time clock without the date, falls back to short date if
+// the call isn't from today.
+function _pbFmtTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth()    === now.getMonth() &&
+    d.getDate()     === now.getDate();
+  return sameDay
+    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : d.toLocaleString([],     { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+// Try to find a friendly lead name for the call. Frontend leads are
+// keyed by `lead.id` (the leads.client_id text column); the bridge
+// writes the same id into calls.lead_id.
+function _pbLeadName(leadId) {
+  if (!leadId) return null;
+  if (!Array.isArray(window.leads)) return null;
+  const hit = window.leads.find(l => String(l.id) === String(leadId));
+  return hit ? (hit.name || hit.first_name || null) : null;
+}
+
+// Map calls.status → chip className.
+const _PB_STATUS_CHIP = {
+  initiated: 'live',
+  ringing:   'live',
+  answered:  'live',
+  completed: 'ok',
+  'no-answer': 'miss',
+  busy:      'miss',
+  failed:    'fail',
+  canceled:  'neutral',
+};
+
+// Entry point invoked by nav('phonebook'). Loads everything in
+// parallel and paints all four widgets. Idempotent — re-running
+// is the normal refresh path after a buy / set-primary / upgrade.
+async function renderPhoneBook() {
+  if (!currentAgent || !currentAgent.id) {
+    const list = document.getElementById('pb-numbers-list');
+    if (list) list.innerHTML = `<div class="pb-empty">Sign in to manage your phone book.</div>`;
+    return;
+  }
+
+  // Loading placeholders (only on first paint; cached state means
+  // subsequent renders flash through these instantly).
+  const planName = document.getElementById('pb-plan-name');
+  if (planName && !_pbAgent) planName.textContent = 'Loading…';
+
+  const monthStart = new Date();
+  monthStart.setUTCDate(1);
+  monthStart.setUTCHours(0,0,0,0);
+
+  // Quote usage uses a rolling 30-day window (itk-quote enforces this,
+  // see supabase/functions/itk-quote/index.ts). Minutes are calendar-
+  // month-since-the-1st; quotes are trailing-30-days. Keep both.
+  const quoteWindowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  // 6 parallel reads. None of them depends on another; failures
+  // are caught individually so one error doesn't blank the tab.
+  const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes] = await Promise.all([
+    sb.from('agents')
+      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id')
+      .eq('id', currentAgent.id).maybeSingle(),
+    sb.from('plans')
+      .select('id, slug, name, monthly_minutes, monthly_quote_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
+      .eq('active', true).order('sort_order', { ascending: true }),
+    sb.from('phone_numbers')
+      .select('id, e164, friendly_name, locality, region, sw_phone_sid, monthly_cost, is_primary, status, purchased_at')
+      .eq('agent_id', currentAgent.id)
+      .order('is_primary', { ascending: false })
+      .order('purchased_at', { ascending: true }),
+    sb.from('calls')
+      .select('id, lead_id, direction, phone_from, phone_to, started_at, ended_at, answered_at, duration_sec, status, outcome, sw_call_sid')
+      .eq('agent_id', currentAgent.id)
+      .order('started_at', { ascending: false })
+      .limit(100),
+    sb.from('calls')
+      .select('duration_sec')
+      .eq('agent_id', currentAgent.id)
+      .gte('started_at', monthStart.toISOString()),
+    sb.from('quote_usage')
+      .select('id', { count: 'exact', head: true })
+      .eq('agent_id', currentAgent.id)
+      .gte('created_at', quoteWindowStart.toISOString()),
+  ]);
+
+  if (agentRes.error)      console.warn('[phonebook] agent fetch failed', agentRes.error);
+  if (plansRes.error)      console.warn('[phonebook] plans fetch failed', plansRes.error);
+  if (numbersRes.error)    console.warn('[phonebook] numbers fetch failed', numbersRes.error);
+  if (callsRes.error)      console.warn('[phonebook] calls fetch failed', callsRes.error);
+  if (monthCallsRes.error) console.warn('[phonebook] minute usage fetch failed', monthCallsRes.error);
+  if (quoteUsageRes.error) console.warn('[phonebook] quote usage fetch failed', quoteUsageRes.error);
+
+  _pbAgent        = agentRes.data || {};
+  _pbPlans        = plansRes.data || [];
+  _pbNumbers      = numbersRes.data || [];
+  _pbNumbersError = numbersRes.error || null;
+  _pbCalls        = callsRes.data || [];
+
+  const usedSec = (monthCallsRes.data || []).reduce(
+    (s, r) => s + (r.duration_sec || 0), 0);
+  const usedMin = Math.floor(usedSec / 60);
+  const quotesUsed = quoteUsageRes.count || 0;
+
+  pbRenderPlanCard(_pbAgent, usedMin, quotesUsed);
+  pbRenderPickupCard(_pbAgent);
+  pbRenderNumbersList(_pbNumbers);
+  pbRenderCalls();
+
+  // Subscribe to live call updates so a dial from the Leads tab
+  // shows up here within ~1s. Tear down any previous channel first
+  // (re-entering the tab shouldn't stack subscriptions).
+  _pbTeardown();
+  try {
+    _pbRealtimeCh = sb.channel(`phonebook-calls-${currentAgent.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'calls',
+        filter: `agent_id=eq.${currentAgent.id}`,
+      }, (payload) => {
+        // Lightweight reconciliation: insert -> prepend, update ->
+        // patch in place, delete -> remove. Then re-render.
+        const row = payload.new || payload.old;
+        if (!row) return;
+        if (payload.eventType === 'INSERT') {
+          _pbCalls = [row, ..._pbCalls.filter(c => c.id !== row.id)];
+        } else if (payload.eventType === 'UPDATE') {
+          const i = _pbCalls.findIndex(c => c.id === row.id);
+          if (i >= 0) _pbCalls[i] = { ..._pbCalls[i], ...row };
+          else _pbCalls = [row, ..._pbCalls];
+        } else if (payload.eventType === 'DELETE') {
+          _pbCalls = _pbCalls.filter(c => c.id !== row.id);
+        }
+        if (_pbCalls.length > 100) _pbCalls = _pbCalls.slice(0, 100);
+        pbRenderCalls();
+      })
+      .subscribe();
+  } catch (e) {
+    console.warn('[phonebook] realtime subscribe failed', e);
+  }
+
+  if (typeof mountIcons === 'function') mountIcons(document.getElementById('sec-phonebook'));
+}
+
+function pbRenderPlanCard(agent, usedMin, quotesUsed) {
+  // Look up the agent's current plan from the catalog we fetched in
+  // parallel — avoids a PostgREST foreign-key embed that can stall
+  // while the schema cache is still warming up after a migration.
+  const plan = (agent && agent.plan_id)
+    ? _pbPlans.find(p => p.id === agent.plan_id) || null
+    : null;
+  const planName = document.getElementById('pb-plan-name');
+  const planCap  = document.getElementById('pb-plan-min-cap');
+  const planCap2 = document.getElementById('pb-plan-min-cap-2');
+  const planCost = document.getElementById('pb-plan-cost');
+  const planUsed = document.getElementById('pb-plan-min-used');
+  const planPct  = document.getElementById('pb-plan-pct');
+  const planBar  = document.getElementById('pb-plan-bar');
+  const renews   = document.getElementById('pb-plan-renews');
+  const qBar     = document.getElementById('pb-plan-q-bar');
+  const qUsedEl  = document.getElementById('pb-plan-q-used');
+  const qCapEl   = document.getElementById('pb-plan-q-cap');
+  const qPctEl   = document.getElementById('pb-plan-q-pct');
+  const numEl    = document.getElementById('pb-plan-numbers');
+  const retEl    = document.getElementById('pb-plan-retention');
+
+  // monthly_minute_limit on agents is the authoritative cap (the
+  // bridge function reads it). plans.monthly_minutes should agree
+  // when a plan is set; fall back to the cap if no plan is attached.
+  const cap =
+    (plan && typeof plan.monthly_minutes === 'number') ? plan.monthly_minutes :
+    (typeof agent.monthly_minute_limit === 'number') ? agent.monthly_minute_limit : 500;
+
+  const name = (plan && plan.name) ? plan.name : 'No plan';
+  const cost = (plan && plan.monthly_cost != null) ? `$${Number(plan.monthly_cost).toFixed(2)}` : '$—';
+  const pct  = cap > 0 ? Math.min(100, Math.round(100 * usedMin / cap)) : 0;
+
+  if (planName) planName.textContent = name;
+  if (planCap)  planCap.textContent  = cap.toLocaleString();
+  if (planCap2) planCap2.textContent = cap.toLocaleString();
+  if (planCost) planCost.textContent = cost;
+  if (planUsed) planUsed.textContent = usedMin.toLocaleString();
+  if (planPct)  planPct.textContent  = pct + '%';
+  if (planBar) {
+    planBar.style.width = pct + '%';
+    planBar.classList.toggle('warn', pct >= 75 && pct < 90);
+    planBar.classList.toggle('over', pct >= 90);
+  }
+
+  // Quote bar — sourced from plan.monthly_quote_limit if a plan is
+  // attached; falls back to agent.monthly_quote_limit (which the
+  // itk-quote function reads as the authoritative cap).
+  const qCap =
+    (plan && typeof plan.monthly_quote_limit === 'number' && plan.monthly_quote_limit > 0) ? plan.monthly_quote_limit :
+    (typeof agent.monthly_quote_limit === 'number') ? agent.monthly_quote_limit : 250;
+  const qPct = qCap > 0 ? Math.min(100, Math.round(100 * (quotesUsed || 0) / qCap)) : 0;
+
+  if (qUsedEl) qUsedEl.textContent = (quotesUsed || 0).toLocaleString();
+  if (qCapEl)  qCapEl.textContent  = qCap.toLocaleString();
+  if (qPctEl)  qPctEl.textContent  = qPct + '%';
+  if (qBar) {
+    qBar.style.width = qPct + '%';
+    qBar.classList.toggle('warn', qPct >= 75 && qPct < 90);
+    qBar.classList.toggle('over', qPct >= 90);
+  }
+
+  // Numbers count — needs the owned count, which lives in module-scope
+  // _pbNumbers (already populated by renderPhoneBook before this call).
+  const ownedCount    = Array.isArray(_pbNumbers) ? _pbNumbers.length : 0;
+  const includedCount = (plan && typeof plan.included_numbers === 'number') ? plan.included_numbers : 0;
+  if (numEl) {
+    numEl.textContent = `Numbers: ${ownedCount} of ${includedCount} included`;
+    numEl.classList.toggle('over', ownedCount > includedCount);
+  }
+
+  // Recording retention — informational; no purge job exists yet.
+  const retDays = (plan && typeof plan.recording_retention_days === 'number') ? plan.recording_retention_days : 30;
+  if (retEl) retEl.textContent = `Recordings kept for ${retDays} days`;
+
+  // Cap resets on the 1st of next month.
+  if (renews) {
+    const next = new Date();
+    next.setUTCMonth(next.getUTCMonth() + 1, 1);
+    next.setUTCHours(0,0,0,0);
+    renews.textContent = next.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+}
+
+function pbRenderPickupCard(agent) {
+  const numEl = document.getElementById('pb-pickup-num');
+  const edit  = document.getElementById('pb-pickup-edit');
+  if (numEl) numEl.textContent = agent.agent_phone ? _pbFmtPhone(agent.agent_phone) : '— not set —';
+  if (!edit) return;
+  // Re-bind every render so we don't stack listeners.
+  edit.onclick = async (e) => {
+    e.preventDefault();
+    const raw = await _promptModal(
+      'Your personal phone in E.164 (e.g. +14155550142). SignalWire calls this number first, then bridges you to the lead.',
+      agent.agent_phone || '',
+    );
+    if (raw == null) return;
+    const trimmed = raw.trim();
+    let value = trimmed === '' ? null : trimmed;
+    if (value) {
+      const norm = toE164(value);
+      if (!norm) { showToast('Must be a valid US phone number', '#dc2626'); return; }
+      value = norm;
+    }
+    try {
+      const { error } = await sb.from('agents').update({ agent_phone: value }).eq('id', currentAgent.id);
+      if (error) throw error;
+      showToast('Saved', '#10b981');
+      await renderPhoneBook();
+    } catch (err) {
+      console.warn('[phonebook] agent_phone update failed', err);
+      showToast(`Save failed: ${err.message || err}`, '#dc2626');
+    }
+  };
+}
+
+function pbRenderNumbersList(numbers) {
+  const list   = document.getElementById('pb-numbers-list');
+  const countE = document.getElementById('pb-numbers-count');
+  if (!list) return;
+
+  // Fallback: agent has a signalwire_caller_id assigned (the Phase B
+  // legacy model) but no phone_numbers rows yet — either the 009
+  // migration hasn't been pasted into Supabase, or an admin assigned
+  // them a number after the backfill ran. Synthesize a virtual row
+  // so the agent sees their existing caller-ID immediately.
+  let rows = numbers;
+  let synthesized = false;
+  if (!rows.length && _pbAgent && _pbAgent.signalwire_caller_id) {
+    rows = [{
+      id:           null,
+      e164:         _pbAgent.signalwire_caller_id,
+      friendly_name: null,
+      locality:     null,
+      region:       null,
+      monthly_cost: 0,
+      is_primary:   true,
+      _virtual:     true,
+    }];
+    synthesized = true;
+  }
+
+  if (countE) countE.textContent = rows.length;
+
+  if (!rows.length) {
+    list.innerHTML = `
+      <div class="pb-empty">
+        You don't own any numbers yet. Click <strong>Buy Number</strong> above to acquire your first one.
+      </div>`;
+    return;
+  }
+
+  const banner = synthesized
+    ? `<div class="pb-fallback-banner">
+         <span data-ico="info" data-size="14"></span>
+         <div>
+           Showing the number assigned to you on the <strong>agents</strong> table. To unlock buying additional numbers and full inventory tracking, paste <code>data/sql/009_phone_book.sql</code> into the Supabase SQL Editor — the backfill will move this number into your inventory.
+         </div>
+       </div>`
+    : '';
+
+  list.innerHTML = banner + rows.map(n => {
+    const loc = [n.locality, n.region].filter(Boolean).join(', ') || (n.friendly_name && n.friendly_name !== n.e164 ? n.friendly_name : '—');
+    const cost = n._virtual
+      ? '<span style="color:var(--text3);font-style:italic">assigned</span>'
+      : `$${Number(n.monthly_cost || 0).toFixed(2)}/mo`;
+    const primaryCol = n.is_primary
+      ? `<span class="pb-number-primary">Primary</span>`
+      : `<button type="button" class="pb-number-setprimary" data-id="${escapeHTML(n.id)}" data-e164="${escapeHTML(n.e164)}">Set as primary</button>`;
+    return `
+      <div class="pb-number-row">
+        <div class="pb-number-e164">${escapeHTML(_pbFmtPhone(n.e164))}</div>
+        <div class="pb-number-loc">${escapeHTML(loc)}</div>
+        <div>${primaryCol}</div>
+        <div class="pb-number-cost">${cost}</div>
+      </div>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.pb-number-setprimary').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pbSetNumberAsPrimary(btn.dataset.id, btn.dataset.e164);
+    });
+  });
+
+  if (synthesized && typeof mountIcons === 'function') mountIcons(list);
+}
+
+// Two-step UPDATE: clear the existing primary first, then flip the
+// chosen one. Doing both in one batch would violate the partial
+// unique index on (agent_id) WHERE is_primary=true. After both
+// updates, mirror the new primary's e164 into agents.signalwire_caller_id
+// so signalwire-bridge dials from it on the next call.
+async function pbSetNumberAsPrimary(numberId, e164) {
+  if (!numberId) return;
+  try {
+    {
+      const { error } = await sb.from('phone_numbers')
+        .update({ is_primary: false })
+        .eq('agent_id', currentAgent.id);
+      if (error) throw error;
+    }
+    {
+      const { error } = await sb.from('phone_numbers')
+        .update({ is_primary: true })
+        .eq('id', numberId);
+      if (error) throw error;
+    }
+    {
+      const { error } = await sb.from('agents')
+        .update({ signalwire_caller_id: e164 })
+        .eq('id', currentAgent.id);
+      if (error) throw error;
+    }
+    showToast(`Primary number set to ${_pbFmtPhone(e164)}`, '#10b981');
+    await renderPhoneBook();
+  } catch (e) {
+    console.warn('[phonebook] set primary failed', e);
+    showToast(`Couldn't set primary: ${e.message || e}`, '#dc2626');
+  }
+}
+
+// Re-renders the Recent Calls table from cached _pbCalls applying
+// the current filter + sort. Pure DOM op, no fetch.
+function pbRenderCalls() {
+  const tbody  = document.getElementById('pb-calls-tbody');
+  const countE = document.getElementById('pb-calls-count');
+  const filter = document.getElementById('pb-calls-filter');
+  if (!tbody) return;
+  if (filter) _pbCallFilter = filter.value;
+
+  let rows = _pbCalls.slice();
+  if (_pbCallFilter === 'answered') {
+    rows = rows.filter(r => r.status === 'completed' && (r.duration_sec || 0) >= 5);
+  } else if (_pbCallFilter === 'no-answer') {
+    rows = rows.filter(r => r.status === 'no-answer' || (r.status === 'completed' && (r.duration_sec || 0) < 5));
+  } else if (_pbCallFilter === 'failed') {
+    rows = rows.filter(r => r.status === 'failed' || r.status === 'busy' || r.status === 'canceled');
+  }
+
+  rows.sort((a, b) => {
+    const col = _pbCallSort.col;
+    const av = a[col] ?? (col === 'started_at' ? '' : 0);
+    const bv = b[col] ?? (col === 'started_at' ? '' : 0);
+    let cmp;
+    if (col === 'started_at') cmp = String(av).localeCompare(String(bv));
+    else cmp = (av || 0) - (bv || 0);
+    return _pbCallSort.dir === 'desc' ? -cmp : cmp;
+  });
+
+  if (countE) countE.textContent = rows.length;
+
+  // Sort indicator on header cells.
+  document.querySelectorAll('#pb-calls-table thead th.pb-sortable').forEach(th => {
+    th.classList.remove('pb-sort-asc', 'pb-sort-desc');
+    if (th.dataset.sort === _pbCallSort.col) {
+      th.classList.add(_pbCallSort.dir === 'asc' ? 'pb-sort-asc' : 'pb-sort-desc');
+    }
+  });
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="7" class="pb-empty">No calls match this filter.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const leadName = _pbLeadName(r.lead_id);
+    const status   = r.status || 'initiated';
+    const chipCls  = _PB_STATUS_CHIP[status] || 'neutral';
+    // Outcome chip styling reuses the same chip classes; "—" if absent.
+    const outcome  = r.outcome ? escapeHTML(r.outcome.replace(/_/g, ' ')) : '—';
+    return `
+      <tr data-id="${escapeHTML(r.id)}">
+        <td>${escapeHTML(_pbFmtTime(r.started_at))}</td>
+        <td>${leadName ? escapeHTML(leadName) : '<span style="color:var(--text3)">—</span>'}</td>
+        <td class="mono">${escapeHTML(_pbFmtPhone(r.phone_from))}</td>
+        <td class="mono">${escapeHTML(_pbFmtPhone(r.phone_to))}</td>
+        <td class="right">${escapeHTML(_pbFmtDur(r.duration_sec))}</td>
+        <td><span class="pb-call-chip ${chipCls}">${escapeHTML(status)}</span></td>
+        <td>${outcome}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Header-click sort. Toggles asc/desc on the active column; switching
+// columns starts at the column's natural default (started_at desc,
+// duration desc).
+document.addEventListener('click', (e) => {
+  const th = e.target.closest && e.target.closest('#pb-calls-table thead th.pb-sortable');
+  if (!th) return;
+  const col = th.dataset.sort;
+  if (!col) return;
+  if (_pbCallSort.col === col) {
+    _pbCallSort.dir = _pbCallSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _pbCallSort = { col, dir: 'desc' };
+  }
+  pbRenderCalls();
+});
+
+// ── Buy Number modal ────────────────────────────────────────
+// Returns how many additional numbers the agent can buy before they
+// start adding to their subscription fee. 0 means "all included slots
+// are used; the next one is an extra."
+function _pbIncludedRemaining() {
+  if (!_pbAgent || !_pbAgent.plan_id || !Array.isArray(_pbPlans)) return 0;
+  const plan = _pbPlans.find(p => p.id === _pbAgent.plan_id);
+  if (!plan || typeof plan.included_numbers !== 'number') return 0;
+  const owned = Array.isArray(_pbNumbers) ? _pbNumbers.length : 0;
+  return Math.max(0, plan.included_numbers - owned);
+}
+
+function pbOpenBuyModal() {
+  const m = document.getElementById('pbBuyModal');
+  if (!m) return;
+  // Reset state every open.
+  _pbBuyResults = [];
+  const area = document.getElementById('pb-buy-areacode');
+  const status = document.getElementById('pb-buy-status');
+  const wrap = document.getElementById('pb-buy-results-wrap');
+  if (area) area.value = '';
+  if (status) status.style.display = 'none';
+  if (wrap) wrap.style.display = 'none';
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+  setTimeout(() => area && area.focus(), 50);
+}
+function pbCloseBuyModal() {
+  const m = document.getElementById('pbBuyModal');
+  if (m) m.classList.remove('open');
+}
+
+async function pbSearchNumbers() {
+  const areaEl = document.getElementById('pb-buy-areacode');
+  const status = document.getElementById('pb-buy-status');
+  const wrap   = document.getElementById('pb-buy-results-wrap');
+  const tbody  = document.getElementById('pb-buy-results-tbody');
+  const btn    = document.getElementById('pb-buy-search-btn');
+  if (!areaEl || !status || !wrap || !tbody) return;
+
+  const area = (areaEl.value || '').trim();
+  if (!/^\d{3}$/.test(area)) {
+    status.style.display = '';
+    status.textContent = 'Enter a 3-digit US area code.';
+    wrap.style.display = 'none';
+    return;
+  }
+
+  status.style.display = '';
+  status.textContent = `Searching SignalWire for ${area}…`;
+  wrap.style.display = 'none';
+  if (btn) btn.disabled = true;
+
+  try {
+    const { data, error } = await sb.functions.invoke('signalwire-search-numbers', {
+      body: { area_code: area, limit: 20 },
+    });
+    if (error) {
+      // Edge-function errors come back with the JSON body in error.context.
+      let detail = error.message || 'Unknown error';
+      try {
+        const body = error.context && await error.context.json();
+        if (body && body.error) detail = body.error;
+      } catch (_) {}
+      throw new Error(detail);
+    }
+    const list = (data && data.numbers) || [];
+    _pbBuyResults = list;
+    if (!list.length) {
+      status.textContent = `No numbers available for area code ${area}. Try another.`;
+      wrap.style.display = 'none';
+      return;
+    }
+    const remaining = _pbIncludedRemaining();
+    const hint = remaining > 0
+      ? `${remaining} included with your plan, $1.50/mo each after that (billing not yet active).`
+      : `All included slots used — $1.50/mo each (billing not yet active).`;
+    status.textContent = `${list.length} numbers available for ${area}. ${hint}`;
+    wrap.style.display = '';
+    tbody.innerHTML = list.map((n, i) => {
+      const isIncluded = i < remaining;
+      const label = isIncluded
+        ? `<span class="pb-included-pill">Included</span>`
+        : `<span class="mono">$1.50/mo</span>`;
+      return `
+        <tr>
+          <td class="mono">${escapeHTML(_pbFmtPhone(n.phone_number))}</td>
+          <td>${escapeHTML(n.locality || '—')}</td>
+          <td>${escapeHTML(n.region || '—')}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums">${label}</td>
+          <td style="text-align:right">
+            <button class="btn btn-g btn-sm pb-buy-btn" data-idx="${i}">Buy</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    tbody.querySelectorAll('.pb-buy-btn').forEach(b => {
+      b.addEventListener('click', () => {
+        const idx = parseInt(b.dataset.idx, 10);
+        const n = _pbBuyResults[idx];
+        if (n) pbConfirmBuy(n, b);
+      });
+    });
+  } catch (e) {
+    console.warn('[phonebook] search failed', e);
+    status.textContent = `Search failed: ${e.message || e}`;
+    wrap.style.display = 'none';
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function pbConfirmBuy(n, btn) {
+  const e164 = n.phone_number;
+  const remaining = _pbIncludedRemaining();
+  const msg = remaining > 0
+    ? `Purchase ${_pbFmtPhone(e164)}?\n\n` +
+      `This number is included with your plan — no extra subscription charge. ` +
+      `SignalWire's own per-number fee still applies to your SignalWire account.`
+    : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
+      `This is beyond your plan's included numbers. When billing goes live this ` +
+      `will add $1.50/mo to your subscription; today the charge is informational only. ` +
+      `SignalWire's own per-number fee applies regardless.`;
+  const ok = window.confirm(msg);
+  if (!ok) return;
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Buying…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('signalwire-buy-number', {
+      body: {
+        e164,
+        friendly_name: n.friendly_name || null,
+        locality:      n.locality || null,
+        region:        n.region || null,
+      },
+    });
+    if (error) {
+      let detail = error.message || 'Unknown error';
+      try {
+        const body = error.context && await error.context.json();
+        if (body && body.error) detail = body.error;
+      } catch (_) {}
+      throw new Error(detail);
+    }
+    if (!data || !data.ok) throw new Error((data && data.error) || 'Purchase rejected');
+    showToast(`Acquired ${_pbFmtPhone(e164)}`, '#10b981');
+    pbCloseBuyModal();
+    await renderPhoneBook();
+  } catch (e) {
+    console.warn('[phonebook] buy failed', e);
+    showToast(`Purchase failed: ${e.message || e}`, '#dc2626');
+    if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
+  }
+}
+
+// ── Upgrade Plan modal ──────────────────────────────────────
+function pbOpenUpgradeModal() {
+  const m = document.getElementById('pbUpgradeModal');
+  if (!m) return;
+  _pbSelectedPlanId = null;
+  document.getElementById('pb-upgrade-confirm').disabled = true;
+  pbRenderUpgradeOptions();
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+}
+function pbCloseUpgradeModal() {
+  const m = document.getElementById('pbUpgradeModal');
+  if (m) m.classList.remove('open');
+}
+
+function pbRenderUpgradeOptions() {
+  const wrap = document.getElementById('pb-upgrade-options');
+  if (!wrap) return;
+  const currentId = _pbAgent && _pbAgent.plan_id;
+  if (!_pbPlans.length) {
+    wrap.innerHTML = `<div class="pb-empty">No plans configured.</div>`;
+    return;
+  }
+  wrap.innerHTML = _pbPlans.map(p => {
+    const isCurrent = p.id === currentId;
+    const mins   = Number(p.monthly_minutes || 0).toLocaleString();
+    const quotes = Number(p.monthly_quote_limit || 0).toLocaleString();
+    const nums   = Number(p.included_numbers || 0);
+    return `
+      <label class="pb-plan-opt ${isCurrent ? 'current' : ''}" data-id="${escapeHTML(p.id)}">
+        <input type="radio" name="pb-upgrade-plan" value="${escapeHTML(p.id)}" ${isCurrent ? 'disabled checked' : ''}>
+        <div class="pb-plan-opt-body">
+          <div class="pb-plan-opt-name">${escapeHTML(p.name)}${isCurrent ? '<span class="pb-plan-opt-current">Current</span>' : ''}</div>
+          <div class="pb-plan-opt-detail">${mins} minutes / month</div>
+          <div class="pb-plan-opt-detail">${quotes} live quotes / month</div>
+          <div class="pb-plan-opt-detail">${nums} phone number${nums === 1 ? '' : 's'} included</div>
+        </div>
+        <div class="pb-plan-opt-price">$${Number(p.monthly_cost).toFixed(2)}/mo</div>
+      </label>
+    `;
+  }).join('');
+
+  wrap.querySelectorAll('.pb-plan-opt').forEach(opt => {
+    if (opt.classList.contains('current')) return;
+    opt.addEventListener('click', () => {
+      wrap.querySelectorAll('.pb-plan-opt').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      const radio = opt.querySelector('input[type=radio]');
+      if (radio) radio.checked = true;
+      _pbSelectedPlanId = opt.dataset.id;
+      document.getElementById('pb-upgrade-confirm').disabled = false;
+    });
+  });
+}
+
+async function pbApplyPlanChange() {
+  if (!_pbSelectedPlanId) return;
+  const plan = _pbPlans.find(p => p.id === _pbSelectedPlanId);
+  if (!plan) return;
+  const btn = document.getElementById('pb-upgrade-confirm');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const { error } = await sb.from('agents').update({
+      plan_id:              plan.id,
+      monthly_minute_limit: plan.monthly_minutes,
+      monthly_quote_limit:  plan.monthly_quote_limit,
+    }).eq('id', currentAgent.id);
+    if (error) throw error;
+    showToast(`Switched to ${plan.name}`, '#10b981');
+    pbCloseUpgradeModal();
+    await renderPhoneBook();
+  } catch (e) {
+    console.warn('[phonebook] plan switch failed', e);
+    showToast(`Switch failed: ${e.message || e}`, '#dc2626');
+    if (btn) { btn.disabled = false; btn.textContent = 'Switch plan'; }
+  }
+}
+
+// Close phone-book modals on overlay-click / Escape, matching the
+// rest of the app's modal behavior.
+['pbBuyModal', 'pbUpgradeModal'].forEach(id => {
+  document.addEventListener('click', (e) => {
+    const overlay = document.getElementById(id);
+    if (overlay && e.target === overlay) overlay.classList.remove('open');
+  });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  ['pbBuyModal', 'pbUpgradeModal'].forEach(id => {
+    const o = document.getElementById(id);
+    if (o && o.classList.contains('open')) o.classList.remove('open');
+  });
+});
 
 // Two-letter initials chip for a carrier label. Mirrors aqLogoCell's
 // initials derivation so the visual treatment matches the API Quoter table.
@@ -13573,7 +14672,7 @@ async function biCommitCSVImport() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, settings:8 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, phonebook:8, settings:9 };
   if (!saved || !(saved in idxMap) || saved === 'summary') return;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   const sec = document.getElementById('sec-' + saved);
