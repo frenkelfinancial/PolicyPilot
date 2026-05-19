@@ -75,8 +75,7 @@ create table if not exists public.phone_numbers (
   sw_phone_sid  text,
   monthly_cost  numeric(8,2) not null default 1.00,
   is_primary    boolean not null default false,
-  status        text not null default 'active'
-                  check (status in ('active','pending','released')),
+  status        text not null default 'active' check (status in ('active','pending','released')),
   purchased_at  timestamptz not null default now()
 );
 
