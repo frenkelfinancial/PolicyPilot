@@ -773,15 +773,6 @@ body.light .status-legend .leg:hover{background:rgba(11,31,58,.06)}
 .mix-empty{font-size:12px;color:var(--text3);font-style:italic}
 
 /* DRAFTS STRIP */
-.drafts-strip-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.drafts-strip-tbl{width:100%;border-collapse:collapse}
-.drafts-strip-tbl tr{transition:background .14s}
-.drafts-strip-tbl tr.clickable{cursor:pointer}
-.drafts-strip-tbl tr.clickable:hover{background:var(--ds-color-info-bg)}
-.drafts-strip-tbl td{padding:11px 12px;border-bottom:1px solid var(--border);font:13px/18px var(--sans);color:var(--text)}
-.drafts-strip-tbl tr:last-child td{border-bottom:none}
-.drafts-strip-tbl td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;color:var(--text);font-weight:400}
-.drafts-strip-tbl td.dim{color:var(--text3)}
 .sum-v3 .empty{color:var(--text3);padding:32px;text-align:center}
 
 @media (max-width:1100px){
@@ -1330,70 +1321,6 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 #auth-gate .auth-or{color:#7A92B3}
 #auth-gate .auth-or::before,#auth-gate .auth-or::after{background:#D6E3F2}
 
-/* ===== Book Intelligence (Phase 1) ===== */
-.bi-card{display:flex;gap:14px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--border2);border-radius:10px;margin-bottom:10px;transition:transform .12s,border-color .12s,box-shadow .12s}
-.bi-card:hover{border-color:var(--border2);box-shadow:0 4px 14px -8px rgba(0,0,0,.35);transform:translateY(-1px)}
-.bi-card.urg-critical{border-left-color:var(--ds-color-danger)}
-.bi-card.urg-soon{border-left-color:var(--ds-color-warning)}
-.bi-card.urg-ok{border-left-color:var(--ds-color-success)}
-.bi-card .bi-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:6px}
-.bi-card.urg-critical .bi-dot{background:var(--ds-color-danger);box-shadow:0 0 8px var(--ds-color-danger-bg)}
-.bi-card.urg-soon .bi-dot{background:var(--ds-color-warning)}
-.bi-card.urg-ok .bi-dot{background:var(--ds-color-success)}
-.bi-card .bi-body{flex:1;min-width:0}
-.bi-card .bi-line1{font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px}
-.bi-card .bi-tag{font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:2px 7px;border-radius:10px;font-weight:700}
-.bi-card.urg-critical .bi-tag{background:var(--ds-color-danger-bg);color:var(--ds-color-danger);border:1px solid var(--ds-color-danger-bg)}
-.bi-card.urg-soon .bi-tag{background:var(--ds-color-warning-bg);color:var(--ds-color-warning);border:1px solid var(--ds-color-warning-bg)}
-.bi-card.urg-ok .bi-tag{background:var(--ds-color-success-bg);color:var(--ds-color-success);border:1px solid var(--ds-color-success-bg)}
-.bi-card .bi-meta{font-size:11.5px;color:var(--text3);margin-bottom:6px}
-.bi-card .bi-why{font-size:12.5px;color:var(--text);line-height:1.5;margin-bottom:8px}
-.bi-card .bi-comm{font-size:11.5px;color:var(--text2)}
-.bi-card .bi-comm strong{color:var(--ds-color-success);font-family:var(--mono);font-size:13px;font-weight:400}
-.bi-card .bi-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.bi-card .bi-actions .btn{font-size:11.5px;padding:5px 10px}
-.bi-setup-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:7px;background:var(--bg3);margin-bottom:6px;font-size:12px}
-.bi-setup-row .bi-setup-meta{color:var(--text3);font-size:11px;margin-top:2px}
-#biDrawer.open{transform:translateX(0)!important}
-.bi-drawer-section{margin:14px 18px 18px;padding-bottom:14px;border-bottom:1px solid var(--border)}
-.bi-drawer-section:last-child{border-bottom:none}
-.bi-drawer-section h4{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:0 0 8px;font-weight:600}
-.bi-drawer-section pre{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;line-height:1.55;color:var(--text);white-space:pre-wrap;font-family:inherit;margin:0}
-.bi-csv-row-ok{background:var(--ds-color-success-bg)}
-.bi-csv-row-warn{background:var(--ds-color-warning-bg)}
-.bi-csv-row-err{background:var(--ds-color-danger-bg);color:var(--text3)}
-.bi-csv-row-dup{background:var(--ds-color-info-bg);color:var(--text2)}
-.bi-edit-btn{position:absolute;top:8px;right:10px;background:transparent;border:none;color:var(--text3);font-size:16px;line-height:1;cursor:pointer;padding:4px 6px;border-radius:4px;opacity:.5;transition:opacity .12s,color .12s}
-.bi-card:hover .bi-edit-btn{opacity:1}
-.bi-edit-btn:hover{color:var(--text);background:var(--ds-color-neutral-bg)}
-.bi-carrier-rule-form{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px}
-.bi-notes-area{width:100%;min-height:88px;resize:vertical;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-family:inherit;font-size:12.5px;line-height:1.45;outline:none;transition:border-color .14s,box-shadow .14s}
-.bi-notes-area:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--ds-color-info-bg)}
-.bi-calc-table{width:100%;font-size:12.5px;border-collapse:collapse}
-.bi-calc-table td{padding:6px 0;border-bottom:1px dashed var(--border)}
-.bi-calc-table tr:last-child td{border-bottom:none;font-weight:600;padding-top:8px}
-.bi-calc-num{text-align:right;font-family:var(--mono);color:var(--text)}
-/* Workflow #7 — bulk select */
-.bi-card{padding-left:42px}
-.bi-card .bi-check{position:absolute;left:14px;top:18px;width:14px;height:14px;cursor:pointer;accent-color:var(--accent)}
-.bi-bulk-bar{position:sticky;top:8px;z-index:30;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:none;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 4px 14px -8px rgba(0,0,0,.3)}
-.bi-bulk-bar.show{display:flex}
-.bi-bulk-bar .bi-bulk-count{font-weight:700;color:var(--text);font-size:13px}
-.bi-summary-card{cursor:pointer;transition:transform .12s,border-color .12s,box-shadow .12s;margin-bottom:18px}
-.bi-summary-card:hover{border-color:var(--accent);box-shadow:0 4px 14px -8px var(--ds-color-info-bg);transform:translateY(-1px)}
-.bi-sum-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:18px;margin-top:6px}
-.bi-sum-grid .kpi-hero{font-size:22px}
-@media (max-width:900px){.bi-sum-grid{grid-template-columns:repeat(2,1fr)}}
-/* Sidebar nav badge (workflow #9) — count of critical + follow-up-due opps */
-.nav-badge{margin-left:auto;background:#f87171;color:#0b1220;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;line-height:1.5;min-width:18px;text-align:center;letter-spacing:0}
-.sidebar:not(:hover) .nav-badge{margin-left:0;position:absolute;right:8px;top:8px}
-/* Confetti — pure CSS, 18 absolutely-positioned divs scatter outward */
-.bi-confetti-host{position:fixed;left:50%;top:30%;width:0;height:0;pointer-events:none;z-index:99999}
-.bi-confetti-host i{position:absolute;width:8px;height:14px;border-radius:1px;opacity:.95;animation:bi-confetti-fly 1.2s ease-out forwards}
-@keyframes bi-confetti-fly{
-  0%   {transform:translate(0,0) rotate(0deg);opacity:1}
-  100% {transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0}
-}
 /* ---- SETTINGS — Carrier Toggle Cards ---- */
 .stg-carrier-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;transition:border-color .12s,background .12s;display:flex;align-items:center;gap:8px;user-select:none}
 .stg-carrier-card:hover{border-color:var(--border2)}
@@ -1602,39 +1529,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   display:flex; align-items:flex-start; gap:6px;
 }
 .sp-stub-banner span[data-ico]{ flex-shrink:0; margin-top:1px; }
-
-/* ── Settings → Calling tab ─────────────────────────────────────────────── */
-.stg-cl-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
-.stg-cl-stat{
-  font-size:22px; font-weight:600; letter-spacing:.3px;
-  color:var(--text,#e2e8f0);
-}
-.stg-cl-stat .stg-cl-sub{
-  font-size:12px; color:var(--text2,#94a3b8); font-weight:500;
-  margin-left:6px;
-}
-.stg-cl-bar{
-  margin-top:10px; height:6px; border-radius:3px;
-  background:rgba(255,255,255,.06); overflow:hidden;
-}
-.stg-cl-bar-fill{
-  height:100%; background:linear-gradient(90deg,#3b82f6,#8b5cf6);
-  border-radius:3px; transition: width .4s ease;
-}
-.stg-cl-bar-fill.over{ background:linear-gradient(90deg,#dc2626,#f59e0b); }
-.stg-cl-table{ width:100%; border-collapse:collapse; margin-top:8px; font-size:13px; }
-.stg-cl-table th, .stg-cl-table td{
-  text-align:left; padding:8px 10px;
-  border-bottom:1px solid var(--border,#1e293b);
-}
-.stg-cl-table th{ color:var(--text2,#94a3b8); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; }
-.stg-cl-table td.mono{ font-family:'SF Mono', Menlo, monospace; font-size:12.5px; }
-.stg-cl-admin-tag{
-  display:inline-block; padding:2px 8px; border-radius:99px;
-  background:rgba(139,92,246,.18); color:#a78bfa;
-  font-size:10.5px; font-weight:700; letter-spacing:.4px; text-transform:uppercase;
-  margin-left:8px; vertical-align:1px;
-}
 
 /* ── Phone Book tab ─────────────────────────────────────────────────────── */
 #sec-phonebook .pb-header{
@@ -1929,13 +1823,11 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   <div class="nav-sec">
     <div class="nav-lbl">Business</div>
     <div class="nav-item" onclick="nav('tracker')"><span class="ico" data-ico="clipboard-text"></span><span class="nav-lbl-text">Policy Tracker</span></div>
-    <div class="nav-item" onclick="nav('drafts')"><span class="ico" data-ico="calendar-blank"></span><span class="nav-lbl-text">Upcoming Drafts</span></div>
     <div class="nav-item" onclick="nav('bonuses')"><span class="ico" data-ico="trophy"></span><span class="nav-lbl-text">Bonus Tracker</span></div>
   </div>
   <div class="nav-sec">
     <div class="nav-lbl">Leads</div>
     <div class="nav-item" onclick="nav('leads')"><span class="ico" data-ico="users"></span><span class="nav-lbl-text">Leads</span></div>
-    <div class="nav-item" onclick="nav('book-intel')"><span class="ico" data-ico="lightning"></span><span class="nav-lbl-text">Book Intelligence</span><span class="nav-badge" id="bi-nav-badge" style="display:none">0</span></div>
   </div>
   <div class="nav-sec">
     <div class="nav-lbl">Integrations</div>
@@ -2068,21 +1960,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         <div class="pf-funnel" role="list" aria-label="Policy pipeline by stage"></div>
       </div>
 
-      <!-- BOOK INTELLIGENCE — opportunities sitting in the book (workflow #1) -->
-      <div class="card bi-summary-card" onclick="nav('book-intel')" title="Open Book Intelligence">
-        <div class="card-head">
-          <div class="kpi-label" style="display:flex;align-items:center;gap:8px"><span data-ico="lightning" data-size="14"></span>Book Intelligence — Conversion Opportunities</div>
-          <button class="btn-link" onclick="event.stopPropagation();nav('book-intel')">Open Radar &rarr;</button>
-        </div>
-        <div class="bi-sum-grid">
-          <div><div class="kpi-label">Estimated AV</div><div class="kpi-hero text-g" id="sum-bi-av">$0</div></div>
-          <div><div class="kpi-label">Open</div><div class="kpi-hero" id="sum-bi-open">0</div></div>
-          <div><div class="kpi-label">Critical (&lt; 90 days)</div><div class="kpi-hero" id="sum-bi-critical" style="color:var(--ds-color-danger)">0</div></div>
-          <div><div class="kpi-label">Follow-up due</div><div class="kpi-hero" id="sum-bi-followup" style="color:var(--ds-color-warning)">0</div></div>
-          <div><div class="kpi-label">YTD Wins</div><div class="kpi-hero text-g" id="sum-bi-wins">$0</div></div>
-        </div>
-      </div>
-
       <!-- BONUS TIER INTELLIGENCE — Phase 6 -->
       <div class="card pace-card bti-card">
         <div class="bti-card__head">
@@ -2115,14 +1992,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
       </div>
 
-      <div class="card drafts-strip">
-        <div class="drafts-strip-head">
-          <div class="kpi-label">Next 7 Days Drafts</div>
-          <button class="btn-link" onclick="nav('drafts')">Open Drafts Calendar &rarr;</button>
-        </div>
-        <table class="drafts-strip-tbl"><tbody id="sum-drafts-tbody"></tbody></table>
-        <div class="empty" id="sum-drafts-empty" style="display:none">No drafts in the next 7 days.</div>
-      </div>
     </div>
 
     <!-- ========== DS PLAYGROUND (dev-only, ?ds=1) ========== -->
@@ -2326,72 +2195,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
               <th>Draft Date</th><th>Est. Pay Date</th><th>Est. Adv. Commission</th><th>Class</th><th>Status</th><th></th>
             </tr></thead>
             <tbody id="pol-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- ========== UPCOMING DRAFTS CALENDAR ========== -->
-    <div class="section" id="sec-drafts">
-      <div class="flex jb aic" style="margin-bottom:18px">
-        <div>
-          <div style="font-size:15px;font-weight:600">Upcoming Drafts &amp; Commission Calendar</div>
-          <div class="text-m mt4" style="font-size:12px">Policies sorted by draft date — see what's coming and when to expect commission</div>
-        </div>
-        <button class="btn btn-p" onclick="nav('tracker')">+ Add Policy</button>
-      </div>
-
-      <!-- Month navigator -->
-      <div class="flex aic gap12" style="margin-bottom:18px">
-        <button class="btn btn-s btn-sm" onclick="draftNavMonth(-1)">← Prev</button>
-        <div style="font-size:15px;font-weight:600;min-width:160px;text-align:center" id="draft-month-label">May 2026</div>
-        <button class="btn btn-s btn-sm" onclick="draftNavMonth(1)">Next →</button>
-        <div style="margin-left:auto;font-size:12px;color:var(--text3)">Commission deposits typically 7–10 days after draft</div>
-      </div>
-
-      <!-- Summary strip -->
-      <div class="running" style="margin-bottom:18px">
-        <div><div class="rt-lbl">Drafting This Month</div><div class="rt-val" id="draft-count-mo">0</div></div>
-        <div><div class="rt-lbl">Monthly Premium</div><div class="rt-val" id="draft-ap-mo">$0</div></div>
-        <div><div class="rt-lbl">Est. Adv. Commission</div><div class="rt-val text-g" id="draft-comm-mo">$0</div></div>
-        <div><div class="rt-lbl">Next 30 Days</div><div class="rt-val" id="draft-next30">0 policies</div></div>
-      </div>
-
-      <!-- Calendar grid -->
-      <div class="card" style="padding:0;overflow:hidden">
-        <!-- Day headers -->
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg3);border-bottom:1px solid var(--border)">
-          <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Sun</div>
-          <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Mon</div>
-          <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Tue</div>
-          <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Wed</div>
-          <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Thu</div>
-          <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Fri</div>
-          <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Sat</div>
-        </div>
-        <div id="draft-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr)"></div>
-      </div>
-
-      <!-- List view below calendar -->
-      <div class="card mt16">
-        <div class="card-title" id="draft-list-title">All Upcoming Drafts</div>
-        <div id="draft-list-empty" class="empty" style="display:none">
-          <div class="ico" data-ico="calendar-blank" data-size="32"></div>
-          <p>No policies drafted this month. <span style="color:var(--ds-color-info);cursor:pointer" onclick="nav('tracker')">Add policies in the tracker.</span></p>
-        </div>
-        <div style="overflow-x:auto">
-          <table class="ptbl" id="draft-list-table" style="display:none">
-            <thead><tr>
-              <th>Draft Date</th>
-              <th>Policy Holder</th>
-              <th>Carrier</th>
-              <th>Monthly Premium</th>
-              <th>Annual Premium</th>
-              <th>Est. Adv. Commission</th>
-              <th>Est. Commission Date</th>
-              <th>Status</th>
-            </tr></thead>
-            <tbody id="draft-list-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -2716,54 +2519,23 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
     <!-- ========== GOOGLE CALENDAR ========== -->
     <div class="section" id="sec-calendar">
-      <div class="g2" style="gap:18px;align-items:start">
+      <div id="gcal-empty-hint" class="alert alert-i" style="margin-bottom:16px;display:none">
+        <span data-ico="info"></span>
+        <div>Google Calendar isn't connected yet. Connect it from <a href="#" onclick="event.preventDefault();nav('settings');setTimeout(()=>{const b=document.querySelector('[data-stg-tab=\'integrations\']');if(b)b.click();},0)" style="color:var(--ds-color-info);font-weight:600">Settings → Integrations</a> to see your appointments here.</div>
+      </div>
 
-        <!-- Connect -->
-        <div class="card">
-          <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="calendar-check" data-size="14"></span>Google Calendar Integration</div>
-          <div class="alert alert-i"><span data-ico="check-circle"></span><div>Connect your Google Calendar to see your appointments here in real time. Your calendar events sync automatically and display below.</div></div>
-
-          <div id="gcal-connect-panel">
-            <div style="text-align:center;padding:24px 0">
-              <div style="margin-bottom:14px;color:var(--text3)" data-ico="calendar-blank" data-size="44"></div>
-              <div style="font-size:15px;font-weight:600;margin-bottom:8px">Connect Google Calendar</div>
-              <div style="font-size:13px;color:var(--text3);margin-bottom:20px">Sign in with Google to sync your appointments and see them here</div>
-              <button class="btn btn-p" onclick="gcalConnect()" style="padding:10px 28px;font-size:14px;display:inline-flex;align-items:center;gap:8px">
-                <span data-ico="key" data-size="14"></span>Connect with Google
-              </button>
-            </div>
-            <div class="alert alert-w mt12"><span data-ico="warning"></span><div>To use this feature, you need to configure a Google OAuth Client ID. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" style="color:var(--ds-color-warning)">Set up credentials here →</a> then paste your Client ID below.</div></div>
-            <div class="fg mt12">
-              <label>Google OAuth Client ID</label>
-              <input type="text" id="gcal-client-id" placeholder="123456789-abc.apps.googleusercontent.com" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;width:100%" onchange="localStorage.setItem('gcal_client_id', this.value)">
-            </div>
-            <div class="fg mt8">
-              <label>Google API Key (optional — for public calendar read)</label>
-              <input type="text" id="gcal-api-key" placeholder="AIza..." style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;width:100%" onchange="localStorage.setItem('gcal_api_key', this.value)">
-            </div>
-            <button class="btn btn-g mt12 w-full" onclick="gcalConnect()">Sign In &amp; Sync Calendar</button>
-          </div>
-
-          <div id="gcal-connected-panel" style="display:none">
-            <div class="alert alert-s mt4"><span data-ico="check-circle"></span><div>Google Calendar connected. Events are syncing automatically.</div></div>
-            <div class="flex gap8 mt12">
-              <button class="btn btn-p btn-sm" onclick="gcalRefresh()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="arrow-clockwise" data-size="14"></span>Refresh Events</button>
-              <button class="btn btn-s btn-sm" onclick="gcalDisconnect()">Disconnect</button>
-            </div>
-            <div style="margin-top:12px;font-size:12px;color:var(--text3)" id="gcal-last-sync">Last synced: —</div>
+      <div class="card">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+          <span>Upcoming Appointments</span>
+          <button class="btn btn-s btn-sm" onclick="gcalRefresh()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="arrow-clockwise" data-size="13"></span>Refresh</button>
+        </div>
+        <div id="gcal-events-list">
+          <div class="empty" style="padding:24px">
+            <div class="ico" data-ico="calendar-blank" data-size="32"></div>
+            <p>No upcoming appointments.</p>
           </div>
         </div>
-
-        <!-- Month view -->
-        <div class="card">
-          <div class="card-title">Upcoming Appointments</div>
-          <div id="gcal-events-list">
-            <div class="empty" style="padding:24px">
-              <div class="ico" data-ico="calendar-blank" data-size="32"></div>
-              <p>Connect Google Calendar to see your appointments here.</p>
-            </div>
-          </div>
-        </div>
+        <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="gcal-last-sync">Last synced: —</div>
       </div>
 
       <!-- Full calendar view -->
@@ -2787,75 +2559,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
         <div id="gcal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--border);border-radius:0 0 8px 8px"></div>
       </div>
-    </div>
-
-    <!-- ========== BOOK INTELLIGENCE (Phase 1 — Term Conversion Radar) ========== -->
-    <div class="section" id="sec-book-intel">
-      <div class="flex jb aic" style="margin-bottom:18px">
-        <div>
-          <div style="font-size:15px;font-weight:600">Book Intelligence — Term Conversion Radar</div>
-          <div class="text-m mt4" style="font-size:12px">Conversion-window opportunities sitting in your existing book of business, ranked by urgency × estimated commission.</div>
-        </div>
-        <div class="flex gap8">
-          <label class="flex aic gap8" style="font-size:11.5px;color:var(--text2);cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)" title="Use aggressive IUL premium estimates from quoteIUL. Off (default) uses a flat face × 0.08% × commPct × 75% estimate — same ordering, more believable dollar figures.">
-            <input type="checkbox" id="bi-aggressive-toggle" onchange="biToggleAggressive(this)" style="margin:0;cursor:pointer">
-            <span>Aggressive estimates</span>
-          </label>
-          <label class="flex aic gap8" style="font-size:11.5px;color:var(--text2);cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg3)" title="Email me a top-3 brief every morning. Powered by the daily-digest Edge Function.">
-            <input type="checkbox" id="bi-digest-toggle" onchange="biToggleDigest(this)" style="margin:0;cursor:pointer">
-            <span>Daily morning brief</span>
-          </label>
-          <button class="btn btn-s btn-sm" onclick="biRescore()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="arrow-clockwise" data-size="13"></span>Re-score</button>
-          <button class="btn btn-p btn-sm" onclick="biOpenImportModal()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="file-arrow-up" data-size="13"></span>Import Book CSV</button>
-        </div>
-      </div>
-
-      <!-- Summary strip -->
-      <div class="running mt4" id="bi-totals">
-        <div><div class="rt-lbl">Estimated AV (Open)</div><div class="rt-val text-g" id="bi-total-av">$0</div></div>
-        <div><div class="rt-lbl">Open Opportunities</div><div class="rt-val" id="bi-total-open">0</div></div>
-        <div><div class="rt-lbl">Critical (&lt; 90 days)</div><div class="rt-val" id="bi-total-critical" style="color:var(--ds-color-danger)">0</div></div>
-        <div><div class="rt-lbl">Needs Setup</div><div class="rt-val" id="bi-total-setup" style="color:var(--ds-color-warning)">0</div></div>
-        <div><div class="rt-lbl">Wins This Year</div><div class="rt-val text-g" id="bi-total-wins">0</div></div>
-      </div>
-
-      <!-- Filter chips -->
-      <div class="tabs mt16" id="bi-filters" style="flex-wrap:wrap">
-        <button class="tab active" data-bifilter="all" onclick="biFilter('all', this)">All Open</button>
-        <button class="tab" data-bifilter="critical" onclick="biFilter('critical', this)">&lt; 90 days</button>
-        <button class="tab" data-bifilter="year" onclick="biFilter('year', this)">&lt; 1 year</button>
-        <button class="tab" data-bifilter="followup" onclick="biFilter('followup', this)">Follow-up due</button>
-        <button class="tab" data-bifilter="snoozed" onclick="biFilter('snoozed', this)">Snoozed</button>
-        <button class="tab" data-bifilter="stalled" onclick="biFilter('stalled', this)">Stalled</button>
-        <button class="tab" data-bifilter="dismissed" onclick="biFilter('dismissed', this)">Dismissed</button>
-        <button class="tab" data-bifilter="won" onclick="biFilter('won', this)">Wins</button>
-      </div>
-
-      <!-- Needs setup strip -->
-      <div id="bi-setup-strip" class="card mt16" style="display:none;border-left:3px solid var(--ds-color-warning)">
-        <div class="card-title" style="color:var(--ds-color-warning);display:flex;align-items:center;gap:8px"><span data-ico="warning" data-size="14"></span><span id="bi-setup-title">Policies need setup</span></div>
-        <div class="text-m" style="font-size:12px;margin-bottom:10px">Add product type, issue date, term length, and client DOB to score these for term-conversion opportunities. Anything we don't know stays hidden — we never guess deadlines.</div>
-        <div id="bi-setup-list"></div>
-      </div>
-
-      <!-- Empty state -->
-      <div id="bi-empty" class="card mt16 empty" style="display:none">
-        <div class="ico" data-ico="lightning" data-size="32"></div>
-        <p id="bi-empty-msg">Your book is clean — no critical conversion windows in the next 2 years.</p>
-        <p style="font-size:12px;color:var(--text3);margin-top:4px">Import a CSV of your in-force term policies, or complete setup on existing policies above, to surface opportunities here.</p>
-      </div>
-
-      <!-- Bulk action bar (workflow #7) -->
-      <div class="bi-bulk-bar" id="bi-bulk-bar">
-        <span class="bi-bulk-count" id="bi-bulk-count">0 selected</span>
-        <button class="btn btn-s btn-sm" onclick="biBulkSnooze()">Snooze 7d</button>
-        <button class="btn btn-s btn-sm" onclick="biBulkDismiss()">Dismiss</button>
-        <button class="btn btn-s btn-sm" onclick="biBulkSend()" id="bi-bulk-send-btn">Send via Gmail (queued)</button>
-        <button class="btn btn-s btn-sm" style="margin-left:auto" onclick="biBulkClear()">Clear selection</button>
-      </div>
-
-      <!-- Opportunity card list -->
-      <div id="bi-card-list" class="mt16"></div>
     </div>
 
     <!-- ========== PHONE BOOK ========== -->
@@ -2963,9 +2666,9 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
       <!-- Tab bar -->
       <div class="tabs" style="margin-bottom:22px">
-        <button class="tab active" onclick="settingsTab('account',this)"><span data-ico="user" data-size="14" style="margin-right:6px"></span>Account</button>
-        <button class="tab" onclick="settingsTab('carriers',this)"><span data-ico="buildings" data-size="14" style="margin-right:6px"></span>Carriers</button>
-        <button class="tab" onclick="settingsTab('calling',this)"><span data-ico="phone" data-size="14" style="margin-right:6px"></span>Calling</button>
+        <button class="tab active" data-stg-tab="account" onclick="settingsTab('account',this)"><span data-ico="user" data-size="14" style="margin-right:6px"></span>Account</button>
+        <button class="tab" data-stg-tab="carriers" onclick="settingsTab('carriers',this)"><span data-ico="buildings" data-size="14" style="margin-right:6px"></span>Carriers</button>
+        <button class="tab" data-stg-tab="integrations" onclick="settingsTab('integrations',this)"><span data-ico="key" data-size="14" style="margin-right:6px"></span>Integrations</button>
       </div>
 
       <!-- ── ACCOUNT TAB ── -->
@@ -3094,42 +2797,32 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
       </div>
 
-      <!-- ── CALLING TAB (SignalWire) ── -->
-      <div id="stg-calling" style="display:none">
+      <!-- ── INTEGRATIONS TAB ── -->
+      <div id="stg-integrations" style="display:none">
         <div class="alert alert-i" style="margin-bottom:16px">
           <span data-ico="info"></span>
-          <div>
-            Your personal calling settings — number, pickup phone, plan, minutes used, and call history — live in the new <a href="#" onclick="event.preventDefault();nav('phonebook')" style="color:var(--ds-color-info);font-weight:600">Phone Book</a> tab. This page is for firm-wide admin tasks only.
-          </div>
+          <div>Connect external services to your dashboard. Each integration is one click — no API keys to paste.</div>
         </div>
 
-        <!-- Admin section — agent assignments -->
-        <div id="stg-cl-admin" style="display:none;margin-top:18px">
-          <div class="card">
-            <div class="card-title" style="display:flex;align-items:center;gap:8px">
-              <span data-ico="users" data-size="13"></span>
-              Agent Assignments
-              <span class="stg-cl-admin-tag">Admin</span>
-            </div>
-            <div style="font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:10px">
-              Each agent gets one SignalWire number for outbound caller-ID and a monthly minute cap. Click a row to edit.
-            </div>
-            <div style="overflow-x:auto">
-              <table class="stg-cl-table">
-                <thead>
-                  <tr>
-                    <th>Agent</th>
-                    <th>Caller-ID</th>
-                    <th>Agent Phone</th>
-                    <th>Subscriber</th>
-                    <th>Cap</th>
-                    <th>Used</th>
-                  </tr>
-                </thead>
-                <tbody id="stg-cl-agents-tbody">
-                  <tr><td colspan="6" style="text-align:center;color:var(--text2);padding:18px">Loading…</td></tr>
-                </tbody>
-              </table>
+        <div class="card">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            <span data-ico="calendar-check" data-size="14"></span>Google Calendar &amp; Gmail
+          </div>
+          <div class="text-m" style="font-size:12.5px;line-height:1.55;color:var(--text2);margin-bottom:14px">
+            Syncs your Google Calendar appointments into the Calendar tab and grants Gmail-send access for outreach features.
+          </div>
+
+          <div id="stg-int-google-disconnected">
+            <button class="btn btn-p" onclick="gcalConnect()" style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px">
+              <span data-ico="key" data-size="14"></span>Connect with Google
+            </button>
+          </div>
+
+          <div id="stg-int-google-connected" style="display:none">
+            <div class="alert alert-s" style="margin-bottom:12px"><span data-ico="check-circle"></span><div>Connected. Events sync automatically.</div></div>
+            <div class="flex gap8">
+              <button class="btn btn-p btn-sm" onclick="gcalRefresh()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="arrow-clockwise" data-size="13"></span>Refresh now</button>
+              <button class="btn btn-s btn-sm" onclick="gcalDisconnect()">Disconnect</button>
             </div>
           </div>
         </div>
@@ -3196,89 +2889,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   </div>
 </div>
 
-<!-- BOOK INTELLIGENCE — CSV IMPORT MODAL -->
-<div class="overlay" id="biImportModal">
-  <div class="modal" style="width:820px;max-width:95vw">
-    <div class="mhdr"><div class="mtitle">Import Book of Business</div><button class="mclose" onclick="biCloseImportModal()" data-ico="x" data-size="14"></button></div>
-    <div class="alert alert-i" style="margin-bottom:16px"><span data-ico="lightbulb"></span><div>Upload a CSV or Excel (.xlsx) of your in-force term policies. Required columns: <strong>client_name</strong>, <strong>carrier_name</strong>, <strong>product_type</strong>, <strong>face_amount</strong>, <strong>issue_date</strong>, <strong>term_length_years</strong>. Optional but recommended: <strong>client_dob</strong>, <strong>annual_premium</strong>, <strong>rating_class</strong>. <a href="data/templates/book-intel-example.xlsx" download style="color:var(--ds-color-info)">Excel example ↓</a> · <a href="data/templates/book-import-template.csv" download style="color:var(--ds-color-info)">CSV template ↓</a></div></div>
-
-    <div id="bi-csv-step-1">
-      <div id="bi-csv-drop-zone" onclick="document.getElementById('bi-csv-file-input').click()" style="border:2px dashed var(--border2);border-radius:12px;padding:44px 24px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg3)" onmouseover="this.style.borderColor='#3b82f6';this.style.background='rgba(59,130,246,.05)'" onmouseout="this.style.borderColor='var(--border2)';this.style.background='var(--bg3)'" ondragover="event.preventDefault();this.style.borderColor='#3b82f6'" ondrop="biHandleCSVDrop(event)">
-        <div style="margin-bottom:12px;color:var(--text3)" data-ico="file-arrow-up" data-size="44"></div>
-        <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">Click or drag &amp; drop your book file</div>
-        <div style="font-size:12px;color:var(--text3)">Accepts .csv or .xlsx. Match the column order in the example/template.</div>
-      </div>
-      <input type="file" id="bi-csv-file-input" accept=".csv,.xlsx,.xls" style="display:none" onchange="biHandleCSVFile(this)">
-    </div>
-
-    <div id="bi-csv-step-2" style="display:none">
-      <div id="bi-csv-summary" style="margin-bottom:12px"></div>
-      <div style="max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:8px">
-        <table class="ptbl" id="bi-csv-preview-table" style="width:100%;font-size:12px">
-          <thead id="bi-csv-preview-head"></thead>
-          <tbody id="bi-csv-preview-body"></tbody>
-        </table>
-      </div>
-      <div class="flex gap8 mt16">
-        <button class="btn btn-s btn-sm" onclick="biCloseImportModal()">Cancel</button>
-        <button class="btn btn-g btn-sm" onclick="biCommitCSVImport()" id="bi-csv-import-btn" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span><span id="bi-csv-import-btn-lbl">Import</span></button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- BOOK INTELLIGENCE — START CONVERSATION DRAWER -->
-<div class="overlay" id="biDrawerOverlay" style="background:transparent;pointer-events:none">
-  <div id="biDrawer" class="modal" style="position:fixed;top:0;right:0;height:100vh;width:520px;max-width:96vw;margin:0;border-radius:0;transform:translateX(100%);transition:transform .25s ease;overflow-y:auto;pointer-events:auto">
-    <div class="mhdr"><div class="mtitle" id="bi-drawer-title">Start Conversation</div><button class="mclose" onclick="biCloseDrawer()" data-ico="x" data-size="14"></button></div>
-    <div id="bi-drawer-body" style="padding:0 4px 24px"></div>
-  </div>
-</div>
-
-<!-- BOOK INTELLIGENCE — POLICY SETUP MODAL -->
-<div class="overlay" id="biSetupModal">
-  <div class="modal" style="width:540px;max-width:95vw">
-    <div class="mhdr"><div class="mtitle" id="bi-setup-modal-title">Complete Policy Details</div><button class="mclose" onclick="biCloseSetupModal()" data-ico="x" data-size="14"></button></div>
-    <div class="text-m" style="font-size:12px;margin-bottom:12px">Add the fields needed to score this policy for term-conversion opportunities.</div>
-    <div class="frow">
-      <div class="fg"><label>Product Type</label>
-        <select id="bi-setup-productType">
-          <option value="">— Select —</option>
-          <option value="TERM">Term</option>
-          <option value="WL">Whole Life</option>
-          <option value="UL">Universal Life</option>
-          <option value="IUL">Indexed UL</option>
-          <option value="VUL">Variable UL</option>
-          <option value="GUL">Guaranteed UL</option>
-        </select>
-      </div>
-      <div class="fg"><label>Term Length (years)</label>
-        <select id="bi-setup-termLengthYears">
-          <option value="">— N/A —</option>
-          <option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option>
-        </select>
-      </div>
-    </div>
-    <div class="frow">
-      <div class="fg"><label>Issue Date</label><input type="date" id="bi-setup-issueDate"></div>
-      <div class="fg"><label>Client DOB</label><input type="date" id="bi-setup-clientDob"></div>
-    </div>
-    <div class="frow">
-      <div class="fg"><label>Face Amount ($)</label><input type="number" id="bi-setup-faceAmount" placeholder="500000"></div>
-      <div class="fg"><label>Rating Class</label>
-        <select id="bi-setup-ratingClass">
-          <option value="">— Unknown —</option>
-          <option>Preferred Plus</option><option>Preferred</option><option>Standard Plus</option><option>Standard</option>
-          <option>Table 2</option><option>Table 4</option><option>Table 6</option><option>Substandard</option>
-        </select>
-      </div>
-    </div>
-    <div class="flex gap8 mt16">
-      <button class="btn btn-s btn-sm" onclick="biCloseSetupModal()">Cancel</button>
-      <button class="btn btn-g btn-sm" onclick="biSaveSetup()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Save &amp; Score</button>
-    </div>
-  </div>
-</div>
 
 <!-- ADD LEAD MANUALLY MODAL -->
 <div class="overlay" id="addLeadModal">
@@ -3450,22 +3060,10 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </select>
       </div>
     </div>
-    <!-- Book Intelligence fields (optional) — keep this policy BI-ready -->
     <div class="frow mt12" style="border-top:1px dashed var(--border);padding-top:12px">
       <div class="fg" style="flex:1">
         <label style="display:flex;align-items:center;gap:6px">Issue Date <span style="font-size:10px;color:var(--text3);font-weight:400">(carrier-issued; defaults to Draft Date)</span></label>
         <input type="date" id="p-issueDate">
-      </div>
-      <div class="fg" id="p-termLength-wrap" style="flex:1;display:none">
-        <label>Term Length (years)</label>
-        <select id="p-termLengthYears">
-          <option value="">— Select —</option>
-          <option value="10">10</option><option value="15">15</option><option value="20" selected>20</option><option value="25">25</option><option value="30">30</option>
-        </select>
-      </div>
-      <div class="fg" style="flex:1">
-        <label style="display:flex;align-items:center;gap:6px">Client DOB <span style="font-size:10px;color:var(--text3);font-weight:400">(for conversion windows)</span></label>
-        <input type="date" id="p-clientDob">
       </div>
     </div>
     <div class="mt16"><button class="btn btn-g w-full" onclick="addPolicy()">Save Policy</button></div>
@@ -3873,24 +3471,6 @@ async function sbLoadContract() {
     .maybeSingle();
   if (error) { console.error('[sync] load contract', error); return null; }
   return data?.contract_level ?? null;
-}
-
-// Book Intelligence #3 — daily digest preference. Reads/writes the same
-// `public.agents` row the contract level lives on.
-async function sbSaveDigestPref(enabled) {
-  if (!currentAgent) return { error: new Error('No agent') };
-  return await sb.from('agents')
-    .update({ digest_enabled: !!enabled })
-    .eq('id', currentAgent.id);
-}
-async function sbLoadDigestPref() {
-  if (!currentAgent) return null;
-  const { data, error } = await sb.from('agents')
-    .select('digest_enabled, digest_email')
-    .eq('id', currentAgent.id)
-    .maybeSingle();
-  if (error) { console.error('[sync] load digest pref', error); return null; }
-  return data || null;
 }
 
 // First-sync push: when Supabase has no rows for this agent but localStorage
@@ -6100,18 +5680,7 @@ function calcModalAP() {
 function openAddPolicy() {
   populateCarrierDropdowns();
   document.getElementById('p-draft').value = new Date().toISOString().split('T')[0];
-  // Reset BI fields so previously-typed values don't leak between policies.
-  ['p-issueDate','p-clientDob'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  const tl = document.getElementById('p-termLengthYears'); if (tl) tl.value = '20';
-  // Show/hide term-length based on product selection — wired here so the
-  // listener exists from the first time the modal opens.
-  const prodSel = document.getElementById('p-product');
-  const termWrap = document.getElementById('p-termLength-wrap');
-  if (prodSel) {
-    const updateTermVis = () => { if (termWrap) termWrap.style.display = /term/i.test(prodSel.value) ? 'block' : 'none'; };
-    prodSel.onchange = updateTermVis;
-    updateTermVis();
-  }
+  const issue = document.getElementById('p-issueDate'); if (issue) issue.value = '';
   document.getElementById('addPolModal').classList.add('open');
 }
 function closeModal() { document.getElementById('addPolModal').classList.remove('open'); }
@@ -6239,14 +5808,7 @@ async function submitAsSold() {
   }
 
   // Add to policy tracker — Supabase first, then local.
-  // Workflow #5 — pull every BI-relevant field we can from the originating
-  // lead so a brand-new policy lands on the radar with full context instead
-  // of as a sparse stub. The underwriting class (`cls`) gets mapped into
-  // BI's ratingClass so insurability scoring has signal from day one.
   const sourceLead = soldLeadId ? leads.find(l => String(l.id) === soldLeadId) : null;
-  const leadDob = sourceLead && sourceLead.dob ? _biFmtDate(_biParseDate(sourceLead.dob)) : null;
-  // cls → ratingClass mapping. The UW class an agent selects at sale time
-  // is the most accurate signal we have about insurability.
   const clsToRating = { level: 'Preferred', standard: 'Standard', graded: 'Substandard', gi: 'Substandard' };
   const ratingClass = clsToRating[cls] || null;
   // Surface graded/GI as a logical "logged health concern" so insurability
@@ -6260,10 +5822,7 @@ async function submitAsSold() {
     client, carrier, product, cls,
     monthly, ap, cov,
     draft, status, advComm, payDate, commPct,
-    // Book Intelligence fields (workflow #5)
     soldLeadId: soldLeadId || null,
-    clientDob: leadDob,
-    clientAge: leadDob ? _biAgeFromDob(leadDob) : null,
     state: sourceLead && sourceLead.state || null,
     phone: sourceLead && sourceLead.phone || null,
     email: sourceLead && sourceLead.email || null,
@@ -6272,12 +5831,8 @@ async function submitAsSold() {
     knownConditions,
     notes: sourceLead && sourceLead.notes ? sourceLead.notes : null,
     leadSource: sourceLead && sourceLead.source || null,
-    // The agent saved this as the issue date for the conversion calc.
-    // Smart inference uses `draft` as a fallback but writing it explicitly
-    // here means the policy is BI-ready immediately.
     issueDate: draft || null,
   };
-  if (typeof bookIntel !== 'undefined' && bookIntel.applyInference) bookIntel.applyInference(policy);
   const { error: polErr } = await sbUpsertPolicy(policy);
   if (polErr) { alert('Save failed: ' + polErr.message); return; }
   policies.push(policy);
@@ -6336,17 +5891,10 @@ async function addPolicy() {
     payDate = d.toISOString().split('T')[0];
   }
 
-  // Book Intelligence fields (#2) — optional inputs from the modal.
   const issueDate = document.getElementById('p-issueDate').value || null;
-  const clientDob = document.getElementById('p-clientDob').value || null;
-  const termLengthRaw = document.getElementById('p-termLengthYears').value;
 
   const policy = { id:Date.now(), client, carrier, product, cls, monthly, ap, cov, draft, status, advComm, payDate, commPct };
-  // Apply explicit inputs first; smart-inference fills the gaps via applyInference.
   if (issueDate) policy.issueDate = issueDate;
-  if (clientDob) { policy.clientDob = clientDob; policy.clientAge = _biAgeFromDob(clientDob); }
-  if (termLengthRaw && /term/i.test(product)) policy.termLengthYears = parseInt(termLengthRaw, 10);
-  if (typeof bookIntel !== 'undefined' && bookIntel.applyInference) bookIntel.applyInference(policy);
 
   const { error } = await sbUpsertPolicy(policy);
   if (error) { alert('Save failed: ' + error.message); return; }
@@ -6356,7 +5904,7 @@ async function addPolicy() {
   renderPolicies();
   updateBonusFromTracker();
 
-  ['p-client','p-monthly','p-ap','p-cov','p-issueDate','p-clientDob'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['p-client','p-monthly','p-ap','p-cov','p-issueDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   // Phase 7: celebration moment on app submit.
   dashboardMomentApp(policy);
 }
@@ -7343,7 +6891,6 @@ function renderSummary() {
   if (typeof renderIncomeReality === 'function') renderIncomeReality();
   if (typeof renderActivityMomentum === 'function') renderActivityMomentum();
   if (typeof renderPersistencyHealth === 'function') renderPersistencyHealth();
-  if (typeof biRenderSummaryTile === 'function') biRenderSummaryTile();   // workflow #1
   const pols = Array.isArray(policies) ? policies : [];
   const today = new Date();
   const range = summaryPeriodRange(summaryPeriod, today);
@@ -7402,34 +6949,6 @@ function renderSummary() {
 
   // --- Bonus Tier Intelligence (Phase 6 — replaces three renderPaceRow calls) ---
   renderBonusTierIntel();
-
-  // --- Next-7-day drafts (always today-based; not period-scoped) ---
-  const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const horizon  = new Date(dayStart); horizon.setDate(horizon.getDate() + 7);
-  const upcoming = pols
-    .filter(p => p.draft)
-    .map(p => ({ p, d: new Date(p.draft + 'T00:00:00') }))
-    .filter(x => x.d >= dayStart && x.d <= horizon)
-    .sort((a,b) => a.d - b.d);
-
-  const tbody = document.getElementById('sum-drafts-tbody');
-  const empty = document.getElementById('sum-drafts-empty');
-  if (!upcoming.length) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-  } else {
-    empty.style.display = 'none';
-    const fmtDay = d => d.toLocaleDateString('en-US', { weekday:'short', month:'numeric', day:'numeric' });
-    tbody.innerHTML = upcoming.map(({p,d}) => `
-      <tr class="clickable" onclick="summaryDrillTo('tracker',{policyId:${p.id}})">
-        <td class="dim" style="width:120px">${fmtDay(d)}</td>
-        <td>${escHTML(p.client)||'—'}</td>
-        <td class="dim">${escHTML(p.carrier)||'—'}</td>
-        <td class="num">${fmt$(p.monthly||0)}/mo</td>
-        <td class="num">${fmt$(p.advComm||0)} adv</td>
-      </tr>
-    `).join('');
-  }
 
   // --- Phase 7: streak-diff celebration ---
   const streak = (typeof streakStats === 'function') ? streakStats().current : 0;
@@ -8058,26 +7577,6 @@ function showToast(msg, color='#10b981') {
   setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(()=>toast.remove(),400); }, 3000);
 }
 
-// Toast variant with an Undo affordance. undoFn runs if the agent clicks
-// within 5 seconds; otherwise the toast fades silently.
-function showUndoToast(msg, color, undoFn) {
-  const toast = document.createElement('div');
-  toast.style.cssText = `position:fixed;bottom:28px;right:28px;background:${color||'#94a3b8'};color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.18);max-width:360px;display:flex;align-items:center;gap:12px`;
-  const span = document.createElement('span'); span.textContent = msg;
-  const btn = document.createElement('button');
-  btn.textContent = 'Undo';
-  btn.style.cssText = 'background:rgba(255,255,255,.22);color:#fff;border:1px solid rgba(255,255,255,.4);border-radius:6px;padding:3px 9px;font-size:12px;font-weight:700;cursor:pointer';
-  let dismissed = false;
-  btn.onclick = () => { if (dismissed) return; dismissed = true; try { undoFn && undoFn(); } catch(e){ console.error('[bookIntel] undo threw', e); } toast.remove(); };
-  toast.appendChild(span); toast.appendChild(btn);
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    if (dismissed) return;
-    toast.style.opacity='0'; toast.style.transition='opacity .4s';
-    setTimeout(()=>toast.remove(),400);
-  }, 5000);
-}
-
 // ============================================================
 // SOFTPHONE — In-dashboard dialer for the Leads tab, backed by
 // SignalWire's REST agent-bridge flow (Phase D, supersedes the
@@ -8222,7 +7721,7 @@ const softphone = (() => {
     const stubTextEl = _el('sp-stub-banner-text');
     if (stubTextEl) {
       stubTextEl.textContent = state.stubReason
-        || "Simulated call — SignalWire couldn't be reached. Check Settings → Calling, or the server console.";
+        || "Simulated call — SignalWire couldn't be reached. Check the Phone Book tab, or the server console.";
     }
 
     // Re-mount icons in case the panel was just shown
@@ -8326,7 +7825,7 @@ const softphone = (() => {
 
     // Map specific errors to actionable toasts.
     if (result.reason === 'not_assigned') {
-      showToast('Set your phone number in Settings → Calling → My phone first.', '#dc2626');
+      showToast('Set your pickup phone in the Phone Book tab first.', '#dc2626');
       close();
       return;
     }
@@ -9486,22 +8985,31 @@ function cancelCSVImport() {
 // ============================================================
 // GOOGLE CALENDAR
 // ============================================================
+// Single source of truth for the Google OAuth client_id used by the Calendar +
+// Gmail integration. Set this to your project's web Client ID (from the GCP
+// Console → APIs & Services → Credentials). Authorized JavaScript origins must
+// include the domain this app is served from. Falls back to a previously-saved
+// localStorage value so agents who pasted their own ID before this change keep
+// working without reconfiguration.
+const GOOGLE_OAUTH_CLIENT_ID = '';
+
 let gcalViewYear = new Date().getFullYear();
 let gcalViewMonth = new Date().getMonth();
 let gcalEvents = safeParseLS('pp_gcal_events', []);
 let gcalToken = localStorage.getItem('pp_gcal_token') || null;
 
+function _gcalClientId() {
+  return GOOGLE_OAUTH_CLIENT_ID || localStorage.getItem('gcal_client_id') || '';
+}
+
 function gcalConnect() {
-  const clientId = document.getElementById('gcal-client-id').value.trim() || localStorage.getItem('gcal_client_id');
+  const clientId = _gcalClientId();
   if (!clientId) {
-    alert('Please enter your Google OAuth Client ID first.\n\nGet one at: https://console.cloud.google.com/apis/credentials\n\nSet Authorized JavaScript origins to your domain, and Authorized redirect URIs to your domain.');
+    showToast('Google integration is not configured yet — contact your admin.', '#dc2626');
     return;
   }
-  localStorage.setItem('gcal_client_id', clientId);
 
-  // Load Google API
   if (typeof google === 'undefined' || !google.accounts) {
-    // Load GAPI and GSI
     const script1 = document.createElement('script');
     script1.src = 'https://accounts.google.com/gsi/client';
     script1.onload = () => initGcalAuth(clientId);
@@ -9515,8 +9023,6 @@ function initGcalAuth(clientId) {
   try {
     const client = google.accounts.oauth2.initTokenClient({
       client_id: clientId,
-      // Calendar (existing) + Gmail send (Book Intelligence #5). One token,
-      // one consent screen, two capabilities.
       scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/gmail.send',
       callback: (tokenResponse) => {
         if (tokenResponse.error) { alert('Google auth error: ' + tokenResponse.error); return; }
@@ -9536,16 +9042,24 @@ function initGcalAuth(clientId) {
 }
 
 function gcalShowConnected() {
-  document.getElementById('gcal-connect-panel').style.display = 'none';
-  document.getElementById('gcal-connected-panel').style.display = 'block';
+  const connect = document.getElementById('stg-int-google-disconnected');
+  const connected = document.getElementById('stg-int-google-connected');
+  if (connect)   connect.style.display   = 'none';
+  if (connected) connected.style.display = '';
+  const empty = document.getElementById('gcal-empty-hint');
+  if (empty) empty.style.display = 'none';
 }
 
 function gcalDisconnect() {
   gcalToken = null; gcalEvents = [];
   localStorage.removeItem('pp_gcal_token');
   localStorage.removeItem('pp_gcal_events');
-  document.getElementById('gcal-connect-panel').style.display = 'block';
-  document.getElementById('gcal-connected-panel').style.display = 'none';
+  const connect = document.getElementById('stg-int-google-disconnected');
+  const connected = document.getElementById('stg-int-google-connected');
+  if (connect)   connect.style.display   = '';
+  if (connected) connected.style.display = 'none';
+  const empty = document.getElementById('gcal-empty-hint');
+  if (empty) empty.style.display = '';
   gcalRenderGrid(); gcalRenderList();
 }
 
@@ -9576,9 +9090,7 @@ async function gcalFetchEvents() {
   } catch(e) {
     console.error('GCal fetch error:', e);
     if (e.message === 'Auth expired') {
-      gcalToken = null; localStorage.removeItem('pp_gcal_token');
-      document.getElementById('gcal-connect-panel').style.display = 'block';
-      document.getElementById('gcal-connected-panel').style.display = 'none';
+      gcalDisconnect();
     }
   }
 }
@@ -9695,10 +9207,8 @@ const NAV_TITLES = {
   summary:'Summary',
   'api-quoter':'Quote + Underwriting',
   tracker:'Policy Tracker',
-  drafts:'Upcoming Drafts',
   bonuses:'Bonus Tracker',
   leads:'Leads',
-  'book-intel':'Book Intelligence',
   calendar:'Calendar',
   phonebook:'Phone Book',
   settings:'Settings',
@@ -9717,7 +9227,7 @@ function nav(id) {
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
   // Highlight active nav item
   const items = document.querySelectorAll('.nav-item');
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, phonebook:8, settings:9 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, settings:7 };
   if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
@@ -9730,9 +9240,7 @@ function nav(id) {
   if (id === 'summary') renderSummary();
   if (id === 'api-quoter') loadQuoteQuota();
   if (id === 'bonuses') updateBonusFromTracker();
-  if (id === 'drafts')  renderDraftsCalendar();
   if (id === 'leads')   renderLeads();
-  if (id === 'book-intel') renderBookIntel();
   if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
   if (id === 'phonebook') renderPhoneBook();
   if (id === 'settings') initSettingsSection();
@@ -10179,266 +9687,19 @@ function filterBonusTabs() {
 function settingsTab(id, el) {
   el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('stg-account').style.display  = id === 'account'  ? '' : 'none';
-  document.getElementById('stg-carriers').style.display = id === 'carriers' ? '' : 'none';
-  document.getElementById('stg-calling').style.display  = id === 'calling'  ? '' : 'none';
+  document.getElementById('stg-account').style.display      = id === 'account'      ? '' : 'none';
+  document.getElementById('stg-carriers').style.display     = id === 'carriers'     ? '' : 'none';
+  document.getElementById('stg-integrations').style.display = id === 'integrations' ? '' : 'none';
   if (id === 'carriers') renderCarrierGrid();
-  if (id === 'calling')  renderCallingSettings();
+  if (id === 'integrations') renderIntegrationsPanels();
 }
 
-// Render the Settings → Calling tab. Fetches the agent's own SignalWire
-// assignment + this-month minute usage from Supabase; if the agent is
-// flagged is_admin, also loads the full agent-assignments table for
-// inline editing of caller-ID, subscriber, and minute cap.
-async function renderCallingSettings() {
-  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  const setVal  = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-
-  // Loading placeholders
-  setVal('stg-cl-my-number',     'Loading…');
-  setVal('stg-cl-my-subscriber', 'Loading…');
-  setText('stg-cl-my-phone',     'Loading…');
-  setText('stg-cl-min-used', '…');
-  setText('stg-cl-min-cap',  '…');
-  setText('stg-cl-min-pct',  '…');
-
-  if (!currentAgent || !currentAgent.id) {
-    setVal('stg-cl-my-number',     '— not signed in —');
-    setVal('stg-cl-my-subscriber', '— not signed in —');
-    setText('stg-cl-my-phone',     '— not signed in —');
-    return;
-  }
-
-  // 1. My agent row (caller-ID, subscriber, agent_phone, cap, admin flag)
-  let me = null;
-  try {
-    const { data, error } = await sb
-      .from('agents')
-      .select('signalwire_caller_id, signalwire_subscriber_id, agent_phone, monthly_minute_limit, is_admin')
-      .eq('id', currentAgent.id)
-      .maybeSingle();
-    if (error) throw error;
-    me = data || {};
-  } catch (e) {
-    console.warn('[calling settings] agent row fetch failed', e);
-    setVal('stg-cl-my-number',     '— error loading —');
-    setVal('stg-cl-my-subscriber', '— error loading —');
-    setText('stg-cl-my-phone',     '— error loading —');
-    return;
-  }
-
-  const callerId     = me.signalwire_caller_id     || '— not assigned —';
-  const subscriberId = me.signalwire_subscriber_id || '— not assigned —';
-  const agentPhone   = me.agent_phone              || '— not set —';
-  const cap          = (typeof me.monthly_minute_limit === 'number') ? me.monthly_minute_limit : 500;
-
-  setVal('stg-cl-my-number',     callerId);
-  setVal('stg-cl-my-subscriber', subscriberId);
-  setText('stg-cl-my-phone',     agentPhone);
-
-  // Wire the "Edit" link next to My phone — each agent sets their
-  // own pickup number, no admin involvement needed. Re-bind every
-  // render so we don't accumulate listeners across renders.
-  const phoneEdit = document.getElementById('stg-cl-my-phone-edit');
-  if (phoneEdit) {
-    phoneEdit.onclick = async (e) => {
-      e.preventDefault();
-      const current = (me.agent_phone || '');
-      const raw = await _promptModal(
-        'Your personal phone in E.164 (e.g. +14155550142). SignalWire calls this number first, then bridges you to the lead.',
-        current,
-      );
-      if (raw == null) return;
-      const trimmed = raw.trim();
-      let value = trimmed === '' ? null : trimmed;
-      if (value) {
-        const norm = toE164(value);
-        if (!norm) { showToast('Must be a valid US phone number', '#dc2626'); return; }
-        value = norm;
-      }
-      try {
-        const { error } = await sb.from('agents').update({ agent_phone: value }).eq('id', currentAgent.id);
-        if (error) throw error;
-        showToast('Saved', '#10b981');
-        await renderCallingSettings();
-      } catch (err) {
-        console.warn('[calling settings] agent_phone update failed', err);
-        showToast(`Save failed: ${err.message || err}`, '#dc2626');
-      }
-    };
-  }
-
-  // 2. This-month minute usage = sum(duration_sec) / 60
-  let used = 0;
-  try {
-    const monthStart = new Date();
-    monthStart.setUTCDate(1);
-    monthStart.setUTCHours(0,0,0,0);
-    const { data: rows, error } = await sb
-      .from('calls')
-      .select('duration_sec')
-      .eq('agent_id', currentAgent.id)
-      .gte('started_at', monthStart.toISOString());
-    if (error) throw error;
-    const seconds = (rows || []).reduce((s, r) => s + (r.duration_sec || 0), 0);
-    used = Math.floor(seconds / 60);
-  } catch (e) {
-    console.warn('[calling settings] minute usage fetch failed', e);
-  }
-
-  setText('stg-cl-min-used', used);
-  setText('stg-cl-min-cap',  cap);
-  const pct = cap > 0 ? Math.round(100 * used / cap) : 0;
-  setText('stg-cl-min-pct', pct + '%');
-  const bar = document.getElementById('stg-cl-min-bar');
-  if (bar) {
-    bar.style.width = Math.min(100, pct) + '%';
-    bar.classList.toggle('over', pct >= 90);
-  }
-
-  // 3. Refresh the cached admin flag the softphone reads
-  if (window.softphone && softphone.loadAdminFlag) {
-    await softphone.loadAdminFlag();
-  }
-
-  // 4. Admin: agent assignments table
-  const adminBox = document.getElementById('stg-cl-admin');
-  const showAdmin = !!me.is_admin;
-  if (adminBox) adminBox.style.display = showAdmin ? '' : 'none';
-  if (showAdmin) await _renderAdminAssignments(currentAgent.id);
-
-  if (typeof mountIcons === 'function') mountIcons(document.getElementById('stg-calling'));
-}
-
-// Render the admin "Agent Assignments" table. Loads every agents row +
-// each agent's this-month minute usage in one trip, then sorts by name.
-async function _renderAdminAssignments(myId) {
-  const tbody = document.getElementById('stg-cl-agents-tbody');
-  if (!tbody) return;
-  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:18px">Loading…</td></tr>`;
-
-  let agents = [];
-  try {
-    const { data, error } = await sb
-      .from('agents')
-      .select('id, display_name, email, signalwire_caller_id, signalwire_subscriber_id, agent_phone, monthly_minute_limit, is_admin');
-    if (error) throw error;
-    agents = data || [];
-  } catch (e) {
-    console.warn('[admin assignments] agents fetch failed', e);
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#dc2626;padding:18px">Couldn't load agents.</td></tr>`;
-    return;
-  }
-
-  // Pull this-month minute usage for everyone in one query.
-  const monthStart = new Date();
-  monthStart.setUTCDate(1);
-  monthStart.setUTCHours(0,0,0,0);
-  const usageByAgent = new Map();
-  try {
-    const { data: rows, error } = await sb
-      .from('calls')
-      .select('agent_id, duration_sec')
-      .gte('started_at', monthStart.toISOString());
-    if (error) throw error;
-    for (const r of (rows || [])) {
-      usageByAgent.set(r.agent_id, (usageByAgent.get(r.agent_id) || 0) + (r.duration_sec || 0));
-    }
-  } catch (e) {
-    console.warn('[admin assignments] usage fetch failed', e);
-  }
-
-  agents.sort((a, b) => (a.display_name || a.email || '').localeCompare(b.display_name || b.email || ''));
-
-  if (!agents.length) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text2);padding:18px">No agents found</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = agents.map(a => {
-    const usedMin = Math.floor((usageByAgent.get(a.id) || 0) / 60);
-    const cap     = (typeof a.monthly_minute_limit === 'number') ? a.monthly_minute_limit : 500;
-    const isMe    = a.id === myId;
-    const adminTag = a.is_admin ? `<span class="stg-cl-admin-tag">Admin</span>` : '';
-    return `
-      <tr data-agent-id="${escapeHTML(a.id)}">
-        <td>
-          <div style="font-weight:600">${escapeHTML(a.display_name || '(no name)')}${isMe ? ' <em style="font-size:11px;color:var(--text2);font-style:normal">(you)</em>' : ''}${adminTag}</div>
-          <div style="font-size:11px;color:var(--text2)">${escapeHTML(a.email || '')}</div>
-        </td>
-        <td class="mono">
-          <a href="#" class="stg-cl-edit" data-field="signalwire_caller_id" data-prompt="Caller-ID number in E.164 format (e.g. +14155550142)">${escapeHTML(a.signalwire_caller_id || '— assign —')}</a>
-        </td>
-        <td class="mono">
-          <a href="#" class="stg-cl-edit" data-field="agent_phone" data-prompt="Agent's personal phone in E.164 (e.g. +14155550142). SignalWire calls this number first when bridging.">${escapeHTML(a.agent_phone || '— assign —')}</a>
-        </td>
-        <td class="mono">
-          <a href="#" class="stg-cl-edit" data-field="signalwire_subscriber_id" data-prompt="Call Fabric Subscriber address (e.g. agent-name)">${escapeHTML(a.signalwire_subscriber_id || '— assign —')}</a>
-        </td>
-        <td class="mono">
-          <a href="#" class="stg-cl-edit" data-field="monthly_minute_limit" data-prompt="Monthly minute cap (integer)" data-type="int">${cap} min</a>
-        </td>
-        <td class="mono" style="${usedMin >= cap ? 'color:#dc2626;font-weight:600' : ''}">${usedMin} min</td>
-      </tr>
-    `;
-  }).join('');
-
-  // Bind inline-edit handlers — uses prompt() per [[Patterns/Inline Prompt Row Field]].
-  tbody.querySelectorAll('.stg-cl-edit').forEach(a => {
-    a.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const row    = e.currentTarget.closest('tr');
-      const agentId = row && row.dataset.agentId;
-      if (!agentId) return;
-      const field    = e.currentTarget.dataset.field;
-      const promptStr = e.currentTarget.dataset.prompt || 'New value';
-      const isInt    = e.currentTarget.dataset.type === 'int';
-      const current  = e.currentTarget.textContent.replace(/\s*min$/, '').replace(/^—.*—$/, '').trim();
-
-      // Custom modal (not window.prompt — Chrome blocks prompt() in many
-      // contexts with "prompt() is not supported"). Resolves to the entered
-      // string, or null on Cancel / Escape / overlay-click.
-      const raw = await _promptModal(promptStr, current);
-      if (raw == null) return;     // cancelled
-      const trimmed = raw.trim();
-      let value = trimmed === '' ? null : trimmed;
-      if (isInt && value != null) {
-        const n = parseInt(value, 10);
-        if (!Number.isFinite(n) || n < 0) { showToast('Invalid integer', '#dc2626'); return; }
-        value = n;
-      }
-      // Auto-normalize caller-ID and agent_phone to E.164 — pasted
-      // values like '+1 (262) 310-9913' or '(262) 310-9913' get
-      // rewritten to '+12623109913' before the database update.
-      if ((field === 'signalwire_caller_id' || field === 'agent_phone') && value) {
-        const normalized = toE164(value);
-        if (!normalized) {
-          showToast(
-            field === 'agent_phone'
-              ? 'Agent phone must be a valid US phone number'
-              : 'Caller-ID must be a valid US phone number',
-            '#dc2626',
-          );
-          return;
-        }
-        value = normalized;
-      }
-
-      try {
-        const { error } = await sb.from('agents').update({ [field]: value }).eq('id', agentId);
-        if (error) throw error;
-        showToast('Saved', '#10b981');
-        // Re-render the whole tab — picks up the change in both the
-        // admin table AND the My Calling Settings card at the top,
-        // which would otherwise stay stale if the edit was on the
-        // current agent's own row.
-        await renderCallingSettings();
-      } catch (err) {
-        console.warn('[admin assignments] update failed', err);
-        showToast(`Save failed: ${err.message || err}`, '#dc2626');
-      }
-    });
-  });
+function renderIntegrationsPanels() {
+  const connected = !!gcalToken;
+  const dEl = document.getElementById('stg-int-google-disconnected');
+  const cEl = document.getElementById('stg-int-google-connected');
+  if (dEl) dEl.style.display = connected ? 'none' : '';
+  if (cEl) cEl.style.display = connected ? '' : 'none';
 }
 
 // Promise-based input modal. Drop-in replacement for window.prompt(),
@@ -11443,6 +10704,7 @@ function initSettingsSection() {
   // Ensure account tab is active
   document.getElementById('stg-account').style.display = '';
   document.getElementById('stg-carriers').style.display = 'none';
+  const stgInt = document.getElementById('stg-integrations'); if (stgInt) stgInt.style.display = 'none';
   const tabs = document.querySelectorAll('#sec-settings > .tabs .tab');
   tabs.forEach((t, i) => t.classList.toggle('active', i === 0));
   mountIcons(document.getElementById('sec-settings'));
@@ -12652,174 +11914,6 @@ function updateBonusFromTracker() {
 }
 
 // ============================================================
-// DRAFTS CALENDAR
-// ============================================================
-let draftViewYear = new Date().getFullYear();
-let draftViewMonth = new Date().getMonth(); // 0-indexed
-
-function draftNavMonth(dir) {
-  draftViewMonth += dir;
-  if (draftViewMonth > 11) { draftViewMonth = 0; draftViewMonth = 0; draftViewYear++; }
-  if (draftViewMonth < 0)  { draftViewMonth = 11; draftViewYear--; }
-  renderDraftsCalendar();
-}
-
-function renderDraftsCalendar() {
-  const yr = draftViewYear, mo = draftViewMonth;
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  document.getElementById('draft-month-label').textContent = `${monthNames[mo]} ${yr}`;
-
-  const today = new Date();
-  const firstDay = new Date(yr, mo, 1).getDay(); // 0=Sun
-  const daysInMonth = new Date(yr, mo+1, 0).getDate();
-  const daysInPrev = new Date(yr, mo, 0).getDate();
-
-  // Build a map: dateStr → [policies]
-  const draftMap = {};
-  policies.forEach(p => {
-    if (!p.draft) return;
-    draftMap[p.draft] = draftMap[p.draft] || [];
-    draftMap[p.draft].push(p);
-  });
-  // Workflow #2 — conversion deadlines as an overlay. dateStr → [{policy, days}]
-  const deadlineMap = {};
-  const todayMs = new Date().setHours(0,0,0,0);
-  policies.forEach(p => {
-    if (!p.conversionDeadline) return;
-    deadlineMap[p.conversionDeadline] = deadlineMap[p.conversionDeadline] || [];
-    const days = Math.round((new Date(p.conversionDeadline).getTime() - todayMs) / 86400000);
-    deadlineMap[p.conversionDeadline].push({ policy: p, days });
-  });
-
-  // Calendar grid
-  const grid = document.getElementById('draft-cal-grid');
-  grid.innerHTML = '';
-
-  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
-  for (let i = 0; i < totalCells; i++) {
-    const cell = document.createElement('div');
-    cell.className = 'cal-cell';
-
-    let dayNum, isOtherMonth = false;
-    if (i < firstDay) {
-      dayNum = daysInPrev - firstDay + i + 1;
-      isOtherMonth = true;
-      cell.classList.add('other-month');
-    } else if (i - firstDay >= daysInMonth) {
-      dayNum = i - firstDay - daysInMonth + 1;
-      isOtherMonth = true;
-      cell.classList.add('other-month');
-    } else {
-      dayNum = i - firstDay + 1;
-    }
-
-    const isToday = !isOtherMonth && yr===today.getFullYear() && mo===today.getMonth() && dayNum===today.getDate();
-    if (isToday) cell.classList.add('today');
-
-    const numEl = document.createElement('div');
-    numEl.className = 'cal-day-num';
-    numEl.textContent = dayNum;
-    cell.appendChild(numEl);
-
-    if (!isOtherMonth) {
-      const dateStr = `${yr}-${String(mo+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-      const dayPolicies = draftMap[dateStr] || [];
-      dayPolicies.slice(0,3).forEach(p => {
-        const monthly = p.monthly || +(p.ap/12).toFixed(2);
-        const ev = document.createElement('div');
-        ev.className = 'cal-event';
-        ev.title = `${p.client||''} — ${fmt$(monthly)}/mo — ${p.carrier||''}`;
-        ev.innerHTML = `<div class="cal-event-name">${escHTML(p.client)}</div><div class="cal-event-ap">${fmt$(monthly)}/mo</div>`;
-        cell.appendChild(ev);
-      });
-      if (dayPolicies.length > 3) {
-        const more = document.createElement('div');
-        more.style.cssText = 'font-size:10px;color:var(--text3);padding:2px 4px';
-        more.textContent = `+${dayPolicies.length - 3} more`;
-        cell.appendChild(more);
-      }
-      // Workflow #2 — conversion-deadline markers on the same cell. Each
-      // deadline shows as a red/amber pill below the drafts, with a tooltip
-      // and click-through to the BI tab.
-      const deadlines = deadlineMap[dateStr] || [];
-      deadlines.slice(0, 2).forEach(({ policy, days }) => {
-        const ev = document.createElement('div');
-        ev.className = 'cal-bi-event';
-        ev.style.cssText = `background:rgba(248,113,113,${days<=90?'.22':'.12'});border:1px solid rgba(248,113,113,${days<=90?'.5':'.3'});color:${days<=90?'#fca5a5':'#fbbf24'};border-radius:4px;padding:2px 5px;margin-top:2px;font-size:10px;font-weight:600;cursor:pointer`;
-        ev.title = `${policy.client} — conversion window closes ${days<=0?'TODAY':'in '+days+' days'} (click to open BI)`;
-        ev.textContent = `⚡ ${policy.client.split(/\s+/)[0]} converts`;
-        ev.onclick = (e) => { e.stopPropagation(); nav('book-intel'); };
-        cell.appendChild(ev);
-      });
-      if (deadlines.length > 2) {
-        const more2 = document.createElement('div');
-        more2.style.cssText = 'font-size:10px;color:var(--ds-color-warning);padding:2px 4px;cursor:pointer';
-        more2.textContent = `+${deadlines.length - 2} more conversions`;
-        more2.onclick = (e) => { e.stopPropagation(); nav('book-intel'); };
-        cell.appendChild(more2);
-      }
-    }
-    grid.appendChild(cell);
-  }
-
-  // Summary strip — this month
-  const moStr = `${yr}-${String(mo+1).padStart(2,'0')}`;
-  const moPolices = policies.filter(p => p.draft && p.draft.startsWith(moStr));
-  const moAP = moPolices.reduce((s,p)=>s+(p.ap||0),0);
-  const moComm = moPolices.reduce((s,p)=>s+(p.advComm||0),0);
-  document.getElementById('draft-count-mo').textContent = moPolices.length;
-  document.getElementById('draft-ap-mo').textContent = fmt$(moAP/12) + '/mo';
-  document.getElementById('draft-comm-mo').textContent = fmt$(moComm);
-
-  // Next 30 days count
-  const in30 = new Date(); in30.setDate(in30.getDate()+30);
-  const next30 = policies.filter(p => {
-    if (!p.draft) return false;
-    const d = new Date(p.draft);
-    return d >= today && d <= in30;
-  });
-  document.getElementById('draft-next30').textContent = `${next30.length} polic${next30.length===1?'y':'ies'}`;
-
-  // List view — all policies with drafts, sorted by date
-  const sorted = [...policies].filter(p=>p.draft).sort((a,b)=>a.draft.localeCompare(b.draft));
-  const tbody = document.getElementById('draft-list-tbody');
-  const table = document.getElementById('draft-list-table');
-  const empty = document.getElementById('draft-list-empty');
-  tbody.innerHTML = '';
-
-  if (!sorted.length) { table.style.display='none'; empty.style.display='block'; }
-  else {
-    table.style.display='table'; empty.style.display='none';
-    const sMap={pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l'};
-    const sLbl={pending:'Pending',approved:'Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed'};
-    const nowStr = today.toISOString().split('T')[0];
-
-    sorted.forEach(p => {
-      const monthly = p.monthly || +(p.ap/12).toFixed(2);
-      const advComm = p.advComm || 0;
-      const isPast = p.draft < nowStr;
-      const isToday2 = p.draft === nowStr;
-      const tr = document.createElement('tr');
-      if (isToday2) tr.style.background = 'rgba(59,130,246,.07)';
-      tr.innerHTML = `
-        <td class="mono" style="color:${isPast?'var(--text3)':isToday2?'#60a5fa':'#34d399'};font-weight:400">
-          ${escHTML(p.draft)}${isToday2?` <span style="display:inline-flex;align-items:center;gap:4px;margin-left:4px"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ds-color-info)"></span>Today</span>`:''}${isPast?` <span style="display:inline-flex;align-items:center;margin-left:4px">${icon('check',{size:12})}</span>`:''}
-        </td>
-        <td style="color:var(--text);font-weight:500">${escHTML(p.client)}</td>
-        <td style="font-size:12px">${escHTML(p.carrier)}</td>
-        <td class="mono text-b">${fmt$(monthly)}/mo</td>
-        <td class="mono">${fmt$(p.ap)}/yr</td>
-        <td class="mono text-g">${fmt$(advComm)}</td>
-        <td class="mono" style="color:var(--ds-color-warning)">${escHTML(p.payDate)||'—'}</td>
-        <td><span class="sp ${sMap[p.status]||'sp-p'}">${escHTML(sLbl[p.status]||p.status)}</span></td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-  document.getElementById('draft-list-title').textContent = `All Policies — Sorted by Draft Date (${sorted.length} total)`;
-}
-
-// ============================================================
 // THEME TOGGLE — Dark / Light mode
 // ============================================================
 function toggleTheme() {
@@ -12879,12 +11973,13 @@ async function bootDashboard() {
   draftViewMonth = new Date().getMonth();
   gcalViewYear = new Date().getFullYear();
   gcalViewMonth = new Date().getMonth();
-  // Restore gcal connection state (these are app-wide, not per-agent — leave unscoped).
-  const clientId = localStorage.getItem('gcal_client_id');
-  if (clientId) { const el = document.getElementById('gcal-client-id'); if(el) el.value = clientId; }
-  const apiKey = localStorage.getItem('gcal_api_key');
-  if (apiKey) { const el = document.getElementById('gcal-api-key'); if(el) el.value = apiKey; }
-  if (gcalToken) { gcalShowConnected(); }
+  // Restore gcal connection state.
+  if (gcalToken) {
+    gcalShowConnected();
+  } else {
+    const empty = document.getElementById('gcal-empty-hint');
+    if (empty) empty.style.display = '';
+  }
 
   // 2. Sync with Supabase — first-sync any local-only data, then pull remote.
   try {
@@ -12916,15 +12011,7 @@ async function bootDashboard() {
     // Re-render with fresh remote data.
     renderPolicies();
     if (typeof renderLeads === 'function') renderLeads();
-    if (typeof renderDraftsCalendar === 'function') renderDraftsCalendar();
     updateBonusFromTracker();
-    // After policies are loaded, score for BI so the nav badge and
-    // Summary tile reflect reality even before the agent opens BI.
-    if (window.bookIntel && typeof bookIntel.scoreAll === 'function') {
-      bookIntel.scoreAll()
-        .then(() => { if (typeof biUpdateNavBadge === 'function') biUpdateNavBadge(); })
-        .catch(e => console.warn('[bookIntel] boot scoreAll failed', e));
-    }
   } catch (e) {
     console.error('[sync] bootDashboard sync failed', e);
     // Local data is already showing, fail open.
@@ -12934,7 +12021,7 @@ async function bootDashboard() {
   // Default-active section in HTML is 'summary'; only re-nav if a different one was saved.
   try {
     const saved = localStorage.getItem(k('pp_current_section'));
-    const valid = { summary:1, quoter:1, tracker:1, drafts:1, bonuses:1, leads:1, 'book-intel':1, calendar:1, settings:1 };
+    const valid = { summary:1, quoter:1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, settings:1 };
     if (saved && valid[saved] && saved !== 'summary') nav(saved);
   } catch (e) {}
   if (typeof dsInitPlayground === 'function') dsInitPlayground();
@@ -12942,1729 +12029,6 @@ async function bootDashboard() {
   _wireReorder();
 }
 
-// ============================================================
-// BOOK INTELLIGENCE (Phase 1 — Term Conversion Radar)
-//
-// Turns the agent's in-force book into a ranked feed of revenue
-// opportunities. v1 surfaces term policies approaching their
-// conversion deadline. Pure scoring + template-only drafting,
-// no LLM, no new backend.
-//
-// Reuses: quoteIUL() and _commPct() from shared/quote-engine.js,
-// COMP / normalizeCarrierKey / getConversionRule from shared/data.js,
-// sbUpsertPolicy() / sbPullPolicies() from this file.
-// ============================================================
-window.bookIntel = window.bookIntel || {};
-// Bumped whenever scoring logic, deadline math, or score fields change.
-// On dashboard boot we compare against the per-agent last-seen version
-// in localStorage and force a fresh scoreAll if they differ.
-const BI_VERSION = '1.2.0';
-let biFilterMode = 'all';
-let biCsvParsedRows = null;
-let biLastWinPolicyId = null;       // for undo
-let biLastDismissPolicyId = null;   // for undo
-
-// Diagnostic — paste `bookIntel.audit()` into the DevTools console for a
-// quick snapshot of state when something doesn't behave. Logs counts and
-// surfaces the first few records so you can spot-check IDs / fields.
-window.bookIntel.audit = function() {
-  const pols = Array.isArray(policies) ? policies : [];
-  const needSetup = pols.filter(p => !p.productType || !p.issueDate || (p.productType === 'TERM' && !p.termLengthYears) || !p.clientDob);
-  const withOpp = pols.filter(p => p.opportunity);
-  const open = pols.filter(p => p.opportunity && p.opportunity.status === 'OPEN');
-  const report = {
-    signedIn: !!currentAgent,
-    agentId: currentAgent && currentAgent.id,
-    totalPolicies: pols.length,
-    withOpportunity: withOpp.length,
-    openOpportunities: open.length,
-    needsSetup: needSetup.length,
-    needsSetupSample: needSetup.slice(0,3).map(p => ({ id: p.id, client: p.client, missing: [
-      !p.productType ? 'productType' : null,
-      !p.issueDate ? 'issueDate' : null,
-      p.productType === 'TERM' && !p.termLengthYears ? 'termLengthYears' : null,
-      !p.clientDob ? 'clientDob' : null,
-    ].filter(Boolean) })),
-    firstPolicy: pols[0] ? Object.keys(pols[0]).sort() : null,
-    handlersWired: {
-      biOpenSetupModal: typeof biOpenSetupModal === 'function',
-      biSaveSetup: typeof biSaveSetup === 'function',
-      biCommitCSVImport: typeof biCommitCSVImport === 'function',
-      biOpenDrawer: typeof biOpenDrawer === 'function',
-      sbUpsertPolicy: typeof sbUpsertPolicy === 'function',
-    },
-    domWired: {
-      setupModal: !!document.getElementById('biSetupModal'),
-      setupTitle: !!document.getElementById('bi-setup-modal-title'),
-      productType: !!document.getElementById('bi-setup-productType'),
-      termLength: !!document.getElementById('bi-setup-termLengthYears'),
-      issueDate: !!document.getElementById('bi-setup-issueDate'),
-      clientDob: !!document.getElementById('bi-setup-clientDob'),
-    },
-  };
-  console.log('========= Book Intelligence audit =========');
-  console.log(report);
-  console.log('===========================================');
-  return report;
-};
-
-function _biParseDate(s) {
-  if (!s) return null;
-  if (s instanceof Date) return isNaN(s) ? null : s;
-  // Strip trailing time/timezone fragments so SheetJS / Excel output like
-  // "2016-06-15 00:00:00" or "2016-06-15T00:00:00.000Z" canonicalizes cleanly.
-  const str = String(s).trim().replace(/[T ]\d{1,2}:\d{2}.*$/, '');
-  let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if (m) return new Date(+m[1], +m[2]-1, +m[3]);
-  m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (m) return new Date(+m[3], +m[1]-1, +m[2]);
-  const d = new Date(str);
-  return isNaN(d) ? null : d;
-}
-function _biFmtDate(d) {
-  if (!(d instanceof Date) || isNaN(d)) return null;
-  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
-}
-function _biAddYears(d, years) {
-  if (!(d instanceof Date)) return null;
-  const out = new Date(d.getTime());
-  out.setFullYear(out.getFullYear() + years);
-  return out;
-}
-function _biAgeFromDob(dobStr, asOf) {
-  const dob = _biParseDate(dobStr);
-  if (!dob) return null;
-  const ref = asOf || new Date();
-  let age = ref.getFullYear() - dob.getFullYear();
-  const m = ref.getMonth() - dob.getMonth();
-  if (m < 0 || (m === 0 && ref.getDate() < dob.getDate())) age--;
-  return age;
-}
-
-bookIntel.computeDeadline = function(policy) {
-  if (!policy || policy.productType !== 'TERM') return null;
-  if (!policy.issueDate || !policy.termLengthYears) return null;
-  const rule = (typeof getConversionRule === 'function')
-    ? getConversionRule(policy.carrier, policy.termLengthYears)
-    : null;
-  if (!rule) return null;
-  const issue = _biParseDate(policy.issueDate);
-  if (!issue) return null;
-  const candidates = [];
-  if (rule.fullUntilYear) candidates.push(_biAddYears(issue, rule.fullUntilYear));
-  if (rule.limitedUntilAge && policy.clientDob) {
-    const dob = _biParseDate(policy.clientDob);
-    if (dob) candidates.push(_biAddYears(dob, rule.limitedUntilAge));
-  }
-  candidates.push(_biAddYears(issue, policy.termLengthYears));
-  const valid = candidates.filter(d => d instanceof Date && !isNaN(d));
-  if (!valid.length) return null;
-  const min = valid.reduce((a,b) => a < b ? a : b);
-  return _biFmtDate(min);
-};
-
-bookIntel._estPermPremium = function(policy) {
-  const age = policy.clientAge || _biAgeFromDob(policy.clientDob);
-  const face = policy.faceAmount || policy.cov;
-  if (!age || !face) {
-    return face ? +(face * 0.001).toFixed(2) : 0;
-  }
-  if (typeof quoteIUL !== 'function') {
-    return +(face * 0.001).toFixed(2);
-  }
-  try {
-    const res = quoteIUL({
-      age, gender: 'M', coverage: face,
-      health: (policy.ratingClass && /substandard|table/i.test(policy.ratingClass)) ? 'substandard'
-            : (policy.ratingClass && /preferred/i.test(policy.ratingClass)) ? 'preferred'
-            : 'standard',
-      contractLevel: (typeof getContract === 'function') ? getContract() : 100,
-    });
-    const eligible = (res.results || []).filter(r => r.eligible);
-    if (!eligible.length) return +(face * 0.001).toFixed(2);
-    return eligible.reduce((min, r) => Math.min(min, r.annual), Infinity);
-  } catch (e) {
-    return +(face * 0.001).toFixed(2);
-  }
-};
-
-bookIntel.estCommission = function(policy) {
-  // Conservative mode (default): use a flat face × 0.0008 estimate for the
-  // expected annual permanent premium. Same RELATIVE ordering as the full
-  // quoteIUL run but produces dollar figures that don't shock the agent.
-  // Aggressive mode runs the real quote engine — useful for premium-funded
-  // IUL conversions where the recommended premium is genuinely high.
-  const mode = localStorage.getItem('bi_estimate_mode') || 'conservative';
-  let annual;
-  if (mode === 'aggressive') {
-    annual = bookIntel._estPermPremium(policy);
-  } else {
-    const face = policy.faceAmount || policy.cov || 0;
-    annual = face ? +(face * 0.0008).toFixed(2) : 0;
-  }
-  if (!annual) return 0;
-  const contract = (typeof getContract === 'function') ? getContract() : 100;
-  let commPct = 70;
-  if (typeof COMP !== 'undefined' && Array.isArray(COMP.mutual_iule) && typeof COMP_LEVELS !== 'undefined') {
-    let idx = COMP_LEVELS.indexOf(contract);
-    if (idx === -1) {
-      idx = COMP_LEVELS.reduce((best,v,i) =>
-        Math.abs(v-contract) < Math.abs(COMP_LEVELS[best]-contract) ? i : best, 0);
-    }
-    commPct = COMP.mutual_iule[idx];
-  }
-  return +(annual * commPct / 100 * 0.75).toFixed(2);
-};
-
-function _biUrgencyScore(days) {
-  if (days == null) return 0;
-  if (days <= 90)  return 100;
-  if (days <= 180) return 80;
-  if (days <= 365) return 60;
-  if (days <= 730) return 30;
-  return 0;
-}
-function _biRevenueScore(est, maxInBook) {
-  if (!maxInBook || maxInBook <= 0) return 0;
-  return Math.max(0, Math.min(100, (est / maxInBook) * 100));
-}
-function _biInsurabilityScore(policy) {
-  const conds = Array.isArray(policy.knownConditions) ? policy.knownConditions.filter(Boolean) : [];
-  if (conds.length > 0) return 100;
-  const age = policy.clientAge || _biAgeFromDob(policy.clientDob);
-  if (age && age >= 60) return 70;
-  return 20;
-}
-
-bookIntel.scorePolicy = function(policy, ctx) {
-  ctx = ctx || { maxCommission: 0 };
-  const deadline = bookIntel.computeDeadline(policy);
-  if (!deadline) return null;
-  const dl = _biParseDate(deadline);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const urgencyDays = Math.round((dl - today) / 86400000);
-  if (urgencyDays < 0) return null;
-  const estCommission = bookIntel.estCommission(policy);
-  const urgencyScore = _biUrgencyScore(urgencyDays);
-  const revenueScore = _biRevenueScore(estCommission, ctx.maxCommission);
-  const insurabilityScore = _biInsurabilityScore(policy);
-  const priority = +((urgencyScore * 0.5) + (revenueScore * 0.3) + (insurabilityScore * 0.2)).toFixed(1);
-  const evidence = {
-    deadline, urgencyDays, estCommission,
-    urgencyScore, revenueScore, insurabilityScore,
-    clientAge: policy.clientAge || _biAgeFromDob(policy.clientDob),
-    productType: policy.productType,
-    termLengthYears: policy.termLengthYears,
-    issueDate: policy.issueDate,
-    carrier: policy.carrier,
-    faceAmount: policy.faceAmount || policy.cov,
-    hasConditions: !!(policy.knownConditions && policy.knownConditions.length),
-  };
-  return { priority, urgencyDays, estCommission, evidence, conversionDeadline: deadline };
-};
-
-bookIntel.scoreAll = async function() {
-  if (!Array.isArray(policies)) return;
-  // Pass 0 — apply smart inference to fill in obvious fields the agent never
-  // bothered to set explicitly (product type from product name, issueDate
-  // from legacy draft date, clientDob from a matching lead record, etc.).
-  // Inference is non-destructive: never overwrites a field the agent set.
-  policies.forEach(p => {
-    const applied = bookIntel.applyInference(p);
-    if (applied.length) {
-      p.bookIntelInferred = (p.bookIntelInferred || []).concat(applied.filter(f => !(p.bookIntelInferred||[]).includes(f)));
-    }
-  });
-  // Pass 0.5 — auto follow-up cadence (#4). Anything AWAITING_RESPONSE for
-  // more than 14 days with no human input gets auto-marked STALLED so it
-  // stops cluttering the Open feed. Agent can manually reopen any time.
-  const today = new Date(); today.setHours(0,0,0,0);
-  const STALL_DAYS = 14;
-  policies.forEach(p => {
-    const o = p.opportunity;
-    if (!o || o.status !== 'AWAITING_RESPONSE' || !o.awaitingSince) return;
-    const since = _biParseDate(o.awaitingSince);
-    if (!since) return;
-    const daysSince = Math.round((today - since) / 86400000);
-    if (daysSince >= STALL_DAYS) {
-      o.status = 'STALLED';
-      o.stalledAt = _biFmtDate(today);
-    }
-  });
-  let maxComm = 0;
-  const interim = [];
-  policies.forEach(p => {
-    const deadline = bookIntel.computeDeadline(p);
-    if (!deadline) { interim.push(null); return; }
-    const est = bookIntel.estCommission(p);
-    if (est > maxComm) maxComm = est;
-    interim.push({ deadline, est });
-  });
-  const writes = [];
-  for (let i = 0; i < policies.length; i++) {
-    const p = policies[i];
-    const im = interim[i];
-    if (!im) {
-      if (p.opportunity && (p.opportunity.status === 'OPEN' || p.opportunity.status === 'SNOOZED')) {
-        delete p.opportunity;
-        delete p.conversionDeadline;
-        writes.push(p);
-      }
-      continue;
-    }
-    const score = bookIntel.scorePolicy(p, { maxCommission: maxComm });
-    if (!score) continue;
-    const prevStatus = p.opportunity && p.opportunity.status;
-    const keepStatus = (prevStatus && prevStatus !== 'OPEN') ? prevStatus : 'OPEN';
-    p.conversionDeadline = score.conversionDeadline;
-    p.opportunity = {
-      type: 'TERM_CONVERSION',
-      priority: score.priority,
-      estCommission: score.estCommission,
-      urgencyDays: score.urgencyDays,
-      whyNow: bookIntel.whyNowString(p, score.evidence),
-      evidence: score.evidence,
-      status: keepStatus,
-      snoozedUntil: (p.opportunity && p.opportunity.snoozedUntil) || null,
-      dismissedReason: (p.opportunity && p.opportunity.dismissedReason) || null,
-      closedOutcome: (p.opportunity && p.opportunity.closedOutcome) || null,
-      lastScoredAt: new Date().toISOString(),
-    };
-    writes.push(p);
-  }
-  for (const p of writes) {
-    try { await sbUpsertPolicy(p); } catch(e) { /* swallow; localStorage keeps state */ }
-  }
-  localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
-};
-
-bookIntel.whyNowString = function(policy, evidence) {
-  const days = evidence.urgencyDays;
-  const term = policy.termLengthYears || '?';
-  const issueYear = policy.issueDate ? policy.issueDate.slice(0, 4) : 'unknown year';
-  const age = evidence.clientAge;
-  const hasConds = evidence.hasConditions;
-  const carrier = policy.carrier || 'the carrier';
-  let urgency;
-  if (days <= 90)       urgency = `Conversion privilege expires in ${days} days.`;
-  else if (days <= 180) urgency = `Conversion window closes in roughly ${Math.round(days/30)} months.`;
-  else if (days <= 365) urgency = `Conversion window closes within the year (${days} days out).`;
-  else                  urgency = `Conversion window closes in ${Math.round(days/30)} months — early-warning.`;
-  const ageStr = age ? `Client is ${age}` : 'Client age unknown';
-  const insurability = hasConds
-    ? `${ageStr} and has at least one logged health change — may be hard to re-underwrite for new coverage.`
-    : (age && age >= 60)
-      ? `${ageStr}; converting now locks in lifelong protection at current health class.`
-      : `${ageStr}.`;
-  return `Term-${term} ${carrier} policy issued ${issueYear}. ${urgency} ${insurability}`;
-};
-
-// ---- Smart inference (Phase 1 polish — automation #1) ---------
-// Parses free-form product names like "Term 20", "20yr Term", "OPTerm 15",
-// "Lincoln LifeElements 20", "Whole Life", "IULE" and infers what we can.
-// Pulls clientDob from a matching lead record when policy was sold from a lead.
-// Returns an object of inferred non-null fields only — caller merges where
-// the policy doesn't already have a value (never overwrites agent input).
-bookIntel.inferFromPolicy = function(policy) {
-  const out = {};
-  const name = String((policy && (policy.productName || policy.product)) || '').trim();
-  const lower = name.toLowerCase();
-  // Product type — order matters: more specific patterns first.
-  if (!policy.productType) {
-    if (/\biule\b|\biul\b|indexed[- ]?ul|indexed universal/i.test(name)) out.productType = 'IUL';
-    else if (/\bvul\b|variable universal/i.test(name))                   out.productType = 'VUL';
-    else if (/\bgul\b|guaranteed universal/i.test(name))                 out.productType = 'GUL';
-    else if (/universal life|\bul\b/i.test(name))                        out.productType = 'UL';
-    else if (/whole life|\bwl\b/i.test(name))                            out.productType = 'WL';
-    else if (/term/i.test(lower) || /\bopterm\b/i.test(lower))           out.productType = 'TERM';
-  }
-  // Term length — only when product is TERM (or just inferred to be).
-  const isTerm = (out.productType === 'TERM') || (policy.productType === 'TERM');
-  if (!policy.termLengthYears && isTerm) {
-    // Prefer numbers near the word "term" or attached to "yr"/"year".
-    let m = name.match(/\b(?:term[-\s]*|)(10|15|20|25|30)\s*(?:yr|year)?\b/i)
-         || name.match(/\b(10|15|20|25|30)[-\s]*y(?:r|ear)?\b/i)
-         || name.match(/\bterm[-\s]+(10|15|20|25|30)\b/i)
-         || name.match(/\bopterm\s*(10|15|20|25|30)\b/i);
-    if (m) out.termLengthYears = parseInt(m[1] || m[2], 10);
-  }
-  // issueDate fallback — legacy policies stored the date the agent recorded the
-  // sale as `draft`. For BI scoring that's a close-enough proxy for issue date.
-  // (Carriers can issue weeks before first draft; agents can override in the
-  // setup modal if they have the exact date.)
-  if (!policy.issueDate && policy.draft && /^\d{4}-\d{2}-\d{2}$/.test(policy.draft)) {
-    out.issueDate = policy.draft;
-  }
-  // clientDob — if the policy was sold from a lead, pull DOB off the lead.
-  // The leads array is in-memory after sign-in (see bootDashboard).
-  if (!policy.clientDob && Array.isArray(window.leads) && window.leads.length) {
-    let lead = null;
-    if (policy.soldLeadId) {
-      lead = window.leads.find(l => String(l.id) === String(policy.soldLeadId));
-    }
-    if (!lead && policy.client) {
-      lead = window.leads.find(l => l.name && l.name.toLowerCase().trim() === policy.client.toLowerCase().trim());
-    }
-    if (lead && lead.dob) {
-      // Normalize MM/DD/YYYY (lead format) → YYYY-MM-DD (BI format).
-      const d = _biParseDate(lead.dob);
-      if (d) out.clientDob = _biFmtDate(d);
-    }
-  }
-  // faceAmount fallback — legacy `cov` field.
-  if (!policy.faceAmount && policy.cov) out.faceAmount = +policy.cov;
-  return out;
-};
-
-// Apply inferred fields to the policy WHERE the policy is currently missing
-// them. Never overwrites agent-provided values. Returns the list of fields
-// that were filled, so the UI can show what was auto-applied.
-bookIntel.applyInference = function(policy) {
-  const inferred = bookIntel.inferFromPolicy(policy);
-  const applied = [];
-  for (const k in inferred) {
-    if (inferred[k] != null && policy[k] == null) {
-      policy[k] = inferred[k];
-      applied.push(k);
-    }
-  }
-  // Derive clientAge from clientDob if we just filled it in.
-  if (applied.includes('clientDob') && !policy.clientAge) {
-    policy.clientAge = _biAgeFromDob(policy.clientDob);
-  }
-  return applied;
-};
-
-bookIntel.draftOutreach = function(policy) {
-  const opp = policy.opportunity || {};
-  const days = opp.urgencyDays;
-  const first = (policy.client || '').split(/\s+/)[0] || 'there';
-  const carrier = policy.carrier || 'your carrier';
-  const term = policy.termLengthYears || '';
-  const face = policy.faceAmount || policy.cov;
-  const faceStr = face ? `$${Number(face).toLocaleString('en-US')}` : '';
-  const agentName = (currentAgent && currentAgent.user_metadata && currentAgent.user_metadata.full_name) || 'your agent';
-  const summary = `Term-${term} ${carrier}${faceStr ? ' · ' + faceStr + ' face' : ''}`;
-  let tone;
-  if (days <= 90)       tone = 'urgent';
-  else if (days <= 365) tone = 'review';
-  else                  tone = 'early';
-  const dayStr = days <= 30 ? `in the next few weeks` : days <= 90 ? `in the next ${days} days` : days <= 365 ? `later this year` : `in ${Math.round(days/30)} months`;
-  const email = (tone === 'urgent'
-    ? `Hi ${first},\n\nI was doing a quarterly review of your coverage and noticed something important about your ${summary}: the conversion privilege on it closes ${dayStr}. After that window, switching to permanent coverage requires fresh medical underwriting — which is something we ideally never want to leave to chance.\n\nIt's a quick conversation. Could we grab 15 minutes this week to walk through your options? I want to make sure you have the chance to decide on your own timeline, not the carrier's.\n\nTalk soon,\n${agentName}`
-    : tone === 'review'
-    ? `Hi ${first},\n\nIt's time for a quick check-in on your ${summary}. There's a feature on the policy — the conversion privilege — that closes ${dayStr}, and I want to make sure we use it (or actively choose not to) before it expires.\n\nNo pressure either way — sometimes the right call is to do nothing. But it's worth 15 minutes to look at the math together. Let me know what works.\n\nBest,\n${agentName}`
-    : `Hi ${first},\n\nI'm doing some early planning on policies where the conversion privilege will close within the next year or two — yours is one of them (${summary}). Plenty of time, but I wanted to put it on your radar now so we can build a plan rather than scramble.\n\nWhen you have a few minutes, let me know a good time to chat.\n\n${agentName}`);
-  const script = (tone === 'urgent'
-    ? `1. "I was reviewing your file and your ${summary} has a conversion window closing ${dayStr}."\n2. "After that, any permanent coverage means new underwriting. I'd rather we use the window than lose it."\n3. "Can I grab 15 minutes this week to walk you through what conversion would look like?"`
-    : tone === 'review'
-    ? `1. "Quick check-in — your ${summary} has a built-in conversion privilege that closes ${dayStr}."\n2. "Worth 15 minutes to look at whether converting makes sense or whether we wait."\n3. "Doing nothing is a valid answer; I just don't want it to happen by accident."`
-    : `1. "Early heads-up: your ${summary} has a conversion option that closes in roughly ${Math.round(days/30)} months."\n2. "We've got time, but I wanted to put it on your radar so we can plan instead of scramble."\n3. "When you have a few minutes in the next month or so, let's grab a coffee/call to map it out."`);
-  const subject = tone === 'urgent'
-    ? `Quick coverage question, ${first} — time-sensitive`
-    : tone === 'review'
-    ? `Coverage check-in, ${first}`
-    : `Heads-up on your policy`;
-  return { subject, email, script };
-};
-
-function renderBookIntel() {
-  if (!Array.isArray(policies)) policies = [];
-  // Version-bump detection — if scoring logic changed since the last time
-  // this agent loaded BI, blow out cached opportunity fields so scoreAll
-  // recomputes from scratch. Prevents stale shapes lingering on disk.
-  try {
-    const lastSeen = localStorage.getItem(k('bi_version'));
-    if (lastSeen !== BI_VERSION) {
-      policies.forEach(p => {
-        if (p.opportunity) {
-          // Preserve human-decided statuses, drop scoring fields.
-          const keep = ['status','snoozedUntil','dismissedReason','closedOutcome','closedAt','awaitingSince','followUpAt','followUpsSent','stalledAt','notes'];
-          const fresh = {};
-          for (const k2 of keep) if (p.opportunity[k2] != null) fresh[k2] = p.opportunity[k2];
-          p.opportunity = Object.keys(fresh).length ? fresh : null;
-        }
-      });
-      localStorage.setItem(k('bi_version'), BI_VERSION);
-    }
-  } catch (e) { console.warn('[bookIntel] version check failed', e); }
-  bookIntel.scoreAll().then(() => {
-    biRenderSetupStrip();
-    biRenderCards();
-    biRenderTotals();
-  }).catch(e => {
-    console.error('[bookIntel] scoreAll failed', e);
-    biRenderSetupStrip();
-    biRenderCards();
-    biRenderTotals();
-  });
-  // Sync the digest toggle with the agent's current preference. Failures
-  // here are non-fatal — the rest of the radar still works.
-  biSyncDigestToggle().catch(() => {});
-}
-
-async function biSyncDigestToggle() {
-  const cb = document.getElementById('bi-digest-toggle');
-  if (!cb || typeof sbLoadDigestPref !== 'function') return;
-  const pref = await sbLoadDigestPref();
-  cb.checked = !!(pref && pref.digest_enabled);
-  // Aggressive-estimate toggle lives in localStorage (no server pref).
-  const ag = document.getElementById('bi-aggressive-toggle');
-  if (ag) ag.checked = localStorage.getItem('bi_estimate_mode') === 'aggressive';
-}
-
-function biToggleAggressive(el) {
-  localStorage.setItem('bi_estimate_mode', el.checked ? 'aggressive' : 'conservative');
-  biRescore();   // immediately re-score so the new estimates show on cards
-}
-
-async function biToggleDigest(el) {
-  const enabled = !!el.checked;
-  // Optimistic — revert on failure.
-  const { error } = await sbSaveDigestPref(enabled);
-  if (error) {
-    el.checked = !enabled;
-    alert('Could not save digest preference: ' + error.message);
-    return;
-  }
-  showToast(enabled ? 'Daily brief on. First send tomorrow morning.' : 'Daily brief off.', enabled ? '#10b981' : '#94a3b8');
-}
-
-async function biRescore() {
-  await bookIntel.scoreAll();
-  biRenderSetupStrip();
-  biRenderCards();
-  biRenderTotals();
-  showToast('Book re-scored.', '#3b82f6');
-}
-
-function biFilter(mode, el) {
-  biFilterMode = mode;
-  document.querySelectorAll('#bi-filters .tab').forEach(t => t.classList.remove('active'));
-  if (el) el.classList.add('active');
-  biRenderCards();
-}
-
-function biPolicyNeedsSetup(p) {
-  return !p.productType || !p.issueDate || (p.productType === 'TERM' && !p.termLengthYears) || !p.clientDob;
-}
-
-// Returns the set of carrier+termLength combos that have all required policy
-// fields populated but no carrier conversion rule on file (so the deadline
-// can't be computed). These are the "parked" policies we used to silently
-// drop — now we surface them as their own group.
-function _biCarriersNeedingRules() {
-  const groups = new Map();
-  policies.forEach(p => {
-    if (p.productType !== 'TERM') return;
-    if (!p.issueDate || !p.termLengthYears || !p.clientDob) return; // those go in Needs-Setup
-    if (typeof getConversionRule !== 'function') return;
-    const rule = getConversionRule(p.carrier, p.termLengthYears);
-    if (rule) return;
-    const k2 = `${p.carrier || 'Unknown'}|${p.termLengthYears}`;
-    if (!groups.has(k2)) groups.set(k2, { carrier: p.carrier || 'Unknown', termLength: p.termLengthYears, policies: [] });
-    groups.get(k2).policies.push(p);
-  });
-  return Array.from(groups.values());
-}
-
-function biRenderSetupStrip() {
-  const strip = document.getElementById('bi-setup-strip');
-  const list = document.getElementById('bi-setup-list');
-  const title = document.getElementById('bi-setup-title');
-  if (!strip || !list) return;
-  const needs = policies.filter(biPolicyNeedsSetup);
-  const carrierGroups = _biCarriersNeedingRules();
-  if (!needs.length && !carrierGroups.length) { strip.style.display = 'none'; return; }
-  strip.style.display = 'block';
-  const totalCount = needs.length + carrierGroups.reduce((s, g) => s + g.policies.length, 0);
-  title.textContent = `${totalCount} polic${totalCount===1?'y':'ies'} need setup`;
-  const needsHtml = needs.slice(0, 12).map(p => {
-    const missing = [];
-    if (!p.productType) missing.push('product type');
-    if (!p.issueDate) missing.push('issue date');
-    if (p.productType === 'TERM' && !p.termLengthYears) missing.push('term length');
-    if (!p.clientDob) missing.push('client DOB');
-    return `<div class="bi-setup-row">
-      <div>
-        <div style="font-weight:600">${escapeHTML(p.client || 'Unknown client')}</div>
-        <div class="bi-setup-meta">${escapeHTML(p.carrier || '')} · Missing: ${missing.join(', ')}</div>
-      </div>
-      <button class="btn btn-p btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biOpenSetupModal(this)">Complete</button>
-    </div>`;
-  }).join('') + (needs.length > 12 ? `<div class="bi-setup-meta" style="text-align:center;margin-top:8px">+ ${needs.length-12} more.</div>` : '');
-  // Carrier-without-rule subgroup. One row per (carrier + term length).
-  const carrierHtml = carrierGroups.map(g => {
-    const cKey = String(g.carrier).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    return `<div class="bi-setup-row" style="flex-direction:column;align-items:stretch;gap:8px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div>
-          <div style="font-weight:600">${escapeHTML(g.carrier)} · Term-${g.termLength}</div>
-          <div class="bi-setup-meta">${g.policies.length} polic${g.policies.length===1?'y':'ies'} parked — no conversion rule on file</div>
-        </div>
-        <button class="btn btn-s btn-sm" onclick="biToggleCarrierForm('${escapeHTML(cKey)}_${g.termLength}')" id="bi-cf-toggle-${escapeHTML(cKey)}_${g.termLength}">Add rule</button>
-      </div>
-      <div class="bi-carrier-rule-form" id="bi-cf-${escapeHTML(cKey)}_${g.termLength}" style="display:none">
-        <div class="frow" style="gap:8px">
-          <div class="fg" style="flex:1"><label style="font-size:11px">Full-conversion until year</label><input type="number" id="bi-cf-full-${escapeHTML(cKey)}_${g.termLength}" placeholder="e.g. 10" min="1" max="30"></div>
-          <div class="fg" style="flex:1"><label style="font-size:11px">Limited until client age</label><input type="number" id="bi-cf-age-${escapeHTML(cKey)}_${g.termLength}" placeholder="e.g. 70" min="40" max="100"></div>
-          <button class="btn btn-g btn-sm" style="align-self:end" data-carrier="${escapeHTML(g.carrier)}" data-term="${g.termLength}" data-fkey="${escapeHTML(cKey)}_${g.termLength}" onclick="biSaveCarrierRule(this.dataset.carrier, parseInt(this.dataset.term,10), this.dataset.fkey)">Save &amp; Re-score</button>
-        </div>
-        <div style="font-size:10.5px;color:var(--text3);margin-top:4px">Saved locally on this device. Pulls from your conversion endorsement summary — when in doubt, the carrier rep can confirm in 30 seconds.</div>
-      </div>
-    </div>`;
-  }).join('');
-  // Stitch the two groups. Header separates them visually.
-  list.innerHTML =
-    (needs.length ? `<div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:6px 0 4px">Missing policy fields</div>` + needsHtml : '') +
-    (carrierGroups.length ? `<div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin:${needs.length?'14px':'6px'} 0 4px">Carriers without conversion rules</div>` + carrierHtml : '');
-}
-
-function biToggleCarrierForm(formKey) {
-  const form = document.getElementById('bi-cf-' + formKey);
-  const toggle = document.getElementById('bi-cf-toggle-' + formKey);
-  if (!form) return;
-  const open = form.style.display === 'none';
-  form.style.display = open ? 'block' : 'none';
-  if (toggle) toggle.textContent = open ? 'Cancel' : 'Add rule';
-}
-
-function biSaveCarrierRule(carrier, termLength, formKey) {
-  const fullEl = document.getElementById('bi-cf-full-' + formKey);
-  const ageEl = document.getElementById('bi-cf-age-' + formKey);
-  const full = fullEl ? parseInt(fullEl.value, 10) : NaN;
-  const age = ageEl ? parseInt(ageEl.value, 10) : NaN;
-  if (!full || isNaN(full)) { showToast('Enter the full-conversion year (e.g. 10).', '#f87171'); return; }
-  let overrides;
-  try { overrides = JSON.parse(localStorage.getItem('bi_carrier_overrides') || '{}'); }
-  catch (e) { overrides = {}; }
-  const ckey = String(carrier).toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-  if (!overrides[ckey]) overrides[ckey] = {};
-  const rule = { fullUntilYear: full };
-  if (age && !isNaN(age)) rule.limitedUntilAge = age;
-  overrides[ckey]['TERM_' + termLength] = rule;
-  localStorage.setItem('bi_carrier_overrides', JSON.stringify(overrides));
-  showToast(`Rule saved for ${carrier} Term-${termLength}. Re-scoring…`, '#10b981');
-  biRescore();
-}
-
-let biSetupPolicyId = null;
-function biOpenSetupModal(btn) {
-  console.log('[bookIntel] biOpenSetupModal clicked', btn && btn.dataset);
-  if (!btn || !btn.dataset || !btn.dataset.pid) {
-    showToast('Setup row is missing its policy id. Try hard-refreshing.', '#f87171');
-    console.error('[bookIntel] setup button missing data-pid', btn);
-    return;
-  }
-  const pid = btn.dataset.pid;
-  const p = policies.find(x => String(x.id) === String(pid));
-  if (!p) {
-    showToast('Policy not in memory (id ' + pid + '). Reload the page to re-sync.', '#f87171');
-    console.error('[bookIntel] no policy with id', pid, 'in policies of length', policies.length);
-    return;
-  }
-  biSetupPolicyId = p.id;
-  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; else console.warn('[bookIntel] missing field', id); };
-  const titleEl = document.getElementById('bi-setup-modal-title');
-  if (titleEl) titleEl.textContent = `Complete: ${p.client || 'Policy'}`;
-  set('bi-setup-productType',     p.productType || '');
-  set('bi-setup-termLengthYears', p.termLengthYears || '');
-  set('bi-setup-issueDate',       p.issueDate || '');
-  set('bi-setup-clientDob',       p.clientDob || '');
-  set('bi-setup-faceAmount',      p.faceAmount || p.cov || '');
-  set('bi-setup-ratingClass',     p.ratingClass || '');
-  const modal = document.getElementById('biSetupModal');
-  if (!modal) {
-    showToast('Setup modal HTML missing. Hard-refresh.', '#f87171');
-    console.error('[bookIntel] #biSetupModal not in DOM');
-    return;
-  }
-  modal.classList.add('open');
-}
-function biCloseSetupModal() {
-  const m = document.getElementById('biSetupModal');
-  if (m) m.classList.remove('open');
-  biSetupPolicyId = null;
-}
-async function biSaveSetup() {
-  console.log('[bookIntel] biSaveSetup, pid =', biSetupPolicyId);
-  if (!biSetupPolicyId) { showToast('No policy selected. Reopen the setup row.', '#f87171'); return; }
-  const p = policies.find(x => String(x.id) === String(biSetupPolicyId));
-  if (!p) { showToast('Policy disappeared from memory before save.', '#f87171'); biCloseSetupModal(); return; }
-  const val = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
-  const productType     = val('bi-setup-productType') || null;
-  const termLengthYears = val('bi-setup-termLengthYears');
-  const issueDate       = val('bi-setup-issueDate') || null;
-  const clientDob       = val('bi-setup-clientDob') || null;
-  const faceAmountRaw   = val('bi-setup-faceAmount');
-  const ratingClass     = val('bi-setup-ratingClass') || null;
-  p.productType = productType;
-  p.termLengthYears = termLengthYears ? parseInt(termLengthYears, 10) : null;
-  p.issueDate = issueDate;
-  p.clientDob = clientDob;
-  if (faceAmountRaw) p.faceAmount = parseInt(faceAmountRaw, 10);
-  p.ratingClass = ratingClass;
-  if (clientDob) p.clientAge = _biAgeFromDob(clientDob);
-  try {
-    const { error } = await sbUpsertPolicy(p);
-    if (error) {
-      showToast('Save failed: ' + (error.message || error), '#f87171');
-      console.error('[bookIntel] sbUpsertPolicy error', error);
-      return;
-    }
-  } catch (e) {
-    showToast('Supabase upsert threw: ' + (e.message || e), '#f87171');
-    console.error('[bookIntel] sbUpsertPolicy threw', e);
-    return;
-  }
-  localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
-  biCloseSetupModal();
-  try {
-    await bookIntel.scoreAll();
-  } catch (e) {
-    console.error('[bookIntel] scoreAll threw', e);
-    showToast('Saved, but re-score failed: ' + (e.message || e), '#fbbf24');
-  }
-  biRenderSetupStrip();
-  biRenderCards();
-  biRenderTotals();
-  showToast('Policy details saved. Re-scored.', '#10b981');
-}
-
-function _biUrgencyClass(days) {
-  if (days == null) return 'urg-ok';
-  if (days <= 90)  return 'urg-critical';
-  if (days <= 365) return 'urg-soon';
-  return 'urg-ok';
-}
-function _biUrgencyLabel(days) {
-  if (days == null) return '';
-  if (days <= 90)  return 'Critical';
-  if (days <= 365) return 'Soon';
-  return 'Watch';
-}
-
-function _biFilterPolicies() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  return policies.filter(p => {
-    const opp = p.opportunity;
-    if (!opp) return false;
-    // Dedicated filter modes show ONLY that status.
-    if (biFilterMode === 'snoozed')    return opp.status === 'SNOOZED';
-    if (biFilterMode === 'dismissed')  return opp.status === 'DISMISSED';
-    if (biFilterMode === 'won')        return opp.status === 'CLOSED_WON';
-    if (biFilterMode === 'stalled')    return opp.status === 'STALLED';
-    if (biFilterMode === 'followup') {
-      if (opp.status !== 'AWAITING_RESPONSE') return false;
-      const due = _biParseDate(opp.followUpAt);
-      return !due || due <= today;
-    }
-    // Default & urgency filters hide closed/dismissed/stalled and sleeping cards.
-    if (opp.status === 'DISMISSED' || opp.status === 'CLOSED_WON' || opp.status === 'CLOSED_LOST' || opp.status === 'STALLED') return false;
-    if (opp.status === 'SNOOZED') {
-      const until = _biParseDate(opp.snoozedUntil);
-      if (until && until > today) return false;
-    }
-    if (opp.status === 'AWAITING_RESPONSE') {
-      // Hide while follow-up clock is still ticking — re-surface when due.
-      const due = _biParseDate(opp.followUpAt);
-      if (due && due > today) return false;
-    }
-    if (biFilterMode === 'critical') return opp.urgencyDays <= 90;
-    if (biFilterMode === 'year')     return opp.urgencyDays <= 365;
-    return true;
-  });
-}
-
-function biRenderCards() {
-  const list = document.getElementById('bi-card-list');
-  const empty = document.getElementById('bi-empty');
-  const emptyMsg = document.getElementById('bi-empty-msg');
-  if (!list || !empty) return;
-  const filtered = _biFilterPolicies().sort((a,b) =>
-    (b.opportunity.priority||0) - (a.opportunity.priority||0));
-  if (!filtered.length) {
-    list.innerHTML = '';
-    empty.style.display = 'block';
-    emptyMsg.textContent =
-      biFilterMode === 'snoozed' ? 'No snoozed opportunities.'
-      : biFilterMode === 'dismissed' ? 'No dismissed opportunities.'
-      : biFilterMode === 'won' ? 'No wins logged yet. Mark a conversation as Closed-Won to track here.'
-      : (!policies.length)
-        ? 'No policies in your book yet. Import a CSV above to get started.'
-        : 'No conversion windows open for the current filter. Try a wider range or check Needs Setup.';
-    return;
-  }
-  empty.style.display = 'none';
-  list.innerHTML = filtered.map(p => {
-    const o = p.opportunity;
-    const cls = _biUrgencyClass(o.urgencyDays);
-    const tag = _biUrgencyLabel(o.urgencyDays);
-    const face = (p.faceAmount || p.cov);
-    const faceStr = face ? `$${Number(face).toLocaleString('en-US')}` : '';
-    const ageVal = p.clientAge || _biAgeFromDob(p.clientDob);
-    const ageStr = ageVal ? `, ${ageVal}` : '';
-    const meta = `Term-${escapeHTML(String(p.termLengthYears||'?'))} · ${escapeHTML(p.carrier||'')}${faceStr?' · '+faceStr:''} · Issued ${escapeHTML((p.issueDate||'').slice(0,4))}`;
-    const today0 = new Date(); today0.setHours(0,0,0,0);
-    const stillSnoozed = o.status === 'SNOOZED' && o.snoozedUntil && _biParseDate(o.snoozedUntil) > today0;
-    const followUpDue = o.status === 'AWAITING_RESPONSE' && o.followUpAt && _biParseDate(o.followUpAt) <= today0;
-    const statusBadge = o.status === 'AWAITING_RESPONSE'
-        ? (followUpDue
-            ? `<span class="bi-tag" style="background:rgba(251,191,36,.15);color:var(--ds-color-warning);border:1px solid rgba(251,191,36,.3)">Follow-up due</span>`
-            : `<span class="bi-tag" style="background:rgba(96,165,250,.15);color:var(--ds-color-info);border:1px solid rgba(96,165,250,.3)">Awaiting reply</span>`)
-      : o.status === 'SNOOZED' ? `<span class="bi-tag" style="background:rgba(96,165,250,.15);color:var(--ds-color-info);border:1px solid rgba(96,165,250,.3)">Snoozed</span>`
-      : o.status === 'STALLED' ? `<span class="bi-tag" style="background:rgba(148,163,184,.15);color:#94a3b8;border:1px solid rgba(148,163,184,.3)">Stalled</span>`
-      : o.status === 'DISMISSED' ? `<span class="bi-tag" style="background:rgba(148,163,184,.15);color:#94a3b8;border:1px solid rgba(148,163,184,.3)">Dismissed</span>`
-      : o.status === 'CLOSED_WON' ? `<span class="bi-tag" style="background:rgba(52,211,153,.15);color:var(--ds-color-success);border:1px solid rgba(52,211,153,.3)">Won</span>`
-      : `<span class="bi-tag">${tag}</span>`;
-    let actions;
-    if (o.status === 'AWAITING_RESPONSE') {
-      const sentCount = o.followUpsSent || 1;
-      const meta = o.awaitingSince ? ` · sent ${sentCount}× since ${o.awaitingSince}` : '';
-      actions = `<button class="btn btn-g btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biGotResponse(this)">Got a response</button>
-         <button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biBumpFollowUp(this)">Sent again (+4d)</button>
-         <button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biStall(this)">Stall it</button>
-         <span style="font-size:11px;color:var(--text3);align-self:center;margin-left:6px">${meta}</span>`;
-    } else if (o.status === 'STALLED') {
-      actions = `<button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biReopen(this)">Reopen — try again</button>
-         <button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biDismiss(this)">Dismiss permanently</button>`;
-    } else if (o.status === 'OPEN' || (o.status === 'SNOOZED' && !stillSnoozed)) {
-      // Click-to-call is the lowest-friction outreach action and trumps the
-      // drafted email when the agent's already at their desk with the phone.
-      const callBtn = p.phone
-        ? `<a class="btn btn-s btn-sm" href="tel:${escapeHTML(p.phone)}" data-pid="${escapeHTML(String(p.id))}" onclick="biLogCall(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none"><span data-ico="phone" data-size="13"></span>Call</a>`
-        : '';
-      actions = `<button class="btn btn-p btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biOpenDrawer(this)">Start Conversation</button>
-         ${callBtn}
-         <button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biSnooze(this)">Snooze 7d</button>
-         <button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biDismiss(this)">Dismiss</button>`;
-    } else if (o.status === 'SNOOZED') {
-      actions = `<button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biReopen(this)">Reopen now</button>`;
-    } else if (o.status === 'DISMISSED') {
-      actions = `<button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biReopen(this)">Restore to feed</button>`;
-    } else {
-      actions = '';
-    }
-    // Edit affordance — always present (bug #3). Subtle ⋯ button in the top
-    // right of the card opens biOpenSetupModal pre-filled with all known
-    // fields so the agent can correct typos without leaving BI.
-    const editBtn = `<button class="bi-edit-btn" data-pid="${escapeHTML(String(p.id))}" onclick="biOpenSetupModal(this)" title="Edit policy details">⋯</button>`;
-    const isSelected = biSelectedPids.has(String(p.id));
-    // Bulk-select checkbox (workflow #7). Stops propagation so click doesn't
-    // bubble to any card-level handlers.
-    const checkbox = `<input type="checkbox" class="bi-check" data-pid="${escapeHTML(String(p.id))}" ${isSelected?'checked':''} onclick="event.stopPropagation();biBulkToggle(this)">`;
-    return `<div class="bi-card ${cls}" style="position:relative">
-      ${checkbox}
-      ${editBtn}
-      <div class="bi-dot"></div>
-      <div class="bi-body">
-        <div class="bi-line1">${statusBadge}<span>${escapeHTML(p.client || 'Unknown')}</span>${ageStr ? `<span style="color:var(--text3);font-weight:500">${escapeHTML(ageStr)}</span>` : ''}</div>
-        <div class="bi-meta">${meta}</div>
-        <div class="bi-why">${escapeHTML(o.whyNow || '')}</div>
-        <div class="bi-comm">Est. first-year advance: <strong>$${Number(o.estCommission||0).toLocaleString('en-US',{maximumFractionDigits:0})}</strong> · Priority ${o.priority}</div>
-        <div class="bi-actions">${actions}</div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// Workflow #6 — inline conversion calculator. Computes current term premium
-// (annualized from the policy's monthly) vs. recommended IUL premium (using
-// the existing quoteIUL engine), then the year-1 delta the agent should
-// frame the conversation around. Also lists the carrier's allowed target
-// products from the rule table (workflow #10).
-function biRenderConversionCalc(policy) {
-  if (!policy || policy.productType !== 'TERM') return '';
-  const face = policy.faceAmount || policy.cov;
-  const age = policy.clientAge || _biAgeFromDob(policy.clientDob);
-  if (!face || !age) return '';
-  // Current term annual premium — prefer the policy's recorded annual,
-  // fall back to monthly × 12, last resort skip the section.
-  let currentAnnual = Number(policy.ap || 0);
-  if (!currentAnnual && policy.monthly) currentAnnual = +(Number(policy.monthly) * 12).toFixed(2);
-  // Recommended IUL annual — use existing quoteIUL for the lowest eligible.
-  let recIULAnnual = 0;
-  try {
-    if (typeof quoteIUL === 'function') {
-      const res = quoteIUL({
-        age, gender: 'M', coverage: face,
-        health: (policy.ratingClass && /preferred/i.test(policy.ratingClass)) ? 'preferred'
-              : (policy.ratingClass && /substandard|table/i.test(policy.ratingClass)) ? 'substandard'
-              : 'standard',
-        contractLevel: (typeof getContract === 'function') ? getContract() : 100,
-      });
-      const eligible = (res.results || []).filter(r => r.eligible);
-      if (eligible.length) recIULAnnual = eligible.reduce((min, r) => Math.min(min, r.annual), Infinity);
-    }
-  } catch (e) { /* fall through */ }
-  if (!recIULAnnual) return '';
-  const delta = recIULAnnual - currentAnnual;
-  // Allowed target products (workflow #10) for this carrier+term.
-  let targets = null;
-  if (typeof getConversionRule === 'function') {
-    const rule = getConversionRule(policy.carrier, policy.termLengthYears);
-    if (rule && Array.isArray(rule.allowedTargets) && rule.allowedTargets.length) targets = rule.allowedTargets;
-  }
-  const fmt = n => '$' + Math.round(n).toLocaleString('en-US');
-  return `<div class="bi-drawer-section">
-    <h4>Conversion math</h4>
-    <table class="bi-calc-table">
-      <tr><td>Current term annual premium</td><td class="bi-calc-num">${currentAnnual ? fmt(currentAnnual) : '<span style="color:var(--text3)">unknown</span>'}</td></tr>
-      <tr><td>Recommended converted premium (IUL)</td><td class="bi-calc-num">${fmt(recIULAnnual)}/yr</td></tr>
-      <tr><td>Year-1 increase if converted</td><td class="bi-calc-num" style="color:${delta>0?'#fbbf24':'#34d399'}">${delta>0?'+':''}${fmt(delta)}</td></tr>
-    </table>
-    ${targets ? `<div style="font-size:11.5px;color:var(--text2);margin-top:8px"><strong style="color:var(--text)">Eligible target products:</strong> ${escapeHTML(targets.join(' · '))}</div>` : ''}
-    <div style="font-size:10.5px;color:var(--text3);margin-top:6px">Illustration only — confirm with the carrier portal for an exact quote.</div>
-  </div>`;
-}
-
-// Workflow #1 — surfaces the same totals on the Summary tab so the agent
-// sees the radar's value the moment they open the app.
-function biRenderSummaryTile() {
-  if (!Array.isArray(policies)) return;
-  const today = new Date(); today.setHours(0,0,0,0);
-  let av = 0, open = 0, critical = 0, followup = 0, winsYtd = 0;
-  policies.forEach(p => {
-    const o = p.opportunity;
-    if (!o) return;
-    const stillSnoozed = o.status === 'SNOOZED' && o.snoozedUntil && _biParseDate(o.snoozedUntil) > today;
-    if (o.status === 'OPEN' || (o.status === 'SNOOZED' && !stillSnoozed)) {
-      av += Number(o.estCommission || 0);
-      open++;
-      if ((o.urgencyDays || Infinity) <= 90) critical++;
-    }
-    if (o.status === 'AWAITING_RESPONSE') {
-      const due = _biParseDate(o.followUpAt);
-      if (!due || due <= today) followup++;
-    }
-    if (o.status === 'CLOSED_WON') {
-      const ca = o.closedAt ? _biParseDate(o.closedAt) : null;
-      if (!ca || ca.getFullYear() === today.getFullYear()) winsYtd += Number(o.estCommission || 0);
-    }
-  });
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set('sum-bi-av',        '$' + Math.round(av).toLocaleString('en-US'));
-  set('sum-bi-open',      open);
-  set('sum-bi-critical',  critical);
-  set('sum-bi-followup',  followup);
-  set('sum-bi-wins',      '$' + Math.round(winsYtd).toLocaleString('en-US'));
-}
-
-function biRenderTotals() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  let av = 0, open = 0, critical = 0, winsCount = 0, winsCommissionYtd = 0;
-  policies.forEach(p => {
-    const o = p.opportunity;
-    if (!o) return;
-    const stillSnoozed = o.status === 'SNOOZED' && o.snoozedUntil && _biParseDate(o.snoozedUntil) > today;
-    if (o.status === 'OPEN' || (o.status === 'SNOOZED' && !stillSnoozed)) {
-      av += Number(o.estCommission || 0);
-      open++;
-      if ((o.urgencyDays || Infinity) <= 90) critical++;
-    }
-    if (o.status === 'CLOSED_WON') {
-      const ca = o.closedAt ? _biParseDate(o.closedAt) : null;
-      if (!ca || ca.getFullYear() === today.getFullYear()) {
-        winsCount++;
-        winsCommissionYtd += Number(o.estCommission || 0);
-      }
-    }
-  });
-  const setup = policies.filter(biPolicyNeedsSetup).length;
-  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-  set('bi-total-av', '$' + Math.round(av).toLocaleString('en-US'));
-  set('bi-total-open', open);
-  set('bi-total-critical', critical);
-  set('bi-total-setup', setup);
-  // Workflow #8 — show YTD wins as $ commission (not just count). That's
-  // the number the agent compounds emotionally over the year.
-  set('bi-total-wins', winsCount ? '$' + Math.round(winsCommissionYtd).toLocaleString('en-US') + ' (' + winsCount + ')' : '0');
-  // Workflow #9 — sidebar badge: count of critical + follow-up-due opps.
-  // Visible whether the agent is in BI tab or not.
-  biUpdateNavBadge();
-}
-
-// Sidebar nav badge — count = critical (<90d) open opps + follow-up-due
-// awaiting-response opps. Hidden when zero.
-function biUpdateNavBadge() {
-  const badge = document.getElementById('bi-nav-badge');
-  if (!badge || !Array.isArray(policies)) return;
-  const today = new Date(); today.setHours(0,0,0,0);
-  let count = 0;
-  policies.forEach(p => {
-    const o = p.opportunity;
-    if (!o) return;
-    if (o.status === 'OPEN' && (o.urgencyDays || Infinity) <= 90) count++;
-    else if (o.status === 'AWAITING_RESPONSE') {
-      const due = _biParseDate(o.followUpAt);
-      if (!due || due <= today) count++;
-    }
-  });
-  if (count > 0) {
-    badge.textContent = count > 99 ? '99+' : String(count);
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
-}
-
-// Workflow #8 — confetti burst on Closed-Won. 18 colored shards radiate
-// outward from a fixed point near the top of the viewport, then fade.
-function biCelebrateWin(policy) {
-  try {
-    const colors = ['#34d399','#60a5fa','#fbbf24','#f87171','#a78bfa','#22d3ee'];
-    const host = document.createElement('div');
-    host.className = 'bi-confetti-host';
-    document.body.appendChild(host);
-    for (let i = 0; i < 22; i++) {
-      const shard = document.createElement('i');
-      const angle = (i / 22) * Math.PI * 2;
-      const r = 220 + Math.random() * 80;
-      shard.style.background = colors[i % colors.length];
-      shard.style.setProperty('--dx', Math.cos(angle) * r + 'px');
-      shard.style.setProperty('--dy', Math.sin(angle) * r + 80 + 'px');   // drift down a touch
-      shard.style.setProperty('--rot', (Math.random() * 540 - 270) + 'deg');
-      shard.style.animationDelay = (Math.random() * 0.12) + 's';
-      host.appendChild(shard);
-    }
-    setTimeout(() => host.remove(), 1600);
-    // Brief title bar / tab-title pulse to register the win even if the
-    // agent isn't on the BI tab when biMarkWon was called.
-    const prevTitle = document.title;
-    document.title = `🎉 Won: ${(policy && policy.client) || 'policy'} — ${prevTitle}`;
-    setTimeout(() => { document.title = prevTitle; }, 4000);
-  } catch (e) { console.warn('[bookIntel] celebration failed', e); }
-}
-
-async function _biMutateOpp(pid, mutator) {
-  const p = policies.find(x => String(x.id) === String(pid));
-  if (!p || !p.opportunity) return;
-  mutator(p.opportunity);
-  const { error } = await sbUpsertPolicy(p);
-  if (error) { alert('Save failed: ' + error.message); return; }
-  localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
-  biRenderCards();
-  biRenderTotals();
-}
-async function biSnooze(btn) {
-  const pid = btn.dataset.pid;
-  const until = new Date(); until.setDate(until.getDate() + 7);
-  await _biMutateOpp(pid, o => { o.status = 'SNOOZED'; o.snoozedUntil = _biFmtDate(until); });
-  showToast('Snoozed for 7 days.', '#60a5fa');
-}
-async function biDismiss(btn) {
-  const pid = btn.dataset.pid;
-  // Capture previous state for the undo path.
-  const p = policies.find(x => String(x.id) === String(pid));
-  const prevStatus = p && p.opportunity && p.opportunity.status;
-  await _biMutateOpp(pid, o => { o.status = 'DISMISSED'; o.dismissedReason = null; });
-  showUndoToast('Dismissed.', '#94a3b8', async () => {
-    await _biMutateOpp(pid, o => { o.status = prevStatus || 'OPEN'; o.dismissedReason = null; });
-    showToast('Restored.', '#34d399');
-  });
-}
-async function biReopen(btn) {
-  const pid = btn.dataset.pid;
-  await _biMutateOpp(pid, o => { o.status = 'OPEN'; o.snoozedUntil = null; o.dismissedReason = null; });
-  showToast('Back in the feed.', '#34d399');
-}
-async function biMarkWon(pid) {
-  const p = policies.find(x => String(x.id) === String(pid));
-  const prevStatus = p && p.opportunity && p.opportunity.status;
-  const prevClosedAt = p && p.opportunity && p.opportunity.closedAt;
-  await _biMutateOpp(pid, o => { o.status = 'CLOSED_WON'; o.closedOutcome = 'policy_written'; o.closedAt = new Date().toISOString(); });
-  // Trigger the celebration on confirmed wins (workflow #8 hook).
-  if (typeof biCelebrateWin === 'function') biCelebrateWin(p);
-  showUndoToast('Logged as Closed-Won.', '#10b981', async () => {
-    await _biMutateOpp(pid, o => { o.status = prevStatus || 'OPEN'; o.closedOutcome = null; o.closedAt = prevClosedAt || null; });
-    showToast('Win reverted.', '#fbbf24');
-  });
-  biCloseDrawer();
-}
-async function biMarkLost(pid) {
-  const p = policies.find(x => String(x.id) === String(pid));
-  const prevStatus = p && p.opportunity && p.opportunity.status;
-  const prevClosedAt = p && p.opportunity && p.opportunity.closedAt;
-  await _biMutateOpp(pid, o => { o.status = 'CLOSED_LOST'; o.closedOutcome = 'not_interested'; o.closedAt = new Date().toISOString(); });
-  showUndoToast('Logged as Closed-Lost.', '#94a3b8', async () => {
-    await _biMutateOpp(pid, o => { o.status = prevStatus || 'OPEN'; o.closedOutcome = null; o.closedAt = prevClosedAt || null; });
-    showToast('Restored.', '#34d399');
-  });
-  biCloseDrawer();
-}
-
-// ---- Bulk selection (workflow #7) ----
-const biSelectedPids = new Set();
-function biBulkToggle(cb) {
-  const pid = String(cb.dataset.pid);
-  if (cb.checked) biSelectedPids.add(pid);
-  else biSelectedPids.delete(pid);
-  biRenderBulkBar();
-}
-function biBulkClear() {
-  biSelectedPids.clear();
-  document.querySelectorAll('.bi-check').forEach(cb => { cb.checked = false; });
-  biRenderBulkBar();
-}
-function biRenderBulkBar() {
-  const bar = document.getElementById('bi-bulk-bar');
-  const cnt = document.getElementById('bi-bulk-count');
-  if (!bar || !cnt) return;
-  if (biSelectedPids.size === 0) { bar.classList.remove('show'); return; }
-  bar.classList.add('show');
-  cnt.textContent = biSelectedPids.size + (biSelectedPids.size === 1 ? ' selected' : ' selected');
-  const sendBtn = document.getElementById('bi-bulk-send-btn');
-  if (sendBtn) sendBtn.style.display = biGmailReady() ? '' : 'none';
-}
-async function biBulkSnooze() {
-  const ids = Array.from(biSelectedPids);
-  for (const pid of ids) {
-    const until = new Date(); until.setDate(until.getDate() + 7);
-    await _biMutateOpp(pid, o => { o.status = 'SNOOZED'; o.snoozedUntil = _biFmtDate(until); });
-  }
-  showToast(`${ids.length} snoozed for 7 days.`, '#60a5fa');
-  biBulkClear();
-}
-async function biBulkDismiss() {
-  const ids = Array.from(biSelectedPids);
-  // Capture prev state per id for undo.
-  const prev = ids.map(pid => {
-    const p = policies.find(x => String(x.id) === String(pid));
-    return { pid, status: p && p.opportunity && p.opportunity.status };
-  });
-  for (const pid of ids) {
-    await _biMutateOpp(pid, o => { o.status = 'DISMISSED'; });
-  }
-  showUndoToast(`${ids.length} dismissed.`, '#94a3b8', async () => {
-    for (const { pid, status } of prev) {
-      await _biMutateOpp(pid, o => { o.status = status || 'OPEN'; });
-    }
-    showToast('Restored.', '#34d399');
-  });
-  biBulkClear();
-}
-async function biBulkSend() {
-  if (!biGmailReady()) { showToast('Connect Google first.', '#fbbf24'); return; }
-  const ids = Array.from(biSelectedPids);
-  showToast(`Sending ${ids.length} emails (with 1.5s spacing)…`, '#60a5fa');
-  // Sequential send with a 1.5s gap to stay well under Gmail's rate limits.
-  let sent = 0, failed = 0;
-  for (let i = 0; i < ids.length; i++) {
-    const pid = ids[i];
-    try {
-      await biGmailSend(pid);    // biGmailSend already chains into biMarkSent
-      sent++;
-    } catch (e) {
-      console.error('[bookIntel] bulk send failed for', pid, e);
-      failed++;
-    }
-    if (i < ids.length - 1) await new Promise(r => setTimeout(r, 1500));
-  }
-  showToast(`Bulk send done: ${sent} sent, ${failed} failed.`, failed ? '#fbbf24' : '#10b981');
-  biBulkClear();
-}
-
-// ---- Quick disposition + notes (workflow #4) ----
-async function biLogVoicemail(pid) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const until = new Date(today); until.setDate(until.getDate() + 2);
-  await _biMutateOpp(pid, o => {
-    o.status = 'SNOOZED';
-    o.snoozedUntil = _biFmtDate(until);
-    o.lastVoicemailAt = new Date().toISOString();
-  });
-  showToast('Voicemail logged. Card snoozed 2 days.', '#60a5fa');
-}
-async function biLogSpoke(pid) {
-  await _biMutateOpp(pid, o => {
-    o.status = 'OPEN';
-    o.lastSpokeAt = new Date().toISOString();
-    o.followUpAt = null;
-    o.snoozedUntil = null;
-  });
-  showToast('Conversation logged. Mark Won/Lost when ready.', '#34d399');
-}
-async function biSaveNotes(pid) {
-  const ta = document.getElementById('bi-drawer-notes');
-  if (!ta) return;
-  const notes = ta.value;
-  await _biMutateOpp(pid, o => { o.notes = notes; o.notesUpdatedAt = new Date().toISOString(); });
-  showToast('Notes saved.', '#10b981');
-}
-
-// ---- Click-to-call (workflow #3) ----
-// Logs the action immediately so the cadence machine knows the agent
-// reached out. Doesn't open the drawer — the agent's phone is taking over.
-// On supported devices the tel: link triggers the system dialer; on macOS
-// desktop it offers to call via the iPhone Continuity / FaceTime.
-async function biLogCall(pid) {
-  if (!pid) return;
-  const today = new Date(); today.setHours(0,0,0,0);
-  await _biMutateOpp(pid, o => {
-    // Don't bulldoze a downstream Closed-Won/Lost just because they tapped Call.
-    if (['CLOSED_WON','CLOSED_LOST','DISMISSED'].includes(o.status)) return;
-    o.lastCallAt = new Date().toISOString();
-    // First call sets AWAITING_RESPONSE so the follow-up clock starts.
-    // Subsequent calls just stamp the lastCallAt; the drawer can show count.
-    if (o.status !== 'AWAITING_RESPONSE') {
-      const followUp = new Date(today); followUp.setDate(followUp.getDate() + 4);
-      o.status = 'AWAITING_RESPONSE';
-      o.awaitingSince = _biFmtDate(today);
-      o.followUpAt = _biFmtDate(followUp);
-      o.followUpsSent = 1;
-    } else {
-      o.followUpsSent = (o.followUpsSent || 1) + 1;
-    }
-  });
-  showToast('Call logged. Follow-up clock started.', '#60a5fa');
-}
-
-// ---- Direct Gmail send (#5) ----
-// Piggybacks on the existing Google OAuth (gcalConnect). The token is granted
-// calendar.readonly + gmail.send scopes when the agent connects, so we don't
-// need a separate Gmail flow.
-function biGmailReady() {
-  const t = localStorage.getItem('pp_gcal_token');
-  const scopes = localStorage.getItem('pp_google_scopes') || '';
-  return !!t && scopes.indexOf('gmail.send') !== -1;
-}
-function _biBase64UrlEncode(str) {
-  // Encode UTF-8 → base64url. unescape(encodeURIComponent) handles non-ASCII safely.
-  return btoa(unescape(encodeURIComponent(str)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-function _biBuildRFC2822(to, subject, body, fromName) {
-  // Plain-text email. Gmail API wraps this in its own envelope, but the
-  // From: address comes from the authenticated user — we just supply the
-  // friendly name. To: / Subject: are required headers.
-  const lines = [];
-  if (fromName) lines.push(`From: ${fromName}`);
-  lines.push(`To: ${to}`);
-  lines.push(`Subject: ${subject}`);
-  lines.push('MIME-Version: 1.0');
-  lines.push('Content-Type: text/plain; charset="UTF-8"');
-  lines.push('Content-Transfer-Encoding: 7bit');
-  lines.push('');
-  lines.push(body);
-  return lines.join('\r\n');
-}
-async function biGmailSend(pid, opts) {
-  opts = opts || {};
-  const p = policies.find(x => String(x.id) === String(pid));
-  if (!p) return;
-  const token = localStorage.getItem('pp_gcal_token');
-  if (!token) {
-    alert('Connect Google first — open the Calendar tab and click Sign In. The same connection enables Gmail send.');
-    return;
-  }
-  if (!biGmailReady()) {
-    if (!confirm('Your existing Google connection only has Calendar permission. Re-connect to also grant Gmail send?')) return;
-    // Trigger re-auth — agent has to click Send again after granting.
-    if (typeof gcalConnect === 'function') gcalConnect();
-    return;
-  }
-  // Resolve recipient — prefer the override in the drawer input.
-  const toInput = document.getElementById('bi-drawer-to');
-  const subjInput = document.getElementById('bi-drawer-subj');
-  const bodyEl = document.getElementById('bi-draft-email');
-  const to = (toInput && toInput.value.trim()) || p.email;
-  const subject = (subjInput && subjInput.value.trim()) || (bookIntel.draftOutreach(p).subject);
-  const body = bodyEl ? bodyEl.textContent : bookIntel.draftOutreach(p).email;
-  if (!to) { alert('No recipient email on file. Add the client\'s email or paste one in the To: field.'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { alert('Recipient does not look like a valid email address.'); return; }
-  const fromName = (currentAgent && currentAgent.user_metadata && currentAgent.user_metadata.full_name) || null;
-  const rfc = _biBuildRFC2822(to, subject, body, fromName);
-  const raw = _biBase64UrlEncode(rfc);
-  try {
-    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw }),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      // 401 = token expired or scope missing. Prompt re-auth.
-      if (res.status === 401 || res.status === 403) {
-        alert('Gmail authorization expired or insufficient. Re-connect Google to grant gmail.send.\n\nServer said: ' + err);
-        return;
-      }
-      throw new Error(`${res.status}: ${err}`);
-    }
-    showToast('Sent via Gmail.', '#10b981');
-    // Tie into #4 — successful send starts the follow-up clock.
-    await biMarkSent(pid);
-  } catch (e) {
-    console.error('[bookIntel] gmail send failed', e);
-    alert('Gmail send failed: ' + e.message);
-  }
-}
-
-// ---- Auto follow-up cadence (#4) ----
-// "I sent it" — transition OPEN → AWAITING_RESPONSE with a 4-day follow-up clock.
-// Called by the drawer's "Mark sent — track follow-up" button and by Gmail-send (#5).
-async function biMarkSent(pid) {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const followUp = new Date(today); followUp.setDate(followUp.getDate() + 4);
-  await _biMutateOpp(pid, o => {
-    o.status = 'AWAITING_RESPONSE';
-    o.awaitingSince = _biFmtDate(today);
-    o.followUpAt = _biFmtDate(followUp);
-    o.followUpsSent = 1;
-  });
-  showToast('Tracking follow-up — back in your feed in 4 days.', '#60a5fa');
-  biCloseDrawer();
-}
-async function biBumpFollowUp(btn) {
-  const pid = btn.dataset.pid;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const next = new Date(today); next.setDate(next.getDate() + 4);
-  await _biMutateOpp(pid, o => {
-    o.followUpAt = _biFmtDate(next);
-    o.followUpsSent = (o.followUpsSent || 1) + 1;
-  });
-  showToast('Bumped 4 days.', '#60a5fa');
-}
-async function biGotResponse(btn) {
-  const pid = btn.dataset.pid;
-  // Reopen to the drawer so they can mark won/lost from the same flow.
-  await _biMutateOpp(pid, o => { o.status = 'OPEN'; o.followUpAt = null; o.awaitingSince = null; });
-  showToast('Reopened — mark Won or Lost from the drawer.', '#34d399');
-  // Auto-open drawer so the next action is one click away.
-  const p = policies.find(x => String(x.id) === String(pid));
-  if (p) biOpenDrawer({ dataset: { pid } });
-}
-async function biStall(btn) {
-  const pid = btn.dataset.pid;
-  await _biMutateOpp(pid, o => { o.status = 'STALLED'; o.stalledAt = _biFmtDate(new Date()); });
-  showToast('Stalled — out of your active feed.', '#94a3b8');
-}
-
-let biDrawerPid = null;
-function biOpenDrawer(btn) {
-  const pid = btn.dataset.pid;
-  const p = policies.find(x => String(x.id) === String(pid));
-  if (!p || !p.opportunity) return;
-  biDrawerPid = pid;
-  const draft = bookIntel.draftOutreach(p);
-  document.getElementById('bi-drawer-title').textContent = `Start: ${p.client || 'Conversation'}`;
-  const o = p.opportunity;
-  document.getElementById('bi-drawer-body').innerHTML = `
-    <div class="bi-drawer-section">
-      <h4>Why now</h4>
-      <div style="font-size:13px;line-height:1.55">${escapeHTML(o.whyNow || '')}</div>
-      <div style="font-size:12px;color:var(--text3);margin-top:6px">Est. first-year advance: <strong style="color:var(--ds-color-success);font-family:var(--mono)">$${Number(o.estCommission||0).toLocaleString('en-US',{maximumFractionDigits:0})}</strong></div>
-      ${p.phone ? `<div class="flex gap8 mt8">
-        <a class="btn btn-p btn-sm" href="tel:${escapeHTML(p.phone)}" data-pid="${escapeHTML(String(p.id))}" onclick="biLogCall(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none"><span data-ico="phone" data-size="13"></span>Call ${escapeHTML(p.phone)}</a>
-      </div>` : ''}
-    </div>
-    ${biRenderConversionCalc(p)}
-    <div class="bi-drawer-section">
-      <h4>Email draft</h4>
-      <div class="frow" style="margin-bottom:8px">
-        <div class="fg" style="flex:1"><label style="font-size:11px">To</label><input type="email" id="bi-drawer-to" value="${escapeHTML(p.email || '')}" placeholder="${p.email ? '' : 'client@example.com'}"></div>
-      </div>
-      <div class="frow" style="margin-bottom:8px">
-        <div class="fg" style="flex:1"><label style="font-size:11px">Subject</label><input type="text" id="bi-drawer-subj" value="${escapeHTML(draft.subject || '')}"></div>
-      </div>
-      <pre id="bi-draft-email">${escapeHTML(draft.email)}</pre>
-      <div class="flex gap8 mt8" style="flex-wrap:wrap">
-        <button class="btn btn-s btn-sm" onclick="biCopyDraft('bi-draft-email', this)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Copy email</button>
-        ${biGmailReady()
-          ? `<button class="btn btn-p btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biGmailSend(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Send via Gmail</button>`
-          : `<a href="#" onclick="event.preventDefault();nav('calendar');biCloseDrawer();" style="font-size:11.5px;color:var(--ds-color-info);align-self:center">Connect Google to enable direct send →</a>`}
-      </div>
-    </div>
-    <div class="bi-drawer-section">
-      <h4>Phone-call script</h4>
-      <pre id="bi-draft-script">${escapeHTML(draft.script)}</pre>
-      <button class="btn btn-s btn-sm mt8" onclick="biCopyDraft('bi-draft-script', this)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Copy script</button>
-    </div>
-    <div class="bi-drawer-section">
-      <h4>Track this outreach</h4>
-      <div class="flex gap8" style="flex-wrap:wrap">
-        <button class="btn btn-p btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biMarkSent(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>I sent it — track 4d follow-up</button>
-        <button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biLogVoicemail(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="phone" data-size="13"></span>Left voicemail (snooze 2d)</button>
-        <button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biLogSpoke(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Spoke with them</button>
-      </div>
-      <div style="font-size:11.5px;color:var(--text3);margin-top:8px">Sent: hides 4 days, re-surfaces as "Follow-up due." Voicemail: snoozes 2 days. Spoke: opens for Won/Lost.</div>
-    </div>
-    <div class="bi-drawer-section">
-      <h4>Conversation notes</h4>
-      <textarea id="bi-drawer-notes" class="bi-notes-area" placeholder="What did they say? Objections, next steps, decision-maker, …">${escapeHTML(o.notes || '')}</textarea>
-      <button class="btn btn-s btn-sm mt8" data-pid="${escapeHTML(String(p.id))}" onclick="biSaveNotes(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="13"></span>Save notes</button>
-    </div>
-    <div class="bi-drawer-section">
-      <h4>After you talk</h4>
-      <div class="flex gap8">
-        <button class="btn btn-g btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biMarkWon(this.dataset.pid)">Mark as Closed-Won</button>
-        <button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biMarkLost(this.dataset.pid)">Mark as Lost</button>
-      </div>
-      <div style="font-size:11.5px;color:var(--text3);margin-top:8px">Wins move to the Wins filter and add to your year-to-date total. Lost stays on file but stops appearing in the feed.</div>
-    </div>
-  `;
-  document.getElementById('biDrawerOverlay').classList.add('open');
-  document.getElementById('biDrawerOverlay').style.pointerEvents = 'auto';
-  document.getElementById('biDrawer').classList.add('open');
-}
-function biCloseDrawer() {
-  document.getElementById('biDrawer').classList.remove('open');
-  setTimeout(() => {
-    document.getElementById('biDrawerOverlay').classList.remove('open');
-    document.getElementById('biDrawerOverlay').style.pointerEvents = 'none';
-  }, 250);
-  biDrawerPid = null;
-}
-function biCopyDraft(id, btn) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const text = el.textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<span data-ico="check" data-size="13"></span>Copied';
-    setTimeout(() => { btn.innerHTML = orig; }, 1400);
-  }).catch(() => alert('Copy failed. Select the text manually.'));
-}
-
-const BI_REQUIRED = ['client_name','carrier_name','product_type','face_amount','issue_date','term_length_years'];
-const BI_HEADERS = ['client_name','client_dob','client_email','client_phone','client_state','carrier_name','policy_number','product_type','product_name','face_amount','issue_date','term_length_years','annual_premium','rating_class','smoker_status','conditions'];
-
-// Header aliasing — accept the common variations BGAs / IMOs / agents tend to
-// use, so an agent doesn't have to rename columns before importing. Canonical
-// name → list of accepted aliases (already normalized: lowercase, spaces→_).
-const BI_HEADER_ALIASES = {
-  client_name:       ['client_name','name','full_name','client','insured','insured_name','policyholder','policy_holder','customer','customer_name'],
-  client_dob:        ['client_dob','dob','date_of_birth','birth_date','birthday','birthdate','d.o.b','d_o_b'],
-  client_email:      ['client_email','email','email_address','e-mail','email_addr'],
-  client_phone:      ['client_phone','phone','phone_number','telephone','mobile','cell','cell_phone'],
-  client_state:      ['client_state','state','st','state_code','state_residence'],
-  carrier_name:      ['carrier_name','carrier','company','insurance_carrier','insurer','company_name','carrier_company'],
-  policy_number:     ['policy_number','policy_no','policy_num','policy_id','policy_#','policy','contract_number','contract_#'],
-  product_type:      ['product_type','type','product_class','plan_type','coverage_type'],
-  product_name:      ['product_name','product','plan','plan_name','product_description'],
-  face_amount:       ['face_amount','face','coverage','coverage_amount','death_benefit','db','face_value','face_amt','sum_insured'],
-  issue_date:        ['issue_date','effective_date','start_date','eff_date','date_issued','issued','policy_date','issue_dt'],
-  term_length_years: ['term_length_years','term','term_years','term_length','term_in_years','term_(years)','term_(yrs)','years','duration'],
-  annual_premium:    ['annual_premium','ap','premium','annual_prem','yearly_premium','prem','annual_amount'],
-  rating_class:      ['rating_class','rating','class','risk_class','uw_class','underwriting_class','rate_class','health_class'],
-  smoker_status:     ['smoker_status','smoker','tobacco','tobacco_use','tobacco_status','smoker?','tobacco?'],
-  conditions:        ['conditions','health_conditions','health','medical','medical_conditions','health_info','known_conditions','health_history'],
-};
-
-// Scans the first 15 rows of the file and picks whichever has the most
-// BI-field aliases on it. Handles files with title banners, metadata rows,
-// blank rows above the headers, etc. Returns the chosen header row index
-// plus a {canonical -> column index} map.
-function _biDetectHeaderRow(rows) {
-  let best = { rowIdx: 0, count: 0, idx: {} };
-  const scan = Math.min(15, rows.length);
-  for (let i = 0; i < scan; i++) {
-    const cells = (rows[i] || []).map(h => String(h||'').trim().toLowerCase().replace(/\s+/g, '_'));
-    const idx = {};
-    let count = 0;
-    for (const canonical in BI_HEADER_ALIASES) {
-      for (const alias of BI_HEADER_ALIASES[canonical]) {
-        const j = cells.indexOf(alias);
-        if (j !== -1) { idx[canonical] = j; count++; break; }
-      }
-    }
-    // Also detect split name columns (first_name + last_name, plus the
-    // client_-prefixed and miscellaneous variants) and synthesize a virtual
-    // client_name slot. The data-row builder concatenates them.
-    if (idx.client_name === undefined) {
-      const firstAliases = ['first_name','client_first_name','firstname','given_name','fname'];
-      const lastAliases  = ['last_name','client_last_name','lastname','surname','family_name','lname'];
-      let firstIdx = -1, lastIdx = -1;
-      for (const a of firstAliases) { const j = cells.indexOf(a); if (j !== -1) { firstIdx = j; break; } }
-      for (const a of lastAliases)  { const j = cells.indexOf(a); if (j !== -1) { lastIdx  = j; break; } }
-      if (firstIdx !== -1 && lastIdx !== -1) {
-        idx._first_name = firstIdx;
-        idx._last_name = lastIdx;
-        count++;
-      }
-    }
-    if (count > best.count) best = { rowIdx: i, count, idx };
-  }
-  return best;
-}
-
-function biOpenImportModal() {
-  biCsvParsedRows = null;
-  document.getElementById('bi-csv-step-1').style.display = 'block';
-  document.getElementById('bi-csv-step-2').style.display = 'none';
-  const fi = document.getElementById('bi-csv-file-input'); if (fi) fi.value = '';
-  document.getElementById('biImportModal').classList.add('open');
-}
-function biCloseImportModal() {
-  document.getElementById('biImportModal').classList.remove('open');
-  biCsvParsedRows = null;
-}
-function biHandleCSVDrop(e) {
-  e.preventDefault();
-  const f = e.dataTransfer.files[0];
-  if (f) _biReadCSV(f);
-}
-function biHandleCSVFile(input) {
-  if (input.files[0]) _biReadCSV(input.files[0]);
-}
-function _biReadCSV(file) {
-  // Accepts .csv or .xlsx/.xls. The Leads importer already loads SheetJS
-  // (XLSX) into the page; we reuse the same parser here so the agent
-  // never has to "save as CSV" first.
-  const ext = (file.name.toLowerCase().split('.').pop() || '');
-  if (ext === 'xlsx' || ext === 'xls') {
-    if (typeof XLSX === 'undefined') {
-      alert('Excel parser not loaded. Check your internet connection and reload the page, or convert the file to CSV.');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = e => {
-      try {
-        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-        // Multi-sheet workbooks: pick the sheet with the most detected BI
-        // headers. Lets agents drop in a workbook that has a README/intro
-        // sheet first and the policy data on a later sheet. We tie-break
-        // by preferring sheets named like "policies" / "book".
-        let best = { name: wb.SheetNames[0], rows: null, score: -1 };
-        for (const name of wb.SheetNames) {
-          const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: false, defval: '' });
-          if (!rows || !rows.length) continue;
-          const detected = _biDetectHeaderRow(rows);
-          let score = detected.count;
-          if (/polic|book|busin/i.test(name)) score += 0.5;
-          if (score > best.score) best = { name, rows, score };
-        }
-        if (!best.rows) { alert('Could not read any data sheet from this workbook.'); return; }
-        if (wb.SheetNames.length > 1 && best.name !== wb.SheetNames[0]) {
-          console.log('[bookIntel] Multi-sheet workbook — picked sheet "' + best.name + '" (' + best.score + ' header matches)');
-        }
-        _biProcessRows(best.rows);
-      } catch (err) {
-        alert('Could not read Excel file: ' + (err && err.message ? err.message : err));
-      }
-    };
-    reader.readAsArrayBuffer(file);
-    return;
-  }
-  if (ext !== 'csv') {
-    alert('Book Intelligence accepts .csv, .xlsx, or .xls. The file you dropped is "." + ext + ".');
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = e => {
-    const rows = parseCSV(e.target.result);
-    _biProcessRows(rows);
-  };
-  reader.readAsText(file);
-}
-
-function _biProcessRows(rows) {
-  if (!rows.length) { alert('File appears empty.'); return; }
-  // Auto-detect the header row anywhere in the first 15 lines so banner rows,
-  // metadata rows, or blank rows above the real headers don't break the import.
-  const detected = _biDetectHeaderRow(rows);
-  if (detected.count < 1) {
-    // Couldn't recognize ANYTHING. Surface the first few non-empty rows so
-    // the agent sees what's in the file and which row should have been headers.
-    const peek = [];
-    for (let i = 0; i < Math.min(8, rows.length); i++) {
-      const txt = (rows[i] || []).slice(0, 8).map(c => String(c||'').trim()).filter(Boolean).join(' | ');
-      if (txt) peek.push(`  Row ${i+1}: ${txt}`);
-    }
-    alert(
-      'Could not find recognizable column headers anywhere in the first 15 rows of your file.\n\n' +
-      'We accept many name variations — Name/Client/Insured for client_name; Carrier/Company for carrier_name; Face/Coverage/Death Benefit for face_amount; DOB/Date of Birth for client_dob; Term/Term Years for term_length_years; etc.\n\n' +
-      'At minimum we need to find client_name (or first_name + last_name), carrier_name, product_type, face_amount, issue_date, and term_length_years.\n\n' +
-      'Here is what we saw at the top of your file:\n' + (peek.join('\n') || '  (file appears empty)') +
-      '\n\nDownload the Excel example at the top of this modal for the expected format.'
-    );
-    return;
-  }
-  const idx = detected.idx;
-  const dataRows = rows.slice(detected.rowIdx + 1).filter(r => r.some(c => String(c||'').trim()));
-  const parsed = dataRows.map((row, rowNum) => {
-    const get = (name) => idx[name] !== undefined ? String(row[idx[name]]||'').trim() : '';
-    // If the file has split first_name + last_name columns instead of a single
-    // client_name, concatenate them. The detector recorded the synthesized
-    // column indices under _first_name / _last_name.
-    const splitName = (idx._first_name !== undefined && idx._last_name !== undefined)
-      ? [String(row[idx._first_name]||'').trim(), String(row[idx._last_name]||'').trim()].filter(Boolean).join(' ').trim()
-      : '';
-    const out = {
-      client: get('client_name') || splitName,
-      clientDob: _biNormalizeDate(get('client_dob')),
-      email: get('client_email'),
-      phone: get('client_phone'),
-      state: get('client_state'),
-      carrier: get('carrier_name'),
-      policyNumber: get('policy_number'),
-      productType: get('product_type').toUpperCase() || null,
-      product: get('product_name'),
-      faceAmount: _biNormalizeNum(get('face_amount')),
-      issueDate: _biNormalizeDate(get('issue_date')),
-      termLengthYears: _biNormalizeNum(get('term_length_years')),
-      ap: _biNormalizeNum(get('annual_premium')),
-      ratingClass: get('rating_class') || null,
-      smokerStatus: get('smoker_status') || null,
-      knownConditions: get('conditions') ? get('conditions').split(/\s*;\s*|\s*,\s*/).filter(Boolean) : [],
-    };
-    // Apply smart inference (#1) — fill in missing productType / termLength /
-    // issueDate / clientDob before we validate. This lets an agent's CSV that
-    // only has a product NAME ("OPTerm 15") still pass validation.
-    const inferred = bookIntel.applyInference(out);
-    const errors = [];
-    const fieldMap = { client_name:'client', carrier_name:'carrier', product_type:'productType', face_amount:'faceAmount', issue_date:'issueDate', term_length_years:'termLengthYears' };
-    BI_REQUIRED.forEach(f => { if (!out[fieldMap[f]]) errors.push(`Missing ${f}`); });
-    let carrierKey = null;
-    if (out.carrier && typeof normalizeCarrierKey === 'function') {
-      carrierKey = normalizeCarrierKey(out.carrier);
-      if (!carrierKey) errors.push(`Carrier "${out.carrier}" not on conversion-rules list`);
-    }
-    if (out.productType && !['TERM','WL','UL','IUL','VUL','GUL'].includes(out.productType)) {
-      errors.push(`Unknown product_type "${out.productType}"`);
-    }
-    // Bug #5 — duplicate detection at preview time. Two scopes:
-    //   1. Same (carrier + policy_number) already in book
-    //   2. Same (client + carrier + issue_date) already in book — catches
-    //      re-imports where policy_number is blank
-    let isDuplicate = false;
-    if (Array.isArray(policies)) {
-      isDuplicate = policies.some(p =>
-        (out.policyNumber && p.policyNumber && p.carrier === out.carrier && p.policyNumber === out.policyNumber) ||
-        (p.client === out.client && p.carrier === out.carrier && p.issueDate === out.issueDate));
-    }
-    let status;
-    if (errors.length === 0 && isDuplicate)                                       status = 'dup';
-    else if (errors.length === 0)                                                  status = 'ok';
-    else if (errors.length === 1 && errors[0].startsWith('Carrier "'))             status = 'warn';
-    else                                                                            status = 'err';
-    if (isDuplicate) errors.unshift('Already in your book (will be skipped)');
-    // Excel-style 1-based line number (header row offset + this data row).
-    return { rowNum: detected.rowIdx + 2 + rowNum, normalized: out, errors, status };
-  });
-  biCsvParsedRows = parsed;
-  _biRenderPreview(parsed);
-  document.getElementById('bi-csv-step-1').style.display = 'none';
-  document.getElementById('bi-csv-step-2').style.display = 'block';
-}
-
-function _biNormalizeDate(s) {
-  if (!s) return null;
-  const d = _biParseDate(s);
-  return d ? _biFmtDate(d) : null;
-}
-function _biNormalizeNum(s) {
-  if (s == null || s === '') return null;
-  const n = parseFloat(String(s).replace(/[^0-9.\-]/g, ''));
-  return isNaN(n) ? null : n;
-}
-
-function _biRenderPreview(parsed) {
-  const ok = parsed.filter(r => r.status === 'ok').length;
-  const warn = parsed.filter(r => r.status === 'warn').length;
-  const dup = parsed.filter(r => r.status === 'dup').length;
-  const err = parsed.filter(r => r.status === 'err').length;
-  document.getElementById('bi-csv-summary').innerHTML = `
-    <div style="display:flex;flex-wrap:wrap;gap:18px;margin-bottom:8px">
-      <div><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Total Rows</div><div style="font-size:22px;font-weight:400;font-family:var(--mono)">${parsed.length}</div></div>
-      <div><div style="font-size:10.5px;color:var(--ds-color-success);text-transform:uppercase;letter-spacing:.1em">Ready</div><div style="font-size:22px;font-weight:400;font-family:var(--mono);color:var(--ds-color-success)">${ok}</div></div>
-      <div><div style="font-size:10.5px;color:var(--ds-color-warning);text-transform:uppercase;letter-spacing:.1em">Needs Carrier Setup</div><div style="font-size:22px;font-weight:400;font-family:var(--mono);color:var(--ds-color-warning)">${warn}</div></div>
-      <div><div style="font-size:10.5px;color:var(--ds-color-info);text-transform:uppercase;letter-spacing:.1em">Duplicates</div><div style="font-size:22px;font-weight:400;font-family:var(--mono);color:var(--ds-color-info)">${dup}</div></div>
-      <div><div style="font-size:10.5px;color:var(--ds-color-danger);text-transform:uppercase;letter-spacing:.1em">Rejected</div><div style="font-size:22px;font-weight:400;font-family:var(--mono);color:var(--ds-color-danger)">${err}</div></div>
-    </div>
-    <div style="font-size:11.5px;color:var(--text3)">Ready: imports and scores immediately. Needs Carrier Setup: imports but stays flagged until you add the rule. Duplicates: skipped — already in your book. Rejected: missing required fields.</div>
-  `;
-  document.getElementById('bi-csv-preview-head').innerHTML = `<tr>
-    <th style="width:34px"></th><th>Row</th><th>Client</th><th>Carrier</th><th>Product</th><th>Face</th><th>Issued</th><th>Term</th><th>Notes</th>
-  </tr>`;
-  document.getElementById('bi-csv-preview-body').innerHTML = parsed.map(r => {
-    const cls = r.status === 'ok'   ? 'bi-csv-row-ok'
-              : r.status === 'warn' ? 'bi-csv-row-warn'
-              : r.status === 'dup'  ? 'bi-csv-row-dup'
-              :                       'bi-csv-row-err';
-    const ic  = r.status === 'ok'   ? 'ok'
-              : r.status === 'warn' ? '!'
-              : r.status === 'dup'  ? '='
-              :                       'x';
-    const n = r.normalized;
-    const tooltip = r.errors.length ? r.errors.join('; ') : 'OK';
-    return `<tr class="${cls}" title="${escapeHTML(tooltip)}">
-      <td style="font-family:var(--mono);text-align:center">${ic}</td>
-      <td style="font-family:var(--mono);color:var(--text3)">${r.rowNum}</td>
-      <td>${escapeHTML(n.client || '')}</td>
-      <td>${escapeHTML(n.carrier || '')}</td>
-      <td>${escapeHTML(n.productType || '')}</td>
-      <td style="font-family:var(--mono)">${n.faceAmount ? '$'+Number(n.faceAmount).toLocaleString('en-US') : ''}</td>
-      <td style="font-family:var(--mono)">${escapeHTML(n.issueDate || '')}</td>
-      <td style="font-family:var(--mono)">${n.termLengthYears || ''}</td>
-      <td style="font-size:10.5px;color:var(--text3)">${escapeHTML(r.errors[0] || 'ready')}</td>
-    </tr>`;
-  }).join('');
-  const importBtnLbl = document.getElementById('bi-csv-import-btn-lbl');
-  if (importBtnLbl) importBtnLbl.textContent = `Import ${ok + warn} polic${(ok+warn)===1?'y':'ies'}`;
-}
-
-async function biCommitCSVImport() {
-  if (!Array.isArray(biCsvParsedRows)) return;
-  // Skip duplicates AND rejected rows. The status was already determined
-  // at preview time; we're just respecting the agent's view of it.
-  const toImport = biCsvParsedRows.filter(r => r.status !== 'err' && r.status !== 'dup');
-  if (!toImport.length) { alert('Nothing to import — all rows have blocking errors.'); return; }
-  if (!currentAgent) { alert('Not signed in. Please sign in first.'); return; }
-  let added = 0, skipped = 0, errors = 0;
-  for (const r of toImport) {
-    const n = r.normalized;
-    const dup = policies.find(p =>
-      (n.policyNumber && p.policyNumber && p.carrier === n.carrier && p.policyNumber === n.policyNumber) ||
-      (p.client === n.client && p.carrier === n.carrier && p.issueDate === n.issueDate));
-    if (dup) { skipped++; continue; }
-    const policy = {
-      id: Date.now() + Math.floor(Math.random() * 1000),
-      client: n.client,
-      carrier: n.carrier,
-      product: n.product || n.productType,
-      cls: null,
-      monthly: n.ap ? +(n.ap / 12).toFixed(2) : null,
-      ap: n.ap,
-      cov: n.faceAmount,
-      draft: n.issueDate,
-      status: 'in-force',
-      advComm: null,
-      payDate: null,
-      commPct: null,
-      productType: n.productType,
-      productName: n.product || null,
-      faceAmount: n.faceAmount,
-      issueDate: n.issueDate,
-      termLengthYears: n.termLengthYears,
-      clientDob: n.clientDob,
-      clientAge: n.clientDob ? _biAgeFromDob(n.clientDob) : null,
-      ratingClass: n.ratingClass,
-      smokerStatus: n.smokerStatus,
-      knownConditions: n.knownConditions,
-      policyNumber: n.policyNumber || null,
-      email: n.email || null,
-      phone: n.phone || null,
-      state: n.state || null,
-      bookIntelSource: 'csv',
-    };
-    const { error } = await sbUpsertPolicy(policy);
-    if (error) { errors++; continue; }
-    policies.push(policy);
-    added++;
-  }
-  localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
-  biCloseImportModal();
-  await bookIntel.scoreAll();
-  biRenderSetupStrip();
-  biRenderCards();
-  biRenderTotals();
-  if (typeof renderPolicies === 'function') renderPolicies();
-  let msg = `${added} polic${added===1?'y':'ies'} imported.`;
-  if (skipped) msg += ` ${skipped} duplicate${skipped===1?'':'s'} skipped.`;
-  if (errors)  msg += ` ${errors} failed to save.`;
-  showToast(msg, errors ? '#fbbf24' : '#10b981');
-}
 
 // Synchronously swap to the last-active section before first paint, so a refresh
 // doesn't flash Summary -> target. Reads an unscoped key (agent unknown pre-auth).
@@ -14672,7 +12036,7 @@ async function biCommitCSVImport() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, drafts:3, bonuses:4, leads:5, 'book-intel':6, calendar:7, phonebook:8, settings:9 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, settings:7 };
   if (!saved || !(saved in idxMap) || saved === 'summary') return;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   const sec = document.getElementById('sec-' + saved);
@@ -14727,7 +12091,7 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
     <div class="sp-stub-banner" id="sp-stub-banner">
       <span data-ico="warning" data-size="13"></span>
-      <span id="sp-stub-banner-text">Simulated call — SignalWire couldn't be reached. Check Settings → Calling, or the server console.</span>
+      <span id="sp-stub-banner-text">Simulated call — SignalWire couldn't be reached. Check the Phone Book tab, or the server console.</span>
     </div>
   </div>
 </div>
