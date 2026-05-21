@@ -1576,17 +1576,25 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 #sec-phonebook .pb-plan-numbers.over{ color:var(--ds-color-warning); }
 #sec-phonebook .pb-plan-upgrade{ margin-top:14px; }
 
-/* Pickup card */
-#sec-phonebook .pb-card-pickup .pb-pickup-num{
-  font-size:22px; font-weight:600; color:var(--text);
-  margin-top:6px; letter-spacing:.4px;
+/* Softphone card */
+#sec-phonebook .pb-card-softphone .pb-sip-status{
+  display:flex; align-items:center; gap:8px; margin-top:8px;
 }
-#sec-phonebook .pb-card-pickup .pb-pickup-edit{
-  display:inline-block; font-size:12px;
-  color:var(--ds-color-info,#3b82f6); text-decoration:none; margin-top:4px;
+#sec-phonebook .pb-card-softphone .pb-sip-dot{
+  width:10px; height:10px; border-radius:99px;
+  background:var(--text2); flex:none;
 }
-#sec-phonebook .pb-card-pickup .pb-pickup-edit:hover{ text-decoration:underline; }
-#sec-phonebook .pb-card-pickup .pb-pickup-help{
+#sec-phonebook .pb-card-softphone .pb-sip-dot.is-ok{   background:var(--ds-color-success,#10b981); }
+#sec-phonebook .pb-card-softphone .pb-sip-dot.is-warn{ background:var(--ds-color-warning,#fbbf24); }
+#sec-phonebook .pb-card-softphone .pb-sip-dot.is-err{  background:var(--ds-color-danger,#dc2626); }
+#sec-phonebook .pb-card-softphone .pb-sip-state{
+  font-size:16px; font-weight:600; color:var(--text);
+}
+#sec-phonebook .pb-card-softphone .pb-sip-mic{
+  font-size:12px; color:var(--text2); margin-top:6px;
+}
+#sec-phonebook .pb-card-softphone .pb-sip-reconnect{ margin-top:12px; }
+#sec-phonebook .pb-card-softphone .pb-sip-help{
   font-size:11.5px; color:var(--text2); line-height:1.55; margin-top:14px;
 }
 
@@ -2577,7 +2585,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
       </div>
 
-      <!-- Row 1: Plan + Pickup Phone -->
+      <!-- Row 1: Plan + Softphone -->
       <div class="pb-top-grid">
         <div class="card pb-card-plan">
           <div class="card-title" style="display:flex;align-items:center;gap:8px">
@@ -2601,14 +2609,18 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <button class="btn btn-g pb-plan-upgrade" id="pb-plan-upgrade-btn" onclick="pbOpenUpgradeModal()">Upgrade Plan</button>
         </div>
 
-        <div class="card pb-card-pickup">
+        <div class="card pb-card-softphone">
           <div class="card-title" style="display:flex;align-items:center;gap:8px">
-            <span data-ico="phone" data-size="13"></span>My Pickup Phone
+            <span data-ico="phone" data-size="13"></span>My Softphone
           </div>
-          <div class="pb-pickup-num mono" id="pb-pickup-num">— not set —</div>
-          <a href="#" class="pb-pickup-edit" id="pb-pickup-edit">Edit number</a>
-          <div class="pb-pickup-help">
-            SignalWire rings this number first when you place a call from the dashboard, then bridges you to the lead.
+          <div class="pb-sip-status">
+            <span class="pb-sip-dot" id="pb-sip-dot"></span>
+            <span class="pb-sip-state" id="pb-sip-state">Checking…</span>
+          </div>
+          <div class="pb-sip-mic" id="pb-sip-mic">Microphone: checking…</div>
+          <button type="button" class="btn btn-g pb-sip-reconnect" id="pb-sip-reconnect">Reconnect softphone</button>
+          <div class="pb-sip-help">
+            Calls run through your computer's microphone and speakers — your personal phone is no longer used.
             Both sides see your <strong>primary</strong> number as the caller-ID.
           </div>
         </div>
@@ -3269,6 +3281,10 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- JsSIP — vendored browser bundle (built from jssip@3.13.8). npm ships no UMD
+     build and the CDN auto-builds are broken, so the bundle is committed to the
+     repo. Powers the in-browser softphone; exposes a global `JsSIP`. -->
+<script src="assets/jssip.min.js"></script>
 <script>
 // ============================================================
 // SUPABASE CONFIG — paste project URL + anon key from Supabase dashboard.
@@ -3529,10 +3545,26 @@ function subscribeAuth() {
       // ready in some flows). Re-trigger here so we always get
       // the subscription up once login lands.
       if (window.softphone && typeof softphone.initRealtime === 'function') {
+        // On an agent switch, drop the prior agent's SIP
+        // registration before re-registering for this one.
+        if (!same && typeof softphone.resetRegistration === 'function') {
+          softphone.resetRegistration();
+        }
         softphone.initRealtime();
+        // Bring the SIP softphone up on login so the first Call
+        // click connects without waiting on registration. Best-
+        // effort — failure just means dial() registers on demand.
+        if (typeof softphone.ensureRegistered === 'function') {
+          softphone.ensureRegistered().catch(() => {});
+        }
       }
     } else {
       currentAgent = null;
+      // Tear down the SIP registration on logout so the next agent
+      // on this browser can't inherit this endpoint.
+      if (window.softphone && typeof softphone.resetRegistration === 'function') {
+        softphone.resetRegistration();
+      }
       showGate();
       authShowView('signin');
     }
@@ -7578,34 +7610,37 @@ function showToast(msg, color='#10b981') {
 }
 
 // ============================================================
-// SOFTPHONE — In-dashboard dialer for the Leads tab, backed by
-// SignalWire's REST agent-bridge flow (Phase D, supersedes the
-// @signalwire/js browser SDK that Phases A+B used).
+// SOFTPHONE — In-dashboard dialer for the Leads tab. Call audio
+// runs in the browser via a SignalWire SIP endpoint (JsSIP over
+// WSS); the agent's personal phone is never involved.
 //
 // Flow:
-//   1. dial(leadId) — POST to the `signalwire-bridge` Supabase edge
-//      function, which (a) verifies the agent's calling settings, (b)
-//      enforces the monthly minute cap, and (c) tells SignalWire to
-//      call the agent's agent_phone with inline TwiML that dials the
-//      lead on answer.
-//   2. Edge function inserts the public.calls row with the returned
-//      CallSid; frontend stores the CallSid in state for hangup +
-//      Realtime correlation.
-//   3. Realtime subscription on public.calls (filter agent_id=me)
-//      reacts to SignalWire StatusCallback updates landing via the
-//      signalwire-call-status webhook: ringing → answered → completed.
-//      State machine transitions land in _onCallRowUpdate().
-//   4. Auto-tag short calls (<15s connected) as no_answer; longer
+//   1. On login, _ensureRegistered() fetches SIP credentials from
+//      the `signalwire-sip-creds` edge function (which lazily
+//      provisions the agent's SIP endpoint) and registers a JsSIP
+//      UA over WSS. The mic-permission prompt is pre-warmed here.
+//   2. dial(leadId) — POST to the `signalwire-bridge` edge
+//      function, which enforces the monthly minute cap and tells
+//      SignalWire to call the agent's SIP endpoint (To = sip:…)
+//      with inline TwiML that dials the lead on answer.
+//   3. SignalWire delivers the agent leg as an inbound INVITE;
+//      _onNewRTCSession auto-answers it, so call audio runs in
+//      the browser. The edge function inserts the public.calls
+//      row with the returned CallSid.
+//   4. Two signals drive the panel, both idempotent: JsSIP
+//      session events (confirmed → connected, ended → ended) and
+//      the Realtime subscription on public.calls reconciling
+//      webhook status/duration via _onCallRowUpdate().
+//   5. Auto-tag short calls (<15s connected) as no_answer; longer
 //      calls open the outcome picker (Appointment / Objections /
 //      Not Interested / Sold).
-//   5. Hangup button POSTs to signalwire-hangup edge function, which
-//      tells SignalWire to drop both legs of the bridge.
+//   6. Hangup terminates the in-browser SIP session (BYE) and
+//      also POSTs to signalwire-hangup as a server-side backstop.
 //
-// Fallback: any failure between steps 1 and 2 (secrets misconfigured,
-// edge function down) flips the panel into stub mode — a yellow
-// banner shows the specific failure reason and the call is simulated
-// so the agent can still update the lead status. The reason text is
-// rendered straight into the banner (no need for browser dev tools).
+// Fallback: any failure (JsSIP load, SIP registration, mic
+// denied, edge function down) flips the panel into stub mode — a
+// yellow banner shows the specific reason and the call is
+// simulated so the agent can still update the lead status.
 //
 // Public surface (window.softphone):
 //   .dial(leadId)        Start an outbound call to a lead.
@@ -7645,11 +7680,281 @@ const softphone = (() => {
 
   const NO_ANSWER_THRESHOLD_SEC = 15;      // ≤ this → auto-tag no_answer, no prompt
 
-  // SDK_URL + _loadSDK removed 2026-05-17 (commit pivot to REST agent-
-  // bridge). The browser SDK couldn't dial PSTN out of our Call Fabric
-  // space without an SWML routing resource — see the design spec at
-  // docs/superpowers/specs/2026-05-17-signalwire-agent-bridge-design.md
-  // for the full investigation.
+  // ── SIP softphone (JsSIP) ─────────────────────────────────
+  // The agent leg of every bridged call is delivered to a
+  // SignalWire SIP endpoint this browser registers to over WSS.
+  // signalwire-bridge places the PSTN call (To = our SIP
+  // address); SignalWire rings this endpoint; we auto-answer the
+  // inbound INVITE so call audio runs in the browser. The agent's
+  // personal phone is never involved.
+  //
+  // JsSIP has no prebuilt UMD bundle on npm and the CDN auto-
+  // builds are broken, so a working bundle is vendored at
+  // assets/jssip.min.js and loaded as a global `JsSIP` by a
+  // <script> tag. A missing global degrades to stub mode.
+  let _JsSIP           = null;       // imported JsSIP module (UA, WebSocketInterface, …)
+  let _jssipLoadFailed = false;      // sticky — don't re-attempt the import every dial
+  let _ua              = null;       // JsSIP.UA — built once, stays registered
+  let _session         = null;       // active JsSIP RTCSession during a call
+  let _regState        = 'idle';     // idle | registering | registered | failed
+  let _creds           = null;       // { username, password, domain, wss_url } from signalwire-sip-creds
+  let _micState        = 'unknown';  // unknown | granted | denied
+  let _regWaiters      = [];          // resolvers awaiting the in-flight registration
+  const _regListeners  = [];          // callbacks notified on reg/mic-state change (Phone Book card)
+
+  function _notifyReg() {
+    const snap = { regState: _regState, micState: _micState };
+    _regListeners.forEach(cb => { try { cb(snap); } catch { /* listener threw */ } });
+  }
+  function _setRegState(s) {
+    if (_regState === s) return;
+    _regState = s;
+    _notifyReg();
+  }
+  function onRegChange(cb) {
+    if (typeof cb === 'function' && _regListeners.indexOf(cb) === -1) _regListeners.push(cb);
+  }
+  function _drainRegWaiters(ok) {
+    const waiters = _regWaiters; _regWaiters = [];
+    waiters.forEach(res => { try { res(ok); } catch { /* */ } });
+  }
+
+  // Drop the SIP registration entirely — used on logout / agent
+  // switch so a new agent never inherits the previous agent's
+  // endpoint. A fresh UA is built on the next _ensureRegistered.
+  function _teardownRegistration() {
+    try { if (_session) _session.terminate(); } catch { /* */ }
+    _session = null;
+    try { if (_ua) _ua.stop(); } catch { /* */ }
+    _ua = null;
+    _creds = null;
+    _drainRegWaiters(false);
+    _setRegState('idle');
+  }
+
+  // Resolve the JsSIP global loaded by the vendored <script> tag
+  // (assets/jssip.min.js). Cached; a miss is sticky.
+  async function _loadJsSIP() {
+    if (_JsSIP) return _JsSIP;
+    if (_jssipLoadFailed) return null;
+    const J = (typeof JsSIP !== 'undefined') ? JsSIP : (window.JsSIP || null);
+    if (J && J.UA && J.WebSocketInterface) {
+      _JsSIP = J;
+      return _JsSIP;
+    }
+    console.warn('[softphone] JsSIP global unavailable — assets/jssip.min.js did not load');
+    _jssipLoadFailed = true;
+    return null;
+  }
+
+  // Surface the mic-permission prompt early (at registration) and
+  // remember the outcome so dial() can pre-empt a doomed call.
+  async function _prewarmMic() {
+    if (_micState === 'granted') return;
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      s.getTracks().forEach(t => t.stop());
+      _micState = 'granted';
+    } catch (e) {
+      _micState = 'denied';
+      console.warn('[softphone] mic permission denied/unavailable:', (e && e.name) || e);
+    }
+    _notifyReg();
+  }
+
+  function _wireUA(ua) {
+    ua.on('disconnected', () => { if (_regState === 'registered') _setRegState('registering'); });
+    ua.on('registered',   () => { _setRegState('registered'); _drainRegWaiters(true); });
+    ua.on('unregistered', () => { if (_regState !== 'registering') _setRegState('registering'); });
+    ua.on('registrationFailed', (e) => {
+      console.warn('[softphone] SIP registration failed:', (e && e.cause) || e);
+      _setRegState('failed'); _drainRegWaiters(false);
+    });
+    ua.on('newRTCSession', _onNewRTCSession);
+  }
+
+  // Ensure the browser is registered to its SIP endpoint. Idempotent
+  // and re-entrant: concurrent callers piggyback on the in-flight
+  // attempt. Resolves true once registered, false on any failure
+  // (the caller then falls back to stub mode).
+  async function _ensureRegistered() {
+    if (_regState === 'registered' && _ua) return true;
+    if (_regState === 'registering') {
+      // An attempt is already in flight — piggyback on it, but with
+      // our own timeout so a stuck reconnect can't hang dial().
+      return await new Promise(res => {
+        _regWaiters.push(res);
+        setTimeout(() => _drainRegWaiters(_regState === 'registered'), 8000);
+      });
+    }
+    _setRegState('registering');
+
+    const JsSIP = await _loadJsSIP();
+    if (!JsSIP) { _setRegState('failed'); return false; }
+
+    // Fetch (and lazily provision) the SIP endpoint credentials.
+    if (!_creds) {
+      let r;
+      try {
+        r = await sb.functions.invoke('signalwire-sip-creds', { body: {} });
+      } catch (e) {
+        console.warn('[softphone] sip-creds invoke threw', e);
+        _setRegState('failed'); return false;
+      }
+      if (r.error) {
+        let body = null;
+        try {
+          if (r.error.context && typeof r.error.context.json === 'function') {
+            body = await r.error.context.clone().json();
+          }
+        } catch { /* not JSON */ }
+        console.warn('[softphone] sip-creds error', body || r.error);
+        _setRegState('failed'); return false;
+      }
+      if (!r.data || !r.data.ok || !r.data.username || !r.data.wss_url) {
+        console.warn('[softphone] sip-creds returned no creds', r.data);
+        _setRegState('failed'); return false;
+      }
+      _creds = r.data;
+    }
+
+    await _prewarmMic();
+
+    // Build the UA, or re-register an existing one after a drop.
+    if (!_ua) {
+      try {
+        const socket = new JsSIP.WebSocketInterface(_creds.wss_url);
+        _ua = new JsSIP.UA({
+          sockets: [socket],
+          uri: `sip:${_creds.username}@${_creds.domain}`,
+          password: _creds.password,
+          register: true,
+          session_timers: false,     // SignalWire interop
+          register_expires: 600,
+        });
+        _wireUA(_ua);
+        _ua.start();
+      } catch (e) {
+        console.warn('[softphone] JsSIP UA build failed', e);
+        _ua = null;
+        _setRegState('failed'); return false;
+      }
+    } else {
+      try { _ua.register(); } catch (e) { console.warn('[softphone] re-register threw', e); }
+    }
+
+    return await new Promise(res => {
+      _regWaiters.push(res);
+      // Fallback: if neither 'registered' nor 'registrationFailed'
+      // arrives in time, resolve this attempt false so the call stubs.
+      setTimeout(() => _drainRegWaiters(_regState === 'registered'), 8000);
+    });
+  }
+
+  // SignalWire delivers the agent leg of a bridged call as an
+  // inbound INVITE. Auto-answer it — the agent already clicked
+  // Call — so audio runs in the browser. Stray INVITEs (no active
+  // outbound dial, or stub mode) are rejected.
+  function _onNewRTCSession(e) {
+    if (!e || e.originator !== 'remote' || !e.session) return;
+    const session = e.session;
+    if (state.stubMode || state.phase !== 'ringing-out') {
+      try { session.terminate(); } catch { /* */ }
+      return;
+    }
+    _session = session;
+    _attachSessionHandlers(session);
+    try {
+      session.answer({
+        mediaConstraints: { audio: true, video: false },
+        pcConfig: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] },
+      });
+    } catch (err) {
+      console.warn('[softphone] SIP answer failed', err);
+    }
+  }
+
+  function _attachSessionHandlers(session) {
+    session.on('peerconnection', (ev) => {
+      const pc = ev && ev.peerconnection;
+      if (!pc) return;
+      pc.addEventListener('track', (te) => {
+        const a = _el('sp-remote-audio');
+        if (a && te.streams && te.streams[0]) {
+          a.srcObject = te.streams[0];
+          const p = a.play && a.play();
+          if (p && p.catch) p.catch(() => { /* autoplay blocked despite the click gesture */ });
+        }
+      });
+    });
+    // 'confirmed' = the agent leg's audio path is up. This carries
+    // the same meaning the webhook 'answered' status always has
+    // (agent leg, not lead leg), so we treat it as the call
+    // connecting — see _markConnected.
+    session.on('confirmed', () => _markConnected());
+    session.on('ended',  () => _onSipSessionEnd());
+    session.on('failed', (ev) => {
+      console.warn('[softphone] SIP session failed:', (ev && ev.cause) || ev);
+      _onSipSessionEnd();
+    });
+    session.on('getusermediafailed', () => {
+      _micState = 'denied'; _notifyReg();
+      console.warn('[softphone] getUserMedia failed at answer time');
+    });
+  }
+
+  // Idempotent connect transition — shared by the SIP 'confirmed'
+  // event and the webhook-driven 'answered' row update. Whichever
+  // lands first wins; the phase guard makes the second a no-op.
+  function _markConnected(answeredAtMs) {
+    if (state.phase === 'connected' || state.phase === 'ended' || state.phase === 'idle') return;
+    if (state.ringHandle) { clearTimeout(state.ringHandle); state.ringHandle = null; }
+    state.phase = 'connected';
+    const ts = Number.isFinite(answeredAtMs) ? answeredAtMs : Date.now();
+    state.startedAt = ts;
+    state.durationSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+    if (state.timerHandle) clearInterval(state.timerHandle);
+    state.timerHandle = setInterval(() => {
+      state.durationSec = Math.floor((Date.now() - state.startedAt) / 1000);
+      const tEl = _el('sp-timer');
+      if (tEl) tEl.textContent = _fmtTimer(state.durationSec);
+    }, 1000);
+    _render();
+  }
+
+  // The in-browser SIP leg ended. Mirror the webhook terminal
+  // handling; the phase guard keeps whichever signal lands second
+  // from double-processing.
+  function _onSipSessionEnd() {
+    _session = null;
+    const a = _el('sp-remote-audio');
+    if (a) a.srcObject = null;
+    if (state.phase === 'idle' || state.phase === 'ended') return;
+    _stopTimer();
+    const wasConnected = (state.phase === 'connected');
+    state.phase = 'ended';
+    _render();
+    if (!wasConnected || state.durationSec < NO_ANSWER_THRESHOLD_SEC) {
+      _applyOutcome('no_answer', { auto: true });
+      setTimeout(close, 1200);
+    }
+  }
+
+  // Drop into simulated-call mode: the panel keeps working and the
+  // agent can still set an outcome, but no real call is placed.
+  function _enterStub(reason) {
+    console.warn('[softphone] stub mode:', reason);
+    state.stubMode   = true;
+    state.stubReason = reason;
+    _render();
+    if (state.ringHandle) clearTimeout(state.ringHandle);
+    state.ringHandle = setTimeout(() => {
+      if (state.phase !== 'ringing-out') return;
+      state.phase = 'connected';
+      _startTimer();
+      _render();
+    }, 1500);
+  }
 
   function _el(id) { return document.getElementById(id); }
   function _panel() { return _el('softphone-panel'); }
@@ -7745,14 +8050,15 @@ const softphone = (() => {
 
   // ── Bridge-dial path (REST) ───────────────────────────────
   // Posts to the signalwire-bridge edge function, which places a
-  // SignalWire LaML REST call: SignalWire rings the agent's
-  // agent_phone first; inline TwiML dials the lead and bridges
-  // both legs when the agent picks up.
+  // SignalWire LaML REST call: SignalWire rings this browser's SIP
+  // endpoint first; we auto-answer the inbound INVITE, and inline
+  // TwiML then dials the lead and bridges both legs.
   //
-  // Subsequent lifecycle transitions (ringing → answered → completed)
-  // arrive via the Realtime subscription set up in _initRealtime();
-  // _onCallRowUpdate() flips state.phase accordingly. This function
-  // returns immediately after the bridge call is placed.
+  // Lifecycle transitions arrive two ways: the JsSIP session events
+  // (confirmed/ended) drive the live audio UI, and the Realtime
+  // subscription set up in _initRealtime() reconciles webhook-
+  // accurate status/duration. Both feed idempotent phase
+  // transitions. This function returns once the call is placed.
   //
   // Returns { ok: true } on success, or { ok: false, reason, detail }
   // mirroring the shape the old _realDial returned so the existing
@@ -7819,13 +8125,26 @@ const softphone = (() => {
     state.stubReason   = '';
     _render();
 
+    // The browser must be registered to its SIP endpoint before the
+    // bridge call can ring it, and needs mic access for call audio.
+    const registered = await _ensureRegistered();
+    if (state.phase !== 'ringing-out') return;   // panel closed mid-setup
+    if (!registered) {
+      _enterStub("Simulated — your softphone isn't connected. Open the Phone Book tab to reconnect.");
+      return;
+    }
+    if (_micState === 'denied') {
+      _enterStub('Simulated — microphone access is blocked. Allow mic access in your browser, then retry.');
+      return;
+    }
+
     // Try the real path — POST to signalwire-bridge edge function.
     const result = await _bridgeDial(String(leadId));
     if (result.ok) return;
 
     // Map specific errors to actionable toasts.
     if (result.reason === 'not_assigned') {
-      showToast('Set your pickup phone in the Phone Book tab first.', '#dc2626');
+      showToast('Setting up your softphone — give it a moment and try again.', '#dc2626');
       close();
       return;
     }
@@ -7843,38 +8162,37 @@ const softphone = (() => {
     // and shows the exact failure reason so the user doesn't need dev
     // tools to know what to fix.
     console.warn('[softphone] falling back to stub mode:', result);
-    state.stubMode   = true;
-    state.stubReason = _formatStubReason(result);
-    _render();
-    if (state.ringHandle) clearTimeout(state.ringHandle);
-    state.ringHandle = setTimeout(() => {
-      if (state.phase !== 'ringing-out') return;
-      state.phase = 'connected';
-      _startTimer();
-      _render();
-    }, 1500);
+    _enterStub(_formatStubReason(result));
   }
 
   function hangup() {
     if (state.phase === 'idle' || state.phase === 'ended') return;
     if (state.ringHandle) { clearTimeout(state.ringHandle); state.ringHandle = null; }
 
-    // Tell SignalWire to drop both legs of the bridge via the
-    // signalwire-hangup edge function. Failure here is non-fatal —
-    // agents can also just hang up on their own phone, and the
-    // webhook will catch the 'completed' event either way. We do
-    // local UI cleanup synchronously regardless so the panel
-    // doesn't sit on "On Call" while the network round-trip
-    // resolves.
+    _stopTimer();
+    const wasConnected = (state.phase === 'connected');
+    const dur = state.durationSec;
+    // Set phase BEFORE tearing down the SIP session so the
+    // session's own 'ended' event (_onSipSessionEnd) sees an
+    // already-ended phase and no-ops instead of double-processing.
+    state.phase = 'ended';
+
+    // Drop the in-browser SIP leg first — sends BYE, so SignalWire
+    // tears down the bridge and the lead leg drops immediately.
+    if (_session) {
+      try { _session.terminate(); } catch (e) { console.warn('[softphone] session terminate threw', e); }
+      _session = null;
+    }
+    const audioEl = _el('sp-remote-audio');
+    if (audioEl) audioEl.srcObject = null;
+
+    // Also hit signalwire-hangup as a server-side backstop — it
+    // 404s harmlessly if the call already ended. Non-fatal.
     if (state.sw_call_sid && !state.stubMode) {
       sb.functions.invoke('signalwire-hangup', { body: { call_sid: state.sw_call_sid } })
         .catch(e => console.warn('[softphone] hangup invoke threw', e));
     }
 
-    _stopTimer();
-    const wasConnected = (state.phase === 'connected');
-    const dur = state.durationSec;
-    state.phase = 'ended';
     _render();
 
     // In bridge mode the webhook fills in duration. In stub mode
@@ -7890,11 +8208,16 @@ const softphone = (() => {
   }
 
   function toggleMute() {
-    // In bridge mode, audio is on the agent's own phone — the
-    // dashboard isn't in the audio path. Muting here is purely
-    // cosmetic; agents should use their phone's mute. We still
-    // toggle local state so the button click feels responsive.
+    // Call audio runs through the browser now, so this is a real
+    // mute of the agent's outbound RTP track. Stub-mode calls have
+    // no session — the toggle is then just cosmetic.
     state.muted = !state.muted;
+    if (_session) {
+      try {
+        if (state.muted) _session.mute({ audio: true });
+        else             _session.unmute({ audio: true });
+      } catch (e) { console.warn('[softphone] mute toggle threw', e); }
+    }
     _render();
   }
 
@@ -7951,14 +8274,21 @@ const softphone = (() => {
   function close() {
     _stopTimer();
     if (state.ringHandle) { clearTimeout(state.ringHandle); state.ringHandle = null; }
-    // No SDK objects to tear down in bridge mode — the audio path
-    // is on the agent's own phone, not in the browser.
+    // Tear down any lingering SIP session, but keep the UA
+    // registered so the next call connects without re-registering.
+    if (_session) {
+      try { _session.terminate(); } catch { /* already gone */ }
+      _session = null;
+    }
+    const audioEl = _el('sp-remote-audio');
+    if (audioEl) audioEl.srcObject = null;
     state.phase        = 'idle';
     state.leadId       = null;
     state.callRowId    = null;
     state.sw_call_sid  = '';
     state.stubMode     = false;
     state.stubReason   = '';
+    state.muted        = false;
     _render();
   }
 
@@ -8006,21 +8336,13 @@ const softphone = (() => {
     const s = row.status;
 
     if (s === 'answered') {
-      if (state.phase !== 'connected') {
-        state.phase = 'connected';
-        // Prefer server-supplied answered_at for the timer origin,
-        // so the dashboard timer matches what SignalWire is billing.
-        const ts = row.answered_at ? Date.parse(row.answered_at) : Date.now();
-        state.startedAt = Number.isFinite(ts) ? ts : Date.now();
-        state.durationSec = 0;
-        if (state.timerHandle) clearInterval(state.timerHandle);
-        state.timerHandle = setInterval(() => {
-          state.durationSec = Math.floor((Date.now() - state.startedAt) / 1000);
-          const tEl = _el('sp-timer');
-          if (tEl) tEl.textContent = _fmtTimer(state.durationSec);
-        }, 1000);
-        _render();
-      }
+      // Webhook-driven connect. Usually the SIP 'confirmed' event
+      // has already flipped us to 'connected' (it's local and
+      // instant) — _markConnected is idempotent, so this is then a
+      // no-op. When it does win, prefer the server's answered_at as
+      // the timer origin so the dashboard matches SignalWire billing.
+      const ts = row.answered_at ? Date.parse(row.answered_at) : NaN;
+      _markConnected(Number.isFinite(ts) ? ts : undefined);
     } else if (s === 'completed' || s === 'busy' || s === 'failed'
             || s === 'no-answer' || s === 'canceled') {
       if (state.phase === 'idle' || state.phase === 'ended') return;
@@ -8083,8 +8405,12 @@ const softphone = (() => {
     dial, hangup, toggleMute, setOutcome, close, isAdmin,
     loadAdminFlag: _loadAdminFlag,
     initRealtime:  _initRealtime,
+    ensureRegistered: _ensureRegistered,
+    resetRegistration: _teardownRegistration,
+    onRegChange,
     get state() { return { ...state }; },
-    get unavailable() { return false; },   // reserved for future "no creds" hard-disable
+    get registration() { return { regState: _regState, micState: _micState }; },
+    get unavailable() { return _jssipLoadFailed; },   // true once JsSIP fails to load → lead Call button uses tel:
     get stub()        { return state.stubMode; },
   };
 })();
@@ -9736,7 +10062,7 @@ function _promptModal(title, currentValue) {
 // ============================================================
 // PHONE BOOK TAB — agent-facing self-service for telephony.
 //
-// Renders four widgets (Plan, Pickup Phone, My Numbers, Recent
+// Renders four widgets (Plan, Softphone, My Numbers, Recent
 // Calls), all backed by Supabase. Buy-number flow proxies through
 // the `signalwire-search-numbers` + `signalwire-buy-number` edge
 // functions; minute usage is the same per-month sum the bridge
@@ -9898,7 +10224,7 @@ async function renderPhoneBook() {
   const quotesUsed = quoteUsageRes.count || 0;
 
   pbRenderPlanCard(_pbAgent, usedMin, quotesUsed);
-  pbRenderPickupCard(_pbAgent);
+  pbRenderSoftphoneCard();
   pbRenderNumbersList(_pbNumbers);
   pbRenderCalls();
 
@@ -10022,36 +10348,56 @@ function pbRenderPlanCard(agent, usedMin, quotesUsed) {
   }
 }
 
-function pbRenderPickupCard(agent) {
-  const numEl = document.getElementById('pb-pickup-num');
-  const edit  = document.getElementById('pb-pickup-edit');
-  if (numEl) numEl.textContent = agent.agent_phone ? _pbFmtPhone(agent.agent_phone) : '— not set —';
-  if (!edit) return;
-  // Re-bind every render so we don't stack listeners.
-  edit.onclick = async (e) => {
-    e.preventDefault();
-    const raw = await _promptModal(
-      'Your personal phone in E.164 (e.g. +14155550142). SignalWire calls this number first, then bridges you to the lead.',
-      agent.agent_phone || '',
-    );
-    if (raw == null) return;
-    const trimmed = raw.trim();
-    let value = trimmed === '' ? null : trimmed;
-    if (value) {
-      const norm = toE164(value);
-      if (!norm) { showToast('Must be a valid US phone number', '#dc2626'); return; }
-      value = norm;
-    }
-    try {
-      const { error } = await sb.from('agents').update({ agent_phone: value }).eq('id', currentAgent.id);
-      if (error) throw error;
-      showToast('Saved', '#10b981');
-      await renderPhoneBook();
-    } catch (err) {
-      console.warn('[phonebook] agent_phone update failed', err);
-      showToast(`Save failed: ${err.message || err}`, '#dc2626');
-    }
+// Softphone status card — registration + mic state for the
+// in-browser SIP softphone. Reads window.softphone.registration
+// and repaints live via softphone.onRegChange.
+let _pbSipListenerBound = false;
+function pbRenderSoftphoneCard() {
+  _pbPaintSoftphoneCard();
+  // Register the live-update listener exactly once for the app's
+  // lifetime — onRegChange dedupes, but each render builds a fresh
+  // closure, so guard here to avoid stacking listeners.
+  if (!_pbSipListenerBound && window.softphone && typeof softphone.onRegChange === 'function') {
+    softphone.onRegChange(_pbPaintSoftphoneCard);
+    _pbSipListenerBound = true;
+  }
+  const btn = document.getElementById('pb-sip-reconnect');
+  if (btn) {
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        if (window.softphone && typeof softphone.ensureRegistered === 'function') {
+          await softphone.ensureRegistered();
+        }
+      } finally {
+        btn.disabled = false;
+        _pbPaintSoftphoneCard();
+      }
+    };
+  }
+}
+
+function _pbPaintSoftphoneCard() {
+  const dot   = document.getElementById('pb-sip-dot');
+  const stEl  = document.getElementById('pb-sip-state');
+  const micEl = document.getElementById('pb-sip-mic');
+  if (!dot && !stEl && !micEl) return;
+  const reg = (window.softphone && softphone.registration) || { regState: 'idle', micState: 'unknown' };
+  const MAP = {
+    registered:  { cls: 'is-ok',   txt: 'Connected' },
+    registering: { cls: 'is-warn', txt: 'Connecting…' },
+    idle:        { cls: 'is-warn', txt: 'Connecting…' },
+    failed:      { cls: 'is-err',  txt: 'Not connected' },
   };
+  const m = MAP[reg.regState] || MAP.failed;
+  if (dot) { dot.classList.remove('is-ok', 'is-warn', 'is-err'); dot.classList.add(m.cls); }
+  if (stEl) stEl.textContent = m.txt;
+  if (micEl) {
+    micEl.textContent =
+      reg.micState === 'granted' ? 'Microphone: ready' :
+      reg.micState === 'denied'  ? 'Microphone: blocked — allow mic access in your browser' :
+                                   'Microphone: not yet requested';
+  }
 }
 
 function pbRenderNumbersList(numbers) {
@@ -12093,6 +12439,8 @@ document.addEventListener('DOMContentLoaded', () => {
       <span data-ico="warning" data-size="13"></span>
       <span id="sp-stub-banner-text">Simulated call — SignalWire couldn't be reached. Check the Phone Book tab, or the server console.</span>
     </div>
+    <!-- Remote call audio — the SIP softphone attaches the inbound stream here. -->
+    <audio id="sp-remote-audio" autoplay></audio>
   </div>
 </div>
 </body>
