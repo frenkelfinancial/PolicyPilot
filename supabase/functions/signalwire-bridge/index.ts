@@ -2,10 +2,8 @@
 // supabase/functions/signalwire-bridge/index.ts
 //
 // Places an outbound bridge call:
-//   • SignalWire calls the agent's browser softphone first, via
-//     a SIP endpoint the browser is registered to (JsSIP/WSS)
-//   • When the browser auto-answers, inline TwiML <Dial>s the
-//     lead's number and bridges the two legs
+//   • SignalWire calls the agent's agent_phone first
+//   • When agent answers, inline TwiML <Dial>s the lead's number
 //   • Either party hanging up tears the bridge down
 //
 // SignalWire fires StatusCallback POSTs to the public
@@ -23,7 +21,7 @@
 // Auth: Edge Function platform verifies the caller's JWT (verify_jwt
 // = true by default). Anonymous calls return 401 before our code
 // executes — we re-decode here only to look up the agent's
-// caller-ID + SIP endpoint + minute usage.
+// caller-ID + agent_phone + minute usage.
 //
 // Request (POST, JSON body):
 //   { lead_id: '<uuid>' }
@@ -32,7 +30,7 @@
 //   { ok: true, callSid: 'CA...', minutesUsed: 87, minutesCap: 500 }
 // Response (400): { ok: false, error: string }            — invalid body / missing lead phone
 // Response (401): { ok: false, error: 'unauthenticated' }
-// Response (409): { ok: false, error: 'not_assigned' }    — missing SIP endpoint or caller_id
+// Response (409): { ok: false, error: 'not_assigned' }    — missing agent_phone or caller_id
 // Response (429): { ok: false, error: 'minute_cap_exceeded', minutesUsed, minutesCap }
 // Response (502): { ok: false, error: string }            — SignalWire upstream error
 // Response (503): { ok: false, error: string }            — transient DB error
@@ -103,22 +101,18 @@ Deno.serve(async (req) => {
   if (!leadId) return json({ ok: false, error: "lead_id required" }, 400);
 
   // ---- Load agent's calling settings -------------------------
-  // sip_endpoint_username is the agent's SignalWire SIP endpoint,
-  // provisioned by the signalwire-sip-creds function. The agent
-  // leg of the bridge is delivered to whatever browser is
-  // registered to that endpoint.
-  let sipUsername = "";
-  let callerId    = "";
-  let minutesCap  = 500;
+  let agentPhone = "";
+  let callerId   = "";
+  let minutesCap = 500;
   try {
     const { data: agent, error } = await userClient
       .from("agents")
-      .select("sip_endpoint_username, signalwire_caller_id, monthly_minute_limit")
+      .select("agent_phone, signalwire_caller_id, monthly_minute_limit")
       .eq("id", userId)
       .maybeSingle();
     if (error) throw error;
-    sipUsername = (agent?.sip_endpoint_username as string) || "";
-    callerId    = (agent?.signalwire_caller_id as string)  || "";
+    agentPhone = (agent?.agent_phone as string)          || "";
+    callerId   = (agent?.signalwire_caller_id as string) || "";
     if (typeof agent?.monthly_minute_limit === "number") {
       minutesCap = agent.monthly_minute_limit;
     }
@@ -126,7 +120,7 @@ Deno.serve(async (req) => {
     console.error(`[signalwire-bridge] agent lookup failed for ${userId}:`, (e as Error)?.message);
     return json({ ok: false, error: "Couldn't load your calling settings. Please retry." }, 503);
   }
-  if (!sipUsername || !callerId) {
+  if (!agentPhone || !callerId) {
     return json({ ok: false, error: "not_assigned" }, 409);
   }
 
@@ -186,21 +180,14 @@ Deno.serve(async (req) => {
 
   // ---- Place the call via SignalWire LaML REST ----------------
   // LaML is SignalWire's Twilio-compatible API. We POST to /Calls.json
-  // with From=our caller-ID, To=the agent's SIP endpoint, and Twiml=
-  // an inline TwiML response that dials the lead once the agent's
-  // browser auto-answers. The <Dial callerId="..."> attribute makes
-  // the lead's caller-ID show up as the same number we dialed from
-  // (single consistent number visible to both parties — looks like
-  // a normal callback).
+  // with From=our caller-ID, To=agent's phone, and Twiml= an inline
+  // TwiML response that dials the lead when the agent answers. The
+  // <Dial callerId="..."> attribute makes the lead's caller-ID show
+  // up as the same number we dialed from (single consistent number
+  // visible to both parties — looks like a normal callback).
   const space = spaceUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "");
   const callsEndpoint = `https://${space}/api/laml/2010-04-01/Accounts/${projectId}/Calls.json`;
   const statusCbUrl   = `${SUPABASE_URL}/functions/v1/signalwire-call-status`;
-
-  // The agent leg targets a SIP endpoint the browser softphone is
-  // registered to. The SIP host is the space host with a ".sip."
-  // infix: producerstack.signalwire.com → producerstack.sip.signalwire.com
-  const sipHost         = space.replace(/^([^.]+)\./, "$1.sip.");
-  const agentSipAddress = `sip:${sipUsername}@${sipHost}`;
 
   const twiml =
     `<Response><Dial callerId="${xmlEscape(callerId)}" timeout="30">` +
@@ -209,7 +196,7 @@ Deno.serve(async (req) => {
 
   const form = new URLSearchParams();
   form.set("From",  callerId);
-  form.set("To",    agentSipAddress);
+  form.set("To",    agentPhone);
   form.set("Twiml", twiml);
   form.set("StatusCallback",       statusCbUrl);
   form.set("StatusCallbackMethod", "POST");
