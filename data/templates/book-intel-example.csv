@@ -1,0 +1,6 @@
+client_name,client_dob,client_email,client_phone,client_state,carrier_name,policy_number,product_type,product_name,face_amount,issue_date,term_length_years,annual_premium,rating_class,smoker_status,conditions
+Robert Chen,1968-02-15,robert.chen@example.com,608-555-0101,WI,Prudential,POL-100234,TERM,Term Essential 10,300000,2019-06-15,10,540,Preferred Plus,never,Diabetes Type 1 / On Insulin
+Sarah Chen,1970-03-05,sarah.chen@example.com,608-555-0102,WI,Lincoln Financial,POL-441120,TERM,LifeElements 20,500000,2017-01-15,20,1180,Standard,never,
+David Park,1974-08-15,david.park@example.com,217-555-0103,IL,Prudential,POL-552901,TERM,Term Essential 20,400000,2017-09-01,20,720,Preferred Plus,never,
+Lisa Reynolds,,lisa.reynolds@example.com,612-555-0104,MN,Lincoln Financial,POL-77820,TERM,LifeElements 15,250000,2017-08-15,15,460,Standard,never,
+Mark Johnson,1972-11-22,mark.johnson@example.com,734-555-0105,MI,Mutual of Omaha,POL-220033,WL,Living Promise Whole Life,100000,2019-06-20,,640,Standard,never,

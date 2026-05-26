@@ -1,0 +1,14 @@
+# Per-function config for signalwire-call-status.
+#
+# SignalWire's servers POST to this function without a Supabase
+# JWT (they don't have one — they aren't a logged-in user). The
+# function does its own HMAC-SHA1 signature check against
+# X-SignalWire-Signature using SIGNALWIRE_API_TOKEN as the HMAC
+# key, which is the standard LaML/Twilio scheme.
+#
+# Older Supabase CLI versions ignore per-function config.toml.
+# If `supabase functions deploy signalwire-call-status` doesn't
+# pick this up, also toggle the dashboard setting:
+#   Supabase Dashboard → Edge Functions → signalwire-call-status
+#   → Settings → "Enforce JWT verification" → OFF
+verify_jwt = false

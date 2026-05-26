@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Summary — Full Page (Producer Stack)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&family=Sora:wght@700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background:
+      radial-gradient(1200px 800px at 85% -10%, rgba(91,160,232,.06), transparent 60%),
+      radial-gradient(900px 700px at -10% 100%, rgba(168,205,245,.04), transparent 55%),
+      #070d1a;
+    color: #EAF1FB;
+    min-height: 100vh;
+    padding: 24px 28px 60px;
+    line-height: 1.5;
+  }
+  .frame {
+    max-width: 1280px;
+    margin: 0 auto;
+    border: 1px dashed rgba(143,194,247,.18);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .frame-tag { font-size:10px; color:#6A82A2; letter-spacing:.2em; text-transform:uppercase; margin-bottom:10px; }
+
+  /* Producer Stack tokens (copied from index-3.html) */
+  .stack {
+    --bg:#070d1a; --bg2:#0d1729; --bg3:#142239; --card:#0c1729;
+    --border:#1a2b48; --border2:#2c4068;
+    --accent:#8FC2F7; --accent-2:#B4D3F7; --accent-deep:#0B1F3A;
+    --a2:#5CC9A7; --a3:#E0B884; --a4:#E07B7B; --a5:#9FB7E8;
+    --text:#EAF1FB; --text2:#A8BCD6; --text3:#6A82A2;
+    --mono:'DM Mono', monospace; --sans:'DM Sans', sans-serif; --display:'Sora',sans-serif;
+  }
+
+  /* Card foundation */
+  .card {
+    background: linear-gradient(180deg,#10213b 0%,#0c1a30 100%);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 8px 24px -16px rgba(0,0,0,.6);
+  }
+  .card-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .label { font-size: 11px; text-transform:uppercase; letter-spacing:.22em; color:#6A82A2; font-weight:600; }
+  .link  { font-size: 12px; color:#8FC2F7; cursor:pointer; background:none; border:none; }
+  .link:hover { color:#B4D3F7; }
+  .mono { font-family:'DM Mono'; font-variant-numeric: tabular-nums; }
+
+  /* ============= HERO ============= */
+  .hero { display:grid; grid-template-columns: 1fr 1.2fr; gap: 18px; margin-bottom: 18px; }
+  /* Goal card */
+  .hero-goal { display:flex; align-items:center; gap: 22px; }
+  .ring-wrap { position: relative; width: 180px; height: 180px; flex-shrink:0; cursor:pointer; }
+  .ring { width: 180px; height: 180px; transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: rgba(255,255,255,.06); stroke-width: 12; }
+  .ring-arc   { fill: none; stroke: #8FC2F7; stroke-width: 12; stroke-linecap: round; }
+  .ring-center { position:absolute; left:50%; top:50%; transform: translate(-50%,-50%); text-align:center; width:140px; }
+  .ring-eb { font-size: 10px; letter-spacing:.24em; text-transform:uppercase; color:#6A82A2; margin-bottom:4px; font-weight:600; }
+  .ring-num { font-family:'Sora'; font-weight:800; font-size: 28px; color:#EAF1FB; letter-spacing:-.01em; }
+  .ring-target { font-family:'DM Mono'; font-size:12px; color:#A8BCD6; margin-top:3px; }
+  .ring-pct { font-family:'DM Mono'; font-size:11px; color:#8FC2F7; margin-top:6px; font-weight:600; }
+  .goal-side { flex: 1; }
+  .goal-side h3 { font-family:'Sora'; font-weight:700; font-size:15px; margin-bottom:8px; color:#EAF1FB; }
+  .goal-side .meta-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.04); font-size:13px; }
+  .goal-side .meta-row:last-child { border-bottom:none; }
+  .goal-side .meta-lbl { color:#A8BCD6; }
+  .goal-side .meta-val { font-family:'DM Mono'; font-variant-numeric:tabular-nums; color:#EAF1FB; font-weight:600; }
+  .goal-edit { font-size:11px; color:#6A82A2; margin-top:10px; cursor:pointer; }
+
+  /* Streak + activity card */
+  .hero-side { display:flex; flex-direction:column; gap: 14px; }
+  .streak-head { display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px; }
+  .streak-num { font-family:'Sora'; font-weight:800; font-size: 34px; color:#EAF1FB; margin: 2px 0 8px; }
+  .streak-strip { display:flex; gap:4px; margin-top: 4px; }
+  .streak-strip .day { flex:1; height:18px; border-radius:3px; background: rgba(255,255,255,.05); }
+  .streak-strip .day.hit { background:#5CC9A7; }
+  .streak-strip .day.today { outline: 1.5px solid #8FC2F7; outline-offset: 1.5px; }
+  .streak-sub { font-size:11px; color:#6A82A2; margin-top:8px; }
+  .flame { width:14px; height:14px; display:inline-flex; align-items:center; color:#E0B884; }
+
+  .activity-grid { display:grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .act-tile { background: rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.05); border-radius: 8px; padding: 12px 14px; }
+  .act-eb { font-size:10px; text-transform:uppercase; letter-spacing:.2em; color:#6A82A2; font-weight:600; }
+  .act-num { font-family:'Sora'; font-weight:800; font-size: 24px; color:#EAF1FB; margin-top:3px; }
+
+  /* ============= PERIOD ROW ============= */
+  .period-row { display:flex; justify-content:space-between; align-items:center; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+  .period-chips { display:inline-flex; background:#0a1729; border:1px solid rgba(255,255,255,.05); border-radius: 8px; padding:3px; gap:2px; }
+  .period-chip { background: transparent; border:none; color:#A8BCD6; font-size:12.5px; padding:7px 14px; border-radius:6px; cursor:pointer; font-family:'DM Sans'; }
+  .period-chip:hover { color:#EAF1FB; }
+  .period-chip.active { background:#162a48; color:#EAF1FB; box-shadow: 0 1px 0 rgba(255,255,255,.06) inset; }
+  .period-cap { font-size:11.5px; color:#6A82A2; letter-spacing:.04em; }
+
+  /* ============= KPI GRID ============= */
+  .kpi-grid { display:grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 18px; }
+  .kpi { position: relative; min-height: 170px; display:flex; flex-direction:column; cursor:pointer; transition: border-color .14s, transform .14s, box-shadow .14s; padding-top: 20px; }
+  .kpi::before { content:""; position:absolute; top:0; left:0; right:0; height:2px; border-radius: 12px 12px 0 0; background: var(--ac); }
+  .kpi:hover { border-color: var(--ac); transform: translateY(-1px); box-shadow: 0 12px 30px -16px rgba(0,0,0,.7), 0 0 0 1px var(--ac); }
+  .kpi-ap   { --ac:#8FC2F7; } /* AP Written — accent */
+  .kpi-paid { --ac:#5CC9A7; } /* Adv Comm — mint */
+  .kpi-bon  { --ac:#E0B884; } /* Bonus — warm tan */
+  .kpi-act  { --ac:#9FB7E8; } /* Active Policies — lavender blue */
+  .kpi-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:10px; }
+  .kpi-hero { font-family:'Sora'; font-weight:800; font-size: 28px; color:#EAF1FB; letter-spacing:-.01em; margin-bottom:8px; }
+  .kpi-delta { font-family:'DM Mono'; font-variant-numeric:tabular-nums; font-weight:600; padding:3px 7px; border-radius:4px; font-size:10.5px; display:inline-flex; align-items:center; gap:3px; letter-spacing:.03em; }
+  .kpi-delta.up   { background: rgba(92,201,167,.14); color:#5CC9A7; }
+  .kpi-delta.down { background: rgba(224,123,123,.14); color:#E07B7B; }
+  .kpi-delta.flat { background: rgba(168,188,214,.10); color:#A8BCD6; }
+  .kpi-delta-static { background: rgba(224,184,132,.14); color:#E0B884; text-transform:uppercase; letter-spacing:.12em; font-size:9.5px; }
+
+  .spark { width:100%; height:42px; margin-top:auto; }
+  .spark .fill { fill: var(--ac); fill-opacity: .12; }
+  .spark .line { fill:none; stroke: var(--ac); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .bonus-breakdown { display:flex; flex-wrap:wrap; gap:6px; margin-top:auto; padding-top: 6px; }
+  .b-tag { font-size:10px; letter-spacing:.10em; color:#A8BCD6; background: rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.05); padding:5px 8px; border-radius:5px; text-transform:uppercase; }
+  .b-tag em { font-family:'DM Mono'; font-style:normal; font-weight:600; color:#E0B884; margin-left:5px; }
+
+  /* ============= BONUS MILESTONES (Option C — Pace & Forecast) ============= */
+  .pace-card { margin-bottom: 18px; }
+  .pace-row { display:grid; grid-template-columns: 1.4fr 1fr; gap: 28px; padding:16px 0; border-bottom:1px solid rgba(255,255,255,.05); align-items:center; }
+  .pace-row:last-child { border-bottom:none; padding-bottom:4px; }
+  .pace-row:first-of-type { padding-top:6px; }
+  .pace-head { display:flex; align-items:baseline; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
+  .pace-name { font-family:'DM Sans'; font-weight:700; color:#EAF1FB; font-size:14.5px; }
+  .pace-window { font-family:'DM Mono'; font-size:11px; color:#6A82A2; font-weight:500; }
+  .pace-tag { padding:3px 9px; border-radius:4px; font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; font-family:'DM Sans'; }
+  .pace-tag.on { background:rgba(92,201,167,.16); color:#5CC9A7; }
+  .pace-tag.behind { background:rgba(224,123,123,.16); color:#E07B7B; }
+  .pace-tag.ahead { background:rgba(143,194,247,.16); color:#A8CDF5; }
+  .pace-tag.flat { background:rgba(168,188,214,.12); color:#A8BCD6; }
+  .pace-sub { font-size:13px; color:#A8BCD6; }
+  .pace-sub strong { color:#EAF1FB; font-family:'DM Mono'; font-variant-numeric:tabular-nums; font-weight:600; }
+  .pace-forecast { font-size:12px; color:#6A82A2; margin-top:5px; }
+  .pace-forecast strong { font-family:'DM Mono'; font-variant-numeric:tabular-nums; font-weight:600; }
+  .pace-bar-wrap { position:relative; }
+  .pace-bar { position:relative; height: 6px; background: rgba(255,255,255,.06); border-radius: 3px; overflow:hidden; }
+  .pace-bar-cur { position:absolute; left:0; top:0; bottom:0; background: #8FC2F7; border-radius:3px; }
+  .pace-bar-proj { position:absolute; top:-3px; bottom:-3px; width: 2px; background: #5CC9A7; }
+  .pace-bar-target { position:absolute; right:0; top:-3px; bottom:-3px; width: 2px; background: rgba(255,255,255,.3); }
+  .pace-bar-legend { display:flex; justify-content:space-between; font-family:'DM Mono'; font-variant-numeric:tabular-nums; font-size:10.5px; color:#6A82A2; margin-top:6px; }
+  .pace-bar-legend .cur { color:#A8CDF5; }
+  .pace-bar-legend .proj { color:#5CC9A7; }
+
+  /* ============= MID ROW (status + donut) ============= */
+  .mid-row { display:grid; grid-template-columns: 1.7fr 1fr; gap: 16px; margin-bottom: 18px; }
+  .status-bar { display:flex; width:100%; height:14px; border-radius:4px; overflow:hidden; background: rgba(255,255,255,.06); margin-top:14px; }
+  .seg { height:100%; cursor:pointer; }
+  .seg.pending  { background:#E0B884; }  /* caution */
+  .seg.approved { background:#9FB7E8; }  /* informational */
+  .seg.issued   { background:#5CC9A7; }  /* positive */
+  .seg.paid     { background:#8FC2F7; }  /* accent */
+  .seg.lapsed   { background:#E07B7B; }  /* critical */
+  .status-legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+  .leg { display:flex; align-items:center; gap:6px; font-size:11.5px; color:#A8BCD6; padding:5px 9px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.05); border-radius:5px; cursor:pointer; }
+  .leg:hover { background: rgba(255,255,255,.06); color:#EAF1FB; }
+  .dot { width:8px; height:8px; border-radius:2px; }
+  .leg-n { font-family:'DM Mono'; font-variant-numeric:tabular-nums; color:#EAF1FB; font-weight:600; margin-left:2px; }
+  .leg-p { color:#6A82A2; font-size:10.5px; margin-left:1px; }
+
+  .mix-wrap { display:flex; gap:18px; align-items:center; margin-top:14px; }
+  .donut { width:110px; height:110px; flex-shrink:0; }
+  .mix-legend { flex:1; display:flex; flex-direction:column; gap:6px; font-size:12px; }
+  .mix-legend .row { display:flex; align-items:center; gap:8px; }
+  .mix-legend .sw { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+  .mix-legend .name { flex:1; color:#A8BCD6; }
+  .mix-legend .amt { font-family:'DM Mono'; font-variant-numeric:tabular-nums; color:#EAF1FB; font-weight:600; }
+
+  /* ============= DRAFTS ============= */
+  .drafts-tbl { width:100%; border-collapse: collapse; }
+  .drafts-tbl td { padding:11px 12px; border-bottom:1px solid rgba(255,255,255,.04); font-size:13px; color:#EAF1FB; }
+  .drafts-tbl tr:last-child td { border-bottom:none; }
+  .drafts-tbl td.num { font-family:'DM Mono'; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+  .drafts-tbl td.dim { color:#6A82A2; }
+  .drafts-tbl tr:hover { background: rgba(143,194,247,.04); cursor:pointer; }
+
+  .note {
+    max-width: 1280px; margin: 0 auto 18px;
+    padding: 12px 16px; background: rgba(143,194,247,.06); border:1px solid rgba(143,194,247,.16); border-radius: 8px;
+    font-size: 13px; color: #A8BCD6;
+  }
+  .note strong { color: #EAF1FB; }
+</style>
+</head>
+<body>
+
+<div class="note">
+  <strong>Full summary page mockup — Producer Stack tokens, Option C milestone card.</strong>
+  Sample data: $32,400 of $50K monthly goal, 9-day streak, Americo $45K of $100K (on pace), Am-Am $11.8K (behind), FFL 100% contract. Scroll to see all sections.
+</div>
+
+<div class="frame stack">
+  <div class="frame-tag">Sec-summary working canvas</div>
+
+  <!-- ============ HERO ============ -->
+  <div class="hero">
+    <div class="card hero-goal">
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 180 180">
+          <circle class="ring-track" cx="90" cy="90" r="76"/>
+          <circle class="ring-arc"   cx="90" cy="90" r="76" stroke-dasharray="477.5" stroke-dashoffset="168.5"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-eb">Monthly Goal</div>
+          <div class="ring-num">$32,400</div>
+          <div class="ring-target">of $50,000</div>
+          <div class="ring-pct">65% · 11 days left</div>
+        </div>
+      </div>
+      <div class="goal-side">
+        <h3>Monthly AP Goal</h3>
+        <div class="meta-row"><span class="meta-lbl">Pace needed</span><span class="meta-val">$1,600/day</span></div>
+        <div class="meta-row"><span class="meta-lbl">Avg this month</span><span class="meta-val">$1,705/day</span></div>
+        <div class="meta-row"><span class="meta-lbl">Projected month-end</span><span class="meta-val" style="color:#5CC9A7">$51,150</span></div>
+        <div class="goal-edit">Click ring to edit goal</div>
+      </div>
+    </div>
+
+    <div class="hero-side">
+      <div class="card" style="padding:14px 18px">
+        <div class="streak-head">
+          <span class="label">Day Streak</span>
+          <span class="flame">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          </span>
+        </div>
+        <div class="streak-num">9</div>
+        <div class="streak-strip">
+          <div class="day hit"></div><div class="day hit"></div><div class="day"></div>
+          <div class="day hit"></div><div class="day hit"></div><div class="day hit"></div>
+          <div class="day hit"></div><div class="day hit"></div><div class="day"></div>
+          <div class="day hit"></div><div class="day hit"></div><div class="day hit"></div>
+          <div class="day hit"></div><div class="day hit today"></div>
+        </div>
+        <div class="streak-sub">Days with at least one policy in the last 14</div>
+      </div>
+
+      <div class="activity-grid">
+        <div class="card act-tile">
+          <div class="act-eb">Policies this month</div>
+          <div class="act-num">14</div>
+        </div>
+        <div class="card act-tile">
+          <div class="act-eb">This week</div>
+          <div class="act-num">4</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PERIOD CHIPS ============ -->
+  <div class="period-row">
+    <div class="period-chips">
+      <button class="period-chip">This Week</button>
+      <button class="period-chip active">This Month</button>
+      <button class="period-chip">This Year</button>
+      <button class="period-chip">All Time</button>
+    </div>
+    <div class="period-cap">May 1 – May 10, 2026 · vs prior month</div>
+  </div>
+
+  <!-- ============ KPI GRID ============ -->
+  <div class="kpi-grid">
+    <div class="card kpi kpi-ap">
+      <div class="kpi-head">
+        <div class="label">AP Written</div>
+        <div class="kpi-delta up">▲ 12.4%</div>
+      </div>
+      <div class="kpi-hero">$32,400</div>
+      <svg class="spark" viewBox="0 0 200 50" preserveAspectRatio="none">
+        <path class="fill" d="M0,40 L20,32 L40,36 L60,28 L80,30 L100,20 L120,22 L140,15 L160,18 L180,10 L200,12 L200,50 L0,50 Z"/>
+        <path class="line" d="M0,40 L20,32 L40,36 L60,28 L80,30 L100,20 L120,22 L140,15 L160,18 L180,10 L200,12"/>
+      </svg>
+    </div>
+
+    <div class="card kpi kpi-paid">
+      <div class="kpi-head">
+        <div class="label">Adv Comm Paid</div>
+        <div class="kpi-delta up">▲ 8.1%</div>
+      </div>
+      <div class="kpi-hero">$18,720</div>
+      <svg class="spark" viewBox="0 0 200 50" preserveAspectRatio="none">
+        <path class="fill" d="M0,42 L25,38 L50,40 L75,30 L100,32 L125,25 L150,28 L175,20 L200,16 L200,50 L0,50 Z"/>
+        <path class="line" d="M0,42 L25,38 L50,40 L75,30 L100,32 L125,25 L150,28 L175,20 L200,16"/>
+      </svg>
+    </div>
+
+    <div class="card kpi kpi-bon">
+      <div class="kpi-head">
+        <div class="label">Projected Bonus</div>
+        <div class="kpi-delta kpi-delta-static">FORWARD</div>
+      </div>
+      <div class="kpi-hero">$3,475</div>
+      <div class="bonus-breakdown">
+        <span class="b-tag">VP <em>$0</em></span>
+        <span class="b-tag">UFirst <em>$1,250</em></span>
+        <span class="b-tag">AmAm <em>$2,225</em></span>
+      </div>
+    </div>
+
+    <div class="card kpi kpi-act">
+      <div class="kpi-head">
+        <div class="label">Active Policies</div>
+        <div class="kpi-delta up">▲ 3</div>
+      </div>
+      <div class="kpi-hero">27</div>
+      <svg class="spark" viewBox="0 0 200 50" preserveAspectRatio="none">
+        <path class="fill" d="M0,38 L25,40 L50,36 L75,34 L100,30 L125,30 L150,26 L175,24 L200,20 L200,50 L0,50 Z"/>
+        <path class="line" d="M0,38 L25,40 L50,36 L75,34 L100,30 L125,30 L150,26 L175,24 L200,20"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ============ BONUS MILESTONES — Option C ============ -->
+  <div class="card pace-card">
+    <div class="card-head">
+      <div class="label">Bonus Milestones</div>
+      <button class="link">Open Bonus Tracker →</button>
+    </div>
+
+    <!-- Americo UFirst -->
+    <div class="pace-row">
+      <div>
+        <div class="pace-head">
+          <span class="pace-name">Americo UFirst</span>
+          <span class="pace-window">Dec 1, 2025 – May 29, 2026</span>
+          <span class="pace-tag on">On pace</span>
+        </div>
+        <div class="pace-sub"><strong>$45,000</strong> credits · next tier $55K · payout <span style="color:#5CC9A7">+$1,375</span></div>
+        <div class="pace-forecast">At current pace you'll land at <strong style="color:#5CC9A7">$78,400</strong> by May 29 — clears the $75K tier.</div>
+      </div>
+      <div class="pace-bar-wrap">
+        <div class="pace-bar">
+          <div class="pace-bar-cur" style="width:45%"></div>
+          <div class="pace-bar-proj" style="left:78%"></div>
+          <div class="pace-bar-target"></div>
+        </div>
+        <div class="pace-bar-legend">
+          <span class="cur">$45K today</span>
+          <span class="proj">$78K projected</span>
+          <span>$100K cap</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Am-Am Bonus Bucks -->
+    <div class="pace-row">
+      <div>
+        <div class="pace-head">
+          <span class="pace-name">Am-Am Bonus Bucks</span>
+          <span class="pace-window">Month-to-date · resets June 1</span>
+          <span class="pace-tag behind">Behind pace</span>
+        </div>
+        <div class="pace-sub">Silver locked · <strong>$3,200</strong> to Gold · payout <span style="color:#5CC9A7">+$600</span></div>
+        <div class="pace-forecast">Need <strong style="color:#E07B7B">$1,100/wk</strong> for the last 3 weeks of May to clear Gold.</div>
+      </div>
+      <div class="pace-bar-wrap">
+        <div class="pace-bar">
+          <div class="pace-bar-cur" style="width:59%"></div>
+          <div class="pace-bar-proj" style="left:70%"></div>
+          <div class="pace-bar-target"></div>
+        </div>
+        <div class="pace-bar-legend">
+          <span class="cur">$11.8K today</span>
+          <span class="proj">$14K projected</span>
+          <span>Gold $10K</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- FFL VP -->
+    <div class="pace-row">
+      <div>
+        <div class="pace-head">
+          <span class="pace-name">FFL VP Track</span>
+          <span class="pace-window">Contract-level eligibility</span>
+          <span class="pace-tag flat">Contract 100%</span>
+        </div>
+        <div class="pace-sub">VP eligibility opens at <strong>145% contract</strong>.</div>
+        <div class="pace-forecast">Need <strong style="color:#E0B884">+45% contract</strong> — promotion path lives in Bonus Tracker.</div>
+      </div>
+      <div class="pace-bar-wrap">
+        <div class="pace-bar">
+          <div class="pace-bar-cur" style="width:31%"></div>
+          <div class="pace-bar-target"></div>
+        </div>
+        <div class="pace-bar-legend">
+          <span class="cur">100% today</span>
+          <span>&nbsp;</span>
+          <span>VP @ 145%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MID ROW: Status + Donut ============ -->
+  <div class="mid-row">
+    <div class="card">
+      <div class="label">Policy Status</div>
+      <div class="status-bar">
+        <div class="seg pending"  style="width:14%"></div>
+        <div class="seg approved" style="width:24%"></div>
+        <div class="seg issued"   style="width:36%"></div>
+        <div class="seg paid"     style="width:22%"></div>
+        <div class="seg lapsed"   style="width:4%"></div>
+      </div>
+      <div class="status-legend">
+        <div class="leg"><span class="dot" style="background:#E0B884"></span>Pending <span class="leg-n">2</span><span class="leg-p">14%</span></div>
+        <div class="leg"><span class="dot" style="background:#9FB7E8"></span>Approved <span class="leg-n">3</span><span class="leg-p">24%</span></div>
+        <div class="leg"><span class="dot" style="background:#5CC9A7"></span>Issued <span class="leg-n">5</span><span class="leg-p">36%</span></div>
+        <div class="leg"><span class="dot" style="background:#8FC2F7"></span>Paid <span class="leg-n">3</span><span class="leg-p">22%</span></div>
+        <div class="leg"><span class="dot" style="background:#E07B7B"></span>Lapsed <span class="leg-n">1</span><span class="leg-p">4%</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Carrier Mix</div>
+      <div class="mix-wrap">
+        <svg class="donut" viewBox="0 0 120 120">
+          <g transform="translate(60 60)">
+            <circle r="48" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="12"/>
+            <circle r="48" fill="none" stroke="#8FC2F7" stroke-width="12" stroke-dasharray="120 301" stroke-dashoffset="0" transform="rotate(-90)"/>
+            <circle r="48" fill="none" stroke="#5CC9A7" stroke-width="12" stroke-dasharray="85 301" stroke-dashoffset="-120" transform="rotate(-90)"/>
+            <circle r="48" fill="none" stroke="#E0B884" stroke-width="12" stroke-dasharray="60 301" stroke-dashoffset="-205" transform="rotate(-90)"/>
+            <circle r="48" fill="none" stroke="#9FB7E8" stroke-width="12" stroke-dasharray="36 301" stroke-dashoffset="-265" transform="rotate(-90)"/>
+            <text x="0" y="6" text-anchor="middle" font-size="13" font-family="DM Mono,monospace" fill="#EAF1FB" font-weight="600">$32K</text>
+          </g>
+        </svg>
+        <div class="mix-legend">
+          <div class="row"><span class="sw" style="background:#8FC2F7"></span><span class="name">Americo</span><span class="amt">$12.0K</span></div>
+          <div class="row"><span class="sw" style="background:#5CC9A7"></span><span class="name">Mutual of Omaha</span><span class="amt">$8.5K</span></div>
+          <div class="row"><span class="sw" style="background:#E0B884"></span><span class="name">Amicable</span><span class="amt">$6.0K</span></div>
+          <div class="row"><span class="sw" style="background:#9FB7E8"></span><span class="name">SBLI</span><span class="amt">$3.6K</span></div>
+          <div class="row"><span class="sw" style="background:rgba(255,255,255,.18)"></span><span class="name">Others</span><span class="amt">$2.3K</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DRAFTS STRIP ============ -->
+  <div class="card">
+    <div class="card-head">
+      <div class="label">Next 7 Days Drafts</div>
+      <button class="link">Open Drafts Calendar →</button>
+    </div>
+    <table class="drafts-tbl">
+      <tbody>
+        <tr><td class="dim" style="width:120px">Mon · 5/12</td><td>Marcus Bell</td><td class="dim">Americo</td><td class="num">$87/mo</td><td class="num">$1,044 adv</td></tr>
+        <tr><td class="dim">Tue · 5/13</td><td>Linda Vega</td><td class="dim">Mutual of Omaha</td><td class="num">$112/mo</td><td class="num">$1,344 adv</td></tr>
+        <tr><td class="dim">Wed · 5/14</td><td>Janelle Cook</td><td class="dim">Amicable</td><td class="num">$76/mo</td><td class="num">$912 adv</td></tr>
+        <tr><td class="dim">Fri · 5/16</td><td>Tom Yamada</td><td class="dim">SBLI</td><td class="num">$155/mo</td><td class="num">$1,860 adv</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script src="/helper.js"></script>
+</body>
+</html>
