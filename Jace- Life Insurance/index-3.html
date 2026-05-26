@@ -536,8 +536,17 @@ body.light .lead-row-main:hover{background:rgba(0,0,0,.02)}
 .lead-row-expanded > .lead-extra-actions:first-child{margin-top:12px;padding-top:0;border-top:none}
 .lead-extra-actions-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:500;margin-bottom:6px}
 .lead-extra-actions-row{display:flex;gap:6px;flex-wrap:wrap}
-.lead-notes{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;resize:vertical;min-height:60px;transition:border-color .14s;margin-top:12px}
+.lead-notes{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;resize:vertical;min-height:140px;transition:border-color .14s;margin-top:0;box-sizing:border-box}
 .lead-notes:focus{border-color:var(--accent)}
+.lead-itab-bar{display:flex;gap:4px;margin-top:12px;margin-bottom:10px;padding:3px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)}
+.lead-itab{padding:4px 16px;border-radius:6px;border:none;font-size:12px;font-weight:600;color:var(--text3);background:transparent;cursor:pointer;font-family:var(--sans);transition:all .12s;display:inline-flex;align-items:center;gap:5px}
+.lead-itab:hover{color:var(--text2)}
+.lead-itab.active{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.lead-itab .notes-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#60a5fa;flex-shrink:0}
+.lead-itab-panel.hidden{display:none}
+.lead-act-btn.notes-btn{background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.35);color:#60a5fa;font-weight:600}
+.lead-act-btn.notes-btn:hover{background:rgba(96,165,250,.22)}
+.lead-act-btn.notes-btn.has-notes{background:rgba(96,165,250,.2);border-color:rgba(96,165,250,.55);color:#93c5fd}
 @media (max-width:900px){
   .lead-row-top{grid-template-columns:auto 1fr auto;grid-template-areas:"check ident status" "actions actions actions";gap:8px}
   .lead-row-top > .lead-check{grid-area:check}
@@ -5352,17 +5361,7 @@ function renderLeads() {
     })();
     const phoneFmt = formatPhone(lead.phone) || '';
 
-    // Secondary fields for expanded view (front view now carries the bulk;
-    // expanded keeps Source / Age / Imported At for completeness).
-    const detailItems = [
-      ['Source',        lead.source],
-      ['Age',           lead.age],
-    ].filter(([,v]) => v != null && v !== '');
-    const detailHTML = detailItems.length
-      ? `<div class="lead-detail-grid">${detailItems.map(([k,v]) =>
-          `<div class="lead-detail-item"><div class="lead-detail-label">${k}</div><div class="lead-detail-value">${escapeHTML(String(v))}</div></div>`
-        ).join('')}</div>`
-      : '';
+    const detailHTML = '';
 
     const phoneDigits = (lead.phone||'').replace(/\D/g,'');
     const callHref = phoneDigits ? `tel:${phoneDigits}` : '#';
@@ -5386,6 +5385,8 @@ function renderLeads() {
       lead.military_branch   && `<div class="lead-meta-chip"><div class="lbl">Mil. Branch</div><div class="val">${escapeHTML(lead.military_branch)}</div></div>`,
       lead.beneficiary       && `<div class="lead-meta-chip"><div class="lbl">Beneficiary</div><div class="val" title="${escapeHTML(lead.beneficiary)}">${escapeHTML(lead.beneficiary)}</div></div>`,
       lead.coverage_wanted   && `<div class="lead-meta-chip"><div class="lbl">Coverage Wanted</div><div class="val">${escapeHTML(lead.coverage_wanted)}</div></div>`,
+      lead.source            && `<div class="lead-meta-chip"><div class="lbl">Source</div><div class="val">${escapeHTML(lead.source)}</div></div>`,
+      (lead.age != null && lead.age !== '') && `<div class="lead-meta-chip"><div class="lbl">Age</div><div class="val mono">${escapeHTML(String(lead.age))}</div></div>`,
     ].filter(Boolean).join('');
     const metaHTML = metaChips ? `<div class="lead-row-meta">${metaChips}</div>` : '';
 
@@ -5404,24 +5405,32 @@ function renderLeads() {
           <div class="lead-status-pill lead-status-pill-cb" data-lid="${lid}" style="${pillStyle}" title="Click to change status">${escapeHTML(pillLabel)}</div>
           <div class="lead-actions-quick">
             <button class="lead-act-btn no-ans lead-act-cb" data-lid="${lid}" data-action="no_answer" title="Mark as No Answer">No Ans</button>
+            <button class="lead-act-btn notes-btn lead-notes-open-btn${lead.notes?' has-notes':''}" data-lid="${lid}" title="${lead.notes?'View/edit notes':'Add notes'}">Notes${lead.notes?' ●':''}</button>
             <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
           </div>
         </div>
         ${metaHTML}
       </div>
       <div class="lead-row-expanded">
-        ${detailHTML}
-        <div class="lead-extra-actions">
-          <div class="lead-extra-actions-label">Set status</div>
-          <div class="lead-extra-actions-row">
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="not_interested">Not Interested</button>
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="appointment">Appointment Set</button>
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="social_obj">Social Objection</button>
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="banking_obj">Banking Objection</button>
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="new">Reset to New</button>
+        <div class="lead-itab-bar">
+          <button class="lead-itab active lead-itab-cb" data-lid="${lid}" data-tab="actions">Actions</button>
+          <button class="lead-itab lead-itab-cb" data-lid="${lid}" data-tab="notes">Notes${lead.notes?'<span class="notes-dot"></span>':''}</button>
+        </div>
+        <div class="lead-itab-panel" data-panel="actions">
+          <div class="lead-extra-actions" style="margin-top:0;padding-top:0;border-top:none">
+            <div class="lead-extra-actions-label">Set status</div>
+            <div class="lead-extra-actions-row">
+              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="not_interested">Not Interested</button>
+              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="appointment">Appointment Set</button>
+              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="social_obj">Social Objection</button>
+              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="banking_obj">Banking Objection</button>
+              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="new">Reset to New</button>
+            </div>
           </div>
         </div>
-        <textarea class="lead-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes — call details, objections, follow-up...">${escapeHTML(lead.notes||'')}</textarea>
+        <div class="lead-itab-panel hidden" data-panel="notes">
+          <textarea class="lead-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes — call details, objections, follow-up, client information, next steps...">${escapeHTML(lead.notes||'')}</textarea>
+        </div>
       </div>
     `;
     container.appendChild(div);
@@ -5464,6 +5473,24 @@ function renderLeads() {
     ta.addEventListener('blur',   e => saveLeadNote(e.target.dataset.lid, e.target.value));
     ta.addEventListener('change', e => saveLeadNote(e.target.dataset.lid, e.target.value));
     ta.addEventListener('click',  e => e.stopPropagation());
+  });
+  container.querySelectorAll('.lead-itab-cb').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      switchLeadTab(e.currentTarget.dataset.lid, e.currentTarget.dataset.tab);
+    });
+  });
+  container.querySelectorAll('.lead-notes-open-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const lid = e.currentTarget.dataset.lid;
+      if (!expandedLeadIds.has(lid)) toggleLeadExpand(lid);
+      switchLeadTab(lid, 'notes');
+      setTimeout(() => {
+        const ta = document.querySelector(`.lead-notes-cb[data-lid="${CSS.escape(lid)}"]`);
+        if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+      }, 60);
+    });
   });
   // Click row body (anywhere not handled above) toggles expand
   container.querySelectorAll('.lead-row-main').forEach(main => {
@@ -5641,6 +5668,18 @@ function toggleLeadExpand(lid) {
   // Toggle class directly to avoid full re-render (preserves scroll/notes focus).
   const row = document.querySelector(`.lead-row[data-lid="${CSS.escape(lid)}"]`);
   if (row) row.classList.toggle('expanded', expandedLeadIds.has(lid));
+}
+
+function switchLeadTab(lid, tabName) {
+  lid = String(lid);
+  const row = document.querySelector(`.lead-row[data-lid="${CSS.escape(lid)}"]`);
+  if (!row) return;
+  row.querySelectorAll('.lead-itab-cb').forEach(t => {
+    t.classList.toggle('active', t.dataset.tab === tabName);
+  });
+  row.querySelectorAll('.lead-itab-panel').forEach(p => {
+    p.classList.toggle('hidden', p.dataset.panel !== tabName);
+  });
 }
 
 // Open the lead-quote modal prefilled with lead data. Modal mirrors #sec-quoter
