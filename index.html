@@ -7823,7 +7823,13 @@ const softphone = (() => {
           }
         } catch { /* not JSON */ }
         console.warn('[softphone] sip-creds error', body || r.error);
-        const msg = (body && (body.detail || body.error)) || r.error.message || 'unknown';
+        // `detail` is often a nested object (SignalWire error arrays /
+        // validation errors). Stringify those so the UI shows real info
+        // instead of "[object Object]".
+        const raw = body && (body.detail ?? body.error);
+        const msg = (raw && typeof raw !== 'string')
+          ? JSON.stringify(raw)
+          : (raw || (r.error && r.error.message) || 'unknown');
         _setRegState('failed', `sip-creds error: ${msg}`); return false;
       }
       if (!r.data || !r.data.ok || !r.data.username || !r.data.wss_url) {
