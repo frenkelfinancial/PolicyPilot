@@ -225,12 +225,15 @@ Deno.serve(async (req) => {
   if (createRes.ok) {
     endpointId = String(createData?.id || "");
   } else {
-    // 2. Create failed — most likely the username is already taken
-    // because a prior run provisioned the endpoint but crashed
-    // before persisting. Recover: find it, then reset its password
-    // to the one we just generated.
+    // 2. Create failed — almost always because the username already exists
+    // (a prior run provisioned it but couldn't persist, or we're rotating
+    // after a stale credential). Fabric's PUT endpoint can't update the
+    // password (the docs list every editable field — password isn't one),
+    // so trying to reset it is pointless. Instead: locate the conflicting
+    // credential by username, DELETE it, and retry the POST. Bounded to a
+    // single retry to avoid loops on persistent server errors.
     console.warn(
-      `[signalwire-sip-creds] create ${createRes.status} for ${username}, attempting recovery:`,
+      `[signalwire-sip-creds] create ${createRes.status} for ${username}, finding+deleting conflict:`,
       createText.slice(0, 300),
     );
     const found = await findEndpointByUsername(sipApiBase, auth, username);
@@ -241,23 +244,41 @@ Deno.serve(async (req) => {
         detail: createData?.errors || createData?.message || `SignalWire error ${createRes.status}`,
       }, 502);
     }
-    endpointId = found.id;
-    let putRes: Response;
     try {
-      putRes = await fetch(`${sipApiBase}/${endpointId}`, {
-        method: "PUT",
-        headers: { "Authorization": auth, "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+      await fetch(`${sipApiBase}/${found.id}`, {
+        method: "DELETE",
+        headers: { Authorization: auth },
       });
     } catch (e) {
-      console.error(`[signalwire-sip-creds] password reset network error:`, (e as Error)?.message);
+      console.error(`[signalwire-sip-creds] delete-on-conflict network error:`, (e as Error)?.message);
       return json({ ok: false, error: "sip_provision_failed", detail: "signalwire_unreachable" }, 502);
     }
-    if (!putRes.ok) {
-      const putText = await putRes.text();
-      console.error(`[signalwire-sip-creds] password reset failed:`, putText.slice(0, 300));
-      return json({ ok: false, error: "sip_provision_failed", detail: "couldn't reset SIP password" }, 502);
+
+    // Retry POST with a fresh password (we still use the local `password`
+    // value we generated above — keeps the DB in sync).
+    let retryRes: Response;
+    try {
+      retryRes = await fetch(sipApiBase, {
+        method: "POST",
+        headers: { "Authorization": auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password, encryption: "required" }),
+      });
+    } catch (e) {
+      console.error(`[signalwire-sip-creds] retry create network error:`, (e as Error)?.message);
+      return json({ ok: false, error: "sip_provision_failed", detail: "signalwire_unreachable" }, 502);
     }
+    const retryText = await retryRes.text();
+    let retryData: any;
+    try { retryData = JSON.parse(retryText); } catch { retryData = { raw: retryText }; }
+    if (!retryRes.ok) {
+      console.error(`[signalwire-sip-creds] retry create ${retryRes.status} for ${username}:`, retryText.slice(0, 300));
+      return json({
+        ok: false,
+        error: "sip_provision_failed",
+        detail: retryData?.errors || retryData?.message || `SignalWire error ${retryRes.status} on retry`,
+      }, 502);
+    }
+    endpointId = String(retryData?.id || "");
   }
 
   // ---- Persist to the agent row ------------------------------
