@@ -7699,15 +7699,18 @@ const softphone = (() => {
   let _regState        = 'idle';     // idle | registering | registered | failed
   let _creds           = null;       // { username, password, domain, wss_url } from signalwire-sip-creds
   let _micState        = 'unknown';  // unknown | granted | denied
+  let _lastError       = null;       // last SIP/registration failure reason — surfaced in Phone Book UI
   let _regWaiters      = [];          // resolvers awaiting the in-flight registration
   const _regListeners  = [];          // callbacks notified on reg/mic-state change (Phone Book card)
 
   function _notifyReg() {
-    const snap = { regState: _regState, micState: _micState };
+    const snap = { regState: _regState, micState: _micState, lastError: _lastError };
     _regListeners.forEach(cb => { try { cb(snap); } catch { /* listener threw */ } });
   }
-  function _setRegState(s) {
-    if (_regState === s) return;
+  function _setRegState(s, err) {
+    if (err !== undefined) _lastError = err ? String(err) : null;
+    if (s === 'registered' || s === 'registering') _lastError = null;
+    if (_regState === s) { if (err !== undefined) _notifyReg(); return; }
     _regState = s;
     _notifyReg();
   }
@@ -7767,8 +7770,19 @@ const softphone = (() => {
     ua.on('registered',   () => { _setRegState('registered'); _drainRegWaiters(true); });
     ua.on('unregistered', () => { if (_regState !== 'registering') _setRegState('registering'); });
     ua.on('registrationFailed', (e) => {
-      console.warn('[softphone] SIP registration failed:', (e && e.cause) || e);
-      _setRegState('failed'); _drainRegWaiters(false);
+      const cause = (e && (e.cause || e.response?.reason_phrase)) || 'registration rejected';
+      console.warn('[softphone] SIP registration failed:', cause, e);
+      _setRegState('failed', `SIP registration rejected: ${cause}`); _drainRegWaiters(false);
+    });
+    ua.on('disconnected', (e) => {
+      // Captures WSS connect failures that arrive before registration ever happens.
+      // Only treat as a hard error if we never got registered; otherwise the
+      // existing 'disconnected' handler above flips us back to 'registering'.
+      if (_regState === 'registering') {
+        const reason = (e && (e.reason || e.code)) || 'WebSocket disconnected';
+        console.warn('[softphone] WSS disconnected during registration:', reason, e);
+        _setRegState('failed', `Can't reach SignalWire WSS: ${reason}`); _drainRegWaiters(false);
+      }
     });
     ua.on('newRTCSession', _onNewRTCSession);
   }
@@ -7790,7 +7804,7 @@ const softphone = (() => {
     _setRegState('registering');
 
     const JsSIP = await _loadJsSIP();
-    if (!JsSIP) { _setRegState('failed'); return false; }
+    if (!JsSIP) { _setRegState('failed', 'JsSIP library failed to load (assets/jssip.min.js)'); return false; }
 
     // Fetch (and lazily provision) the SIP endpoint credentials.
     if (!_creds) {
@@ -7799,7 +7813,7 @@ const softphone = (() => {
         r = await sb.functions.invoke('signalwire-sip-creds', { body: {} });
       } catch (e) {
         console.warn('[softphone] sip-creds invoke threw', e);
-        _setRegState('failed'); return false;
+        _setRegState('failed', `sip-creds call threw: ${(e && e.message) || e}`); return false;
       }
       if (r.error) {
         let body = null;
@@ -7809,11 +7823,12 @@ const softphone = (() => {
           }
         } catch { /* not JSON */ }
         console.warn('[softphone] sip-creds error', body || r.error);
-        _setRegState('failed'); return false;
+        const msg = (body && (body.detail || body.error)) || r.error.message || 'unknown';
+        _setRegState('failed', `sip-creds error: ${msg}`); return false;
       }
       if (!r.data || !r.data.ok || !r.data.username || !r.data.wss_url) {
         console.warn('[softphone] sip-creds returned no creds', r.data);
-        _setRegState('failed'); return false;
+        _setRegState('failed', 'sip-creds returned no credentials'); return false;
       }
       _creds = r.data;
     }
@@ -7837,7 +7852,7 @@ const softphone = (() => {
       } catch (e) {
         console.warn('[softphone] JsSIP UA build failed', e);
         _ua = null;
-        _setRegState('failed'); return false;
+        _setRegState('failed', `JsSIP UA build failed: ${(e && e.message) || e}`); return false;
       }
     } else {
       try { _ua.register(); } catch (e) { console.warn('[softphone] re-register threw', e); }
@@ -7847,7 +7862,12 @@ const softphone = (() => {
       _regWaiters.push(res);
       // Fallback: if neither 'registered' nor 'registrationFailed'
       // arrives in time, resolve this attempt false so the call stubs.
-      setTimeout(() => _drainRegWaiters(_regState === 'registered'), 8000);
+      setTimeout(() => {
+        if (_regState !== 'registered') {
+          _setRegState('failed', `Registration timed out — no SIP response in 8s from ${_creds && _creds.wss_url}`);
+        }
+        _drainRegWaiters(_regState === 'registered');
+      }, 8000);
     });
   }
 
@@ -8409,7 +8429,7 @@ const softphone = (() => {
     resetRegistration: _teardownRegistration,
     onRegChange,
     get state() { return { ...state }; },
-    get registration() { return { regState: _regState, micState: _micState }; },
+    get registration() { return { regState: _regState, micState: _micState, lastError: _lastError }; },
     get unavailable() { return _jssipLoadFailed; },   // true once JsSIP fails to load → lead Call button uses tel:
     get stub()        { return state.stubMode; },
   };
@@ -10391,7 +10411,15 @@ function _pbPaintSoftphoneCard() {
   };
   const m = MAP[reg.regState] || MAP.failed;
   if (dot) { dot.classList.remove('is-ok', 'is-warn', 'is-err'); dot.classList.add(m.cls); }
-  if (stEl) stEl.textContent = m.txt;
+  if (stEl) {
+    // When failed, append the underlying reason on a second line so the
+    // user (or whoever is debugging) doesn't need DevTools open to see it.
+    if (reg.regState === 'failed' && reg.lastError) {
+      stEl.innerHTML = `${m.txt}<div style="font-size:11px;font-weight:400;color:var(--ds-color-danger,#dc2626);margin-top:4px;max-width:520px;word-wrap:break-word;">${String(reg.lastError).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]))}</div>`;
+    } else {
+      stEl.textContent = m.txt;
+    }
+  }
   if (micEl) {
     micEl.textContent =
       reg.micState === 'granted' ? 'Microphone: ready' :
