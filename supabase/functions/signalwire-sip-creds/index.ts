@@ -133,10 +133,16 @@ Deno.serve(async (req) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // The SIP host is the space host with a ".sip." infix:
-  //   producerstack.signalwire.com → producerstack.sip.signalwire.com
+  // REST API host stays at the vanity domain (where Basic auth resolves to
+  // the project). The SIP/WSS host is a separate, longer hostname with a
+  // per-space hash suffix (e.g. producerstack-6cb4f093611d.sip.signalwire.com).
+  // The dashboard shows this on each SIP Credential's URI. If SIGNALWIRE_SIP_HOST
+  // is set, use it verbatim; otherwise fall back to the legacy ".sip." infix
+  // derivation for spaces where vanity == SIP host.
   const space   = spaceUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "");
-  const sipHost = space.replace(/^([^.]+)\./, "$1.sip.");
+  const sipHostEnv = (Deno.env.get("SIGNALWIRE_SIP_HOST") ?? "")
+    .replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  const sipHost = sipHostEnv || space.replace(/^([^.]+)\./, "$1.sip.");
 
   // ---- Fast path: already provisioned ------------------------
   let agent: {
