@@ -1,0 +1,596 @@
+/* ============================================================
+ * client/client.css — Self-serve quote wizard styles
+ * Phase 1A, 2026-05-07
+ *
+ * Anchored to PolicyPilot_Design_System.docx (Sections 02-09).
+ * Every color, spacing, radius, and font size is a var(--*) token
+ * from shared/tokens.css. No hard-coded values.
+ *
+ * Surfaces: Warm Ivory page, pure white only inside cards.
+ * Borders: 1px Stone 300 hairline. No resting shadows.
+ * Radius: 4px max. No gradients. No decorative icons.
+ * ============================================================ */
+
+/* ----------------------------------------------------------------
+ * Reset / base
+ * --------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-page);
+  color: var(--c-text);
+  font-family: var(--ff-ui);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+  min-height: 100vh;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--ff-display);
+  color: var(--c-primary);
+  margin: 0 0 var(--space-4) 0;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+h1 { font-size: var(--fs-display); line-height: 1.2; }
+h2 { font-size: var(--fs-h2);      line-height: 1.3; }
+
+/* H3 = eyebrow per design system */
+h3 {
+  font-family: var(--ff-ui);
+  font-size: var(--fs-label);
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--c-text-2);
+  font-weight: 600;
+  margin: 0 0 var(--space-2) 0;
+}
+
+p { margin: 0 0 var(--space-4) 0; }
+
+p:last-child { margin-bottom: 0; }
+
+a {
+  color: var(--c-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:hover { text-decoration: none; }
+
+::selection {
+  background: var(--c-primary);
+  color: var(--c-surface);
+}
+
+/* ----------------------------------------------------------------
+ * Layout shell — single-column, mobile-first, centered
+ * --------------------------------------------------------------- */
+.client-shell {
+  width: 100%;
+  max-width: var(--max-w);
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4) var(--space-7);
+}
+
+.client-header {
+  margin-bottom: var(--space-5);
+}
+
+.client-eyebrow {
+  font-family: var(--ff-ui);
+  font-size: var(--fs-label);
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--c-text-2);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.client-title {
+  font-family: var(--ff-display);
+  font-size: var(--fs-display);
+  line-height: 1.2;
+  color: var(--c-primary);
+  margin: 0;
+}
+
+.client-title-rule {
+  width: var(--space-7);
+  height: 2px;
+  background: var(--c-primary);
+  border: 0;
+  margin: var(--space-3) 0 0 0;
+}
+
+/* ----------------------------------------------------------------
+ * Progress bar — semantic, accessible, signal-only color
+ * --------------------------------------------------------------- */
+.wizard-progress {
+  display: block;
+  width: 100%;
+  height: var(--space-1);
+  background: var(--c-inset);
+  border-radius: var(--r-input);
+  overflow: hidden;
+  position: relative;
+  margin-bottom: var(--space-5);
+}
+
+.wizard-progress::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: var(--pct, 0%);
+  background: var(--c-primary);
+  transition: width var(--motion-med) ease-out;
+}
+
+.wizard-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
+  margin: 0 0 var(--space-2) 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------------------------------
+ * Step container + step sections
+ * --------------------------------------------------------------- */
+.wizard-steps {
+  position: relative;
+}
+
+.wizard-step {
+  display: none;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-card);
+  padding: var(--space-5);
+  /* No shadow on resting cards per design system. */
+}
+
+.wizard-step[data-active="true"] {
+  display: block;
+}
+
+.wizard-step-heading {
+  font-family: var(--ff-display);
+  font-size: var(--fs-h2);
+  line-height: 1.3;
+  color: var(--c-primary);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.wizard-step-lede {
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  color: var(--c-text-2);
+  margin: 0 0 var(--space-5) 0;
+}
+
+.wizard-step-body {
+  margin-bottom: var(--space-5);
+}
+
+.wizard-step-body > * + * {
+  margin-top: var(--space-4);
+}
+
+/* ----------------------------------------------------------------
+ * Form fields — 48px tall hit target, hairline border, 4px radius
+ * --------------------------------------------------------------- */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.field-label {
+  font-family: var(--ff-ui);
+  font-size: var(--fs-label);
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--c-text-2);
+  font-weight: 600;
+}
+
+.field-help {
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
+  margin-top: var(--space-1);
+}
+
+.field-error {
+  font-size: var(--fs-caption);
+  color: var(--c-bad);
+  margin-top: var(--space-1);
+}
+
+/* All text-style inputs share one ruleset. */
+.input,
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="search"],
+select,
+textarea {
+  font-family: var(--ff-ui);
+  font-size: var(--fs-body);
+  line-height: 1.4;
+  color: var(--c-text);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-input);
+  padding: var(--space-3) var(--space-4);
+  min-height: var(--hit);
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="search"],
+textarea {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+textarea {
+  min-height: calc(var(--hit) * 2);
+  resize: vertical;
+  line-height: 1.5;
+}
+
+select {
+  /* Keep native chevron — single-color, accessible, no decoration needed. */
+  padding-right: var(--space-5);
+}
+
+::placeholder { color: var(--c-text-2); opacity: 1; }
+
+/* Disabled / inset state */
+.input:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  background: var(--c-inset);
+  color: var(--c-text-2);
+  cursor: not-allowed;
+}
+
+/* ----------------------------------------------------------------
+ * Radio + checkbox — square 4px radius, 24px control, 48px row
+ * --------------------------------------------------------------- */
+.choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--hit);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-input);
+  background: var(--c-surface);
+  cursor: pointer;
+}
+
+.choice:hover {
+  border-color: var(--c-primary);
+}
+
+.choice input[type="radio"],
+.choice input[type="checkbox"] {
+  width: var(--space-5);
+  height: var(--space-5);
+  margin: 0;
+  accent-color: var(--c-primary);
+  flex: 0 0 auto;
+}
+
+.choice-label {
+  font-size: var(--fs-body);
+  color: var(--c-text);
+  line-height: 1.4;
+}
+
+/* ----------------------------------------------------------------
+ * Buttons — Primary navy fill, Secondary white fill w/ navy border
+ * --------------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--hit);
+  padding: var(--space-3) var(--space-5);
+  font-family: var(--ff-ui);
+  font-size: var(--fs-body);
+  line-height: 1.2;
+  font-weight: 600;
+  border-radius: var(--r-input);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--c-text);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color var(--motion-fast) ease-out,
+              border-color var(--motion-fast) ease-out,
+              color var(--motion-fast) ease-out;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--c-primary);
+  color: var(--c-surface);
+  border-color: var(--c-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  /* Per design system: hover darkens 10%, active darkens 18%.
+     filter: brightness keeps the navy token authoritative — no new hex. */
+  filter: brightness(0.9);
+}
+
+.btn-primary:active:not(:disabled) {
+  filter: brightness(0.82);
+}
+
+.btn-secondary {
+  background: var(--c-surface);
+  color: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--c-surface-recede);
+}
+
+.btn-link {
+  background: transparent;
+  color: var(--c-primary);
+  border-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: var(--space-2) var(--space-3);
+  min-height: var(--hit);
+}
+
+.btn-link:hover:not(:disabled) {
+  text-decoration: none;
+}
+
+.btn-block {
+  display: flex;
+  width: 100%;
+}
+
+/* Step nav row — Back left, Next/Submit right; stacks on narrow screens */
+.wizard-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--c-border);
+}
+
+.wizard-nav-spacer { flex: 1 1 auto; }
+
+.wizard-nav .btn {
+  flex: 0 0 auto;
+  min-width: calc(var(--hit) * 2.5);
+}
+
+@media (max-width: 480px) {
+  .wizard-nav { flex-direction: column-reverse; align-items: stretch; }
+  .wizard-nav .btn { width: 100%; }
+}
+
+/* ----------------------------------------------------------------
+ * Cards — generic + result card slots
+ * --------------------------------------------------------------- */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-card);
+  padding: var(--space-5);
+}
+
+.card + .card { margin-top: var(--space-4); }
+
+.card-eyebrow {
+  font-family: var(--ff-ui);
+  font-size: var(--fs-label);
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--c-text-2);
+  margin: 0 0 var(--space-2) 0;
+  font-weight: 600;
+}
+
+/* Two-type-size cap per card: heading + body. Numerics are their own size. */
+
+.results-region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.results-empty {
+  font-size: var(--fs-body);
+  color: var(--c-text-2);
+  padding: var(--space-5);
+  border: 1px dashed var(--c-border);
+  border-radius: var(--r-card);
+  text-align: center;
+}
+
+/* ----------------------------------------------------------------
+ * Numeric readouts — JetBrains Mono, tabular figures
+ * --------------------------------------------------------------- */
+.numeric,
+.numeric-table {
+  font-family: var(--ff-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-numeric-hero);
+  line-height: 1.1;
+  color: var(--c-primary);
+}
+
+.numeric-table {
+  font-size: var(--fs-body);
+  line-height: 1.4;
+}
+
+/* ----------------------------------------------------------------
+ * Status pairing — color + icon + text, never color alone
+ * --------------------------------------------------------------- */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
+  font-weight: 600;
+}
+
+.status-ok      { color: var(--c-ok); }
+.status-warn    { color: var(--c-warn); }
+.status-neutral { color: var(--c-text-2); }
+
+.status-dot {
+  display: inline-block;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ----------------------------------------------------------------
+ * Footer disclosure — hairline rule, caption text
+ * --------------------------------------------------------------- */
+.client-footer {
+  margin-top: var(--space-7);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--c-border);
+  font-size: var(--fs-caption);
+  color: var(--c-text-2);
+  line-height: 1.5;
+}
+
+.client-footer p { margin: 0 0 var(--space-2) 0; }
+.client-footer p:last-child { margin-bottom: 0; }
+
+/* ----------------------------------------------------------------
+ * Skip link — keyboard-only access shortcut
+ * --------------------------------------------------------------- */
+.skip-link {
+  position: absolute;
+  left: var(--space-3);
+  top: calc(var(--space-3) * -10);
+  background: var(--c-primary);
+  color: var(--c-surface);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--r-input);
+  text-decoration: none;
+  font-size: var(--fs-body);
+  z-index: 100;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: var(--space-3);
+}
+
+/* ----------------------------------------------------------------
+ * Focus — 2px Midnight Navy outset on every interactive
+ * --------------------------------------------------------------- */
+:focus { outline: none; }
+
+:focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+/* Inputs get the focus ring on the field itself — outline-offset zero so
+   it hugs the 4px radius cleanly. */
+.input:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 0;
+  border-color: var(--c-focus);
+}
+
+.choice:focus-within {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 2px;
+}
+
+/* ----------------------------------------------------------------
+ * Reduced motion — collapse step transitions to instant
+ * --------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+  }
+
+  .wizard-progress::after {
+    transition: none;
+  }
+}
+
+/* ----------------------------------------------------------------
+ * Visually hidden — for screen-reader-only labels
+ * --------------------------------------------------------------- */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

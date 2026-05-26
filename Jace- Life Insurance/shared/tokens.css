@@ -1,0 +1,84 @@
+/* ============================================================
+ * shared/tokens.css — Client wizard design tokens
+ * Phase 0c, 2026-05-07
+ *
+ * Anchored to PolicyPilot_Design_System.docx (canonical):
+ *   palette = Warm Ivory + Midnight Navy + Heritage Green
+ *   radius  = 4px max (inputs and cards only)
+ *   pure white only inside cards on Warm Ivory pages
+ *   color used as signal, never decoration
+ *
+ * Two deliberate deltas from the design system, justified by the
+ * all-ages public surface (client.html) vs the agent dashboard:
+ *   --fs-body 18px (vs 16px) — older audience accessibility floor
+ *   --hit     48px (vs 40px) — WCAG 2.5.5 mobile tap target
+ * ============================================================ */
+:root {
+  /* Surfaces */
+  --c-page:           #FAF7F0;  /* Warm Ivory — every page background */
+  --c-surface:        #FFFFFF;  /* Pure white — only inside cards */
+  --c-surface-recede: #F1EEE7;  /* Soft Stone 100 — sidebars, inset wells */
+  --c-inset:          #E5E2DA;  /* Stone 200 — disabled fields, alt rows */
+
+  /* Ink */
+  --c-text:    #1E293B;  /* Slate Ink — body */
+  --c-text-2:  #3F4750;  /* Graphite — sub-labels, captions, neutral status */
+
+  /* Accent + brand */
+  --c-primary: #0B1F3A;  /* Midnight Navy — primary buttons, headers, focus */
+  --c-accent:  #2C5F4F;  /* Heritage Green — recommended, positive */
+  --c-premium: #B8945A;  /* Burnished Gold — eyebrow only, <1% surface */
+
+  /* Status — paired with icon + text, never color alone */
+  --c-ok:      #2C5F4F;  /* Heritage Green */
+  --c-warn:    #B8945A;  /* Burnished Gold — caution, not alarm */
+  --c-bad:     #9A2A2A;  /* Signal Red — critical only, never on buttons */
+
+  /* Borders + focus */
+  --c-border:        #D8D4CB;  /* Hairline rule */
+  --c-border-strong: #CCC8BF;  /* Stone 300 — card perimeter */
+  --c-focus:         #0B1F3A;  /* Midnight Navy — 2px outset focus ring */
+
+  /* Type scale (1.250 ratio, anchored at 18px for all-ages body) */
+  --fs-caption: 13px;
+  --fs-label:   13px;   /* ALL CAPS, +30 tracking */
+  --fs-body:    18px;   /* delta from design system 16px — senior audience */
+  --fs-strong:  18px;
+  --fs-q:       24px;   /* question prompts */
+  --fs-h2:      26px;
+  --fs-display: 36px;   /* premium readout, page H1 */
+  --fs-numeric-hero: 44px;
+
+  /* Spacing — 4px base, multiples only */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Radius — locked at 4px per design system */
+  --r-card:   4px;
+  --r-input:  4px;
+
+  /* Hit target + canvas */
+  --hit:    48px;        /* delta from design system 40px — WCAG tap target */
+  --max-w:  640px;       /* single-column mobile-first canvas */
+
+  /* Type families */
+  --ff-display: 'Source Serif 4', Cambria, Georgia, serif;
+  --ff-ui:      'Inter Tight', Calibri, 'Segoe UI', system-ui, sans-serif;
+  --ff-mono:    'JetBrains Mono', Consolas, ui-monospace, monospace;
+}
+
+/* prefers-reduced-motion: enforced by client/client.css; tokens just expose
+   the duration so any motion authored against them collapses cleanly. */
+:root {
+  --motion-fast: 140ms;
+  --motion-med:  240ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion-fast: 0ms; --motion-med: 0ms; }
+}

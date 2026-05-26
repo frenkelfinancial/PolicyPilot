@@ -1,0 +1,11 @@
+client_name,client_dob,client_email,client_phone,client_state,carrier_name,policy_number,product_type,product_name,face_amount,issue_date,term_length_years,annual_premium,rating_class,smoker_status,conditions
+Robert Chen,1967-02-15,robert.chen@example.com,608-555-0101,WI,Prudential,POL-100234,TERM,Term Essential 20,500000,2016-06-01,20,612,Preferred Plus,never,Diabetes Type 1 / On Insulin
+Maria Vasquez,1963-11-22,maria.v@example.com,608-555-0102,IL,Banner,POL-880017,TERM,OPTerm 20,400000,2021-06-01,20,890,Standard,never,Stent (within 2 yrs); Coronary Artery Disease
+Linda Patel,1972-09-03,linda.patel@example.com,608-555-0103,WI,Banner,POL-552901,TERM,OPTerm 15,250000,2021-09-01,15,345,Standard,former,
+Marcus Whittaker,1959-11-30,marcus.w@example.com,612-555-0104,MN,Lincoln Financial,POL-441120,TERM,LifeElements 20,750000,2017-03-22,20,1820,Standard,never,
+Sarah Goldberg,1970-04-05,sarah.g@example.com,734-555-0105,MI,Prudential,POL-552004,TERM,Term Essential 30,500000,2017-07-12,30,820,Preferred Plus,never,
+David Liu,1968-08-19,david.liu@example.com,608-555-0106,WI,Mutual of Omaha,POL-77820,TERM,Term Life Express 20,300000,2018-01-15,20,540,Standard,never,
+James Park,1971-02-08,james.park@example.com,217-555-0107,IL,Allstate,POL-994412,TERM,Trustmark Term 20,400000,2018-04-01,20,680,Standard,never,
+Tyler Brooks,,tyler.brooks@example.com,608-555-0108,WI,Lincoln Financial,POL-330221,TERM,LifeElements 15,300000,2017-04-01,15,460,Standard,never,
+Margaret Stevens,1958-06-30,margaret.s@example.com,419-555-0109,OH,Banner,POL-100456,TERM,OPTerm 20,300000,2020-01-01,20,720,Standard,never,
+Anthony Rivers,1969-03-17,anthony.r@example.com,608-555-0110,WI,Mutual of Omaha,POL-220033,WL,Living Promise Whole Life,50000,2019-06-20,,640,Standard,never,

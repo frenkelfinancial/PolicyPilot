@@ -1,0 +1,453 @@
+{
+  "version": 1,
+  "__convention": "uw_map keys encode the answer path. 'no' = answered no (no follow-ups). 'yes' = answered yes with no follow-up question. 'yes:<value>' = answered yes plus single follow-up choice value. 'yes:<value1>+<value2>' = answered yes plus multiple follow-up choices joined with '+' in declared follow-up order. Every value in every uw_map array MUST be an exact key from UW_CLASS in shared/data.js — uw-translator.js validates on load and console.errors any drift.",
+  "groups": [
+    {
+      "id": "heart",
+      "label": "Heart and circulation",
+      "questions": [
+        {
+          "id": "heart_event",
+          "prompt": "Have you ever had a heart attack, heart surgery, bypass, stent, pacemaker, or defibrillator?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "heart_event_when",
+              "type": "choice",
+              "label": "When was the most recent one?",
+              "options": [
+                { "value": "lt2",  "label": "Less than 2 years ago" },
+                { "value": "gte2", "label": "2 or more years ago" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:lt2":  ["Heart Attack (within 2 yrs)", "Heart Surgery (within 2 yrs)", "Stent (within 2 yrs)", "Pacemaker / Defibrillator (within 2 yrs)"],
+            "yes:gte2": ["Heart Attack (2+ yrs ago)", "Heart Surgery (2+ yrs ago)", "Stent (2+ yrs ago)", "Pacemaker / Defibrillator (2+ yrs ago)"]
+          }
+        },
+        {
+          "id": "heart_other",
+          "prompt": "Has a doctor told you that you have congestive heart failure, coronary artery disease, an aneurysm, or an irregular heartbeat?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "heart_other_which",
+              "type": "choice",
+              "label": "Which one fits best?",
+              "options": [
+                { "value": "chf",     "label": "Congestive heart failure" },
+                { "value": "cad",     "label": "Coronary artery disease" },
+                { "value": "aneur",   "label": "Aneurysm" },
+                { "value": "afib",    "label": "Irregular heartbeat or AFib" },
+                { "value": "clots",   "label": "Blood clots" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:chf":   ["Congestive Heart Failure"],
+            "yes:cad":   ["Coronary Artery Disease"],
+            "yes:aneur": ["Aneurysm"],
+            "yes:afib":  ["AFIB / Irregular Heartbeat"],
+            "yes:clots": ["Blood Clots"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "lung",
+      "label": "Lungs and breathing",
+      "questions": [
+        {
+          "id": "lung_condition",
+          "prompt": "Do you have a long-term lung condition like COPD, emphysema, chronic bronchitis, or pulmonary fibrosis?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "lung_which",
+              "type": "choice",
+              "label": "Which one is it?",
+              "options": [
+                { "value": "copd_inhaler", "label": "COPD or emphysema, inhaler only" },
+                { "value": "copd_oxygen",  "label": "COPD or emphysema, on oxygen" },
+                { "value": "bronchitis",   "label": "Chronic bronchitis" },
+                { "value": "fibrosis",     "label": "Pulmonary fibrosis" },
+                { "value": "asthma",       "label": "Chronic asthma" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:copd_inhaler": ["COPD (Inhaler — no oxygen)"],
+            "yes:copd_oxygen":  ["COPD (On Oxygen)", "Oxygen Use (not CPAP)"],
+            "yes:bronchitis":   ["Bronchitis (Chronic)"],
+            "yes:fibrosis":     ["Pulmonary Fibrosis", "Oxygen Use (not CPAP)"],
+            "yes:asthma":       ["Asthma (Chronic)"]
+          }
+        },
+        {
+          "id": "sleep_apnea",
+          "prompt": "Do you use a CPAP machine for sleep apnea?",
+          "type": "yes_no",
+          "uw_map": {
+            "no": [],
+            "yes": ["Sleep Apnea (CPAP OK)"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "diabetes",
+      "label": "Diabetes",
+      "questions": [
+        {
+          "id": "diabetes",
+          "prompt": "Do you have diabetes?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "diabetes_type",
+              "type": "choice",
+              "label": "Which best describes it?",
+              "options": [
+                { "value": "t2_ctrl",   "label": "Type 2, well controlled, no insulin (A1C 8.6 or lower)" },
+                { "value": "t2_unctrl", "label": "Type 2, not well controlled or A1C above 8.6" },
+                { "value": "t1_ins",    "label": "Type 1, or take insulin" },
+                { "value": "complic",   "label": "Has caused complications like nerve or eye damage" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:t2_ctrl":   ["Diabetes Type 2 — Controlled (A1C ≤ 8.6, no insulin)"],
+            "yes:t2_unctrl": ["Diabetes Type 2 — Uncontrolled or A1C > 8.6"],
+            "yes:t1_ins":    ["Diabetes Type 1 / On Insulin"],
+            "yes:complic":   ["Diabetic Complications (neuropathy/retinopathy)"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "cancer",
+      "label": "Cancer",
+      "questions": [
+        {
+          "id": "cancer",
+          "prompt": "Have you ever been diagnosed with or treated for cancer (other than basal cell skin cancer)?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "cancer_when",
+              "type": "choice",
+              "label": "When was your most recent treatment?",
+              "options": [
+                { "value": "active",  "label": "Currently in treatment, or finished within the last 2 years" },
+                { "value": "mid",     "label": "Last treatment was 2 to 4 years ago" },
+                { "value": "long",    "label": "More than 4 years ago, cancer free since" },
+                { "value": "basal",   "label": "Only basal cell skin cancer" },
+                { "value": "mel_new", "label": "Melanoma within the last 3 years" },
+                { "value": "mel_old", "label": "Melanoma more than 3 years ago" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:active":  ["Cancer — Active or Treatment within 2 yrs"],
+            "yes:mid":     ["Cancer — Last Treatment 2–4 yrs ago"],
+            "yes:long":    ["Cancer — 4+ yrs cancer free"],
+            "yes:basal":   ["Cancer — Basal Cell Skin Only"],
+            "yes:mel_new": ["Melanoma (within 3 yrs)"],
+            "yes:mel_old": ["Melanoma (3+ yrs ago)"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "neuro",
+      "label": "Brain, memory, and nerves",
+      "questions": [
+        {
+          "id": "neuro_serious",
+          "prompt": "Have you been diagnosed with memory loss, dementia, Alzheimer's, ALS, Parkinson's, multiple sclerosis, Huntington's, or cerebral palsy?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "neuro_which",
+              "type": "choice",
+              "label": "Which one fits best?",
+              "options": [
+                { "value": "demen",   "label": "Memory loss, dementia, or Alzheimer's" },
+                { "value": "als",     "label": "ALS (Lou Gehrig's)" },
+                { "value": "park",    "label": "Parkinson's" },
+                { "value": "ms",      "label": "Multiple sclerosis (MS)" },
+                { "value": "hunt",    "label": "Huntington's disease" },
+                { "value": "cp",      "label": "Cerebral palsy" },
+                { "value": "cog",     "label": "Other cognitive impairment" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:demen": ["Alzheimer's / Dementia / Memory Loss"],
+            "yes:als":   ["ALS (Lou Gehrig's)"],
+            "yes:park":  ["Parkinson's Disease"],
+            "yes:ms":    ["Multiple Sclerosis (MS)"],
+            "yes:hunt":  ["Huntington's Disease"],
+            "yes:cp":    ["Cerebral Palsy"],
+            "yes:cog":   ["Mental Incapacity / Cognitive Impairment"]
+          }
+        },
+        {
+          "id": "seizures",
+          "prompt": "Have you had a seizure or been treated for epilepsy?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "seizures_when",
+              "type": "choice",
+              "label": "When was the most recent one?",
+              "options": [
+                { "value": "lt3",  "label": "Within the last 3 years" },
+                { "value": "gte3", "label": "More than 3 years ago" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:lt3":  ["Epilepsy / Seizures (within 3 yrs)"],
+            "yes:gte3": ["Epilepsy / Seizures (3+ yrs)"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "liver_kidney",
+      "label": "Liver, kidney, and digestive",
+      "questions": [
+        {
+          "id": "liver_kidney",
+          "prompt": "Do you have liver disease, kidney disease, hepatitis, cirrhosis, or are you on dialysis?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "liver_kidney_which",
+              "type": "choice",
+              "label": "Which best fits?",
+              "options": [
+                { "value": "dialysis", "label": "On dialysis" },
+                { "value": "kidney",   "label": "Kidney disease or kidney failure" },
+                { "value": "liver",    "label": "Liver disease or liver failure" },
+                { "value": "cirr",     "label": "Cirrhosis" },
+                { "value": "hepa",     "label": "Hepatitis A" },
+                { "value": "hepb",     "label": "Hepatitis B" },
+                { "value": "hepc",     "label": "Hepatitis C" },
+                { "value": "panc",     "label": "Pancreatitis" },
+                { "value": "crohns",   "label": "Crohn's or ulcerative colitis" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:dialysis": ["Dialysis"],
+            "yes:kidney":   ["Kidney Disease / Kidney Failure"],
+            "yes:liver":    ["Liver Disease / Liver Failure"],
+            "yes:cirr":     ["Cirrhosis"],
+            "yes:hepa":     ["Hepatitis A"],
+            "yes:hepb":     ["Hepatitis B"],
+            "yes:hepc":     ["Hepatitis C"],
+            "yes:panc":     ["Pancreatitis"],
+            "yes:crohns":   ["Crohn's Disease", "Ulcerative Colitis"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "mental",
+      "label": "Mental health",
+      "questions": [
+        {
+          "id": "mental",
+          "prompt": "Are you currently being treated for depression, bipolar disorder, schizophrenia, or PTSD?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "mental_which",
+              "type": "choice",
+              "label": "Which one?",
+              "options": [
+                { "value": "dep",    "label": "Depression" },
+                { "value": "bipo",   "label": "Bipolar disorder" },
+                { "value": "schiz",  "label": "Schizophrenia" },
+                { "value": "ptsd",   "label": "PTSD" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:dep":   ["Depression"],
+            "yes:bipo":  ["Bipolar Disorder"],
+            "yes:schiz": ["Schizophrenia"],
+            "yes:ptsd":  ["PTSD"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "mobility",
+      "label": "Mobility and daily living",
+      "questions": [
+        {
+          "id": "mobility",
+          "prompt": "Do you use a wheelchair, scooter, walker, or live in a nursing home or assisted-living facility?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "mobility_which",
+              "type": "choice",
+              "label": "Which fits best?",
+              "options": [
+                { "value": "wheel",     "label": "Wheelchair, scooter, or electric cart" },
+                { "value": "walker",    "label": "Walker" },
+                { "value": "facility",  "label": "Nursing home or assisted living" },
+                { "value": "amp_dis",   "label": "Amputation due to diabetes or disease" },
+                { "value": "amp_traum", "label": "Amputation due to an accident" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:wheel":     ["Wheelchair / Scooter / Electric Cart"],
+            "yes:walker":    ["Walker Use"],
+            "yes:facility":  ["Assisted Living / Long-Term Care Facility"],
+            "yes:amp_dis":   ["Amputation (due to diabetes or disease)"],
+            "yes:amp_traum": ["Amputation (trauma)"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "lifestyle",
+      "label": "Tobacco, alcohol, and drug use",
+      "questions": [
+        {
+          "id": "tobacco",
+          "prompt": "Have you used tobacco, vapes, or nicotine products in the last 12 months?",
+          "type": "yes_no",
+          "uw_map": {
+            "no": [],
+            "yes": []
+          }
+        },
+        {
+          "id": "substance",
+          "prompt": "In the last 2 years, have you been treated for alcohol or drug abuse, or used illegal drugs?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "substance_when",
+              "type": "choice",
+              "label": "When was the most recent?",
+              "options": [
+                { "value": "lt2",  "label": "Within the last 2 years" },
+                { "value": "gte2", "label": "2 or more years clean" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:lt2":  ["Alcohol or Drug Abuse (within 2 yrs)", "Illegal Drug Use (within 2 yrs)"],
+            "yes:gte2": ["Alcohol or Drug Abuse (2+ yrs clean)", "Illegal Drug Use (2+ yrs clean)"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "hospital",
+      "label": "Recent hospital and prescriptions",
+      "questions": [
+        {
+          "id": "narcotics",
+          "prompt": "Do you fill a narcotic pain medication 6 or more times per month?",
+          "type": "yes_no",
+          "uw_map": {
+            "no": [],
+            "yes": ["Chronic Narcotic Pain Medications (6+ fills/month)"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "terminal",
+      "label": "Terminal illness and transplant",
+      "questions": [
+        {
+          "id": "terminal",
+          "prompt": "Has a doctor told you that you have a terminal illness with a life expectancy of 12 months or less?",
+          "type": "yes_no",
+          "uw_map": {
+            "no": [],
+            "yes": ["Terminal Illness (death expected within 12 months)"]
+          }
+        },
+        {
+          "id": "transplant",
+          "prompt": "Have you ever received an organ transplant or bone marrow transplant, or been diagnosed with HIV, AIDS, or sickle cell anemia?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "transplant_which",
+              "type": "choice",
+              "label": "Which fits best?",
+              "options": [
+                { "value": "organ",  "label": "Organ transplant" },
+                { "value": "marrow", "label": "Bone marrow transplant" },
+                { "value": "hiv",    "label": "HIV, AIDS, or ARC" },
+                { "value": "sickle", "label": "Sickle cell anemia" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:organ":  ["Organ Transplant"],
+            "yes:marrow": ["Bone Marrow Transplant"],
+            "yes:hiv":    ["HIV / AIDS / ARC"],
+            "yes:sickle": ["Sickle Cell Anemia"]
+          }
+        }
+      ]
+    },
+    {
+      "id": "other",
+      "label": "Other conditions",
+      "questions": [
+        {
+          "id": "other_chronic",
+          "prompt": "Do you have any of these other long-term conditions: lupus, rheumatoid arthritis, a blood disorder like hemophilia, or sarcoidosis?",
+          "type": "yes_no",
+          "followups_if_yes": [
+            {
+              "id": "other_which",
+              "type": "choice",
+              "label": "Which fits best?",
+              "options": [
+                { "value": "lupus",  "label": "Lupus (SLE)" },
+                { "value": "ra",     "label": "Rheumatoid arthritis" },
+                { "value": "blood",  "label": "Blood disorder (hemophilia, low platelets)" },
+                { "value": "sarc",   "label": "Sarcoidosis" }
+              ]
+            }
+          ],
+          "uw_map": {
+            "no": [],
+            "yes:lupus": ["Lupus (SLE)"],
+            "yes:ra":    ["Rheumatoid Arthritis"],
+            "yes:blood": ["Blood Disorder (Hemophilia / Thrombocytopenia)"],
+            "yes:sarc":  ["Sarcoidosis"]
+          }
+        }
+      ]
+    }
+  ]
+}

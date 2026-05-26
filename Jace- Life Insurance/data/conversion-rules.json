@@ -1,0 +1,13 @@
+{
+  "_comment": "Mirror of CARRIER_CONVERSION_RULES from shared/data.js. The JS file is canonical; this mirror exists for non-JS consumers and parity with compensation-table.json. Update both together. fullUntilYear = years from issue date for full conversion privilege; limitedUntilAge = client age cutoff for any conversion.",
+  "prudential":  { "TERM_10": { "fullUntilYear": 7,  "limitedUntilAge": 65 }, "TERM_15": { "fullUntilYear": 8,  "limitedUntilAge": 65 }, "TERM_20": { "fullUntilYear": 10, "limitedUntilAge": 65 }, "TERM_30": { "fullUntilYear": 10, "limitedUntilAge": 65 } },
+  "lincoln":     { "TERM_10": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_15": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_20": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_30": { "fullUntilYear": 10, "limitedUntilAge": 70 } },
+  "banner":      { "TERM_10": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_15": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_20": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_30": { "fullUntilYear": 5,  "limitedUntilAge": 70 } },
+  "protective":  { "TERM_10": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_15": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_20": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_30": { "fullUntilYear": 10, "limitedUntilAge": 70 } },
+  "johnHancock": { "TERM_10": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_15": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_20": { "fullUntilYear": 10, "limitedUntilAge": 70 } },
+  "mutual":      { "TERM_10": { "fullUntilYear": 10, "limitedUntilAge": 75 }, "TERM_15": { "fullUntilYear": 10, "limitedUntilAge": 75 }, "TERM_20": { "fullUntilYear": 10, "limitedUntilAge": 75 }, "TERM_30": { "fullUntilYear": 10, "limitedUntilAge": 75 } },
+  "symetra":     { "TERM_10": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_15": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_20": { "fullUntilYear": 5,  "limitedUntilAge": 70 } },
+  "aig":         { "TERM_10": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_15": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_20": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_30": { "fullUntilYear": 5,  "limitedUntilAge": 70 } },
+  "trans":       { "TERM_10": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_15": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_20": { "fullUntilYear": 10, "limitedUntilAge": 70 }, "TERM_30": { "fullUntilYear": 10, "limitedUntilAge": 70 } },
+  "pacificLife": { "TERM_10": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_15": { "fullUntilYear": 5,  "limitedUntilAge": 70 }, "TERM_20": { "fullUntilYear": 5,  "limitedUntilAge": 70 } }
+}
