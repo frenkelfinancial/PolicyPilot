@@ -46,8 +46,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-// Swap this single constant if the account is on the Fabric API.
-const SIP_API_PATH = "/api/relay/rest/endpoints/sip";
+// SignalWire's modern Fabric API path. The older Relay path
+// (/api/relay/rest/endpoints/sip) is left as a fallback that the cleanup
+// step below tries DELETE against, in case a prior deploy provisioned
+// orphan endpoints there.
+const SIP_API_PATH       = "/api/fabric/resources/sip_endpoints";
+const LEGACY_RELAY_PATH  = "/api/relay/rest/endpoints/sip";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -175,6 +179,24 @@ Deno.serve(async (req) => {
   const password = randomPassword();
   const auth     = "Basic " + btoa(`${projectId}:${apiToken}`);
   const sipApiBase = `https://${space}${SIP_API_PATH}`;
+
+  // ---- Cleanup orphan: a stale SID on the agent row means an earlier
+  // run provisioned an endpoint we no longer use. Fire DELETE against
+  // BOTH the Fabric and legacy Relay paths — whichever namespace owns
+  // the SID handles it, the other returns 404 silently. Best-effort:
+  // failures don't block the fresh create below. Run only when password
+  // is missing (we never want to delete a working endpoint mid-session).
+  if (agent.sip_endpoint_sid && !agent.sip_endpoint_password) {
+    const staleSid = agent.sip_endpoint_sid;
+    await Promise.allSettled([
+      fetch(`https://${space}${SIP_API_PATH}/${staleSid}`,      { method: "DELETE", headers: { Authorization: auth }}),
+      fetch(`https://${space}${LEGACY_RELAY_PATH}/${staleSid}`, { method: "DELETE", headers: { Authorization: auth }}),
+    ]);
+    try {
+      await admin.from("agents").update({ sip_endpoint_sid: null }).eq("id", userId);
+    } catch { /* best-effort */ }
+    console.log(`[signalwire-sip-creds] cleaned up stale SID ${staleSid} for ${userId}`);
+  }
 
   let endpointId = "";
 

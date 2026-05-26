@@ -10386,8 +10386,18 @@ function pbRenderSoftphoneCard() {
     btn.onclick = async () => {
       btn.disabled = true;
       try {
-        if (window.softphone && typeof softphone.ensureRegistered === 'function') {
-          await softphone.ensureRegistered();
+        if (window.softphone) {
+          // If the previous attempt failed, the cached _creds/_ua still
+          // reference the stale credentials — registering again would just
+          // replay the same failure. Tear down first so the next attempt
+          // re-fetches creds from sip-creds and builds a fresh UA.
+          const cur = softphone.registration || {};
+          if (cur.regState === 'failed' && typeof softphone.resetRegistration === 'function') {
+            softphone.resetRegistration();
+          }
+          if (typeof softphone.ensureRegistered === 'function') {
+            await softphone.ensureRegistered();
+          }
         }
       } finally {
         btn.disabled = false;
