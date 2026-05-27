@@ -1,0 +1,11 @@
+# Per-function config for lead-ingest.
+#
+# Lead vendors POST to this endpoint without a Supabase JWT —
+# they authenticate using a per-vendor secret token passed as
+# ?token=<vendor_token> or the x-vendor-token header.
+# The function validates the token against the lead_vendors table.
+#
+# If this config isn't picked up automatically by the CLI, also toggle
+# the setting in the Supabase Dashboard:
+#   Edge Functions → lead-ingest → Settings → "Enforce JWT verification" → OFF
+verify_jwt = false

@@ -2454,6 +2454,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
               <option value="9999">All</option>
             </select>
             <button class="btn btn-s btn-sm" onclick="openAddLeadModal()" style="margin-right:6px">+ Add Lead</button>
+            <button class="btn btn-s btn-sm" onclick="openIntegrationsModal()" style="margin-right:6px" title="Manage lead vendor webhook integrations">⚡ Integrations</button>
             <button class="btn btn-p btn-sm" onclick="openImportModal()">+ Import Leads</button>
           </div>
         </div>
@@ -3262,6 +3263,32 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
     <div id="laq-results" style="display:none;margin-top:16px"></div>
 
+  </div>
+</div>
+
+<!-- INTEGRATIONS MODAL -->
+<div class="overlay" id="integrationsModal">
+  <div class="modal" style="max-width:560px;width:100%">
+    <div class="mhdr"><div class="mtitle">Lead Vendor Integrations</div><button class="mclose" onclick="closeIntegrationsModal()" data-ico="x" data-size="14"></button></div>
+    <div class="alert alert-i" style="margin-bottom:16px"><span data-ico="zap"></span><div>Each vendor gets a unique webhook URL. When you purchase a lead, it posts automatically to your dashboard — no CSV needed.</div></div>
+
+    <!-- Vendor list — populated by loadIntegrations() -->
+    <div id="integrations-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px">
+      <div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0">Loading integrations…</div>
+    </div>
+
+    <!-- How to give vendor the URL -->
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:4px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">How to set up Goat Leads</div>
+      <ol style="font-size:12.5px;color:var(--text2);margin:0;padding-left:18px;line-height:1.8">
+        <li>Copy your Goat Leads webhook URL above</li>
+        <li>In Goat Leads portal → <strong>Settings → Webhook / Lead Delivery URL</strong></li>
+        <li>Paste the URL and save — new leads will appear here instantly</li>
+      </ol>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--text3)">Need to add a new vendor? Ask your Supabase admin to run the setup SQL and give you the token.</div>
+    </div>
+
+    <div class="mftr"><button class="btn btn-s btn-sm" onclick="closeIntegrationsModal()">Close</button></div>
   </div>
 </div>
 
@@ -12066,6 +12093,8 @@ async function bootDashboard() {
     renderPolicies();
     if (typeof renderLeads === 'function') renderLeads();
     updateBonusFromTracker();
+    // Subscribe to new webhook leads arriving in real-time.
+    _initLeadsRealtime();
   } catch (e) {
     console.error('[sync] bootDashboard sync failed', e);
     // Local data is already showing, fail open.
@@ -12100,6 +12129,95 @@ function restoreSectionFromCache() {
   if (items[idxMap[saved]]) items[idxMap[saved]].classList.add('active');
   const titleEl = document.getElementById('pgTitle');
   if (titleEl) titleEl.textContent = (typeof NAV_TITLES !== 'undefined' && NAV_TITLES[saved]) || saved;
+}
+
+// ============================================================
+// LEADS REALTIME — subscribes to INSERT events on the leads
+// table so webhook-delivered leads appear instantly without
+// a page refresh. Mirrors the softphone _initRealtime() pattern.
+// ============================================================
+let _leadsRealtimeCh = null;
+
+function _initLeadsRealtime() {
+  if (_leadsRealtimeCh || !currentAgent) return;
+  _leadsRealtimeCh = sb.channel('leads-ingest-' + currentAgent.id)
+    .on('postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'leads',
+        filter: `agent_id=eq.${currentAgent.id}` },
+      ({ new: row }) => {
+        if (!row || !row.data) return;
+        const lead = row.data;
+        // Skip if already present (e.g. agent added it themselves)
+        if (leads.find(l => String(l.id) === String(lead.id))) return;
+        leads.unshift(lead);
+        localStorage.setItem(k('pp_leads'), JSON.stringify(leads));
+        filteredLeads = [...leads];
+        renderLeads();
+        showToast(
+          `New lead from ${lead.source || 'webhook'}: ${lead.name || 'Unknown'}`,
+          '#10b981'
+        );
+      })
+    .subscribe();
+}
+
+// ============================================================
+// INTEGRATIONS MODAL — shows per-vendor webhook URLs so the
+// agent can copy them into vendor portals (Goat Leads, etc.)
+// ============================================================
+function openIntegrationsModal() {
+  document.getElementById('integrationsModal').classList.add('open');
+  loadIntegrations();
+}
+
+function closeIntegrationsModal() {
+  document.getElementById('integrationsModal').classList.remove('open');
+}
+
+async function loadIntegrations() {
+  const el = document.getElementById('integrations-list');
+  if (!el) return;
+  el.innerHTML = '<div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0">Loading…</div>';
+
+  const { data: vendors, error } = await sb
+    .from('lead_vendors')
+    .select('id, name, token, active, created_at')
+    .order('created_at', { ascending: true });
+
+  if (error || !vendors || vendors.length === 0) {
+    el.innerHTML = `<div style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0">
+      No integrations set up yet. Ask your Supabase admin to run <code>supabase-setup-lead-vendors.sql</code>.
+    </div>`;
+    return;
+  }
+
+  const base = `${SUPABASE_URL}/functions/v1/lead-ingest`;
+
+  el.innerHTML = vendors.map(v => {
+    const webhookUrl = `${base}?token=${encodeURIComponent(v.token)}`;
+    const statusDot = v.active
+      ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#5CC9A7;margin-right:6px" title="Active"></span>`
+      : `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#E07B7B;margin-right:6px" title="Inactive"></span>`;
+    return `
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center">
+            ${statusDot}${escapeHTML(v.name)}
+          </div>
+          <div style="font-size:11px;color:var(--text3)">${v.active ? 'Active' : 'Inactive'}</div>
+        </div>
+        <div style="font-size:11.5px;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Webhook URL</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" readonly value="${escapeHTML(webhookUrl)}"
+            style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text2);font-family:var(--mono);font-size:11px;outline:none;overflow:hidden;text-overflow:ellipsis"
+            onclick="this.select()">
+          <button class="btn btn-s btn-sm" onclick="
+            navigator.clipboard && navigator.clipboard.writeText('${webhookUrl.replace(/'/g,'&#39;')}')
+              .then(()=>showToast('Webhook URL copied!','#10b981'))
+          ">Copy</button>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
