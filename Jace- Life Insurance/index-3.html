@@ -5492,7 +5492,7 @@ function renderLeads() {
         <div class="lrc-info">
           <div class="lrc-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
           <div class="lead-status-pill lead-status-pill-cb" data-lid="${lid}" style="${pillStyle}" title="Click to change status">${escapeHTML(pillLabel)}</div>
-          ${phoneFmt ? `<button class="lead-call-link lrc-phone" style="background:none;border:none;padding:0;cursor:pointer;font:inherit;color:inherit;text-align:left" onclick="event.stopPropagation();dialLead(${JSON.stringify(lid)},${JSON.stringify(phoneDigits)},${JSON.stringify(lead.name||'Lead')})" aria-label="Call ${escapeHTML(lead.name||'lead')}">${escapeHTML(phoneFmt)}</button>` : ''}
+          ${phoneFmt ? `<button class="lead-call-link lrc-phone" style="background:none;border:none;padding:0;cursor:pointer;font:inherit;color:inherit;text-align:left" data-leadid="${escapeHTML(lid)}" data-phone="${escapeHTML(phoneDigits)}" data-name="${escapeHTML(lead.name||'Lead')}" onclick="event.stopPropagation();dialLead(this.dataset.leadid,this.dataset.phone,this.dataset.name)" aria-label="Call ${escapeHTML(lead.name||'lead')}">${escapeHTML(phoneFmt)}</button>` : ''}
           ${lead.email ? `<a href="mailto:${escapeHTML(lead.email)}" class="lrc-email" onclick="event.stopPropagation()" title="${escapeHTML(lead.email)}">${escapeHTML(lead.email)}</a>` : ''}
           ${stateVal ? `<div class="lrc-state">${icon('map-pin',{size:11})} ${escapeHTML(stateVal)}</div>` : ''}
           ${dobVal ? `<div class="lrc-row"><span class="lrc-lbl">Birthday</span>${escapeHTML(dobVal)}</div>` : ''}
@@ -5508,7 +5508,7 @@ function renderLeads() {
         </div>
         <div class="lrc-actions">
           ${phoneDigits
-            ? `<button class="lrc-call-btn" onclick="event.stopPropagation();dialLead(${JSON.stringify(lid)},${JSON.stringify(phoneDigits)},${JSON.stringify(lead.name||'Lead')})" title="Dial ${escapeHTML(phoneFmt||lead.phone||'')}">${icon('phone',{size:13})} CLICK TO CALL</button>`
+            ? `<button class="lrc-call-btn" data-leadid="${escapeHTML(lid)}" data-phone="${escapeHTML(phoneDigits)}" data-name="${escapeHTML(lead.name||'Lead')}" onclick="event.stopPropagation();dialLead(this.dataset.leadid,this.dataset.phone,this.dataset.name)" title="Dial ${escapeHTML(phoneFmt||lead.phone||'')}">${icon('phone',{size:13})} CLICK TO CALL</button>`
             : `<button class="lrc-call-btn" disabled style="opacity:.38;cursor:not-allowed" title="No phone number">${icon('phone',{size:13})} NO PHONE</button>`}
           <button class="lrc-disp-btn lead-disp-cb" data-lid="${lid}">&#8801; DISPOSITION</button>
         </div>
@@ -7880,7 +7880,7 @@ function biRenderCards() {
       // Click-to-call is the lowest-friction outreach action and trumps the
       // drafted email when the agent's already at their desk with the phone.
       const callBtn = p.phone
-        ? `<button class="btn btn-s btn-sm" onclick="biLogCall(${JSON.stringify(String(p.id))});dialLead(null,${JSON.stringify(p.phone)},${JSON.stringify(p.client||'Client')})" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="phone" data-size="13"></span>Call</button>`
+        ? `<button class="btn btn-s btn-sm" data-pid="${escapeHTML(String(p.id))}" data-phone="${escapeHTML(p.phone)}" data-name="${escapeHTML(p.client||'Client')}" onclick="biLogCall(this.dataset.pid);dialLead(null,this.dataset.phone,this.dataset.name)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="phone" data-size="13"></span>Call</button>`
         : '';
       actions = `<button class="btn btn-p btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biOpenDrawer(this)">Start Conversation</button>
          ${callBtn}
@@ -8402,7 +8402,7 @@ function biOpenDrawer(btn) {
       <div style="font-size:13px;line-height:1.55">${escapeHTML(o.whyNow || '')}</div>
       <div style="font-size:12px;color:var(--text3);margin-top:6px">Est. first-year advance: <strong style="color:#34d399;font-family:var(--mono)">$${Number(o.estCommission||0).toLocaleString('en-US',{maximumFractionDigits:0})}</strong></div>
       ${p.phone ? `<div class="flex gap8 mt8">
-        <button class="btn btn-p btn-sm" onclick="biLogCall(${JSON.stringify(String(p.id))});dialLead(null,${JSON.stringify(p.phone)},${JSON.stringify(p.client||'Client')})" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="phone" data-size="13"></span>Call ${escapeHTML(p.phone)}</button>
+        <button class="btn btn-p btn-sm" data-pid="${escapeHTML(String(p.id))}" data-phone="${escapeHTML(p.phone)}" data-name="${escapeHTML(p.client||'Client')}" onclick="biLogCall(this.dataset.pid);dialLead(null,this.dataset.phone,this.dataset.name)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="phone" data-size="13"></span>Call ${escapeHTML(p.phone)}</button>
       </div>` : ''}
     </div>
     ${biRenderConversionCalc(p)}
@@ -8918,7 +8918,7 @@ let _swStart  = 0;
 async function _swEdgePost(fn, body) {
   const { data: { session } } = await sb.auth.getSession();
   const tok = session?.access_token;
-  if (!tok) throw new Error('Not authenticated');
+  if (!tok) throw new Error('Not authenticated — please sign in');
   const r = await fetch(SUPABASE_URL + '/functions/v1/' + fn, {
     method: 'POST',
     headers: {
@@ -8927,8 +8927,12 @@ async function _swEdgePost(fn, body) {
     },
     body: JSON.stringify(body || {}),
   });
-  const data = await r.json();
-  if (!r.ok || data.ok === false) throw new Error(data.error || r.statusText);
+  let data = {};
+  try { data = await r.json(); } catch {
+    if (r.status === 404) throw new Error('Edge function "' + fn + '" not deployed. Run: supabase functions deploy ' + fn);
+    throw new Error('HTTP ' + r.status + ' from ' + fn);
+  }
+  if (!r.ok || data.ok === false) throw new Error(data.error || ('HTTP ' + r.status));
   return data;
 }
 
@@ -9018,10 +9022,16 @@ async function dialLead(leadId, rawPhone, name) {
   try {
     // Lazy-load @signalwire/js via ESM (cached after first load)
     if (!window._swSDK) {
-      window._swSDK = await import('https://esm.sh/@signalwire/js@3');
+      const mod = await import('https://esm.sh/@signalwire/js@3');
+      // Handle named export, default export, or nested default
+      window._swSDK = mod.SignalWire || mod.default?.SignalWire || mod.default || null;
+      if (typeof window._swSDK !== 'function') {
+        console.error('[softphone] SDK exports:', Object.keys(mod));
+        window._swSDK = null;
+        throw new Error('SignalWire SDK loaded but SignalWire() not found. Check browser console for exported names.');
+      }
     }
-    const SignalWire = window._swSDK.SignalWire;
-    if (typeof SignalWire !== 'function') throw new Error('SignalWire SDK failed to load');
+    const SignalWire = window._swSDK;
 
     // Fetch subscriber token
     const tok = await _swEdgePost('signalwire-browser-token', {});
