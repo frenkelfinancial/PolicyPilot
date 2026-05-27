@@ -5360,9 +5360,6 @@ function renderLeads() {
     const pillStyle = `color:${sc.color};background:${sc.bg};border-color:${sc.color}55`;
 
     // Derived display values
-    const nameParts = (lead.name||'').trim().split(/\s+/).filter(Boolean);
-    const firstName = lead.first_name || nameParts[0] || '';
-    const lastName  = lead.last_name  || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : '');
     const addressLine = (() => {
       const parts = [];
       if (lead.address) parts.push(lead.address);
@@ -5372,35 +5369,11 @@ function renderLeads() {
     })();
     const phoneFmt = formatPhone(lead.phone) || '';
 
-    const detailHTML = '';
-
     const phoneDigits = (lead.phone||'').replace(/\D/g,'');
     const callHref = phoneDigits ? `tel:${phoneDigits}` : '#';
 
-    const nameSubParts = [];
-    if (firstName) nameSubParts.push(`First: ${escapeHTML(firstName)}`);
-    if (lastName)  nameSubParts.push(`Last: ${escapeHTML(lastName)}`);
-    const nameSubHTML = nameSubParts.length
-      ? `<div class="lead-name-sub">${nameSubParts.join(' · ')}</div>`
-      : '';
-
     const stateVal = (lead.state||'').toUpperCase();
     const dobVal   = formatDOB(lead.dob);
-    const metaChips = [
-      phoneFmt           && `<div class="lead-meta-chip"><div class="lbl">Phone</div><div class="val mono">${escapeHTML(phoneFmt)}</div></div>`,
-      lead.email         && `<div class="lead-meta-chip wide"><div class="lbl">Email</div><div class="val" title="${escapeHTML(lead.email)}"><a href="mailto:${escapeHTML(lead.email)}" onclick="event.stopPropagation()">${escapeHTML(lead.email)}</a></div></div>`,
-      addressLine        && `<div class="lead-meta-chip wide"><div class="lbl">Address</div><div class="val" title="${escapeHTML(addressLine)}">${escapeHTML(addressLine)}</div></div>`,
-      stateVal           && `<div class="lead-meta-chip"><div class="lbl">State</div><div class="val mono">${escapeHTML(stateVal)}</div></div>`,
-      dobVal             && `<div class="lead-meta-chip"><div class="lbl">DOB</div><div class="val mono">${escapeHTML(dobVal)}</div></div>`,
-      lead.military_status   && `<div class="lead-meta-chip"><div class="lbl">Mil. Status</div><div class="val" title="${escapeHTML(lead.military_status)}">${escapeHTML(lead.military_status)}</div></div>`,
-      lead.military_branch   && `<div class="lead-meta-chip"><div class="lbl">Mil. Branch</div><div class="val">${escapeHTML(lead.military_branch)}</div></div>`,
-      lead.beneficiary       && `<div class="lead-meta-chip"><div class="lbl">Beneficiary</div><div class="val" title="${escapeHTML(lead.beneficiary)}">${escapeHTML(lead.beneficiary)}</div></div>`,
-      lead.coverage_wanted   && `<div class="lead-meta-chip"><div class="lbl">Coverage Wanted</div><div class="val">${escapeHTML(lead.coverage_wanted)}</div></div>`,
-      lead.source            && `<div class="lead-meta-chip"><div class="lbl">Source</div><div class="val">${escapeHTML(lead.source)}</div></div>`,
-      (lead.age != null && lead.age !== '') && `<div class="lead-meta-chip"><div class="lbl">Age</div><div class="val mono">${escapeHTML(String(lead.age))}</div></div>`,
-    ].filter(Boolean).join('');
-    const metaHTML = metaChips ? `<div class="lead-row-meta">${metaChips}</div>` : '';
-
     const importedStr = lead.importedAt ? (() => {
       const d = new Date(lead.importedAt);
       return d.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
