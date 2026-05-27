@@ -4742,15 +4742,14 @@ function inForceAP(pols){
 }
 
 function netCommission(pols){
-  const today = new Date().toISOString().split('T')[0];
   const excluded = new Set(['lapsed', 'chargeback']);
   const earned = (pols || [])
-    .filter(p => {
-      if (excluded.has(p.status)) return false;
-      if (p.draft && p.draft <= today) return true;
-      return p.status === 'issued' || p.status === 'paid';
-    })
-    .reduce((s,p) => s + (Number(p.advComm) || 0), 0);
+    .filter(p => !excluded.has(p.status))
+    .reduce((s, p) => {
+      const ap = p.ap || +(( p.monthly || 0) * 12).toFixed(2);
+      const comm = p.advComm || +(ap * (p.commPct || 0) / 100 * 0.75).toFixed(2);
+      return s + (Number(comm) || 0);
+    }, 0);
   const exposure = (typeof getChargebackExposure === 'function') ? getChargebackExposure().totalAdvanced : 0;
   return { earned, exposed: exposure, net: earned - exposure };
 }
@@ -6159,6 +6158,7 @@ function renderPolicies() {
   document.getElementById('total-issued').textContent = issued;
   document.getElementById('am-ap').textContent = fmt$(amAP);
   document.getElementById('amam-ap').textContent = fmt$(amamAP);
+  if (typeof renderIncomeReality === 'function') renderIncomeReality();
 }
 
 // ============================================================
