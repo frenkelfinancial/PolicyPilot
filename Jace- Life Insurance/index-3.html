@@ -2523,17 +2523,15 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     <div class="frow">
       <div class="fg"><label>Client Name</label><input type="text" id="p-client" placeholder="Jane Smith"></div>
       <div class="fg"><label>Carrier</label>
-        <select id="p-carrier">
-          <option>Americo</option><option>Aetna / Accendo</option><option>American-Amicable</option>
-          <option>Transamerica</option><option>Corebridge</option><option>Chubb</option>
-          <option>Ethos</option><option>Mutual of Omaha</option>
+        <select id="p-carrier" onchange="updateProductDropdown('p-carrier','p-product')">
+          <option>Americo</option>
         </select>
       </div>
     </div>
     <div class="frow mt12">
       <div class="fg"><label>Product</label>
         <select id="p-product">
-          <option>Whole Life</option><option>Term Life</option><option>IUL</option>
+          <option value="americo_eagle">Eagle Premier</option>
         </select>
       </div>
       <div class="fg"><label>Health Class</label>
@@ -2612,17 +2610,15 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     <div class="frow">
       <div class="fg"><label>Client Name</label><input type="text" id="sold-client" placeholder="Auto-filled from lead"></div>
       <div class="fg"><label>Carrier</label>
-        <select id="sold-carrier">
-          <option>Americo</option><option>Aetna / Accendo</option><option>American-Amicable</option>
-          <option>Transamerica</option><option>Corebridge</option><option>Chubb</option>
-          <option>Ethos</option><option>Mutual of Omaha</option>
+        <select id="sold-carrier" onchange="updateProductDropdown('sold-carrier','sold-product')">
+          <option>Americo</option>
         </select>
       </div>
     </div>
     <div class="frow mt12">
       <div class="fg"><label>Product</label>
         <select id="sold-product">
-          <option>Whole Life</option><option>Term Life</option><option>IUL</option>
+          <option value="americo_eagle">Eagle Premier</option>
         </select>
       </div>
       <div class="fg"><label>Health Class</label>
@@ -3219,7 +3215,7 @@ const COMP = {
   'americo_term':    [80,85,90,95,100,105,110,115,120,125,130,135,140,145],
   'americo_wl':      [70,70,77.5,85,92.5,100,107.5,115,120,125,130,137,144,144],
   // AETNA
-  'aetna_senior':    [65,70,75,80,85,90,95,100,105,110,115,120,125,125],
+  'aetna_senior':    [70,70,77.5,85,92.5,100,107.5,115,120,125,130,137,144,144],
   'aetna_iul':       [45,50,55,60,70,70,75,80,85,90,95,100,105,105],
   // AMERICAN AMICABLE
   'aa_senior':       [65,70,75,80,85,90,95,100,105,110,115,120,125,125],
@@ -3249,10 +3245,10 @@ const COMP = {
   'uhl_premier_wl':      [70,75,80,85,90,95,100,105,110,115,120,125,130,135],
   'uhl_deluxe_wl':       [70,75,80,85,90,95,100,105,110,115,120,125,130,135],
   'uhl_graded_wl':       [70,75,80,85,90,95,100,105,110,115,120,125,130,135],
-  'uhl_gi_wl':           [25,25,30,35,40,45,50,55,60,65,70,75,80,85],
+  'uhl_gi_wl':           [25,25,25,25,30,35,40,45,50,55,60,65,70,70],
   'uhl_provider_wl':     [55,60,65,70,75,80,85,90,95,100,105,110,115,120],
-  'uhl_term':            [55,60,65,70,75,80,85,90,95,100,105,110,115,120],
-  'uhl_accidental':      [45,50,55,60,65,70,75,80,85,90,95,100,105,110],
+  'uhl_term':            [50,55,60,65,70,75,80,85,90,95,100,105,110,110],
+  'uhl_accidental':      [50,50,50,55,60,65,70,75,80,85,90,95,100,100],
   // SBLI
   'sbli_fex':            [65,70,75,80,85,90,95,100,105,110,115,120,125,130],
   // BALTIMORE LIFE
@@ -3298,11 +3294,45 @@ const COMP = {
   'kcl_sig_term30':      [55,60,60,60,65,65,70,75,80,85,90,95,100,105],
   'kcl_longevity85':     [55,60,60,60,65,65,70,75,80,85,90,95,100,105],
   // FORESTERS
-  'foresters_foundation':[80,85,90,95,100,105,110,115,120,125,130,135,140,145],
+  'foresters_foundation':[60,65,70,75,80,85,90,95,100,105,110,115,120,120],
   'foresters_your_term': [65,70,75,80,85,90,95,100,105,110,115,120,125,130],
   'foresters_smartul':   [70,72.5,75,77.5,80,82.5,85,87.5,90,95,100,105,110,115],
   'foresters_acc_term':  [65,70,75,80,85,90,95,100,105,110,115,120,125,130],
   'foresters_adv_plus':  [52.5,55,57.5,60,65,70,75,80,85,90,95,100,105,110],
+  'foresters_planright': [60,65,70,75,80,85,90,95,100,105,110,115,120,120],
+  'aflac_final_ex':      [63,63,70,70,70,78,85,93,100,108,113,118,123,123],
+  'aa_ez_term':          [40,45,50,55,60,65,70,75,80,85,90,95,100,100],
+  'aa_secure_life':      [80,85,90,95,100,105,110,115,120,125,130,135,140,140],
+  'aa_home_prot':        [80,85,90,95,100,105,110,115,120,125,130,135,140,145],
+  'aa_oba':              [40,45,50,55,60,65,70,75,80,85,90,95,100,100],
+  'aa_term_simple':      [70,75,80,85,90,95,100,105,110,115,120,125,130,130],
+  'aa_family_prot':      [70,75,80,85,90,95,100,105,110,115,120,125,130,130],
+  'aa_xul':              [45,50,55,60,76,70,75,80,85,90,95,100,105,105],
+  'ethos_lga_prime':     [87.5,90,92.5,95,97.5,100,102.5,105,107.5,110,112.5,115,117.5,120],
+  'ethos_sitl':          [55,60,65,70,75,80,85,90,95,100,105,110,115,120],
+  'ethos_gawl':          [2.5,2.5,2.5,5,7.5,10,12.5,15,17.5,20,22.5,25,27.5,30],
+  'ethos_ameritas_iul':  [60,65,70,75,80,85,90,95,100,105,110,115,120,125],
+  'ethos_si_term':       [87.5,90,92.5,95,97.5,100,102.5,105,107.5,110,112.5,115,117.5,120],
+  'ethos_jh_rop':        [70,75,80,85,90,95,100,105,115,125,130,135,145,145],
+  'insta_life_term':     [65,70,75,80,85,90,95,100,105,110,115,120,125,130],
+  'insta_senior_wl':     [25,30,35,40,45,50,55,60,65,70,75,80,85,90],
+  'insta_fe_wl':         [95,98,100,103,105,108,110,113,115,118,120,123,125,128],
+  'insta_gi_wl':         [40,43,45,48,50,53,55,58,60,63,65,68,70,73],
+  'insta_accidental':    [25,30,35,40,45,50,55,60,65,70,75,80,85,90],
+  'lb_fx':               [65,70,75,80,85,90,95,100,105,110,115,120,125,125],
+  'ladder_fx':           [60,65,70,75,80,85,90,95,100,105,110,115,120,120],
+  'nlg_ul':              [50,55,60,65,70,75,80,85,90,95,100,105,110,110],
+  'mutual_term_exp':     [80,85,90,95,100,105,110,115,120,125,130,135,140,145],
+  'mutual_iul':          [65,70,75,80,85,90,95,100,105,110,115,120,125,125],
+  'mutual_term_ans':     [50,55,60,65,70,75,80,85,90,95,100,105,110,110],
+  'mutual_accidental':   [70,75,80,85,90,95,100,105,110,115,120,125,130,130],
+  'rn_term':             [50,50,75,80,85,90,95,100,100,100,110,115,120,120],
+  'rn_legacy_spwl':      [7,7,9,10,11,12,13,13,13,13,14,15,16,16],
+  'rn_secure_iul':       [50,50,80,85,90,95,100,105,105,105,112,120,125,125],
+  'rn_si_wl':            [45,45,75,80,85,90,95,100,100,100,110,120,125,125],
+  'trans_ul':            [50,55,60,70,75,80,90,95,100,105,110,115,120,120],
+  'uhl_fx':              [50,55,60,65,70,75,80,85,90,95,100,105,110,110],
+  'uhl_wl':              [60,65,70,75,80,85,90,95,100,105,110,115,120,120],
 };
 
 function getCommPct(product, contractLevel, cut = false) {
@@ -4009,6 +4039,7 @@ function calcModalAP() {
 
 function openAddPolicy() {
   populateCarrierDropdowns();
+  updateProductDropdown('p-carrier','p-product');
   const _today = new Date().toISOString().split('T')[0];
   document.getElementById('p-dateSubmitted').value = _today;
   document.getElementById('p-draft').value = _today;
@@ -4041,6 +4072,7 @@ let soldLeadId = null;
 
 function openSoldModal(lead) {
   populateCarrierDropdowns();
+  updateProductDropdown('sold-carrier','sold-product');
   soldLeadId = String(lead.id);
   document.getElementById('soldModal').classList.add('open');
 
@@ -4090,15 +4122,7 @@ function calcSoldAP() {
     const cls = document.getElementById('sold-class').value;
     const isGraded = cls === 'graded' || cls === 'gi';
     const contract = getContract();
-    let prod = 'americo_eagle';
-    const carrier = document.getElementById('sold-carrier').value;
-    if (carrier.includes('Aetna')) prod = 'aetna_senior';
-    else if (carrier.includes('Amicable')) prod = 'aa_senior';
-    else if (carrier.includes('Transamerica')) prod = isGraded ? 'trans_graded' : 'trans_express';
-    else if (carrier.includes('Corebridge')) prod = isGraded ? 'core_graded' : 'core_siwl';
-    else if (carrier.includes('Chubb')) prod = isGraded ? 'chubb_graded' : 'chubb_pref';
-    else if (carrier.includes('Mutual')) prod = 'mutual_fe';
-    else if (carrier.includes('Ethos')) prod = 'ethos_tawl';
+    const prod = document.getElementById('sold-product').value || 'americo_eagle';
     const commPct = getCommPct(prod, contract, isGraded);
     const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
     document.getElementById('sold-comm-disp').textContent = fmt$(advComm);
@@ -4123,15 +4147,7 @@ async function submitAsSold() {
   if (!monthly || monthly <= 0) { alert('Please enter the monthly premium.'); return; }
 
   const isGraded = cls === 'graded' || cls === 'gi';
-  let prod = 'americo_eagle';
-  if (carrier.includes('Aetna')) prod = 'aetna_senior';
-  else if (carrier.includes('Amicable')) prod = 'aa_senior';
-  else if (carrier.includes('Transamerica')) prod = isGraded ? 'trans_graded' : 'trans_express';
-  else if (carrier.includes('Corebridge')) prod = isGraded ? 'core_graded' : 'core_siwl';
-  else if (carrier.includes('Chubb')) prod = isGraded ? 'chubb_graded' : 'chubb_pref';
-  else if (carrier.includes('Mutual')) prod = 'mutual_fe';
-  else if (carrier.includes('Ethos')) prod = 'ethos_tawl';
-
+  const prod = document.getElementById('sold-product').value || 'americo_eagle';
   const commPct = getCommPct(prod, contract, isGraded);
   const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
 
@@ -4222,15 +4238,7 @@ async function addPolicy() {
   if (!client || !monthly) { alert('Fill in client name and monthly premium.'); return; }
 
   const isGraded = cls === 'graded' || cls === 'gi';
-  let prod = 'americo_eagle';
-  if (carrier.includes('Aetna')) prod = 'aetna_senior';
-  else if (carrier.includes('Amicable')) prod = 'aa_senior';
-  else if (carrier.includes('Transamerica')) prod = isGraded ? 'trans_graded' : 'trans_express';
-  else if (carrier.includes('Corebridge')) prod = isGraded ? 'core_graded' : 'core_siwl';
-  else if (carrier.includes('Chubb')) prod = isGraded ? 'chubb_graded' : 'chubb_pref';
-  else if (carrier.includes('Mutual')) prod = product.includes('IUL') ? 'mutual_iule' : 'mutual_fe';
-  else if (carrier.includes('Ethos')) prod = 'ethos_tawl';
-
+  const prod = product || 'americo_eagle';
   const commPct = getCommPct(prod, contract, isGraded);
   // ADV COMMISSION = AP × comm% × 0.75
   const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
@@ -6818,6 +6826,11 @@ const CARRIER_REGISTRY = [
   { key:'elco',           label:'Elco Mutual',         types:['fe'],              color:'#0891b2' },
   { key:'mtrust',         label:'Mutual Trust Life',   types:['fe'],              color:'#059669' },
   { key:'royal_neighbors',label:'Royal Neighbors',     types:['fe'],              color:'#e11d48' },
+  { key:'aflac',          label:'Aflac',               types:['fe'],              color:'#0038a8' },
+  { key:'instabrain',     label:'InstaBrain',          types:['fe','term'],       color:'#7c3aed' },
+  { key:'liberty',        label:'Liberty Bankers',     types:['fe'],              color:'#15803d' },
+  { key:'ladder',         label:'Ladder Life',         types:['term'],            color:'#0ea5e9' },
+  { key:'nlg',            label:'NLG',                 types:['iul'],             color:'#92400e' },
   // ── Term-specialist carriers ──────────────────────────────────────────────
   { key:'lg',             label:'Legal & General',     types:['term'],            color:'#b91c1c' },
   { key:'jh',             label:'John Hancock',        types:['term'],            color:'#92400e' },
@@ -6860,8 +6873,49 @@ const TRACKER_CARRIER_LIST = [
   { key:'lg',         label:'Legal & General' },
   { key:'jh',         label:'John Hancock' },
   { key:'kcl',        label:'Kansas City Life' },
-  { key:'foresters',  label:'Foresters' },
+  { key:'foresters',      label:'Foresters' },
+  { key:'aflac',          label:'Aflac' },
+  { key:'instabrain',     label:'InstaBrain' },
+  { key:'liberty',        label:'Liberty Bankers' },
+  { key:'ladder',         label:'Ladder Life' },
+  { key:'nlg',            label:'NLG' },
+  { key:'royalneighbors', label:'Royal Neighbors' },
 ];
+
+const CARRIER_PRODUCTS = {
+  'Americo':          [{l:'Eagle Premier',k:'americo_eagle'},{l:'HMS 125',k:'americo_term'},{l:'Whole Life',k:'americo_wl'}],
+  'Aetna / Accendo':  [{l:'Whole Life',k:'aetna_senior'},{l:'IUL',k:'aetna_iul'}],
+  'Aflac':            [{l:'Final EX',k:'aflac_final_ex'}],
+  'American-Amicable':[{l:'Senior/Family Choice',k:'aa_senior'},{l:'EZ Term',k:'aa_ez_term'},{l:'Secure Life',k:'aa_secure_life'},{l:'Home Protector',k:'aa_home_prot'},{l:'OBA',k:'aa_oba'},{l:'Term Made Simple',k:'aa_term_simple'},{l:'Family Protector',k:'aa_family_prot'},{l:'XUL',k:'aa_xul'}],
+  'Corebridge':       [{l:'SI Whole Life',k:'core_siwl'},{l:'GI Whole Life',k:'core_giwl'},{l:'Graded',k:'core_graded'}],
+  'Chubb':            [{l:'Preferred',k:'chubb_pref'},{l:'Standard',k:'chubb_std'},{l:'Substandard',k:'chubb_sub'},{l:'Graded',k:'chubb_graded'}],
+  'Ethos':            [{l:'TruStage TAWL',k:'ethos_tawl'},{l:'LGA Prime',k:'ethos_lga_prime'},{l:'TruStage SITL',k:'ethos_sitl'},{l:'TruStage GAWL',k:'ethos_gawl'},{l:'Ameritas IUL',k:'ethos_ameritas_iul'},{l:'Ameritas SI Term',k:'ethos_si_term'},{l:'JH ROP',k:'ethos_jh_rop'}],
+  'Mutual of Omaha':  [{l:'Final Expense',k:'mutual_fe'},{l:'Term Life Express',k:'mutual_term_exp'},{l:'IUL',k:'mutual_iul'},{l:'IUL Essentials',k:'mutual_iule'},{l:"Children's Whole Life",k:'mutual_child'},{l:'Term Life Answers',k:'mutual_term_ans'},{l:'Accidental Death',k:'mutual_accidental'}],
+  'Transamerica':     [{l:'Final Expense',k:'trans_express'},{l:'UL',k:'trans_ul'},{l:'Graded',k:'trans_graded'},{l:'FF Term',k:'trans_ff'},{l:'Super Term',k:'trans_super_term'},{l:'LB Term',k:'trans_lb_term'},{l:'Lifetime WL',k:'trans_lifetime_wl'},{l:'Imm. Solution WL',k:'trans_imm_sol_wl'},{l:'10-Pay WL',k:'trans_10pay_wl'},{l:'Easy Solution WL',k:'trans_easy_wl'},{l:'Extress',k:'trans_extress'},{l:'FFL IUL',k:'trans_ffiul'}],
+  'Foresters':        [{l:'Strong Foundation',k:'foresters_foundation'},{l:'Planright',k:'foresters_planright'},{l:'Your Term',k:'foresters_your_term'},{l:'Smart UL',k:'foresters_smartul'},{l:'Advantage Plus Term',k:'foresters_adv_plus'}],
+  'InstaBrain':       [{l:'Life Term',k:'insta_life_term'},{l:'Senior Life Term/WL',k:'insta_senior_wl'},{l:'Final Expense WL',k:'insta_fe_wl'},{l:'Guaranteed Issue WL',k:'insta_gi_wl'},{l:'Accidental',k:'insta_accidental'}],
+  'Liberty Bankers':  [{l:'FX',k:'lb_fx'}],
+  'Ladder Life':      [{l:'FX',k:'ladder_fx'}],
+  'NLG':              [{l:'Universal Life',k:'nlg_ul'}],
+  'Royal Neighbors':  [{l:'Term',k:'rn_term'},{l:'Royal Legacy SPWL',k:'rn_legacy_spwl'},{l:'Secure Life IUL',k:'rn_secure_iul'},{l:'SI Whole Life',k:'rn_si_wl'}],
+  'United Home Life': [{l:'Premier WL',k:'uhl_premier_wl'},{l:'Deluxe WL',k:'uhl_deluxe_wl'},{l:'FX',k:'uhl_fx'},{l:'GI Whole Life',k:'uhl_gi_wl'},{l:'Whole Life',k:'uhl_wl'},{l:'Accidental',k:'uhl_accidental'},{l:'Term',k:'uhl_term'},{l:'Provider WL',k:'uhl_provider_wl'}],
+  'Legal & General':  [{l:'Term',k:'lg_term'}],
+  'SBLI':             [{l:'Final Expense',k:'sbli_fex'}],
+  'Baltimore Life':   [{l:'Select Grade FE',k:'baltimore_sgfe'},{l:'AP Limited Term',k:'baltimore_aplt'},{l:'AP Whole Life',k:'baltimore_apwl'},{l:'AP Premium Term',k:'baltimore_appt'}],
+  'American Home Life':[{l:'Final Expense',k:'ahl_fe'}],
+  'John Hancock':     [{l:'Simple Term',k:'jh_simple_term'}],
+  'Elco Mutual':      [{l:'FE Immediate',k:'elco_fe_imm'},{l:'Life Pay WL',k:'elco_lifepay_wl'},{l:'Ltd Pay WL',k:'elco_ltd_pay_wl'}],
+  'Mutual Trust Life':[{l:'Express UL',k:'mtrust_express_ul'},{l:'Home Protector',k:'mtrust_home_prot'},{l:'OBA',k:'mtrust_oba'},{l:'SecureLife',k:'mtrust_securelife'},{l:'Security Protector',k:'mtrust_security_prot'},{l:'Survivor Protector',k:'mtrust_survivor_prot'},{l:'Term Simple',k:'mtrust_term_simple'},{l:'Dignity',k:'mtrust_dignity'},{l:'Express Term',k:'mtrust_express_term'},{l:'BonusMaster',k:'mtrust_bonusmaster'},{l:'Graded Guardian',k:'mtrust_grd_guardian'}],
+  'Kansas City Life': [{l:'Sig Term SI',k:'kcl_sig_term_si'},{l:'IUL',k:'kcl_iul'},{l:'Sig Term',k:'kcl_sig_term'},{l:'Cashback Life',k:'kcl_cashback_life'},{l:'Level 30A',k:'kcl_level30a'},{l:'Sig Term 30',k:'kcl_sig_term30'},{l:'Longevity 85',k:'kcl_longevity85'}],
+};
+
+function updateProductDropdown(carrierId, productId) {
+  const carrier = (document.getElementById(carrierId)?.value || '').trim();
+  const prodSel = document.getElementById(productId);
+  if (!prodSel) return;
+  const prods = CARRIER_PRODUCTS[carrier] || [{l:'Policy', k:''}];
+  prodSel.innerHTML = prods.map(p => `<option value="${p.k}">${p.l}</option>`).join('');
+}
 
 function populateCarrierDropdowns() {
   const contracted = getContractedCarriers();
