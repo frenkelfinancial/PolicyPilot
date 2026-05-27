@@ -484,7 +484,7 @@ body.light .btn-p{background:var(--brand-navy);color:#fff}body.light .btn-p:hove
 .cal-event-name{font-size:10.5px;font-weight:600;color:#34d399;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cal-event-ap{font-size:10px;color:var(--text3);font-family:var(--mono)}
 /* Lead row (dense list) */
-.lead-row{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;transition:border-color .15s;position:relative}
+.lead-row{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;transition:border-color .15s;position:relative;overflow:hidden}
 .lead-row:hover{border-color:var(--border2)}
 .lead-row.sold{background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.3)!important}
 .lead-row.not_interested{opacity:.55}
@@ -526,7 +526,9 @@ body.light .lead-row-main:hover{background:rgba(0,0,0,.02)}
 .lead-act-btn.sold-btn:hover{background:rgba(16,185,129,.25)}
 .lead-act-btn.sold-btn.disabled{opacity:.55;cursor:default}
 .lead-act-btn.no-ans:hover{background:rgba(148,163,184,.14);border-color:rgba(148,163,184,.45)}
-.lead-row-expanded{display:none;padding:0 14px 14px 14px;border-top:1px solid var(--border)}
+.lead-row-notes{padding:8px 14px 12px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;align-items:center}
+.lead-row-notes-label{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:500;margin-bottom:5px;width:340px}
+.lead-row-expanded{display:none;padding:10px 14px 14px 14px;border-top:1px solid var(--border)}
 .lead-row.expanded .lead-row-expanded{display:block}
 .lead-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px;margin-top:12px}
 .lead-detail-item{display:flex;flex-direction:column;gap:2px}
@@ -536,8 +538,36 @@ body.light .lead-row-main:hover{background:rgba(0,0,0,.02)}
 .lead-row-expanded > .lead-extra-actions:first-child{margin-top:12px;padding-top:0;border-top:none}
 .lead-extra-actions-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:500;margin-bottom:6px}
 .lead-extra-actions-row{display:flex;gap:6px;flex-wrap:wrap}
-.lead-notes{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:10px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;resize:vertical;min-height:140px;transition:border-color .14s;margin-top:0;box-sizing:border-box}
+.lead-notes{width:340px;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px;color:var(--text);font-family:var(--sans);font-size:12.5px;outline:none;resize:both;min-height:300px;min-width:200px;transition:border-color .14s;margin-top:0;box-sizing:border-box}
 .lead-notes:focus{border-color:var(--accent)}
+/* ---- Lead row column layout ---- */
+.lrc-body{display:flex;flex-direction:row;align-items:stretch}
+.lrc-check{flex:0 0 auto;padding:14px 8px 14px 12px;display:flex;align-items:flex-start;border-right:1px solid var(--border)}
+.lrc-info{flex:0 0 185px;padding:11px 13px;display:flex;flex-direction:column;gap:4px;border-right:1px solid var(--border);min-width:0}
+.lrc-notes{flex:0 0 290px;padding:10px 12px;display:flex;flex-direction:column;gap:5px;border-right:1px solid var(--border)}
+.lrc-notes .lead-notes{flex:1;min-height:140px;width:100%;resize:vertical}
+.lrc-actions{flex:0 0 128px;padding:12px 11px;display:flex;flex-direction:column;gap:7px;border-right:1px solid var(--border)}
+.lrc-details1{flex:0 0 215px;padding:11px 13px;display:flex;flex-direction:column;gap:6px;border-right:1px solid var(--border)}
+.lrc-details2{flex:1 1 auto;padding:11px 14px;display:flex;flex-direction:column;gap:6px}
+.lrc-col-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;color:var(--text3);margin-bottom:3px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.lrc-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrc-phone{font-size:13px;color:#7c3aed;font-weight:600;font-family:var(--mono);text-decoration:none;display:block}
+body.light .lrc-phone{color:#6d28d9}
+.lrc-phone:hover{text-decoration:underline}
+.lrc-email{font-size:11px;color:#60a5fa;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.lrc-email:hover{text-decoration:underline}
+.lrc-state{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:3px}
+.lrc-row{font-size:11.5px;color:var(--text2);display:flex;align-items:baseline;gap:4px}
+.lrc-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;color:var(--text3);white-space:nowrap;flex-shrink:0}
+.lrc-source-tag{display:inline-block;padding:2px 8px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.3);border-radius:10px;font-size:10px;color:#a78bfa;font-weight:600;margin-top:2px;align-self:flex-start}
+.lrc-btn-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
+.lrc-call-btn{width:100%;padding:8px 6px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:10.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;text-transform:uppercase;letter-spacing:.3px;transition:background .12s;line-height:1}
+.lrc-call-btn:hover{background:#6d28d9}
+.lrc-disp-btn{width:100%;padding:7px 6px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:10.5px;font-weight:700;cursor:pointer;text-align:center;text-transform:uppercase;letter-spacing:.3px;transition:background .12s}
+.lrc-disp-btn:hover{background:#6d28d9}
+.lrc-ditem{display:flex;flex-direction:column;gap:0}
+.lrc-dlbl{font-size:9.5px;color:var(--text3);line-height:1.3}
+.lrc-dval{font-size:12px;color:var(--text2);line-height:1.35;word-break:break-word}
 .lead-itab-bar{display:flex;gap:4px;margin-top:12px;margin-bottom:10px;padding:3px;background:var(--bg3);border-radius:8px;border:1px solid var(--border)}
 .lead-itab{padding:4px 16px;border-radius:6px;border:none;font-size:12px;font-weight:600;color:var(--text3);background:transparent;cursor:pointer;font-family:var(--sans);transition:all .12s;display:inline-flex;align-items:center;gap:5px}
 .lead-itab:hover{color:var(--text2)}
@@ -5390,46 +5420,67 @@ function renderLeads() {
     ].filter(Boolean).join('');
     const metaHTML = metaChips ? `<div class="lead-row-meta">${metaChips}</div>` : '';
 
+    const importedStr = lead.importedAt ? (() => {
+      const d = new Date(lead.importedAt);
+      return d.toLocaleDateString('en-US',{month:'2-digit',day:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+    })() : '';
+
     div.innerHTML = `
-      <div class="lead-row-main">
-        <div class="lead-row-top">
+      <div class="lrc-body">
+        <div class="lrc-check">
           <input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead">
-          <div class="lead-ident">
-            <div class="lead-name-row">
-              <div class="lead-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
-              <a href="${callHref}" class="lead-call-link" data-lid="${lid}" style="text-decoration:none" aria-label="Call ${escapeHTML(lead.name||'lead')}"><button class="lead-act-btn call" title="Dial ${escapeHTML(formatPhone(lead.phone)||lead.phone||'')}" aria-label="Dial">${icon('phone',{size:16})}</button></a>
-              <button class="lead-act-btn quote lead-quote-btn" data-lid="${lid}" title="Open Quoter prefilled for this lead">Quote</button>
-            </div>
-            ${nameSubHTML}
-          </div>
+        </div>
+        <div class="lrc-info">
+          <div class="lrc-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
           <div class="lead-status-pill lead-status-pill-cb" data-lid="${lid}" style="${pillStyle}" title="Click to change status">${escapeHTML(pillLabel)}</div>
-          <div class="lead-actions-quick">
-            <button class="lead-act-btn no-ans lead-act-cb" data-lid="${lid}" data-action="no_answer" title="Mark as No Answer">No Ans</button>
-            <button class="lead-act-btn notes-btn lead-notes-open-btn${lead.notes?' has-notes':''}" data-lid="${lid}" title="${lead.notes?'View/edit notes':'Add notes'}">Notes${lead.notes?' ●':''}</button>
-            <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
+          ${phoneFmt ? `<a href="${callHref}" class="lead-call-link lrc-phone" data-lid="${lid}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${escapeHTML(phoneFmt)}</a>` : ''}
+          ${lead.email ? `<a href="mailto:${escapeHTML(lead.email)}" class="lrc-email" onclick="event.stopPropagation()" title="${escapeHTML(lead.email)}">${escapeHTML(lead.email)}</a>` : ''}
+          ${stateVal ? `<div class="lrc-state">${icon('map-pin',{size:11})} ${escapeHTML(stateVal)}</div>` : ''}
+          ${dobVal ? `<div class="lrc-row"><span class="lrc-lbl">Birthday</span>${escapeHTML(dobVal)}</div>` : ''}
+          ${(lead.age != null && lead.age !== '') ? `<div class="lrc-row"><span class="lrc-lbl">Age</span>${escapeHTML(String(lead.age))}</div>` : ''}
+          ${lead.source ? `<div class="lrc-source-tag">${escapeHTML(lead.source)}</div>` : ''}
+          <div class="lrc-btn-row">
+            <button class="lead-act-btn quote lead-quote-btn" data-lid="${lid}" title="Open Quoter prefilled for this lead">Quote</button>
           </div>
         </div>
-        ${metaHTML}
+        <div class="lrc-notes">
+          <div class="lrc-col-lbl">Notes</div>
+          <textarea class="lead-notes lead-notes-cb" data-lid="${lid}" placeholder="Call details, objections, follow-up, next steps...">${escapeHTML(lead.notes||'')}</textarea>
+        </div>
+        <div class="lrc-actions">
+          <a href="${callHref}" class="lead-call-link" data-lid="${lid}" style="text-decoration:none" aria-label="Call ${escapeHTML(lead.name||'lead')}">
+            <button class="lrc-call-btn" title="Dial ${escapeHTML(phoneFmt||lead.phone||'')}">${icon('phone',{size:13})} CLICK TO CALL</button>
+          </a>
+          <button class="lrc-disp-btn lead-disp-cb" data-lid="${lid}">&#8801; DISPOSITION</button>
+        </div>
+        <div class="lrc-details1">
+          <div class="lrc-col-lbl">Details</div>
+          ${addressLine ? `<div class="lrc-ditem"><span class="lrc-dlbl">Address</span><span class="lrc-dval">${escapeHTML(addressLine)}</span></div>` : ''}
+          ${lead.military_branch ? `<div class="lrc-ditem"><span class="lrc-dlbl">Military Branch</span><span class="lrc-dval">${escapeHTML(lead.military_branch)}</span></div>` : ''}
+          ${lead.military_status ? `<div class="lrc-ditem"><span class="lrc-dlbl">Military Status</span><span class="lrc-dval">${escapeHTML(lead.military_status)}</span></div>` : ''}
+          ${dobVal ? `<div class="lrc-ditem"><span class="lrc-dlbl">Date of Birth</span><span class="lrc-dval">${escapeHTML(dobVal)}</span></div>` : ''}
+          ${lead.beneficiary ? `<div class="lrc-ditem"><span class="lrc-dlbl">Beneficiary</span><span class="lrc-dval">${escapeHTML(lead.beneficiary)}</span></div>` : ''}
+          ${lead.coverage_wanted ? `<div class="lrc-ditem"><span class="lrc-dlbl">Coverage Wanted</span><span class="lrc-dval">${escapeHTML(lead.coverage_wanted)}</span></div>` : ''}
+        </div>
+        <div class="lrc-details2">
+          <div class="lrc-col-lbl">Info</div>
+          ${importedStr ? `<div class="lrc-ditem"><span class="lrc-dlbl">Received on</span><span class="lrc-dval">${escapeHTML(importedStr)}</span></div>` : ''}
+          ${lead.source ? `<div class="lrc-ditem"><span class="lrc-dlbl">Source</span><span class="lrc-dval">${escapeHTML(lead.source)}</span></div>` : ''}
+          ${(lead.age != null && lead.age !== '') ? `<div class="lrc-ditem"><span class="lrc-dlbl">Age</span><span class="lrc-dval">${escapeHTML(String(lead.age))}</span></div>` : ''}
+        </div>
       </div>
       <div class="lead-row-expanded">
-        <div class="lead-itab-bar">
-          <button class="lead-itab active lead-itab-cb" data-lid="${lid}" data-tab="actions">Actions</button>
-          <button class="lead-itab lead-itab-cb" data-lid="${lid}" data-tab="notes">Notes${lead.notes?'<span class="notes-dot"></span>':''}</button>
-        </div>
-        <div class="lead-itab-panel" data-panel="actions">
-          <div class="lead-extra-actions" style="margin-top:0;padding-top:0;border-top:none">
-            <div class="lead-extra-actions-label">Set status</div>
-            <div class="lead-extra-actions-row">
-              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="not_interested">Not Interested</button>
-              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="appointment">Appointment Set</button>
-              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="social_obj">Social Objection</button>
-              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="banking_obj">Banking Objection</button>
-              <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="new">Reset to New</button>
-            </div>
+        <div class="lead-extra-actions" style="margin-top:0;padding-top:0;border-top:none">
+          <div class="lead-extra-actions-label">Set status / disposition</div>
+          <div class="lead-extra-actions-row">
+            <button class="lead-act-btn no-ans lead-act-cb" data-lid="${lid}" data-action="no_answer" title="Mark as No Answer">No Answer</button>
+            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="not_interested">Not Interested</button>
+            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="appointment">Appointment Set</button>
+            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="social_obj">Social Objection</button>
+            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="banking_obj">Banking Objection</button>
+            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="new">Reset to New</button>
+            <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
           </div>
-        </div>
-        <div class="lead-itab-panel hidden" data-panel="notes">
-          <textarea class="lead-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes — call details, objections, follow-up, client information, next steps...">${escapeHTML(lead.notes||'')}</textarea>
         </div>
       </div>
     `;
@@ -5474,33 +5525,15 @@ function renderLeads() {
     ta.addEventListener('change', e => saveLeadNote(e.target.dataset.lid, e.target.value));
     ta.addEventListener('click',  e => e.stopPropagation());
   });
-  container.querySelectorAll('.lead-itab-cb').forEach(btn => {
+  // DISPOSITION button toggles the status panel
+  container.querySelectorAll('.lead-disp-cb').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      switchLeadTab(e.currentTarget.dataset.lid, e.currentTarget.dataset.tab);
-    });
-  });
-  container.querySelectorAll('.lead-notes-open-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      const lid = e.currentTarget.dataset.lid;
-      if (!expandedLeadIds.has(lid)) toggleLeadExpand(lid);
-      switchLeadTab(lid, 'notes');
-      setTimeout(() => {
-        const ta = document.querySelector(`.lead-notes-cb[data-lid="${CSS.escape(lid)}"]`);
-        if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
-      }, 60);
-    });
-  });
-  // Click row body (anywhere not handled above) toggles expand
-  container.querySelectorAll('.lead-row-main').forEach(main => {
-    main.addEventListener('click', e => {
-      const row = main.closest('.lead-row');
-      if (row && row.dataset.lid) toggleLeadExpand(row.dataset.lid);
+      toggleLeadExpand(e.currentTarget.dataset.lid);
     });
   });
   container.querySelectorAll('.lead-row-expanded').forEach(exp => {
-    exp.addEventListener('click', e => e.stopPropagation()); // expanded area doesn't collapse
+    exp.addEventListener('click', e => e.stopPropagation());
   });
 
   updateBulkBar();
