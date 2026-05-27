@@ -1573,7 +1573,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             <table class="ptbl" id="pol-table" style="display:none">
               <thead><tr>
                 <th>Client</th><th>Carrier</th><th>Product</th><th>Monthly</th><th>Ann. Premium</th>
-                <th>Date Submitted</th><th>Draft Date</th><th>Est. Pay Date</th><th>Est. Adv. Commission</th><th>Class</th><th>Status</th><th></th>
+                <th>Date Submitted</th><th>Draft Date</th><th>Est. Adv. Commission</th><th>Class</th><th>Status</th><th></th>
               </tr></thead>
               <tbody id="pol-tbody"></tbody>
             </table>
@@ -4265,7 +4265,6 @@ function renderPolicies() {
       <td class="mono">${fmt$(ap)}/yr</td>
       <td class="mono">${p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : '—')}</td>
       <td class="mono">${p.draft||'—'}</td>
-      <td class="mono text-g">${p.payDate||'—'}</td>
       <td class="mono text-g">${fmt$(advComm)} <span style="font-size:10px;color:var(--text3)">(${(p.commPct||0).toFixed(1)}%×75%)</span></td>
       <td style="font-size:11px;color:var(--text3)">${p.cls}</td>
       <td><select class="status-sel ${sMap[p.status]||'sp-p'}" onchange="updatePolicyStatus(${p.id},this.value,this)" title="Change status">
