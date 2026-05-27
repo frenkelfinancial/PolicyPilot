@@ -539,7 +539,7 @@ body.light .btn-p{background:var(--brand-navy);color:#fff}body.light .btn-p:hove
 .lrc-details1{flex:0 0 215px;padding:11px 13px;display:flex;flex-direction:column;gap:6px;border-right:1px solid var(--border)}
 .lrc-details2{flex:1 1 auto;padding:11px 14px;display:flex;flex-direction:column;gap:6px}
 .lrc-col-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;color:var(--text3);margin-bottom:3px;padding-bottom:4px;border-bottom:1px solid var(--border)}
-.lrc-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lrc-name{font-size:17px;font-weight:700;color:var(--text);line-height:1.2;margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lrc-phone{font-size:13px;color:#7c3aed;font-weight:600;font-family:var(--mono);text-decoration:none;display:block}
 body.light .lrc-phone{color:#6d28d9}
 .lrc-phone:hover{text-decoration:underline}
@@ -5418,7 +5418,7 @@ function renderLeads() {
         </div>
         <div class="lrc-details2">
           <div class="lrc-col-lbl">Info</div>
-          ${importedStr ? `<div class="lrc-ditem"><span class="lrc-dlbl">Received on</span><span class="lrc-dval">${escapeHTML(importedStr)}</span></div>` : ''}
+          <div class="lrc-ditem"><span class="lrc-dlbl">Received on</span><span class="lrc-dval">${escapeHTML(importedStr || new Date().toLocaleDateString('en-US'))}</span></div>
           ${lead.source ? `<div class="lrc-ditem"><span class="lrc-dlbl">Source</span><span class="lrc-dval">${escapeHTML(lead.source)}</span></div>` : ''}
           ${(lead.age != null && lead.age !== '') ? `<div class="lrc-ditem"><span class="lrc-dlbl">Age</span><span class="lrc-dval">${escapeHTML(String(lead.age))}</span></div>` : ''}
         </div>
