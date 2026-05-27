@@ -2889,17 +2889,17 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
 
 <!-- ADD LEAD MANUALLY MODAL -->
-<div class="overlay" id="addLeadModal">
-  <div class="modal" style="width:520px;max-width:95vw">
+<div class="overlay" id="addLeadModal" onclick="if(event.target===this)closeAddLeadModal()">
+  <div class="modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto">
     <div class="mhdr"><div class="mtitle">Add Lead</div><button class="mclose" onclick="closeAddLeadModal()" data-ico="x" data-size="14"></button></div>
     <div style="padding:6px 0 0">
       <div class="frow">
         <div class="fg">
-          <label>First Name</label>
+          <label>First Name <span style="color:#dc2626">*</span></label>
           <input type="text" id="al-first" placeholder="Jane" autocomplete="off">
         </div>
         <div class="fg">
-          <label>Last Name</label>
+          <label>Last Name <span style="color:var(--text3);font-weight:400">(optional)</span></label>
           <input type="text" id="al-last" placeholder="Doe" autocomplete="off">
         </div>
       </div>
@@ -2909,24 +2909,82 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <input type="tel" id="al-phone" placeholder="(555) 123-4567" autocomplete="off">
         </div>
         <div class="fg">
-          <label>Email</label>
+          <label>Email <span style="color:var(--text3);font-weight:400">(optional)</span></label>
           <input type="email" id="al-email" placeholder="jane@example.com" autocomplete="off">
         </div>
       </div>
       <div class="frow" style="margin-top:10px">
         <div class="fg">
-          <label>State</label>
-          <input type="text" id="al-state" placeholder="TX" maxlength="2" autocomplete="off" style="text-transform:uppercase">
+          <label>Date of Birth <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input type="date" id="al-dob" autocomplete="off">
         </div>
         <div class="fg">
-          <label>Age</label>
-          <input type="number" id="al-age" placeholder="65" min="18" max="120" autocomplete="off">
+          <label>State <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input type="text" id="al-state" placeholder="TX" maxlength="2" autocomplete="off" style="text-transform:uppercase">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:10px">
+        <div class="fg">
+          <label>Address <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input type="text" id="al-address" placeholder="123 Main St" autocomplete="off">
+        </div>
+        <div class="fg">
+          <label>City <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input type="text" id="al-city" placeholder="Springfield" autocomplete="off">
+        </div>
+        <div class="fg" style="max-width:110px">
+          <label>ZIP <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input type="text" id="al-zip" placeholder="62701" autocomplete="off">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:10px">
+        <div class="fg">
+          <label>Military Branch <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input type="text" id="al-military-branch" placeholder="e.g. Army, Navy, Marines" autocomplete="off">
+        </div>
+        <div class="fg">
+          <label>Military Status <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input type="text" id="al-military-status" placeholder="e.g. Veteran, Active" autocomplete="off">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:10px">
+        <div class="fg">
+          <label>Beneficiary <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input type="text" id="al-beneficiary" placeholder="Spouse, child name..." autocomplete="off">
+        </div>
+        <div class="fg">
+          <label>Coverage Wanted <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+          <input type="text" id="al-coverage" placeholder="e.g. $25,000 whole life" autocomplete="off">
         </div>
       </div>
       <div class="fg" style="margin-top:10px">
-        <label>Notes</label>
+        <label>Lead Source <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <select id="al-source" autocomplete="off">
+          <option value="">-- Select --</option>
+          <option value="direct_mail">Direct Mail</option>
+          <option value="facebook">Facebook</option>
+          <option value="google">Google</option>
+          <option value="drip">Drip Lead</option>
+          <option value="referral">Referral</option>
+          <option value="aged">Aged Lead</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="fg" style="margin-top:10px">
+        <label>Notes <span style="color:var(--text3);font-weight:400">(optional)</span></label>
         <textarea id="al-notes" rows="2" placeholder="Source, context, anything to remember…" autocomplete="off" style="resize:vertical"></textarea>
       </div>
+
+      <!-- Custom Fields -->
+      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">Custom Fields <span style="color:var(--text3);font-weight:400;font-size:12px">(optional)</span></div>
+          <button type="button" onclick="addLeadCustomField()" class="btn btn-s btn-sm" style="display:inline-flex;align-items:center;gap:5px"><span style="font-size:16px;line-height:1">+</span> Add Custom Field</button>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Add any extra info — marital status, income, hobbies, or anything else specific to this lead.</div>
+        <div id="al-custom-fields"></div>
+      </div>
+
       <div id="al-msg" style="font-size:12px;color:#dc2626;margin-top:8px;min-height:18px"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
         <button class="btn btn-s btn-sm" onclick="closeAddLeadModal()">Cancel</button>
@@ -7528,6 +7586,7 @@ function renderLeads() {
       lead.military_branch   && `<div class="lead-meta-chip"><div class="lbl">Mil. Branch</div><div class="val">${escapeHTML(lead.military_branch)}</div></div>`,
       lead.beneficiary       && `<div class="lead-meta-chip"><div class="lbl">Beneficiary</div><div class="val" title="${escapeHTML(lead.beneficiary)}">${escapeHTML(lead.beneficiary)}</div></div>`,
       lead.coverage_wanted   && `<div class="lead-meta-chip"><div class="lbl">Coverage Wanted</div><div class="val">${escapeHTML(lead.coverage_wanted)}</div></div>`,
+      ...(lead.customFields||[]).map(cf => `<div class="lead-meta-chip"><div class="lbl">${escapeHTML(cf.label)}</div><div class="val">${escapeHTML(cf.value)}</div></div>`),
     ].filter(Boolean).join('');
     const metaHTML = metaChips ? `<div class="lead-row-meta">${metaChips}</div>` : '';
 
@@ -8919,24 +8978,22 @@ function parseCSV(text) {
 
 function detectFieldMap(headers) { return {}; } // legacy stub
 
-// ─── Manual single-lead add (next to Import Leads) ───────────────────────
-// Opens the add-lead modal, clears any leftover form state, focuses the
-// first input. Phone is the only required field; everything else is
-// optional. Phone runs through toE164() so any common format (paren,
-// dash, no-prefix) is accepted.
 function openAddLeadModal() {
-  ['al-first','al-last','al-phone','al-email','al-state','al-age','al-notes'].forEach(id => {
+  ['al-first','al-last','al-phone','al-email','al-dob','al-state',
+   'al-address','al-city','al-zip','al-military-branch','al-military-status',
+   'al-beneficiary','al-coverage','al-notes'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  const src = document.getElementById('al-source');
+  if (src) src.value = '';
+  const cf = document.getElementById('al-custom-fields');
+  if (cf) cf.innerHTML = '';
   const msg = document.getElementById('al-msg');
   if (msg) msg.textContent = '';
   const modal = document.getElementById('addLeadModal');
   if (modal) modal.classList.add('open');
-  setTimeout(() => {
-    const first = document.getElementById('al-first');
-    if (first) first.focus();
-  }, 0);
+  setTimeout(() => { const f = document.getElementById('al-first'); if (f) f.focus(); }, 0);
 }
 
 function closeAddLeadModal() {
@@ -8944,49 +9001,83 @@ function closeAddLeadModal() {
   if (modal) modal.classList.remove('open');
 }
 
+function addLeadCustomField() {
+  const container = document.getElementById('al-custom-fields');
+  const row = document.createElement('div');
+  row.className = 'frow';
+  row.style.cssText = 'margin-top:8px;align-items:center;gap:8px';
+  row.innerHTML = `
+    <div class="fg"><input type="text" class="al-cf-label" placeholder="Field name (e.g. Marital Status)" autocomplete="off"></div>
+    <div class="fg"><input type="text" class="al-cf-value" placeholder="Value" autocomplete="off"></div>
+    <button type="button" onclick="this.closest('.frow').remove()" title="Remove field" style="flex-shrink:0;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:8px;padding:7px 11px;cursor:pointer;font-size:14px;line-height:1">&times;</button>
+  `;
+  container.appendChild(row);
+  row.querySelector('.al-cf-label').focus();
+}
+
 function saveManualLead() {
-  const first = (document.getElementById('al-first').value || '').trim();
-  const last  = (document.getElementById('al-last').value  || '').trim();
-  const phone = (document.getElementById('al-phone').value || '').trim();
-  const email = (document.getElementById('al-email').value || '').trim();
-  const state = (document.getElementById('al-state').value || '').trim().toUpperCase();
-  const age   = (document.getElementById('al-age').value   || '').trim();
-  const notes = (document.getElementById('al-notes').value || '').trim();
-  const msg   = document.getElementById('al-msg');
+  const first  = (document.getElementById('al-first').value  || '').trim();
+  const last   = (document.getElementById('al-last').value   || '').trim();
+  const phone  = (document.getElementById('al-phone').value  || '').trim();
+  const email  = (document.getElementById('al-email').value  || '').trim();
+  const dob    = (document.getElementById('al-dob').value    || '').trim();
+  const state  = (document.getElementById('al-state').value  || '').trim().toUpperCase();
+  const address= (document.getElementById('al-address').value|| '').trim();
+  const city   = (document.getElementById('al-city').value   || '').trim();
+  const zip    = (document.getElementById('al-zip').value    || '').trim();
+  const milBr  = (document.getElementById('al-military-branch').value  || '').trim();
+  const milSt  = (document.getElementById('al-military-status').value  || '').trim();
+  const benef  = (document.getElementById('al-beneficiary').value       || '').trim();
+  const cov    = (document.getElementById('al-coverage').value         || '').trim();
+  const source = (document.getElementById('al-source').value || '').trim();
+  const notes  = (document.getElementById('al-notes').value  || '').trim();
+  const msg    = document.getElementById('al-msg');
   if (msg) msg.textContent = '';
 
+  if (!first) { if (msg) msg.textContent = 'First name is required.'; return; }
   if (!phone) { if (msg) msg.textContent = 'Phone is required.'; return; }
   const phoneE164 = toE164(phone);
   if (!phoneE164) { if (msg) msg.textContent = 'Phone must be a valid US number.'; return; }
 
-  // Don't silently swallow duplicates — if the same phone already exists,
-  // surface it so the agent can decide whether to merge manually.
   const dupe = leads.find(l => toE164(l.phone) === phoneE164);
   if (dupe) {
     if (msg) msg.textContent = `A lead with this phone already exists: ${escapeHTML(dupe.name||'Unknown')}.`;
     return;
   }
 
-  const name = [first, last].filter(Boolean).join(' ').trim() || 'Unknown';
+  const customFields = [];
+  document.querySelectorAll('#al-custom-fields .frow').forEach(row => {
+    const label = (row.querySelector('.al-cf-label')?.value || '').trim();
+    const value = (row.querySelector('.al-cf-value')?.value || '').trim();
+    if (label) customFields.push({ label, value });
+  });
+
+  const name = [first, last].filter(Boolean).join(' ').trim();
   const lead = {
-    id: genLeadId(),
+    id:              genLeadId(),
     name,
-    first_name: first || undefined,
-    last_name:  last  || undefined,
-    phone: phoneE164,
-    email: email || undefined,
-    state: state || undefined,
-    age:   age ? parseInt(age, 10) : undefined,
-    notes: notes || undefined,
-    source: 'manual',
-    status: 'new',
-    importedAt: new Date().toISOString(),
+    first_name:      first    || undefined,
+    last_name:       last     || undefined,
+    phone:           phoneE164,
+    email:           email    || undefined,
+    dob:             dob      || undefined,
+    state:           state    || undefined,
+    address:         address  || undefined,
+    city:            city     || undefined,
+    zip:             zip      || undefined,
+    military_branch: milBr   || undefined,
+    military_status: milSt   || undefined,
+    beneficiary:     benef   || undefined,
+    coverage_wanted: cov     || undefined,
+    notes:           notes   || undefined,
+    source:          source  || 'manual',
+    customFields:    customFields.length ? customFields : undefined,
+    status:          'new',
+    importedAt:      new Date().toISOString(),
   };
 
   leads.unshift(lead);
   saveLeads();
-  // Reset filters/tab so the new lead is visible — otherwise an active
-  // 'no_answer' filter would hide it and the toast would feel like a lie.
   if (typeof currentLeadTab !== 'undefined' && currentLeadTab !== 'all' && currentLeadTab !== 'new') {
     currentLeadTab = 'all';
     document.querySelectorAll('#sec-leads .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'all'));
