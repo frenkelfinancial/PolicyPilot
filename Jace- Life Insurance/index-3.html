@@ -1850,6 +1850,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
               <option value="200">200/page</option>
               <option value="9999">All</option>
             </select>
+            <button class="btn btn-g btn-sm" onclick="openAddLeadModal()">+ Add Lead</button>
             <button class="btn btn-p btn-sm" onclick="openImportModal()">+ Import Leads</button>
           </div>
         </div>
@@ -2291,6 +2292,84 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         <button class="btn btn-s btn-sm" onclick="goToCSVStep(2)">← Back to Mapping</button>
         <button class="btn btn-g" onclick="importCSVLeads()" id="csv-import-btn" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="14"></span>Import All Leads</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD LEAD MODAL -->
+<div class="overlay" id="addLeadModal" onclick="if(event.target===this)closeAddLeadModal()">
+  <div class="modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <div class="mhdr"><div class="mtitle">Add Lead</div><button class="mclose" onclick="closeAddLeadModal()" data-ico="x" data-size="14"></button></div>
+
+    <div class="frow">
+      <div class="fg"><label>Full Name</label><input type="text" id="al-name" placeholder="Jane Smith"></div>
+      <div class="fg"><label>Phone</label><input type="tel" id="al-phone" placeholder="(555) 000-0000"></div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg"><label>Email <span style="color:var(--text3);font-weight:400">(optional)</span></label><input type="email" id="al-email" placeholder="jane@example.com"></div>
+      <div class="fg"><label>Date of Birth <span style="color:var(--text3);font-weight:400">(optional)</span></label><input type="date" id="al-dob"></div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg"><label>Address <span style="color:var(--text3);font-weight:400">(optional)</span></label><input type="text" id="al-address" placeholder="123 Main St"></div>
+      <div class="fg"><label>City <span style="color:var(--text3);font-weight:400">(optional)</span></label><input type="text" id="al-city" placeholder="Springfield"></div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg" style="max-width:120px">
+        <label>State <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <select id="al-state">
+          <option value=""></option>
+          <option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option>
+          <option>CO</option><option>CT</option><option>DE</option><option>FL</option><option>GA</option>
+          <option>HI</option><option>ID</option><option>IL</option><option>IN</option><option>IA</option>
+          <option>KS</option><option>KY</option><option>LA</option><option>ME</option><option>MD</option>
+          <option>MA</option><option>MI</option><option>MN</option><option>MS</option><option>MO</option>
+          <option>MT</option><option>NE</option><option>NV</option><option>NH</option><option>NJ</option>
+          <option>NM</option><option>NY</option><option>NC</option><option>ND</option><option>OH</option>
+          <option>OK</option><option>OR</option><option>PA</option><option>RI</option><option>SC</option>
+          <option>SD</option><option>TN</option><option>TX</option><option>UT</option><option>VT</option>
+          <option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option>
+        </select>
+      </div>
+      <div class="fg" style="max-width:120px"><label>ZIP <span style="color:var(--text3);font-weight:400">(optional)</span></label><input type="text" id="al-zip" placeholder="62701"></div>
+      <div class="fg">
+        <label>Lead Source <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <select id="al-source">
+          <option value="">-- Select --</option>
+          <option value="direct_mail">Direct Mail</option>
+          <option value="facebook">Facebook</option>
+          <option value="google">Google</option>
+          <option value="drip">Drip Lead</option>
+          <option value="referral">Referral</option>
+          <option value="aged">Aged Lead</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg"><label>Military Branch <span style="color:var(--text3);font-weight:400">(optional)</span></label><input type="text" id="al-military-branch" placeholder="e.g. Army, Navy, Marines"></div>
+      <div class="fg"><label>Military Status <span style="color:var(--text3);font-weight:400">(optional)</span></label><input type="text" id="al-military-status" placeholder="e.g. Veteran, Active"></div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg"><label>Beneficiary <span style="color:var(--text3);font-weight:400">(optional)</span></label><input type="text" id="al-beneficiary" placeholder="Spouse, child name..."></div>
+      <div class="fg"><label>Coverage Wanted <span style="color:var(--text3);font-weight:400">(optional)</span></label><input type="text" id="al-coverage" placeholder="e.g. $25,000 whole life"></div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg"><label>Notes <span style="color:var(--text3);font-weight:400">(optional)</span></label><textarea id="al-notes" placeholder="Call details, objections, follow-up..." style="min-height:70px;resize:vertical"></textarea></div>
+    </div>
+
+    <!-- Custom Fields -->
+    <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">Custom Fields</div>
+        <button type="button" onclick="addLeadCustomField()" class="btn btn-s btn-sm" style="display:inline-flex;align-items:center;gap:5px"><span style="font-size:16px;line-height:1">+</span> Add Custom Field</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">Add any extra info specific to this lead — marital status, military branch, income, hobbies, or any other field you need.</div>
+      <div id="al-custom-fields"></div>
+    </div>
+
+    <div class="flex gap8 mt16" style="justify-content:flex-end">
+      <button class="btn btn-s" onclick="closeAddLeadModal()">Cancel</button>
+      <button class="btn btn-g" onclick="saveNewLead()">Save Lead</button>
     </div>
   </div>
 </div>
@@ -5415,6 +5494,7 @@ function renderLeads() {
           ${dobVal ? `<div class="lrc-ditem"><span class="lrc-dlbl">Date of Birth</span><span class="lrc-dval">${escapeHTML(dobVal)}</span></div>` : ''}
           ${lead.beneficiary ? `<div class="lrc-ditem"><span class="lrc-dlbl">Beneficiary</span><span class="lrc-dval">${escapeHTML(lead.beneficiary)}</span></div>` : ''}
           ${lead.coverage_wanted ? `<div class="lrc-ditem"><span class="lrc-dlbl">Coverage Wanted</span><span class="lrc-dval">${escapeHTML(lead.coverage_wanted)}</span></div>` : ''}
+          ${(lead.customFields||[]).map(cf => `<div class="lrc-ditem"><span class="lrc-dlbl">${escapeHTML(cf.label)}</span><span class="lrc-dval">${escapeHTML(cf.value)}</span></div>`).join('')}
         </div>
         <div class="lrc-details2">
           <div class="lrc-col-lbl">Info</div>
@@ -8705,6 +8785,84 @@ async function biCommitCSVImport() {
   if (skipped) msg += ` ${skipped} duplicate${skipped===1?'':'s'} skipped.`;
   if (errors)  msg += ` ${errors} failed to save.`;
   showToast(msg, errors ? '#fbbf24' : '#10b981');
+}
+
+// ============================================================
+// ADD LEAD MODAL
+// ============================================================
+function openAddLeadModal() {
+  ['al-name','al-phone','al-email','al-address','al-city','al-zip','al-dob',
+   'al-military-branch','al-military-status','al-beneficiary','al-coverage','al-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const stateEl = document.getElementById('al-state');
+  if (stateEl) stateEl.value = '';
+  const sourceEl = document.getElementById('al-source');
+  if (sourceEl) sourceEl.value = '';
+  document.getElementById('al-custom-fields').innerHTML = '';
+  document.getElementById('addLeadModal').classList.add('open');
+}
+
+function closeAddLeadModal() {
+  document.getElementById('addLeadModal').classList.remove('open');
+}
+
+function addLeadCustomField() {
+  const container = document.getElementById('al-custom-fields');
+  const row = document.createElement('div');
+  row.className = 'frow mt8';
+  row.style.cssText = 'align-items:center;gap:8px';
+  row.innerHTML = `
+    <div class="fg"><input type="text" class="al-cf-label" placeholder="Field name (e.g. Marital Status)"></div>
+    <div class="fg"><input type="text" class="al-cf-value" placeholder="Value"></div>
+    <button type="button" onclick="this.closest('.frow').remove()" title="Remove field" style="flex-shrink:0;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:8px;padding:7px 11px;cursor:pointer;font-size:14px;line-height:1">&times;</button>
+  `;
+  container.appendChild(row);
+  row.querySelector('.al-cf-label').focus();
+}
+
+function saveNewLead() {
+  const name  = (document.getElementById('al-name').value  || '').trim();
+  const phone = (document.getElementById('al-phone').value || '').trim();
+  if (!name && !phone) {
+    showToast('Please enter at least a name or phone number', '#fbbf24');
+    return;
+  }
+
+  const customFields = [];
+  document.querySelectorAll('#al-custom-fields .frow').forEach(row => {
+    const label = (row.querySelector('.al-cf-label')?.value || '').trim();
+    const value = (row.querySelector('.al-cf-value')?.value || '').trim();
+    if (label) customFields.push({ label, value });
+  });
+
+  const lead = {
+    id:               genLeadId(),
+    name:             name || 'Unknown',
+    phone:            phone,
+    email:            (document.getElementById('al-email').value            || '').trim(),
+    state:            (document.getElementById('al-state').value            || '').trim(),
+    city:             (document.getElementById('al-city').value             || '').trim(),
+    address:          (document.getElementById('al-address').value          || '').trim(),
+    zip:              (document.getElementById('al-zip').value              || '').trim(),
+    dob:              (document.getElementById('al-dob').value              || '').trim(),
+    source:           (document.getElementById('al-source').value           || '').trim(),
+    notes:            (document.getElementById('al-notes').value            || '').trim(),
+    military_branch:  (document.getElementById('al-military-branch').value  || '').trim(),
+    military_status:  (document.getElementById('al-military-status').value  || '').trim(),
+    beneficiary:      (document.getElementById('al-beneficiary').value       || '').trim(),
+    coverage_wanted:  (document.getElementById('al-coverage').value         || '').trim(),
+    customFields:     customFields,
+    status:           'new',
+    importedAt:       new Date().toISOString(),
+  };
+
+  leads.unshift(lead);
+  saveLeads();
+  closeAddLeadModal();
+  filterLeads();
+  showToast(`Lead "${lead.name}" added`, '#10b981');
 }
 
 document.addEventListener('DOMContentLoaded', () => {
