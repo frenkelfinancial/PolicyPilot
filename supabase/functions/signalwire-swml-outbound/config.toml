@@ -1,0 +1,11 @@
+# Per-function config for signalwire-swml-outbound.
+#
+# SignalWire calls this webhook without a Supabase JWT — it's
+# not a logged-in user, it's SignalWire's servers requesting
+# SWML routing instructions. We validate the X-SignalWire-Signature
+# header instead of a JWT.
+#
+# If the CLI doesn't pick this up automatically, also toggle:
+#   Supabase Dashboard → Edge Functions → signalwire-swml-outbound
+#   → Settings → "Enforce JWT verification" → OFF
+verify_jwt = false

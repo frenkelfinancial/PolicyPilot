@@ -552,6 +552,30 @@ body.light .lrc-phone{color:#6d28d9}
 .lrc-btn-row{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}
 .lrc-call-btn{width:100%;padding:8px 6px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:10.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;text-transform:uppercase;letter-spacing:.3px;transition:background .12s;line-height:1}
 .lrc-call-btn:hover{background:#6d28d9}
+/* ---- SOFTPHONE CALL WIDGET ---- */
+.cw-panel{position:fixed;bottom:20px;right:20px;z-index:9990;background:#0d1e3a;border:1px solid rgba(96,165,250,.28);border-radius:14px;padding:14px 16px;min-width:262px;box-shadow:0 8px 40px rgba(0,0,0,.65),0 0 0 1px rgba(96,165,250,.06);transition:opacity .18s,transform .18s;display:flex;flex-direction:column;gap:10px}
+.cw-panel.cw-hidden{opacity:0;pointer-events:none;transform:translateY(10px)}
+.cw-top{display:flex;align-items:flex-start;gap:10px}
+.cw-dot{width:8px;height:8px;border-radius:50%;background:#475569;flex-shrink:0;margin-top:4px;transition:background .3s}
+.cw-dot.ringing{background:#f97316;animation:cwPulse .75s ease-in-out infinite}
+.cw-dot.connected{background:#34d399;animation:cwPulse 1.6s ease-in-out infinite}
+.cw-dot.ended{background:#ef4444;animation:none}
+@keyframes cwPulse{0%,100%{opacity:1}50%{opacity:.3}}
+.cw-info{flex:1;min-width:0}
+.cw-status{font-size:10.5px;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.cw-name{font-size:14px;font-weight:700;color:#f1f5f9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.cw-phone{font-size:12px;color:#60a5fa;font-family:var(--mono);margin-top:1px}
+.cw-timer{font-size:12px;color:#94a3b8;font-family:var(--mono);margin-top:4px;min-height:16px}
+.cw-actions{display:flex;gap:7px}
+.cw-btn{flex:1;padding:8px 6px;border:none;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;font-size:11.5px;font-weight:600;line-height:1;transition:background .1s,color .1s}
+.cw-btn-mute{background:rgba(100,116,139,.18);color:#94a3b8;border:1px solid rgba(100,116,139,.28)}
+.cw-btn-mute:hover{background:rgba(100,116,139,.3)}
+.cw-btn-mute.muted{background:rgba(245,158,11,.12);color:#fbbf24;border-color:rgba(245,158,11,.35)}
+.cw-btn-hangup{background:rgba(239,68,68,.14);color:#ef4444;border:1px solid rgba(239,68,68,.28)}
+.cw-btn-hangup:hover{background:rgba(239,68,68,.27)}
+body.light .cw-panel{background:#fff;border-color:rgba(59,130,246,.22);box-shadow:0 8px 40px rgba(0,0,0,.12)}
+body.light .cw-name{color:#0f172a}
+body.light .cw-status{color:#94a3b8}
 .lrc-disp-btn{width:100%;padding:7px 6px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:10.5px;font-weight:700;cursor:pointer;text-align:center;text-transform:uppercase;letter-spacing:.3px;transition:background .12s}
 .lrc-disp-btn:hover{background:#6d28d9}
 .lrc-ditem{display:flex;flex-direction:column;gap:0}
@@ -3032,7 +3056,9 @@ const ICONS = {
   'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
   'gear': '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   'user': '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-  'buildings': '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>'
+  'buildings': '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
+  'mic': '<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/>',
+  'phone-off': '<path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07"/><path d="M2 2l20 20"/><path d="M6.36 6.36A16.36 16.36 0 0 0 4 10.27a2 2 0 0 0 1.72 2 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 2.11.45l1.27 1.27"/>'
 };
 function icon(name, opts){
   opts = opts || {};
@@ -5466,7 +5492,7 @@ function renderLeads() {
         <div class="lrc-info">
           <div class="lrc-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
           <div class="lead-status-pill lead-status-pill-cb" data-lid="${lid}" style="${pillStyle}" title="Click to change status">${escapeHTML(pillLabel)}</div>
-          ${phoneFmt ? `<a href="${callHref}" class="lead-call-link lrc-phone" data-lid="${lid}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${escapeHTML(phoneFmt)}</a>` : ''}
+          ${phoneFmt ? `<button class="lead-call-link lrc-phone" style="background:none;border:none;padding:0;cursor:pointer;font:inherit;color:inherit;text-align:left" onclick="event.stopPropagation();dialLead(${JSON.stringify(lid)},${JSON.stringify(phoneDigits)},${JSON.stringify(lead.name||'Lead')})" aria-label="Call ${escapeHTML(lead.name||'lead')}">${escapeHTML(phoneFmt)}</button>` : ''}
           ${lead.email ? `<a href="mailto:${escapeHTML(lead.email)}" class="lrc-email" onclick="event.stopPropagation()" title="${escapeHTML(lead.email)}">${escapeHTML(lead.email)}</a>` : ''}
           ${stateVal ? `<div class="lrc-state">${icon('map-pin',{size:11})} ${escapeHTML(stateVal)}</div>` : ''}
           ${dobVal ? `<div class="lrc-row"><span class="lrc-lbl">Birthday</span>${escapeHTML(dobVal)}</div>` : ''}
@@ -5481,9 +5507,9 @@ function renderLeads() {
           <textarea class="lead-notes lead-notes-cb" data-lid="${lid}" placeholder="Call details, objections, follow-up, next steps...">${escapeHTML(lead.notes||'')}</textarea>
         </div>
         <div class="lrc-actions">
-          <a href="${callHref}" class="lead-call-link" data-lid="${lid}" style="text-decoration:none" aria-label="Call ${escapeHTML(lead.name||'lead')}">
-            <button class="lrc-call-btn" title="Dial ${escapeHTML(phoneFmt||lead.phone||'')}">${icon('phone',{size:13})} CLICK TO CALL</button>
-          </a>
+          ${phoneDigits
+            ? `<button class="lrc-call-btn" onclick="event.stopPropagation();dialLead(${JSON.stringify(lid)},${JSON.stringify(phoneDigits)},${JSON.stringify(lead.name||'Lead')})" title="Dial ${escapeHTML(phoneFmt||lead.phone||'')}">${icon('phone',{size:13})} CLICK TO CALL</button>`
+            : `<button class="lrc-call-btn" disabled style="opacity:.38;cursor:not-allowed" title="No phone number">${icon('phone',{size:13})} NO PHONE</button>`}
           <button class="lrc-disp-btn lead-disp-cb" data-lid="${lid}">&#8801; DISPOSITION</button>
         </div>
         <div class="lrc-details1">
@@ -7854,7 +7880,7 @@ function biRenderCards() {
       // Click-to-call is the lowest-friction outreach action and trumps the
       // drafted email when the agent's already at their desk with the phone.
       const callBtn = p.phone
-        ? `<a class="btn btn-s btn-sm" href="tel:${escapeHTML(p.phone)}" data-pid="${escapeHTML(String(p.id))}" onclick="biLogCall(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none"><span data-ico="phone" data-size="13"></span>Call</a>`
+        ? `<button class="btn btn-s btn-sm" onclick="biLogCall(${JSON.stringify(String(p.id))});dialLead(null,${JSON.stringify(p.phone)},${JSON.stringify(p.client||'Client')})" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="phone" data-size="13"></span>Call</button>`
         : '';
       actions = `<button class="btn btn-p btn-sm" data-pid="${escapeHTML(String(p.id))}" onclick="biOpenDrawer(this)">Start Conversation</button>
          ${callBtn}
@@ -8376,7 +8402,7 @@ function biOpenDrawer(btn) {
       <div style="font-size:13px;line-height:1.55">${escapeHTML(o.whyNow || '')}</div>
       <div style="font-size:12px;color:var(--text3);margin-top:6px">Est. first-year advance: <strong style="color:#34d399;font-family:var(--mono)">$${Number(o.estCommission||0).toLocaleString('en-US',{maximumFractionDigits:0})}</strong></div>
       ${p.phone ? `<div class="flex gap8 mt8">
-        <a class="btn btn-p btn-sm" href="tel:${escapeHTML(p.phone)}" data-pid="${escapeHTML(String(p.id))}" onclick="biLogCall(this.dataset.pid)" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none"><span data-ico="phone" data-size="13"></span>Call ${escapeHTML(p.phone)}</a>
+        <button class="btn btn-p btn-sm" onclick="biLogCall(${JSON.stringify(String(p.id))});dialLead(null,${JSON.stringify(p.phone)},${JSON.stringify(p.client||'Client')})" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="phone" data-size="13"></span>Call ${escapeHTML(p.phone)}</button>
       </div>` : ''}
     </div>
     ${biRenderConversionCalc(p)}
@@ -8865,10 +8891,216 @@ function saveNewLead() {
   showToast(`Lead "${lead.name}" added`, '#10b981');
 }
 
+// ============================================================
+// SOFTPHONE — browser calling via @signalwire/js (Call Fabric)
+//
+// Flow:
+//   1. dialLead() requests mic permission, shows the call widget
+//   2. Calls signalwire-browser-token edge function to get a
+//      short-lived subscriber token for the signed-in agent
+//   3. Loads @signalwire/js via dynamic ESM import (lazy, ~once)
+//   4. Calls client.connect({ audio:true, to: E.164Number })
+//      → SignalWire WebRTC bridges to the lead's phone
+//   5. swHangUp() / call 'destroy' event tears the call down
+//
+// Requires these Supabase secrets on the signalwire-browser-token fn:
+//   SIGNALWIRE_SPACE_URL, SIGNALWIRE_PROJECT_ID,
+//   SIGNALWIRE_API_TOKEN, SIGNALWIRE_CALLER_ID
+// ============================================================
+
+let _swClient = null;
+let _swCall   = null;
+let _swMuted  = false;
+let _swTimer  = null;
+let _swStart  = 0;
+
+// Helper — authenticated POST to a Supabase Edge Function.
+async function _swEdgePost(fn, body) {
+  const { data: { session } } = await sb.auth.getSession();
+  const tok = session?.access_token;
+  if (!tok) throw new Error('Not authenticated');
+  const r = await fetch(SUPABASE_URL + '/functions/v1/' + fn, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + tok,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body || {}),
+  });
+  const data = await r.json();
+  if (!r.ok || data.ok === false) throw new Error(data.error || r.statusText);
+  return data;
+}
+
+// Widget helpers
+function _cwEl(id) { return document.getElementById(id); }
+
+function _cwShow(name, phone, status) {
+  _cwEl('cwName').textContent  = name  || '—';
+  _cwEl('cwPhone').textContent = phone || '—';
+  _cwEl('cwTimer').textContent = '';
+  _cwStatus(status || 'Connecting...', '');
+  _cwEl('cwPanel').classList.remove('cw-hidden');
+  mountIcons(_cwEl('cwPanel'));
+}
+
+function _cwStatus(text, dotCls) {
+  const s = _cwEl('cwStatus'), d = _cwEl('cwDot');
+  if (s) s.textContent = text;
+  if (d) d.className = 'cw-dot' + (dotCls ? ' ' + dotCls : '');
+}
+
+function _cwHide() {
+  if (_swTimer) { clearInterval(_swTimer); _swTimer = null; }
+  const p = _cwEl('cwPanel');
+  if (p) p.classList.add('cw-hidden');
+}
+
+function _cwStartTimer() {
+  _swStart = Date.now();
+  _swTimer = setInterval(() => {
+    const el = _cwEl('cwTimer');
+    if (!el) return;
+    const s = Math.floor((Date.now() - _swStart) / 1000);
+    el.textContent = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }, 1000);
+}
+
+// Public API
+function swToggleMute() {
+  if (!_swCall) return;
+  _swMuted = !_swMuted;
+  try { _swCall.setMuted(_swMuted); } catch (e) { console.warn('[softphone] setMuted', e); }
+  const btn = _cwEl('cwMuteBtn');
+  if (btn) {
+    btn.classList.toggle('muted', _swMuted);
+    // Update label text (keep the icon span, just swap the text node)
+    const span = btn.querySelector('[data-ico]');
+    btn.textContent = _swMuted ? 'Unmute' : 'Mute';
+    if (span) btn.prepend(span);
+  }
+}
+
+async function swHangUp() {
+  if (_swCall) {
+    try { await _swCall.hangup(); } catch {}
+    _swCall = null;
+  }
+  _swMuted = false;
+  _cwHide();
+}
+
+async function dialLead(leadId, rawPhone, name) {
+  if (!rawPhone) { showToast('No phone number for this lead.', '#ef4444'); return; }
+
+  // Normalise to US E.164
+  const digits = String(rawPhone).replace(/\D/g, '');
+  if (digits.length < 10) { showToast('Invalid phone number.', '#ef4444'); return; }
+  const e164 = digits.length === 11 && digits[0] === '1'
+    ? '+' + digits
+    : '+1' + digits.slice(-10);
+
+  // Microphone permission — ask before touching UI so the browser
+  // prompt doesn't appear over the call widget.
+  try {
+    await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    showToast('Allow microphone access to make calls from your computer.', '#f97316');
+    return;
+  }
+
+  // Hang up any in-progress call first
+  if (_swCall) { try { await _swCall.hangup(); } catch {} _swCall = null; }
+  if (_swClient) { try { _swClient.disconnect(); } catch {} _swClient = null; }
+
+  _cwShow(name || 'Lead', e164, 'Connecting...');
+
+  try {
+    // Lazy-load @signalwire/js via ESM (cached after first load)
+    if (!window._swSDK) {
+      window._swSDK = await import('https://esm.sh/@signalwire/js@3');
+    }
+    const SignalWire = window._swSDK.SignalWire;
+    if (typeof SignalWire !== 'function') throw new Error('SignalWire SDK failed to load');
+
+    // Fetch subscriber token
+    const tok = await _swEdgePost('signalwire-browser-token', {});
+
+    // Create fresh Call Fabric client
+    _swClient = await SignalWire({ token: tok.token });
+
+    _cwStatus('Dialing...', 'ringing');
+
+    // Connect directly to the lead's phone number. SignalWire routes
+    // this to PSTN using the purchased caller ID. If your space needs
+    // SWML routing, replace e164 with your SWML resource address
+    // (e.g. '/private/outbound-pstn') and redeploy signalwire-swml-outbound.
+    const call = await _swClient.connect({ audio: true, video: false, to: e164 });
+    _swCall = call;
+    _swMuted = false;
+    const muteBtn = _cwEl('cwMuteBtn');
+    if (muteBtn) muteBtn.classList.remove('muted');
+
+    call.on('active', () => {
+      _cwStatus('Connected', 'connected');
+      _cwStartTimer();
+    });
+
+    call.on('destroy', () => {
+      _swCall = null;
+      _swMuted = false;
+      if (_swTimer) { clearInterval(_swTimer); _swTimer = null; }
+      _cwStatus('Call ended', 'ended');
+      setTimeout(_cwHide, 2400);
+    });
+
+    call.on('error', (err) => {
+      console.error('[softphone] call error', err);
+      _swCall = null;
+      _cwHide();
+      showToast('Call error: ' + (err?.message || 'Check SignalWire setup.'), '#ef4444');
+    });
+
+  } catch (e) {
+    _cwHide();
+    console.error('[softphone] dialLead failed:', e);
+    const msg = String(e?.message || e);
+    if (msg.includes('not configured') || msg.includes('missing')) {
+      showToast('Calling not configured — add SignalWire secrets to Supabase.', '#f97316');
+    } else if (msg.includes('unauthenticated')) {
+      showToast('Sign in required to make calls.', '#ef4444');
+    } else {
+      showToast('Call failed: ' + msg, '#ef4444');
+    }
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   applyTheme();   // ensure login screen matches saved theme before auth resolves
   subscribeAuth();
+  mountIcons(document.getElementById('cwPanel'));
 });
 </script>
+
+<!-- Softphone call widget — visible only during active browser calls -->
+<div id="cwPanel" class="cw-panel cw-hidden" role="region" aria-live="polite" aria-label="Active call">
+  <div class="cw-top">
+    <div class="cw-dot" id="cwDot"></div>
+    <div class="cw-info">
+      <div class="cw-status" id="cwStatus">Connecting...</div>
+      <div class="cw-name"  id="cwName">—</div>
+      <div class="cw-phone" id="cwPhone">—</div>
+      <div class="cw-timer" id="cwTimer"></div>
+    </div>
+  </div>
+  <div class="cw-actions">
+    <button class="cw-btn cw-btn-mute" id="cwMuteBtn" onclick="swToggleMute()">
+      <span data-ico="mic" data-size="13"></span>Mute
+    </button>
+    <button class="cw-btn cw-btn-hangup" onclick="swHangUp()">
+      <span data-ico="phone-off" data-size="13"></span>Hang Up
+    </button>
+  </div>
+</div>
 </body>
 </html>
