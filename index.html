@@ -2212,6 +2212,55 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
       <!-- LIST VIEW panel -->
       <div id="pt-view-list">
+        <!-- Filter + Sort bar -->
+        <div id="pt-filter-bar" class="frow" style="margin-bottom:14px;align-items:flex-end">
+          <div class="fg" style="min-width:160px">
+            <label for="ptf-client">Client Name</label>
+            <input type="text" id="ptf-client" placeholder="Search client…" oninput="applyTrackerFilters()">
+          </div>
+          <div class="fg" style="min-width:150px">
+            <label for="ptf-carrier">Carrier</label>
+            <select id="ptf-carrier" onchange="applyTrackerFilters()">
+              <option value="">All Carriers</option>
+            </select>
+          </div>
+          <div class="fg" style="min-width:140px">
+            <label for="ptf-submitted">Date Submitted</label>
+            <input type="date" id="ptf-submitted" onchange="applyTrackerFilters()">
+          </div>
+          <div class="fg" style="min-width:140px">
+            <label for="ptf-draft">Draft Date</label>
+            <input type="date" id="ptf-draft" onchange="applyTrackerFilters()">
+          </div>
+          <div class="fg" style="min-width:140px">
+            <label for="ptf-status">Status</label>
+            <select id="ptf-status" onchange="applyTrackerFilters()">
+              <option value="">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Sub/Approved</option>
+              <option value="issued">Issued</option>
+              <option value="paid">Paid</option>
+              <option value="lapsed">Lapsed</option>
+              <option value="chargeback">Charge Back</option>
+            </select>
+          </div>
+          <div class="fg" style="min-width:200px">
+            <label for="ptf-sort">Sort By</label>
+            <select id="ptf-sort" onchange="applyTrackerFilters()">
+              <option value="">Default (newest first)</option>
+              <option value="status">Status</option>
+              <option value="carrier">Carrier A–Z</option>
+              <option value="client-az">Client A–Z</option>
+              <option value="draft-asc">Draft Date (Soonest → Latest)</option>
+              <option value="draft-desc">Draft Date (Latest → Soonest)</option>
+              <option value="sub-asc">Date Submitted (Soonest → Latest)</option>
+              <option value="sub-desc">Date Submitted (Latest → Soonest)</option>
+            </select>
+          </div>
+          <div style="padding-bottom:2px;flex-shrink:0">
+            <button class="btn btn-s" onclick="resetTrackerFilters()" style="white-space:nowrap">Clear Filters</button>
+          </div>
+        </div>
         <div class="card">
           <div class="empty" id="pol-empty"><div class="ico" data-ico="clipboard-text" data-size="32"></div><p>No policies yet. Click "+ Add Policy" to start.</p></div>
           <div style="overflow-x:auto">
@@ -5829,6 +5878,8 @@ const LOCAL_TO_ITK_TERM = {
 // ============================================================
 // Hydrated from namespaced storage in bootDashboard() once auth resolves.
 let policies = [];
+let ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'' };
+let ptSort = '';
 
 function calcModalAP() {
   const monthly = parseFloat(document.getElementById('p-monthly').value) || 0;
@@ -6110,32 +6161,71 @@ function renderPolicies() {
   const tbody = document.getElementById('pol-tbody');
   const tbl = document.getElementById('pol-table');
   const empty = document.getElementById('pol-empty');
-  if (!policies.length) { tbl.style.display='none'; empty.style.display='block'; }
-  else { tbl.style.display='table'; empty.style.display='none'; }
 
-  tbody.innerHTML = '';
-  let totAP=0, totAdv=0, issued=0, amAP=0, amamAP=0;
   const sMap = {pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l',chargeback:'sp-cb'};
-  const sLbl = {pending:'Pending',approved:'Sub/Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed',chargeback:'Charge Back'};
+  const statusOrder = ['pending','approved','issued','paid','lapsed','chargeback'];
 
+  // Compute totals from ALL policies (unaffected by filters)
+  let totAP=0, totAdv=0, issued=0, amAP=0, amamAP=0;
   policies.forEach(p => {
-    // handle legacy policies that stored ap directly
     const monthly = p.monthly || +(p.ap / 12).toFixed(2);
     const ap = p.ap || +(monthly * 12).toFixed(2);
     const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
-
     totAP += ap||0;
     totAdv += advComm||0;
     if(['issued','paid','approved'].includes(p.status)) issued++;
     if(p.carrier==='Americo') amAP += ap||0;
     if((p.carrier||'').includes('Amicable')) amamAP += ap||0;
+  });
+
+  // Apply filters
+  const cmpDate = (a, b) => { if(!a&&!b) return 0; if(!a) return 1; if(!b) return -1; return a<b?-1:a>b?1:0; };
+  const getSub = p => p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : '');
+  let display = policies.filter(p => {
+    if (ptFilter.client && !(p.client||'').toLowerCase().includes(ptFilter.client)) return false;
+    if (ptFilter.carrier && p.carrier !== ptFilter.carrier) return false;
+    if (ptFilter.submitted && getSub(p) !== ptFilter.submitted) return false;
+    if (ptFilter.draft && (p.draft||'') !== ptFilter.draft) return false;
+    if (ptFilter.status && p.status !== ptFilter.status) return false;
+    return true;
+  });
+
+  // Apply sort
+  switch (ptSort) {
+    case 'status':    display.sort((a,b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)); break;
+    case 'carrier':   display.sort((a,b) => (a.carrier||'').localeCompare(b.carrier||'')); break;
+    case 'client-az': display.sort((a,b) => (a.client||'').localeCompare(b.client||'')); break;
+    case 'draft-asc': display.sort((a,b) => cmpDate(a.draft, b.draft)); break;
+    case 'draft-desc':display.sort((a,b) => cmpDate(b.draft, a.draft)); break;
+    case 'sub-asc':   display.sort((a,b) => cmpDate(getSub(a), getSub(b))); break;
+    case 'sub-desc':  display.sort((a,b) => cmpDate(getSub(b), getSub(a))); break;
+  }
+
+  // Show/hide table vs empty state
+  if (!policies.length) {
+    tbl.style.display='none'; empty.style.display='block';
+    empty.innerHTML = '<div class="ico" data-ico="clipboard-text" data-size="32"></div><p>No policies yet. Click &quot;+ Add Policy&quot; to start.</p>';
+    mountIcons(empty);
+  } else if (!display.length) {
+    tbl.style.display='none'; empty.style.display='block';
+    empty.innerHTML = '<div class="ico" data-ico="funnel" data-size="32"></div><p>No policies match your filters.</p>';
+    mountIcons(empty);
+  } else {
+    tbl.style.display='table'; empty.style.display='none';
+  }
+
+  tbody.innerHTML = '';
+  display.forEach(p => {
+    const monthly = p.monthly || +(p.ap / 12).toFixed(2);
+    const ap = p.ap || +(monthly * 12).toFixed(2);
+    const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="color:var(--text);font-weight:500">${escHTML(p.client)}</td>
       <td>${escHTML(p.carrier)}</td><td style="font-size:12px">${escHTML(p.product)}</td>
       <td class="mono text-b">${fmt$(monthly)}/mo</td>
       <td class="mono">${fmt$(ap)}/yr</td>
-      <td class="mono">${p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : '—')}</td>
+      <td class="mono">${getSub(p)||'—'}</td>
       <td class="mono">${escHTML(p.draft)||'—'}</td>
       <td class="mono text-g">${fmt$(advComm)} <span style="font-size:10px;color:var(--text3)">(${(p.commPct||0).toFixed(1)}%×75%)</span></td>
       <td style="font-size:11px;color:var(--text3)">${escHTML(p.cls)}</td>
@@ -6159,6 +6249,33 @@ function renderPolicies() {
   document.getElementById('am-ap').textContent = fmt$(amAP);
   document.getElementById('amam-ap').textContent = fmt$(amamAP);
   if (typeof renderIncomeReality === 'function') renderIncomeReality();
+}
+
+function applyTrackerFilters() {
+  ptFilter.client    = (document.getElementById('ptf-client')?.value    || '').toLowerCase().trim();
+  ptFilter.carrier   =  document.getElementById('ptf-carrier')?.value   || '';
+  ptFilter.submitted =  document.getElementById('ptf-submitted')?.value || '';
+  ptFilter.draft     =  document.getElementById('ptf-draft')?.value     || '';
+  ptFilter.status    =  document.getElementById('ptf-status')?.value    || '';
+  ptSort             =  document.getElementById('ptf-sort')?.value      || '';
+  renderPolicies();
+}
+
+function resetTrackerFilters() {
+  ['ptf-client','ptf-submitted','ptf-draft'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['ptf-carrier','ptf-status','ptf-sort'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
+  ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'' };
+  ptSort = '';
+  renderPolicies();
+}
+
+function populateTrackerCarrierFilter() {
+  const sel = document.getElementById('ptf-carrier');
+  if (!sel) return;
+  const current = sel.value;
+  const opts = TRACKER_CARRIER_LIST.map(c => `<option value="${c.label}">${c.label}</option>`).join('');
+  sel.innerHTML = '<option value="">All Carriers</option>' + opts;
+  if (current) sel.value = current;
 }
 
 // ============================================================
@@ -9635,7 +9752,7 @@ function nav(id) {
   if (id === 'api-quoter') loadQuoteQuota();
   if (id === 'bonuses') updateBonusFromTracker();
   if (id === 'leads')   renderLeads();
-  if (id === 'tracker') { const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
+  if (id === 'tracker') { populateTrackerCarrierFilter(); const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
   if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
   if (id === 'phonebook') renderPhoneBook();
   if (id === 'settings') initSettingsSection();
