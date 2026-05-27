@@ -17,7 +17,7 @@ try {
         $req = $ctx.Request
         $res = $ctx.Response
 
-        $rawPath = $req.Url.AbsolutePath.TrimStart('/')
+        $rawPath = [System.Uri]::UnescapeDataString($req.Url.AbsolutePath.TrimStart('/'))
         if ($rawPath -eq '') { $rawPath = 'index.html' }
 
         $filePath = Join-Path $root $rawPath
