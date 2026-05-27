@@ -9786,7 +9786,8 @@ function nav(id) {
 // A carrier appears in each product-line filter whose type it covers.
 const CARRIER_REGISTRY = [
   // ── Core FFG / FFL carriers ───────────────────────────────────────────────
-  { key:'americo',        label:'Americo',             types:['fe','term','iul'], color:'#3b82f6' },
+  { key:'americo',        label:'Americo',             types:['fe','term','iul'], color:'#3b82f6',
+    itkAliases:[/^Americo\b/i] },
   { key:'trans',          label:'Transamerica',        types:['fe','term','iul'], color:'#f59e0b' },
   { key:'mutual',         label:'Mutual of Omaha',     types:['fe','term','iul'], color:'#06b6d4' },
   { key:'foresters',      label:'Foresters Financial', types:['fe','term','iul'], color:'#6366f1' },
@@ -11594,14 +11595,14 @@ const AQ_LOCAL_KEY_TO_PROD = {
   chubb:      'chubb_pref',
   ethos:      'ethos_tawl',
   lg:         'lg_term',
-  jh:         null,        // no COMP row yet
-  foresters:  null,
-  kcl:        null,
-  baltimore:  null,
-  elco:       null,
-  ahl:        null,
-  sbli:       null,
-  mtrust:     null,
+  jh:         'jh_simple_term',
+  foresters:  'foresters_foundation',
+  kcl:        'kcl_sig_term_si',
+  baltimore:  'baltimore_sgfe',
+  elco:       'elco_fe_imm',
+  ahl:        'ahl_fe',
+  sbli:       'sbli_fex',
+  mtrust:     'mtrust_express_ul',
 };
 
 const AQ_STORAGE_KEY = 'ff_api_quoter_last';
@@ -11642,6 +11643,9 @@ function aqLocalKeyForCompany(company) {
     for (const [k, names] of Object.entries(m)) {
       if (Array.isArray(names) && names.indexOf(company) !== -1) return k;
     }
+  }
+  for (const entry of CARRIER_REGISTRY) {
+    if (Array.isArray(entry.itkAliases) && entry.itkAliases.some(rx => rx.test(company))) return entry.key;
   }
   return null;
 }
@@ -12036,6 +12040,9 @@ function aqQuoteToRegistryKey(quote) {
   const registry = getMergedCarrierRegistry();
   for (const entry of registry) {
     if (entry.itkNames && entry.itkNames.indexOf(name) !== -1) return entry.key;
+  }
+  for (const entry of registry) {
+    if (Array.isArray(entry.itkAliases) && entry.itkAliases.some(rx => rx.test(name))) return entry.key;
   }
   return itkCompanySlug(name);
 }
