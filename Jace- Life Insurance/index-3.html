@@ -408,6 +408,16 @@ body.light .btn-p{background:var(--brand-navy);color:#fff}body.light .btn-p:hove
 .sp-i{background:rgba(16,185,129,.13);color:#34d399}
 .sp-d{background:rgba(59,130,246,.13);color:#60a5fa}
 .sp-l{background:rgba(239,68,68,.13);color:#f87171}
+.sp-cb{background:rgba(239,68,68,.18);color:#fca5a5}
+.status-sel{appearance:none;-webkit-appearance:none;border:none;outline:none;cursor:pointer;padding:2px 22px 2px 9px;border-radius:20px;font-size:11px;font-family:var(--sans);font-weight:500;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='currentColor' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center;background-size:9px 9px;transition:opacity .15s}
+.status-sel:hover{opacity:.85}
+.status-sel.sp-p{background-color:rgba(245,158,11,.13);color:#fbbf24}
+.status-sel.sp-a{background-color:rgba(139,92,246,.13);color:#a78bfa}
+.status-sel.sp-i{background-color:rgba(16,185,129,.13);color:#34d399}
+.status-sel.sp-d{background-color:rgba(59,130,246,.13);color:#60a5fa}
+.status-sel.sp-l{background-color:rgba(239,68,68,.13);color:#f87171}
+.status-sel.sp-cb{background-color:rgba(239,68,68,.18);color:#fca5a5}
+.status-sel option{background:var(--bg2);color:var(--text)}
 /* Payment method badge */
 .pay-cc{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:8px;padding:8px 12px;font-size:12px;color:#fbbf24;margin-bottom:12px}
 .pay-bd{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:8px 12px;font-size:12px;color:#93c5fd;margin-bottom:12px}
@@ -483,6 +493,17 @@ body.light .btn-p{background:var(--brand-navy);color:#fff}body.light .btn-p:hove
 .cal-event:hover{background:rgba(16,185,129,.25)}
 .cal-event-name{font-size:10.5px;font-weight:600;color:#34d399;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cal-event-ap{font-size:10px;color:var(--text3);font-family:var(--mono)}
+/* ---- Tracker calendar sub-tabs ---- */
+.tracker-tabs{display:flex;gap:4px;background:var(--bg2);padding:4px;border-radius:10px;width:fit-content;margin:14px 0 16px}
+.tracker-tab{padding:6px 18px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text3);transition:all .15s}
+.tracker-tab.active{background:var(--card);color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.22)}
+.tracker-tab:hover:not(.active){color:var(--text2)}
+/* ---- Tracker calendar event cards ---- */
+.tc-event{border-radius:5px;padding:4px 6px;margin-bottom:3px;transition:filter .14s;overflow:hidden}
+.tc-event:hover{filter:brightness(1.18);cursor:default}
+.tc-event-name{font-size:10.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-event-carrier{font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:.8;margin-top:1px}
+.tc-event-meta{font-size:9px;font-family:var(--mono);margin-top:2px;display:flex;gap:5px;flex-wrap:wrap;opacity:.85}
 /* Lead row (dense list) */
 .lead-row{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;transition:border-color .15s;position:relative;overflow:hidden}
 .lead-row:hover{border-color:var(--border2)}
@@ -1538,16 +1559,64 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         <div><div class="rt-lbl">Monthly Americo AP</div><div class="rt-val" id="am-ap">$0</div></div>
         <div><div class="rt-lbl">Monthly AmAm AP</div><div class="rt-val" id="amam-ap">$0</div></div>
       </div>
-      <div class="card mt16">
-        <div class="empty" id="pol-empty"><div class="ico" data-ico="clipboard-text" data-size="32"></div><p>No policies yet. Click "+ Add Policy" to start.</p></div>
-        <div style="overflow-x:auto">
-          <table class="ptbl" id="pol-table" style="display:none">
-            <thead><tr>
-              <th>Client</th><th>Carrier</th><th>Product</th><th>Monthly</th><th>Ann. Premium</th>
-              <th>Draft Date</th><th>Est. Pay Date</th><th>Est. Adv. Commission</th><th>Class</th><th>Status</th><th></th>
-            </tr></thead>
-            <tbody id="pol-tbody"></tbody>
-          </table>
+      <!-- Sub-tabs -->
+      <div class="tracker-tabs">
+        <button class="tracker-tab active" id="pt-tab-list" onclick="trackerTabSwitch('list',this)">List View</button>
+        <button class="tracker-tab" id="pt-tab-cal" onclick="trackerTabSwitch('cal',this)">Calendar View</button>
+      </div>
+
+      <!-- LIST VIEW panel -->
+      <div id="pt-view-list">
+        <div class="card">
+          <div class="empty" id="pol-empty"><div class="ico" data-ico="clipboard-text" data-size="32"></div><p>No policies yet. Click "+ Add Policy" to start.</p></div>
+          <div style="overflow-x:auto">
+            <table class="ptbl" id="pol-table" style="display:none">
+              <thead><tr>
+                <th>Client</th><th>Carrier</th><th>Product</th><th>Monthly</th><th>Ann. Premium</th>
+                <th>Draft Date</th><th>Est. Pay Date</th><th>Est. Adv. Commission</th><th>Class</th><th>Status</th><th></th>
+              </tr></thead>
+              <tbody id="pol-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CALENDAR VIEW panel -->
+      <div id="pt-view-cal" style="display:none">
+        <!-- Month navigator -->
+        <div class="flex aic gap12" style="margin-bottom:14px">
+          <button class="btn btn-s btn-sm" onclick="trackerCalNavMonth(-1)">← Prev</button>
+          <div style="font-size:15px;font-weight:600;min-width:160px;text-align:center" id="tc-month-label"></div>
+          <button class="btn btn-s btn-sm" onclick="trackerCalNavMonth(1)">Next →</button>
+          <div style="margin-left:auto;font-size:12px;color:var(--text3)">Commission deposits typically 7–10 days after draft</div>
+        </div>
+        <!-- Summary strip -->
+        <div class="running" style="margin-bottom:16px">
+          <div><div class="rt-lbl">Drafting This Month</div><div class="rt-val" id="tc-count-mo">0</div></div>
+          <div><div class="rt-lbl">Monthly Premium</div><div class="rt-val" id="tc-ap-mo">$0</div></div>
+          <div><div class="rt-lbl">Est. Adv. Commission</div><div class="rt-val text-g" id="tc-comm-mo">$0</div></div>
+          <div><div class="rt-lbl">Next 30 Days</div><div class="rt-val" id="tc-next30">0 policies</div></div>
+        </div>
+        <!-- Status color legend -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:var(--text3)">
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:rgba(245,158,11,.28);border:1px solid rgba(245,158,11,.55);display:inline-block"></span>Pending</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:rgba(139,92,246,.28);border:1px solid rgba(139,92,246,.55);display:inline-block"></span>Sub/Approved</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:rgba(16,185,129,.28);border:1px solid rgba(16,185,129,.55);display:inline-block"></span>Issued</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:rgba(59,130,246,.28);border:1px solid rgba(59,130,246,.55);display:inline-block"></span>Paid</span>
+          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:rgba(239,68,68,.28);border:1px solid rgba(239,68,68,.55);display:inline-block"></span>Lapsed / Charge Back</span>
+        </div>
+        <!-- Calendar grid -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg3);border-bottom:1px solid var(--border)">
+            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Sun</div>
+            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Mon</div>
+            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Tue</div>
+            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Wed</div>
+            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Thu</div>
+            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Fri</div>
+            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Sat</div>
+          </div>
+          <div id="tc-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr)"></div>
         </div>
       </div>
     </div>
@@ -4148,6 +4217,19 @@ async function deletePolicy(id) {
   renderPolicies(); updateBonusFromTracker();
 }
 
+async function updatePolicyStatus(id, newStatus, selectEl) {
+  const sMap = {pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l',chargeback:'sp-cb'};
+  const policy = policies.find(p => p.id === id);
+  if (!policy) return;
+  policy.status = newStatus;
+  localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
+  if (selectEl) selectEl.className = 'status-sel ' + (sMap[newStatus] || 'sp-p');
+  const { error } = await sbUpsertPolicy(policy);
+  if (error) { showToast('Status update failed: ' + error.message, '#f87171'); return; }
+  updateBonusFromTracker();
+  showToast('Status updated', '#10b981');
+}
+
 function renderPolicies() {
   const tbody = document.getElementById('pol-tbody');
   const tbl = document.getElementById('pol-table');
@@ -4157,8 +4239,8 @@ function renderPolicies() {
 
   tbody.innerHTML = '';
   let totAP=0, totAdv=0, issued=0, amAP=0, amamAP=0;
-  const sMap = {pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l'};
-  const sLbl = {pending:'Pending',approved:'Sub/Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed'};
+  const sMap = {pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l',chargeback:'sp-cb'};
+  const sLbl = {pending:'Pending',approved:'Sub/Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed',chargeback:'Charge Back'};
 
   policies.forEach(p => {
     // handle legacy policies that stored ap directly
@@ -4181,7 +4263,14 @@ function renderPolicies() {
       <td class="mono text-g">${p.payDate||'—'}</td>
       <td class="mono text-g">${fmt$(advComm)} <span style="font-size:10px;color:var(--text3)">(${(p.commPct||0).toFixed(1)}%×75%)</span></td>
       <td style="font-size:11px;color:var(--text3)">${p.cls}</td>
-      <td><span class="sp ${sMap[p.status]||'sp-p'}">${sLbl[p.status]||p.status}</span></td>
+      <td><select class="status-sel ${sMap[p.status]||'sp-p'}" onchange="updatePolicyStatus(${p.id},this.value,this)" title="Change status">
+        <option value="pending" ${p.status==='pending'?'selected':''}>Pending</option>
+        <option value="approved" ${p.status==='approved'?'selected':''}>Sub/Approved</option>
+        <option value="issued" ${p.status==='issued'?'selected':''}>Issued</option>
+        <option value="paid" ${p.status==='paid'?'selected':''}>Paid</option>
+        <option value="lapsed" ${p.status==='lapsed'?'selected':''}>Lapsed</option>
+        <option value="chargeback" ${p.status==='chargeback'?'selected':''}>Charge Back</option>
+      </select></td>
       <td><button class="del-btn" onclick="deletePolicy(${p.id})" title="Delete policy">${icon('trash',{size:14})}</button></td>
     `;
     tbody.appendChild(tr);
@@ -6562,6 +6651,7 @@ function nav(id) {
   if (id === 'summary') renderSummary();
   if (id === 'bonuses') updateBonusFromTracker();
   if (id === 'drafts')  renderDraftsCalendar();
+  if (id === 'tracker') { const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
   if (id === 'leads')   renderLeads();
   if (id === 'book-intel') renderBookIntel();
   if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
@@ -6816,6 +6906,126 @@ function updateBonusFromTracker() {
 // ============================================================
 let draftViewYear = new Date().getFullYear();
 let draftViewMonth = new Date().getMonth(); // 0-indexed
+let trackerCalYear = new Date().getFullYear();
+let trackerCalMonth = new Date().getMonth();
+
+function trackerTabSwitch(view, el) {
+  document.querySelectorAll('.tracker-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('pt-view-list').style.display = view === 'list' ? '' : 'none';
+  document.getElementById('pt-view-cal').style.display  = view === 'cal'  ? '' : 'none';
+  if (view === 'cal') renderTrackerCalendar();
+}
+
+function trackerCalNavMonth(dir) {
+  trackerCalMonth += dir;
+  if (trackerCalMonth > 11) { trackerCalMonth = 0; trackerCalYear++; }
+  if (trackerCalMonth < 0)  { trackerCalMonth = 11; trackerCalYear--; }
+  renderTrackerCalendar();
+}
+
+function renderTrackerCalendar() {
+  const yr = trackerCalYear, mo = trackerCalMonth;
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('tc-month-label').textContent = `${monthNames[mo]} ${yr}`;
+
+  const today = new Date();
+  const firstDay    = new Date(yr, mo, 1).getDay();
+  const daysInMonth = new Date(yr, mo+1, 0).getDate();
+  const daysInPrev  = new Date(yr, mo, 0).getDate();
+
+  // status → colors { bg, border, nameColor }
+  const statusStyle = {
+    pending:    { bg:'rgba(245,158,11,.18)',  border:'rgba(245,158,11,.45)',  color:'#fbbf24' },
+    approved:   { bg:'rgba(139,92,246,.18)',  border:'rgba(139,92,246,.45)',  color:'#a78bfa' },
+    issued:     { bg:'rgba(16,185,129,.18)',  border:'rgba(16,185,129,.45)',  color:'#34d399' },
+    paid:       { bg:'rgba(59,130,246,.18)',  border:'rgba(59,130,246,.45)',  color:'#60a5fa' },
+    lapsed:     { bg:'rgba(239,68,68,.18)',   border:'rgba(239,68,68,.45)',   color:'#f87171' },
+    chargeback: { bg:'rgba(239,68,68,.22)',   border:'rgba(239,68,68,.5)',    color:'#fca5a5' },
+  };
+  const sLbl = {pending:'Pending',approved:'Sub/Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed',chargeback:'Charge Back'};
+
+  // Build dateStr → [policies] map
+  const draftMap = {};
+  policies.forEach(p => {
+    if (!p.draft) return;
+    draftMap[p.draft] = draftMap[p.draft] || [];
+    draftMap[p.draft].push(p);
+  });
+
+  const grid = document.getElementById('tc-cal-grid');
+  grid.innerHTML = '';
+
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+    let dayNum, isOtherMonth = false;
+    if (i < firstDay) {
+      dayNum = daysInPrev - firstDay + i + 1;
+      isOtherMonth = true;
+      cell.classList.add('other-month');
+    } else if (i - firstDay >= daysInMonth) {
+      dayNum = i - firstDay - daysInMonth + 1;
+      isOtherMonth = true;
+      cell.classList.add('other-month');
+    } else {
+      dayNum = i - firstDay + 1;
+    }
+
+    const isToday = !isOtherMonth && yr===today.getFullYear() && mo===today.getMonth() && dayNum===today.getDate();
+    if (isToday) cell.classList.add('today');
+
+    const numEl = document.createElement('div');
+    numEl.className = 'cal-day-num';
+    numEl.textContent = dayNum;
+    cell.appendChild(numEl);
+
+    if (!isOtherMonth) {
+      const dateStr = `${yr}-${String(mo+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      const dayPolicies = draftMap[dateStr] || [];
+      dayPolicies.slice(0, 3).forEach(p => {
+        const monthly  = p.monthly || +(p.ap/12).toFixed(2);
+        const ap       = p.ap || +(monthly*12).toFixed(2);
+        const advComm  = p.advComm || 0;
+        const st       = p.status || 'pending';
+        const stStyle  = statusStyle[st] || statusStyle.pending;
+        const ev = document.createElement('div');
+        ev.className = 'tc-event';
+        ev.style.cssText = `background:${stStyle.bg};border:1px solid ${stStyle.border}`;
+        ev.title = `${p.client} — ${p.carrier}\n${fmt$(ap)}/yr · Est. adv. comm: ${fmt$(advComm)}\nStatus: ${sLbl[st]||st}`;
+        ev.innerHTML =
+          `<div class="tc-event-name" style="color:${stStyle.color}">${p.client}</div>` +
+          `<div class="tc-event-carrier" style="color:${stStyle.color}">${p.carrier}</div>` +
+          `<div class="tc-event-meta">` +
+            `<span>${fmt$(ap)}/yr</span>` +
+            `<span style="color:#34d399">${fmt$(advComm)} adv</span>` +
+          `</div>`;
+        cell.appendChild(ev);
+      });
+      if (dayPolicies.length > 3) {
+        const more = document.createElement('div');
+        more.style.cssText = 'font-size:10px;color:var(--text3);padding:2px 4px';
+        more.textContent = `+${dayPolicies.length - 3} more`;
+        cell.appendChild(more);
+      }
+    }
+    grid.appendChild(cell);
+  }
+
+  // Summary strip
+  const moStr    = `${yr}-${String(mo+1).padStart(2,'0')}`;
+  const moPols   = policies.filter(p => p.draft && p.draft.startsWith(moStr));
+  const moAP     = moPols.reduce((s,p) => s+(p.ap||0), 0);
+  const moComm   = moPols.reduce((s,p) => s+(p.advComm||0), 0);
+  document.getElementById('tc-count-mo').textContent = moPols.length;
+  document.getElementById('tc-ap-mo').textContent    = fmt$(moAP/12)+'/mo';
+  document.getElementById('tc-comm-mo').textContent  = fmt$(moComm);
+
+  const in30   = new Date(); in30.setDate(in30.getDate()+30);
+  const next30 = policies.filter(p => { if(!p.draft) return false; const d=new Date(p.draft); return d>=today&&d<=in30; });
+  document.getElementById('tc-next30').textContent = `${next30.length} polic${next30.length===1?'y':'ies'}`;
+}
 
 function draftNavMonth(dir) {
   draftViewMonth += dir;
