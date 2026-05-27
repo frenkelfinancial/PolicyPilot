@@ -549,69 +549,66 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .cal-event-name{font-size:10.5px;font-weight:600;color:var(--ds-color-success);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cal-event-ap{font-size:10px;color:var(--text3);font-family:var(--mono)}
 /* Lead row (dense list) */
-.lead-row{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:6px;transition:border-color .15s;position:relative}
+.lead-row{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;transition:border-color .15s;position:relative}
 .lead-row:hover{border-color:var(--border2)}
 .lead-row.sold{background:var(--ds-color-success-bg);border-color:var(--ds-color-success)!important}
 .lead-row.not_interested{opacity:.55}
-.lead-row-main{display:flex;flex-direction:column;gap:8px;padding:12px 14px;cursor:pointer}
-.lead-row-main:hover{background:rgba(255,255,255,.02)}
-body.light .lead-row-main:hover{background:rgba(0,0,0,.02)}
-.lead-row-top{display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center}
-.lead-ident{display:flex;flex-direction:column;gap:2px;min-width:0}
-.lead-name-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
-.lead-name-row > .lead-name{flex:0 1 auto;min-width:0;max-width:100%}
-.lead-name{font-size:15px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lead-name-sub{font-size:11px;color:var(--text3);font-weight:500;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lead-phone{font-size:12.5px;color:var(--ds-color-info);white-space:nowrap;letter-spacing:.2px}
-.lead-row-meta{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-start;padding-left:30px}
-.lead-meta-chip{display:flex;flex-direction:column;gap:1px;min-width:0;line-height:1.25;max-width:240px}
-.lead-meta-chip .lbl{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:500}
-.lead-meta-chip .val{font-size:12.5px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lead-meta-chip .val.dim{color:var(--text3)}
-.lead-meta-chip .val.mono{font-family:var(--mono)}
-.lead-meta-chip .val a{color:var(--ds-color-info);text-decoration:none}
-.lead-meta-chip .val a:hover{text-decoration:underline}
-.lead-meta-chip.wide{max-width:280px}
-.lead-meta-col{display:flex;flex-direction:column;gap:2px;min-width:0;line-height:1.25}
-.lead-meta-label{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:500}
-.lead-meta-value{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lead-meta-value.dim{color:var(--text3)}
+.lead-row-main{display:flex;flex-direction:column;padding:0}
+.lead-wide-grid{display:grid;grid-template-columns:195px 1fr 158px 210px 178px;gap:0;padding:14px 16px;align-items:start}
+.lead-col{padding:0 12px;border-right:1px solid var(--border);min-width:0}
+.lead-col:first-child{padding-left:0}
+.lead-col:last-child{border-right:none;padding-right:0}
+.lead-col-identity{display:flex;flex-direction:column;gap:5px}
+.lead-id-top{display:flex;align-items:flex-start;gap:8px;margin-bottom:2px}
+.lead-id-top .lead-check{margin-top:3px;flex-shrink:0}
+.lead-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.3;overflow:hidden;text-overflow:ellipsis}
+.lead-phone-row{display:flex;align-items:center;gap:5px}
+.lead-phone-link{font-size:13px;color:var(--ds-color-info);text-decoration:none;font-weight:600;letter-spacing:.2px;display:inline-flex;align-items:center;gap:4px}
+.lead-phone-link:hover{text-decoration:underline}
+.lead-copy-btn{background:none;border:none;cursor:pointer;color:var(--text3);padding:2px;display:inline-flex;align-items:center;transition:color .12s;line-height:0}
+.lead-copy-btn:hover{color:var(--text)}
+.lead-email-link{font-size:11.5px;color:var(--ds-color-info);text-decoration:none;overflow:hidden;text-overflow:ellipsis;display:block;white-space:nowrap}
+.lead-email-link:hover{text-decoration:underline}
+.lead-state-row,.lead-bday-row,.lead-quote-row,.lead-localtime-row{font-size:11.5px;color:var(--text2);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.lead-field-label{color:var(--text3);font-size:9.5px;text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+.lead-sms-btn{display:inline-flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;font-weight:700;font-family:var(--sans);padding:0;margin-top:3px;letter-spacing:.4px;text-transform:uppercase}
+.lead-col-notes{display:flex;flex-direction:column}
+.lead-notes{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;resize:vertical;min-height:140px;transition:border-color .14s,box-shadow .14s;box-sizing:border-box}
+.lead-notes:focus,.lead-notes:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--ds-color-info-bg)}
+.lead-col-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}
+.lead-click-to-call{display:flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;padding:10px 12px;width:100%;position:relative;transition:filter .12s;letter-spacing:.4px;text-transform:uppercase}
+.lead-click-to-call:hover{filter:brightness(1.12)}
+.lead-call-badge{position:absolute;top:-7px;right:-7px;background:#ef4444;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);line-height:1}
+.lead-disposition-wrap{position:relative}
+.lead-disposition-wrap::after{content:'▾';position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text3);font-size:11px}
+.lead-disposition-sel{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 10px;color:var(--text2);font-family:var(--sans);font-size:11.5px;font-weight:600;outline:none;cursor:pointer;transition:border-color .14s;appearance:none;-webkit-appearance:none;padding-right:24px}
+.lead-disposition-sel:focus{border-color:var(--accent)}
+.lead-act-btn{padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11.5px;font-family:var(--sans);cursor:pointer;white-space:nowrap;transition:all .12s;line-height:1.2}
+.lead-act-btn:hover{border-color:var(--border2);color:var(--text);background:var(--card)}
+.lead-act-btn.sold-btn{background:var(--ds-color-success-bg);border-color:var(--ds-color-success);color:var(--ds-color-success);font-weight:600;width:100%}
+.lead-act-btn.sold-btn:hover{background:var(--ds-color-success-bg);filter:brightness(1.1)}
+.lead-act-btn.sold-btn.disabled{opacity:.55;cursor:default}
+.lead-info-line{margin-bottom:6px;line-height:1.4}
+.lead-info-line .lbl{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;font-weight:600;display:block;margin-bottom:1px}
+.lead-info-line .val{font-size:12px;color:var(--text2)}
+.lead-info-line .val.notset{color:#f87171}
+.lead-info-line .val.dim{color:var(--text3)}
+.lead-new-field-btn{display:inline-flex;align-items:center;gap:4px;background:none;border:1px dashed var(--border);border-radius:6px;color:var(--text3);font-size:11px;font-family:var(--sans);cursor:pointer;padding:4px 8px;margin-top:4px;transition:all .12s}
+.lead-new-field-btn:hover{border-color:var(--accent);color:var(--accent)}
+.lead-received-icons{display:flex;gap:6px;justify-content:flex-end;margin-bottom:6px}
+.lead-edit-btn,.lead-del-btn{background:none;border:none;cursor:pointer;padding:3px;display:inline-flex;align-items:center;color:var(--accent);transition:color .12s;border-radius:5px;line-height:0}
+.lead-del-btn{color:var(--text3)}
+.lead-edit-btn:hover{filter:brightness(1.2)}
+.lead-del-btn:hover{color:#ef4444}
 .lead-status-pill{padding:3px 10px;border-radius:14px;font-size:11px;font-weight:600;border:1px solid;cursor:pointer;white-space:nowrap;user-select:none;transition:filter .12s;min-width:72px;text-align:center}
 .lead-status-pill:hover{filter:brightness(1.18)}
 .lead-status-sel-edit{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:3px 8px;color:var(--text);font-family:var(--sans);font-size:11.5px;outline:none;cursor:pointer;transition:border-color .14s,box-shadow .14s}
 .lead-status-sel-edit:focus,.lead-status-sel-edit:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--ds-color-info-bg)}
-.lead-actions-quick{display:flex;gap:5px;align-items:center;flex-wrap:nowrap;justify-content:flex-end}
-.lead-act-btn{padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11.5px;font-family:var(--sans);cursor:pointer;white-space:nowrap;transition:all .12s;line-height:1.2}
-.lead-act-btn:hover{border-color:var(--border2);color:var(--text);background:var(--card)}
-.lead-act-btn.call{background:var(--ds-color-info-bg);border-color:var(--ds-color-info);color:var(--ds-color-info);font-weight:600;padding:6px 10px;display:inline-flex;align-items:center;justify-content:center}
-.lead-act-btn.call:hover{background:var(--ds-color-info-bg);filter:brightness(1.15)}
-.lead-act-btn.call svg{display:block}
-.lead-act-btn.quote{background:var(--ds-color-momentum-bg);border-color:var(--ds-color-momentum);color:var(--ds-color-momentum);font-weight:600}
-.lead-act-btn.quote:hover{background:var(--ds-color-momentum-bg);filter:brightness(1.15)}
-.lead-act-btn.sold-btn{background:var(--ds-color-success-bg);border-color:var(--ds-color-success);color:var(--ds-color-success);font-weight:600}
-.lead-act-btn.sold-btn:hover{background:var(--ds-color-success-bg);filter:brightness(1.1)}
-.lead-act-btn.sold-btn.disabled{opacity:.55;cursor:default}
-.lead-act-btn.no-ans:hover{background:var(--ds-color-neutral-bg);border-color:var(--ds-color-neutral)}
-.lead-row-expanded{display:none;padding:0 14px 14px 14px;border-top:1px solid var(--border)}
-.lead-row.expanded .lead-row-expanded{display:block}
-.lead-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px;margin-top:12px}
-.lead-detail-item{display:flex;flex-direction:column;gap:2px}
-.lead-detail-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:500}
-.lead-detail-value{font-size:12.5px;color:var(--text2);word-break:break-word}
-.lead-extra-actions{margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)}
-.lead-row-expanded > .lead-extra-actions:first-child{margin-top:12px;padding-top:0;border-top:none}
-.lead-extra-actions-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:500;margin-bottom:6px}
-.lead-extra-actions-row{display:flex;gap:6px;flex-wrap:wrap}
-.lead-notes{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;resize:vertical;min-height:60px;transition:border-color .14s,box-shadow .14s;margin-top:12px}
-.lead-notes:focus,.lead-notes:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--ds-color-info-bg)}
 @media (max-width:900px){
-  .lead-row-top{grid-template-columns:auto 1fr auto;grid-template-areas:"check ident status" "actions actions actions";gap:8px}
-  .lead-row-top > .lead-check{grid-area:check}
-  .lead-row-top > .lead-ident{grid-area:ident}
-  .lead-row-top > .lead-status-pill{grid-area:status;justify-self:end;align-self:start}
-  .lead-row-top > .lead-actions-quick{grid-area:actions;flex-wrap:wrap;justify-content:flex-start;margin-top:4px}
-  .lead-row-meta{padding-left:0;gap:8px 14px}
-  .lead-meta-chip{max-width:100%}
+  .lead-wide-grid{grid-template-columns:1fr;gap:0}
+  .lead-col{border-right:none;padding:10px 0;border-bottom:1px solid var(--border)}
+  .lead-col:first-child{padding-top:0}
+  .lead-col:last-child{border-bottom:none}
 }
 /* GCAL */
 .gcal-event{background:var(--ds-color-info-bg);border:1px solid var(--ds-color-info-bg);border-radius:5px;padding:3px 6px;margin-bottom:3px;cursor:default}
@@ -3579,7 +3576,10 @@ const ICONS = {
   'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
   'gear': '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   'user': '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
-  'buildings': '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>'
+  'buildings': '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
+  'pencil': '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+  'copy': '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  'chat-dots': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
 };
 function icon(name, opts){
   opts = opts || {};
@@ -7339,6 +7339,44 @@ function updateLeadTabCounts() {
 let selectedLeadIds = new Set(); // stores string IDs
 let expandedLeadIds = new Set(); // rows currently expanded (in-memory only)
 
+function getLeadLocalTime(state) {
+  if (!state) return null;
+  const TZ = {
+    CT:'America/New_York',DE:'America/New_York',FL:'America/New_York',GA:'America/New_York',
+    IN:'America/New_York',KY:'America/New_York',MA:'America/New_York',MD:'America/New_York',
+    ME:'America/New_York',MI:'America/New_York',NC:'America/New_York',NH:'America/New_York',
+    NJ:'America/New_York',NY:'America/New_York',OH:'America/New_York',PA:'America/New_York',
+    RI:'America/New_York',SC:'America/New_York',TN:'America/New_York',VA:'America/New_York',
+    VT:'America/New_York',WV:'America/New_York',
+    AL:'America/Chicago',AR:'America/Chicago',IA:'America/Chicago',IL:'America/Chicago',
+    KS:'America/Chicago',LA:'America/Chicago',MN:'America/Chicago',MO:'America/Chicago',
+    MS:'America/Chicago',ND:'America/Chicago',NE:'America/Chicago',OK:'America/Chicago',
+    SD:'America/Chicago',TX:'America/Chicago',WI:'America/Chicago',
+    AZ:'America/Phoenix',CO:'America/Denver',ID:'America/Denver',MT:'America/Denver',
+    NM:'America/Denver',UT:'America/Denver',WY:'America/Denver',
+    CA:'America/Los_Angeles',NV:'America/Los_Angeles',OR:'America/Los_Angeles',WA:'America/Los_Angeles',
+    AK:'America/Anchorage',HI:'Pacific/Honolulu',
+  };
+  const tz = TZ[state.toUpperCase()];
+  if (!tz) return null;
+  try {
+    return new Date().toLocaleTimeString('en-US',{timeZone:tz,hour:'numeric',minute:'2-digit',hour12:true}).toLowerCase();
+  } catch(e) { return null; }
+}
+
+function formatImportedAt(iso) {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    if (isNaN(d)) return null;
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    const yyyy = d.getFullYear();
+    const h = d.getHours(), min = String(d.getMinutes()).padStart(2,'0');
+    return `${mm}-${dd}-${yyyy} ${h%12||12}:${min} ${h>=12?'pm':'am'}`;
+  } catch(e) { return null; }
+}
+
 function renderLeads() {
   filterLeads_silent();
   updateLeadTabCounts();
@@ -7466,39 +7504,65 @@ function renderLeads() {
     ].filter(Boolean).join('');
     const metaHTML = metaChips ? `<div class="lead-row-meta">${metaChips}</div>` : '';
 
+    const localTime = getLeadLocalTime(lead.state);
+    const receivedStr = formatImportedAt(lead.importedAt);
+    const callCount = lead.call_count || 0;
+
     div.innerHTML = `
       <div class="lead-row-main">
-        <div class="lead-row-top">
-          <input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead">
-          <div class="lead-ident">
-            <div class="lead-name-row">
+        <div class="lead-wide-grid">
+          <div class="lead-col lead-col-identity">
+            <div class="lead-id-top">
+              <input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead">
               <div class="lead-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
-              <button class="lead-act-btn call lead-call-btn" data-lid="${lid}" data-phone-href="${callHref}" title="Dial ${escapeHTML(formatPhone(lead.phone)||lead.phone||'')}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${icon('phone',{size:16})}</button>
-              <button class="lead-act-btn quote lead-quote-btn" data-lid="${lid}" title="Open Quoter prefilled for this lead">Quote</button>
             </div>
-            ${nameSubHTML}
+            ${phoneFmt ? `<div class="lead-phone-row">
+              <a href="${callHref}" class="lead-phone-link" onclick="event.stopPropagation()">${icon('phone',{size:13})} ${escapeHTML(phoneFmt)}</a>
+              <button class="lead-copy-btn" title="Copy phone" onclick="event.stopPropagation();navigator.clipboard&&navigator.clipboard.writeText('${escapeHTML(phoneFmt)}').then(()=>showToast('Copied!','#6366f1'))">${icon('copy',{size:12})}</button>
+            </div>` : ''}
+            ${lead.email ? `<a href="mailto:${escapeHTML(lead.email)}" class="lead-email-link" onclick="event.stopPropagation()" title="${escapeHTML(lead.email)}">${escapeHTML(lead.email)}</a>` : ''}
+            ${stateVal ? `<div class="lead-state-row">${icon('map-pin',{size:11})} <strong>${escapeHTML(stateVal)}</strong></div>` : ''}
+            ${dobVal ? `<div class="lead-bday-row"><span class="lead-field-label">Birthday</span>&nbsp;${escapeHTML(dobVal)}</div>` : ''}
+            <div class="lead-quote-row"><span class="lead-field-label">Quote</span>&nbsp;<span style="color:${lead.quote?'var(--text2)':'#f87171'}">${lead.quote?escapeHTML(String(lead.quote)):'Not set'}</span></div>
+            ${localTime ? `<div class="lead-localtime-row"><span class="lead-field-label">Local time</span>&nbsp;${escapeHTML(localTime)}</div>` : ''}
+            ${phoneFmt ? `<button class="lead-sms-btn" onclick="event.stopPropagation()" title="Send SMS">${icon('chat-dots',{size:12})} SEND SMS</button>` : ''}
           </div>
-          <div class="lead-status-pill lead-status-pill-cb" data-lid="${lid}" style="${pillStyle}" title="Click to change status">${escapeHTML(pillLabel)}</div>
-          <div class="lead-actions-quick">
-            <button class="lead-act-btn no-ans lead-act-cb" data-lid="${lid}" data-action="no_answer" title="Mark as No Answer">No Ans</button>
+          <div class="lead-col lead-col-notes">
+            <textarea class="lead-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes — call details, objections, follow-up...">${escapeHTML(lead.notes||'')}</textarea>
+          </div>
+          <div class="lead-col lead-col-actions">
+            <div style="position:relative">
+              <button class="lead-click-to-call lead-call-btn" data-lid="${lid}" data-phone-href="${callHref}" title="Dial ${escapeHTML(formatPhone(lead.phone)||lead.phone||'')}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${icon('phone',{size:14})} CLICK TO CALL</button>
+              ${callCount > 0 ? `<span class="lead-call-badge">${callCount}</span>` : ''}
+            </div>
+            <div class="lead-disposition-wrap">
+              <select class="lead-disposition-sel lead-disposition-cb" data-lid="${lid}" title="Set disposition / status">
+                ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
+                ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
+              </select>
+            </div>
             <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
           </div>
-        </div>
-        ${metaHTML}
-      </div>
-      <div class="lead-row-expanded">
-        ${detailHTML}
-        <div class="lead-extra-actions">
-          <div class="lead-extra-actions-label">Set status</div>
-          <div class="lead-extra-actions-row">
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="not_interested">Not Interested</button>
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="appointment">Appointment Set</button>
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="social_obj">Social Objection</button>
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="banking_obj">Banking Objection</button>
-            <button class="lead-act-btn lead-act-cb" data-lid="${lid}" data-action="new">Reset to New</button>
+          <div class="lead-col">
+            <div class="lead-info-line"><span class="lbl">Last called</span><span class="val ${lead.last_called?'':'dim'}">${lead.last_called?escapeHTML(String(lead.last_called)):'—'}</span></div>
+            <div class="lead-info-line"><span class="lbl">Street address</span><span class="val ${addressLine?'':'dim'}">${escapeHTML(addressLine||'—')}</span></div>
+            <div class="lead-info-line"><span class="lbl">Military Branch</span><span class="val ${lead.military_branch?'':'dim'}">${escapeHTML(lead.military_branch||'—')}</span></div>
+            <div class="lead-info-line"><span class="lbl">Military Status</span><span class="val ${lead.military_status?'':'dim'}">${escapeHTML(lead.military_status||'—')}</span></div>
+            <div class="lead-info-line"><span class="lbl">Date of Birth</span><span class="val ${dobVal?'':'dim'}">${escapeHTML(dobVal||'—')}</span></div>
+            <button class="lead-new-field-btn" data-lid="${lid}" onclick="event.stopPropagation()">+ NEW FIELD</button>
+          </div>
+          <div class="lead-col lead-col-received">
+            <div class="lead-received-icons">
+              <button class="lead-edit-btn lead-quote-btn" data-lid="${lid}" title="Open Quoter for this lead">${icon('pencil',{size:14})}</button>
+              <button class="lead-del-btn lead-delete-lead-btn" data-lid="${lid}" title="Delete lead">${icon('trash',{size:14})}</button>
+            </div>
+            ${receivedStr ? `<div class="lead-info-line"><span class="lbl">Received on</span><span class="val">${escapeHTML(receivedStr)}</span></div>` : ''}
+            ${lead.source ? `<div class="lead-info-line"><span class="lbl">Source</span><span class="val">${escapeHTML(lead.source)}</span></div>` : ''}
+            <div class="lead-info-line"><span class="lbl">Sale amount</span><span class="val ${lead.sale_amount?'':'notset'}">${lead.sale_amount?escapeHTML(String(lead.sale_amount)):'Not set'}</span></div>
+            <div class="lead-info-line"><span class="lbl">Commission</span><span class="val ${lead.commission?'':'notset'}">${lead.commission?escapeHTML(String(lead.commission)):'Not set'}</span></div>
+            <div class="lead-info-line"><span class="lbl">Cost for lead</span><span class="val ${lead.cost_for_lead?'':'notset'}">${lead.cost_for_lead?escapeHTML(String(lead.cost_for_lead)):'Not set'}</span></div>
           </div>
         </div>
-        <textarea class="lead-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes — call details, objections, follow-up...">${escapeHTML(lead.notes||'')}</textarea>
       </div>
     `;
     container.appendChild(div);
@@ -7507,14 +7571,12 @@ function renderLeads() {
   // Attach events via event delegation
   container.querySelectorAll('.lead-cb').forEach(cb => {
     cb.addEventListener('change', e => toggleLeadSelect(e.target.dataset.lid, e.target.checked));
-    cb.addEventListener('click', e => e.stopPropagation()); // don't toggle expand
+    cb.addEventListener('click', e => e.stopPropagation());
   });
   container.querySelectorAll('.lead-call-btn').forEach(btn => {
     btn.addEventListener('click', e => {
-      e.stopPropagation(); // dialing shouldn't toggle expand
+      e.stopPropagation();
       const lid = e.currentTarget.dataset.lid;
-      // Graceful degradation: if SignalWire isn't configured for this agent
-      // yet, fall back to the OS dialer via the original tel: href.
       if (window.softphone && !softphone.unavailable) {
         softphone.dial(lid);
       } else {
@@ -7523,11 +7585,12 @@ function renderLeads() {
       }
     });
   });
-  container.querySelectorAll('.lead-act-cb').forEach(btn => {
-    btn.addEventListener('click', e => {
+  container.querySelectorAll('.lead-disposition-cb').forEach(sel => {
+    sel.addEventListener('change', e => {
       e.stopPropagation();
-      setLeadStatusQuick(e.currentTarget.dataset.lid, e.currentTarget.dataset.action);
+      setLeadStatusQuick(e.currentTarget.dataset.lid, e.currentTarget.value);
     });
+    sel.addEventListener('click', e => e.stopPropagation());
   });
   container.querySelectorAll('.lead-sold-btn').forEach(btn => {
     btn.addEventListener('click', e => {
@@ -7542,26 +7605,19 @@ function renderLeads() {
       openQuoteForLead(e.currentTarget.dataset.lid);
     });
   });
-  container.querySelectorAll('.lead-status-pill-cb').forEach(pill => {
-    pill.addEventListener('click', e => {
-      e.stopPropagation();
-      openStatusPillEdit(e.currentTarget);
-    });
-  });
   container.querySelectorAll('.lead-notes-cb').forEach(ta => {
     ta.addEventListener('blur',   e => saveLeadNote(e.target.dataset.lid, e.target.value));
     ta.addEventListener('change', e => saveLeadNote(e.target.dataset.lid, e.target.value));
     ta.addEventListener('click',  e => e.stopPropagation());
   });
-  // Click row body (anywhere not handled above) toggles expand
-  container.querySelectorAll('.lead-row-main').forEach(main => {
-    main.addEventListener('click', e => {
-      const row = main.closest('.lead-row');
-      if (row && row.dataset.lid) toggleLeadExpand(row.dataset.lid);
+  container.querySelectorAll('.lead-delete-lead-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const lid = e.currentTarget.dataset.lid;
+      const lead = leads.find(l => String(l.id) === lid);
+      const name = lead ? (lead.name || 'this lead') : 'this lead';
+      if (confirm(`Delete ${name}? This cannot be undone.`)) deleteLead(lid);
     });
-  });
-  container.querySelectorAll('.lead-row-expanded').forEach(exp => {
-    exp.addEventListener('click', e => e.stopPropagation()); // expanded area doesn't collapse
   });
 
   updateBulkBar();
