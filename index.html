@@ -6092,7 +6092,22 @@ async function updatePolicyStatus(id, newStatus, selectEl) {
   showToast('Status updated', '#10b981');
 }
 
+function autoSetPaidOnDraftDate() {
+  const today = new Date().toISOString().split('T')[0];
+  const excluded = new Set(['paid', 'lapsed', 'chargeback']);
+  let changed = false;
+  (policies || []).forEach(p => {
+    if (!excluded.has(p.status) && p.draft && p.draft <= today) {
+      p.status = 'paid';
+      changed = true;
+      if (typeof sbUpsertPolicy === 'function') sbUpsertPolicy(p);
+    }
+  });
+  if (changed) localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
+}
+
 function renderPolicies() {
+  autoSetPaidOnDraftDate();
   const tbody = document.getElementById('pol-tbody');
   const tbl = document.getElementById('pol-table');
   const empty = document.getElementById('pol-empty');
