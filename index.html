@@ -2123,7 +2123,8 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
               <option value="IUL">IUL</option>
             </select>
           </div>
-          <div class="fg"><label>Age</label><input type="number" id="aq-age" placeholder="55" min="18" max="85"></div>
+          <div class="fg"><label>Age</label><input type="number" id="aq-age" placeholder="55" min="18" max="85" oninput="aqAgeChanged()"></div>
+          <div class="fg"><label>Date of Birth</label><input type="date" id="aq-dob" onchange="aqDobChanged()" title="Enter DOB to auto-fill age"></div>
           <div class="fg"><label>Sex</label>
             <select id="aq-sex"><option value="M">Male</option><option value="F">Female</option></select>
           </div>
@@ -3189,8 +3190,18 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
     <div class="frow mt12">
       <div class="fg"><label>Product</label>
-        <select id="p-product">
-          <option value="americo_eagle">Eagle Premier</option>
+        <select id="p-product" onchange="_toggleTermYear(this.value,'p')">
+          <option value="americo_eagle">Final Expense</option>
+        </select>
+      </div>
+      <div class="fg" id="p-term-year-fg" style="display:none">
+        <label>Term Length</label>
+        <select id="p-term-years">
+          <option value="10">10 years</option>
+          <option value="15">15 years</option>
+          <option value="20" selected>20 years</option>
+          <option value="25">25 years</option>
+          <option value="30">30 years</option>
         </select>
       </div>
       <div class="fg"><label>Health Class</label>
@@ -3276,8 +3287,18 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
     <div class="frow mt12">
       <div class="fg"><label>Product</label>
-        <select id="sold-product">
-          <option value="americo_eagle">Eagle Premier</option>
+        <select id="sold-product" onchange="_toggleTermYear(this.value,'sold')">
+          <option value="americo_eagle">Final Expense</option>
+        </select>
+      </div>
+      <div class="fg" id="sold-term-year-fg" style="display:none">
+        <label>Term Length</label>
+        <select id="sold-term-years">
+          <option value="10">10 years</option>
+          <option value="15">15 years</option>
+          <option value="20" selected>20 years</option>
+          <option value="25">25 years</option>
+          <option value="30">30 years</option>
         </select>
       </div>
       <div class="fg"><label>Health Class</label>
@@ -6055,6 +6076,8 @@ async function submitAsSold() {
   const knownConditions = (cls === 'graded' || cls === 'gi') ? ['Logged underwriting concern (graded/GI)'] : [];
   // Pull the lead's smoker indicator if we have it via wizard answers.
   const smokerStatus = sourceLead && sourceLead.tobacco ? 'current' : (sourceLead && sourceLead.smoker_status) || null;
+  const soldTermYrEl = document.getElementById('sold-term-years');
+  const termYears = (soldTermYrEl && document.getElementById('sold-term-year-fg')?.style.display !== 'none') ? parseInt(soldTermYrEl.value) || null : null;
   const policy = {
     id: Date.now(),
     client, carrier, product, cls,
@@ -6071,6 +6094,7 @@ async function submitAsSold() {
     leadSource: sourceLead && sourceLead.source || null,
     issueDate: draft || null,
   };
+  if (termYears) policy.termYears = termYears;
   const { error: polErr } = await sbUpsertPolicy(policy);
   if (polErr) { alert('Save failed: ' + polErr.message); return; }
   policies.push(policy);
@@ -6122,9 +6146,12 @@ async function addPolicy() {
   }
 
   const issueDate = document.getElementById('p-issueDate').value || null;
+  const termYrEl = document.getElementById('p-term-years');
+  const termYears = (termYrEl && document.getElementById('p-term-year-fg')?.style.display !== 'none') ? parseInt(termYrEl.value) || null : null;
 
   const policy = { id:Date.now(), client, carrier, product, cls, monthly, ap, cov, dateSubmitted, draft, status, advComm, payDate, commPct };
   if (issueDate) policy.issueDate = issueDate;
+  if (termYears) policy.termYears = termYears;
 
   const { error } = await sbUpsertPolicy(policy);
   if (error) { alert('Save failed: ' + error.message); return; }
@@ -10210,30 +10237,30 @@ function populateCarrierDropdowns() {
 
 // Carrier → product list mapping (label matches TRACKER_CARRIER_LIST, key matches COMP table)
 const CARRIER_PRODUCTS = {
-  'Americo':          [{l:'Eagle Premier',k:'americo_eagle'},{l:'HMS 125',k:'americo_term'},{l:'Whole Life',k:'americo_wl'}],
-  'Aetna / Accendo':  [{l:'Whole Life',k:'aetna_senior'},{l:'IUL',k:'aetna_iul'}],
-  'Aflac':            [{l:'Final EX',k:'aflac_final_ex'}],
-  'American-Amicable':[{l:'Senior/Family Choice',k:'aa_senior'},{l:'EZ Term',k:'aa_ez_term'},{l:'Secure Life',k:'aa_secure_life'},{l:'Home Protector',k:'aa_home_prot'},{l:'OBA',k:'aa_oba'},{l:'Term Made Simple',k:'aa_term_simple'},{l:'Family Protector',k:'aa_family_prot'},{l:'XUL',k:'aa_xul'}],
-  'Corebridge':       [{l:'SI Whole Life',k:'core_siwl'},{l:'GI Whole Life',k:'core_giwl'},{l:'Graded',k:'core_graded'}],
-  'Chubb':            [{l:'Preferred',k:'chubb_pref'},{l:'Standard',k:'chubb_std'},{l:'Substandard',k:'chubb_sub'},{l:'Graded',k:'chubb_graded'}],
-  'Ethos':            [{l:'TruStage TAWL',k:'ethos_tawl'},{l:'LGA Prime',k:'ethos_lga_prime'},{l:'TruStage SITL',k:'ethos_sitl'},{l:'TruStage GAWL',k:'ethos_gawl'},{l:'Ameritas IUL',k:'ethos_ameritas_iul'},{l:'Ameritas SI Term',k:'ethos_si_term'},{l:'JH ROP',k:'ethos_jh_rop'}],
-  'Mutual of Omaha':  [{l:'Final Expense',k:'mutual_fe'},{l:'Term Life Express',k:'mutual_term_exp'},{l:'IUL',k:'mutual_iul'},{l:'IUL Essentials',k:'mutual_iule'},{l:"Children's Whole Life",k:'mutual_child'},{l:'Term Life Answers',k:'mutual_term_ans'},{l:'Accidental Death',k:'mutual_accidental'}],
-  'Transamerica':     [{l:'Final Expense',k:'trans_express'},{l:'UL',k:'trans_ul'},{l:'Graded',k:'trans_graded'},{l:'FF Term',k:'trans_ff'},{l:'Super Term',k:'trans_super_term'},{l:'LB Term',k:'trans_lb_term'},{l:'Lifetime WL',k:'trans_lifetime_wl'},{l:'Imm. Solution WL',k:'trans_imm_sol_wl'},{l:'10-Pay WL',k:'trans_10pay_wl'},{l:'Easy Solution WL',k:'trans_easy_wl'},{l:'Extress',k:'trans_extress'},{l:'FFL IUL',k:'trans_ffiul'}],
-  'Foresters':        [{l:'Strong Foundation',k:'foresters_foundation'},{l:'Planright',k:'foresters_planright'},{l:'Your Term',k:'foresters_your_term'},{l:'Smart UL',k:'foresters_smartul'},{l:'Advantage Plus Term',k:'foresters_adv_plus'}],
-  'InstaBrain':       [{l:'Life Term',k:'insta_life_term'},{l:'Senior Life Term/WL',k:'insta_senior_wl'},{l:'Final Expense WL',k:'insta_fe_wl'},{l:'Guaranteed Issue WL',k:'insta_gi_wl'},{l:'Accidental',k:'insta_accidental'}],
-  'Liberty Bankers':  [{l:'FX',k:'lb_fx'}],
-  'Ladder Life':      [{l:'FX',k:'ladder_fx'}],
+  'Americo':          [{l:'Final Expense',k:'americo_eagle'},{l:'Term Life',k:'americo_term'},{l:'Whole Life',k:'americo_wl'}],
+  'Aetna / Accendo':  [{l:'Final Expense / Whole Life',k:'aetna_senior'},{l:'IUL',k:'aetna_iul'}],
+  'Aflac':            [{l:'Final Expense',k:'aflac_final_ex'}],
+  'American-Amicable':[{l:'Final Expense',k:'aa_senior'},{l:'Term Life',k:'aa_ez_term'},{l:'IUL',k:'aa_xul'}],
+  'Corebridge':       [{l:'Final Expense (SI)',k:'core_siwl'},{l:'Graded / GI',k:'core_graded'}],
+  'Chubb':            [{l:'Final Expense',k:'chubb_pref'},{l:'Graded',k:'chubb_graded'}],
+  'Ethos':            [{l:'Whole Life',k:'ethos_tawl'},{l:'Term Life',k:'ethos_si_term'},{l:'GI Whole Life',k:'ethos_gawl'}],
+  'Mutual of Omaha':  [{l:'Final Expense',k:'mutual_fe'},{l:'Term Life',k:'mutual_term_exp'},{l:'IUL',k:'mutual_iul'},{l:'Accidental Death',k:'mutual_accidental'}],
+  'Transamerica':     [{l:'Final Expense',k:'trans_express'},{l:'Graded / GI',k:'trans_graded'},{l:'Term Life',k:'trans_ff'},{l:'Universal Life',k:'trans_ul'}],
+  'Foresters':        [{l:'Final Expense',k:'foresters_foundation'},{l:'Term Life',k:'foresters_your_term'},{l:'Universal Life',k:'foresters_smartul'}],
+  'InstaBrain':       [{l:'Final Expense WL',k:'insta_fe_wl'},{l:'GI Whole Life',k:'insta_gi_wl'},{l:'Term Life',k:'insta_life_term'}],
+  'Liberty Bankers':  [{l:'Final Expense',k:'lb_fx'}],
+  'Ladder Life':      [{l:'Term Life',k:'ladder_fx'}],
   'NLG':              [{l:'Universal Life',k:'nlg_ul'}],
-  'Royal Neighbors':  [{l:'Term',k:'rn_term'},{l:'Royal Legacy SPWL',k:'rn_legacy_spwl'},{l:'Secure Life IUL',k:'rn_secure_iul'},{l:'SI Whole Life',k:'rn_si_wl'}],
-  'United Home Life': [{l:'Premier WL',k:'uhl_premier_wl'},{l:'Deluxe WL',k:'uhl_deluxe_wl'},{l:'FX',k:'uhl_fx'},{l:'GI Whole Life',k:'uhl_gi_wl'},{l:'Whole Life',k:'uhl_wl'},{l:'Accidental',k:'uhl_accidental'},{l:'Term',k:'uhl_term'},{l:'Provider WL',k:'uhl_provider_wl'}],
-  'Legal & General':  [{l:'Term',k:'lg_term'}],
+  'Royal Neighbors':  [{l:'Term Life',k:'rn_term'},{l:'Whole Life (SI)',k:'rn_si_wl'},{l:'IUL',k:'rn_secure_iul'},{l:'Whole Life (SPWL)',k:'rn_legacy_spwl'}],
+  'United Home Life': [{l:'Final Expense',k:'uhl_premier_wl'},{l:'GI Whole Life',k:'uhl_gi_wl'},{l:'Term Life',k:'uhl_term'},{l:'Universal Life',k:'uhl_fx'}],
+  'Legal & General':  [{l:'Term Life',k:'lg_term'}],
   'SBLI':             [{l:'Final Expense',k:'sbli_fex'}],
-  'Baltimore Life':   [{l:'Select Grade FE',k:'baltimore_sgfe'},{l:'AP Limited Term',k:'baltimore_aplt'},{l:'AP Whole Life',k:'baltimore_apwl'},{l:'AP Premium Term',k:'baltimore_appt'}],
+  'Baltimore Life':   [{l:'Final Expense',k:'baltimore_sgfe'},{l:'Term Life',k:'baltimore_aplt'},{l:'Whole Life',k:'baltimore_apwl'}],
   'American Home Life':[{l:'Final Expense',k:'ahl_fe'}],
-  'John Hancock':     [{l:'Simple Term',k:'jh_simple_term'}],
-  'Elco Mutual':      [{l:'FE Immediate',k:'elco_fe_imm'},{l:'Life Pay WL',k:'elco_lifepay_wl'},{l:'Ltd Pay WL',k:'elco_ltd_pay_wl'}],
-  'Mutual Trust Life':[{l:'Express UL',k:'mtrust_express_ul'},{l:'Home Protector',k:'mtrust_home_prot'},{l:'OBA',k:'mtrust_oba'},{l:'SecureLife',k:'mtrust_securelife'},{l:'Security Protector',k:'mtrust_security_prot'},{l:'Survivor Protector',k:'mtrust_survivor_prot'},{l:'Term Simple',k:'mtrust_term_simple'},{l:'Dignity',k:'mtrust_dignity'},{l:'Express Term',k:'mtrust_express_term'},{l:'BonusMaster',k:'mtrust_bonusmaster'},{l:'Graded Guardian',k:'mtrust_grd_guardian'}],
-  'Kansas City Life': [{l:'Sig Term SI',k:'kcl_sig_term_si'},{l:'IUL',k:'kcl_iul'},{l:'Sig Term',k:'kcl_sig_term'},{l:'Cashback Life',k:'kcl_cashback_life'},{l:'Level 30A',k:'kcl_level30a'},{l:'Sig Term 30',k:'kcl_sig_term30'},{l:'Longevity 85',k:'kcl_longevity85'}],
+  'John Hancock':     [{l:'Term Life',k:'jh_simple_term'}],
+  'Elco Mutual':      [{l:'Final Expense',k:'elco_fe_imm'},{l:'Whole Life',k:'elco_lifepay_wl'}],
+  'Mutual Trust Life':[{l:'Final Expense',k:'mtrust_express_ul'},{l:'Term Life',k:'mtrust_term_simple'},{l:'Graded / GI',k:'mtrust_grd_guardian'}],
+  'Kansas City Life': [{l:'Term Life',k:'kcl_sig_term_si'},{l:'IUL',k:'kcl_iul'}],
 };
 
 function updateProductDropdown(carrierId, productId) {
@@ -10242,6 +10269,13 @@ function updateProductDropdown(carrierId, productId) {
   if (!prodSel) return;
   const prods = CARRIER_PRODUCTS[carrier] || [{l:'Policy', k:''}];
   prodSel.innerHTML = prods.map(p => `<option value="${p.k}">${p.l}</option>`).join('');
+  const prefix = productId === 'p-product' ? 'p' : 'sold';
+  _toggleTermYear(prodSel.value, prefix);
+}
+
+function _toggleTermYear(prodKey, prefix) {
+  const fg = document.getElementById(prefix + '-term-year-fg');
+  if (fg) fg.style.display = /term|ladder/.test(prodKey) ? '' : 'none';
 }
 
 function filterBonusTabs() {
@@ -11664,6 +11698,21 @@ function aqEstimateCommission(company, annual) {
   const ann = aqNum(annual);
   if (!ann) return null;
   return +(ann * pct / 100 * 0.75).toFixed(2);
+}
+
+function aqDobChanged() {
+  const dob = (document.getElementById('aq-dob') || {}).value;
+  if (!dob) return;
+  const birth = new Date(dob + 'T00:00:00');
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+  if (age >= 0 && age <= 120) { const el = document.getElementById('aq-age'); if (el) el.value = age; }
+}
+
+function aqAgeChanged() {
+  const dobEl = document.getElementById('aq-dob');
+  if (dobEl) dobEl.value = '';
 }
 
 // Show/hide conditional fields based on the Product dropdown. Also
