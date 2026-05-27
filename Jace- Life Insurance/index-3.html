@@ -488,15 +488,7 @@ body.light .btn-p{background:var(--brand-navy);color:#fff}body.light .btn-p:hove
 .lead-row:hover{border-color:var(--border2)}
 .lead-row.sold{background:rgba(16,185,129,.06);border-color:rgba(16,185,129,.3)!important}
 .lead-row.not_interested{opacity:.55}
-.lead-row-main{display:flex;flex-direction:column;gap:8px;padding:12px 14px;cursor:pointer}
-.lead-row-main:hover{background:rgba(255,255,255,.02)}
-body.light .lead-row-main:hover{background:rgba(0,0,0,.02)}
-.lead-row-top{display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center}
-.lead-ident{display:flex;flex-direction:column;gap:2px;min-width:0}
-.lead-name-row{display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap}
-.lead-name-row > .lead-name{flex:0 1 auto;min-width:0;max-width:100%}
 .lead-name{font-size:15px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lead-name-sub{font-size:11px;color:var(--text3);font-weight:500;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lead-phone{font-size:12.5px;color:#60a5fa;white-space:nowrap;letter-spacing:.2px}
 .lead-row-meta{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:flex-start;padding-left:30px}
 .lead-meta-chip{display:flex;flex-direction:column;gap:1px;min-width:0;line-height:1.25;max-width:240px}
@@ -514,7 +506,6 @@ body.light .lead-row-main:hover{background:rgba(0,0,0,.02)}
 .lead-status-pill{padding:3px 10px;border-radius:14px;font-size:11px;font-weight:600;border:1px solid;cursor:pointer;white-space:nowrap;user-select:none;transition:filter .12s;min-width:72px;text-align:center}
 .lead-status-pill:hover{filter:brightness(1.18)}
 .lead-status-sel-edit{background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:3px 8px;color:var(--text);font-family:var(--sans);font-size:11.5px;outline:none;cursor:pointer}
-.lead-actions-quick{display:flex;gap:5px;align-items:center;flex-wrap:nowrap;justify-content:flex-end}
 .lead-act-btn{padding:5px 10px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11.5px;font-family:var(--sans);cursor:pointer;white-space:nowrap;transition:all .12s;line-height:1.2}
 .lead-act-btn:hover{border-color:var(--border2);color:var(--text);background:var(--card)}
 .lead-act-btn.call{background:rgba(59,130,246,.15);border-color:rgba(59,130,246,.4);color:#60a5fa;font-weight:600;padding:6px 10px;display:inline-flex;align-items:center;justify-content:center}
@@ -526,8 +517,6 @@ body.light .lead-row-main:hover{background:rgba(0,0,0,.02)}
 .lead-act-btn.sold-btn:hover{background:rgba(16,185,129,.25)}
 .lead-act-btn.sold-btn.disabled{opacity:.55;cursor:default}
 .lead-act-btn.no-ans:hover{background:rgba(148,163,184,.14);border-color:rgba(148,163,184,.45)}
-.lead-row-notes{padding:8px 14px 12px 14px;border-top:1px solid var(--border);display:flex;flex-direction:column;align-items:center}
-.lead-row-notes-label{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:500;margin-bottom:5px;width:340px}
 .lead-row-expanded{display:none;padding:10px 14px 14px 14px;border-top:1px solid var(--border)}
 .lead-row.expanded .lead-row-expanded{display:block}
 .lead-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px 18px;margin-top:12px}
@@ -574,15 +563,7 @@ body.light .lrc-phone{color:#6d28d9}
 .lead-itab.active{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.15)}
 .lead-itab .notes-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#60a5fa;flex-shrink:0}
 .lead-itab-panel.hidden{display:none}
-.lead-act-btn.notes-btn{background:rgba(96,165,250,.12);border-color:rgba(96,165,250,.35);color:#60a5fa;font-weight:600}
-.lead-act-btn.notes-btn:hover{background:rgba(96,165,250,.22)}
-.lead-act-btn.notes-btn.has-notes{background:rgba(96,165,250,.2);border-color:rgba(96,165,250,.55);color:#93c5fd}
 @media (max-width:900px){
-  .lead-row-top{grid-template-columns:auto 1fr auto;grid-template-areas:"check ident status" "actions actions actions";gap:8px}
-  .lead-row-top > .lead-check{grid-area:check}
-  .lead-row-top > .lead-ident{grid-area:ident}
-  .lead-row-top > .lead-status-pill{grid-area:status;justify-self:end;align-self:start}
-  .lead-row-top > .lead-actions-quick{grid-area:actions;flex-wrap:wrap;justify-content:flex-start;margin-top:4px}
   .lead-row-meta{padding-left:0;gap:8px 14px}
   .lead-meta-chip{max-width:100%}
 }
