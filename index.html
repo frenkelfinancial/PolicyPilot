@@ -4742,9 +4742,17 @@ function inForceAP(pols){
 }
 
 function netCommission(pols){
-  const paidComm = (pols || []).filter(p => p.status === 'paid').reduce((s,p) => s + (Number(p.advComm) || 0), 0);
+  const today = new Date().toISOString().split('T')[0];
+  const excluded = new Set(['lapsed', 'chargeback']);
+  const earned = (pols || [])
+    .filter(p => {
+      if (excluded.has(p.status)) return false;
+      if (p.draft && p.draft <= today) return true;
+      return p.status === 'issued' || p.status === 'paid';
+    })
+    .reduce((s,p) => s + (Number(p.advComm) || 0), 0);
   const exposure = (typeof getChargebackExposure === 'function') ? getChargebackExposure().totalAdvanced : 0;
-  return { earned: paidComm, exposed: exposure, net: paidComm - exposure };
+  return { earned, exposed: exposure, net: earned - exposure };
 }
 
 /** 12-point series projecting cumulative as-earned commission over the next 12 months. */
