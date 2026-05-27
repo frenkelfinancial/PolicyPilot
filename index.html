@@ -2218,7 +2218,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             <table class="ptbl" id="pol-table" style="display:none">
               <thead><tr>
                 <th>Client</th><th>Carrier</th><th>Product</th><th>Monthly</th><th>Ann. Premium</th>
-                <th>Draft Date</th><th>Est. Pay Date</th><th>Est. Adv. Commission</th><th>Class</th><th>Status</th><th></th>
+                <th>Date Submitted</th><th>Draft Date</th><th>Est. Pay Date</th><th>Est. Adv. Commission</th><th>Class</th><th>Status</th><th></th>
               </tr></thead>
               <tbody id="pol-tbody"></tbody>
             </table>
@@ -3170,6 +3170,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       Adv. Commission = Annual Premium x Comm% x 0.75 &nbsp;(9-month advance payout)
     </div>
     <div class="frow mt12">
+      <div class="fg"><label>Date Submitted</label><input type="date" id="p-dateSubmitted"></div>
       <div class="fg"><label>Draft Date</label><input type="date" id="p-draft"></div>
       <div class="fg"><label>Status</label>
         <select id="p-status">
@@ -5829,7 +5830,9 @@ function calcModalAP() {
 
 function openAddPolicy() {
   populateCarrierDropdowns();
-  document.getElementById('p-draft').value = new Date().toISOString().split('T')[0];
+  const _today = new Date().toISOString().split('T')[0];
+  document.getElementById('p-dateSubmitted').value = _today;
+  document.getElementById('p-draft').value = _today;
   const issue = document.getElementById('p-issueDate'); if (issue) issue.value = '';
   document.getElementById('addPolModal').classList.add('open');
 }
@@ -6016,6 +6019,7 @@ async function addPolicy() {
   const monthly = parseFloat(document.getElementById('p-monthly').value);
   const ap = +(monthly * 12).toFixed(2);
   const cov = parseFloat(document.getElementById('p-cov').value);
+  const dateSubmitted = document.getElementById('p-dateSubmitted').value || new Date().toISOString().split('T')[0];
   const draft = document.getElementById('p-draft').value;
   const status = document.getElementById('p-status').value;
   const contract = getContract();
@@ -6043,7 +6047,7 @@ async function addPolicy() {
 
   const issueDate = document.getElementById('p-issueDate').value || null;
 
-  const policy = { id:Date.now(), client, carrier, product, cls, monthly, ap, cov, draft, status, advComm, payDate, commPct };
+  const policy = { id:Date.now(), client, carrier, product, cls, monthly, ap, cov, dateSubmitted, draft, status, advComm, payDate, commPct };
   if (issueDate) policy.issueDate = issueDate;
 
   const { error } = await sbUpsertPolicy(policy);
@@ -6054,7 +6058,7 @@ async function addPolicy() {
   renderPolicies();
   updateBonusFromTracker();
 
-  ['p-client','p-monthly','p-ap','p-cov','p-issueDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['p-client','p-monthly','p-ap','p-cov','p-dateSubmitted','p-issueDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   // Phase 7: celebration moment on app submit.
   dashboardMomentApp(policy);
 }
@@ -6109,6 +6113,7 @@ function renderPolicies() {
       <td>${escHTML(p.carrier)}</td><td style="font-size:12px">${escHTML(p.product)}</td>
       <td class="mono text-b">${fmt$(monthly)}/mo</td>
       <td class="mono">${fmt$(ap)}/yr</td>
+      <td class="mono">${p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : '—')}</td>
       <td class="mono">${escHTML(p.draft)||'—'}</td>
       <td class="mono text-g">${escHTML(p.payDate)||'—'}</td>
       <td class="mono text-g">${fmt$(advComm)} <span style="font-size:10px;color:var(--text3)">(${(p.commPct||0).toFixed(1)}%×75%)</span></td>
