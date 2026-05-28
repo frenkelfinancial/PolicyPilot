@@ -596,7 +596,7 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-col-notes{display:flex;flex-direction:column;height:100%}
 .lead-notes{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;resize:none;min-height:110px;flex-grow:1;transition:border-color .14s,box-shadow .14s;box-sizing:border-box}
 .lead-notes:focus,.lead-notes:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--ds-color-info-bg)}
-.lead-col-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}.lead-col-fields{display:flex;flex-direction:column;gap:6px}.lead-fields-grid{display:flex;flex-wrap:wrap;gap:10px;flex:1;align-items:start}.lead-fields-col{display:flex;flex-direction:column;gap:5px;flex:1;min-width:80px;max-width:160px}.lead-fields-col .lead-info-line{margin-bottom:0}
+.lead-col-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}.lead-col-fields{display:flex;flex-direction:column;gap:6px}.lead-fields-grid{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:start}.lead-field-item{flex:0 0 auto;min-width:90px;max-width:160px;margin-bottom:0}
 .lead-click-to-call{display:flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;padding:10px 12px;width:100%;position:relative;transition:filter .12s;letter-spacing:.4px;text-transform:uppercase}
 .lead-click-to-call:hover{filter:brightness(1.12)}
 .lead-call-badge{position:absolute;top:-7px;right:-7px;background:#ef4444;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);line-height:1}
@@ -7911,19 +7911,24 @@ function renderLeads() {
     const receivedStr = formatImportedAt(lead.importedAt);
     const callCount = lead.call_count || 0;
     const allFields = [
-      {lbl:'Received on', val:receivedStr||new Date().toLocaleDateString('en-US')},
-      {lbl:'Sale amount', val:lead.sale_amount?String(lead.sale_amount):'Not set', notset:!lead.sale_amount},
-      {lbl:'Commission',  val:lead.commission ?String(lead.commission) :'Not set', notset:!lead.commission},
-      lead.source         ? {lbl:'Source',          val:lead.source}          : null,
-      lead.last_called    ? {lbl:'Last called',      val:String(lead.last_called)} : null,
-      addressLine         ? {lbl:'Street address',   val:addressLine}          : null,
-      lead.military_branch? {lbl:'Military Branch',  val:lead.military_branch} : null,
-      lead.military_status? {lbl:'Military Status',  val:lead.military_status} : null,
-      dobVal              ? {lbl:'Date of Birth',    val:dobVal}               : null,
+      {lbl:'Received on',    val:receivedStr||new Date().toLocaleDateString('en-US')},
+      {lbl:'Sale amount',    val:lead.sale_amount?String(lead.sale_amount):'Not set', notset:!lead.sale_amount},
+      {lbl:'Commission',     val:lead.commission ?String(lead.commission) :'Not set', notset:!lead.commission},
+      lead.source            ? {lbl:'Source',           val:lead.source}                    : null,
+      lead.last_called       ? {lbl:'Last called',      val:String(lead.last_called)}        : null,
+      lead.address           ? {lbl:'Address',          val:lead.address}                   : null,
+      lead.city              ? {lbl:'City',             val:lead.city}                      : null,
+      lead.zip               ? {lbl:'Zip Code',         val:lead.zip}                       : null,
+      lead.state             ? {lbl:'State',            val:lead.state}                     : null,
+      lead.military_branch   ? {lbl:'Military Branch',  val:lead.military_branch}           : null,
+      lead.military_status   ? {lbl:'Military Status',  val:lead.military_status}           : null,
+      lead.gender            ? {lbl:'Gender',           val:lead.gender}                    : null,
+      lead.age               ? {lbl:'Age',              val:String(lead.age)}               : null,
+      dobVal                 ? {lbl:'Date of Birth',    val:dobVal}                         : null,
+      lead.beneficiary       ? {lbl:'Beneficiary',      val:lead.beneficiary}               : null,
+      lead.coverage_wanted   ? {lbl:'Coverage Wanted',  val:lead.coverage_wanted}           : null,
       ...((lead.customFields||lead.custom_fields)||[]).map(cf=>({lbl:cf.label,val:cf.value})),
     ].filter(Boolean);
-    const fieldChunks = [];
-    for (let i = 0; i < allFields.length; i += 4) fieldChunks.push(allFields.slice(i, i + 4));
 
     div.innerHTML = `
       <div class="lead-row-main">
@@ -7965,7 +7970,7 @@ function renderLeads() {
               <button class="lead-del-btn lead-delete-lead-btn" data-lid="${lid}" title="Delete lead">${icon('trash',{size:14})}</button>
             </div>
             <div class="lead-fields-grid">
-              ${fieldChunks.map(chunk=>`<div class="lead-fields-col">${chunk.map(f=>`<div class="lead-info-line"><span class="lbl">${escapeHTML(f.lbl)}</span><span class="val${f.notset?' notset':''}">${escapeHTML(f.val)}</span></div>`).join('')}</div>`).join('')}
+              ${allFields.map(f=>`<div class="lead-info-line lead-field-item"><span class="lbl">${escapeHTML(f.lbl)}</span><span class="val${f.notset?' notset':''}">${escapeHTML(f.val)}</span></div>`).join('')}
             </div>
             <button class="lead-new-field-btn" data-lid="${lid}" onclick="openNewLeadFieldForm(event,this,'${lid}')">+ NEW FIELD</button>
           </div>
@@ -9011,10 +9016,12 @@ const FIELD_OPTIONS = [
   { value:'age',        label:'Age' },
   { value:'gender',     label:'Gender / Sex' },
   { value:'source',     label:'Lead Source' },
-  { value:'military_branch', label:'Military Branch' },
-  { value:'military_status', label:'Military Status' },
-  { value:'notes',      label:'Notes / Comments' },
-  { value:'custom',     label:'+ Add Custom Field…' },
+  { value:'military_branch',  label:'Military Branch' },
+  { value:'military_status',  label:'Military Status' },
+  { value:'beneficiary',      label:'Beneficiary' },
+  { value:'coverage_wanted',  label:'Coverage Wanted' },
+  { value:'notes',            label:'Notes / Comments' },
+  { value:'custom',           label:'+ Add Custom Field…' },
 ];
 
 // Returns FIELD_OPTIONS merged with any saved custom fields from prior imports
@@ -9550,6 +9557,9 @@ function importCSVLeads() {
       zip: get(row, 'zip'),
       dob: get(row, 'dob'),
       age: get(row, 'age'),
+      gender: get(row, 'gender'),
+      beneficiary: get(row, 'beneficiary'),
+      coverage_wanted: get(row, 'coverage_wanted'),
       source: get(row, 'source') || importSourceInput || 'imported',
       military_branch: get(row, 'military_branch'),
       military_status: get(row, 'military_status'),
