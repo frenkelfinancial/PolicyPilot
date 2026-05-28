@@ -7927,7 +7927,7 @@ function renderLeads() {
       dobVal                 ? {lbl:'Date of Birth',    val:dobVal}                         : null,
       lead.beneficiary       ? {lbl:'Beneficiary',      val:lead.beneficiary}               : null,
       lead.coverage_wanted   ? {lbl:'Coverage Wanted',  val:lead.coverage_wanted}           : null,
-      ...((lead.customFields||lead.custom_fields)||[]).map(cf=>({lbl:cf.label,val:cf.value})),
+      ...((lead.customFields||lead.custom_fields)||[]).map(cf=>({lbl:cf.label,val:cf.value||'—',notset:!cf.value})),
     ].filter(Boolean);
 
     div.innerHTML = `
@@ -9563,7 +9563,7 @@ function importCSVLeads() {
 
     const customFields = Object.entries(customColMap)
       .map(([col, label]) => ({ label, value: (row[parseInt(col)] || '').trim() }))
-      .filter(cf => cf.value);
+      .filter(cf => cf.label);
     const lead = {
       id: genLeadId(),
       name: name || 'Unknown',
