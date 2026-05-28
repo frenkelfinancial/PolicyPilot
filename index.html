@@ -575,7 +575,7 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-row.sold{background:var(--ds-color-success-bg);border-color:var(--ds-color-success)!important}
 .lead-row.not_interested{opacity:.55}
 .lead-row-main{display:flex;flex-direction:column;padding:0}
-.lead-wide-grid{display:grid;grid-template-columns:195px 185px 155px 1fr;gap:0;padding:14px 16px;align-items:stretch}
+.lead-wide-grid{display:grid;grid-template-columns:195px calc(50% - 195px) 155px 1fr;gap:0;padding:14px 16px;align-items:stretch}
 .lead-col{padding:0 12px;border-right:1px solid var(--border);min-width:0}
 .lead-col:first-child{padding-left:0}
 .lead-col:last-child{border-right:none;padding-right:0}
