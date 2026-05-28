@@ -609,6 +609,8 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-act-btn.sold-btn{background:var(--ds-color-success-bg);border-color:var(--ds-color-success);color:var(--ds-color-success);font-weight:600;width:100%}
 .lead-act-btn.sold-btn:hover{background:var(--ds-color-success-bg);filter:brightness(1.1)}
 .lead-act-btn.sold-btn.disabled{opacity:.55;cursor:default}
+.lead-act-btn.quote-btn{background:rgba(99,102,241,.12);border-color:rgba(99,102,241,.4);color:#818cf8;font-weight:600;width:100%}
+.lead-act-btn.quote-btn:hover{background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.7);filter:brightness(1.1)}
 .lead-info-line{margin-bottom:6px;line-height:1.4}
 .lead-info-line .lbl{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;font-weight:600;display:block;margin-bottom:1px}
 .lead-info-line .val{font-size:12px;color:var(--text2)}
@@ -7963,6 +7965,7 @@ function renderLeads() {
               </select>
             </div>
             <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
+            <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote — prefills from this lead">Quote</button>
           </div>
           <div class="lead-col lead-col-fields">
             <div class="lead-received-icons">
@@ -8009,6 +8012,12 @@ function renderLeads() {
       e.stopPropagation();
       const lead = leads.find(l => String(l.id) === e.currentTarget.dataset.lid);
       if (lead && (lead.status||'new') !== 'sold') openSoldModal(lead);
+    });
+  });
+  container.querySelectorAll('.lead-quick-quote-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openQuoteForLead(e.currentTarget.dataset.lid);
     });
   });
   container.querySelectorAll('.lead-quote-btn').forEach(btn => {
