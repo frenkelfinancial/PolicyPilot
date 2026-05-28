@@ -3395,7 +3395,8 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             <option value="IUL">IUL</option>
           </select>
         </div>
-        <div class="fg"><label>Age</label><input type="number" id="laq-age" placeholder="55" min="18" max="85"></div>
+        <div class="fg"><label>Date of Birth</label><input type="date" id="laq-dob" onchange="laqDobToAge()" title="Auto-fills Age when entered"></div>
+        <div class="fg"><label>Age</label><input type="number" id="laq-age" placeholder="55" min="18" max="85" title="Auto-calculated from DOB, or enter manually"></div>
         <div class="fg"><label>Sex</label>
           <select id="laq-sex"><option value="M">Male</option><option value="F">Female</option></select>
         </div>
@@ -8743,9 +8744,23 @@ function readLeadApiQuoterForm() {
 }
 
 // Reset modal inputs/results to defaults so a previous lead doesn't bleed in.
+function laqDobToAge() {
+  const dobEl = document.getElementById('laq-dob');
+  const ageEl = document.getElementById('laq-age');
+  if (!dobEl || !ageEl || !dobEl.value) return;
+  const d = new Date(dobEl.value);
+  if (isNaN(d)) return;
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+  if (a > 0 && a < 120) ageEl.value = a;
+}
+
 function clearLeadApiQuote() {
   const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
   setVal('laq-product', 'FEX');
+  setVal('laq-dob', '');
   setVal('laq-age', '');
   setVal('laq-sex', 'M');
   setVal('laq-state', '');
@@ -8810,6 +8825,18 @@ function openQuoteForLead(lid) {
 
   // Reset to defaults, then prefill from the lead.
   clearLeadApiQuote();
+
+  // DOB — convert to YYYY-MM-DD for the date input, then compute age from it.
+  if (lead.dob) {
+    const d = new Date(lead.dob);
+    if (!isNaN(d)) {
+      const yyyy = d.getFullYear();
+      const mm   = String(d.getMonth() + 1).padStart(2, '0');
+      const dd   = String(d.getDate()).padStart(2, '0');
+      const dobEl = document.getElementById('laq-dob');
+      if (dobEl) dobEl.value = `${yyyy}-${mm}-${dd}`;
+    }
+  }
 
   // Age — use lead.age, fall back to computing from DOB.
   let age = (lead.age != null && lead.age !== '') ? parseInt(lead.age) : null;
