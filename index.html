@@ -3134,6 +3134,19 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
         <input type="file" id="csv-file-input" accept=".csv,.CSV,.xlsx,.xls" style="display:none" onchange="handleCSVFile(this)">
       </div>
+      <!-- Lead Source picker — always visible in step 1 -->
+      <div style="margin-top:16px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:8px">Lead Source <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="csv-import-source" list="csv-source-datalist"
+            placeholder="e.g. Goat Leads, Facebook, Direct Mail…"
+            style="flex:1;padding:8px 12px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;outline:none"
+            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border2)'">
+          <datalist id="csv-source-datalist"></datalist>
+        </div>
+        <div style="font-size:11.5px;color:var(--text3);margin-top:6px">All leads from this import will be tagged with this source. Previously used sources appear as suggestions.</div>
+      </div>
+
       <div id="csv-upload-info" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:8px;display:flex;align-items:center;gap:10px">
         <span data-ico="check-circle" data-size="20" style="color:var(--ds-color-success)"></span>
         <div>
@@ -8944,6 +8957,7 @@ async function deleteLead(lid) {
 let csvParsedData = [];
 let csvHeaders = [];
 let csvUserMapping = {}; // { colIndex: fieldKey or 'skip' }
+let csvCustomLabels = {}; // { colIndex: customFieldLabel } for columns mapped to 'custom'
 
 // All available field options for the mapper dropdowns
 const FIELD_OPTIONS = [
@@ -8964,8 +8978,25 @@ const FIELD_OPTIONS = [
   { value:'military_branch', label:'Military Branch' },
   { value:'military_status', label:'Military Status' },
   { value:'notes',      label:'Notes / Comments' },
-  { value:'custom',     label:'Other / Custom Field' },
+  { value:'custom',     label:'+ Add Custom Field…' },
 ];
+
+// Returns FIELD_OPTIONS merged with any saved custom fields from prior imports
+function getFieldOptions() {
+  const saved = JSON.parse(localStorage.getItem('pp_custom_fields') || '[]');
+  const base = FIELD_OPTIONS.filter(o => o.value !== 'custom');
+  const customOpts = saved.map(lbl => ({ value: 'custom:' + lbl, label: lbl }));
+  return [...base, ...customOpts, { value:'custom', label:'+ Add Custom Field…' }];
+}
+// Returns the display label for a mapped field value, handling custom: prefix
+function _csvFieldLabel(field, colIdx) {
+  if (field === 'custom') {
+    const lbl = (csvCustomLabels[colIdx] || '').trim();
+    return lbl || '(enter field name)';
+  }
+  if (field.startsWith('custom:')) return field.slice(7);
+  return getFieldOptions().find(o => o.value === field)?.label || field;
+}
 
 const FIELD_ALIASES = {
   name:       ['name','full name','fullname','contact','client','contact name'],
@@ -9076,11 +9107,20 @@ function finishCSVParse(file, rows) {
 }
 
 function openImportModal() {
-  csvParsedData = []; csvHeaders = []; csvUserMapping = {};
+  csvParsedData = []; csvHeaders = []; csvUserMapping = {}; csvCustomLabels = {};
   const fi = document.getElementById('csv-file-input'); if (fi) fi.value = '';
   const info = document.getElementById('csv-upload-info'); if (info) info.style.display = 'none';
+  const srcInput = document.getElementById('csv-import-source');
+  if (srcInput) srcInput.value = '';
+  _populateImportSourceDatalist();
   goToCSVStep(1);
   document.getElementById('importModal').classList.add('open');
+}
+function _populateImportSourceDatalist() {
+  const dl = document.getElementById('csv-source-datalist');
+  if (!dl) return;
+  const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
+  dl.innerHTML = saved.map(s => `<option value="${escapeHTML(s)}">`).join('');
 }
 function closeImportModal() {
   document.getElementById('importModal').classList.remove('open');
@@ -9123,7 +9163,7 @@ function buildColMapper() {
   csvHeaders.forEach((header, idx) => {
     const previewVals = csvParsedData.slice(0,3).map(r => r[idx] || '').filter(Boolean);
     const currentVal = csvUserMapping[idx] || 'skip';
-    const fieldLabel = FIELD_OPTIONS.find(o => o.value === currentVal)?.label || '— Skip —';
+    const fieldLabel = _csvFieldLabel(currentVal, idx);
 
     const row = document.createElement('div');
     row.style.cssText = 'border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden';
@@ -9142,10 +9182,16 @@ function buildColMapper() {
         <div style="padding:14px 18px;display:flex;flex-direction:column;justify-content:center;gap:8px">
           <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em">Maps to field</div>
           <select data-col="${idx}" onchange="csvUserMapping[${idx}]=this.value;updateMapperRow(this)" style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;width:100%;max-width:320px;cursor:pointer;transition:border-color .14s" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='var(--border)'">
-            ${FIELD_OPTIONS.map(o => `<option value="${o.value}"${currentVal===o.value?' selected':''}>${o.label}</option>`).join('')}
+            ${getFieldOptions().map(o => `<option value="${o.value}"${currentVal===o.value?' selected':''}>${o.label}</option>`).join('')}
           </select>
-          <div class="col-map-status" id="col-status-${idx}" style="font-size:11.5px;${currentVal==='skip'?'color:var(--text3)':'color:var(--ds-color-success)'}">
-            <span style="display:inline-flex;align-items:center;gap:5px">${currentVal === 'skip' ? `${icon('prohibit',{size:11})}Will not be imported` : `${icon('check',{size:11})}Will import as <strong>${fieldLabel}</strong>`}</span>
+          <input type="text" id="col-custom-label-${idx}"
+            placeholder="Field name (e.g. Policy Number, Annual Income…)"
+            style="display:${currentVal==='custom'?'block':'none'};margin-top:6px;padding:7px 10px;background:var(--bg2);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-size:12.5px;width:100%;max-width:320px;box-sizing:border-box;outline:none"
+            value="${escapeHTML(csvCustomLabels[idx]||'')}"
+            oninput="csvCustomLabels[${idx}]=this.value;_updateCustomStatus(${idx})"
+            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border2)'">
+          <div class="col-map-status" id="col-status-${idx}" style="font-size:11.5px;${currentVal==='skip'?'color:var(--text3)':currentVal==='custom'&&!csvCustomLabels[idx]?'color:#fbbf24':'color:var(--ds-color-success)'}">
+            <span style="display:inline-flex;align-items:center;gap:5px">${currentVal==='skip' ? `${icon('prohibit',{size:11})}Will not be imported` : currentVal==='custom'&&!csvCustomLabels[idx] ? `${icon('warning',{size:11})}Enter a field name above` : `${icon('check',{size:11})}Will import as <strong>${escapeHTML(fieldLabel)}</strong>`}</span>
           </div>
         </div>
       </div>
@@ -9155,34 +9201,52 @@ function buildColMapper() {
 }
 
 function updateMapperRow(sel) {
-  const idx = sel.dataset.col;
+  const idx = parseInt(sel.dataset.col);
   const val = sel.value;
   const statusEl = document.getElementById(`col-status-${idx}`);
-  const fieldLabel = FIELD_OPTIONS.find(o => o.value === val)?.label || '';
+  const customInput = document.getElementById(`col-custom-label-${idx}`);
+  if (customInput) customInput.style.display = val === 'custom' ? 'block' : 'none';
   if (val === 'skip') {
     statusEl.style.color = 'var(--text3)';
     statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('prohibit',{size:11})}Will not be imported</span>`;
+  } else if (val === 'custom') {
+    _updateCustomStatus(idx);
   } else {
-    statusEl.style.color = '#34d399';
-    statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('check',{size:11})}Will import as <strong>${fieldLabel}</strong></span>`;
+    const fieldLabel = _csvFieldLabel(val, idx);
+    statusEl.style.color = 'var(--ds-color-success)';
+    statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('check',{size:11})}Will import as <strong>${escapeHTML(fieldLabel)}</strong></span>`;
   }
-  // Highlight duplicate mappings
+  // Highlight duplicate mappings (skip 'custom' entries — each has its own label)
   const counts = {};
-  Object.values(csvUserMapping).forEach(v => { if (v !== 'skip') counts[v] = (counts[v]||0)+1; });
+  Object.values(csvUserMapping).forEach(v => { if (v !== 'skip' && v !== 'custom') counts[v] = (counts[v]||0)+1; });
   csvHeaders.forEach((h, i) => {
     const v = csvUserMapping[i];
     const st = document.getElementById(`col-status-${i}`);
-    if (!st) return;
-    if (v !== 'skip' && counts[v] > 1) {
+    if (!st || v === 'skip' || v === 'custom') return;
+    if (counts[v] > 1) {
       st.style.color = '#fbbf24';
-      st.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('warning',{size:11})}Duplicate: <strong>${escapeHTML(FIELD_OPTIONS.find(o=>o.value===v)?.label||v)}</strong> mapped to ${counts[v]} columns</span>`;
+      st.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('warning',{size:11})}Duplicate: <strong>${escapeHTML(_csvFieldLabel(v, i))}</strong> mapped to ${counts[v]} columns</span>`;
     }
   });
+}
+function _updateCustomStatus(idx) {
+  const lbl = (csvCustomLabels[idx] || '').trim();
+  const statusEl = document.getElementById(`col-status-${idx}`);
+  if (!statusEl) return;
+  if (lbl) {
+    statusEl.style.color = 'var(--ds-color-success)';
+    statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('check',{size:11})}Will import as custom field: <strong>${escapeHTML(lbl)}</strong></span>`;
+  } else {
+    statusEl.style.color = '#fbbf24';
+    statusEl.innerHTML = `<span style="display:inline-flex;align-items:center;gap:5px">${icon('warning',{size:11})}Enter a field name above</span>`;
+  }
 }
 
 function buildConfirmView() {
   // Summary
-  const mapped = Object.entries(csvUserMapping).filter(([,v]) => v !== 'skip');
+  const mapped = Object.entries(csvUserMapping).filter(([col, v]) =>
+    v !== 'skip' && !(v === 'custom' && !(csvCustomLabels[parseInt(col)] || '').trim())
+  );
   const summary = document.getElementById('csv-confirm-summary');
   const btnEl = document.getElementById('csv-import-btn');
   btnEl.innerHTML = `${icon('check',{size:14})}Import ${csvParsedData.length} Leads`;
@@ -9199,8 +9263,8 @@ function buildConfirmView() {
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
       ${mapped.map(([col, field]) => {
-        const h = csvHeaders[col];
-        const label = FIELD_OPTIONS.find(o=>o.value===field)?.label||field;
+        const h = csvHeaders[parseInt(col)];
+        const label = _csvFieldLabel(field, parseInt(col));
         return `<span style="background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.25);border-radius:20px;padding:3px 10px;font-size:11.5px;color:var(--ds-color-info)"><strong>${escHTML(h)}</strong> → ${escHTML(label)}</span>`;
       }).join('')}
     </div>
@@ -9210,7 +9274,7 @@ function buildConfirmView() {
 
   // Preview table with mapped columns only
   const mappedCols = mapped.map(([col, field]) => ({
-    col: parseInt(col), field, label: FIELD_OPTIONS.find(o=>o.value===field)?.label||field
+    col: parseInt(col), field, label: _csvFieldLabel(field, parseInt(col))
   }));
 
   const head = document.getElementById('csv-confirm-head');
@@ -9365,9 +9429,17 @@ function saveManualLead() {
 function importCSVLeads() {
   // Build final field map from user selections
   const fieldMap = {}; // fieldKey → colIndex
+  const customColMap = {}; // colIndex → customFieldLabel
   Object.entries(csvUserMapping).forEach(([colStr, field]) => {
-    if (field !== 'skip' && field !== 'custom') {
-      if (!fieldMap[field]) fieldMap[field] = parseInt(colStr);
+    const col = parseInt(colStr);
+    if (field === 'skip') return;
+    if (field === 'custom') {
+      const lbl = (csvCustomLabels[col] || '').trim();
+      if (lbl) customColMap[col] = lbl;
+    } else if (field.startsWith('custom:')) {
+      customColMap[col] = field.slice(7);
+    } else {
+      if (!fieldMap[field]) fieldMap[field] = col;
     }
   });
 
@@ -9375,6 +9447,9 @@ function importCSVLeads() {
     const idx = fieldMap[field];
     return idx !== undefined ? (row[idx] || '').trim() : '';
   };
+
+  // Read user-specified import source
+  const importSourceInput = (document.getElementById('csv-import-source')?.value || '').trim();
 
   let imported = 0;
   csvParsedData.forEach(row => {
@@ -9386,6 +9461,9 @@ function importCSVLeads() {
     }
     if (!name && !get(row, 'phone') && !get(row, 'email')) return;
 
+    const customFields = Object.entries(customColMap)
+      .map(([col, label]) => ({ label, value: (row[parseInt(col)] || '').trim() }))
+      .filter(cf => cf.value);
     const lead = {
       id: genLeadId(),
       name: name || 'Unknown',
@@ -9397,10 +9475,11 @@ function importCSVLeads() {
       zip: get(row, 'zip'),
       dob: get(row, 'dob'),
       age: get(row, 'age'),
-      source: get(row, 'source') || 'imported',
+      source: get(row, 'source') || importSourceInput || 'imported',
       military_branch: get(row, 'military_branch'),
       military_status: get(row, 'military_status'),
       notes: get(row, 'notes'),
+      customFields: customFields.length ? customFields : undefined,
       status: 'new',
       importedAt: new Date().toISOString(),
     };
@@ -9408,9 +9487,25 @@ function importCSVLeads() {
     imported++;
   });
 
+  // Save new source to the stored list for future suggestions
+  if (importSourceInput) {
+    const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
+    if (!saved.includes(importSourceInput)) {
+      saved.unshift(importSourceInput);
+      localStorage.setItem('pp_lead_sources', JSON.stringify(saved.slice(0, 50)));
+    }
+  }
+  // Save newly defined custom field names so they appear in future import dropdowns
+  const newCustomLabels = [...new Set(Object.values(customColMap))];
+  if (newCustomLabels.length) {
+    const savedCF = JSON.parse(localStorage.getItem('pp_custom_fields') || '[]');
+    newCustomLabels.forEach(lbl => { if (!savedCF.includes(lbl)) savedCF.unshift(lbl); });
+    localStorage.setItem('pp_custom_fields', JSON.stringify(savedCF.slice(0, 100)));
+  }
+
   saveLeads();
   // Reset import UI
-  csvParsedData = []; csvHeaders = []; csvUserMapping = {};
+  csvParsedData = []; csvHeaders = []; csvUserMapping = {}; csvCustomLabels = {};
   document.getElementById('csv-file-input').value = '';
   document.getElementById('csv-upload-info').style.display = 'none';
   goToCSVStep(1);
@@ -9421,7 +9516,7 @@ function importCSVLeads() {
 }
 
 function cancelCSVImport() {
-  csvParsedData = []; csvHeaders = []; csvUserMapping = {};
+  csvParsedData = []; csvHeaders = []; csvUserMapping = {}; csvCustomLabels = {};
   document.getElementById('csv-file-input').value = '';
   const info = document.getElementById('csv-upload-info');
   if (info) info.style.display = 'none';
