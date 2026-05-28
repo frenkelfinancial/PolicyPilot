@@ -9402,9 +9402,9 @@ function openNewLeadFieldForm(e, btn, lid) {
   wrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:6px';
   wrapper.innerHTML = `
     <input type="text" class="lnf-title" placeholder="Field title (e.g. Military Branch)" autocomplete="off"
-      style="border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--bg2);color:var(--text1);font-family:var(--sans);width:100%;box-sizing:border-box">
+      style="border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--bg2);color:var(--text);font-family:var(--sans);width:100%;box-sizing:border-box">
     <input type="text" class="lnf-value" placeholder="Field value (e.g. Army)" autocomplete="off"
-      style="border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--bg2);color:var(--text1);font-family:var(--sans);width:100%;box-sizing:border-box">
+      style="border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--bg2);color:var(--text);font-family:var(--sans);width:100%;box-sizing:border-box">
     <div style="display:flex;gap:6px">
       <button class="lnf-save" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans)">Save</button>
       <button class="lnf-cancel" style="flex:1;background:none;border:1px solid var(--border);border-radius:6px;padding:5px 0;font-size:12px;color:var(--text3);cursor:pointer;font-family:var(--sans)">Cancel</button>
@@ -9416,16 +9416,34 @@ function openNewLeadFieldForm(e, btn, lid) {
 
   wrapper.querySelector('.lnf-save').addEventListener('click', ev => {
     ev.stopPropagation();
-    const label = wrapper.querySelector('.lnf-title').value.trim();
-    const value = wrapper.querySelector('.lnf-value').value.trim();
-    if (!label) { wrapper.querySelector('.lnf-title').style.borderColor = '#f87171'; wrapper.querySelector('.lnf-title').focus(); return; }
+    const titleInput = wrapper.querySelector('.lnf-title');
+    const valInput   = wrapper.querySelector('.lnf-value');
+    const label = titleInput.value.trim();
+    const value = valInput.value.trim();
+    if (!label) { titleInput.style.borderColor = '#f87171'; titleInput.focus(); return; }
+
+    // Update the lead in memory
     const lead = leads.find(l => String(l.id) === lid);
-    if (lead) {
-      if (!lead.customFields) lead.customFields = [];
-      lead.customFields.push({ label, value });
-      saveLeads();
-      renderLeads();
+    if (!lead) { showToast('Lead not found — please refresh', '#ef4444'); return; }
+    if (!lead.customFields) lead.customFields = [];
+    lead.customFields.push({ label, value });
+
+    // Persist to localStorage + Supabase
+    saveLeads();
+
+    // Inject the new field directly into the existing card DOM (no full re-render)
+    const fieldGrid = btn.closest('.lead-col-fields').querySelector('.lead-fields-grid');
+    if (fieldGrid) {
+      const el = document.createElement('div');
+      el.className = 'lead-info-line lead-field-item';
+      el.innerHTML = `<span class="lbl">${escapeHTML(label)}</span><span class="val">${escapeHTML(value)}</span>`;
+      fieldGrid.appendChild(el);
     }
+
+    // Dismiss form and restore the button
+    wrapper.remove();
+    btn.style.display = '';
+    showToast(`Field "${label}" saved`, '#10b981');
   });
 
   wrapper.querySelector('.lnf-cancel').addEventListener('click', ev => {
