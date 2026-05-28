@@ -1959,13 +1959,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <div class="fg" style="min-width:130px;max-width:170px">
             <select id="lead-filter-source" onchange="filterLeads()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;width:100%">
               <option value="">All Sources</option>
-              <option value="direct_mail">Direct Mail</option>
-              <option value="facebook">Facebook</option>
-              <option value="google">Google</option>
-              <option value="drip">Drip Lead</option>
-              <option value="referral">Referral</option>
-              <option value="aged">Aged Lead</option>
-              <option value="other">Other</option>
             </select>
           </div>
           <div class="fg" style="min-width:120px;max-width:160px">
@@ -5659,7 +5652,43 @@ function updateLeadTabCounts() {
 let selectedLeadIds = new Set(); // stores string IDs
 let expandedLeadIds = new Set(); // rows currently expanded (in-memory only)
 
+const BUILT_IN_SOURCES = [
+  { value: 'direct_mail', label: 'Direct Mail' },
+  { value: 'facebook',    label: 'Facebook' },
+  { value: 'google',      label: 'Google' },
+  { value: 'drip',        label: 'Drip Lead' },
+  { value: 'referral',    label: 'Referral' },
+  { value: 'aged',        label: 'Aged Lead' },
+  { value: 'other',       label: 'Other' },
+];
+
+function populateLeadSourceFilter() {
+  const sel = document.getElementById('lead-filter-source');
+  if (!sel) return;
+  const current = sel.value;
+  const builtInValues = new Set(BUILT_IN_SOURCES.map(s => s.value));
+
+  const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
+  const fromLeads = [...new Set((leads || []).map(l => l.source).filter(Boolean))];
+  const allCustom = [...new Set([...saved, ...fromLeads])].filter(s => !builtInValues.has(s));
+
+  let html = '<option value="">All Sources</option>';
+  BUILT_IN_SOURCES.forEach(s => {
+    html += `<option value="${s.value}">${s.label}</option>`;
+  });
+  if (allCustom.length) {
+    html += '<optgroup label="Custom">';
+    allCustom.forEach(s => {
+      html += `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`;
+    });
+    html += '</optgroup>';
+  }
+  sel.innerHTML = html;
+  sel.value = current;
+}
+
 function renderLeads() {
+  populateLeadSourceFilter();
   filterLeads_silent();
   updateLeadTabCounts();
   const container = document.getElementById('lead-list-container');
