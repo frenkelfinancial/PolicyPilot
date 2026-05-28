@@ -9534,7 +9534,11 @@ function importCSVLeads() {
     const col = parseInt(colStr);
     if (field === 'skip') return;
     if (field === 'custom') {
-      const lbl = (csvCustomLabels[col] || '').trim();
+      let lbl = (csvCustomLabels[col] || '').trim();
+      if (!lbl) {
+        const input = document.getElementById('col-custom-label-' + col);
+        lbl = (input ? input.value : '').trim();
+      }
       if (lbl) customColMap[col] = lbl;
     } else if (field.startsWith('custom:')) {
       customColMap[col] = field.slice(7);
