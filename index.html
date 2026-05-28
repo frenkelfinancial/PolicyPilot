@@ -575,7 +575,7 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-row.sold{background:var(--ds-color-success-bg);border-color:var(--ds-color-success)!important}
 .lead-row.not_interested{opacity:.55}
 .lead-row-main{display:flex;flex-direction:column;padding:0}
-.lead-wide-grid{display:grid;grid-template-columns:195px 170px 158px 1fr;gap:0;padding:14px 16px;align-items:stretch}
+.lead-wide-grid{display:grid;grid-template-columns:195px 210px 1fr;gap:0;padding:14px 16px;align-items:stretch}
 .lead-col{padding:0 12px;border-right:1px solid var(--border);min-width:0}
 .lead-col:first-child{padding-left:0}
 .lead-col:last-child{border-right:none;padding-right:0}
@@ -596,7 +596,7 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-col-notes{display:flex;flex-direction:column;height:100%}
 .lead-notes{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;resize:none;min-height:110px;flex-grow:1;transition:border-color .14s,box-shadow .14s;box-sizing:border-box}
 .lead-notes:focus,.lead-notes:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--ds-color-info-bg)}
-.lead-col-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}.lead-col-fields{display:flex;flex-direction:column;gap:6px}.lead-fields-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px 10px;align-content:start;flex:1}.lead-fields-auto .lead-info-line{margin-bottom:0}
+.lead-col-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}.lead-col-callpad{display:flex;flex-direction:column;gap:6px;height:100%}.lead-callpad-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}.lead-col-fields{display:flex;flex-direction:column;gap:6px}.lead-fields-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px 10px;align-content:start;flex:1}.lead-fields-auto .lead-info-line{margin-bottom:0}
 .lead-click-to-call{display:flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;padding:10px 12px;width:100%;position:relative;transition:filter .12s;letter-spacing:.4px;text-transform:uppercase}
 .lead-click-to-call:hover{filter:brightness(1.12)}
 .lead-call-badge{position:absolute;top:-7px;right:-7px;background:#ef4444;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);line-height:1}
@@ -7929,21 +7929,21 @@ function renderLeads() {
             <div class="lead-quote-row"><span class="lead-field-label">Quote</span>&nbsp;<span style="color:${lead.quote?'var(--text2)':'#f87171'}">${lead.quote?escapeHTML(String(lead.quote)):'Not set'}</span></div>
             ${localTime ? `<div class="lead-localtime-row"><span class="lead-field-label">Local time</span>&nbsp;${escapeHTML(localTime)}</div>` : ''}
           </div>
-          <div class="lead-col lead-col-notes">
+          <div class="lead-col lead-col-callpad">
             <textarea class="lead-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes — call details, objections, follow-up...">${escapeHTML(lead.notes||'')}</textarea>
-          </div>
-          <div class="lead-col lead-col-actions">
-            <div style="position:relative">
-              <button class="lead-click-to-call lead-call-btn" data-lid="${lid}" data-phone-href="${callHref}" title="Dial ${escapeHTML(formatPhone(lead.phone)||lead.phone||'')}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${icon('phone',{size:14})} CLICK TO CALL</button>
-              ${callCount > 0 ? `<span class="lead-call-badge">${callCount}</span>` : ''}
+            <div class="lead-callpad-actions">
+              <div style="position:relative">
+                <button class="lead-click-to-call lead-call-btn" data-lid="${lid}" data-phone-href="${callHref}" title="Dial ${escapeHTML(formatPhone(lead.phone)||lead.phone||'')}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${icon('phone',{size:14})} CLICK TO CALL</button>
+                ${callCount > 0 ? `<span class="lead-call-badge">${callCount}</span>` : ''}
+              </div>
+              <div class="lead-disposition-wrap">
+                <select class="lead-disposition-sel lead-disposition-cb" data-lid="${lid}" title="Set disposition / status">
+                  ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
+                  ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
+                </select>
+              </div>
+              <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
             </div>
-            <div class="lead-disposition-wrap">
-              <select class="lead-disposition-sel lead-disposition-cb" data-lid="${lid}" title="Set disposition / status">
-                ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
-                ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
-              </select>
-            </div>
-            <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
           </div>
           <div class="lead-col lead-col-fields">
             <div class="lead-received-icons">
