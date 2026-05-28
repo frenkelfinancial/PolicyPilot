@@ -596,7 +596,7 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-col-notes{display:flex;flex-direction:column;height:100%}
 .lead-notes{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none;resize:none;min-height:110px;flex-grow:1;transition:border-color .14s,box-shadow .14s;box-sizing:border-box}
 .lead-notes:focus,.lead-notes:focus-visible{border-color:var(--accent);box-shadow:0 0 0 3px var(--ds-color-info-bg)}
-.lead-col-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}.lead-col-fields{display:flex;flex-direction:column;gap:6px}.lead-fields-grid{display:flex;gap:10px;flex:1;align-items:start}.lead-fields-col{display:flex;flex-direction:column;gap:5px;flex:1;min-width:80px}.lead-fields-col .lead-info-line{margin-bottom:0}
+.lead-col-actions{display:flex;flex-direction:column;gap:8px;align-items:stretch}.lead-col-fields{display:flex;flex-direction:column;gap:6px}.lead-fields-grid{display:flex;flex-wrap:wrap;gap:10px;flex:1;align-items:start}.lead-fields-col{display:flex;flex-direction:column;gap:5px;flex:1;min-width:80px;max-width:160px}.lead-fields-col .lead-info-line{margin-bottom:0}
 .lead-click-to-call{display:flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;font-family:var(--sans);cursor:pointer;padding:10px 12px;width:100%;position:relative;transition:filter .12s;letter-spacing:.4px;text-transform:uppercase}
 .lead-click-to-call:hover{filter:brightness(1.12)}
 .lead-call-badge{position:absolute;top:-7px;right:-7px;background:#ef4444;color:#fff;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);line-height:1}
@@ -7903,7 +7903,7 @@ function renderLeads() {
       lead.military_branch   && `<div class="lead-meta-chip"><div class="lbl">Mil. Branch</div><div class="val">${escapeHTML(lead.military_branch)}</div></div>`,
       lead.beneficiary       && `<div class="lead-meta-chip"><div class="lbl">Beneficiary</div><div class="val" title="${escapeHTML(lead.beneficiary)}">${escapeHTML(lead.beneficiary)}</div></div>`,
       lead.coverage_wanted   && `<div class="lead-meta-chip"><div class="lbl">Coverage Wanted</div><div class="val">${escapeHTML(lead.coverage_wanted)}</div></div>`,
-      ...(lead.customFields||[]).map(cf => `<div class="lead-meta-chip"><div class="lbl">${escapeHTML(cf.label)}</div><div class="val">${escapeHTML(cf.value)}</div></div>`),
+      ...((lead.customFields||lead.custom_fields)||[]).map(cf => `<div class="lead-meta-chip"><div class="lbl">${escapeHTML(cf.label)}</div><div class="val">${escapeHTML(cf.value)}</div></div>`),
     ].filter(Boolean).join('');
     const metaHTML = metaChips ? `<div class="lead-row-meta">${metaChips}</div>` : '';
 
@@ -7967,7 +7967,7 @@ function renderLeads() {
             <div class="lead-fields-grid">
               ${fieldChunks.map(chunk=>`<div class="lead-fields-col">${chunk.map(f=>`<div class="lead-info-line"><span class="lbl">${escapeHTML(f.lbl)}</span><span class="val${f.notset?' notset':''}">${escapeHTML(f.val)}</span></div>`).join('')}</div>`).join('')}
             </div>
-            <button class="lead-new-field-btn" data-lid="${lid}" onclick="event.stopPropagation()">+ NEW FIELD</button>
+            <button class="lead-new-field-btn" data-lid="${lid}" onclick="openNewLeadFieldForm(event,this,'${lid}')">+ NEW FIELD</button>
           </div>
         </div>
       </div>
@@ -9387,6 +9387,45 @@ function addLeadCustomField() {
   `;
   container.appendChild(row);
   row.querySelector('.al-cf-label').focus();
+}
+
+function openNewLeadFieldForm(e, btn, lid) {
+  e.stopPropagation();
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:6px';
+  wrapper.innerHTML = `
+    <input type="text" class="lnf-title" placeholder="Field title (e.g. Military Branch)" autocomplete="off"
+      style="border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--bg2);color:var(--text1);font-family:var(--sans);width:100%;box-sizing:border-box">
+    <input type="text" class="lnf-value" placeholder="Field value (e.g. Army)" autocomplete="off"
+      style="border:1px solid var(--border);border-radius:6px;padding:5px 8px;font-size:12px;background:var(--bg2);color:var(--text1);font-family:var(--sans);width:100%;box-sizing:border-box">
+    <div style="display:flex;gap:6px">
+      <button class="lnf-save" style="flex:1;background:var(--accent);color:#fff;border:none;border-radius:6px;padding:5px 0;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans)">Save</button>
+      <button class="lnf-cancel" style="flex:1;background:none;border:1px solid var(--border);border-radius:6px;padding:5px 0;font-size:12px;color:var(--text3);cursor:pointer;font-family:var(--sans)">Cancel</button>
+    </div>
+  `;
+  btn.parentNode.insertBefore(wrapper, btn);
+  btn.style.display = 'none';
+  wrapper.querySelector('.lnf-title').focus();
+
+  wrapper.querySelector('.lnf-save').addEventListener('click', ev => {
+    ev.stopPropagation();
+    const label = wrapper.querySelector('.lnf-title').value.trim();
+    const value = wrapper.querySelector('.lnf-value').value.trim();
+    if (!label) { wrapper.querySelector('.lnf-title').style.borderColor = '#f87171'; wrapper.querySelector('.lnf-title').focus(); return; }
+    const lead = leads.find(l => String(l.id) === lid);
+    if (lead) {
+      if (!lead.customFields) lead.customFields = [];
+      lead.customFields.push({ label, value });
+      saveLeads();
+      renderLeads();
+    }
+  });
+
+  wrapper.querySelector('.lnf-cancel').addEventListener('click', ev => {
+    ev.stopPropagation();
+    wrapper.remove();
+    btn.style.display = '';
+  });
 }
 
 function saveManualLead() {
