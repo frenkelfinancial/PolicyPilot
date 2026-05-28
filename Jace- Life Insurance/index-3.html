@@ -2396,6 +2396,19 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
         <input type="file" id="csv-file-input" accept=".csv,.CSV,.xlsx,.xls" style="display:none" onchange="handleCSVFile(this)">
       </div>
+      <!-- Lead Source picker — always visible in step 1 -->
+      <div style="margin-top:16px;padding:14px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:10px">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:8px">Lead Source <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" id="csv-import-source" list="csv-source-datalist"
+            placeholder="e.g. Goat Leads, Facebook, Direct Mail…"
+            style="flex:1;padding:8px 12px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;outline:none"
+            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border2)'">
+          <datalist id="csv-source-datalist"></datalist>
+        </div>
+        <div style="font-size:11.5px;color:var(--text3);margin-top:6px">All leads from this import will be tagged with this source. Previously used sources appear as suggestions.</div>
+      </div>
+
       <div id="csv-upload-info" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:8px;display:flex;align-items:center;gap:10px">
         <span data-ico="check-circle" data-size="20" style="color:#34d399"></span>
         <div>
@@ -6343,8 +6356,18 @@ function openImportModal() {
   csvParsedData = []; csvHeaders = []; csvUserMapping = {};
   const fi = document.getElementById('csv-file-input'); if (fi) fi.value = '';
   const info = document.getElementById('csv-upload-info'); if (info) info.style.display = 'none';
+  // Clear source input and populate datalist from saved sources
+  const srcInput = document.getElementById('csv-import-source');
+  if (srcInput) srcInput.value = '';
+  _populateImportSourceDatalist();
   goToCSVStep(1);
   document.getElementById('importModal').classList.add('open');
+}
+function _populateImportSourceDatalist() {
+  const dl = document.getElementById('csv-source-datalist');
+  if (!dl) return;
+  const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
+  dl.innerHTML = saved.map(s => `<option value="${escapeHTML(s)}">`).join('');
 }
 function closeImportModal() {
   document.getElementById('importModal').classList.remove('open');
@@ -6530,6 +6553,9 @@ function importCSVLeads() {
     return idx !== undefined ? (row[idx] || '').trim() : '';
   };
 
+  // Read user-specified import source
+  const importSourceInput = (document.getElementById('csv-import-source')?.value || '').trim();
+
   let imported = 0;
   csvParsedData.forEach(row => {
     let name = get(row, 'name');
@@ -6551,7 +6577,7 @@ function importCSVLeads() {
       zip: get(row, 'zip'),
       dob: get(row, 'dob'),
       age: get(row, 'age'),
-      source: get(row, 'source') || 'imported',
+      source: get(row, 'source') || importSourceInput || 'imported',
       military_branch: get(row, 'military_branch'),
       military_status: get(row, 'military_status'),
       notes: get(row, 'notes'),
@@ -6561,6 +6587,15 @@ function importCSVLeads() {
     leads.unshift(lead);
     imported++;
   });
+
+  // Save new source to the stored list for future suggestions
+  if (importSourceInput) {
+    const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
+    if (!saved.includes(importSourceInput)) {
+      saved.unshift(importSourceInput);
+      localStorage.setItem('pp_lead_sources', JSON.stringify(saved.slice(0, 50)));
+    }
+  }
 
   saveLeads();
   // Reset import UI
