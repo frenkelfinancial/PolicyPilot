@@ -628,6 +628,9 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-del-btn{color:var(--text3)}
 .lead-edit-btn:hover{filter:brightness(1.2)}
 .lead-del-btn:hover{color:#ef4444}
+.lef-inline-inp{background:var(--bg3);border:1px solid var(--accent);border-radius:5px;padding:2px 6px;color:var(--text);font-size:12px;font-family:var(--sans);outline:none;width:100%;box-sizing:border-box;transition:box-shadow .12s}
+.lef-inline-inp:focus{box-shadow:0 0 0 2px var(--ds-color-info-bg,rgba(99,102,241,.18))}
+.lead-editing .lead-edit-btn{color:var(--a2,#f59e0b)}
 .lead-status-pill{padding:3px 10px;border-radius:14px;font-size:11px;font-weight:600;border:1px solid;cursor:pointer;white-space:nowrap;user-select:none;transition:filter .12s;min-width:72px;text-align:center}
 .lead-status-pill:hover{filter:brightness(1.18)}
 .lead-status-sel-edit{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:3px 8px;color:var(--text);font-family:var(--sans);font-size:11.5px;outline:none;cursor:pointer;transition:border-color .14s,box-shadow .14s}
@@ -7968,23 +7971,23 @@ function renderLeads() {
     const receivedStr = formatImportedAt(lead.importedAt);
     const callCount = lead.call_count || 0;
     const allFields = [
-      {lbl:'Received on',    val:receivedStr||new Date().toLocaleDateString('en-US')},
-      {lbl:'Sale amount',    val:lead.sale_amount?String(lead.sale_amount):'Not set', notset:!lead.sale_amount},
-      {lbl:'Commission',     val:lead.commission ?String(lead.commission) :'Not set', notset:!lead.commission},
-      lead.source            ? {lbl:'Source',           val:lead.source}                    : null,
-      lead.last_called       ? {lbl:'Last called',      val:String(lead.last_called)}        : null,
-      lead.address           ? {lbl:'Address',          val:lead.address}                   : null,
-      lead.city              ? {lbl:'City',             val:lead.city}                      : null,
-      lead.zip               ? {lbl:'Zip Code',         val:lead.zip}                       : null,
-      lead.state             ? {lbl:'State',            val:lead.state}                     : null,
-      lead.military_branch   ? {lbl:'Military Branch',  val:lead.military_branch}           : null,
-      lead.military_status   ? {lbl:'Military Status',  val:lead.military_status}           : null,
-      lead.gender            ? {lbl:'Gender',           val:lead.gender}                    : null,
-      lead.age               ? {lbl:'Age',              val:String(lead.age)}               : null,
-      dobVal                 ? {lbl:'Date of Birth',    val:dobVal}                         : null,
-      lead.beneficiary       ? {lbl:'Beneficiary',      val:lead.beneficiary}               : null,
-      lead.coverage_wanted   ? {lbl:'Coverage Wanted',  val:lead.coverage_wanted}           : null,
-      ...((lead.customFields||lead.custom_fields)||[]).map(cf=>({lbl:cf.label,val:cf.value||'—',notset:!cf.value})),
+      {lbl:'Received on',    val:receivedStr||new Date().toLocaleDateString('en-US'), key:null},
+      {lbl:'Sale amount',    val:lead.sale_amount?String(lead.sale_amount):'Not set', notset:!lead.sale_amount, key:'sale_amount'},
+      {lbl:'Commission',     val:lead.commission ?String(lead.commission) :'Not set', notset:!lead.commission,  key:'commission'},
+      lead.source            ? {lbl:'Source',          val:lead.source,          key:'source'}          : null,
+      lead.last_called       ? {lbl:'Last called',     val:String(lead.last_called), key:null}           : null,
+      lead.address           ? {lbl:'Address',         val:lead.address,         key:'address'}         : null,
+      lead.city              ? {lbl:'City',            val:lead.city,            key:'city'}            : null,
+      lead.zip               ? {lbl:'Zip Code',        val:lead.zip,             key:'zip'}             : null,
+      lead.state             ? {lbl:'State',           val:lead.state,           key:'state'}           : null,
+      lead.military_branch   ? {lbl:'Military Branch', val:lead.military_branch, key:'military_branch'} : null,
+      lead.military_status   ? {lbl:'Military Status', val:lead.military_status, key:'military_status'} : null,
+      lead.gender            ? {lbl:'Gender',          val:lead.gender,          key:'gender'}          : null,
+      lead.age               ? {lbl:'Age',             val:String(lead.age),     key:'age'}             : null,
+      dobVal                 ? {lbl:'Date of Birth',   val:dobVal,               key:'dob'}             : null,
+      lead.beneficiary       ? {lbl:'Beneficiary',     val:lead.beneficiary,     key:'beneficiary'}     : null,
+      lead.coverage_wanted   ? {lbl:'Coverage Wanted', val:lead.coverage_wanted, key:'coverage_wanted'} : null,
+      ...((lead.customFields||lead.custom_fields)||[]).map(cf=>({lbl:cf.label,val:cf.value||'—',notset:!cf.value,key:null})),
     ].filter(Boolean);
 
     div.innerHTML = `
@@ -8024,11 +8027,11 @@ function renderLeads() {
           </div>
           <div class="lead-col lead-col-fields">
             <div class="lead-received-icons">
-              <button class="lead-edit-btn lead-quote-btn" data-lid="${lid}" title="Open Quoter for this lead">${icon('pencil',{size:14})}</button>
+              <button class="lead-edit-btn lead-edit-info-btn" data-lid="${lid}" title="Edit lead info">${icon('pencil',{size:14})}</button>
               <button class="lead-del-btn lead-delete-lead-btn" data-lid="${lid}" title="Delete lead">${icon('trash',{size:14})}</button>
             </div>
             <div class="lead-fields-grid">
-              ${allFields.map(f=>`<div class="lead-info-line lead-field-item"><span class="lbl">${escapeHTML(f.lbl)}</span><span class="val${f.notset?' notset':''}">${escapeHTML(f.val)}</span></div>`).join('')}
+              ${allFields.map(f=>`<div class="lead-info-line lead-field-item"${f.key?` data-field="${f.key}"`:''}><span class="lbl">${escapeHTML(f.lbl)}</span><span class="val${f.notset?' notset':''}">${escapeHTML(f.val)}</span></div>`).join('')}
             </div>
             <button class="lead-new-field-btn" data-lid="${lid}" onclick="openNewLeadFieldForm(event,this,'${lid}')">+ NEW FIELD</button>
           </div>
@@ -8075,10 +8078,10 @@ function renderLeads() {
       openQuoteForLead(e.currentTarget.dataset.lid);
     });
   });
-  container.querySelectorAll('.lead-quote-btn').forEach(btn => {
+  container.querySelectorAll('.lead-edit-info-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
-      openQuoteForLead(e.currentTarget.dataset.lid);
+      openLeadEditPanel(e.currentTarget.dataset.lid);
     });
   });
   container.querySelectorAll('.lead-notes-cb').forEach(ta => {
@@ -8735,6 +8738,80 @@ function saveLeadNote(lid, text) {
   lid = String(lid);
   const lead = leads.find(l => String(l.id) === lid);
   if (lead) { lead.notes = text; saveLeads(); }
+}
+
+let _lefExitHandler = null;
+
+function openLeadEditPanel(lid) {
+  lid = String(lid);
+  const lead = leads.find(l => String(l.id) === lid);
+  if (!lead) return;
+
+  const card = document.querySelector(`.lead-row[data-lid="${lid}"]`);
+  if (!card) return;
+
+  // Clean up any prior exit handler before toggling
+  if (_lefExitHandler) {
+    document.removeEventListener('mousedown', _lefExitHandler, true);
+    _lefExitHandler = null;
+  }
+
+  const isEditing = card.classList.toggle('lead-editing');
+
+  if (!isEditing) {
+    renderLeads();
+    return;
+  }
+
+  const numericFields = new Set(['sale_amount', 'commission', 'age']);
+
+  card.querySelectorAll('.lead-field-item[data-field]').forEach(item => {
+    const key = item.dataset.field;
+    const valSpan = item.querySelector('.val');
+    if (!valSpan) return;
+
+    const rawVal = lead[key] != null ? String(lead[key]) : '';
+    const inp = document.createElement('input');
+    inp.className = 'lef-inline-inp';
+    inp.value = rawVal;
+    inp.placeholder = 'Not set';
+    if (numericFields.has(key)) { inp.type = 'number'; inp.step = '0.01'; }
+
+    inp.addEventListener('blur', () => {
+      const v = inp.value.trim();
+      if (numericFields.has(key)) {
+        const n = parseFloat(v);
+        lead[key] = isNaN(n) ? '' : n;
+      } else {
+        lead[key] = v;
+      }
+      saveLeads();
+    });
+
+    inp.addEventListener('click', e => e.stopPropagation());
+
+    valSpan.textContent = '';
+    valSpan.classList.remove('notset');
+    valSpan.appendChild(inp);
+  });
+
+  // Exit edit mode on any click that isn't one of the inline inputs
+  const exitHandler = e => {
+    const isOwnInput = e.target.classList.contains('lef-inline-inp') && card.contains(e.target);
+    const isPencil   = !!e.target.closest(`.lead-edit-info-btn[data-lid="${lid}"]`);
+    if (isOwnInput || isPencil) return;
+    document.removeEventListener('mousedown', exitHandler, true);
+    _lefExitHandler = null;
+    // Allow the blur on the active input to save first, then re-render
+    setTimeout(() => {
+      if (document.contains(card) && card.classList.contains('lead-editing')) {
+        card.classList.remove('lead-editing');
+        renderLeads();
+      }
+    }, 0);
+  };
+  _lefExitHandler = exitHandler;
+  document.addEventListener('mousedown', exitHandler, true);
 }
 
 // Quick-action: set status without prompting.
