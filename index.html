@@ -550,6 +550,11 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .note{font-size:11px;color:var(--text3);margin-top:6px;font-style:italic}
 .del-btn{background:none;border:none;color:var(--text3);cursor:pointer;padding:4px 7px;border-radius:5px;font-size:13px;transition:all .14s}
 .del-btn:hover{color:var(--ds-color-danger);background:var(--ds-color-danger-bg)}
+.info-btn{background:none;border:none;color:var(--text3);cursor:pointer;padding:4px 7px;border-radius:5px;font-size:13px;transition:all .14s;margin-right:2px}
+.info-btn:hover,.info-btn.active{color:var(--ds-color-info);background:var(--ds-color-info-bg)}
+.client-notes-panel{padding:12px 16px;background:var(--bg3);border-top:1px solid var(--border)}
+.client-notes-ta{width:100%;min-height:90px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;outline:none;box-sizing:border-box}
+.client-notes-ta:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
 .running{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 0;display:flex;gap:0;align-items:stretch;flex-wrap:wrap}
 .running > div{padding:2px 22px}
 .running > div + div{border-left:1px solid var(--border)}
@@ -6183,6 +6188,33 @@ async function deletePolicy(id) {
   renderPolicies(); updateBonusFromTracker();
 }
 
+function toggleClientInfo(id) {
+  const row = document.getElementById(`notes-row-${id}`);
+  const btn = document.getElementById(`info-btn-${id}`);
+  if (!row) return;
+  const opening = row.style.display === 'none';
+  row.style.display = opening ? 'table-row' : 'none';
+  if (btn) btn.classList.toggle('active', opening);
+  if (opening) {
+    const p = policies.find(x => x.id === id);
+    const ta = document.getElementById(`notes-ta-${id}`);
+    if (ta && p) ta.value = p.clientNotes || '';
+    if (ta) ta.focus();
+  }
+}
+
+async function saveClientNotes(id) {
+  const ta = document.getElementById(`notes-ta-${id}`);
+  if (!ta) return;
+  const p = policies.find(x => x.id === id);
+  if (!p) return;
+  p.clientNotes = ta.value;
+  localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
+  const { error } = await sbUpsertPolicy(p);
+  if (error) { showToast('Save failed: ' + error.message, '#ef4444'); return; }
+  showToast('Client info saved!', '#10b981');
+}
+
 async function updatePolicyStatus(id, newStatus, selectEl) {
   const sMap = {pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l',chargeback:'sp-cb'};
   const policy = policies.find(p => p.id === id);
@@ -6291,9 +6323,28 @@ function renderPolicies() {
         <option value="lapsed" ${p.status==='lapsed'?'selected':''}>Lapsed</option>
         <option value="chargeback" ${p.status==='chargeback'?'selected':''}>Charge Back</option>
       </select></td>
-      <td><button class="del-btn" onclick="deletePolicy(${p.id})" title="Delete policy">${icon('trash',{size:14})}</button></td>
+      <td style="white-space:nowrap">
+        <button class="info-btn" id="info-btn-${p.id}" onclick="toggleClientInfo(${p.id})" title="View/Edit client info">${icon('user',{size:14})}</button>
+        <button class="del-btn" onclick="deletePolicy(${p.id})" title="Delete policy">${icon('trash',{size:14})}</button>
+      </td>
     `;
     tbody.appendChild(tr);
+    const notesRow = document.createElement('tr');
+    notesRow.id = `notes-row-${p.id}`;
+    notesRow.style.display = 'none';
+    notesRow.innerHTML = `
+      <td colspan="11" style="padding:0">
+        <div class="client-notes-panel">
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Client Info — ${escHTML(p.client)}</div>
+          <textarea id="notes-ta-${p.id}" class="client-notes-ta" placeholder="Enter client details: DOB, SSN, address, beneficiaries, health notes, contact info...">${escHTML(p.clientNotes||'')}</textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
+            <button class="btn btn-s btn-sm" onclick="toggleClientInfo(${p.id})">Close</button>
+            <button class="btn btn-p btn-sm" onclick="saveClientNotes(${p.id})">Save</button>
+          </div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(notesRow);
   });
 
   document.getElementById('total-ap').textContent = fmt$(totAP);
