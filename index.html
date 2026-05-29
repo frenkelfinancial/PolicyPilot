@@ -3639,7 +3639,8 @@ async function sbPullLeads() {
   if (!currentAgent) return null;
   const { data, error } = await sb.from('leads')
     .select('client_id, data')
-    .eq('agent_id', currentAgent.id);
+    .eq('agent_id', currentAgent.id)
+    .order('created_at', { ascending: false });
   if (error) { console.error('[sync] pull leads', error); return null; }
   return data.map(r => r.data);
 }
