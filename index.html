@@ -6817,21 +6817,22 @@ function renderHeroSide(pols, today, monthRange, weekRange) {
   const $ = id => document.getElementById(id);
   const money = n => fmt$(n).replace(/\.\d+$/, '');
 
-  // Today
+  // Today — primary stat is submitted AP
   const todayPols = pols.filter(p => p.draft === ymd);
-  $('today-count').textContent = todayPols.length;
-  $('today-ap').textContent    = money(_sumKey(todayPols, 'ap')) + ' AP';
+  const todayAP = _sumKey(todayPols, 'ap');
+  $('today-count').textContent = money(todayAP);
+  $('today-ap').textContent    = todayPols.length === 0 ? '' : (todayPols.length === 1 ? '1 policy' : `${todayPols.length} policies`);
   $('today-sub').textContent   = todayPols.length === 0
-    ? 'No policies submitted today'
-    : (todayPols.length === 1 ? '1 policy submitted today' : `${todayPols.length} policies submitted today`);
+    ? 'No AP submitted today'
+    : (todayPols.length === 1 ? '1 submitted today' : `${todayPols.length} submitted today`);
 
-  // Week / Month: count + AP
+  // Week / Month — primary stat is submitted AP
   const weekPols  = pols.filter(p => _inRange(p, weekRange.start, weekRange.end));
   const monthPols = pols.filter(p => _inRange(p, monthRange.start, monthRange.end));
-  $('act-week').textContent     = weekPols.length;
-  $('act-month').textContent    = monthPols.length;
-  $('act-week-ap').textContent  = money(_sumKey(weekPols, 'ap')) + ' AP';
-  $('act-month-ap').textContent = money(_sumKey(monthPols, 'ap')) + ' AP';
+  $('act-week').textContent     = money(_sumKey(weekPols, 'ap'));
+  $('act-month').textContent    = money(_sumKey(monthPols, 'ap'));
+  $('act-week-ap').textContent  = weekPols.length === 1 ? '1 submitted' : `${weekPols.length} submitted`;
+  $('act-month-ap').textContent = monthPols.length === 1 ? '1 submitted' : `${monthPols.length} submitted`;
 
   // Top 3 carriers MTD by AP
   const listEl  = $('carriers-list');
