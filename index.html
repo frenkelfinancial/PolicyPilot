@@ -5542,9 +5542,8 @@ function renderSmartGoalHub(currentAp, monthApsCount, today){
     stalledStages: events.filter(e => e.tone === 'urgent').length,
     totalStages:   Math.max(1, events.length),
   };
-  const score = pulseScore(ctx);
   const numEl = document.getElementById('sgh-pulse-num');
-  if (numEl) _kpi('sgh-pulse', numEl, score, v => String(Math.round(v)));
+  if (numEl) _kpi('sgh-pulse', numEl, monthApsCount, v => String(Math.round(v)));
 
   // Side scorecard — adaptive copy.
   const need = paceNeeded(currentAp, goalAp, today);
