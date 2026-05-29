@@ -3055,38 +3055,10 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <input type="text" id="al-zip" placeholder="62701" autocomplete="off">
         </div>
       </div>
-      <div class="frow" style="margin-top:10px">
-        <div class="fg">
-          <label>Military Branch <span style="color:var(--text3);font-weight:400">(optional)</span></label>
-          <input type="text" id="al-military-branch" placeholder="e.g. Army, Navy, Marines" autocomplete="off">
-        </div>
-        <div class="fg">
-          <label>Military Status <span style="color:var(--text3);font-weight:400">(optional)</span></label>
-          <input type="text" id="al-military-status" placeholder="e.g. Veteran, Active" autocomplete="off">
-        </div>
-      </div>
-      <div class="frow" style="margin-top:10px">
-        <div class="fg">
-          <label>Beneficiary <span style="color:var(--text3);font-weight:400">(optional)</span></label>
-          <input type="text" id="al-beneficiary" placeholder="Spouse, child name..." autocomplete="off">
-        </div>
-        <div class="fg">
-          <label>Coverage Wanted <span style="color:var(--text3);font-weight:400">(optional)</span></label>
-          <input type="text" id="al-coverage" placeholder="e.g. $25,000 whole life" autocomplete="off">
-        </div>
-      </div>
       <div class="fg" style="margin-top:10px">
         <label>Lead Source <span style="color:var(--text3);font-weight:400">(optional)</span></label>
-        <select id="al-source" autocomplete="off">
-          <option value="">-- Select --</option>
-          <option value="direct_mail">Direct Mail</option>
-          <option value="facebook">Facebook</option>
-          <option value="google">Google</option>
-          <option value="drip">Drip Lead</option>
-          <option value="referral">Referral</option>
-          <option value="aged">Aged Lead</option>
-          <option value="other">Other</option>
-        </select>
+        <input type="text" id="al-source" list="al-source-datalist" placeholder="e.g. Direct Mail, Facebook, Referral…" autocomplete="off">
+        <datalist id="al-source-datalist"></datalist>
       </div>
       <div class="fg" style="margin-top:10px">
         <label>Notes <span style="color:var(--text3);font-weight:400">(optional)</span></label>
@@ -9325,11 +9297,20 @@ function openImportModal() {
   goToCSVStep(1);
   document.getElementById('importModal').classList.add('open');
 }
+function _buildSourceOptions() {
+  const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
+  const builtIn = BUILT_IN_SOURCES.map(s => s.label);
+  return [...new Set([...builtIn, ...saved])];
+}
+function _populateAddLeadSourceDatalist() {
+  const dl = document.getElementById('al-source-datalist');
+  if (!dl) return;
+  dl.innerHTML = _buildSourceOptions().map(s => `<option value="${escapeHTML(s)}">`).join('');
+}
 function _populateImportSourceDatalist() {
   const dl = document.getElementById('csv-source-datalist');
   if (!dl) return;
-  const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
-  dl.innerHTML = saved.map(s => `<option value="${escapeHTML(s)}">`).join('');
+  dl.innerHTML = _buildSourceOptions().map(s => `<option value="${escapeHTML(s)}">`).join('');
 }
 function closeImportModal() {
   document.getElementById('importModal').classList.remove('open');
@@ -9527,13 +9508,13 @@ function detectFieldMap(headers) { return {}; } // legacy stub
 
 function openAddLeadModal() {
   ['al-first','al-last','al-phone','al-email','al-dob','al-state',
-   'al-address','al-city','al-zip','al-military-branch','al-military-status',
-   'al-beneficiary','al-coverage','al-notes'].forEach(id => {
+   'al-address','al-city','al-zip','al-notes'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   const src = document.getElementById('al-source');
   if (src) src.value = '';
+  _populateAddLeadSourceDatalist();
   const cf = document.getElementById('al-custom-fields');
   if (cf) cf.innerHTML = '';
   const msg = document.getElementById('al-msg');
@@ -9629,10 +9610,6 @@ function saveManualLead() {
   const address= (document.getElementById('al-address').value|| '').trim();
   const city   = (document.getElementById('al-city').value   || '').trim();
   const zip    = (document.getElementById('al-zip').value    || '').trim();
-  const milBr  = (document.getElementById('al-military-branch').value  || '').trim();
-  const milSt  = (document.getElementById('al-military-status').value  || '').trim();
-  const benef  = (document.getElementById('al-beneficiary').value       || '').trim();
-  const cov    = (document.getElementById('al-coverage').value         || '').trim();
   const source = (document.getElementById('al-source').value || '').trim();
   const notes  = (document.getElementById('al-notes').value  || '').trim();
   const msg    = document.getElementById('al-msg');
@@ -9669,10 +9646,6 @@ function saveManualLead() {
     address:         address  || undefined,
     city:            city     || undefined,
     zip:             zip      || undefined,
-    military_branch: milBr   || undefined,
-    military_status: milSt   || undefined,
-    beneficiary:     benef   || undefined,
-    coverage_wanted: cov     || undefined,
     notes:           notes   || undefined,
     source:          source  || 'manual',
     customFields:    customFields.length ? customFields : undefined,
@@ -9682,6 +9655,13 @@ function saveManualLead() {
 
   leads.unshift(lead);
   saveLeads();
+  if (source) {
+    const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
+    if (!saved.includes(source)) {
+      saved.unshift(source);
+      localStorage.setItem('pp_lead_sources', JSON.stringify(saved.slice(0, 50)));
+    }
+  }
   if (typeof currentLeadTab !== 'undefined' && currentLeadTab !== 'all' && currentLeadTab !== 'new') {
     currentLeadTab = 'all';
     document.querySelectorAll('#sec-leads .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'all'));
