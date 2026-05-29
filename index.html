@@ -6105,6 +6105,7 @@ async function submitAsSold() {
     smokerStatus,
     knownConditions,
     notes: sourceLead && sourceLead.notes ? sourceLead.notes : null,
+    clientNotes: sourceLead && sourceLead.notes ? sourceLead.notes : null,
     leadSource: sourceLead && sourceLead.source || null,
     issueDate: draft || null,
   };
@@ -6198,7 +6199,7 @@ function toggleClientInfo(id) {
   if (opening) {
     const p = policies.find(x => x.id === id);
     const ta = document.getElementById(`notes-ta-${id}`);
-    if (ta && p) ta.value = p.clientNotes || '';
+    if (ta && p) ta.value = p.clientNotes ?? p.notes ?? '';
     if (ta) ta.focus();
   }
 }
@@ -6336,7 +6337,7 @@ function renderPolicies() {
       <td colspan="11" style="padding:0">
         <div class="client-notes-panel">
           <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Client Info — ${escHTML(p.client)}</div>
-          <textarea id="notes-ta-${p.id}" class="client-notes-ta" placeholder="Enter client details: DOB, SSN, address, beneficiaries, health notes, contact info...">${escHTML(p.clientNotes||'')}</textarea>
+          <textarea id="notes-ta-${p.id}" class="client-notes-ta" placeholder="Enter client details: DOB, SSN, address, beneficiaries, health notes, contact info...">${escHTML(p.clientNotes ?? p.notes ?? '')}</textarea>
           <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
             <button class="btn btn-s btn-sm" onclick="toggleClientInfo(${p.id})">Close</button>
             <button class="btn btn-p btn-sm" onclick="saveClientNotes(${p.id})">Save</button>
