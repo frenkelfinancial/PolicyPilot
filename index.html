@@ -6297,7 +6297,7 @@ function renderPolicies() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="color:var(--text);font-weight:500">${escHTML(p.client)}</td>
-      <td>${escHTML(p.carrier)}</td><td style="font-size:12px">${escHTML(p.product)}</td>
+      <td>${escHTML(p.carrier)}</td><td style="font-size:12px">${escHTML(getProductDisplayLabel(p.product))}</td>
       <td class="mono text-b">${fmt$(monthly)}/mo</td>
       <td class="mono">${fmt$(ap)}/yr</td>
       <td class="mono">${getSub(p)||'—'}</td>
@@ -10661,12 +10661,36 @@ const CARRIER_PRODUCTS = {
   'Kansas City Life': [{l:'Term Life',k:'kcl_sig_term_si'},{l:'IUL',k:'kcl_iul'}],
 };
 
+function _normalizeProductLabel(rawLabel) {
+  const l = rawLabel.toLowerCase();
+  if (l.includes('term')) return 'Term';
+  if (l.includes('iul')) return 'IUL';
+  return 'Whole Life';
+}
+
+function getProductDisplayLabel(productKey) {
+  for (const prods of Object.values(CARRIER_PRODUCTS)) {
+    const match = prods.find(p => p.k === productKey);
+    if (match) return _normalizeProductLabel(match.l);
+  }
+  if (/term|ladder/.test(productKey)) return 'Term';
+  if (/iul/.test(productKey)) return 'IUL';
+  return 'Whole Life';
+}
+
 function updateProductDropdown(carrierId, productId) {
   const carrier = (document.getElementById(carrierId)?.value || '').trim();
   const prodSel = document.getElementById(productId);
   if (!prodSel) return;
   const prods = CARRIER_PRODUCTS[carrier] || [{l:'Policy', k:''}];
-  prodSel.innerHTML = prods.map(p => `<option value="${p.k}">${p.l}</option>`).join('');
+  // Normalize labels to IUL / Term / Whole Life and deduplicate
+  const seen = new Set();
+  const normalized = [];
+  for (const p of prods) {
+    const label = _normalizeProductLabel(p.l);
+    if (!seen.has(label)) { seen.add(label); normalized.push({l: label, k: p.k}); }
+  }
+  prodSel.innerHTML = normalized.map(p => `<option value="${p.k}">${p.l}</option>`).join('');
   const prefix = productId === 'p-product' ? 'p' : 'sold';
   _toggleTermYear(prodSel.value, prefix);
 }
