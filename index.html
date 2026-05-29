@@ -3057,8 +3057,21 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       </div>
       <div class="fg" style="margin-top:10px">
         <label>Lead Source <span style="color:var(--text3);font-weight:400">(optional)</span></label>
-        <input type="text" id="al-source" list="al-source-datalist" placeholder="e.g. Direct Mail, Facebook, Referral…" autocomplete="off">
-        <datalist id="al-source-datalist"></datalist>
+        <select id="al-source" onchange="alSourceChange()" autocomplete="off">
+          <option value="">-- Select --</option>
+          <option value="direct_mail">Direct Mail</option>
+          <option value="facebook">Facebook</option>
+          <option value="google">Google</option>
+          <option value="drip">Drip Lead</option>
+          <option value="referral">Referral</option>
+          <option value="aged">Aged Lead</option>
+        </select>
+        <div id="al-source-custom-wrap" style="display:none;margin-top:6px">
+          <input type="text" id="al-source-custom-input" list="al-source-datalist"
+            placeholder="Type or pick a previous source…" autocomplete="off"
+            style="width:100%;box-sizing:border-box">
+          <datalist id="al-source-datalist"></datalist>
+        </div>
       </div>
       <div class="fg" style="margin-top:10px">
         <label>Notes <span style="color:var(--text3);font-weight:400">(optional)</span></label>
@@ -9303,9 +9316,39 @@ function _buildSourceOptions() {
   return [...new Set([...builtIn, ...saved])];
 }
 function _populateAddLeadSourceDatalist() {
+  const sel = document.getElementById('al-source');
+  if (!sel) return;
+  const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
+  const builtInValues = new Set(BUILT_IN_SOURCES.map(s => s.value));
+  const custom = saved.filter(s => !builtInValues.has(s));
+  const currentVal = sel.value;
+  let html = '<option value="">-- Select --</option>';
+  BUILT_IN_SOURCES.forEach(s => {
+    html += `<option value="${s.value}">${escapeHTML(s.label)}</option>`;
+  });
+  if (custom.length) {
+    html += '<optgroup label="Custom">';
+    custom.forEach(s => { html += `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`; });
+    html += '</optgroup>';
+  }
+  html += '<option value="__custom__">+ Add custom lead source…</option>';
+  sel.innerHTML = html;
+  if (currentVal) sel.value = currentVal;
   const dl = document.getElementById('al-source-datalist');
-  if (!dl) return;
-  dl.innerHTML = _buildSourceOptions().map(s => `<option value="${escapeHTML(s)}">`).join('');
+  if (dl) dl.innerHTML = custom.map(s => `<option value="${escapeHTML(s)}">`).join('');
+}
+function alSourceChange() {
+  const sel = document.getElementById('al-source');
+  const wrap = document.getElementById('al-source-custom-wrap');
+  if (!wrap) return;
+  const isCustom = sel && sel.value === '__custom__';
+  wrap.style.display = isCustom ? '' : 'none';
+  if (isCustom) {
+    setTimeout(() => document.getElementById('al-source-custom-input')?.focus(), 0);
+  } else {
+    const inp = document.getElementById('al-source-custom-input');
+    if (inp) inp.value = '';
+  }
 }
 function _populateImportSourceDatalist() {
   const dl = document.getElementById('csv-source-datalist');
@@ -9512,9 +9555,13 @@ function openAddLeadModal() {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  _populateAddLeadSourceDatalist();
   const src = document.getElementById('al-source');
   if (src) src.value = '';
-  _populateAddLeadSourceDatalist();
+  const customWrap = document.getElementById('al-source-custom-wrap');
+  if (customWrap) customWrap.style.display = 'none';
+  const customInp = document.getElementById('al-source-custom-input');
+  if (customInp) customInp.value = '';
   const cf = document.getElementById('al-custom-fields');
   if (cf) cf.innerHTML = '';
   const msg = document.getElementById('al-msg');
@@ -9610,7 +9657,10 @@ function saveManualLead() {
   const address= (document.getElementById('al-address').value|| '').trim();
   const city   = (document.getElementById('al-city').value   || '').trim();
   const zip    = (document.getElementById('al-zip').value    || '').trim();
-  const source = (document.getElementById('al-source').value || '').trim();
+  const _srcSel = document.getElementById('al-source');
+  const source = _srcSel?.value === '__custom__'
+    ? (document.getElementById('al-source-custom-input')?.value || '').trim()
+    : (_srcSel?.value || '').trim();
   const notes  = (document.getElementById('al-notes').value  || '').trim();
   const msg    = document.getElementById('al-msg');
   if (msg) msg.textContent = '';
