@@ -2572,6 +2572,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
               <option value="9999">All</option>
             </select>
             <button class="btn btn-s btn-sm" onclick="openAddLeadModal()" style="margin-right:6px">+ Add Lead</button>
+            <button class="btn btn-s btn-sm" onclick="openDupeRemoveModal()" style="margin-right:6px" title="Find and remove duplicate leads">⊘ Remove Duplicates</button>
             <button class="btn btn-s btn-sm" onclick="openIntegrationsModal()" style="margin-right:6px" title="Manage lead vendor webhook integrations">⚡ Integrations</button>
             <button class="btn btn-p btn-sm" onclick="openImportModal()">+ Import Leads</button>
           </div>
@@ -3179,6 +3180,31 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div class="flex gap8">
         <button class="btn btn-s btn-sm" onclick="goToCSVStep(2)">← Back to Mapping</button>
         <button class="btn btn-g" onclick="importCSVLeads()" id="csv-import-btn" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="14"></span>Import All Leads</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REMOVE DUPLICATES MODAL -->
+<div class="overlay" id="dupeRemoveModal">
+  <div class="modal" style="width:840px;max-width:95vw;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+    <div class="mhdr">
+      <div>
+        <div class="mtitle">Remove Duplicate Leads</div>
+        <div id="dupe-modal-sub" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
+      </div>
+      <button class="mclose" onclick="closeDupeRemoveModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div id="dupe-modal-body" style="flex:1;overflow-y:auto;padding:8px 0 4px"></div>
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:space-between;background:var(--bg2)">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-s btn-sm" onclick="_dupeSelectAll()">Select All</button>
+        <button class="btn btn-s btn-sm" onclick="_dupeDeselectAll()">Deselect All</button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text3)" id="dupe-selected-count">0 selected for removal</span>
+        <button class="btn btn-s btn-sm" onclick="closeDupeRemoveModal()">Cancel</button>
+        <button class="btn btn-d btn-sm" id="dupe-remove-btn" onclick="confirmRemoveDupes()" style="display:inline-flex;align-items:center;gap:5px">Remove 0 Leads</button>
       </div>
     </div>
   </div>
@@ -9139,6 +9165,200 @@ function openStatusPillEdit(pillEl) {
   });
 }
 
+
+// ============================================================
+// DUPLICATE REMOVAL
+// ============================================================
+
+let _dupeGroups = [];        // current groups shown in modal
+let _dupeSelected = new Set(); // lead ids checked for removal
+
+function _findDuplicateGroups() {
+  const parent = {};
+  leads.forEach(l => parent[l.id] = l.id);
+  function find(id) { if (parent[id] !== id) parent[id] = find(parent[id]); return parent[id]; }
+  function union(a, b) { parent[find(a)] = find(b); }
+
+  // Build phone → ids and name → ids maps
+  const phoneMap = {}, nameMap = {};
+  leads.forEach(l => {
+    const p = l.phone ? toE164(l.phone) : null;
+    if (p) { if (!phoneMap[p]) phoneMap[p] = []; phoneMap[p].push(l.id); }
+    const n = l.name ? l.name.trim().toLowerCase() : null;
+    if (n && n.length >= 2) { if (!nameMap[n]) nameMap[n] = []; nameMap[n].push(l.id); }
+  });
+
+  Object.values(phoneMap).forEach(ids => { for (let i=1;i<ids.length;i++) union(ids[0],ids[i]); });
+  Object.values(nameMap).forEach(ids => { for (let i=1;i<ids.length;i++) union(ids[0],ids[i]); });
+
+  const buckets = {};
+  leads.forEach(l => { const r=find(l.id); if (!buckets[r]) buckets[r]=[]; buckets[r].push(l); });
+
+  return Object.values(buckets)
+    .filter(g => g.length > 1)
+    .map(g => {
+      // Sort: oldest first (earliest importedAt, or highest leads[] index = oldest since we unshift)
+      g.sort((a, b) => {
+        const ta = a.importedAt ? new Date(a.importedAt).getTime() : 0;
+        const tb = b.importedAt ? new Date(b.importedAt).getTime() : 0;
+        if (ta && tb) return ta - tb;
+        // Fall back to position in leads array (higher index = older)
+        return leads.indexOf(b) - leads.indexOf(a);
+      });
+      // Determine why they're grouped
+      const phones = [...new Set(g.map(l => l.phone ? toE164(l.phone) : null).filter(Boolean))];
+      const names  = [...new Set(g.map(l => l.name ? l.name.trim().toLowerCase() : null).filter(Boolean))];
+      const sharedPhone = Object.entries(
+        g.reduce((acc, l) => { const p=l.phone?toE164(l.phone):null; if(p){acc[p]=(acc[p]||0)+1;} return acc; }, {})
+      ).filter(([,c])=>c>1).map(([p])=>p)[0] || null;
+      const sharedName = Object.entries(
+        g.reduce((acc, l) => { const n=l.name?l.name.trim().toLowerCase():null; if(n){acc[n]=(acc[n]||0)+1;} return acc; }, {})
+      ).filter(([,c])=>c>1).map(([n])=>n)[0] || null;
+      const sharedNameDisplay = sharedName ? g.find(l=>l.name&&l.name.trim().toLowerCase()===sharedName)?.name : null;
+      return { leads: g, sharedPhone, sharedNameDisplay };
+    });
+}
+
+function _renderDupeGroups() {
+  const body = document.getElementById('dupe-modal-body');
+  if (!body) return;
+  if (_dupeGroups.length === 0) {
+    body.innerHTML = `<div style="padding:40px 20px;text-align:center;color:var(--text3)">
+      ${icon('check-circle',{size:36})}
+      <div style="font-size:15px;font-weight:600;margin-top:14px;color:var(--text)">No duplicates found</div>
+      <div style="font-size:12.5px;margin-top:6px">All leads have unique phone numbers and names.</div>
+    </div>`;
+    document.getElementById('dupe-modal-sub').textContent = '';
+    document.getElementById('dupe-remove-btn').textContent = 'Remove 0 Leads';
+    document.getElementById('dupe-selected-count').textContent = '0 selected for removal';
+    return;
+  }
+
+  const totalDupes = _dupeGroups.reduce((s, g) => s + g.leads.length - 1, 0);
+  document.getElementById('dupe-modal-sub').textContent =
+    `${_dupeGroups.length} duplicate group${_dupeGroups.length>1?'s':''} found — ${totalDupes} lead${totalDupes>1?'s':''} can be removed. The oldest lead in each group is kept automatically.`;
+
+  body.innerHTML = _dupeGroups.map((group, gi) => {
+    const reasons = [];
+    if (group.sharedPhone) reasons.push(`phone: <strong>${escHTML(group.sharedPhone)}</strong>`);
+    if (group.sharedNameDisplay) reasons.push(`name: <strong>${escHTML(group.sharedNameDisplay)}</strong>`);
+    const reasonStr = reasons.length ? 'Matched by ' + reasons.join(' &amp; ') : 'Possible duplicate';
+
+    const rows = group.leads.map((lead, li) => {
+      const isKeeper = li === 0;
+      const imported = lead.importedAt ? new Date(lead.importedAt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
+      const chk = isKeeper ? '' :
+        `<input type="checkbox" data-lead-id="${escHTML(lead.id)}" data-group="${gi}"
+          ${_dupeSelected.has(lead.id)?'checked':''}
+          onchange="_onDupeCheck(this)"
+          style="width:14px;height:14px;cursor:pointer;accent-color:#ef4444;flex-shrink:0">`;
+      const keepBadge = isKeeper
+        ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(16,185,129,.15);color:var(--ds-color-success);border:1px solid rgba(16,185,129,.3);white-space:nowrap">KEEP</span>`
+        : `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(239,68,68,.12);color:#ef4444;border:1px solid rgba(239,68,68,.25);white-space:nowrap">${_dupeSelected.has(lead.id)?'REMOVE':'—'}</span>`;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--border);${isKeeper?'opacity:.6':''}">
+        <div style="width:18px;flex-shrink:0">${chk}</div>
+        ${keepBadge}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHTML(lead.name||'Unknown')}</div>
+          <div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${[lead.phone,lead.email].filter(Boolean).map(escHTML).join('  ·  ')||'No contact info'}</div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);white-space:nowrap;text-align:right">
+          <div>${escHTML(lead.source||'')}</div>
+          <div>${imported}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div style="margin:10px 16px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+      <div style="padding:9px 14px;background:var(--bg3);display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--text2)">${reasonStr}</div>
+        <button class="btn btn-s btn-sm" style="font-size:11px;padding:3px 9px" onclick="_toggleDupeGroup(${gi})">Toggle Group</button>
+      </div>
+      ${rows}
+    </div>`;
+  }).join('');
+
+  _updateDupeRemoveBtn();
+}
+
+function _onDupeCheck(cb) {
+  const id = cb.dataset.leadId;
+  if (cb.checked) _dupeSelected.add(id); else _dupeSelected.delete(id);
+  // Update REMOVE badge label inline
+  const badge = cb.closest('div[style]')?.querySelector('span[style*="REMOVE"], span[style*="—"]');
+  if (badge) badge.textContent = cb.checked ? 'REMOVE' : '—';
+  _updateDupeRemoveBtn();
+}
+
+function _toggleDupeGroup(gi) {
+  const group = _dupeGroups[gi];
+  if (!group) return;
+  const nonKeepers = group.leads.slice(1);
+  const allChecked = nonKeepers.every(l => _dupeSelected.has(l.id));
+  nonKeepers.forEach(l => { if (allChecked) _dupeSelected.delete(l.id); else _dupeSelected.add(l.id); });
+  _renderDupeGroups();
+}
+
+function _dupeSelectAll() {
+  _dupeGroups.forEach(g => g.leads.slice(1).forEach(l => _dupeSelected.add(l.id)));
+  _renderDupeGroups();
+}
+
+function _dupeDeselectAll() {
+  _dupeSelected.clear();
+  _renderDupeGroups();
+}
+
+function _updateDupeRemoveBtn() {
+  const n = _dupeSelected.size;
+  const btn = document.getElementById('dupe-remove-btn');
+  const lbl = document.getElementById('dupe-selected-count');
+  if (btn) { btn.textContent = `Remove ${n} Lead${n!==1?'s':''}`; btn.disabled = n === 0; }
+  if (lbl) lbl.textContent = `${n} selected for removal`;
+}
+
+function openDupeRemoveModal() {
+  _dupeGroups = _findDuplicateGroups();
+  _dupeSelected = new Set();
+  // Pre-select all non-keeper leads (newest in each group)
+  _dupeGroups.forEach(g => g.leads.slice(1).forEach(l => _dupeSelected.add(l.id)));
+  _renderDupeGroups();
+  const modal = document.getElementById('dupeRemoveModal');
+  if (modal) modal.classList.add('open');
+  mountIcons(modal);
+}
+
+function closeDupeRemoveModal() {
+  const modal = document.getElementById('dupeRemoveModal');
+  if (modal) modal.classList.remove('open');
+  _dupeGroups = [];
+  _dupeSelected = new Set();
+}
+
+async function confirmRemoveDupes() {
+  if (_dupeSelected.size === 0) return;
+  const ids = [..._dupeSelected];
+  const btn = document.getElementById('dupe-remove-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Removing…'; }
+  let removed = 0, failed = 0;
+  for (const id of ids) {
+    const { error } = await sbDeleteLead(id);
+    if (error) { failed++; } else {
+      leads = leads.filter(l => String(l.id) !== String(id));
+      selectedLeadIds?.delete(String(id));
+      removed++;
+    }
+  }
+  localStorage.setItem(k('pp_leads'), JSON.stringify(leads));
+  closeDupeRemoveModal();
+  filterLeads();
+  showToast(
+    failed > 0
+      ? `Removed ${removed} lead${removed!==1?'s':''}, ${failed} failed`
+      : `Removed ${removed} duplicate lead${removed!==1?'s':''}`,
+    failed > 0 ? '#f59e0b' : '#10b981'
+  );
+}
 
 async function deleteLead(lid) {
   lid = String(lid);
