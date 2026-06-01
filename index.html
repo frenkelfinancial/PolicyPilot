@@ -8125,13 +8125,22 @@ function renderLeads() {
 }
 
 // Shared toast helper
-function showToast(msg, color='#10b981') {
-  // Toast color carries the success/error semantic; no leading glyph needed
+function showToast(msg, color='#10b981', undoCallback=null) {
+  const duration = undoCallback ? 5000 : 3000;
   const toast = document.createElement('div');
-  toast.style.cssText = `position:fixed;bottom:28px;right:28px;background:${color};color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.18);max-width:320px`;
-  toast.textContent = msg;
+  toast.style.cssText = `position:fixed;bottom:28px;right:28px;background:${color};color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.18);max-width:340px;display:flex;align-items:center;gap:12px`;
+  const msgSpan = document.createElement('span');
+  msgSpan.textContent = msg;
+  toast.appendChild(msgSpan);
+  if (undoCallback) {
+    const undoBtn = document.createElement('button');
+    undoBtn.textContent = 'Undo';
+    undoBtn.style.cssText = `background:rgba(255,255,255,0.22);border:1.5px solid rgba(255,255,255,0.55);color:#fff;padding:3px 11px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0`;
+    undoBtn.addEventListener('click', () => { undoCallback(); toast.remove(); });
+    toast.appendChild(undoBtn);
+  }
   document.body.appendChild(toast);
-  setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(()=>toast.remove(),400); }, 3000);
+  setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(()=>toast.remove(),400); }, duration);
 }
 
 // ============================================================
@@ -9367,12 +9376,34 @@ async function confirmRemoveDupes() {
 
 async function deleteLead(lid) {
   lid = String(lid);
-  const { error } = await sbDeleteLead(lid);
-  if (error) { alert('Delete failed: ' + error.message); return; }
-  leads = leads.filter(l => String(l.id) !== lid);
+  const idx = leads.findIndex(l => String(l.id) === lid);
+  if (idx === -1) return;
+  const deletedLead = leads[idx];
+
+  leads.splice(idx, 1);
   selectedLeadIds.delete(lid);
   localStorage.setItem(k('pp_leads'), JSON.stringify(leads));
   filterLeads();
+
+  let undone = false;
+  const timer = setTimeout(async () => {
+    if (undone) return;
+    const { error } = await sbDeleteLead(lid);
+    if (error) {
+      leads.splice(idx, 0, deletedLead);
+      localStorage.setItem(k('pp_leads'), JSON.stringify(leads));
+      filterLeads();
+      showToast('Delete failed: ' + error.message, '#ef4444');
+    }
+  }, 5000);
+
+  showToast('Lead deleted', '#ef4444', () => {
+    undone = true;
+    clearTimeout(timer);
+    leads.splice(idx, 0, deletedLead);
+    localStorage.setItem(k('pp_leads'), JSON.stringify(leads));
+    filterLeads();
+  });
 }
 
 // ============================================================
