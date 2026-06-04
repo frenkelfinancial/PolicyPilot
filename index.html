@@ -2947,6 +2947,37 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             </div>
           </div>
         </div>
+
+        <!-- ── LEAD VENDOR WEBHOOKS ── -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span data-ico="zap" data-size="14"></span>Lead Vendor Webhooks
+            </div>
+            <button class="btn btn-p btn-sm" id="stg-add-vendor-btn" onclick="openAddVendorForm()" style="display:inline-flex;align-items:center;gap:6px">
+              <span data-ico="plus" data-size="13"></span>Add Vendor
+            </button>
+          </div>
+          <div class="text-m" style="font-size:12.5px;line-height:1.55;color:var(--text2);margin-bottom:14px">
+            Each vendor gets a unique webhook URL. Paste it into the vendor's portal — leads post automatically with the vendor's name as the source.
+          </div>
+
+          <!-- Inline add-vendor form -->
+          <div id="stg-add-vendor-form" style="display:none;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.4px">New Vendor</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input type="text" id="stg-vendor-name-input" placeholder="Vendor name (e.g. Goat Leads)"
+                style="flex:1;min-width:180px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;outline:none"
+                onkeydown="if(event.key==='Enter')addVendorIntegration();if(event.key==='Escape')closeAddVendorForm()">
+              <button class="btn btn-p btn-sm" onclick="addVendorIntegration()">Create</button>
+              <button class="btn btn-s btn-sm" onclick="closeAddVendorForm()">Cancel</button>
+            </div>
+            <div id="stg-vendor-add-err" style="font-size:12px;color:var(--ds-color-danger);margin-top:6px;display:none"></div>
+          </div>
+
+          <!-- Populated by loadVendorWebhooks() -->
+          <div id="stg-vendor-list"></div>
+        </div>
       </div>
 
     </div><!-- /sec-settings -->
@@ -3508,13 +3539,13 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
     <!-- How to give vendor the URL -->
     <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:4px">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">How to set up Goat Leads</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">How to use your webhook URL</div>
       <ol style="font-size:12.5px;color:var(--text2);margin:0;padding-left:18px;line-height:1.8">
-        <li>Copy your Goat Leads webhook URL above</li>
-        <li>In Goat Leads portal → <strong>Settings → Webhook / Lead Delivery URL</strong></li>
-        <li>Paste the URL and save — new leads will appear here instantly</li>
+        <li>Copy your vendor's webhook URL above</li>
+        <li>In your vendor's portal → find <strong>Webhook</strong> or <strong>Lead Delivery URL</strong></li>
+        <li>Paste the URL and save — new leads appear here instantly with the vendor as source</li>
       </ol>
-      <div style="margin-top:10px;font-size:11.5px;color:var(--text3)">Need to add a new vendor? Ask your Supabase admin to run the setup SQL and give you the token.</div>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--text3)">Need to add a new vendor? Go to <a href="#" onclick="event.preventDefault();closeIntegrationsModal();nav('settings');setTimeout(()=>{const b=document.querySelector('[data-stg-tab=\'integrations\']');if(b)b.click();},0)" style="color:var(--accent)">Settings → Integrations</a>.</div>
     </div>
 
     <div class="mftr"><button class="btn btn-s btn-sm" onclick="closeIntegrationsModal()">Close</button></div>
@@ -11069,6 +11100,117 @@ function renderIntegrationsPanels() {
   const cEl = document.getElementById('stg-int-google-connected');
   if (dEl) dEl.style.display = connected ? 'none' : '';
   if (cEl) cEl.style.display = connected ? '' : 'none';
+  loadVendorWebhooks();
+}
+
+async function loadVendorWebhooks() {
+  const el = document.getElementById('stg-vendor-list');
+  if (!el) return;
+  el.innerHTML = '<div style="font-size:13px;color:var(--text3);text-align:center;padding:12px 0">Loading…</div>';
+
+  const { data: vendors, error } = await sb
+    .from('lead_vendors')
+    .select('id, name, token, active, created_at')
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    el.innerHTML = `<div style="font-size:13px;color:var(--ds-color-danger);padding:10px 0">${escapeHTML(error.message)}</div>`;
+    return;
+  }
+
+  if (!vendors || vendors.length === 0) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3);text-align:center;padding:12px 0">No vendor integrations yet. Click "Add Vendor" to create one.</div>';
+    return;
+  }
+
+  const base = `${SUPABASE_URL}/functions/v1/lead-ingest`;
+  el.innerHTML = vendors.map(v => {
+    const webhookUrl = `${base}?token=${encodeURIComponent(v.token)}`;
+    const dot = v.active
+      ? `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ds-color-success);flex:0 0 auto" title="Active"></span>`
+      : `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ds-color-danger);flex:0 0 auto" title="Inactive"></span>`;
+    const safeUrl = escapeHTML(webhookUrl);
+    const safeName = escapeHTML(v.name);
+    return `
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--text)">
+            ${dot}${safeName}
+          </div>
+          <button class="btn btn-s btn-sm" style="font-size:11px;color:var(--ds-color-danger)"
+            onclick="deleteVendorIntegration(${JSON.stringify(v.id)}, ${JSON.stringify(v.name)})">Remove</button>
+        </div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px">Webhook URL</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="text" readonly value="${safeUrl}"
+            style="flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:7px;padding:7px 10px;color:var(--text2);font-family:var(--mono);font-size:11px;outline:none;overflow:hidden;text-overflow:ellipsis"
+            onclick="this.select()">
+          <button class="btn btn-s btn-sm" onclick="navigator.clipboard&&navigator.clipboard.writeText(${JSON.stringify(webhookUrl)}).then(()=>showToast('Webhook URL copied!','#10b981'))">Copy</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openAddVendorForm() {
+  const form = document.getElementById('stg-add-vendor-form');
+  const btn  = document.getElementById('stg-add-vendor-btn');
+  if (!form) return;
+  form.style.display = '';
+  if (btn) btn.style.display = 'none';
+  const input = document.getElementById('stg-vendor-name-input');
+  const err   = document.getElementById('stg-vendor-add-err');
+  if (input) { input.value = ''; setTimeout(() => input.focus(), 0); }
+  if (err)   err.style.display = 'none';
+}
+
+function closeAddVendorForm() {
+  const form = document.getElementById('stg-add-vendor-form');
+  const btn  = document.getElementById('stg-add-vendor-btn');
+  if (form) form.style.display = 'none';
+  if (btn)  btn.style.display = '';
+}
+
+async function addVendorIntegration() {
+  const input = document.getElementById('stg-vendor-name-input');
+  const errEl = document.getElementById('stg-vendor-add-err');
+  const name  = (input?.value || '').trim();
+
+  if (!name) {
+    if (errEl) { errEl.textContent = 'Vendor name is required.'; errEl.style.display = ''; }
+    return;
+  }
+  if (!currentAgent?.id) {
+    if (errEl) { errEl.textContent = 'Not signed in.'; errEl.style.display = ''; }
+    return;
+  }
+
+  const token = 'wh_' + Array.from(crypto.getRandomValues(new Uint8Array(18)))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+
+  const { error } = await sb.from('lead_vendors').insert({
+    agent_id: currentAgent.id,
+    name,
+    token,
+    field_map: {},
+    active: true,
+  });
+
+  if (error) {
+    if (errEl) { errEl.textContent = error.message; errEl.style.display = ''; }
+    return;
+  }
+
+  closeAddVendorForm();
+  await loadVendorWebhooks();
+  showToast(`"${name}" integration created!`, '#10b981');
+}
+
+async function deleteVendorIntegration(id, name) {
+  if (!confirm(`Remove "${name}"?\n\nThe webhook URL will stop working immediately.`)) return;
+  const { error } = await sb.from('lead_vendors').delete().eq('id', id);
+  if (error) { showToast('Failed to remove: ' + error.message, '#E07B7B'); return; }
+  await loadVendorWebhooks();
+  showToast(`"${name}" removed.`, '#E07B7B');
 }
 
 // Promise-based input modal. Drop-in replacement for window.prompt(),

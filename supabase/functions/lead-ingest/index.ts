@@ -97,13 +97,17 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "Invalid request body" }, 400);
   }
 
-  // Apply field map: vendor field name → our internal field name
-  // Fields mapped to "skip" are intentionally ignored.
+  // Apply field map: vendor field name → our internal field name.
+  // If a key has no mapping entry, it passes through as-is (so an empty
+  // field_map works out of the box for vendors using standard field names).
+  // Fields explicitly mapped to "skip" are dropped.
   const fieldMap: Record<string, string> = vendor.field_map || {};
   const mapped: Record<string, string> = {};
 
   for (const [vendorKey, rawValue] of Object.entries(payload)) {
-    const ourKey = fieldMap[vendorKey];
+    const ourKey = Object.prototype.hasOwnProperty.call(fieldMap, vendorKey)
+      ? fieldMap[vendorKey]
+      : vendorKey;
     if (ourKey && ourKey !== "skip") {
       mapped[ourKey] = str(rawValue);
     }
