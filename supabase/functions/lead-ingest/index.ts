@@ -49,6 +49,60 @@ function str(v: unknown): string {
   return String(v ?? "").trim();
 }
 
+// Common vendor field name aliases → internal field name.
+// Checked after the vendor's explicit field_map, case-insensitive on the key.
+const FIELD_ALIASES: Record<string, string> = {
+  // Phone
+  phone_number: "phone", phone1: "phone", mobile: "phone",
+  cell: "phone", cell_phone: "phone", telephone: "phone",
+  primary_phone: "phone", home_phone: "phone", work_phone: "phone",
+  mobile_phone: "phone",
+  // Email
+  email_address: "email", email1: "email",
+  // Name
+  firstname: "first_name", first: "first_name",
+  lastname: "last_name", last: "last_name", surname: "last_name",
+  full_name: "name", fullname: "name",
+  // State
+  st: "state", province: "state", state_code: "state",
+  // DOB
+  date_of_birth: "dob", birth_date: "dob", birthdate: "dob",
+  birthday: "dob",
+  // Gender
+  sex: "gender",
+  // Zip
+  zip_code: "zip", postal_code: "zip", zipcode: "zip",
+  zip5: "zip",
+  // City
+  town: "city",
+  // Address
+  address1: "address", street: "address", street_address: "address",
+  addr: "address",
+  // Coverage
+  coverage: "coverage_wanted", coverage_amount: "coverage_wanted",
+  face_amount: "coverage_wanted", policy_amount: "coverage_wanted",
+  life_insurance_amount: "coverage_wanted", requested_coverage: "coverage_wanted",
+  // Military
+  veteran: "military_status",
+  // Beneficiary
+  beneficiary_name: "beneficiary",
+  // Notes / comments
+  comments: "notes", comment: "notes",
+  // Marital status
+  marital: "marital_status",
+};
+
+// All internal field names the frontend renders — used to detect "known" fields
+// so everything else gets collected into customFields.
+const INTERNAL_FIELDS = new Set([
+  "name", "first_name", "last_name", "phone", "email",
+  "state", "dob", "age", "gender", "address", "city", "zip",
+  "military_status", "military_branch", "coverage_wanted",
+  "beneficiary", "marital_status", "notes",
+  // Metadata — don't bucket into customFields
+  "source", "status", "importedAt", "id", "received_at",
+]);
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
@@ -98,16 +152,18 @@ Deno.serve(async (req) => {
   }
 
   // Apply field map: vendor field name → our internal field name.
-  // If a key has no mapping entry, it passes through as-is (so an empty
-  // field_map works out of the box for vendors using standard field names).
+  // Priority: 1) vendor's explicit field_map, 2) alias table, 3) pass through as-is.
   // Fields explicitly mapped to "skip" are dropped.
   const fieldMap: Record<string, string> = vendor.field_map || {};
   const mapped: Record<string, string> = {};
 
   for (const [vendorKey, rawValue] of Object.entries(payload)) {
-    const ourKey = Object.prototype.hasOwnProperty.call(fieldMap, vendorKey)
-      ? fieldMap[vendorKey]
-      : vendorKey;
+    let ourKey: string;
+    if (Object.prototype.hasOwnProperty.call(fieldMap, vendorKey)) {
+      ourKey = fieldMap[vendorKey];
+    } else {
+      ourKey = FIELD_ALIASES[vendorKey.toLowerCase()] ?? vendorKey;
+    }
     if (ourKey && ourKey !== "skip") {
       mapped[ourKey] = str(rawValue);
     }
@@ -139,36 +195,48 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Collect any vendor fields that aren't recognized internal fields into
+  // customFields, so they show up in the lead card just like CSV custom fields.
+  const customFields: Array<{ label: string; value: string }> = [];
+  for (const [k, v] of Object.entries(mapped)) {
+    if (!INTERNAL_FIELDS.has(k) && v) {
+      const label = k
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      customFields.push({ label, value: v });
+    }
+  }
+
   // Build lead object — matches saveManualLead / importCSVLeads format exactly
   const lead: Record<string, unknown> = {
     id: genLeadId(),
     name,
     phone,
-    email: mapped.email || undefined,
-    state: (mapped.state || "").toUpperCase() || undefined,
-    dob: mapped.dob || undefined,
-    age: mapped.age ? parseInt(mapped.age) || undefined : undefined,
-    military_status: mapped.military_status || undefined,
-    military_branch: mapped.military_branch || undefined,
-    coverage_wanted: mapped.coverage_wanted || undefined,
-    notes: "",
-    source: vendor.name,
-    status: "new",
-    importedAt: mapped.received_at
+    email:            mapped.email            || undefined,
+    state:            (mapped.state || "").toUpperCase() || undefined,
+    dob:              mapped.dob              || undefined,
+    age:              mapped.age ? parseInt(mapped.age) || undefined : undefined,
+    gender:           mapped.gender           || undefined,
+    address:          mapped.address          || undefined,
+    city:             mapped.city             || undefined,
+    zip:              mapped.zip              || undefined,
+    military_status:  mapped.military_status  || undefined,
+    military_branch:  mapped.military_branch  || undefined,
+    coverage_wanted:  mapped.coverage_wanted  || undefined,
+    beneficiary:      mapped.beneficiary      || undefined,
+    marital_status:   mapped.marital_status   || undefined,
+    notes:            mapped.notes            || "",
+    source:           vendor.name,
+    status:           "new",
+    importedAt:       mapped.received_at
       ? new Date(mapped.received_at).toISOString()
       : new Date().toISOString(),
-    // Extra vendor fields — stored for reference, not displayed in main lead view
-    _platform: mapped.platform || undefined,
-    _ad_name: mapped.ad_name || undefined,
-    _marital_status: mapped.marital_status || undefined,
-    _best_contact_time: mapped.best_contact_time || undefined,
-    _trusted_form: mapped.trusted_form_url || undefined,
-    _gender: mapped.gender || undefined,
+    customFields:     customFields.length ? customFields : undefined,
   };
 
   // Include split name only when available (for display in lead card)
   if (firstName) lead.first_name = firstName;
-  if (lastName) lead.last_name = lastName;
+  if (lastName)  lead.last_name  = lastName;
 
   // Strip undefined keys to keep the blob clean
   for (const k of Object.keys(lead)) {
@@ -177,9 +245,9 @@ Deno.serve(async (req) => {
 
   // Insert into leads table (same schema as upsertAllLeads uses)
   const { error: insertErr } = await supabase.from("leads").insert({
-    agent_id: vendor.agent_id,
+    agent_id:  vendor.agent_id,
     client_id: String(lead.id),
-    data: lead,
+    data:      lead,
   });
 
   if (insertErr) {

@@ -8024,25 +8024,37 @@ function renderLeads() {
     const tpsHref = tpsSearchName ? `https://www.truepeoplesearch.com/results?name=${encodeURIComponent(tpsSearchName)}&citystatezip=${encodeURIComponent(stateVal)}` : '';
     const receivedStr = formatImportedAt(lead.importedAt);
     const callCount = lead.call_count || 0;
+    // Human-readable labels for known internal field keys
+    const _knownLabels = {
+      source:'Source', last_called:'Last Called', address:'Address',
+      city:'City', zip:'Zip Code', state:'State',
+      military_branch:'Military Branch', military_status:'Military Status',
+      gender:'Gender', age:'Age', beneficiary:'Beneficiary',
+      coverage_wanted:'Coverage Wanted', marital_status:'Marital Status',
+    };
+    // Fields rendered elsewhere in the card — don't duplicate in the field panel
+    const _skipInPanel = new Set([
+      'id','name','first_name','last_name','phone','email',
+      'dob',           // re-added below with formatted value
+      'status','importedAt','notes',
+      'sale_amount','commission',  // handled as fixed items above
+      'call_count','quote',
+      'customFields','custom_fields',
+    ]);
     const allFields = [
-      {lbl:'Received on',    val:receivedStr||new Date().toLocaleDateString('en-US'), key:null},
-      {lbl:'Sale amount',    val:lead.sale_amount?String(lead.sale_amount):'Not set', notset:!lead.sale_amount, key:'sale_amount'},
-      {lbl:'Commission',     val:lead.commission ?String(lead.commission) :'Not set', notset:!lead.commission,  key:'commission'},
-      lead.source            ? {lbl:'Source',          val:lead.source,          key:'source'}          : null,
-      lead.last_called       ? {lbl:'Last called',     val:String(lead.last_called), key:null}           : null,
-      lead.address           ? {lbl:'Address',         val:lead.address,         key:'address'}         : null,
-      lead.city              ? {lbl:'City',            val:lead.city,            key:'city'}            : null,
-      lead.zip               ? {lbl:'Zip Code',        val:lead.zip,             key:'zip'}             : null,
-      lead.state             ? {lbl:'State',           val:lead.state,           key:'state'}           : null,
-      lead.military_branch   ? {lbl:'Military Branch', val:lead.military_branch, key:'military_branch'} : null,
-      lead.military_status   ? {lbl:'Military Status', val:lead.military_status, key:'military_status'} : null,
-      lead.gender            ? {lbl:'Gender',          val:lead.gender,          key:'gender'}          : null,
-      lead.age               ? {lbl:'Age',             val:String(lead.age),     key:'age'}             : null,
-      dobVal                 ? {lbl:'Date of Birth',   val:dobVal,               key:'dob'}             : null,
-      lead.beneficiary       ? {lbl:'Beneficiary',     val:lead.beneficiary,     key:'beneficiary'}     : null,
-      lead.coverage_wanted   ? {lbl:'Coverage Wanted', val:lead.coverage_wanted, key:'coverage_wanted'} : null,
+      {lbl:'Received on', val:receivedStr||new Date().toLocaleDateString('en-US'), key:null},
+      {lbl:'Sale amount', val:lead.sale_amount?String(lead.sale_amount):'Not set', notset:!lead.sale_amount, key:'sale_amount'},
+      {lbl:'Commission',  val:lead.commission ?String(lead.commission) :'Not set', notset:!lead.commission,  key:'commission'},
+      ...(dobVal ? [{lbl:'Date of Birth', val:dobVal, key:'dob'}] : []),
+      ...Object.entries(lead)
+        .filter(([k,v]) => !_skipInPanel.has(k) && v != null && v !== '' && !Array.isArray(v) && typeof v !== 'object')
+        .map(([k,v]) => ({
+          lbl: _knownLabels[k] || k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()),
+          val: String(v),
+          key: _knownLabels[k] ? k : null,
+        })),
       ...((lead.customFields||lead.custom_fields)||[]).map(cf=>({lbl:cf.label,val:cf.value||'—',notset:!cf.value,key:null})),
-    ].filter(Boolean);
+    ];
 
     div.innerHTML = `
       <div class="lead-row-main">
