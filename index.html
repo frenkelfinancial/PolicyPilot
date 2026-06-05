@@ -8176,6 +8176,66 @@ function showToast(msg, color='#10b981', undoCallback=null) {
   setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity .4s'; setTimeout(()=>toast.remove(),400); }, duration);
 }
 
+function showLeadNotification(lead) {
+  if (!document.getElementById('lead-notif-styles')) {
+    const s = document.createElement('style');
+    s.id = 'lead-notif-styles';
+    s.textContent = [
+      '@keyframes leadNotifIn  { from { transform:translateX(120%);opacity:0 } to { transform:translateX(0);opacity:1 } }',
+      '@keyframes leadNotifOut { from { transform:translateX(0);opacity:1 } to { transform:translateX(120%);opacity:0 } }',
+      '@keyframes leadNotifBar { from { transform:scaleX(1) } to { transform:scaleX(0) } }'
+    ].join('');
+    document.head.appendChild(s);
+  }
+  const existing = document.getElementById('lead-notif-popup');
+  if (existing) existing.remove();
+
+  const name  = escapeHTML(lead.name || [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Unknown');
+  const phone = escapeHTML((typeof formatPhone === 'function' ? formatPhone(lead.phone) : lead.phone) || lead.phone || '—');
+  const email = escapeHTML(lead.email || '—');
+  const state = escapeHTML(lead.state ? lead.state.toUpperCase() : '—');
+  const dob   = escapeHTML((typeof formatDOB === 'function' ? formatDOB(lead.dob) : lead.dob) || lead.dob || '—');
+  const src   = escapeHTML(lead.source || 'webhook');
+
+  const el = document.createElement('div');
+  el.id = 'lead-notif-popup';
+  el.style.cssText = 'position:fixed;top:24px;right:24px;z-index:10000;width:308px;background:#111827;border:1.5px solid #10b981;border-radius:14px;box-shadow:0 8px 36px rgba(0,0,0,.55);overflow:hidden;animation:leadNotifIn .38s cubic-bezier(.22,1,.36,1) both;font-family:inherit;cursor:pointer';
+  el.title = 'Click to dismiss';
+  el.onclick = () => {
+    el.style.animation = 'leadNotifOut .35s cubic-bezier(.55,0,1,.45) both';
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 350);
+  };
+
+  const row = (lbl, val) =>
+    `<div style="display:flex;gap:9px;align-items:baseline">` +
+    `<span style="font-size:10.5px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.5px;min-width:46px;flex-shrink:0">${lbl}</span>` +
+    `<span style="font-size:13px;color:#e5e7eb;word-break:break-all;line-height:1.4">${val}</span>` +
+    `</div>`;
+
+  el.innerHTML =
+    `<div style="background:linear-gradient(135deg,#059669,#10b981);padding:11px 14px;display:flex;align-items:center;justify-content:space-between">` +
+      `<div style="display:flex;align-items:center;gap:8px">` +
+        `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>` +
+        `<span style="font-size:14px;font-weight:700;color:#fff;letter-spacing:.2px">New Lead</span>` +
+      `</div>` +
+      `<span style="font-size:10.5px;color:rgba(255,255,255,.85);font-weight:600;background:rgba(0,0,0,.2);padding:2px 8px;border-radius:20px">${src}</span>` +
+    `</div>` +
+    `<div style="padding:13px 14px;display:flex;flex-direction:column;gap:9px">` +
+      row('Name',  name)  +
+      row('Phone', phone) +
+      row('DOB',   dob)   +
+      row('Email', email) +
+      row('State', state) +
+    `</div>` +
+    `<div style="height:3px;background:#10b981;transform-origin:left;animation:leadNotifBar 5s linear forwards"></div>`;
+
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.style.animation = 'leadNotifOut .42s cubic-bezier(.55,0,1,.45) both';
+    setTimeout(() => { if (el.parentNode) el.remove(); }, 420);
+  }, 5000);
+}
+
 // ============================================================
 // SOFTPHONE — In-dashboard dialer for the Leads tab, backed by
 // SignalWire's REST agent-bridge flow (Phase D, supersedes the
@@ -13604,10 +13664,7 @@ function _initLeadsRealtime() {
         localStorage.setItem(k('pp_leads'), JSON.stringify(leads));
         filteredLeads = [...leads];
         renderLeads();
-        showToast(
-          `New lead from ${lead.source || 'webhook'}: ${lead.name || 'Unknown'}`,
-          '#10b981'
-        );
+        showLeadNotification(lead);
       })
     .subscribe();
 }
