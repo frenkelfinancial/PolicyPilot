@@ -2689,7 +2689,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div class="pb-header">
         <div class="pb-header-l">
           <div class="pb-header-title">Phone Book</div>
-          <div class="pb-header-sub">Manage your SignalWire numbers, plan, and call history.</div>
+          <div class="pb-header-sub">Manage your Telnyx numbers, plan, and call history.</div>
         </div>
         <div class="pb-header-r">
           <button class="btn btn-p" onclick="pbOpenBuyModal()">
@@ -2729,7 +2729,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <div class="pb-pickup-num mono" id="pb-pickup-num">— not set —</div>
           <a href="#" class="pb-pickup-edit" id="pb-pickup-edit">Edit number</a>
           <div class="pb-pickup-help">
-            SignalWire rings this number first when you place a call from the dashboard, then bridges you to the lead.
+            Telnyx rings this number first when you place a call from the dashboard, then bridges you to the lead.
             Both sides see your <strong>primary</strong> number as the caller-ID.
           </div>
         </div>
@@ -2994,7 +2994,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
     <div class="alert alert-i" style="margin-bottom:14px">
       <span data-ico="info"></span>
-      <div>Search US Local numbers by 3-digit area code. SignalWire bills <strong>~$1.00/month</strong> per number plus usage. Purchases are immediate.</div>
+      <div>Search US Local numbers by 3-digit area code. Telnyx bills <strong>~$1.00/month</strong> per number plus usage. Purchases are immediate.</div>
     </div>
     <div class="pb-search-row">
       <div class="fg">
@@ -3032,7 +3032,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div class="pb-empty">Loading plans…</div>
     </div>
     <div class="pb-billing-note" id="pb-billing-note">
-      Billing isn't wired up yet — switching plans just updates your monthly minute and quote caps right now. Included numbers absorb the SignalWire per-number fee up to your plan's count; "extras" are informational ($1.50/mo each) until payment processing lands.
+      Billing isn't wired up yet — switching plans just updates your monthly minute and quote caps right now. Included numbers absorb the Telnyx per-number fee up to your plan's count; "extras" are informational ($1.50/mo each) until payment processing lands.
     </div>
     <div class="flex gap8 mt16" style="justify-content:flex-end">
       <button class="btn btn-s btn-sm" onclick="pbCloseUpgradeModal()">Cancel</button>
@@ -3316,6 +3316,78 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       </div>
     </div>
     <div class="mt16"><button class="btn btn-g w-full" onclick="addPolicy()">Save Policy</button></div>
+  </div>
+</div>
+
+<!-- EDIT POLICY MODAL -->
+<div class="overlay" id="editPolModal">
+  <div class="modal">
+    <div class="mhdr"><div class="mtitle">Edit Policy</div><button class="mclose" onclick="closeEditModal()" data-ico="x" data-size="14"></button></div>
+    <div class="frow">
+      <div class="fg"><label>Client Name</label><input type="text" id="ep-client" placeholder="Jane Smith"></div>
+      <div class="fg"><label>Carrier</label>
+        <select id="ep-carrier" onchange="updateProductDropdown('ep-carrier','ep-product')">
+          <option>Americo</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg"><label>Product</label>
+        <select id="ep-product" onchange="_toggleTermYear(this.value,'ep')">
+          <option value="americo_eagle">Final Expense</option>
+        </select>
+      </div>
+      <div class="fg" id="ep-term-year-fg" style="display:none">
+        <label>Term Length</label>
+        <select id="ep-term-years">
+          <option value="10">10 years</option>
+          <option value="15">15 years</option>
+          <option value="20" selected>20 years</option>
+          <option value="25">25 years</option>
+          <option value="30">30 years</option>
+        </select>
+      </div>
+      <div class="fg"><label>Health Class</label>
+        <select id="ep-class">
+          <option value="level">Level / Select 1 — Full Commission</option>
+          <option value="standard">Standard / Select 2 — Full Commission</option>
+          <option value="graded">Graded — ~40% Commission Cut</option>
+          <option value="gi">GI / ROP — ~40% Commission Cut</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg">
+        <label>Monthly Premium ($)</label>
+        <input type="number" id="ep-monthly" placeholder="98.50" step="0.01" oninput="calcEditModalAP()">
+      </div>
+      <div class="fg">
+        <label>Annual Premium (auto-calculated)</label>
+        <input type="number" id="ep-ap" placeholder="1182.00" step="0.01" readonly style="opacity:.7;cursor:not-allowed">
+      </div>
+      <div class="fg"><label>Coverage ($)</label><input type="number" id="ep-cov" placeholder="15000"></div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg"><label>Date Submitted</label><input type="date" id="ep-dateSubmitted"></div>
+      <div class="fg"><label>Draft Date</label><input type="date" id="ep-draft"></div>
+      <div class="fg"><label>Status</label>
+        <select id="ep-status">
+          <option value="pending">Submitted / Pending</option>
+          <option value="approved">Submitted / Approved</option>
+          <option value="issued">Issued / Active</option>
+          <option value="paid">Commission Paid</option>
+          <option value="lapsed">Lapsed</option>
+          <option value="chargeback">Charge Back</option>
+        </select>
+      </div>
+    </div>
+    <div class="frow mt12" style="border-top:1px dashed var(--border);padding-top:12px">
+      <div class="fg" style="flex:1">
+        <label style="display:flex;align-items:center;gap:6px">Issue Date <span style="font-size:10px;color:var(--text3);font-weight:400">(carrier-issued)</span></label>
+        <input type="date" id="ep-issueDate">
+      </div>
+    </div>
+    <div class="mt16"><button class="btn btn-g w-full" onclick="saveEditPolicy()">Save Changes</button></div>
   </div>
 </div>
 
@@ -6030,6 +6102,7 @@ function openAddPolicy() {
 function closeModal() { document.getElementById('addPolModal').classList.remove('open'); }
 document.addEventListener('click', e => {
   if (e.target.id === 'addPolModal') closeModal();
+  if (e.target.id === 'editPolModal') closeEditModal();
   if (e.target.id === 'soldModal') closeSoldModal();
   if (e.target.id === 'leadApiQuoteModal') closeLeadApiQuote();
 });
@@ -6039,6 +6112,8 @@ document.addEventListener('keydown', e => {
   if (lq && lq.classList.contains('open')) { closeLeadApiQuote(); return; }
   const ap = document.getElementById('addPolModal');
   if (ap && ap.classList.contains('open')) { closeModal(); return; }
+  const ep = document.getElementById('editPolModal');
+  if (ep && ep.classList.contains('open')) { closeEditModal(); return; }
   const sm = document.getElementById('soldModal');
   if (sm && sm.classList.contains('open') && typeof closeSoldModal === 'function') { closeSoldModal(); return; }
   const pf = document.getElementById('pipelineDrillModal');
@@ -6245,6 +6320,84 @@ async function deletePolicy(id) {
   renderPolicies(); updateBonusFromTracker();
 }
 
+let editingPolicyId = null;
+
+function openEditPolicy(id) {
+  const p = policies.find(pol => pol.id === id);
+  if (!p) return;
+  editingPolicyId = id;
+  populateCarrierDropdowns();
+  updateProductDropdown('ep-carrier','ep-product');
+  document.getElementById('ep-client').value = p.client || '';
+  const carrierSel = document.getElementById('ep-carrier');
+  if (carrierSel) carrierSel.value = p.carrier || carrierSel.options[0]?.value;
+  updateProductDropdown('ep-carrier','ep-product');
+  const productSel = document.getElementById('ep-product');
+  if (productSel) productSel.value = p.product || productSel.options[0]?.value;
+  _toggleTermYear(p.product || '', 'ep');
+  const termSel = document.getElementById('ep-term-years');
+  if (termSel && p.termYears) termSel.value = String(p.termYears);
+  const clsSel = document.getElementById('ep-class');
+  if (clsSel) clsSel.value = p.cls || 'level';
+  document.getElementById('ep-monthly').value = p.monthly || '';
+  document.getElementById('ep-ap').value = p.ap || '';
+  document.getElementById('ep-cov').value = p.cov || '';
+  document.getElementById('ep-dateSubmitted').value = p.dateSubmitted || '';
+  document.getElementById('ep-draft').value = p.draft || '';
+  const statusSel = document.getElementById('ep-status');
+  if (statusSel) statusSel.value = p.status || 'pending';
+  document.getElementById('ep-issueDate').value = p.issueDate || '';
+  document.getElementById('editPolModal').classList.add('open');
+}
+
+function closeEditModal() {
+  document.getElementById('editPolModal').classList.remove('open');
+  editingPolicyId = null;
+}
+
+function calcEditModalAP() {
+  const monthly = parseFloat(document.getElementById('ep-monthly').value) || 0;
+  document.getElementById('ep-ap').value = monthly ? (monthly * 12).toFixed(2) : '';
+}
+
+async function saveEditPolicy() {
+  const id = editingPolicyId;
+  const p = policies.find(pol => pol.id === id);
+  if (!p) return;
+  const client = document.getElementById('ep-client').value.trim();
+  const carrier = document.getElementById('ep-carrier').value;
+  const product = document.getElementById('ep-product').value;
+  const cls = document.getElementById('ep-class').value;
+  const monthly = parseFloat(document.getElementById('ep-monthly').value);
+  const ap = +(monthly * 12).toFixed(2);
+  const cov = parseFloat(document.getElementById('ep-cov').value) || 0;
+  const dateSubmitted = document.getElementById('ep-dateSubmitted').value || p.dateSubmitted || '';
+  const draft = document.getElementById('ep-draft').value;
+  const status = document.getElementById('ep-status').value;
+  const issueDate = document.getElementById('ep-issueDate').value || null;
+  const termYrEl = document.getElementById('ep-term-years');
+  const termYears = (termYrEl && document.getElementById('ep-term-year-fg')?.style.display !== 'none') ? parseInt(termYrEl.value) || null : null;
+  if (!client || !monthly) { alert('Fill in client name and monthly premium.'); return; }
+  const contract = getContract();
+  const isGraded = cls === 'graded' || cls === 'gi';
+  const commPct = getCommPct(product, contract, isGraded);
+  const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
+  let payDate = p.payDate || '';
+  if (draft) { const d = new Date(draft); d.setDate(d.getDate() + 10); payDate = d.toISOString().split('T')[0]; }
+  const updated = { ...p, client, carrier, product, cls, monthly, ap, cov, dateSubmitted, draft, status, advComm, payDate, commPct };
+  if (issueDate) updated.issueDate = issueDate; else delete updated.issueDate;
+  if (termYears) updated.termYears = termYears; else delete updated.termYears;
+  const { error } = await sbUpsertPolicy(updated);
+  if (error) { alert('Save failed: ' + error.message); return; }
+  const idx = policies.findIndex(pol => pol.id === id);
+  if (idx !== -1) policies[idx] = updated;
+  localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
+  closeEditModal();
+  renderPolicies();
+  updateBonusFromTracker();
+  showToast(`${client} — policy updated`, '#10b981');
+}
+
 function toggleClientInfo(id) {
   const row = document.getElementById(`notes-row-${id}`);
   const btn = document.getElementById(`info-btn-${id}`);
@@ -6383,6 +6536,7 @@ function renderPolicies() {
       <td style="white-space:nowrap">
         <button class="info-btn" id="info-btn-${p.id}" onclick="toggleClientInfo(${p.id})" title="View/Edit client info">${icon('user',{size:14})}</button>
         <button class="del-btn" onclick="deletePolicy(${p.id})" title="Delete policy">${icon('trash',{size:14})}</button>
+        <button class="info-btn" onclick="openEditPolicy(${p.id})" title="Edit policy details" style="color:var(--ds-color-info)">${icon('pencil',{size:14})}</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -8392,7 +8546,7 @@ const softphone = (() => {
     const stubTextEl = _el('sp-stub-banner-text');
     if (stubTextEl) {
       stubTextEl.textContent = state.stubReason
-        || "Simulated call — SignalWire couldn't be reached. Check the Phone Book tab, or the server console.";
+        || "Simulated call — Telnyx couldn't be reached. Check the Phone Book tab, or the server console.";
     }
 
     // Re-mount icons in case the panel was just shown
@@ -8431,7 +8585,7 @@ const softphone = (() => {
   async function _bridgeDial(leadId) {
     let r;
     try {
-      r = await sb.functions.invoke('signalwire-bridge', { body: { lead_id: leadId } });
+      r = await sb.functions.invoke('telnyx-bridge', { body: { lead_id: leadId } });
     } catch (e) {
       return { ok: false, reason: 'network', detail: (e && e.message) || String(e) };
     }
@@ -8538,7 +8692,7 @@ const softphone = (() => {
     // doesn't sit on "On Call" while the network round-trip
     // resolves.
     if (state.sw_call_sid && !state.stubMode) {
-      sb.functions.invoke('signalwire-hangup', { body: { call_sid: state.sw_call_sid } })
+      sb.functions.invoke('telnyx-hangup', { body: { call_sid: state.sw_call_sid } })
         .catch(e => console.warn('[softphone] hangup invoke threw', e));
     }
 
@@ -11065,7 +11219,7 @@ function populateCarrierDropdowns() {
     ? TRACKER_CARRIER_LIST.filter(c => contracted.includes(c.key))
     : TRACKER_CARRIER_LIST;
   const opts = visible.map(c => `<option value="${c.label}">${c.label}</option>`).join('');
-  ['p-carrier', 'sold-carrier'].forEach(id => {
+  ['p-carrier', 'sold-carrier', 'ep-carrier'].forEach(id => {
     const sel = document.getElementById(id);
     if (sel) sel.innerHTML = opts || '<option>—</option>';
   });
@@ -11129,7 +11283,7 @@ function updateProductDropdown(carrierId, productId) {
     if (!seen.has(label)) { seen.add(label); normalized.push({l: label, k: p.k}); }
   }
   prodSel.innerHTML = normalized.map(p => `<option value="${p.k}">${p.l}</option>`).join('');
-  const prefix = productId === 'p-product' ? 'p' : 'sold';
+  const prefix = productId === 'p-product' ? 'p' : productId === 'ep-product' ? 'ep' : 'sold';
   _toggleTermYear(prodSel.value, prefix);
 }
 
@@ -11871,12 +12025,12 @@ async function pbSearchNumbers() {
   }
 
   status.style.display = '';
-  status.textContent = `Searching SignalWire for ${area}…`;
+  status.textContent = `Searching Telnyx for ${area}…`;
   wrap.style.display = 'none';
   if (btn) btn.disabled = true;
 
   try {
-    const { data, error } = await sb.functions.invoke('signalwire-search-numbers', {
+    const { data, error } = await sb.functions.invoke('telnyx-search-numbers', {
       body: { area_code: area, limit: 20 },
     });
     if (error) {
@@ -11940,17 +12094,17 @@ async function pbConfirmBuy(n, btn) {
   const msg = remaining > 0
     ? `Purchase ${_pbFmtPhone(e164)}?\n\n` +
       `This number is included with your plan — no extra subscription charge. ` +
-      `SignalWire's own per-number fee still applies to your SignalWire account.`
+      `Telnyx's own per-number fee still applies to your Telnyx account.`
     : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
       `This is beyond your plan's included numbers. When billing goes live this ` +
       `will add $1.50/mo to your subscription; today the charge is informational only. ` +
-      `SignalWire's own per-number fee applies regardless.`;
+      `Telnyx's own per-number fee applies regardless.`;
   const ok = window.confirm(msg);
   if (!ok) return;
 
   if (btn) { btn.disabled = true; btn.textContent = 'Buying…'; }
   try {
-    const { data, error } = await sb.functions.invoke('signalwire-buy-number', {
+    const { data, error } = await sb.functions.invoke('telnyx-buy-number', {
       body: {
         e164,
         friendly_name: n.friendly_name || null,
@@ -13747,7 +13901,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<!-- ── SoftphonePanel — bottom-right floating dialer (SignalWire, Phase A: stubbed) ── -->
+<!-- ── SoftphonePanel — bottom-right floating dialer (Telnyx bridge) ── -->
 <div id="softphone-panel" class="sp-panel" data-phase="idle" style="display:none" role="dialog" aria-label="Phone call" aria-live="polite">
   <div class="sp-head">
     <div class="sp-head-title"><span class="sp-head-state"></span><span id="sp-head-title">Phone</span></div>
@@ -13783,7 +13937,7 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
     <div class="sp-stub-banner" id="sp-stub-banner">
       <span data-ico="warning" data-size="13"></span>
-      <span id="sp-stub-banner-text">Simulated call — SignalWire couldn't be reached. Check the Phone Book tab, or the server console.</span>
+      <span id="sp-stub-banner-text">Simulated call — Telnyx couldn't be reached. Check the Phone Book tab, or the server console.</span>
     </div>
   </div>
 </div>
