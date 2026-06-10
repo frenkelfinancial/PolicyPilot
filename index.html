@@ -2,9 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Producer Stack — Life Insurance CRM</title>
 <link rel="icon" type="image/jpeg" href="assets/logos/policypilot-logo.jpg">
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#070d1a" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F4F8FD" media="(prefers-color-scheme: light)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PolicyPilot">
+<link rel="apple-touch-icon" href="assets/logos/policypilot-logo.jpg">
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+</script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Sora:wght@700;800&display=swap');
@@ -1788,6 +1802,137 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   padding:10px 12px; border:1px solid var(--border); border-radius:8px;
   background:rgba(245,158,11,.06);
 }
+
+/* ============================================================
+   MOBILE / PWA STYLES  (max-width: 767px)
+   Hamburger drawer, overlay, responsive grids, safe-area
+   ============================================================ */
+
+/* Hamburger button — hidden on desktop */
+.mob-menu-btn{
+  display:none;
+  flex-direction:column;justify-content:center;align-items:center;
+  gap:5px;width:36px;height:36px;background:transparent;
+  border:1px solid var(--border);border-radius:8px;cursor:pointer;
+  flex-shrink:0;padding:0;
+}
+.mob-menu-btn span{
+  display:block;width:18px;height:2px;
+  background:var(--text2);border-radius:2px;
+  transition:background .15s;
+}
+.mob-menu-btn:hover span{background:var(--text)}
+
+/* Mobile overlay */
+.mob-overlay{
+  display:none;position:fixed;inset:0;z-index:99;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+}
+.mob-overlay.mob-overlay-visible{display:block}
+
+@media (max-width:767px){
+
+  /* Show hamburger, hide on desktop */
+  .mob-menu-btn{display:flex}
+
+  /* Sidebar becomes a left drawer */
+  .sidebar{
+    transform:translateX(-100%);
+    transition:transform .25s cubic-bezier(.4,0,.2,1);
+    width:240px !important;
+    z-index:200;
+  }
+  .sidebar:hover{width:240px !important}
+  /* Override rail-mode opacity hides — show labels when drawer is open */
+  .sidebar.mob-open .nav-item .nav-lbl-text,
+  .sidebar.mob-open .logo-img,
+  .sidebar.mob-open .logo-brand,
+  .sidebar.mob-open .nav-lbl,
+  .sidebar.mob-open .signout-btn .so-lbl{
+    opacity:1 !important;
+    display:inline !important;
+    pointer-events:auto !important;
+  }
+  .sidebar.mob-open{
+    transform:translateX(0);
+    width:240px !important;
+  }
+  /* Nav items get full-width spacing when drawer open */
+  .sidebar.mob-open .nav-item{
+    padding:12px 16px;margin:2px 8px;gap:14px;justify-content:flex-start;
+    border-left:2px solid transparent;border-radius:8px;
+  }
+  .sidebar.mob-open .nav-item.active{border-left-color:var(--accent)}
+
+  /* Main content — full width, no left offset */
+  .main{margin-left:0 !important}
+
+  /* Topbar compact */
+  .topbar{padding:10px 14px;gap:10px}
+  .topbar h1,.topbar #pgTitle{font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* Reduce content padding */
+  .content{padding:14px 12px}
+
+  /* General grids → single column */
+  .g2,.g3,.g4{grid-template-columns:1fr !important}
+
+  /* Lead wide grid → stack */
+  .lead-wide-grid{grid-template-columns:1fr !important}
+
+  /* Cards — full width, smaller padding */
+  .card{padding:14px}
+
+  /* Pace row → stack */
+  .pace-row{grid-template-columns:1fr !important}
+
+  /* Summary hero → stack */
+  .sum-hero{grid-template-columns:1fr !important}
+  .kpi-grid{grid-template-columns:repeat(2,1fr) !important}
+  .sum-mid-row{grid-template-columns:1fr !important}
+  .activity-grid{grid-template-columns:1fr !important}
+  .ir-row,.am-row,.ph-row{grid-template-columns:1fr !important}
+
+  /* Tables — horizontal scroll rather than overflow hidden */
+  .ptbl,.ptbl-wrap,table{overflow-x:auto;-webkit-overflow-scrolling:touch;display:block;max-width:100%}
+
+  /* Modals — full screen on mobile */
+  .modal{
+    width:100% !important;max-width:100% !important;
+    margin:0 !important;border-radius:0 !important;
+    top:0 !important;left:0 !important;right:0 !important;bottom:0 !important;
+    max-height:100vh !important;
+    position:fixed !important;
+    overflow-y:auto;
+  }
+  .overlay{align-items:flex-end}
+
+  /* Softphone panel — full width at bottom */
+  #softphone-panel{
+    width:100% !important;right:0 !important;bottom:0 !important;
+    border-radius:14px 14px 0 0 !important;
+  }
+
+  /* Topbar right — hide date on small screens */
+  #todayDate{display:none}
+
+  /* Safe area insets for iPhone notch/home indicator */
+  .topbar{padding-top:calc(10px + env(safe-area-inset-top))}
+  .sidebar{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+  .content{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+
+  /* Make tap targets at least 44px */
+  .nav-item{min-height:44px}
+  .btn-p,.btn-s,.lead-act-btn{min-height:40px}
+}
+
+@media (max-width:400px){
+  .kpi-grid{grid-template-columns:1fr !important}
+  .content{padding:10px 8px}
+  .topbar{padding:8px 10px}
+  .topbar h1,.topbar #pgTitle{font-size:13px}
+}
 </style>
 </head>
 <body>
@@ -1877,8 +2022,14 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 </div>
 
 <!-- MAIN -->
+<!-- Mobile sidebar overlay -->
+<div class="mob-overlay" id="mobOverlay" onclick="closeMobileSidebar()"></div>
+
 <div class="main" style="display:none">
   <div class="topbar">
+    <button class="mob-menu-btn" id="mobMenuBtn" onclick="toggleMobileSidebar()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
     <h1 id="pgTitle">Quote + Underwriting</h1>
     <div class="topbar-r">
       <span style="font-size:11.5px;color:var(--text3);font-family:var(--mono)" id="todayDate"></span>
@@ -2882,6 +3033,10 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
               </div>
             </div>
           </div>
+        </div>
+
+        <div style="margin-top:24px;padding-top:14px;border-top:1px solid var(--border);text-align:center">
+          <a href="privacy-policy.html" target="_blank" rel="noopener" style="font-size:11px;color:var(--text3);text-decoration:none">Privacy Policy</a>
         </div>
 
       </div>
@@ -13898,6 +14053,27 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme();              // ensure login screen matches saved theme before auth resolves
   restoreSectionFromCache(); // swap visible section before paint to avoid Summary flash
   subscribeAuth();
+});
+
+function toggleMobileSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const ov = document.getElementById('mobOverlay');
+  const open = sb.classList.toggle('mob-open');
+  ov.classList.toggle('mob-overlay-visible', open);
+  document.body.style.overflow = open ? 'hidden' : '';
+}
+function closeMobileSidebar() {
+  document.querySelector('.sidebar').classList.remove('mob-open');
+  document.getElementById('mobOverlay').classList.remove('mob-overlay-visible');
+  document.body.style.overflow = '';
+}
+// Close sidebar when a nav item is tapped on mobile
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      if (window.innerWidth <= 767) closeMobileSidebar();
+    });
+  });
 });
 </script>
 
