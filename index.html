@@ -1848,12 +1848,23 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   .sidebar.mob-open .nav-item .nav-lbl-text,
   .sidebar.mob-open .logo-img,
   .sidebar.mob-open .logo-brand,
-  .sidebar.mob-open .nav-lbl,
   .sidebar.mob-open .signout-btn .so-lbl{
     opacity:1 !important;
     display:inline !important;
     pointer-events:auto !important;
   }
+  /* Section labels (OVERVIEW, QUOTER, etc.) — restore left padding so the
+     first letter isn't clipped against the drawer edge */
+  .sidebar.mob-open .nav-lbl{
+    opacity:1 !important;
+    display:block !important;
+    height:auto !important;
+    overflow:visible !important;
+    padding:0 16px 6px !important;
+    pointer-events:auto !important;
+  }
+  /* Hide the small diamond mark — it overlaps the full logo when the drawer is open */
+  .sidebar.mob-open .logo-mark-mini{display:none !important}
   .sidebar.mob-open{
     transform:translateX(0);
     width:240px !important;
