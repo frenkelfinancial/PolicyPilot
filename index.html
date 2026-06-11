@@ -245,6 +245,7 @@ body.light .sidebar:not(:hover) .nav-item.active{
 }
 body.light .nav-sec + .nav-sec::before{background:linear-gradient(90deg,transparent,rgba(91,160,232,.18),transparent)}
 *{box-sizing:border-box;margin:0;padding:0}
+html{overflow-x:hidden}
 body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
 /* ---- SIDEBAR (collapsible: rail by default, expands on hover) ---- */
 .sidebar{position:fixed;left:0;top:0;bottom:0;width:64px;background:var(--card);display:flex;flex-direction:column;z-index:100;overflow:hidden;transition:width .22s cubic-bezier(.4,0,.2,1);box-shadow:inset 1px 0 0 rgba(143,194,247,.10), inset 0 1px 0 rgba(255,255,255,.06);-webkit-backdrop-filter:blur(5px) saturate(165%);backdrop-filter:blur(5px) saturate(165%);-webkit-mask-image:linear-gradient(90deg,#000 0%,#000 calc(100% - 12px),rgba(0,0,0,0) 100%);mask-image:linear-gradient(90deg,#000 0%,#000 calc(100% - 12px),rgba(0,0,0,0) 100%)}
@@ -1888,6 +1889,10 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   /* Topbar compact */
   .topbar{padding:10px 14px;gap:10px}
   .topbar h1,.topbar #pgTitle{font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Greeting subtitle ("Let's open the month...") was hard-clipped mid-word
+     by the parent's overflow:hidden — give it its own ellipsis. */
+  .topbar #pgTitle .greet__hello,
+  .topbar #pgTitle .greet__name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
   /* Reduce content padding */
   .content{padding:14px 12px}
@@ -1898,6 +1903,14 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   /* Lead wide grid → stack */
   .lead-wide-grid{grid-template-columns:1fr !important}
 
+  /* Tab bars (status filters, etc.) — wrap instead of overflowing the screen width */
+  .tabs{flex-wrap:wrap;width:auto}
+
+  /* Full-bleed summary cards rely on a negative margin sized for desktop
+     padding; on mobile it overshoots the narrower .content padding and
+     pushes the page wider than the viewport. Drop the horizontal bleed. */
+  .sum-v3{margin-left:0;margin-right:0}
+
   /* Cards — full width, smaller padding */
   .card{padding:14px}
 
@@ -1906,6 +1919,18 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
   /* Summary hero → stack */
   .sum-hero{grid-template-columns:1fr !important}
+
+  /* Monthly Goals card — stack the progress ring above the stats so the
+     label/value rows get the full card width instead of being squeezed
+     beside a fixed 200px ring (was clipping "Committed AP $4,500" etc). */
+  .sum-v3 .hero-goal{flex-direction:column;align-items:stretch;gap:16px}
+  .sgh-rings{width:160px;height:160px;margin:0 auto}
+  .sgh-rings .sgh-ring-mount--inner{inset:18px}
+  /* The ring SVGs are drawn at fixed 200px/152px sizes via JS — rescale
+     them to fill the shrunken mounts so the rings shrink proportionally. */
+  .sgh-rings .ds-ring,
+  .sgh-rings svg{width:100% !important;height:100% !important}
+  .sgh-pulse-num{font-size:36px;line-height:40px}
   .kpi-grid{grid-template-columns:repeat(2,1fr) !important}
   .sum-mid-row{grid-template-columns:1fr !important}
   .activity-grid{grid-template-columns:1fr !important}
@@ -1913,6 +1938,18 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
   /* Tables — horizontal scroll rather than overflow hidden */
   .ptbl,.ptbl-wrap,table{overflow-x:auto;-webkit-overflow-scrolling:touch;display:block;max-width:100%}
+
+  /* Recent Calls table — drop secondary columns (From/To/Outcome) and
+     tighten spacing so it fits the card width without its own h-scroll. */
+  #sec-phonebook .pb-calls-table th:nth-child(3),
+  #sec-phonebook .pb-calls-table th:nth-child(4),
+  #sec-phonebook .pb-calls-table th:nth-child(7),
+  #sec-phonebook .pb-calls-table td:nth-child(3),
+  #sec-phonebook .pb-calls-table td:nth-child(4),
+  #sec-phonebook .pb-calls-table td:nth-child(7){display:none}
+  #sec-phonebook .pb-calls-table thead th,
+  #sec-phonebook .pb-calls-table tbody td{padding:8px 6px;font-size:12px}
+  #sec-phonebook .pb-calls-table td:nth-child(2){max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
   /* Modals — full screen on mobile */
   .modal{
