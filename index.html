@@ -1848,7 +1848,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   /* Override rail-mode opacity hides — show labels when drawer is open */
   .sidebar.mob-open .nav-item .nav-lbl-text,
   .sidebar.mob-open .logo-img,
-  .sidebar.mob-open .logo-brand,
   .sidebar.mob-open .signout-btn .so-lbl{
     opacity:1 !important;
     display:inline !important;
@@ -1864,8 +1863,19 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     padding:0 16px 6px !important;
     pointer-events:auto !important;
   }
-  /* Hide the small diamond mark — it overlaps the full logo when the drawer is open */
-  .sidebar.mob-open .logo-mark-mini{display:none !important}
+  /* Hide the small diamond mark and the duplicate "Producer Stack" text —
+     .logo-img already contains the full mark + wordmark + "PRODUCER" caption. */
+  .sidebar.mob-open .logo-mark-mini,
+  .sidebar.mob-open .logo-brand{display:none !important}
+  /* Let the full logo render uncropped and centered in the header, instead
+     of being squeezed into the 60px rail-height row. */
+  .sidebar.mob-open .logo-wrap{
+    height:auto !important;min-height:auto !important;max-height:none !important;
+    overflow:visible !important;padding:18px 0 !important;
+  }
+  .sidebar.mob-open .logo-img{
+    width:120px !important;margin:0 !important;transform:none !important;
+  }
   .sidebar.mob-open{
     transform:translateX(0);
     width:240px !important;
