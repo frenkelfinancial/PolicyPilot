@@ -190,8 +190,10 @@ body:not(.light) .cal-cell.today{background:rgba(143,194,247,.06)}
 .toggle-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .25s;box-shadow:0 1px 2px rgba(0,0,0,.18)}
 .toggle-track.on .toggle-thumb{transform:translateX(18px)}
 /* ---- BULK ACTION BAR ---- */
-.bulk-bar{position:sticky;top:57px;z-index:40;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:none;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.bulk-bar{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:none;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.18)}
 .bulk-bar.visible{display:flex}
+/* Floated to the top of the viewport once its normal spot scrolls under the topbar — see syncBulkBarFloat() */
+.bulk-bar.pinned{box-shadow:0 8px 20px -8px rgba(0,0,0,.4)}
 .bulk-count{font-size:13px;font-weight:600;color:var(--accent);min-width:80px}
 /* ---- LEAD CHECKBOX ---- */
 @keyframes lead-check-pop{0%{transform:scale(.55);opacity:.6}60%{transform:scale(1.18)}100%{transform:scale(1);opacity:1}}
@@ -9153,6 +9155,73 @@ function updateBulkBar() {
   } else {
     bar.classList.remove('visible');
   }
+  syncBulkBarFloat();
+}
+
+// Float the bulk action bar to the top of the screen once its normal spot
+// scrolls under the topbar, so Apply Status / Delete Selected / Clear
+// Selection stay reachable without scrolling back up.
+let _bulkBarSentinel = null;
+function syncBulkBarFloat() {
+  const bar = document.getElementById('lead-bulk-bar');
+  const sec = document.getElementById('sec-leads');
+  if (!bar || !sec) return;
+
+  if (!_bulkBarSentinel) {
+    _bulkBarSentinel = document.createElement('div');
+    _bulkBarSentinel.id = 'lead-bulk-bar-sentinel';
+    bar.parentNode.insertBefore(_bulkBarSentinel, bar);
+  }
+  const sentinel = _bulkBarSentinel;
+
+  const topbarHeight = () => {
+    const tb = document.querySelector('.topbar');
+    return tb ? tb.getBoundingClientRect().height : 0;
+  };
+  const pin = () => {
+    const rect = sentinel.getBoundingClientRect();
+    sentinel.style.height = bar.offsetHeight + 'px';
+    bar.style.position = 'fixed';
+    bar.style.top = topbarHeight() + 'px';
+    bar.style.left = rect.left + 'px';
+    bar.style.width = rect.width + 'px';
+    bar.style.zIndex = '60';
+    bar.classList.add('pinned');
+  };
+  const unpin = () => {
+    bar.style.position = '';
+    bar.style.top = '';
+    bar.style.left = '';
+    bar.style.width = '';
+    bar.style.zIndex = '';
+    sentinel.style.height = '0';
+    bar.classList.remove('pinned');
+  };
+
+  const update = () => {
+    if (!sec.classList.contains('active') || !bar.classList.contains('visible')) {
+      if (bar.classList.contains('pinned')) unpin();
+      return;
+    }
+    const threshold = topbarHeight();
+    const top = sentinel.getBoundingClientRect().top;
+    if (top < threshold && !bar.classList.contains('pinned')) pin();
+    else if (top >= threshold && bar.classList.contains('pinned')) unpin();
+  };
+  const reposition = () => {
+    if (!bar.classList.contains('pinned')) return;
+    const rect = sentinel.getBoundingClientRect();
+    bar.style.left = rect.left + 'px';
+    bar.style.width = rect.width + 'px';
+    bar.style.top = topbarHeight() + 'px';
+  };
+
+  if (!_bulkBarSentinel._bound) {
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', () => { reposition(); update(); }, { passive: true });
+    _bulkBarSentinel._bound = true;
+  }
+  update();
 }
 
 function bulkSetStatus() {
