@@ -396,6 +396,10 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .contract-readout .contract-inp::-webkit-outer-spin-button,.contract-readout .contract-inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .contract-readout .contract-inp{-moz-appearance:textfield}
 .contract-readout .contract-pct{font-size:13px;font-weight:500}
+/* Contract Level — native <select> dropdown (70-145, steps of 5) */
+.contract-readout .contract-select{width:auto;min-width:58px;text-align:left;cursor:pointer;padding-right:2px}
+.contract-readout .contract-select option{background:var(--bg2);color:var(--text)}
+.contract-readout .contract-select:focus-visible{outline:2px solid var(--ds-color-success);outline-offset:2px;border-radius:4px}
 /* ---- MAIN ---- */
 .main{margin-left:64px;min-height:100vh;display:flex;flex-direction:column;transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
 .topbar{padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
@@ -1378,6 +1382,26 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .stg-carrier-info{flex:1;min-width:0}
 .stg-carrier-name{font-size:12.5px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.3}
 .stg-carrier-type{display:inline-block;font-size:9px;font-weight:600;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:3px;padding:1px 5px;margin-top:3px;text-transform:uppercase;letter-spacing:.06em}
+/* Settings → Account — "Licensed States" multi-select dropdown */
+#sec-settings .stg-states-field{position:relative}
+#sec-settings .stg-states-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-family:var(--sans);font-size:13px;cursor:pointer;transition:border-color .14s,box-shadow .14s;text-align:left}
+#sec-settings .stg-states-trigger:hover{border-color:var(--border2)}
+#sec-settings .stg-states-trigger.open{border-color:var(--accent);box-shadow:0 0 0 3px var(--ds-color-info-bg)}
+#sec-settings .stg-states-summary{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#sec-settings .stg-states-summary.placeholder{color:var(--text3)}
+#sec-settings .stg-states-chevron{display:flex;color:var(--text3);flex-shrink:0;transition:transform .18s}
+#sec-settings .stg-states-trigger.open .stg-states-chevron{transform:rotate(180deg)}
+#sec-settings .stg-states-panel{position:absolute;top:calc(100% + 6px);left:0;right:0;z-index:30;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:var(--ds-elev-modal);padding:12px;display:none}
+#sec-settings .stg-states-panel.open{display:block}
+#sec-settings .stg-states-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+#sec-settings .stg-states-count{font-size:11.5px;color:var(--text3);font-variant-numeric:tabular-nums}
+#sec-settings .stg-states-actions{display:flex;gap:8px}
+#sec-settings .stg-states-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(50px,1fr));gap:6px;max-height:260px;overflow-y:auto;padding-right:2px}
+#sec-settings .stg-state-btn{position:relative;display:flex;align-items:center;justify-content:center;gap:4px;padding:8px 4px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text2);font-size:12px;font-weight:700;font-family:var(--mono);letter-spacing:.03em;cursor:pointer;transition:background .12s,border-color .12s,color .12s;user-select:none}
+#sec-settings .stg-state-btn:hover{border-color:var(--border2);background:var(--bg3);color:var(--text)}
+#sec-settings .stg-state-btn .stg-state-check{display:inline-flex;width:0;overflow:hidden;color:var(--ds-color-info);transition:width .12s}
+#sec-settings .stg-state-btn.sel{background:var(--ds-color-info-bg);border-color:var(--ds-color-info);color:var(--ds-color-info)}
+#sec-settings .stg-state-btn.sel .stg-state-check{width:11px}
 /* Settings → Carriers — "Your licensed carriers" pill strip above the table */
 #sec-settings .stg-ct-licensed{margin-bottom:14px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--ds-radius-md,10px);background:var(--bg2)}
 #sec-settings .stg-ct-licensed-head{display:flex;align-items:baseline;gap:8px;margin-bottom:9px}
@@ -3038,7 +3062,22 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             </div>
             <div class="fg" style="margin-top:8px">
               <label>Licensed States</label>
-              <input type="text" id="stg-states" placeholder="TX, FL, CA ...">
+              <div class="stg-states-field" id="stg-states-field">
+                <button type="button" class="stg-states-trigger" id="stg-states-trigger" onclick="toggleStatesPanel(event)" aria-haspopup="true">
+                  <span class="stg-states-summary placeholder" id="stg-states-summary">Select states…</span>
+                  <span class="stg-states-chevron" data-ico="caret-down" data-size="13"></span>
+                </button>
+                <div class="stg-states-panel" id="stg-states-panel">
+                  <div class="stg-states-panel-head">
+                    <span class="stg-states-count" id="stg-states-count">0 of 51 selected</span>
+                    <div class="stg-states-actions">
+                      <button type="button" class="btn btn-s btn-sm" onclick="setAllLicensedStates(true)">Select All</button>
+                      <button type="button" class="btn btn-s btn-sm" onclick="setAllLicensedStates(false)">Clear All</button>
+                    </div>
+                  </div>
+                  <div class="stg-states-grid" id="stg-states-grid"></div>
+                </div>
+              </div>
             </div>
             <div id="stg-profile-msg" style="font-size:12px;margin-top:8px;min-height:18px"></div>
             <button class="btn btn-p mt12" onclick="saveAccountProfile()" style="display:inline-flex;align-items:center;gap:6px">
@@ -3069,10 +3108,27 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         <div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:18px">
           <div class="card contract-card" style="flex:1 1 280px;max-width:420px;padding:14px 16px">
             <div class="card-title" style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px"><span data-ico="percent" data-size="13"></span>Contract Level</div>
-            <div style="font-size:11.5px;color:var(--text2);line-height:1.45;margin-bottom:10px">Commission % applied to every quote and earnings calc (80–145%, steps of 5).</div>
+            <div style="font-size:11.5px;color:var(--text2);line-height:1.45;margin-bottom:10px">Commission % applied to every quote and earnings calc (70–145%, steps of 5).</div>
             <div class="contract-control">
               <div class="contract-readout">
-                <input class="contract-inp" id="myContract" type="number" value="100" min="80" max="145" step="5" aria-label="Contract level percentage" onchange="onContractNumberChange()">
+                <select class="contract-inp contract-select" id="myContract" aria-label="Contract level percentage" onchange="onContractNumberChange()">
+                  <option value="70">70</option>
+                  <option value="75">75</option>
+                  <option value="80">80</option>
+                  <option value="85">85</option>
+                  <option value="90">90</option>
+                  <option value="95">95</option>
+                  <option value="100" selected>100</option>
+                  <option value="105">105</option>
+                  <option value="110">110</option>
+                  <option value="115">115</option>
+                  <option value="120">120</option>
+                  <option value="125">125</option>
+                  <option value="130">130</option>
+                  <option value="135">135</option>
+                  <option value="140">140</option>
+                  <option value="145">145</option>
+                </select>
                 <span class="contract-pct">%</span>
               </div>
             </div>
@@ -4160,7 +4216,8 @@ const ICONS = {
   'buildings': '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
   'pencil': '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
   'copy': '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
-  'chat-dots': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'
+  'chat-dots': '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  'caret-down': '<polyline points="6 9 12 15 18 9"/>'
 };
 function icon(name, opts){
   opts = opts || {};
@@ -4348,7 +4405,7 @@ function getCommPct(product, contractLevel, cut = false) {
 
 function getContract() { return parseInt(document.getElementById('myContract').value) || 100; }
 function setContractValue(v) {
-  const clamped = Math.max(80, Math.min(145, Math.round((parseInt(v) || 100) / 5) * 5));
+  const clamped = Math.max(70, Math.min(145, Math.round((parseInt(v) || 100) / 5) * 5));
   const num = document.getElementById('myContract');
   if (num) num.value = clamped;
   return clamped;
@@ -6326,9 +6383,13 @@ document.addEventListener('click', e => {
   if (e.target.id === 'editPolModal') closeEditModal();
   if (e.target.id === 'soldModal') closeSoldModal();
   if (e.target.id === 'leadApiQuoteModal') closeLeadApiQuote();
+  const statesField = document.getElementById('stg-states-field');
+  if (statesField && !statesField.contains(e.target)) closeStatesPanel();
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
+  const sp = document.getElementById('stg-states-panel');
+  if (sp && sp.classList.contains('open')) { closeStatesPanel(); return; }
   const lq = document.getElementById('leadApiQuoteModal');
   if (lq && lq.classList.contains('open')) { closeLeadApiQuote(); return; }
   const ap = document.getElementById('addPolModal');
@@ -12709,18 +12770,97 @@ function toggleCarrier(key, el) {
   }
 }
 
+// ---- Licensed States multi-select (Settings → Account) ----
+const US_STATES = [
+  ['AL','Alabama'], ['AK','Alaska'], ['AZ','Arizona'], ['AR','Arkansas'], ['CA','California'],
+  ['CO','Colorado'], ['CT','Connecticut'], ['DE','Delaware'], ['FL','Florida'], ['GA','Georgia'],
+  ['HI','Hawaii'], ['ID','Idaho'], ['IL','Illinois'], ['IN','Indiana'], ['IA','Iowa'],
+  ['KS','Kansas'], ['KY','Kentucky'], ['LA','Louisiana'], ['ME','Maine'], ['MD','Maryland'],
+  ['MA','Massachusetts'], ['MI','Michigan'], ['MN','Minnesota'], ['MS','Mississippi'], ['MO','Missouri'],
+  ['MT','Montana'], ['NE','Nebraska'], ['NV','Nevada'], ['NH','New Hampshire'], ['NJ','New Jersey'],
+  ['NM','New Mexico'], ['NY','New York'], ['NC','North Carolina'], ['ND','North Dakota'], ['OH','Ohio'],
+  ['OK','Oklahoma'], ['OR','Oregon'], ['PA','Pennsylvania'], ['RI','Rhode Island'], ['SC','South Carolina'],
+  ['SD','South Dakota'], ['TN','Tennessee'], ['TX','Texas'], ['UT','Utah'], ['VT','Vermont'],
+  ['VA','Virginia'], ['WA','Washington'], ['WV','West Virginia'], ['WI','Wisconsin'], ['WY','Wyoming'],
+  ['DC','District of Columbia']
+];
+let licensedStatesSelected = new Set();
+
+function renderStatesGrid() {
+  const grid = document.getElementById('stg-states-grid');
+  if (!grid) return;
+  grid.innerHTML = US_STATES.map(([abbr]) => {
+    const sel = licensedStatesSelected.has(abbr);
+    return '<button type="button" class="stg-state-btn' + (sel ? ' sel' : '') + '" data-state="' + abbr + '" aria-pressed="' + sel + '" onclick="toggleLicensedState(\'' + abbr + '\')">' +
+      '<span class="stg-state-check">' + icon('check', {size:11}) + '</span>' +
+      '<span class="stg-state-code">' + abbr + '</span>' +
+    '</button>';
+  }).join('');
+  updateStatesSummary();
+}
+
+function toggleLicensedState(abbr) {
+  if (licensedStatesSelected.has(abbr)) licensedStatesSelected.delete(abbr);
+  else licensedStatesSelected.add(abbr);
+  const btn = document.querySelector('#stg-states-grid .stg-state-btn[data-state="' + abbr + '"]');
+  if (btn) {
+    const sel = btn.classList.toggle('sel');
+    btn.setAttribute('aria-pressed', sel);
+  }
+  updateStatesSummary();
+}
+
+function setAllLicensedStates(all) {
+  licensedStatesSelected = all ? new Set(US_STATES.map(s => s[0])) : new Set();
+  renderStatesGrid();
+}
+
+function updateStatesSummary() {
+  const total = US_STATES.length;
+  const count = licensedStatesSelected.size;
+  const countEl = document.getElementById('stg-states-count');
+  if (countEl) countEl.textContent = count + ' of ' + total + ' selected';
+  const summaryEl = document.getElementById('stg-states-summary');
+  if (!summaryEl) return;
+  if (count === 0) {
+    summaryEl.textContent = 'Select states…';
+    summaryEl.classList.add('placeholder');
+  } else if (count === total) {
+    summaryEl.textContent = 'All 50 states + DC';
+    summaryEl.classList.remove('placeholder');
+  } else {
+    summaryEl.textContent = count + ' of ' + total + ' states selected';
+    summaryEl.classList.remove('placeholder');
+  }
+}
+
+function toggleStatesPanel(e) {
+  e.stopPropagation();
+  const open = document.getElementById('stg-states-panel').classList.toggle('open');
+  document.getElementById('stg-states-trigger').classList.toggle('open', open);
+}
+
+function closeStatesPanel() {
+  const panel = document.getElementById('stg-states-panel');
+  const trigger = document.getElementById('stg-states-trigger');
+  if (panel) panel.classList.remove('open');
+  if (trigger) trigger.classList.remove('open');
+}
+
 function initSettingsSection() {
   // Populate account fields
   const nameEl = document.getElementById('stg-display-name');
   const emailEl = document.getElementById('stg-email');
   const phoneEl = document.getElementById('stg-phone');
   const npnEl   = document.getElementById('stg-npn');
-  const statesEl = document.getElementById('stg-states');
   if (nameEl)   nameEl.value   = localStorage.getItem(k('stg_display_name'))  || '';
   if (phoneEl)  phoneEl.value  = localStorage.getItem(k('stg_phone'))          || '';
   if (npnEl)    npnEl.value    = localStorage.getItem(k('stg_npn'))            || '';
-  if (statesEl) statesEl.value = localStorage.getItem(k('stg_states'))         || '';
   if (emailEl && currentAgent) emailEl.value = currentAgent.email || '';
+  const statesRaw = localStorage.getItem(k('stg_states')) || '';
+  licensedStatesSelected = new Set(statesRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean));
+  renderStatesGrid();
+  closeStatesPanel();
   // Reset messages
   const pm = document.getElementById('stg-profile-msg');
   const pwm = document.getElementById('stg-pw-msg');
@@ -12739,7 +12879,7 @@ function saveAccountProfile() {
   const name   = document.getElementById('stg-display-name').value.trim();
   const phone  = document.getElementById('stg-phone').value.trim();
   const npn    = document.getElementById('stg-npn').value.trim();
-  const states = document.getElementById('stg-states').value.trim();
+  const states = US_STATES.filter(s => licensedStatesSelected.has(s[0])).map(s => s[0]).join(', ');
   localStorage.setItem(k('stg_display_name'), name);
   localStorage.setItem(k('stg_phone'), phone);
   localStorage.setItem(k('stg_npn'), npn);
