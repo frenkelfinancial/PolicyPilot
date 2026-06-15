@@ -1183,6 +1183,14 @@ body.light .ds-action:hover{background:rgba(91,160,232,.06)}
 .am-row{display:grid;grid-template-columns:1.4fr 1fr;gap:var(--ds-space-4);margin-bottom:var(--ds-space-5)}
 @media (max-width:1100px){.am-row{grid-template-columns:1fr}}
 
+.am-range{display:flex;align-items:center;justify-content:space-between;gap:var(--ds-space-3);margin-top:var(--ds-space-2)}
+.am-range__lbl{font:12px/16px var(--sans);color:var(--text2)}
+.am-range__sel{
+  font:11px/14px var(--sans);color:var(--text2);background:var(--bg2);
+  border:1px solid var(--border);border-radius:var(--ds-radius-sm);
+  padding:5px 8px;outline:none;cursor:pointer;
+}
+
 .am-funnel{display:flex;flex-direction:column;gap:var(--ds-space-2);margin-top:var(--ds-space-3)}
 .am-funnel__row{display:grid;grid-template-columns:88px 1fr 64px;align-items:center;gap:var(--ds-space-3)}
 .am-funnel__lbl{font:11px/14px var(--sans);color:var(--text3);text-transform:uppercase;letter-spacing:.12em}
@@ -1193,14 +1201,6 @@ body.light .ds-action:hover{background:rgba(91,160,232,.06)}
 .am-funnel__ratio[data-tone="ok"]   {color:var(--ds-color-success)}
 .am-funnel__ratio[data-tone="warn"] {color:var(--ds-color-warning)}
 .am-funnel__ratio[data-tone="bad"]  {color:var(--ds-color-danger)}
-
-.am-heat{display:grid;grid-template-rows:repeat(7, 11px);grid-auto-flow:column;grid-auto-columns:11px;gap:2px;margin-top:var(--ds-space-4)}
-.am-heat__cell{border-radius:2px;background:var(--bg2)}
-.am-heat__cell[data-level="1"]{background:rgba(91,160,232,.25)}
-.am-heat__cell[data-level="2"]{background:rgba(91,160,232,.45)}
-.am-heat__cell[data-level="3"]{background:rgba(91,160,232,.70)}
-.am-heat__cell[data-level="4"]{background:var(--ds-color-momentum)}
-.am-heat__legend{display:flex;justify-content:flex-end;gap:var(--ds-space-2);margin-top:var(--ds-space-2);font:10.5px/14px var(--sans);color:var(--text3)}
 
 .am-streak{display:grid;grid-template-columns:1fr 1fr;gap:var(--ds-space-3);margin-bottom:var(--ds-space-4)}
 .am-streak__num{font:500 36px/40px var(--display);color:var(--ds-color-momentum);font-variant-numeric:tabular-nums}
@@ -5386,11 +5386,13 @@ function renderIncomeReality(){
 // ============================================================
 const ACTIVITY_FUNNEL_TARGETS = { dialToContact:.25, contactToAppt:.40, apptToApp:.50, appToIssued:.80 };
 
-function activityFunnel(rangeDays){
-  rangeDays = rangeDays || 7;
-  const cutoff = Date.now() - rangeDays * 86400000;
+// Activity Pulse counts activities in [start, end) — a Mon-Sun week.
+function activityFunnel(start, end){
   const acts = (typeof getActivities === 'function') ? getActivities() : [];
-  const inRange = acts.filter(a => new Date(a.when).getTime() >= cutoff);
+  const inRange = acts.filter(a => {
+    const t = new Date(a.when).getTime();
+    return t >= start.getTime() && t < end.getTime();
+  });
   const count = type => inRange.filter(a => a.type === type).length;
   const dials    = count('call');
   const contacts = count('contact');
@@ -5398,30 +5400,52 @@ function activityFunnel(rangeDays){
   const apps     = count('quote');
   const pols     = (window.policies || []).filter(p => {
     const d = new Date(p.draft || p.issueDate || 0).getTime();
-    return d && d >= cutoff && ['issued','placed','paid'].includes(p.status);
+    return d && d >= start.getTime() && d < end.getTime() && ['issued','placed','paid'].includes(p.status);
   }).length;
   return { dials, contacts, appts, apps, issued: pols };
 }
 
-/** 371 cells for ~53 weeks. Each cell: { date:Date, count:number }. */
-function activityHeatmapCells(){
-  const today = new Date(); today.setHours(0,0,0,0);
-  const start = new Date(today); start.setDate(start.getDate() - (52*7 + today.getDay()));
-  const acts = (typeof getActivities === 'function') ? getActivities() : [];
-  const counts = new Map();
-  for (const a of acts){
-    const d = new Date(a.when); d.setHours(0,0,0,0);
-    const key = d.toISOString().slice(0,10);
-    counts.set(key, (counts.get(key) || 0) + 1);
-  }
-  const cells = [];
-  for (let i = 0; i < 53 * 7; i++){
-    const d = new Date(start); d.setDate(start.getDate() + i);
-    const key = d.toISOString().slice(0,10);
-    cells.push({ date: new Date(d), count: counts.get(key) || 0 });
-  }
-  return cells;
+/** Mon-Sun range containing `date`. `end` is exclusive (the following Monday). */
+function apWeekRange(date){
+  const t = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dow = (t.getDay() + 6) % 7; // Mon=0 .. Sun=6
+  const start = new Date(t); start.setDate(start.getDate() - dow);
+  const end = new Date(start); end.setDate(end.getDate() + 7);
+  return { start, end };
 }
+
+const _AP_ORDINAL_SUFFIXES = ['th','st','nd','rd'];
+function apOrdinal(n){
+  const v = n % 100;
+  return n + (_AP_ORDINAL_SUFFIXES[(v - 20) % 10] || _AP_ORDINAL_SUFFIXES[v] || _AP_ORDINAL_SUFFIXES[0]);
+}
+
+/** "June 15th–21st", or "June 29th – July 5th" when the week spans two months. */
+function apWeekLabel(start, end){
+  const last = new Date(end); last.setDate(last.getDate() - 1);
+  const startMonth = start.toLocaleDateString('en-US', { month:'long' });
+  const lastMonth  = last.toLocaleDateString('en-US', { month:'long' });
+  if (startMonth === lastMonth) return `${startMonth} ${apOrdinal(start.getDate())}–${apOrdinal(last.getDate())}`;
+  return `${startMonth} ${apOrdinal(start.getDate())} – ${lastMonth} ${apOrdinal(last.getDate())}`;
+}
+
+/** Mon-Sun weeks from the start of the current year through the current week, most recent first. */
+function apWeekOptions(){
+  const today = new Date();
+  const current = apWeekRange(today);
+  let cursor = apWeekRange(new Date(today.getFullYear(), 0, 1)).start;
+  const weeks = [];
+  while (cursor <= current.start){
+    const start = new Date(cursor);
+    const end = new Date(start); end.setDate(end.getDate() + 7);
+    weeks.push({ start, end, isCurrent: start.getTime() === current.start.getTime() });
+    cursor = new Date(cursor); cursor.setDate(cursor.getDate() + 7);
+  }
+  return weeks.reverse();
+}
+
+// Selected week's Monday (ms timestamp), or null to always track the current week.
+let _apSelectedWeekStart = null;
 
 function streakStats(){
   const acts = (typeof getActivities === 'function') ? getActivities() : [];
@@ -5481,16 +5505,45 @@ function renderActivityMomentum(){
   if (!root) return;
   root.replaceChildren();
 
-  // ---- Card 1: Activity Pulse (funnel + heatmap) ----
+  // ---- Card 1: Activity Pulse (funnel, by week) ----
   const card1 = dsStatCard({
-    label: 'Activity Pulse · Last 7 days',
+    label: 'Activity Pulse',
     hero: '',
     accent: 'momentum',
   });
   // remove hero element since the funnel takes its place visually
   const hero = card1.querySelector('.ds-stat__hero'); if (hero) hero.remove();
 
-  const f = activityFunnel(7);
+  // Week selector — defaults to the current Mon-Sun week and auto-advances
+  // as the calendar rolls over (selection stays null = "current week").
+  const weeks = apWeekOptions();
+  const currentWeek = weeks.find(w => w.isCurrent) || weeks[weeks.length - 1];
+  const selectedWeek = (_apSelectedWeekStart != null)
+    ? (weeks.find(w => w.start.getTime() === _apSelectedWeekStart) || currentWeek)
+    : currentWeek;
+
+  const rangeRow = document.createElement('div'); rangeRow.className = 'am-range';
+  const rangeLbl = document.createElement('span'); rangeLbl.className = 'am-range__lbl';
+  rangeLbl.textContent = 'Showing: ' + apWeekLabel(selectedWeek.start, selectedWeek.end);
+  rangeRow.appendChild(rangeLbl);
+
+  const rangeSel = document.createElement('select'); rangeSel.className = 'am-range__sel';
+  for (const w of weeks){
+    const opt = document.createElement('option');
+    opt.value = String(w.start.getTime());
+    opt.textContent = (w.isCurrent ? 'This week · ' : '') + apWeekLabel(w.start, w.end);
+    if (w.start.getTime() === selectedWeek.start.getTime()) opt.selected = true;
+    rangeSel.appendChild(opt);
+  }
+  rangeSel.addEventListener('change', () => {
+    const ts = Number(rangeSel.value);
+    _apSelectedWeekStart = (currentWeek && ts === currentWeek.start.getTime()) ? null : ts;
+    renderActivityMomentum();
+  });
+  rangeRow.appendChild(rangeSel);
+  card1.appendChild(rangeRow);
+
+  const f = activityFunnel(selectedWeek.start, selectedWeek.end);
   const max = Math.max(1, f.dials, f.contacts, f.appts, f.apps, f.issued);
   const rows = [
     ['Dials',    f.dials,    null,       null],
@@ -5521,31 +5574,6 @@ function renderActivityMomentum(){
     funnel.appendChild(row);
   }
   card1.appendChild(funnel);
-
-  // Heatmap
-  const heat = document.createElement('div'); heat.className = 'am-heat';
-  for (const cell of activityHeatmapCells()){
-    const hc = document.createElement('div'); hc.className = 'am-heat__cell';
-    const level = cell.count === 0 ? 0 : cell.count <= 2 ? 1 : cell.count <= 4 ? 2 : cell.count <= 6 ? 3 : 4;
-    hc.setAttribute('data-level', String(level));
-    hc.title = cell.date.toLocaleDateString() + ' — ' + cell.count + ' activit' + (cell.count === 1 ? 'y' : 'ies');
-    heat.appendChild(hc);
-  }
-  card1.appendChild(heat);
-
-  // Heatmap legend
-  const legend = document.createElement('div'); legend.className = 'am-heat__legend';
-  const less = document.createElement('span'); less.textContent = 'Less';
-  legend.appendChild(less);
-  for (let lv = 0; lv <= 4; lv++){
-    const sq = document.createElement('div'); sq.className = 'am-heat__cell';
-    sq.setAttribute('data-level', String(lv));
-    sq.style.display = 'inline-block';
-    legend.appendChild(sq);
-  }
-  const more = document.createElement('span'); more.textContent = 'More';
-  legend.appendChild(more);
-  card1.appendChild(legend);
 
   root.appendChild(card1);
 
@@ -6546,6 +6574,7 @@ async function submitAsSold() {
       lead.status = 'sold';
       lead.soldPolicyId = policy.id;
       saveLeads();
+      logLeadStatusActivity(lead, 'sold');
     }
   }
 
@@ -8168,6 +8197,26 @@ const STATUS_CONFIG = {
   banking_obj:    { label:'Banking Objection', color:'#a78bfa', bg:'rgba(167,139,250,.12)', inDropdown:true  },
 };
 
+// Lead status transitions that feed the Activity Pulse funnel
+// (Dials -> Contacts -> Appts -> Apps -> Issued). "Dials" are logged
+// separately at the click-to-call button.
+const LEAD_STATUS_ACTIVITY_MAP = {
+  called:      'contact',
+  appointment: 'appointment',
+  sold:        'quote',
+};
+
+function logLeadStatusActivity(lead, status) {
+  const type = LEAD_STATUS_ACTIVITY_MAP[status];
+  if (!type || !lead) return;
+  addActivity({
+    type,
+    clientId: String(lead.id),
+    clientName: lead.name || `${lead.first_name||''} ${lead.last_name||''}`.trim() || undefined,
+    outcome: status,
+  });
+}
+
 function saveLeads() {
   localStorage.setItem(k('pp_leads'), JSON.stringify(leads));
   // Push to Supabase (fire-and-forget; high-frequency lead status changes
@@ -8573,6 +8622,14 @@ function renderLeads() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const lid = e.currentTarget.dataset.lid;
+      const lead = leads.find(l => String(l.id) === lid);
+      if (lead) {
+        addActivity({
+          type: 'call',
+          clientId: String(lead.id),
+          clientName: lead.name || `${lead.first_name||''} ${lead.last_name||''}`.trim() || undefined,
+        });
+      }
       if (window.softphone && !softphone.unavailable) {
         softphone.dial(lid);
       } else {
@@ -9481,6 +9538,7 @@ function setLeadStatusQuick(lid, status) {
   lead.status = status;
   saveLeads();
   renderLeads();
+  logLeadStatusActivity(lead, status);
 }
 
 // Toggle expanded state for a row, preserving across re-renders.
