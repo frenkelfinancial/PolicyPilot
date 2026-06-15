@@ -3536,8 +3536,10 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
     <div class="frow mt12">
       <div class="fg"><label>Product</label>
-        <select id="p-product" onchange="_toggleTermYear(this.value,'p')">
-          <option value="americo_eagle">Final Expense</option>
+        <select id="p-product" onchange="_toggleTermYear(this.value,'p'); updateHealthClassDropdown('p-carrier','p-product','p-class')">
+          <option value="Whole Life">Whole Life</option>
+          <option value="Term">Term</option>
+          <option value="IUL">IUL</option>
         </select>
       </div>
       <div class="fg" id="p-term-year-fg" style="display:none">
@@ -3551,12 +3553,20 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </select>
       </div>
       <div class="fg"><label>Health Class</label>
-        <select id="p-class">
-          <option value="level">Level / Select 1 — Full Commission</option>
-          <option value="standard">Standard / Select 2 — Full Commission</option>
-          <option value="graded">Graded — ~40% Commission Cut</option>
-          <option value="gi">GI / ROP — ~40% Commission Cut</option>
+        <select id="p-class" onchange="updateCommPctPreview('p')">
+          <option value="std">Preferred/Standard</option>
+          <option value="graded">Graded/Modified</option>
         </select>
+      </div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg" style="max-width:220px">
+        <label>Estimated Commission %</label>
+        <input type="number" id="p-commpct" step="0.1" min="0" max="200" oninput="onCommPctInput('p')">
+      </div>
+      <div class="fg">
+        <label>Estimated Commission Total</label>
+        <div id="p-commtotal" style="background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.22);border-radius:8px;padding:9px 11px;min-height:33px;display:flex;align-items:center;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ds-color-success)">—</div>
       </div>
     </div>
     <div class="frow mt12">
@@ -3610,8 +3620,10 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
     <div class="frow mt12">
       <div class="fg"><label>Product</label>
-        <select id="ep-product" onchange="_toggleTermYear(this.value,'ep')">
-          <option value="americo_eagle">Final Expense</option>
+        <select id="ep-product" onchange="_toggleTermYear(this.value,'ep'); updateHealthClassDropdown('ep-carrier','ep-product','ep-class')">
+          <option value="Whole Life">Whole Life</option>
+          <option value="Term">Term</option>
+          <option value="IUL">IUL</option>
         </select>
       </div>
       <div class="fg" id="ep-term-year-fg" style="display:none">
@@ -3625,12 +3637,20 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </select>
       </div>
       <div class="fg"><label>Health Class</label>
-        <select id="ep-class">
-          <option value="level">Level / Select 1 — Full Commission</option>
-          <option value="standard">Standard / Select 2 — Full Commission</option>
-          <option value="graded">Graded — ~40% Commission Cut</option>
-          <option value="gi">GI / ROP — ~40% Commission Cut</option>
+        <select id="ep-class" onchange="updateCommPctPreview('ep')">
+          <option value="std">Preferred/Standard</option>
+          <option value="graded">Graded/Modified</option>
         </select>
+      </div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg" style="max-width:220px">
+        <label>Estimated Commission %</label>
+        <input type="number" id="ep-commpct" step="0.1" min="0" max="200" oninput="onCommPctInput('ep')">
+      </div>
+      <div class="fg">
+        <label>Estimated Commission Total</label>
+        <div id="ep-commtotal" style="background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.22);border-radius:8px;padding:9px 11px;min-height:33px;display:flex;align-items:center;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ds-color-success)">—</div>
       </div>
     </div>
     <div class="frow mt12">
@@ -3698,15 +3718,17 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     <div class="frow">
       <div class="fg"><label>Client Name</label><input type="text" id="sold-client" placeholder="Auto-filled from lead"></div>
       <div class="fg"><label>Carrier</label>
-        <select id="sold-carrier" onchange="updateProductDropdown('sold-carrier','sold-product')">
+        <select id="sold-carrier" onchange="updateProductDropdown('sold-carrier','sold-product'); calcSoldAP()">
           <option>Americo</option>
         </select>
       </div>
     </div>
     <div class="frow mt12">
       <div class="fg"><label>Product</label>
-        <select id="sold-product" onchange="_toggleTermYear(this.value,'sold')">
-          <option value="americo_eagle">Final Expense</option>
+        <select id="sold-product" onchange="_toggleTermYear(this.value,'sold'); updateHealthClassDropdown('sold-carrier','sold-product','sold-class'); calcSoldAP()">
+          <option value="Whole Life">Whole Life</option>
+          <option value="Term">Term</option>
+          <option value="IUL">IUL</option>
         </select>
       </div>
       <div class="fg" id="sold-term-year-fg" style="display:none">
@@ -3720,12 +3742,20 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </select>
       </div>
       <div class="fg"><label>Health Class</label>
-        <select id="sold-class">
-          <option value="level">Level / Select 1 — Full Commission</option>
-          <option value="standard">Standard / Select 2 — Full Commission</option>
-          <option value="graded">Graded — ~40% Commission Cut</option>
-          <option value="gi">GI / ROP — ~40% Commission Cut</option>
+        <select id="sold-class" onchange="updateCommPctPreview('sold')">
+          <option value="std">Preferred/Standard</option>
+          <option value="graded">Graded/Modified</option>
         </select>
+      </div>
+    </div>
+    <div class="frow mt12">
+      <div class="fg" style="max-width:220px">
+        <label>Estimated Commission %</label>
+        <input type="number" id="sold-commpct" step="0.1" min="0" max="200" oninput="onCommPctInput('sold')">
+      </div>
+      <div class="fg">
+        <label>Estimated Commission Total</label>
+        <div id="sold-commtotal" style="background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.22);border-radius:8px;padding:9px 11px;min-height:33px;display:flex;align-items:center;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--ds-color-success)">—</div>
       </div>
     </div>
     <div class="frow mt12">
@@ -3738,12 +3768,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         <input type="number" id="sold-ap" placeholder="1182.00" step="0.01" readonly style="opacity:.7;cursor:not-allowed">
       </div>
       <div class="fg"><label>Coverage Amount ($)</label><input type="number" id="sold-cov" placeholder="15000"></div>
-    </div>
-
-    <!-- Live commission preview -->
-    <div id="sold-comm-preview" style="background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.22);border-radius:8px;padding:10px 14px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-      <div style="font-size:12px;color:var(--text3)">Est. Adv. Commission (AP x comm% x 0.75)</div>
-      <div style="font-family:var(--mono);font-size:18px;font-weight:400;color:var(--ds-color-success)" id="sold-comm-disp">—</div>
     </div>
 
     <div class="frow mt12">
@@ -6366,6 +6390,7 @@ let ptSort = '';
 function calcModalAP() {
   const monthly = parseFloat(document.getElementById('p-monthly').value) || 0;
   document.getElementById('p-ap').value = monthly ? (monthly * 12).toFixed(2) : '';
+  updateCommTotalPreview('p');
 }
 
 function openAddPolicy() {
@@ -6440,7 +6465,7 @@ function openSoldModal(lead) {
   document.getElementById('sold-monthly').value = '';
   document.getElementById('sold-ap').value = '';
   document.getElementById('sold-cov').value = '';
-  document.getElementById('sold-comm-disp').textContent = '—';
+  updateCommTotalPreview('sold');
 }
 
 function closeSoldModal() {
@@ -6452,18 +6477,7 @@ function calcSoldAP() {
   const monthly = parseFloat(document.getElementById('sold-monthly').value) || 0;
   const ap = +(monthly * 12).toFixed(2);
   document.getElementById('sold-ap').value = ap || '';
-  // Live commission preview
-  if (ap > 0) {
-    const cls = document.getElementById('sold-class').value;
-    const isGraded = cls === 'graded' || cls === 'gi';
-    const contract = getContract();
-    const prod = document.getElementById('sold-product').value || 'americo_eagle';
-    const commPct = getCommPct(prod, contract, isGraded);
-    const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
-    document.getElementById('sold-comm-disp').textContent = fmt$(advComm);
-  } else {
-    document.getElementById('sold-comm-disp').textContent = '—';
-  }
+  updateCommTotalPreview('sold');
 }
 
 async function submitAsSold() {
@@ -6476,14 +6490,11 @@ async function submitAsSold() {
   const cov = parseFloat(document.getElementById('sold-cov').value) || 0;
   const draft = document.getElementById('sold-draft').value;
   const status = document.getElementById('sold-status').value;
-  const contract = getContract();
 
   if (!client) { alert('Please enter the client name.'); return; }
   if (!monthly || monthly <= 0) { alert('Please enter the monthly premium.'); return; }
 
-  const isGraded = cls === 'graded' || cls === 'gi';
-  const prod = document.getElementById('sold-product').value || 'americo_eagle';
-  const commPct = getCommPct(prod, contract, isGraded);
+  const commPct = parseFloat(document.getElementById('sold-commpct').value) || 0;
   const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
 
   let payDate = '';
@@ -6495,12 +6506,12 @@ async function submitAsSold() {
 
   // Add to policy tracker — Supabase first, then local.
   const sourceLead = soldLeadId ? leads.find(l => String(l.id) === soldLeadId) : null;
-  const clsToRating = { level: 'Preferred', standard: 'Standard', graded: 'Substandard', gi: 'Substandard' };
-  const ratingClass = clsToRating[cls] || null;
-  // Surface graded/GI as a logical "logged health concern" so insurability
-  // scoring counts it. The actual condition is unknown but the cls tells
-  // us underwriting flagged something.
-  const knownConditions = (cls === 'graded' || cls === 'gi') ? ['Logged underwriting concern (graded/GI)'] : [];
+  // Surface graded/GI health classes as a logical "logged health concern" so
+  // insurability scoring counts it. The actual condition is unknown but the
+  // health class tells us underwriting flagged something.
+  const isGI = cls === 'graded' || cls === 'gi';
+  const ratingClass = isGI ? 'Substandard' : 'Standard';
+  const knownConditions = isGI ? ['Logged underwriting concern (graded/GI)'] : [];
   // Pull the lead's smoker indicator if we have it via wizard answers.
   const smokerStatus = sourceLead && sourceLead.tobacco ? 'current' : (sourceLead && sourceLead.smoker_status) || null;
   const soldTermYrEl = document.getElementById('sold-term-years');
@@ -6559,12 +6570,9 @@ async function addPolicy() {
   const dateSubmitted = document.getElementById('p-dateSubmitted').value || new Date().toISOString().split('T')[0];
   const draft = document.getElementById('p-draft').value;
   const status = document.getElementById('p-status').value;
-  const contract = getContract();
   if (!client || !monthly) { alert('Fill in client name and monthly premium.'); return; }
 
-  const isGraded = cls === 'graded' || cls === 'gi';
-  const prod = document.getElementById('p-product').value || 'americo_eagle';
-  const commPct = getCommPct(prod, contract, isGraded);
+  const commPct = parseFloat(document.getElementById('p-commpct').value) || 0;
   const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
 
   let payDate = '';
@@ -6609,18 +6617,30 @@ function openEditPolicy(id) {
   if (!p) return;
   editingPolicyId = id;
   populateCarrierDropdowns();
-  updateProductDropdown('ep-carrier','ep-product');
   document.getElementById('ep-client').value = p.client || '';
   const carrierSel = document.getElementById('ep-carrier');
   if (carrierSel) carrierSel.value = p.carrier || carrierSel.options[0]?.value;
   updateProductDropdown('ep-carrier','ep-product');
   const productSel = document.getElementById('ep-product');
-  if (productSel) productSel.value = p.product || productSel.options[0]?.value;
-  _toggleTermYear(p.product || '', 'ep');
+  // Legacy policies stored a COMP key (not a category) as `product` —
+  // resolve it back to its category before selecting it.
+  const desiredProduct = getProductDisplayLabel(p.product || '');
+  if (productSel) {
+    const validProducts = Array.from(productSel.options).map(o => o.value);
+    productSel.value = validProducts.includes(desiredProduct) ? desiredProduct : (productSel.options[0]?.value || '');
+  }
+  _toggleTermYear(productSel?.value || '', 'ep');
   const termSel = document.getElementById('ep-term-years');
   if (termSel && p.termYears) termSel.value = String(p.termYears);
+  updateHealthClassDropdown('ep-carrier','ep-product','ep-class');
   const clsSel = document.getElementById('ep-class');
-  if (clsSel) clsSel.value = p.cls || 'level';
+  if (clsSel) {
+    const validKeys = Array.from(clsSel.options).map(o => o.value);
+    // Legacy policies stored a raw COMP key as `cls` — normalize it to the
+    // current std/graded/gi Health Class keys before checking validity.
+    const clsVal = LEGACY_CLASS_MAP[p.cls] || p.cls || 'std';
+    clsSel.value = validKeys.includes(clsVal) ? clsVal : validKeys[0];
+  }
   document.getElementById('ep-monthly').value = p.monthly || '';
   document.getElementById('ep-ap').value = p.ap || '';
   document.getElementById('ep-cov').value = p.cov || '';
@@ -6629,6 +6649,7 @@ function openEditPolicy(id) {
   const statusSel = document.getElementById('ep-status');
   if (statusSel) statusSel.value = p.status || 'pending';
   document.getElementById('ep-issueDate').value = p.issueDate || '';
+  updateCommPctPreview('ep');
   document.getElementById('editPolModal').classList.add('open');
 }
 
@@ -6640,6 +6661,7 @@ function closeEditModal() {
 function calcEditModalAP() {
   const monthly = parseFloat(document.getElementById('ep-monthly').value) || 0;
   document.getElementById('ep-ap').value = monthly ? (monthly * 12).toFixed(2) : '';
+  updateCommTotalPreview('ep');
 }
 
 async function saveEditPolicy() {
@@ -6660,9 +6682,7 @@ async function saveEditPolicy() {
   const termYrEl = document.getElementById('ep-term-years');
   const termYears = (termYrEl && document.getElementById('ep-term-year-fg')?.style.display !== 'none') ? parseInt(termYrEl.value) || null : null;
   if (!client || !monthly) { alert('Fill in client name and monthly premium.'); return; }
-  const contract = getContract();
-  const isGraded = cls === 'graded' || cls === 'gi';
-  const commPct = getCommPct(product, contract, isGraded);
+  const commPct = parseFloat(document.getElementById('ep-commpct').value) || 0;
   const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
   let payDate = p.payDate || '';
   if (draft) { const d = new Date(draft); d.setDate(d.getDate() + 10); payDate = d.toISOString().split('T')[0]; }
@@ -6806,7 +6826,7 @@ function renderPolicies() {
       <td class="mono">${getSub(p)||'—'}</td>
       <td class="mono">${escHTML(p.draft)||'—'}</td>
       <td class="mono text-g">${fmt$(advComm)} <span style="font-size:10px;color:var(--text3)">(${(p.commPct||0).toFixed(1)}%×75%)</span></td>
-      <td style="font-size:11px;color:var(--text3)">${escHTML(p.cls)}</td>
+      <td style="font-size:11px;color:var(--text3)">${escHTML(getPlanDisplayLabel(p.cls))}</td>
       <td><select class="status-sel ${sMap[p.status]||'sp-p'}" onchange="updatePolicyStatus(${p.id},this.value,this)" title="Change status">
         <option value="pending" ${p.status==='pending'?'selected':''}>Pending</option>
         <option value="approved" ${p.status==='approved'?'selected':''}>Sub/Approved</option>
@@ -11574,71 +11594,191 @@ function populateCarrierDropdowns() {
   });
 }
 
-// Carrier → product list mapping (label matches TRACKER_CARRIER_LIST, key matches COMP table)
+// Carrier → Product (Whole Life / Term / IUL) → COMP key, plus optional
+// per-carrier Graded/Modified overrides and a Guaranteed Issue key. Sourced
+// from the FFL Compensation Guide (COMPGUIDEPRODUCERSTACK.pdf, rev.
+// 10/30/2025) and the matching `COMP` table above.
+const PRODUCT_CATEGORIES = ['Whole Life', 'Term', 'IUL'];
+
 const CARRIER_PRODUCTS = {
-  'Americo':          [{l:'Final Expense',k:'americo_eagle'},{l:'Term Life',k:'americo_term'},{l:'Whole Life',k:'americo_wl'},{l:'IUL',k:'americo_iul'}],
-  'Aetna / Accendo':  [{l:'Final Expense / Whole Life',k:'aetna_senior'},{l:'IUL',k:'aetna_iul'}],
-  'Aflac':            [{l:'Final Expense',k:'aflac_final_ex'}],
-  'American-Amicable':[{l:'Final Expense',k:'aa_senior'},{l:'Term Life',k:'aa_ez_term'},{l:'IUL',k:'aa_xul'}],
-  'Corebridge':       [{l:'Final Expense (SI)',k:'core_siwl'},{l:'Graded / GI',k:'core_graded'}],
-  'Chubb':            [{l:'Final Expense',k:'chubb_pref'},{l:'Graded',k:'chubb_graded'}],
-  'Ethos':            [{l:'Whole Life',k:'ethos_tawl'},{l:'Term Life',k:'ethos_si_term'},{l:'GI Whole Life',k:'ethos_gawl'}],
-  'Mutual of Omaha':  [{l:'Final Expense',k:'mutual_fe'},{l:'Term Life',k:'mutual_term_exp'},{l:'IUL',k:'mutual_iul'},{l:'Accidental Death',k:'mutual_accidental'}],
-  'Transamerica':     [{l:'Final Expense',k:'trans_express'},{l:'Graded / GI',k:'trans_graded'},{l:'Term Life',k:'trans_ff'},{l:'Universal Life',k:'trans_ul'}],
-  'Foresters':        [{l:'Final Expense',k:'foresters_foundation'},{l:'Term Life',k:'foresters_your_term'},{l:'Universal Life',k:'foresters_smartul'}],
-  'InstaBrain':       [{l:'Final Expense WL',k:'insta_fe_wl'},{l:'GI Whole Life',k:'insta_gi_wl'},{l:'Term Life',k:'insta_life_term'}],
-  'Liberty Bankers':  [{l:'Final Expense',k:'lb_fx'}],
-  'Ladder Life':      [{l:'Term Life',k:'ladder_fx'}],
-  'NLG':              [{l:'Universal Life',k:'nlg_ul'}],
-  'Royal Neighbors':  [{l:'Term Life',k:'rn_term'},{l:'Whole Life (SI)',k:'rn_si_wl'},{l:'IUL',k:'rn_secure_iul'},{l:'Whole Life (SPWL)',k:'rn_legacy_spwl'}],
-  'United Home Life': [{l:'Final Expense',k:'uhl_premier_wl'},{l:'GI Whole Life',k:'uhl_gi_wl'},{l:'Term Life',k:'uhl_term'},{l:'Universal Life',k:'uhl_fx'}],
-  'Legal & General':  [{l:'Term Life',k:'lg_term'}],
-  'SBLI':             [{l:'Final Expense',k:'sbli_fex'}],
-  'Baltimore Life':   [{l:'Final Expense',k:'baltimore_sgfe'},{l:'Term Life',k:'baltimore_aplt'},{l:'Whole Life',k:'baltimore_apwl'}],
-  'American Home Life':[{l:'Final Expense',k:'ahl_fe'}],
-  'John Hancock':     [{l:'Term Life',k:'jh_simple_term'}],
-  'Elco Mutual':      [{l:'Final Expense',k:'elco_fe_imm'},{l:'Whole Life',k:'elco_lifepay_wl'}],
-  'Mutual Trust Life':[{l:'Final Expense',k:'mtrust_express_ul'},{l:'Term Life',k:'mtrust_term_simple'},{l:'Graded / GI',k:'mtrust_grd_guardian'}],
-  'Kansas City Life': [{l:'Term Life',k:'kcl_sig_term_si'},{l:'IUL',k:'kcl_iul'}],
+  'Americo':            { products: {'Whole Life':'americo_eagle', 'Term':'americo_term'} },
+  'Aetna / Accendo':    { products: {'Whole Life':'aetna_senior', 'IUL':'aetna_iul'} },
+  'American-Amicable':  { products: {'Whole Life':'aa_senior', 'Term':'aa_ez_term', 'IUL':'aa_xul'} },
+  'Transamerica':       { products: {'Whole Life':'trans_express', 'Term':'trans_ff', 'IUL':'trans_ffiul'}, graded: {'Whole Life':'trans_graded'} },
+  'Corebridge':         { products: {'Whole Life':'core_siwl'}, graded: {'Whole Life':'core_graded'}, gi: 'core_giwl' },
+  'Chubb':              { products: {'Whole Life':'chubb_pref'}, graded: {'Whole Life':'chubb_graded'} },
+  'Ethos':              { products: {'Whole Life':'ethos_tawl', 'Term':'ethos_si_term', 'IUL':'ethos_ameritas_iul'}, gi: 'ethos_gawl' },
+  'Mutual of Omaha':    { products: {'Whole Life':'mutual_fe', 'Term':'mutual_term_exp', 'IUL':'mutual_iul'} },
+  'United Home Life':   { products: {'Whole Life':'uhl_premier_wl', 'Term':'uhl_term'}, graded: {'Whole Life':'uhl_graded_wl'} },
+  'American Home Life': { products: {'Whole Life':'ahl_fe'} },
+  'SBLI':               { products: {'Whole Life':'sbli_fex'} },
+  'Baltimore Life':     { products: {'Whole Life':'baltimore_sgfe', 'Term':'baltimore_aplt'} },
+  'Elco Mutual':        { products: {'Whole Life':'elco_fe_imm'} },
+  'Mutual Trust Life':  { products: {'Whole Life':'mtrust_dignity', 'Term':'mtrust_term_simple'}, graded: {'Whole Life':'mtrust_grd_guardian'} },
+  'Legal & General':    { products: {'Term':'lg_term'} },
+  'John Hancock':       { products: {'Term':'jh_simple_term'} },
+  'Kansas City Life':   { products: {'Whole Life':'kcl_longevity85', 'Term':'kcl_sig_term_si', 'IUL':'kcl_iul'} },
+  'Foresters':          { products: {'Whole Life':'foresters_foundation', 'Term':'foresters_your_term', 'IUL':'foresters_smartul'} },
+  'Aflac':              { products: {'Whole Life':'aflac_final_ex'} },
+  'InstaBrain':         { products: {'Whole Life':'insta_fe_wl', 'Term':'insta_life_term'} },
+  'Liberty Bankers':    { products: {'Whole Life':'lb_fx'} },
+  'Ladder Life':        { products: {'Term':'ladder_fx'} },
+  'NLG':                { products: {'Whole Life':'nlg_ul'} },
+  'Royal Neighbors':    { products: {'Whole Life':'rn_si_wl', 'Term':'rn_term', 'IUL':'rn_secure_iul'} },
 };
 
-function _normalizeProductLabel(rawLabel) {
-  const l = rawLabel.toLowerCase();
-  if (l.includes('term')) return 'Term';
-  if (l.includes('iul')) return 'IUL';
-  return 'Whole Life';
+// Health Class options. Every carrier gets Preferred/Standard and
+// Graded/Modified; carriers with a dedicated Guaranteed Issue product in the
+// comp guide (Corebridge GIWL, Ethos GAWL) also get a Guaranteed Issue option.
+const HEALTH_CLASS_OPTIONS = [
+  {l:'Preferred/Standard', k:'std'},
+  {l:'Graded/Modified',    k:'graded'},
+];
+const GI_OPTION = {l:'Guaranteed Issue', k:'gi'};
+const GI_CARRIERS = new Set(['Corebridge', 'Ethos']);
+
+// Older policies stored level/standard/graded/gi for `cls` — map those to
+// the current Health Class keys.
+const LEGACY_CLASS_MAP = { level:'std', standard:'std', graded:'graded', gi:'gi' };
+
+// Display label for a policy's `product` field (Whole Life / Term / IUL).
+// Older policies stored a COMP key there instead — map those back to their
+// category for display.
+function getProductDisplayLabel(productKey) {
+  if (!productKey) return 'Policy';
+  if (PRODUCT_CATEGORIES.includes(productKey)) return productKey;
+  for (const cfg of Object.values(CARRIER_PRODUCTS)) {
+    for (const [category, key] of Object.entries(cfg.products || {})) {
+      if (key === productKey) return category;
+    }
+    for (const [category, key] of Object.entries(cfg.graded || {})) {
+      if (key === productKey) return category;
+    }
+    if (cfg.gi === productKey) return 'Whole Life';
+  }
+  return productKey;
 }
 
-function getProductDisplayLabel(productKey) {
-  for (const prods of Object.values(CARRIER_PRODUCTS)) {
-    const match = prods.find(p => p.k === productKey);
-    if (match) return _normalizeProductLabel(match.l);
-  }
-  if (/term|ladder/.test(productKey)) return 'Term';
-  if (/iul/.test(productKey)) return 'IUL';
-  return 'Whole Life';
+// Display label for a policy's `cls` field (Health Class key).
+function getPlanDisplayLabel(clsKey) {
+  const normalized = LEGACY_CLASS_MAP[clsKey] || clsKey;
+  const match = HEALTH_CLASS_OPTIONS.find(o => o.k === normalized) || (normalized === 'gi' ? GI_OPTION : null);
+  return match ? match.l : (clsKey || '—');
 }
 
 function updateProductDropdown(carrierId, productId) {
   const carrier = (document.getElementById(carrierId)?.value || '').trim();
   const prodSel = document.getElementById(productId);
   if (!prodSel) return;
-  const prods = CARRIER_PRODUCTS[carrier] || [{l:'Policy', k:''}];
-  // Normalize labels to IUL / Term / Whole Life and deduplicate
-  const seen = new Set();
-  const normalized = [];
-  for (const p of prods) {
-    const label = _normalizeProductLabel(p.l);
-    if (!seen.has(label)) { seen.add(label); normalized.push({l: label, k: p.k}); }
-  }
-  prodSel.innerHTML = normalized.map(p => `<option value="${p.k}">${p.l}</option>`).join('');
+  const prev = prodSel.value;
+  const cats = Object.keys((CARRIER_PRODUCTS[carrier] || {}).products || {'Whole Life':''});
+  prodSel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  if (cats.includes(prev)) prodSel.value = prev;
   const prefix = productId === 'p-product' ? 'p' : productId === 'ep-product' ? 'ep' : 'sold';
   _toggleTermYear(prodSel.value, prefix);
+  updateHealthClassDropdown(carrierId, productId, prefix + '-class');
+}
+
+function updateHealthClassDropdown(carrierId, productId, classId) {
+  const carrier = (document.getElementById(carrierId)?.value || '').trim();
+  const clsSel = document.getElementById(classId);
+  if (!clsSel) return;
+  const prev = clsSel.value;
+  const opts = GI_CARRIERS.has(carrier) ? HEALTH_CLASS_OPTIONS.concat(GI_OPTION) : HEALTH_CLASS_OPTIONS;
+  clsSel.innerHTML = opts.map(o => `<option value="${o.k}">${o.l}</option>`).join('');
+  if (opts.some(o => o.k === prev)) clsSel.value = prev;
+  updateCommPctPreview(classId.replace(/-class$/, ''));
+}
+
+// Resolve the COMP table key + cut flag for a policy's commission lookup.
+// `product` is "Whole Life"/"Term"/"IUL" and `cls` is a Health Class key
+// (std/graded/gi). Graded/GI use a carrier-specific override key when the
+// comp guide lists one (no cut); otherwise fall back to the base product
+// key with the standard ~40% cut. Legacy policies may store a raw COMP key
+// directly in `product` — used as-is if `cls` isn't recognized.
+function getActiveCommKey(carrier, product, cls) {
+  const cfg = CARRIER_PRODUCTS[carrier] || {};
+  const normalized = LEGACY_CLASS_MAP[cls] || cls;
+  const baseKey = (cfg.products && cfg.products[product]) || product;
+  if (normalized === 'gi' && cfg.gi) return { key: cfg.gi, cut: false };
+  if (normalized === 'graded') {
+    const override = cfg.graded && cfg.graded[product];
+    if (override) return { key: override, cut: false };
+    return { key: baseKey, cut: true };
+  }
+  if (normalized === 'gi') return { key: baseKey, cut: true };
+  return { key: baseKey, cut: false };
 }
 
 function _toggleTermYear(prodKey, prefix) {
   const fg = document.getElementById(prefix + '-term-year-fg');
-  if (fg) fg.style.display = /term|ladder/.test(prodKey) ? '' : 'none';
+  if (fg) fg.style.display = prodKey === 'Term' ? '' : 'none';
+}
+
+// Per-agent commission % overrides for a given carrier+product+health class,
+// remembered so the next policy sold under the same combination defaults to
+// the agent's last-entered rate instead of the comp guide default.
+function commPctOverrideKey(carrier, product, cls) {
+  return `${carrier}|${product}|${cls}`;
+}
+
+function getCommPctOverrides() {
+  try { return JSON.parse(localStorage.getItem(k('ff_comm_pct_overrides')) || '{}'); }
+  catch (_) { return {}; }
+}
+
+function getCommPctOverride(carrier, product, cls) {
+  const v = getCommPctOverrides()[commPctOverrideKey(carrier, product, cls)];
+  return (typeof v === 'number' && !isNaN(v)) ? v : null;
+}
+
+function setCommPctOverride(carrier, product, cls, pct) {
+  const overrides = getCommPctOverrides();
+  overrides[commPctOverrideKey(carrier, product, cls)] = pct;
+  localStorage.setItem(k('ff_comm_pct_overrides'), JSON.stringify(overrides));
+}
+
+function getDefaultCommPct(carrier, product, cls) {
+  const { key, cut } = getActiveCommKey(carrier, product, cls);
+  return getCommPct(key, getContract(), cut);
+}
+
+// Refresh the Estimated Commission % field once carrier, product, and health
+// class are all selected — uses a saved override if the agent has edited
+// this combination before, otherwise the comp guide default.
+function updateCommPctPreview(prefix) {
+  const carrier = (document.getElementById(prefix + '-carrier')?.value || '').trim();
+  const product = (document.getElementById(prefix + '-product')?.value || '').trim();
+  const cls = (document.getElementById(prefix + '-class')?.value || '').trim();
+  const input = document.getElementById(prefix + '-commpct');
+  if (!input || !carrier || !product || !cls) return;
+  const override = getCommPctOverride(carrier, product, cls);
+  input.value = override != null ? override : getDefaultCommPct(carrier, product, cls);
+  updateCommTotalPreview(prefix);
+}
+
+// Save the agent's edited commission % for this carrier+product+health class
+// so future policies under the same combination default to it.
+function onCommPctInput(prefix) {
+  const carrier = (document.getElementById(prefix + '-carrier')?.value || '').trim();
+  const product = (document.getElementById(prefix + '-product')?.value || '').trim();
+  const cls = (document.getElementById(prefix + '-class')?.value || '').trim();
+  const input = document.getElementById(prefix + '-commpct');
+  if (!input || !carrier || !product || !cls) return;
+  const pct = parseFloat(input.value);
+  if (!isNaN(pct)) setCommPctOverride(carrier, product, cls, pct);
+  updateCommTotalPreview(prefix);
+}
+
+// Estimated Commission Total = Annual Premium x Comm% x 0.75 (9-month
+// advance payout). Blank until both the premium and commission % are known.
+function updateCommTotalPreview(prefix) {
+  const disp = document.getElementById(prefix + '-commtotal');
+  if (!disp) return;
+  const monthly = parseFloat(document.getElementById(prefix + '-monthly')?.value) || 0;
+  const commPct = parseFloat(document.getElementById(prefix + '-commpct')?.value) || 0;
+  const ap = +(monthly * 12).toFixed(2);
+  disp.textContent = (ap > 0 && commPct > 0) ? fmt$(+(ap * commPct / 100 * 0.75).toFixed(2)) : '—';
 }
 
 function filterBonusTabs() {
