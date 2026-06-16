@@ -11222,11 +11222,10 @@ function importCSVLeads() {
     const customFields = Object.entries(customColMap)
       .map(([col, label]) => ({ label, value: (row[parseInt(col)] || '').trim() }))
       .filter(cf => cf.label);
-    const rawPhone = get(row, 'phone');
     const lead = {
       id: genLeadId(),
       name: name || 'Unknown',
-      phone: toE164(rawPhone) || rawPhone,
+      phone: get(row, 'phone'),
       email: get(row, 'email'),
       state: get(row, 'state'),
       city: get(row, 'city'),

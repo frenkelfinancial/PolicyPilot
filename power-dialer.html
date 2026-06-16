@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Power Dialer — ProducerStack CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;0,9..40,900;1,9..40,400&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -22,11 +25,11 @@
   --text2:    #8890ac;
   --text3:    #464868;
 
-  --indigo:     #6366f1;
-  --indigo-d:   #4f46e5;
-  --indigo-l:   #818cf8;
-  --indigo-bg:  rgba(99,102,241,.1);
-  --indigo-brd: rgba(99,102,241,.22);
+  --indigo:     #3b82f6;
+  --indigo-d:   #2563eb;
+  --indigo-l:   #60a5fa;
+  --indigo-bg:  rgba(59,130,246,.1);
+  --indigo-brd: rgba(59,130,246,.22);
 
   --green:    #22c55e;
   --green-bg: rgba(34,197,94,.08);
@@ -54,11 +57,36 @@
   --teal-bg:  rgba(20,184,166,.08);
 }
 
+/* ── Light mode ── */
+[data-theme="light"]{
+  --bg:      #eef4ff;
+  --surface: #ffffff;
+  --card:    #ffffff;
+  --card2:   #e6efff;
+  --raised:  #d8e6fc;
+  --border:  #c6d8f0;
+  --border2: #aec4e4;
+  --border3: #7fa8d0;
+  --text:    #0b1e42;
+  --text2:   #2b4a7a;
+  --text3:   #607898;
+  --indigo-bg:  rgba(37,99,235,.1);
+  --indigo-brd: rgba(37,99,235,.3);
+  --green-bg:   rgba(34,197,94,.1);
+  --green-brd:  rgba(34,197,94,.3);
+  --amber-bg:   rgba(245,158,11,.1);
+  --amber-brd:  rgba(245,158,11,.28);
+  --red-bg:     rgba(239,68,68,.1);
+  --red-brd:    rgba(239,68,68,.28);
+  --blue-bg:    rgba(59,130,246,.1);
+  --blue-brd:   rgba(59,130,246,.28);
+}
+
 html,body{
   height:100%;
   background:var(--bg);
   color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',system-ui,sans-serif;
+  font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
   font-size:13px;
   line-height:1.5;
   overflow:hidden;
@@ -74,17 +102,30 @@ html,body{
 }
 
 /* Logo */
-.hdr-logo{display:flex;align-items:center;gap:11px;flex-shrink:0;text-decoration:none}
+.hdr-logo{display:flex;align-items:center;gap:12px;flex-shrink:0;text-decoration:none}
 .logo-mark{
-  width:36px;height:36px;border-radius:10px;flex-shrink:0;
-  background:linear-gradient(145deg,#4f46e5 0%,#6366f1 50%,#818cf8 100%);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 0 0 1px rgba(99,102,241,.3),0 4px 14px rgba(79,70,229,.35);
+  height:36px;flex-shrink:0;
+  background:white;border-radius:8px;
+  display:flex;align-items:center;
+  overflow:hidden;padding:4px 10px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.12);
 }
-.logo-mark svg{display:block}
+.logo-mark img{height:100%;width:auto;display:block}
 .logo-text{display:flex;flex-direction:column;line-height:1.1}
 .logo-name{font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:-.01em}
-.logo-sub{font-size:10px;font-weight:600;color:var(--indigo-l);text-transform:uppercase;letter-spacing:.08em;margin-top:1px}
+.logo-sub{font-size:10px;font-weight:700;color:var(--indigo-l);text-transform:uppercase;letter-spacing:.1em;margin-top:1px}
+
+/* Start screen logo badge */
+.start-logo-badge{
+  width:190px;margin:0 auto 30px;
+  background:white;border-radius:14px;
+  padding:14px 22px;
+  box-shadow:0 6px 28px rgba(0,0,0,.22),0 0 0 1px rgba(255,255,255,.08);
+}
+[data-theme="light"] .start-logo-badge{
+  background:transparent;box-shadow:none;padding:0;
+}
+.start-logo-badge img{width:100%;height:auto;display:block}
 
 .hdr-div{width:1px;height:30px;background:var(--border2);flex-shrink:0;margin:0 16px}
 
@@ -160,59 +201,94 @@ html,body{
 /* ── Start card ── */
 .start-card{
   background:var(--card);
-  border:1px solid var(--border2);
-  border-radius:20px;padding:44px 48px;width:460px;
-  box-shadow:0 20px 60px rgba(0,0,0,.5);
+  border:1px solid rgba(99,102,241,.18);
+  border-radius:24px;
+  padding:52px 52px 44px;
+  width:500px;
+  box-shadow:0 40px 100px rgba(0,0,0,.65),0 0 0 1px rgba(59,130,246,.1),0 0 80px rgba(37,99,235,.1);
   text-align:center;
+  position:relative;
+  overflow:hidden;
 }
-.start-icon{
-  width:60px;height:60px;border-radius:16px;margin:0 auto 22px;
-  background:linear-gradient(145deg,#4f46e5,#6366f1,#818cf8);
+.start-card::before{
+  content:'';
+  position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent 0%,#1d4ed8 15%,#3b82f6 50%,#60a5fa 70%,transparent 100%);
+}
+.start-card h1{
+  font-size:36px;font-weight:900;color:var(--text);
+  margin-bottom:10px;letter-spacing:-.045em;line-height:1.02;
+}
+.start-greeting{
+  font-size:22px;font-weight:800;color:var(--text);
+  margin-bottom:32px;letter-spacing:-.035em;line-height:1.15;
+}
+
+.theme-toggle{
+  width:32px;height:32px;border-radius:8px;flex-shrink:0;
+  background:var(--card2);border:1px solid var(--border2);
+  color:var(--text2);cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 4px 20px rgba(79,70,229,.4),0 0 0 1px rgba(99,102,241,.3);
+  transition:background .15s,border-color .15s,color .15s;
 }
-.start-card h1{font-size:22px;font-weight:800;color:var(--text);margin-bottom:6px;letter-spacing:-.02em}
-.start-card .sub{font-size:13px;color:var(--text2);margin-bottom:24px}
+.theme-toggle:hover{background:var(--raised);border-color:var(--border3);color:var(--text)}
 
 .count-badge{
-  display:inline-flex;align-items:center;gap:9px;
-  background:var(--indigo-bg);border:1px solid var(--indigo-brd);
-  color:var(--indigo-l);font-size:16px;font-weight:700;
-  padding:10px 22px;border-radius:12px;margin-bottom:22px;
+  display:flex;align-items:center;justify-content:center;gap:20px;
+  background:linear-gradient(135deg,rgba(37,99,235,.18) 0%,rgba(59,130,246,.07) 100%);
+  border:1px solid rgba(59,130,246,.32);
+  border-radius:16px;margin-bottom:32px;padding:18px 28px;
 }
+.count-num{
+  font-size:42px;font-weight:900;color:var(--indigo-l);
+  letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;
+}
+.count-divider{
+  width:1px;height:42px;background:rgba(99,102,241,.28);flex-shrink:0;
+}
+.count-label{text-align:left}
+.count-label-main{font-size:15px;font-weight:700;color:var(--text);line-height:1.2}
+.count-label-sub{font-size:11px;color:var(--text3);margin-top:3px;text-transform:uppercase;letter-spacing:.1em}
 
 .start-bullets{
-  background:var(--card2);border:1px solid var(--border);
-  border-radius:12px;overflow:hidden;margin-bottom:24px;text-align:left;
+  margin-bottom:34px;text-align:left;
 }
 .bullet-row{
-  display:flex;align-items:center;gap:13px;
-  padding:11px 16px;font-size:12.5px;color:var(--text2);
+  display:flex;align-items:flex-start;gap:14px;
+  padding:14px 0;
   border-bottom:1px solid var(--border);
+  font-size:13.5px;color:var(--text2);line-height:1.55;
 }
 .bullet-row:last-child{border-bottom:none}
-.bi{
-  width:30px;height:30px;border-radius:8px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;font-size:14px;
+.bi-num{
+  width:26px;height:26px;border-radius:50%;flex-shrink:0;margin-top:2px;
+  background:rgba(37,99,235,.15);border:1px solid rgba(59,130,246,.35);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11.5px;font-weight:800;color:var(--indigo-l);letter-spacing:0;
 }
+.bullet-text strong{color:var(--text);font-weight:700}
 
 .btn-primary{
-  width:100%;padding:13px;border:none;border-radius:11px;
-  background:linear-gradient(135deg,#4f46e5,#6366f1);
-  color:#fff;font-size:14px;font-weight:700;cursor:pointer;
-  transition:opacity .15s,transform .15s;
-  box-shadow:0 4px 16px rgba(79,70,229,.35);
-  margin-bottom:10px;
+  width:100%;padding:17px;border:none;border-radius:13px;
+  background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 45%,#3b82f6 100%);
+  color:#fff;font-size:15px;font-weight:700;cursor:pointer;
+  letter-spacing:.02em;
+  transition:opacity .18s,transform .18s,box-shadow .18s;
+  box-shadow:0 8px 28px rgba(37,99,235,.5),0 2px 8px rgba(0,0,0,.3);
+  margin-bottom:12px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
 }
-.btn-primary:hover{opacity:.9;transform:translateY(-1px)}
-.btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-primary:hover{opacity:.93;transform:translateY(-2px);box-shadow:0 14px 36px rgba(37,99,235,.6),0 2px 8px rgba(0,0,0,.3)}
+.btn-primary:active{transform:translateY(0);opacity:1}
+.btn-primary:disabled{opacity:.38;cursor:not-allowed;transform:none;box-shadow:none}
 
 .btn-ghost{
-  width:100%;padding:10px;background:transparent;
-  border:1px solid var(--border2);border-radius:10px;
-  color:var(--text3);font-size:12.5px;cursor:pointer;transition:all .15s;
+  width:100%;padding:11px;background:transparent;
+  border:none;
+  color:var(--text3);font-size:13px;cursor:pointer;
+  transition:color .15s;letter-spacing:.01em;
 }
-.btn-ghost:hover{color:var(--text2);background:var(--card2);border-color:var(--border3)}
+.btn-ghost:hover{color:var(--text2)}
 
 /* ── Pending card ── */
 .pending-card{
@@ -564,14 +640,9 @@ html,body{
   <!-- ProducerStack Logo -->
   <a class="hdr-logo" href="#">
     <div class="logo-mark">
-      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="2" y="4" width="18" height="3.5" rx="1.75" fill="white" fill-opacity="0.9"/>
-        <rect x="2" y="9.25" width="14" height="3.5" rx="1.75" fill="white" fill-opacity="0.7"/>
-        <rect x="2" y="14.5" width="10" height="3.5" rx="1.75" fill="white" fill-opacity="0.5"/>
-      </svg>
+      <img src="ChatGPT%20Image%20May%208,%202026,%2007_49_20%20PM.png" alt="ProducerStack">
     </div>
     <div class="logo-text">
-      <span class="logo-name">ProducerStack</span>
       <span class="logo-sub">Power Dialer</span>
     </div>
   </a>
@@ -609,6 +680,12 @@ html,body{
       <span id="pill-text">Loading…</span>
     </div>
     <button class="btn-end" id="btn-end-hdr" style="display:none" onclick="pdEnd()">End Dialing</button>
+    <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Switch to light mode">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" id="theme-icon">
+        <circle cx="7.5" cy="7.5" r="2.8" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M7.5 1v1.4M7.5 12.6V14M1 7.5h1.4M12.6 7.5H14M3.2 3.2l1 1M10.8 10.8l1 1M10.8 3.2l-1 1M4.2 10.8l-1 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </button>
   </div>
 
 </header>
@@ -637,37 +714,43 @@ html,body{
   <!-- ── START ── -->
   <div class="fsscreen" id="s-start">
     <div class="start-card">
-      <div class="start-icon">
-        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-          <rect x="3" y="5" width="22" height="4.5" rx="2.25" fill="white" fill-opacity="0.9"/>
-          <rect x="3" y="11.75" width="17" height="4.5" rx="2.25" fill="white" fill-opacity="0.7"/>
-          <rect x="3" y="18.5" width="12" height="4.5" rx="2.25" fill="white" fill-opacity="0.5"/>
-        </svg>
+      <div class="start-logo-badge">
+        <img src="ChatGPT%20Image%20May%208,%202026,%2007_49_20%20PM.png" alt="ProducerStack">
       </div>
-      <h1>Ready to Power Dial?</h1>
-      <p class="sub">Review your queue and launch your session when ready.</p>
+
+      <h1>Power Dial</h1>
+      <div class="start-greeting" id="pd-greeting">Good morning.</div>
 
       <div class="count-badge">
-        <span>📋</span>
-        <span><strong id="start-count">0</strong> leads queued</span>
+        <div class="count-num" id="start-count">0</div>
+        <div class="count-divider"></div>
+        <div class="count-label">
+          <div class="count-label-main">Leads Queued</div>
+          <div class="count-label-sub">Ready to dial</div>
+        </div>
       </div>
 
       <div class="start-bullets">
         <div class="bullet-row">
-          <div class="bi" style="background:var(--blue-bg)">📞</div>
-          Leads are dialed automatically in sequence
+          <div class="bi-num">1</div>
+          <div class="bullet-text"><strong>Automatic sequence</strong> — each lead is dialed in order without interruption</div>
         </div>
         <div class="bullet-row">
-          <div class="bi" style="background:var(--green-bg)">🔗</div>
-          Call in from your phone to join the live conference
+          <div class="bi-num">2</div>
+          <div class="bullet-text"><strong>Call in from your phone</strong> — dial the session number, enter your PIN, and go live</div>
         </div>
-        <div class="bullet-row" style="border:none">
-          <div class="bi" style="background:var(--amber-bg)">⚡</div>
-          Tag outcomes, take notes, and skip in real time
+        <div class="bullet-row">
+          <div class="bi-num">3</div>
+          <div class="bullet-text"><strong>Manage in real time</strong> — tag outcomes, take notes, and skip leads on the fly</div>
         </div>
       </div>
 
-      <button class="btn-primary" id="start-btn" onclick="pdStartSession()">Start Dialing Session</button>
+      <button class="btn-primary" id="start-btn" onclick="pdStartSession()">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+          <path d="M4.5 2.5L12.5 7.5L4.5 12.5V2.5Z" fill="white"/>
+        </svg>
+        Start Dialing Session
+      </button>
       <button class="btn-ghost" onclick="window.close()">Cancel</button>
     </div>
   </div>
@@ -1430,9 +1513,75 @@ async function pdEnd() {
   } catch (e) { console.error('end', e); }
 }
 
+// ─── Theme toggle ─────────────────────────
+function toggleTheme() {
+  const curr = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = curr === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('pd_theme', next);
+  updateThemeIcon(next);
+}
+
+function updateThemeIcon(theme) {
+  const btn = document.getElementById('theme-toggle');
+  if (!btn) return;
+  btn.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  btn.innerHTML = theme === 'dark'
+    ? `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="2.8" stroke="currentColor" stroke-width="1.4"/><path d="M7.5 1v1.4M7.5 12.6V14M1 7.5h1.4M12.6 7.5H14M3.2 3.2l1 1M10.8 10.8l1 1M10.8 3.2l-1 1M4.2 10.8l-1 1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`
+    : `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5a6 6 0 100 12 6 6 0 000-12zm0 0A4.5 4.5 0 0113.5 7.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>`;
+}
+
+// ─── Personalized greeting ────────────────
+function setPdGreeting(firstName) {
+  const el = document.getElementById('pd-greeting');
+  if (!el) return;
+  const h = new Date().getHours();
+  const n = firstName ? `, ${firstName}.` : '.';
+  let pool;
+  if (h >= 5 && h < 12) {
+    pool = [
+      `Good morning${n}`,
+      `Rise and dial${n}`,
+      `Morning session locked in${n}`,
+      `Early mover energy${n}`,
+      `Fresh start, fresh leads${n}`,
+    ];
+  } else if (h >= 12 && h < 17) {
+    pool = [
+      `Good afternoon${n}`,
+      `Afternoon dial session${n}`,
+      `Midday push time${n}`,
+      `Keep the momentum going${n}`,
+      `Prime calling hours${n}`,
+    ];
+  } else if (h >= 17 && h < 21) {
+    pool = [
+      `Good evening${n}`,
+      `Evening session — let's close${n}`,
+      `End-of-day sprint${n}`,
+      `Still going strong${n}`,
+      `Late push — keep it rolling${n}`,
+    ];
+  } else {
+    pool = [
+      `Night time dial session${n}`,
+      `Burning the midnight oil${n}`,
+      `Late night grind${n}`,
+      `The closers work late${n}`,
+      `Night shift — let's go${n}`,
+    ];
+  }
+  el.textContent = pool[Math.floor(Math.random() * pool.length)];
+}
+
 // ─── Init ─────────────────────────────────
 async function init() {
   showScreen('s-loading');
+
+  // Restore theme before anything renders
+  const savedTheme = localStorage.getItem('pd_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+  updateThemeIcon(savedTheme);
 
   const { data:{ user } } = await sb.auth.getUser();
   if (!user) { showScreen('s-auth'); return; }
@@ -1460,6 +1609,23 @@ async function init() {
   leadsData = launch.leadsData || [];
   document.getElementById('start-count').textContent = leadsData.length;
   document.getElementById('stat-contacts').textContent = `0 / ${leadsData.length}`;
+
+  // Resolve first name: user metadata → agents table → email prefix
+  let firstName = '';
+  try {
+    const meta = agentUser.user_metadata || {};
+    firstName = ((meta.full_name || meta.name || '')).split(' ')[0] || '';
+    if (!firstName) {
+      const { data: agRow } = await sb.from('agents').select('name').eq('id', agentUser.id).maybeSingle();
+      if (agRow?.name) firstName = agRow.name.trim().split(' ')[0] || '';
+    }
+    if (!firstName && agentUser.email) {
+      const em = agentUser.email.split('@')[0];
+      firstName = em.charAt(0).toUpperCase() + em.slice(1);
+    }
+  } catch {}
+  setPdGreeting(firstName);
+
   showScreen('s-start');
 }
 
