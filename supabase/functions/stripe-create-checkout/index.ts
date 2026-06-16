@@ -49,6 +49,20 @@ serve(async (req) => {
 
   if (!planId) return json({ error: "plan_id_required" }, 400);
 
+  // Developer account bypass — skip Stripe, apply plan directly in DB.
+  const DEV_EMAIL = 'jacef8778099@gmail.com';
+  if (user.email === DEV_EMAIL) {
+    const { data: devPlan, error: devPlanErr } = await sb
+      .from("plans").select("*").eq("id", planId).eq("active", true).maybeSingle();
+    if (devPlanErr || !devPlan) return json({ error: "plan_not_found" }, 404);
+    await sb.from("agents").update({
+      plan_id:              devPlan.id,
+      monthly_minute_limit: devPlan.monthly_minutes  ?? null,
+      monthly_quote_limit:  devPlan.monthly_quote_limit ?? null,
+    }).eq("id", user.id);
+    return json({ ok: true, upgraded: true });
+  }
+
   const { data: plan, error: planErr } = await sb
     .from("plans")
     .select("*")

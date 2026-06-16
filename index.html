@@ -1732,6 +1732,35 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 #sec-phonebook .pb-number-cost{
   font-size:12px; color:var(--text2); font-variant-numeric:tabular-nums; min-width:60px; text-align:right;
 }
+#sec-phonebook .pb-number-manage{
+  font-size:11.5px; color:var(--text2);
+  background:none; border:1px solid var(--border); border-radius:6px;
+  cursor:pointer; padding:3px 10px; white-space:nowrap;
+  transition:background .15s, color .15s;
+}
+#sec-phonebook .pb-number-manage:hover{ background:var(--bg3); color:var(--text); }
+/* Manage number modal */
+.pb-manage-modal{ width:440px; max-width:95vw; }
+.pb-manage-target{
+  font-family:'SF Mono', Menlo, monospace; font-size:16px; font-weight:600;
+  color:var(--text); text-align:center; margin:10px 0 20px; letter-spacing:.3px;
+}
+.pb-manage-actions{ display:flex; flex-direction:column; gap:10px; }
+.pb-manage-action{
+  display:flex; align-items:flex-start; gap:14px;
+  padding:14px 16px; border:1px solid var(--border); border-radius:10px;
+  cursor:pointer; background:var(--bg2); text-align:left; width:100%;
+  transition:border-color .15s, background .15s;
+}
+.pb-manage-action:hover{ border-color:var(--ds-color-info,#3b82f6); background:var(--bg3); }
+.pb-manage-action-icon{ font-size:20px; flex-shrink:0; line-height:1; margin-top:2px; }
+.pb-manage-action-body{ flex:1; }
+.pb-manage-action-title{ font-size:13.5px; font-weight:600; color:var(--text); margin-bottom:3px; }
+.pb-manage-action-desc{ font-size:12px; color:var(--text2); line-height:1.45; }
+.pb-manage-action.danger:hover{ border-color:#dc2626; background:rgba(220,38,38,.04); }
+.pb-manage-action.danger .pb-manage-action-title{ color:#f87171; }
+/* Replace number modal */
+.pb-replace-modal{ width:680px; max-width:95vw; }
 #sec-phonebook .pb-empty{
   padding:20px 0; text-align:center; color:var(--text2); font-size:13px;
 }
@@ -3434,7 +3463,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
     <div class="alert alert-i" style="margin-bottom:14px">
       <span data-ico="info"></span>
-      <div>Search US Local numbers by 3-digit area code. Each number is billed at <strong id="pb-buy-modal-rate">$3.00/month</strong> and added to your monthly Stripe charge immediately.</div>
+      <div id="pb-buy-modal-desc">Search US Local numbers by 3-digit area code. Each number is billed at <strong id="pb-buy-modal-rate">$3.00/month</strong> and added to your monthly Stripe charge immediately.</div>
     </div>
     <div class="pb-search-row">
       <div class="fg">
@@ -3481,6 +3510,67 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   </div>
 </div>
 
+<!-- PHONE BOOK — MANAGE NUMBER MODAL -->
+<div class="overlay" id="pbManageModal">
+  <div class="modal pb-manage-modal">
+    <div class="mhdr">
+      <div class="mtitle">Manage Number</div>
+      <button class="mclose" onclick="pbCloseManageModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div class="pb-manage-target" id="pb-manage-target">—</div>
+    <div class="pb-manage-actions">
+      <button type="button" class="pb-manage-action" onclick="pbStartReplace()">
+        <div class="pb-manage-action-icon">↔</div>
+        <div class="pb-manage-action-body">
+          <div class="pb-manage-action-title">Replace Number (Free)</div>
+          <div class="pb-manage-action-desc">Swap this number for a different one. Your monthly charge stays the same — old number is released and a new one is activated at no extra cost.</div>
+        </div>
+      </button>
+      <button type="button" class="pb-manage-action danger" onclick="pbConfirmDelete()">
+        <div class="pb-manage-action-icon">✕</div>
+        <div class="pb-manage-action-body">
+          <div class="pb-manage-action-title">Delete Number</div>
+          <div class="pb-manage-action-desc">Release this number permanently. Removes it from Telnyx and reduces your monthly Stripe charge by the per-number rate.</div>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- PHONE BOOK — REPLACE NUMBER MODAL -->
+<div class="overlay" id="pbReplaceModal">
+  <div class="modal pb-replace-modal">
+    <div class="mhdr">
+      <div class="mtitle">Replace Number</div>
+      <button class="mclose" onclick="pbCloseReplaceModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div class="alert alert-i" style="margin-bottom:14px">
+      <span data-ico="info"></span>
+      <div>Search US Local numbers by area code. The selected number will replace <strong id="pb-replace-old-display">—</strong> at <strong>no extra charge</strong>.</div>
+    </div>
+    <div class="pb-search-row">
+      <div class="fg">
+        <label>Area code</label>
+        <input type="text" id="pb-replace-areacode" inputmode="numeric" maxlength="3" pattern="\d{3}" placeholder="e.g. 512" autocomplete="off">
+      </div>
+      <button class="btn btn-p" id="pb-replace-search-btn" onclick="pbSearchReplaceNumbers()">Search</button>
+    </div>
+    <div id="pb-replace-status" class="pb-search-hint" style="display:none"></div>
+    <div id="pb-replace-results-wrap" class="pb-search-results" style="display:none">
+      <table class="pb-search-table">
+        <thead>
+          <tr>
+            <th>Number</th>
+            <th>City</th>
+            <th>State</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="pb-replace-results-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
 
 <!-- ADD LEAD MANUALLY MODAL -->
 <div class="overlay" id="addLeadModal" onclick="if(event.target===this)closeAddLeadModal()">
@@ -12766,6 +12856,12 @@ let _pbRealtimeCh     = null;
 let _pbBuyResults     = [];
 let _pbSelectedPlanId = null;
 
+// Returns true if the signed-in user is the developer account.
+// Developer accounts bypass Stripe for plans and numbers.
+function _isDev() {
+  return !!(currentAgent && currentAgent.email === 'jacef8778099@gmail.com');
+}
+
 // Fire-and-forget teardown for the Realtime channel — wired into
 // nav() so leaving the tab stops the live updates immediately.
 function _pbTeardown() {
@@ -12899,7 +12995,7 @@ async function renderPhoneBook() {
   if (billingConfigRes.error) console.warn('[phonebook] billing config fetch failed', billingConfigRes.error);
 
   _pbAgent          = agentRes.data || {};
-  _pbPlans          = plansRes.data || [];
+  _pbPlans          = (plansRes.data || []).filter(p => p.name !== 'Starter' && p.name !== 'Scale');
   _pbNumbers        = numbersRes.data || [];
   _pbNumbersError   = numbersRes.error || null;
   _pbCalls          = callsRes.data || [];
@@ -13085,12 +13181,16 @@ function pbRenderNumbersList(numbers) {
     const primaryCol = n.is_primary
       ? `<span class="pb-number-primary">Primary</span>`
       : `<button type="button" class="pb-number-setprimary" data-id="${escapeHTML(n.id)}" data-e164="${escapeHTML(n.e164)}">Set as primary</button>`;
+    const manageBtn = n._virtual
+      ? ''
+      : `<button type="button" class="pb-number-manage" data-id="${escapeHTML(n.id)}" data-e164="${escapeHTML(n.e164)}">Manage</button>`;
     return `
       <div class="pb-number-row">
         <div class="pb-number-e164">${escapeHTML(_pbFmtPhone(n.e164))}</div>
         <div class="pb-number-loc">${escapeHTML(loc)}</div>
         <div>${primaryCol}</div>
         <div class="pb-number-cost">${cost}</div>
+        <div>${manageBtn}</div>
       </div>
     `;
   }).join('');
@@ -13098,6 +13198,12 @@ function pbRenderNumbersList(numbers) {
   list.querySelectorAll('.pb-number-setprimary').forEach(btn => {
     btn.addEventListener('click', () => {
       pbSetNumberAsPrimary(btn.dataset.id, btn.dataset.e164);
+    });
+  });
+
+  list.querySelectorAll('.pb-number-manage').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pbOpenManageModal(btn.dataset.id, btn.dataset.e164);
     });
   });
 
@@ -13309,6 +13415,7 @@ async function pbSaveBillingConfig() {
 // start adding to their subscription fee. 0 means "all included slots
 // are used; the next one is an extra."
 function _pbIncludedRemaining() {
+  if (_isDev()) return 999;
   if (!_pbAgent || !_pbAgent.plan_id || !Array.isArray(_pbPlans)) return 0;
   const plan = _pbPlans.find(p => p.id === _pbAgent.plan_id);
   if (!plan || typeof plan.included_numbers !== 'number') return 0;
@@ -13324,9 +13431,16 @@ function pbOpenBuyModal() {
   const area = document.getElementById('pb-buy-areacode');
   const status = document.getElementById('pb-buy-status');
   const wrap = document.getElementById('pb-buy-results-wrap');
+  const desc = document.getElementById('pb-buy-modal-desc');
   if (area) area.value = '';
   if (status) status.style.display = 'none';
   if (wrap) wrap.style.display = 'none';
+  if (desc) {
+    const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
+    desc.innerHTML = _isDev()
+      ? 'Search US Local numbers by 3-digit area code. <strong style="color:#10b981">Developer account — numbers are purchased for free with no Stripe charge.</strong>'
+      : `Search US Local numbers by 3-digit area code. Each number is billed at <strong id="pb-buy-modal-rate">$${(numRateCents/100).toFixed(2)}/month</strong> and added to your monthly Stripe charge immediately.`;
+  }
   m.classList.add('open');
   if (typeof mountIcons === 'function') mountIcons(m);
   setTimeout(() => area && area.focus(), 50);
@@ -13423,13 +13537,15 @@ async function pbConfirmBuy(n, btn) {
   const remaining = _pbIncludedRemaining();
   const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
   const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
-  const msg = remaining > 0
-    ? `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-      `This number is included with your plan — no extra subscription charge. ` +
-      `Telnyx's own per-number fee still applies to your Telnyx account.`
-    : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-      `This is beyond your plan's included numbers. It will add ${numRateStr} to your ` +
-      `monthly Stripe charge starting today (prorated). Telnyx's own per-number fee also applies.`;
+  const msg = _isDev()
+    ? `Purchase ${_pbFmtPhone(e164)}?\n\nDeveloper account — this number will be acquired for free.`
+    : remaining > 0
+      ? `Purchase ${_pbFmtPhone(e164)}?\n\n` +
+        `This number is included with your plan — no extra subscription charge. ` +
+        `Telnyx's own per-number fee still applies to your Telnyx account.`
+      : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
+        `This is beyond your plan's included numbers. It will add ${numRateStr} to your ` +
+        `monthly Stripe charge starting today (prorated). Telnyx's own per-number fee also applies.`;
   const ok = window.confirm(msg);
   if (!ok) return;
 
@@ -13467,7 +13583,15 @@ function pbOpenUpgradeModal() {
   const m = document.getElementById('pbUpgradeModal');
   if (!m) return;
   _pbSelectedPlanId = null;
-  document.getElementById('pb-upgrade-confirm').disabled = true;
+  const confirmBtn = document.getElementById('pb-upgrade-confirm');
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = _isDev() ? 'Switch Plan' : 'Subscribe';
+  }
+  const note = document.getElementById('pb-billing-note');
+  if (note) note.textContent = _isDev()
+    ? 'Developer account — plan switches are free and instant. No Stripe payment required.'
+    : 'Billed monthly via Stripe. Existing subscribers switch instantly; new subscribers are taken to a secure Stripe checkout page.';
   pbRenderUpgradeOptions();
   m.classList.add('open');
   if (typeof mountIcons === 'function') mountIcons(m);
@@ -13475,6 +13599,177 @@ function pbOpenUpgradeModal() {
 function pbCloseUpgradeModal() {
   const m = document.getElementById('pbUpgradeModal');
   if (m) m.classList.remove('open');
+}
+
+// ── Manage Number ─────────────────────────────────────────────────────────────
+let _pbManageId   = null;
+let _pbManageE164 = null;
+let _pbReplaceResults = [];
+
+function pbOpenManageModal(id, e164) {
+  _pbManageId   = id;
+  _pbManageE164 = e164;
+  const target = document.getElementById('pb-manage-target');
+  if (target) target.textContent = _pbFmtPhone(e164);
+  const m = document.getElementById('pbManageModal');
+  if (!m) return;
+  m.classList.add('open');
+}
+function pbCloseManageModal() {
+  const m = document.getElementById('pbManageModal');
+  if (m) m.classList.remove('open');
+}
+
+async function pbConfirmDelete() {
+  if (!_pbManageId || !_pbManageE164) return;
+  const ok = window.confirm(
+    `Delete ${_pbFmtPhone(_pbManageE164)}?\n\n` +
+    `This will permanently release the number from Telnyx and reduce your monthly ` +
+    `Stripe charge by the per-number rate. This cannot be undone.`
+  );
+  if (!ok) return;
+  pbCloseManageModal();
+  try {
+    const { data, error } = await sb.functions.invoke('telnyx-release-number', {
+      body: { phone_number_id: _pbManageId },
+    });
+    if (error) {
+      let detail = error.message || 'Unknown error';
+      try {
+        const body = error.context && await error.context.json();
+        if (body && body.error) detail = body.error;
+      } catch (_) {}
+      throw new Error(detail);
+    }
+    if (!data || !data.ok) throw new Error((data && data.error) || 'Release rejected');
+    showToast(`${_pbFmtPhone(_pbManageE164)} deleted`, '#10b981');
+    await renderPhoneBook();
+  } catch (e) {
+    console.warn('[phonebook] delete failed', e);
+    showToast(`Delete failed: ${e.message || e}`, '#dc2626');
+  }
+}
+
+function pbStartReplace() {
+  pbCloseManageModal();
+  _pbReplaceResults = [];
+  const area      = document.getElementById('pb-replace-areacode');
+  const status    = document.getElementById('pb-replace-status');
+  const wrap      = document.getElementById('pb-replace-results-wrap');
+  const oldDisplay = document.getElementById('pb-replace-old-display');
+  if (area) area.value = '';
+  if (status) status.style.display = 'none';
+  if (wrap) wrap.style.display = 'none';
+  if (oldDisplay) oldDisplay.textContent = _pbFmtPhone(_pbManageE164);
+  const m = document.getElementById('pbReplaceModal');
+  if (!m) return;
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+  setTimeout(() => area && area.focus(), 50);
+}
+function pbCloseReplaceModal() {
+  const m = document.getElementById('pbReplaceModal');
+  if (m) m.classList.remove('open');
+}
+
+async function pbSearchReplaceNumbers() {
+  const areaEl = document.getElementById('pb-replace-areacode');
+  const status = document.getElementById('pb-replace-status');
+  const wrap   = document.getElementById('pb-replace-results-wrap');
+  const tbody  = document.getElementById('pb-replace-results-tbody');
+  const btn    = document.getElementById('pb-replace-search-btn');
+  if (!areaEl || !status || !wrap || !tbody) return;
+
+  const area = (areaEl.value || '').trim();
+  if (!/^\d{3}$/.test(area)) {
+    status.textContent = 'Enter a 3-digit area code (e.g. 512).';
+    status.style.display = '';
+    wrap.style.display = 'none';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Searching…'; }
+  status.textContent = 'Searching…';
+  status.style.display = '';
+  wrap.style.display = 'none';
+
+  try {
+    const { data, error } = await sb.functions.invoke('telnyx-search-numbers', {
+      body: { area_code: area },
+    });
+    if (error) throw error;
+    const list = (data && data.numbers) || [];
+    _pbReplaceResults = list;
+
+    if (!list.length) {
+      status.textContent = `No numbers available in area code ${area}. Try a different area code.`;
+      wrap.style.display = 'none';
+    } else {
+      status.textContent = `${list.length} numbers available — select one to replace your current number at no extra charge.`;
+      wrap.style.display = '';
+      tbody.innerHTML = list.map((n, i) => `
+        <tr>
+          <td class="mono">${escapeHTML(_pbFmtPhone(n.phone_number))}</td>
+          <td>${escapeHTML(n.locality || '—')}</td>
+          <td>${escapeHTML(n.region || '—')}</td>
+          <td style="text-align:right">
+            <button class="btn btn-p btn-sm pb-replace-btn" data-idx="${i}">Select</button>
+          </td>
+        </tr>
+      `).join('');
+      tbody.querySelectorAll('.pb-replace-btn').forEach(b => {
+        b.addEventListener('click', () => {
+          const n = _pbReplaceResults[parseInt(b.dataset.idx, 10)];
+          if (n) pbConfirmReplace(n, b);
+        });
+      });
+    }
+  } catch (e) {
+    console.warn('[phonebook] replace search failed', e);
+    status.textContent = `Search failed: ${e.message || e}`;
+    wrap.style.display = 'none';
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Search'; }
+  }
+}
+
+async function pbConfirmReplace(n, btn) {
+  const newE164 = n.phone_number;
+  const ok = window.confirm(
+    `Replace ${_pbFmtPhone(_pbManageE164)} with ${_pbFmtPhone(newE164)}?\n\n` +
+    `Your old number will be released and the new one activated immediately. ` +
+    `Your monthly charge stays the same. This cannot be undone.`
+  );
+  if (!ok) return;
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Replacing…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('telnyx-replace-number', {
+      body: {
+        old_phone_number_id: _pbManageId,
+        new_e164:            newE164,
+        new_friendly_name:   n.friendly_name || null,
+        new_locality:        n.locality || null,
+        new_region:          n.region || null,
+      },
+    });
+    if (error) {
+      let detail = error.message || 'Unknown error';
+      try {
+        const body = error.context && await error.context.json();
+        if (body && body.error) detail = body.error;
+      } catch (_) {}
+      throw new Error(detail);
+    }
+    if (!data || !data.ok) throw new Error((data && data.error) || 'Replace rejected');
+    showToast(`Replaced with ${_pbFmtPhone(newE164)}`, '#10b981');
+    pbCloseReplaceModal();
+    await renderPhoneBook();
+  } catch (e) {
+    console.warn('[phonebook] replace failed', e);
+    showToast(`Replace failed: ${e.message || e}`, '#dc2626');
+    if (btn) { btn.disabled = false; btn.textContent = 'Select'; }
+  }
 }
 
 function pbRenderUpgradeOptions() {
@@ -13490,6 +13785,9 @@ function pbRenderUpgradeOptions() {
     const quotes     = Number(p.monthly_quote_limit || 0).toLocaleString();
     const uwCap      = typeof p.monthly_uw_prompt_limit === 'number' ? p.monthly_uw_prompt_limit : 0;
     const uwDisplay  = uwCap === 0 ? 'Unlimited' : uwCap.toLocaleString();
+    const priceDisplay = _isDev()
+      ? `<span style="color:#10b981;font-weight:600;font-size:12px">Free (Dev)</span>`
+      : `$${Number(p.monthly_cost).toFixed(2)}/mo`;
     return `
       <label class="pb-plan-opt ${isCurrent ? 'current' : ''}" data-id="${escapeHTML(p.id)}">
         <input type="radio" name="pb-upgrade-plan" value="${escapeHTML(p.id)}" ${isCurrent ? 'disabled checked' : ''}>
@@ -13498,7 +13796,7 @@ function pbRenderUpgradeOptions() {
           <div class="pb-plan-opt-detail">${quotes} live quotes / month</div>
           <div class="pb-plan-opt-detail">${uwDisplay} underwriting prompts / month</div>
         </div>
-        <div class="pb-plan-opt-price">$${Number(p.monthly_cost).toFixed(2)}/mo</div>
+        <div class="pb-plan-opt-price">${priceDisplay}</div>
       </label>
     `;
   }).join('');
@@ -13558,7 +13856,7 @@ async function pbApplyPlanChange() {
 
 // Close phone-book modals on overlay-click / Escape, matching the
 // rest of the app's modal behavior.
-['pbBuyModal', 'pbUpgradeModal'].forEach(id => {
+['pbBuyModal', 'pbUpgradeModal', 'pbManageModal', 'pbReplaceModal'].forEach(id => {
   document.addEventListener('click', (e) => {
     const overlay = document.getElementById(id);
     if (overlay && e.target === overlay) overlay.classList.remove('open');
@@ -13566,7 +13864,7 @@ async function pbApplyPlanChange() {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  ['pbBuyModal', 'pbUpgradeModal'].forEach(id => {
+  ['pbBuyModal', 'pbUpgradeModal', 'pbManageModal', 'pbReplaceModal'].forEach(id => {
     const o = document.getElementById(id);
     if (o && o.classList.contains('open')) o.classList.remove('open');
   });
@@ -14407,6 +14705,8 @@ async function loadQuoteQuota() {
       }
     }
     _quoteQuota = { used, limit, resetAt, loaded: true };
+    // Developer account has unlimited quotes.
+    if (_isDev()) _quoteQuota.limit = 999999;
   } catch (e) {
     // Don't block the UI on a transient sync hiccup; edge function stays
     // authoritative and the counter will catch up after the next quote.

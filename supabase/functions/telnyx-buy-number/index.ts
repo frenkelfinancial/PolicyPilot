@@ -180,7 +180,9 @@ serve(async (req) => {
 
   // Sync the phone number quantity to the agent's Stripe subscription.
   // Best-effort — never fails the buy response.
-  if (STRIPE_KEY) {
+  // Developer account skips Stripe billing entirely.
+  const DEV_EMAIL = 'jacef8778099@gmail.com';
+  if (STRIPE_KEY && user.email !== DEV_EMAIL) {
     await syncNumberOnStripe(sb, STRIPE_KEY, user.id);
   }
 
