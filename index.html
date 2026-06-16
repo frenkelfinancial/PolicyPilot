@@ -2756,14 +2756,25 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
     <!-- ========== LEADS ========== -->
     <div class="section" id="sec-leads">
-      <!-- Status sub-tabs -->
-      <div class="tabs" id="lead-subtabs" style="margin-top:4px;margin-bottom:14px">
-        <button class="tab active" data-tab="all"            onclick="leadsTab('all', this)">All <span class="tab-count" data-count="all">0</span></button>
-        <button class="tab"        data-tab="new"            onclick="leadsTab('new', this)">New <span class="tab-count" data-count="new">0</span></button>
-        <button class="tab"        data-tab="no_answer"      onclick="leadsTab('no_answer', this)">No Answer <span class="tab-count" data-count="no_answer">0</span></button>
-        <button class="tab"        data-tab="appointment"    onclick="leadsTab('appointment', this)">Appointment Set <span class="tab-count" data-count="appointment">0</span></button>
-        <button class="tab"        data-tab="objections"     onclick="leadsTab('objections', this)">Objections <span class="tab-count" data-count="objections">0</span></button>
-        <button class="tab"        data-tab="not_interested" onclick="leadsTab('not_interested', this)">Not Interested <span class="tab-count" data-count="not_interested">0</span></button>
+      <!-- Status sub-tabs + dial buttons -->
+      <div style="display:flex;align-items:center;margin-top:4px;margin-bottom:14px;gap:12px">
+        <div class="tabs" id="lead-subtabs" style="margin-bottom:0;flex-shrink:0">
+          <button class="tab active" data-tab="all"            onclick="leadsTab('all', this)">All <span class="tab-count" data-count="all">0</span></button>
+          <button class="tab"        data-tab="new"            onclick="leadsTab('new', this)">New <span class="tab-count" data-count="new">0</span></button>
+          <button class="tab"        data-tab="no_answer"      onclick="leadsTab('no_answer', this)">No Answer <span class="tab-count" data-count="no_answer">0</span></button>
+          <button class="tab"        data-tab="appointment"    onclick="leadsTab('appointment', this)">Appointment Set <span class="tab-count" data-count="appointment">0</span></button>
+          <button class="tab"        data-tab="objections"     onclick="leadsTab('objections', this)">Objections <span class="tab-count" data-count="objections">0</span></button>
+          <button class="tab"        data-tab="not_interested" onclick="leadsTab('not_interested', this)">Not Interested <span class="tab-count" data-count="not_interested">0</span></button>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="openPowerDialerModal()">
+            <span data-ico="phone" data-size="14"></span>Power Dial
+          </button>
+          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="openPreviewDialer()">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial
+          </button>
+        </div>
       </div>
       <!-- Filter toolbar -->
       <div class="card" style="padding:16px 20px;margin-bottom:16px">
@@ -8764,6 +8775,24 @@ function renderLeads() {
   updateBulkBar();
 }
 
+// Animated slide-in/out toast for dial warnings
+function showDialWarningToast(msg) {
+  const id = 'dial-warn-toast';
+  const old = document.getElementById(id);
+  if (old) old.remove();
+  const t = document.createElement('div');
+  t.id = id;
+  t.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none" style="flex-shrink:0"><path d="M13.5 10.5c-1 0-2-.2-2.9-.5-.3-.1-.6 0-.8.2l-1.8 1.8C6 10.7 5.3 10 3.9 8l1.8-1.8c.2-.2.3-.5.2-.8C5.6 4.5 5.4 3.5 5.4 2.5c0-.4-.4-.7-.8-.7H2.1C1.6 1.8 1 2.2 1 2.8 1 9 7 15 13.2 15c.6 0 1-.5 1-1.1v-2.6c0-.4-.3-.8-.7-.8z" fill="currentColor"/></svg><span>${msg}</span>`;
+  t.style.cssText = 'position:fixed;bottom:28px;right:28px;z-index:10000;background:#1e1e2e;color:#fff;padding:14px 22px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 28px rgba(0,0,0,.35);border-left:3px solid #6366f1;display:flex;align-items:center;gap:11px;transform:translateX(calc(100% + 44px));transition:transform .38s cubic-bezier(.34,1.56,.64,1);pointer-events:none';
+  document.body.appendChild(t);
+  requestAnimationFrame(() => requestAnimationFrame(() => { t.style.transform = 'translateX(0)'; }));
+  setTimeout(() => {
+    t.style.transition = 'transform .3s ease-in';
+    t.style.transform = 'translateX(calc(100% + 44px))';
+    setTimeout(() => t.remove(), 350);
+  }, 4000);
+}
+
 // Shared toast helper
 function showToast(msg, color='#10b981', undoCallback=null) {
   const duration = undoCallback ? 5000 : 3000;
@@ -9798,7 +9827,7 @@ async function openPowerDialerModal() {
   }
 
   if (selectedLeadIds.size === 0) {
-    showToast('Select at least one lead first', '#dc2626');
+    showDialWarningToast('Select leads to Power Dial first — check the boxes next to leads');
     return;
   }
   if (selectedLeadIds.size > 500) {
@@ -9838,7 +9867,7 @@ function closePowerDialerModal() {
 }
 
 async function openPreviewDialer() {
-  if (selectedLeadIds.size === 0) { showToast('Select at least one lead first', '#dc2626'); return; }
+  if (selectedLeadIds.size === 0) { showDialWarningToast('Select leads to Preview Dial first — check the boxes next to leads'); return; }
   if (selectedLeadIds.size > 500) { showToast('Select 500 or fewer leads per session', '#dc2626'); return; }
   const leadIds = [...selectedLeadIds];
   const leadsForDialer = leads.filter(l => leadIds.includes(String(l.id)));
