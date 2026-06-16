@@ -643,6 +643,27 @@ html,body{
 }
 .btn-close:hover{background:var(--raised);color:var(--text);border-color:var(--border3)}
 
+/* ── Call status badge ── */
+.call-status-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;border-radius:20px;
+  font-size:10.5px;font-weight:700;letter-spacing:.02em;
+  white-space:nowrap;flex-shrink:0;
+}
+.call-status-badge.csb-ringing{
+  background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:var(--amber);
+}
+.call-status-badge.csb-connected{
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.28);color:var(--green);
+}
+.call-status-badge.csb-disconnected{
+  background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);color:var(--red);
+}
+.csb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.csb-ringing .csb-dot{background:var(--amber);animation:pulse 1s ease-in-out infinite}
+.csb-connected .csb-dot{background:var(--green);animation:pulse 1.8s ease-in-out infinite}
+.csb-disconnected .csb-dot{background:var(--red)}
+
 /* Utility */
 .sec-lbl{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:8px}
 </style>
@@ -1183,7 +1204,10 @@ function renderLeadForm(lead) {
       <div class="lead-hero-top">
         <div class="lead-avatar">${esc(initials(fullName))}</div>
         <div class="lead-name-block">
-          <div class="lead-full-name">${esc(fullName)}</div>
+          <div class="lead-full-name" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            ${esc(fullName)}
+            <span id="lead-call-badge" class="call-status-badge csb-ringing"><span class="csb-dot"></span>Ringing</span>
+          </div>
           <div class="lead-status-row">${statusChip}</div>
         </div>
       </div>
@@ -1358,9 +1382,12 @@ async function markOutcome(leadId, status) {
     ).catch(e => console.warn('[markOutcome]', e));
   }
 
-  // Auto-hangup and skip for No Answer / Not Interested
-  if (status === 'no_answer' || status === 'not_interested') {
-    setTimeout(() => pdSkip(), 900);
+  // Auto-hangup and advance for No Answer / Not Interested / Objections
+  const AUTO_ADVANCE = new Set(['no_answer','not_interested','social_obj','banking_obj']);
+  if (AUTO_ADVANCE.has(status)) {
+    const banner = document.getElementById('call-banner');
+    if (banner) document.getElementById('banner-text').textContent = 'Moving to next lead…';
+    setTimeout(() => pdSkip(), 400);
   }
 }
 
@@ -1485,6 +1512,7 @@ function render(s) {
   currentState = s.status;
 
   if (s.status === 'dialing' && prevState !== 'dialing') stats.calls++;
+  if (s.status === 'dialing' && (prevState !== 'dialing' || s.current_index !== prevIdx)) playBaDum();
   if (s.status === 'connected' && prevState !== 'connected') stats.talks++;
 
   document.getElementById('btn-end-hdr').style.display = '';
@@ -1537,6 +1565,7 @@ function render(s) {
     }
 
     renderOutcomeArea(leadId);
+    updateCallBadge(s.status);
     renderNextLead(s);
     updateProgress(s);
 
@@ -1962,6 +1991,53 @@ async function pdSubmitSold() {
     alert('Error saving policy. Please try again.');
     if (saveBtn) { saveBtn.textContent = 'Save Policy & Mark Sold'; saveBtn.disabled = false; }
   }
+}
+
+// ─── Call status badge ────────────────────
+function updateCallBadge(status) {
+  const el = document.getElementById('lead-call-badge');
+  if (!el) return;
+  const map = {
+    dialing:   ['csb-ringing',      'Ringing'],
+    connected:  ['csb-connected',    'Connected'],
+  };
+  const [cls, label] = map[status] || ['csb-disconnected', 'Disconnected'];
+  el.className = `call-status-badge ${cls}`;
+  el.innerHTML = `<span class="csb-dot"></span>${label}`;
+}
+
+// ─── Ba-dum tone ──────────────────────────
+let _audioCtx = null;
+function playBaDum() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    const ctx = _audioCtx;
+    const now = ctx.currentTime;
+
+    // "Ba" — low thump
+    const o1 = ctx.createOscillator();
+    const g1 = ctx.createGain();
+    o1.connect(g1); g1.connect(ctx.destination);
+    o1.type = 'sine';
+    o1.frequency.setValueAtTime(130, now);
+    o1.frequency.exponentialRampToValueAtTime(48, now + 0.13);
+    g1.gain.setValueAtTime(0.22, now);
+    g1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+    o1.start(now); o1.stop(now + 0.15);
+
+    // "Dum" — slightly higher thump
+    const t = now + 0.21;
+    const o2 = ctx.createOscillator();
+    const g2 = ctx.createGain();
+    o2.connect(g2); g2.connect(ctx.destination);
+    o2.type = 'sine';
+    o2.frequency.setValueAtTime(170, t);
+    o2.frequency.exponentialRampToValueAtTime(62, t + 0.16);
+    g2.gain.setValueAtTime(0.30, t);
+    g2.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    o2.start(t); o2.stop(t + 0.18);
+  } catch (e) {}
 }
 
 // ─── Init ─────────────────────────────────
