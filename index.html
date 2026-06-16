@@ -2915,7 +2915,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPowerDialer()">
             <span data-ico="phone" data-size="14"></span>Power Dial
           </button>
-          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="openPreviewDialer()">
+          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPreviewDialer()">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial
           </button>
         </div>
@@ -3009,7 +3009,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
-        <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="openPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
+        <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
         <button class="btn btn-s btn-sm" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px" onclick="clearBulkSelection()"><span data-ico="x" data-size="14"></span>Clear Selection</button>
@@ -8244,6 +8244,14 @@ function guardedOpenPowerDialer() {
     return;
   }
   openPowerDialerModal();
+}
+
+function guardedOpenPreviewDialer() {
+  if (_planTier() === 'basic') {
+    showToast('Upgrade to Pro or Leader plan to use Preview Dialer', '#f59e0b');
+    return;
+  }
+  openPreviewDialer();
 }
 // ────────────────────────────────────────────────────────────────────────────
 
