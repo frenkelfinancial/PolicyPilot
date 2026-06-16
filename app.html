@@ -1381,6 +1381,10 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .auth-submit:disabled{opacity:.55;cursor:not-allowed}
 .auth-link{background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;margin-top:10px;padding:4px;font-family:var(--sans);text-decoration:underline}
 .auth-link:hover{color:var(--accent)}
+.auth-pw-wrap{position:relative}
+.auth-pw-wrap input{padding-right:52px!important}
+.auth-pw-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:10.5px;font-weight:600;color:#8AA8CA;cursor:pointer;padding:4px 2px;letter-spacing:.06em;text-transform:uppercase;font-family:var(--sans);transition:color .14s}
+.auth-pw-toggle:hover{color:#0B1F3A}
 .auth-msg{padding:9px 12px;border-radius:8px;font-size:12.5px;margin-bottom:14px;display:none;line-height:1.4}
 .auth-msg.show{display:block}
 .auth-msg.err{background:var(--ds-color-danger-bg);border:1px solid var(--ds-color-danger-bg);color:var(--ds-color-danger)}
@@ -2405,7 +2409,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
     <div class="auth-view active" id="view-signin">
       <div class="auth-field"><label>Email</label><input type="email" id="signin-email" autocomplete="email"></div>
-      <div class="auth-field"><label>Password</label><input type="password" id="signin-pw" autocomplete="current-password"></div>
+      <div class="auth-field"><label>Password</label><div class="auth-pw-wrap"><input type="password" id="signin-pw" autocomplete="current-password"><button type="button" class="auth-pw-toggle" onclick="togglePw('signin-pw',this)" tabindex="-1">Show</button></div></div>
       <button class="auth-submit" onclick="authSignIn()">Sign in</button>
       <div style="text-align:center"><button class="auth-link" onclick="authForgot()">Forgot password?</button></div>
     </div>
@@ -2420,8 +2424,8 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         <div class="auth-field"><label>Email</label><input type="email" id="signup-email" autocomplete="email"></div>
       </div>
       <div class="auth-field-row">
-        <div class="auth-field"><label>Password</label><input type="password" id="signup-pw" autocomplete="new-password" minlength="8"></div>
-        <div class="auth-field"><label>Confirm</label><input type="password" id="signup-pw2" autocomplete="new-password" minlength="8"></div>
+        <div class="auth-field"><label>Password</label><div class="auth-pw-wrap"><input type="password" id="signup-pw" autocomplete="new-password" minlength="8"><button type="button" class="auth-pw-toggle" onclick="togglePw('signup-pw',this)" tabindex="-1">Show</button></div></div>
+        <div class="auth-field"><label>Confirm</label><div class="auth-pw-wrap"><input type="password" id="signup-pw2" autocomplete="new-password" minlength="8"><button type="button" class="auth-pw-toggle" onclick="togglePw('signup-pw2',this)" tabindex="-1">Show</button></div></div>
       </div>
       <div class="auth-field-row">
         <div class="auth-field"><label>NPN <span class="auth-field-optional">(optional)</span></label><input type="text" id="signup-npn" autocomplete="off" placeholder="e.g. 12345678"></div>
@@ -4710,12 +4714,26 @@ function authMsg(text, kind) {
   m.className = 'auth-msg' + (text ? ' show ' + (kind || 'err') : '');
 }
 
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  if (!inp) return;
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.textContent = show ? 'Hide' : 'Show';
+}
+
 async function authSignIn() {
   const email = document.getElementById('signin-email').value.trim();
   const password = document.getElementById('signin-pw').value;
   if (!email || !password) return authMsg('Email and password required.', 'err');
   const { error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) return authMsg(error.message, 'err');
+  if (error) {
+    const msg = (error.message || '').toLowerCase();
+    if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('email not confirmed')) {
+      return authMsg('Incorrect email or password. If you just created your account, check your inbox and click the confirmation link first.', 'err');
+    }
+    return authMsg(error.message, 'err');
+  }
   // onAuthStateChange handles the rest
 }
 
@@ -8787,6 +8805,7 @@ function scheduleDailySummary(){
 
 // ── Plan gating helpers ──────────────────────────────────────────────────────
 function _planTier() {
+  if (currentAgentIsAdmin) return 'leader';
   if (!currentPlanName) return null;
   const n = currentPlanName.toLowerCase();
   if (n.includes('leader')) return 'leader';
@@ -16596,7 +16615,7 @@ async function bootDashboard() {
         currentAgentIsAdmin = !!agentRow.data.is_admin;
         try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
         _applyPlanGating();
-        if (!currentPlanName) {
+        if (!currentPlanName && !currentAgentIsAdmin) {
           const pid = (currentAgent && currentAgent.user_metadata && currentAgent.user_metadata.pending_plan_id)
             || localStorage.getItem('pp_pending_plan_id');
           if (pid) await _autoCheckout(pid);
