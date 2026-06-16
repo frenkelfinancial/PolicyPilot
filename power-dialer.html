@@ -1090,7 +1090,8 @@ let callLog      = {};   // leadId → [{ts, outcome}]
 let stats = { calls:0, talks:0, appts:0 };
 let activeTab    = 'outcome';
 let currentState = null;
-let dialMode     = 'power'; // 'power' | 'preview'
+let dialMode            = 'power'; // 'power' | 'preview'
+let _previewManualDial  = false;   // true when agent explicitly clicked Dial
 
 // ─── Utils ────────────────────────────────
 function fmtP(raw) {
@@ -1549,7 +1550,15 @@ function render(s) {
   currentState = s.status;
 
   if (s.status === 'dialing' && prevState !== 'dialing') stats.calls++;
-  if (s.status === 'dialing' && (prevState !== 'dialing' || s.current_index !== prevIdx)) playBaDum();
+  if (s.status === 'dialing' && (prevState !== 'dialing' || s.current_index !== prevIdx)) {
+    if (dialMode === 'preview' && !_previewManualDial) {
+      // Auto-dial intercepted — pause immediately so agent must click Dial
+      pdPauseAfterAdvance();
+    } else {
+      _previewManualDial = false; // consume the flag
+      playBaDum();
+    }
+  }
   if (s.status === 'connected' && prevState !== 'connected') stats.talks++;
 
   document.getElementById('btn-end-hdr').style.display = '';
@@ -1693,6 +1702,14 @@ async function pdStartSession() {
     host_number: r.data.host_number, pin: r.data.pin,
     lead_ids: leadIds, current_index: -1,
   });
+
+  // Preview mode: pre-pause the session so even the first lead requires a manual Dial click
+  if (dialMode === 'preview') {
+    _isPaused = true;
+    try {
+      await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: true } });
+    } catch {}
+  }
 }
 
 async function pdSkip() {
@@ -1706,6 +1723,13 @@ async function pdSkip() {
 function updateDialBtn() {
   const btn = document.getElementById('btn-dial-center');
   if (!btn) return;
+  // In preview mode while paused, always show ▶ Dial — even if backend briefly reports 'dialing'
+  if (dialMode === 'preview' && _isPaused) {
+    btn.className = 'btn-dial-center dc-idle';
+    btn.innerHTML = '▶&thinsp;Dial';
+    btn.disabled = false;
+    return;
+  }
   if (currentState === 'dialing') {
     btn.className = 'btn-dial-center dc-ringing';
     btn.innerHTML = '<span class="dc-dot"></span>Ringing';
@@ -1725,6 +1749,7 @@ async function pdDial() {
   if (!sessionId) return;
   if (currentState === 'dialing' || currentState === 'connected') return;
   _isPaused = false;
+  _previewManualDial = true; // tell render() this dial is intentional — don't auto-pause
   const pauseBtn = document.getElementById('btn-pause');
   if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
   updateDialBtn();
