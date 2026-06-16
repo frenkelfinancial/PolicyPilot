@@ -1,0 +1,18 @@
+{
+  "appId": "com.policypilot.app",
+  "appName": "Producer Stack",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#070d1a",
+      "showSpinner": false
+    },
+    "Microphone": {
+      "usage": "Needed to make outbound calls to leads"
+    }
+  }
+}

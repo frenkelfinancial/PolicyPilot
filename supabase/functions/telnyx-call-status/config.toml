@@ -1,0 +1,11 @@
+# Per-function config for telnyx-call-status.
+#
+# Telnyx's servers POST to this function without a Supabase
+# JWT (they don't have one — they aren't a logged-in user).
+#
+# Older Supabase CLI versions ignore per-function config.toml.
+# If `supabase functions deploy telnyx-call-status` doesn't
+# pick this up, also toggle the dashboard setting:
+#   Supabase Dashboard → Edge Functions → telnyx-call-status
+#   → Settings → "Enforce JWT verification" → OFF
+verify_jwt = false
