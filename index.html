@@ -2877,7 +2877,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
         <div style="flex:1"></div>
         <div style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="openPowerDialerModal()">
+          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPowerDialer()">
             <span data-ico="phone" data-size="14"></span>Power Dial
           </button>
           <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="openPreviewDialer()">
@@ -2973,7 +2973,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </select>
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
-        <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="openPowerDialerModal()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
+        <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
         <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="openPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
@@ -4271,6 +4271,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // Per-agent localStorage namespacing via k(). See docs/architecture.md.
 // ============================================================
 let currentAgent = null;
+let currentPlanName = null; // plan name loaded at boot, drives feature gating
 
 function authShowView(view) {
   document.querySelectorAll('.auth-tab').forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -8176,14 +8177,45 @@ function scheduleDailySummary(){
   try { localStorage.setItem(k('ds_last_notify_day'), today); } catch (_e) {}
 }
 
+// ── Plan gating helpers ──────────────────────────────────────────────────────
+function _planTier() {
+  if (!currentPlanName) return null;
+  const n = currentPlanName.toLowerCase();
+  if (n.includes('leader')) return 'leader';
+  if (n.includes('pro'))    return 'pro';
+  if (n.includes('basic'))  return 'basic';
+  return null;
+}
+
+function _applyPlanGating() {
+  const isBasic = _planTier() === 'basic';
+  // Advanced summary sections — hidden on Basic plan
+  ['income-reality', 'activity-momentum', 'persistency-health', 'pipeline-funnel'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isBasic ? 'none' : '';
+  });
+  const btiCard = document.querySelector('.bti-card');
+  if (btiCard) btiCard.style.display = isBasic ? 'none' : '';
+}
+
+function guardedOpenPowerDialer() {
+  if (_planTier() === 'basic') {
+    showToast('Upgrade to Pro or Leader plan to use Power Dialer', '#f59e0b');
+    return;
+  }
+  openPowerDialerModal();
+}
+// ────────────────────────────────────────────────────────────────────────────
+
 function renderSummary() {
   if (!document.getElementById('sec-summary')) return;
+  _applyPlanGating();
   renderGreeting();
   if (typeof renderActionHub === 'function') renderActionHub();
-  if (typeof renderPipelineFunnel === 'function') renderPipelineFunnel();
-  if (typeof renderIncomeReality === 'function') renderIncomeReality();
-  if (typeof renderActivityMomentum === 'function') renderActivityMomentum();
-  if (typeof renderPersistencyHealth === 'function') renderPersistencyHealth();
+  if (_planTier() !== 'basic' && typeof renderPipelineFunnel === 'function') renderPipelineFunnel();
+  if (_planTier() !== 'basic' && typeof renderIncomeReality === 'function') renderIncomeReality();
+  if (_planTier() !== 'basic' && typeof renderActivityMomentum === 'function') renderActivityMomentum();
+  if (_planTier() !== 'basic' && typeof renderPersistencyHealth === 'function') renderPersistencyHealth();
   const pols = Array.isArray(policies) ? policies : [];
   const today = new Date();
   const range = summaryPeriodRange(summaryPeriod, today);
@@ -13843,6 +13875,9 @@ async function pbApplyPlanChange() {
     }
 
     // Existing subscriber — plan switched via Stripe API.
+    currentPlanName = plan.name;
+    try { localStorage.setItem(k('pp_plan_name'), currentPlanName); } catch(_) {}
+    _applyPlanGating();
     showToast(`Switched to ${plan.name}`, '#10b981');
     pbCloseUpgradeModal();
     await renderPhoneBook();
@@ -15471,6 +15506,7 @@ async function bootDashboard() {
   mountIcons();
   document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
   // 1. Optimistic hydrate from localStorage cache (instant render).
+  currentPlanName = localStorage.getItem(k('pp_plan_name')) || null;
   policies = safeParseLS(k('ff_policies'), []);
   leads = safeParseLS(k('pp_leads'), []);
   const saved = localStorage.getItem(k('ff_contract'));
@@ -15499,6 +15535,20 @@ async function bootDashboard() {
   // 2. Sync with Supabase — first-sync any local-only data, then pull remote.
   try {
     await sbFirstSyncIfNeeded();
+
+    // Fetch the agent's current plan so feature gating is accurate.
+    try {
+      const [agentRow, planRows] = await Promise.all([
+        sb.from('agents').select('plan_id').eq('id', currentAgent.id).maybeSingle(),
+        sb.from('plans').select('id, name').eq('active', true),
+      ]);
+      if (!agentRow.error && !planRows.error && agentRow.data && planRows.data) {
+        const match = planRows.data.find(p => p.id === agentRow.data.plan_id);
+        currentPlanName = match ? match.name : null;
+        try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
+        _applyPlanGating();
+      }
+    } catch(_) {}
 
     const remotePolicies = await sbPullPolicies();
     if (remotePolicies !== null) {
