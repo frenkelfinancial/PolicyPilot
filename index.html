@@ -8,7 +8,7 @@
 <meta name="description" content="The all-in-one CRM platform built exclusively for life insurance producers. Power Dialer, live carrier quotes, pipeline tracking, and production analytics.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -19,7 +19,7 @@
   --text:#EBF0FB;--text2:#9FB3D0;--text3:#5A72A0;
   --border:rgba(255,255,255,.06);--border2:rgba(91,159,232,.16);
   --nav-h:64px;
-  --sans:'DM Sans',system-ui,sans-serif;
+  --sans:'Plus Jakarta Sans',system-ui,sans-serif;
   --mono:'DM Mono',monospace;
   --r4:4px;--r8:8px;--r12:12px;--r16:16px;--r20:20px;--r24:24px;
 }
@@ -131,7 +131,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .stat-d{font-size:13px;color:var(--text3);margin-top:4px;line-height:1.4;font-weight:400;letter-spacing:-.01em}
 
 /* ── SECTION COMMON ────────────────────────────── */
-.section{position:relative;z-index:1;padding:90px 24px;max-width:1160px;margin:0 auto}
+.section{position:relative;z-index:1;padding:28px 20px 40px;max-width:1208px;margin:0 auto}
+/* ── SECTION CARD SHELL ─────────────────────────── */
+.sec-shell{background:linear-gradient(165deg,rgba(10,17,40,.85) 0%,rgba(7,12,27,.9) 100%);border:1px solid rgba(91,159,232,.13);border-radius:28px;padding:64px 60px 72px;position:relative;overflow:hidden}
+.sec-shell::before{content:'';position:absolute;top:0;left:8%;right:8%;height:1px;background:linear-gradient(90deg,transparent,rgba(91,159,232,.22) 50%,transparent);pointer-events:none}
 .eyebrow{font-size:11px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:13px;display:flex;align-items:center;gap:8px}
 .eyebrow::before{content:'';display:block;width:16px;height:1.5px;background:var(--accent);border-radius:1px;flex-shrink:0}
 .sec-h{font-size:clamp(26px,3.2vw,42px);font-weight:700;color:var(--text);letter-spacing:-.04em;line-height:1.08;margin-bottom:14px}
@@ -243,7 +246,7 @@ svg.ico-check{width:16px;height:16px}
 svg.ico-x{width:14px;height:14px}
 
 /* ── SUPPORT STRIP ─────────────────────────────── */
-.support-strip{border:1px solid rgba(91,159,232,.14);border-radius:var(--r20);padding:36px 44px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;background:rgba(91,159,232,.04);margin:0 24px;max-width:1112px;margin-left:auto;margin-right:auto;margin-bottom:72px}
+.support-strip{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
 .support-text h3{font-size:20px;font-weight:600;color:var(--text);letter-spacing:-.03em;margin-bottom:5px}
 .support-text p{font-size:13.5px;color:var(--text3);line-height:1.6;letter-spacing:-.01em}
 .support-contacts{display:flex;gap:16px;flex-wrap:wrap}
@@ -308,7 +311,9 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
   .nav-links,.nav-right .btn-ghost{display:none}
   .hamburger{display:flex}
   .ft-top{grid-template-columns:1fr 1fr;gap:24px}
-  .support-strip{flex-direction:column;align-items:flex-start;padding:24px}
+  .support-strip{flex-direction:column;align-items:flex-start}
+  .sec-shell{padding:36px 24px 44px;border-radius:20px}
+  .section{padding:16px 14px 24px}
   .final-card{padding:44px 24px}
   .compare-header,.compare-row{grid-template-columns:1.2fr 1fr 1fr 1fr;font-size:12px}
 }
@@ -436,6 +441,7 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
 
 <!-- ═══ FEATURES ══════════════════════════════════ -->
 <section class="section" id="features">
+<div class="sec-shell">
   <div class="eyebrow reveal">Everything You Need</div>
   <h2 class="sec-h reveal">Tools built for how <span class="hl">producers actually work</span></h2>
   <p class="sec-sub reveal">Every feature was designed from the ground up for life insurance sales — not adapted from a generic CRM, not bolted on. Purpose-built.</p>
@@ -544,11 +550,12 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
     </div>
 
   </div>
+</div>
 </section>
 
 <!-- ═══ HOW IT WORKS ══════════════════════════════ -->
-<div style="border-top:1px solid var(--border);position:relative;z-index:1">
 <section class="section" id="how">
+<div class="sec-shell">
   <div class="eyebrow reveal">Simple by Design</div>
   <h2 class="sec-h reveal">From sign-up to <span class="hl">closing deals</span> in minutes</h2>
   <p class="sec-sub reveal">No week-long onboarding. No IT team required. You can be calling leads on day one.</p>
@@ -578,12 +585,12 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
       <p class="how-p">Connect directly to your lead vendors and have fresh leads drip straight into your pipeline automatically — the moment they're generated. No manual imports, no CSV gymnastics. New leads from any vendor appear in your call queue instantly, so you're always working the hottest data.</p>
     </div>
   </div>
-</section>
 </div>
+</section>
 
 <!-- ═══ PRICING ═══════════════════════════════════ -->
-<div style="border-top:1px solid var(--border);position:relative;z-index:1">
 <section class="section" id="pricing">
+<div class="sec-shell">
   <div class="eyebrow reveal">Pricing</div>
   <h2 class="sec-h reveal">Simple, transparent <span class="hl">pricing</span></h2>
   <p class="sec-sub reveal">Pick the plan that matches where you are. Upgrade any time as your production grows — no penalties, no lock-in.</p>
@@ -742,12 +749,12 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
       </div>
     </div>
   </div>
-</section>
 </div>
+</section>
 
 <!-- ═══ SUPPORT ════════════════════════════════════ -->
-<div id="support" style="position:relative;z-index:1;padding-bottom:20px">
-  <div class="support-strip reveal">
+<div class="section" id="support" style="padding-bottom:48px">
+  <div class="sec-shell support-strip reveal" style="padding:44px 56px">
     <div class="support-text">
       <h3>Questions? We're real people.</h3>
       <p>Talk directly to the team that built Producer Stack. We're here to help you get set up fast.</p>
