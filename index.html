@@ -602,6 +602,28 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-row:hover{border-color:var(--border2)}
 .lead-row.sold{background:var(--ds-color-success-bg);border-color:var(--ds-color-success)!important}
 .lead-row.not_interested{opacity:.55}
+/* ── Compact grid views ── */
+#lead-list-container.view-compact2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;align-items:start}
+#lead-list-container.view-compact2 .lead-row{margin-bottom:0}
+#lead-list-container.view-compact4{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;align-items:start}
+#lead-list-container.view-compact4 .lead-row{margin-bottom:0}
+.lead-row.compact-card{padding:12px 14px}
+.cmpct-hdr{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+.cmpct-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
+.cmpct-phone{font-size:11.5px;color:var(--text3);margin-top:2px;font-variant-numeric:tabular-nums}
+.cmpct-call-wrap{position:relative;margin-bottom:7px}
+.cmpct-call{width:100%;padding:7px 0;font-size:11.5px;font-weight:700;border-radius:7px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#1e6abf,#2b8fd9);color:#fff;transition:opacity .15s}
+.cmpct-call:hover{opacity:.88}
+.cmpct-status{width:100%;margin-bottom:7px;padding:6px 8px;font-size:11.5px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:var(--sans);outline:none;cursor:pointer}
+.cmpct-actions{display:flex;gap:6px}
+.cmpct-actions button{flex:1;padding:5px 4px;font-size:11px;font-weight:600;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:background .13s,color .13s,border-color .13s}
+.cmpct-sold:hover{background:rgba(16,185,129,.1)!important;color:#10b981!important;border-color:rgba(16,185,129,.4)!important}
+.cmpct-quote:hover{background:rgba(99,102,241,.1)!important;color:#6366f1!important;border-color:rgba(99,102,241,.4)!important}
+/* ── View switcher ── */
+.vsw-group{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:2px;gap:1px;flex-shrink:0}
+.vsw-btn{padding:5px 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--text3);display:flex;align-items:center;justify-content:center;transition:all .13s;line-height:1}
+.vsw-btn:hover{color:var(--text2)}
+.vsw-btn.active{background:var(--card);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.14)}
 .lead-row-main{display:flex;flex-direction:column;padding:0}
 .lead-wide-grid{display:grid;grid-template-columns:195px calc(50% - 195px) 155px 1fr;gap:0;padding:14px 16px;align-items:stretch}
 .lead-col{padding:0 12px;border-right:1px solid var(--border);min-width:0}
@@ -2819,6 +2841,19 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             </select>
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap">
+            <!-- View switcher -->
+            <div class="vsw-group" title="Switch view">
+              <button class="vsw-btn active" id="vsw-standard" onclick="setLeadView('standard')" title="Standard view">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1.5" width="13" height="4.5" rx="1.2" fill="currentColor"/><rect x="1" y="9" width="13" height="4.5" rx="1.2" fill="currentColor"/></svg>
+              </button>
+              <button class="vsw-btn" id="vsw-compact2" onclick="setLeadView('compact2')" title="2-column compact">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="5.5" height="13" rx="1.2" fill="currentColor"/><rect x="8.5" y="1" width="5.5" height="13" rx="1.2" fill="currentColor"/></svg>
+              </button>
+              <button class="vsw-btn" id="vsw-compact4" onclick="setLeadView('compact4')" title="4-column compact">
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="1" width="2.5" height="13" rx=".8" fill="currentColor"/><rect x="4.5" y="1" width="2.5" height="13" rx=".8" fill="currentColor"/><rect x="8" y="1" width="2.5" height="13" rx=".8" fill="currentColor"/><rect x="11.5" y="1" width="2.5" height="13" rx=".8" fill="currentColor"/></svg>
+              </button>
+            </div>
+            <div style="width:1px;height:18px;background:var(--border)"></div>
             <span style="font-size:12px;color:var(--text3)" id="lead-count-display">0 leads</span>
             <select id="lead-per-page" onchange="setLeadsPerPage()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none">
               <option value="25">25/page</option>
@@ -8231,6 +8266,7 @@ let leads = [];
 let filteredLeads = [];
 let leadsCurrentPage = 1;
 let leadsPerPage = 50;
+let leadView = localStorage.getItem('lead_view') || 'standard';
 
 // Escape user-controlled text for safe innerHTML interpolation.
 function escapeHTML(s) {
@@ -8488,6 +8524,12 @@ function populateLeadSourceFilter() {
   sel.value = current; // restore selection if still valid
 }
 
+function setLeadView(v) {
+  leadView = v;
+  localStorage.setItem('lead_view', v);
+  renderLeads();
+}
+
 function renderLeads() {
   populateLeadSourceFilter();
   filterLeads_silent();
@@ -8550,6 +8592,12 @@ function renderLeads() {
   }
   empty.style.display = 'none';
   container.innerHTML = '';
+  // Sync view class + buttons
+  container.className = leadView !== 'standard' ? 'view-' + leadView : '';
+  ['standard','compact2','compact4'].forEach(k => {
+    const b = document.getElementById('vsw-' + k);
+    if (b) b.classList.toggle('active', k === leadView);
+  });
 
   page.forEach(lead => {
     const lid = String(lead.id); // always use string
@@ -8653,6 +8701,37 @@ function renderLeads() {
         })),
       ...((lead.customFields||lead.custom_fields)||[]).map(cf=>({lbl:cf.label,val:cf.value||'—',notset:!cf.value,key:null})),
     ];
+
+    if (leadView !== 'standard') {
+      // ── Compact card (2-col or 4-col view) ──
+      div.className = `lead-row compact-card${isSold?' sold':status==='not_interested'?' not_interested':''}`;
+      if (isChecked) div.style.outline = '2px solid rgba(59,130,246,.5)';
+      div.innerHTML = `
+        <div class="cmpct-hdr">
+          <input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead" style="margin-top:2px;flex-shrink:0">
+          <div style="flex:1;min-width:0">
+            <div class="cmpct-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
+            ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
+          </div>
+        </div>
+        <div class="cmpct-call-wrap">
+          <button class="cmpct-call lead-call-btn lead-click-to-call" data-lid="${lid}" data-phone-href="${callHref}" aria-label="Call ${escapeHTML(lead.name||'lead')}">
+            ${icon('phone',{size:12})} CALL
+          </button>
+          ${callCount > 0 ? `<span class="lead-call-badge">${callCount}</span>` : ''}
+        </div>
+        <select class="cmpct-status lead-disposition-sel lead-disposition-cb" data-lid="${lid}">
+          ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
+          ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
+        </select>
+        <div class="cmpct-actions">
+          <button class="cmpct-sold lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
+          <button class="cmpct-quote lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
+        </div>
+      `;
+      container.appendChild(div);
+      return; // skip standard template below
+    }
 
     div.innerHTML = `
       <div class="lead-row-main">
