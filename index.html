@@ -3009,19 +3009,13 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             <span data-ico="trophy" data-size="13"></span>My Plan
           </div>
           <div class="pb-plan-name" id="pb-plan-name">Loading…</div>
-          <div class="pb-plan-cap"><span id="pb-plan-min-cap">—</span> minutes/month · <span id="pb-plan-cost">$—</span>/mo</div>
-          <div class="pb-bar"><div class="pb-bar-fill" id="pb-plan-bar" style="width:0%"></div></div>
-          <div class="pb-bar-meta">
-            <span><span id="pb-plan-min-used">0</span> / <span id="pb-plan-min-cap-2">—</span> min used</span>
-            <span id="pb-plan-pct">0%</span>
-          </div>
+          <div class="pb-plan-cap"><span id="pb-plan-cost">$—</span>/mo</div>
           <div class="pb-bar"><div class="pb-bar-fill" id="pb-plan-q-bar" style="width:0%"></div></div>
           <div class="pb-bar-meta">
-            <span><span id="pb-plan-q-used">0</span> / <span id="pb-plan-q-cap">—</span> quotes used (last 30 days)</span>
+            <span><span id="pb-plan-q-used">0</span> / <span id="pb-plan-q-cap">—</span> live quotes used (last 30 days)</span>
             <span id="pb-plan-q-pct">0%</span>
           </div>
-          <div class="pb-plan-numbers" id="pb-plan-numbers">—</div>
-          <div class="pb-plan-retention" id="pb-plan-retention">—</div>
+          <div class="pb-plan-numbers" id="pb-plan-uw">—</div>
           <div class="pb-plan-renews">Resets <span id="pb-plan-renews">—</span></div>
           <button class="btn btn-g pb-plan-upgrade" id="pb-plan-upgrade-btn" onclick="pbOpenUpgradeModal()">Upgrade Plan</button>
         </div>
@@ -12763,7 +12757,7 @@ async function renderPhoneBook() {
       .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id')
       .eq('id', currentAgent.id).maybeSingle(),
     sb.from('plans')
-      .select('id, slug, name, monthly_minutes, monthly_quote_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
+      .select('id, slug, name, monthly_minutes, monthly_quote_limit, monthly_uw_prompt_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
       .eq('active', true).order('sort_order', { ascending: true }),
     sb.from('phone_numbers')
       .select('id, e164, friendly_name, locality, region, sw_phone_sid, monthly_cost, is_primary, status, purchased_at')
@@ -12852,46 +12846,20 @@ function pbRenderPlanCard(agent, usedMin, quotesUsed) {
     ? _pbPlans.find(p => p.id === agent.plan_id) || null
     : null;
   const planName = document.getElementById('pb-plan-name');
-  const planCap  = document.getElementById('pb-plan-min-cap');
-  const planCap2 = document.getElementById('pb-plan-min-cap-2');
   const planCost = document.getElementById('pb-plan-cost');
-  const planUsed = document.getElementById('pb-plan-min-used');
-  const planPct  = document.getElementById('pb-plan-pct');
-  const planBar  = document.getElementById('pb-plan-bar');
   const renews   = document.getElementById('pb-plan-renews');
   const qBar     = document.getElementById('pb-plan-q-bar');
   const qUsedEl  = document.getElementById('pb-plan-q-used');
   const qCapEl   = document.getElementById('pb-plan-q-cap');
   const qPctEl   = document.getElementById('pb-plan-q-pct');
-  const numEl    = document.getElementById('pb-plan-numbers');
-  const retEl    = document.getElementById('pb-plan-retention');
-
-  // monthly_minute_limit on agents is the authoritative cap (the
-  // bridge function reads it). plans.monthly_minutes should agree
-  // when a plan is set; fall back to the cap if no plan is attached.
-  const cap =
-    (plan && typeof plan.monthly_minutes === 'number') ? plan.monthly_minutes :
-    (typeof agent.monthly_minute_limit === 'number') ? agent.monthly_minute_limit : 500;
+  const uwEl     = document.getElementById('pb-plan-uw');
 
   const name = (plan && plan.name) ? plan.name : 'No plan';
   const cost = (plan && plan.monthly_cost != null) ? `$${Number(plan.monthly_cost).toFixed(2)}` : '$—';
-  const pct  = cap > 0 ? Math.min(100, Math.round(100 * usedMin / cap)) : 0;
 
   if (planName) planName.textContent = name;
-  if (planCap)  planCap.textContent  = cap.toLocaleString();
-  if (planCap2) planCap2.textContent = cap.toLocaleString();
   if (planCost) planCost.textContent = cost;
-  if (planUsed) planUsed.textContent = usedMin.toLocaleString();
-  if (planPct)  planPct.textContent  = pct + '%';
-  if (planBar) {
-    planBar.style.width = pct + '%';
-    planBar.classList.toggle('warn', pct >= 75 && pct < 90);
-    planBar.classList.toggle('over', pct >= 90);
-  }
 
-  // Quote bar — sourced from plan.monthly_quote_limit if a plan is
-  // attached; falls back to agent.monthly_quote_limit (which the
-  // itk-quote function reads as the authoritative cap).
   const qCap =
     (plan && typeof plan.monthly_quote_limit === 'number' && plan.monthly_quote_limit > 0) ? plan.monthly_quote_limit :
     (typeof agent.monthly_quote_limit === 'number') ? agent.monthly_quote_limit : 250;
@@ -12906,18 +12874,8 @@ function pbRenderPlanCard(agent, usedMin, quotesUsed) {
     qBar.classList.toggle('over', qPct >= 90);
   }
 
-  // Numbers count — needs the owned count, which lives in module-scope
-  // _pbNumbers (already populated by renderPhoneBook before this call).
-  const ownedCount    = Array.isArray(_pbNumbers) ? _pbNumbers.length : 0;
-  const includedCount = (plan && typeof plan.included_numbers === 'number') ? plan.included_numbers : 0;
-  if (numEl) {
-    numEl.textContent = `Numbers: ${ownedCount} of ${includedCount} included`;
-    numEl.classList.toggle('over', ownedCount > includedCount);
-  }
-
-  // Recording retention — informational; no purge job exists yet.
-  const retDays = (plan && typeof plan.recording_retention_days === 'number') ? plan.recording_retention_days : 30;
-  if (retEl) retEl.textContent = `Recordings kept for ${retDays} days`;
+  const uwCap = plan && typeof plan.monthly_uw_prompt_limit === 'number' ? plan.monthly_uw_prompt_limit : 0;
+  if (uwEl) uwEl.textContent = uwCap === 0 ? 'Underwriting prompts: Unlimited' : `Underwriting prompts: ${uwCap.toLocaleString()} / month`;
 
   // Cap resets on the 1st of next month.
   if (renews) {
@@ -13324,18 +13282,17 @@ function pbRenderUpgradeOptions() {
     return;
   }
   wrap.innerHTML = _pbPlans.map(p => {
-    const isCurrent = p.id === currentId;
-    const mins   = Number(p.monthly_minutes || 0).toLocaleString();
-    const quotes = Number(p.monthly_quote_limit || 0).toLocaleString();
-    const nums   = Number(p.included_numbers || 0);
+    const isCurrent  = p.id === currentId;
+    const quotes     = Number(p.monthly_quote_limit || 0).toLocaleString();
+    const uwCap      = typeof p.monthly_uw_prompt_limit === 'number' ? p.monthly_uw_prompt_limit : 0;
+    const uwDisplay  = uwCap === 0 ? 'Unlimited' : uwCap.toLocaleString();
     return `
       <label class="pb-plan-opt ${isCurrent ? 'current' : ''}" data-id="${escapeHTML(p.id)}">
         <input type="radio" name="pb-upgrade-plan" value="${escapeHTML(p.id)}" ${isCurrent ? 'disabled checked' : ''}>
         <div class="pb-plan-opt-body">
           <div class="pb-plan-opt-name">${escapeHTML(p.name)}${isCurrent ? '<span class="pb-plan-opt-current">Current</span>' : ''}</div>
-          <div class="pb-plan-opt-detail">${mins} minutes / month</div>
           <div class="pb-plan-opt-detail">${quotes} live quotes / month</div>
-          <div class="pb-plan-opt-detail">${nums} phone number${nums === 1 ? '' : 's'} included</div>
+          <div class="pb-plan-opt-detail">${uwDisplay} underwriting prompts / month</div>
         </div>
         <div class="pb-plan-opt-price">$${Number(p.monthly_cost).toFixed(2)}/mo</div>
       </label>
