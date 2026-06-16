@@ -2840,6 +2840,8 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </select>
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
+        <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="openPowerDialerModal()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
+        <div style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
         <button class="btn btn-s btn-sm" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px" onclick="clearBulkSelection()"><span data-ico="x" data-size="14"></span>Clear Selection</button>
       </div>
@@ -3922,6 +3924,85 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
 
     <div class="mftr"><button class="btn btn-s btn-sm" onclick="closeIntegrationsModal()">Close</button></div>
+  </div>
+</div>
+
+<!-- POWER DIALER MODAL -->
+<div class="overlay" id="powerDialerModal">
+  <div class="modal" style="max-width:480px;width:100%">
+    <div class="mhdr">
+      <div class="mtitle">Power Dialer</div>
+      <button class="mclose" onclick="closePowerDialerModal()" data-ico="x" data-size="14"></button>
+    </div>
+
+    <!-- START -->
+    <div id="pd-state-start">
+      <div class="alert alert-i">
+        <span data-ico="info"></span>
+        <div>You're about to start a power dialer session with <strong id="pd-start-count">0</strong> lead(s). Call in from your phone, enter your PIN, and we'll dial each lead in order — connecting them straight into your call.</div>
+      </div>
+      <div class="flex gap8 mt16" style="justify-content:flex-end">
+        <button class="btn btn-s btn-sm" onclick="closePowerDialerModal()">Cancel</button>
+        <button class="btn btn-p btn-sm" id="pd-start-btn" onclick="startPowerDialerSession()">Start Session</button>
+      </div>
+    </div>
+
+    <!-- PENDING: waiting for the agent to call in -->
+    <div id="pd-state-pending" style="display:none">
+      <div class="empty">
+        <div class="ico" data-ico="phone" data-size="34"></div>
+        <p>Call <strong id="pd-host-number" class="mono"></strong> from your phone and enter your PIN, then press #:</p>
+        <div style="font-size:32px;font-weight:700;letter-spacing:.15em;margin:10px 0;font-family:var(--mono)" id="pd-pin"></div>
+        <p style="font-size:12px;color:var(--text3)">Waiting for your call…</p>
+      </div>
+      <div class="flex gap8 mt16" style="justify-content:flex-end">
+        <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger)" onclick="powerDialerEnd()">End Session</button>
+      </div>
+    </div>
+
+    <!-- DIALING: ringing the current lead -->
+    <div id="pd-state-dialing" style="display:none">
+      <div class="empty">
+        <div class="ico" data-ico="phone" data-size="34"></div>
+        <p>Connecting to <strong id="pd-dialing-name"></strong> (<span id="pd-dialing-phone" class="mono"></span>)…</p>
+        <p style="font-size:12px;color:var(--text3)" id="pd-progress"></p>
+      </div>
+      <div class="flex gap8 mt16" style="justify-content:flex-end">
+        <button class="btn btn-s btn-sm" onclick="powerDialerSkip()">Skip</button>
+        <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger)" onclick="powerDialerEnd()">End Session</button>
+      </div>
+    </div>
+
+    <!-- CONNECTED: lead is on the line -->
+    <div id="pd-state-connected" style="display:none">
+      <div class="modal-lead-strip">
+        <div><span class="lbl">Name</span><span id="pd-lead-name"></span></div>
+        <div><span class="lbl">Phone</span><span id="pd-lead-phone" class="mono"></span></div>
+        <div><span class="lbl">Time</span><span id="pd-lead-timer" class="mono">00:00</span></div>
+      </div>
+      <textarea id="pd-lead-notes" class="client-notes-ta" placeholder="Notes for this lead…" onchange="saveLeadNote(currentDialerLeadId(), this.value)"></textarea>
+      <p id="pd-progress2" style="font-size:12px;color:var(--text3);margin-top:8px"></p>
+      <div style="margin-top:12px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Mark outcome</div>
+        <div class="flex gap8" style="flex-wrap:wrap" id="pd-outcome-btns"></div>
+      </div>
+      <div class="flex gap8 mt16" style="justify-content:flex-end">
+        <button class="btn btn-s btn-sm" onclick="powerDialerSkip()">Skip / Next</button>
+        <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger)" onclick="powerDialerEnd()">End Session</button>
+      </div>
+    </div>
+
+    <!-- COMPLETED / CANCELLED -->
+    <div id="pd-state-completed" style="display:none">
+      <div class="empty">
+        <div class="ico" data-ico="check-circle" data-size="34"></div>
+        <p id="pd-completed-msg">Session complete.</p>
+      </div>
+      <div class="flex gap8 mt16" style="justify-content:flex-end">
+        <button class="btn btn-p btn-sm" onclick="closePowerDialerModal()">Close</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -8942,6 +9023,9 @@ const softphone = (() => {
   // Call lifecycle is driven by TelnyxRTC SDK events rather than
   // Realtime. A calls row is inserted client-side for history.
   //
+  // This function
+  // returns immediately after the bridge call is placed.
+  //
   // Returns { ok: true } on success, or { ok: false, reason, detail }
   // mirroring the shape the old _realDial returned so the existing
   // error-mapping in dial() still works.
@@ -9233,7 +9317,10 @@ const softphone = (() => {
           if (typeof renderLeads === 'function') renderLeads();
         }
       }
-      // Persist the outcome on the calls row. Best-effort —
+      // Persist the outcome on the calls row so admin reports can
+      // slice by it. Keyed by sw_call_sid since the row is now
+      // inserted server-side by signalwire-bridge (we don't have
+      // the row's primary key on the frontend). Best-effort —
       // failure here doesn't block the UI flow.
       const callRef = state.callRowId || state.sw_call_sid;
       if (callRef) {
@@ -9571,6 +9658,216 @@ function saveLeadNote(lid, text) {
   lid = String(lid);
   const lead = leads.find(l => String(l.id) === lid);
   if (lead) { lead.notes = text; saveLeads(); }
+}
+
+// ============================================================
+// POWER DIALER — PhoneBurner-style batch calling via Telnyx.
+//
+// Flow: agent picks leads → startPowerDialerSession() creates a
+// `dialer_sessions` row (telnyx-dialer-create-session) and shows a host
+// number + PIN. Agent calls that number from their own phone and enters
+// the PIN; the extended telnyx-call-status webhook turns that leg into a
+// conference and dials leads from lead_ids[] one at a time, joining each
+// into the conference. This modal just mirrors `dialer_sessions` via
+// Realtime — all call control happens server-side.
+// ============================================================
+let powerDialerSessionId   = null;
+let powerDialerSessionData = null;
+let powerDialerChannel     = null;
+let _pdTimerHandle         = null;
+
+function _pdShowState(name) {
+  ['start','pending','dialing','connected','completed'].forEach(s => {
+    const el = document.getElementById('pd-state-' + s);
+    if (el) el.style.display = (s === name) ? '' : 'none';
+  });
+}
+
+function _pdStopTimer() {
+  if (_pdTimerHandle) { clearInterval(_pdTimerHandle); _pdTimerHandle = null; }
+  const el = document.getElementById('pd-lead-timer');
+  if (el) el.textContent = '00:00';
+}
+
+function _pdStartTimer() {
+  if (_pdTimerHandle) return;
+  const startedAt = Date.now();
+  _pdTimerHandle = setInterval(() => {
+    const sec = Math.floor((Date.now() - startedAt) / 1000);
+    const el = document.getElementById('pd-lead-timer');
+    if (el) el.textContent = `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+  }, 1000);
+}
+
+function currentDialerLeadId() {
+  if (!powerDialerSessionData) return null;
+  return powerDialerSessionData.lead_ids[powerDialerSessionData.current_index];
+}
+
+function _pdRenderOutcomeButtons(clientId) {
+  const wrap = document.getElementById('pd-outcome-btns');
+  if (!wrap) return;
+  wrap.innerHTML = Object.entries(STATUS_CONFIG)
+    .filter(([key]) => key !== 'new')
+    .map(([key, cfg]) => `<button class="btn btn-s btn-sm" style="background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.bg}" onclick="updateLeadStatus('${clientId}','${key}')">${cfg.label}</button>`)
+    .join('');
+}
+
+// Render the modal for the current dialer_sessions row.
+function _pdRender(session) {
+  if (!session) return;
+  powerDialerSessionData = session;
+
+  if (session.status === 'pending') {
+    _pdStopTimer();
+    _pdShowState('pending');
+    document.getElementById('pd-host-number').textContent = formatPhone(session.host_number) || session.host_number || '—';
+    document.getElementById('pd-pin').textContent = session.pin || '----';
+
+  } else if (session.status === 'dialing') {
+    _pdStopTimer();
+    _pdShowState('dialing');
+    const clientId = session.lead_ids[session.current_index];
+    const lead = leads.find(l => String(l.id) === String(clientId));
+    document.getElementById('pd-dialing-name').textContent  = lead ? (lead.name || `${lead.first_name||''} ${lead.last_name||''}`.trim() || 'Unknown') : 'Unknown';
+    document.getElementById('pd-dialing-phone').textContent = lead ? formatPhone(lead.phone) : '';
+    document.getElementById('pd-progress').textContent = `Lead ${session.current_index + 1} of ${session.lead_ids.length}`;
+
+  } else if (session.status === 'connected') {
+    _pdShowState('connected');
+    const clientId = session.lead_ids[session.current_index];
+    const lead = leads.find(l => String(l.id) === String(clientId));
+    document.getElementById('pd-lead-name').textContent  = lead ? (lead.name || `${lead.first_name||''} ${lead.last_name||''}`.trim() || 'Unknown') : 'Unknown';
+    document.getElementById('pd-lead-phone').textContent = lead ? formatPhone(lead.phone) : '';
+    document.getElementById('pd-lead-notes').value = (lead && lead.notes) || '';
+    document.getElementById('pd-progress2').textContent = `Lead ${session.current_index + 1} of ${session.lead_ids.length}`;
+    _pdRenderOutcomeButtons(clientId);
+    _pdStartTimer();
+
+  } else if (session.status === 'completed' || session.status === 'cancelled') {
+    _pdStopTimer();
+    _pdShowState('completed');
+    document.getElementById('pd-completed-msg').textContent = session.status === 'completed'
+      ? `Session complete — dialed ${session.lead_ids.length} lead${session.lead_ids.length!==1?'s':''}.`
+      : 'Session ended.';
+    _pdUnsubscribe();
+    powerDialerSessionId = null;
+    renderLeads();
+  }
+}
+
+function _pdSubscribe(sessionId) {
+  _pdUnsubscribe();
+  powerDialerChannel = sb.channel('dialer-session-' + sessionId)
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'dialer_sessions', filter: 'id=eq.' + sessionId },
+      ({ new: row }) => _pdRender(row))
+    .subscribe();
+}
+
+function _pdUnsubscribe() {
+  if (powerDialerChannel) { sb.removeChannel(powerDialerChannel); powerDialerChannel = null; }
+}
+
+// Pull a human-readable message out of a failed sb.functions.invoke() call.
+async function _pdInvokeErrorDetail(error) {
+  try {
+    if (error?.context && typeof error.context.json === 'function') {
+      const body = await error.context.clone().json();
+      if (body?.detail) return body.detail;
+      if (body?.error) return body.error;
+    }
+  } catch { /* not JSON */ }
+  return error?.message || String(error);
+}
+
+async function openPowerDialerModal() {
+  const m = document.getElementById('powerDialerModal');
+  if (!m) return;
+
+  // Resume an already-active session if one exists.
+  if (powerDialerSessionId) {
+    const { data: session } = await sb.from('dialer_sessions').select('*').eq('id', powerDialerSessionId).maybeSingle();
+    if (session && ['pending','dialing','connected'].includes(session.status)) {
+      m.classList.add('open');
+      _pdRender(session);
+      return;
+    }
+    powerDialerSessionId = null;
+  }
+
+  if (selectedLeadIds.size === 0) {
+    showToast('Select at least one lead first', '#dc2626');
+    return;
+  }
+
+  document.getElementById('pd-start-count').textContent = selectedLeadIds.size;
+  _pdShowState('start');
+  m.classList.add('open');
+}
+
+function closePowerDialerModal() {
+  const m = document.getElementById('powerDialerModal');
+  if (m) m.classList.remove('open');
+}
+
+async function startPowerDialerSession() {
+  const btn = document.getElementById('pd-start-btn');
+  const leadIds = [...selectedLeadIds];
+  if (leadIds.length === 0) return;
+
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+
+  let r;
+  try {
+    r = await sb.functions.invoke('telnyx-dialer-create-session', { body: { lead_ids: leadIds } });
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Start Session';
+    showToast('Failed to start session: ' + (e?.message || e), '#dc2626');
+    return;
+  }
+
+  btn.disabled = false; btn.textContent = 'Start Session';
+
+  if (r.error) {
+    showToast('Failed to start session: ' + (await _pdInvokeErrorDetail(r.error)), '#dc2626');
+    return;
+  }
+
+  const data = r.data;
+  powerDialerSessionId = data.session_id;
+  _pdSubscribe(powerDialerSessionId);
+  _pdRender({
+    id: data.session_id,
+    status: 'pending',
+    host_number: data.host_number,
+    pin: data.pin,
+    lead_ids: leadIds,
+    current_index: -1,
+  });
+}
+
+async function powerDialerSkip() {
+  if (!powerDialerSessionId) return;
+  try {
+    const { error } = await sb.functions.invoke('telnyx-dialer-skip', { body: { session_id: powerDialerSessionId } });
+    if (error) showToast('Skip failed: ' + (await _pdInvokeErrorDetail(error)), '#dc2626');
+  } catch (e) {
+    showToast('Skip failed: ' + (e?.message || e), '#dc2626');
+  }
+}
+
+async function powerDialerEnd() {
+  if (!powerDialerSessionId) { closePowerDialerModal(); return; }
+  try {
+    const { error } = await sb.functions.invoke('telnyx-dialer-end', { body: { session_id: powerDialerSessionId } });
+    if (error) showToast('End session failed: ' + (await _pdInvokeErrorDetail(error)), '#dc2626');
+  } catch (e) {
+    showToast('End session failed: ' + (e?.message || e), '#dc2626');
+  }
+  // dialer_sessions Realtime update flips status to 'cancelled' and renders
+  // the completed state via _pdRender().
 }
 
 let _lefExitHandler = null;
