@@ -1,16 +1,3 @@
-﻿<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Producer Stack — CRM Built for Life Insurance Producers</title>
-<link rel="icon" href="assets/logos/producer-stack-logo.png" type="image/png">
-<meta name="description" content="The all-in-one CRM platform built exclusively for life insurance producers. Power Dialer, live carrier quotes, pipeline tracking, and production analytics.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#05091a;--bg2:#080e20;--bg3:#0c1530;
@@ -47,12 +34,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 @keyframes drift-f{from{transform:translate(0,0) scale(1)}to{transform:translate(-60px,-80px) scale(1.2)}}
 
 /* ── NAV ──────────────────────────────────────── */
-.nav{
-  position:fixed;top:0;left:0;right:0;z-index:200;height:var(--nav-h);
-  display:flex;align-items:center;
-  border-bottom:1px solid transparent;
-  transition:background .4s,border-color .4s,backdrop-filter .4s;
-}
+.nav{position:fixed;top:0;left:0;right:0;z-index:200;height:var(--nav-h);display:flex;align-items:center;border-bottom:1px solid transparent;transition:background .4s,border-color .4s,backdrop-filter .4s}
 .nav.scrolled{background:rgba(5,9,26,.88);border-bottom-color:var(--border);backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%)}
 .nav-inner{max-width:1160px;margin:0 auto;padding:0 24px;display:flex;align-items:center;width:100%;gap:0}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
@@ -61,6 +43,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .nav-links{display:flex;align-items:center;gap:2px;margin:0 auto}
 .nav-links a{font-size:13.5px;font-weight:400;color:var(--text3);text-decoration:none;padding:6px 13px;border-radius:var(--r8);transition:color .2s,background .2s;letter-spacing:-.01em}
 .nav-links a:hover{color:var(--text2);background:rgba(255,255,255,.04)}
+.nav-links a.active{color:var(--text);background:rgba(255,255,255,.06)}
 .nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .btn-ghost{font-family:var(--sans);font-size:13.5px;font-weight:500;color:var(--text2);background:transparent;border:1px solid var(--border);padding:7px 16px;border-radius:var(--r8);cursor:pointer;text-decoration:none;transition:color .2s,border-color .2s,background .2s;letter-spacing:-.01em}
 .btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.04)}
@@ -93,7 +76,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .mockup:hover{transform:perspective(1100px) rotateY(-2deg) rotateX(1deg)}
 .mk-bar{background:#070d1c;border-bottom:1px solid rgba(255,255,255,.05);padding:9px 13px;display:flex;align-items:center;gap:7px}
 .mk-dot{width:9px;height:9px;border-radius:50%}
-.mk-dot.r{background:#c55} .mk-dot.y{background:#c95} .mk-dot.g{background:var(--green)}
+.mk-dot.r{background:#c55}.mk-dot.y{background:#c95}.mk-dot.g{background:var(--green)}
 .mk-url{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.05);border-radius:5px;padding:3px 9px;font-family:var(--mono);font-size:9.5px;color:var(--text3);margin:0 8px}
 .mk-body{padding:14px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .mk-s{background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05);border-radius:8px;padding:10px 12px}
@@ -141,6 +124,22 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .sec-h{font-size:clamp(26px,3.2vw,42px);font-weight:700;color:var(--text);letter-spacing:-.04em;line-height:1.08;margin-bottom:14px}
 .sec-h .hl{background:linear-gradient(130deg,var(--accent-l) 0%,var(--accent) 55%,#A8D4FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .sec-sub{font-size:15.5px;color:var(--text2);line-height:1.68;max-width:520px;margin-bottom:56px;font-weight:400;letter-spacing:-.01em}
+
+/* ── PAGE HEADER ────────────────────────────────── */
+.page-hero{position:relative;z-index:1;max-width:1208px;margin:0 auto;padding:calc(var(--nav-h) + 64px) 20px 0;text-align:center}
+.page-h{font-size:clamp(28px,3.4vw,46px);font-weight:700;color:var(--text);letter-spacing:-.04em;line-height:1.07;margin-bottom:14px}
+.page-h .hl{background:linear-gradient(130deg,var(--accent-l) 0%,var(--accent) 55%,#A8D4FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.page-sub{font-size:15.5px;color:var(--text2);line-height:1.68;max-width:560px;margin:0 auto 52px;letter-spacing:-.01em}
+
+/* ── EXPLORE GRID ──────────────────────────────── */
+.explore-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.explore-card{background:linear-gradient(165deg,rgba(12,18,38,.9),rgba(8,14,30,.95));border:1px solid var(--border);border-radius:var(--r20);padding:28px 24px;text-decoration:none;display:flex;flex-direction:column;gap:12px;transition:border-color .3s,transform .3s,box-shadow .3s}
+.explore-card:hover{border-color:rgba(91,159,232,.22);transform:translateY(-2px);box-shadow:0 16px 40px -16px rgba(0,0,0,.5)}
+.explore-card-ico{width:44px;height:44px;border-radius:10px;background:rgba(91,159,232,.09);border:1px solid rgba(91,159,232,.18);display:flex;align-items:center;justify-content:center}
+.explore-card-ico svg{width:22px;height:22px;color:var(--accent)}
+.explore-card-title{font-size:16px;font-weight:600;color:var(--text);letter-spacing:-.03em}
+.explore-card-desc{font-size:13px;color:var(--text2);line-height:1.6;letter-spacing:-.01em;flex:1}
+.explore-card-link{font-size:12.5px;color:var(--accent);font-weight:500;letter-spacing:-.01em}
 
 /* ── FEATURES BENTO ────────────────────────────── */
 .bento{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
@@ -246,7 +245,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 svg.ico-check{width:16px;height:16px}
 svg.ico-x{width:14px;height:14px}
 
-/* ── SUPPORT STRIP ─────────────────────────────── */
+/* ── SUPPORT ─────────────────────────────────────── */
 .support-strip{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
 .support-text h3{font-size:20px;font-weight:600;color:var(--text);letter-spacing:-.03em;margin-bottom:5px}
 .support-text p{font-size:13.5px;color:var(--text3);line-height:1.6;letter-spacing:-.01em}
@@ -257,6 +256,11 @@ svg.ico-x{width:14px;height:14px}
 .sup-ico svg{width:17px;height:17px;color:var(--accent)}
 .sup-info span{display:block;font-size:10.5px;color:var(--text3);margin-bottom:1px;letter-spacing:-.01em}
 .sup-info strong{font-weight:500}
+.faq-list{display:flex;flex-direction:column;gap:0;margin-top:48px}
+.faq-item{border-top:1px solid var(--border);padding:20px 0}
+.faq-item:last-child{border-bottom:1px solid var(--border)}
+.faq-q{font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.02em;margin-bottom:8px}
+.faq-a{font-size:13.5px;color:var(--text2);line-height:1.7;letter-spacing:-.01em}
 
 /* ── FINAL CTA ─────────────────────────────────── */
 .final-wrap{position:relative;z-index:1;padding:0 24px 88px;max-width:1160px;margin:0 auto}
@@ -308,7 +312,6 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
   .bento{grid-template-columns:1fr}
   .bc.s2,.bc.s3{grid-column:1}
   .how-grid,.plan-row{grid-template-columns:1fr}
-  .how-grid{grid-template-columns:1fr}
   .nav-links,.nav-right .btn-ghost{display:none}
   .hamburger{display:flex}
   .ft-top{grid-template-columns:1fr 1fr;gap:24px}
@@ -317,6 +320,8 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
   .section{padding:16px 14px 24px}
   .final-card{padding:44px 24px}
   .compare-header,.compare-row{grid-template-columns:1.2fr 1fr 1fr 1fr;font-size:12px}
+  .explore-grid{grid-template-columns:1fr 1fr}
+  .page-hero{padding:calc(var(--nav-h) + 40px) 14px 0}
 }
 @media(max-width:620px){
   .stats-inner{flex-direction:column}
@@ -324,237 +329,6 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
   .ft-top{grid-template-columns:1fr}
   .compare-header,.compare-row{grid-template-columns:1.1fr repeat(3,minmax(0,1fr));font-size:11px}
   .compare-feat,.compare-cell{padding:10px 10px}
+  .explore-grid{grid-template-columns:1fr}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-</style>
-</head>
-<body>
-
-<!-- animated background -->
-<div class="bg-canvas" aria-hidden="true">
-  <div class="bg-aurora"></div>
-  <div class="orb orb-1"></div>
-  <div class="orb orb-2"></div>
-  <div class="orb orb-3"></div>
-  <div class="orb orb-4"></div>
-  <div class="orb orb-5"></div>
-  <div class="orb orb-6"></div>
-  <div class="bg-grid"></div>
-  <div class="bg-vignette"></div>
-</div>
-
-<!-- ═══ NAV ══════════════════════════════════════ -->
-<nav class="nav" id="main-nav">
-  <div class="nav-inner">
-    <a href="/" class="nav-logo">
-      <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
-      <div class="nav-logo-name">Producer Stack</div>
-    </a>
-    <div class="nav-links">
-      <a href="features.html">Features</a>
-      <a href="how-it-works.html">How It Works</a>
-      <a href="pricing.html">Pricing</a>
-      <a href="support.html">Support</a>
-    </div>
-    <div class="nav-right">
-      <a href="app.html" class="btn-ghost">Sign In</a>
-      <a href="app.html?view=signup" class="btn-nav">Get Started</a>
-    </div>
-    <button class="hamburger" id="hbg" aria-label="Menu"><span></span><span></span><span></span></button>
-  </div>
-</nav>
-
-<div class="mob-menu" id="mob-menu">
-  <a href="features.html" onclick="closeMob()">Features</a>
-  <a href="how-it-works.html" onclick="closeMob()">How It Works</a>
-  <a href="pricing.html" onclick="closeMob()">Pricing</a>
-  <a href="support.html" onclick="closeMob()">Support</a>
-  <div class="mob-div"></div>
-  <a href="app.html">Sign In</a>
-  <a href="app.html?view=signup" style="color:var(--accent)">Get Started →</a>
-</div>
-
-<!-- ═══ HERO ══════════════════════════════════════ -->
-<section class="hero">
-  <div>
-    <div class="hero-eyebrow anim d1"><div class="hero-eyebrow-dot"></div>Built for Life Insurance Producers</div>
-    <h1 class="hero-h1 anim d2">The Platform That Powers <span class="hl">Elite Producers</span></h1>
-    <p class="hero-sub anim d3">Stop juggling spreadsheets, dialers, and rate cards. Producer Stack brings your lead CRM, Power Dialer, live carrier quotes, and production analytics into one seamless system.</p>
-    <div class="hero-ctas anim d4">
-      <a href="app.html?view=signup" class="btn-cta">Start Free Trial <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-      <a href="app.html" class="btn-cta-outline">Sign In</a>
-    </div>
-    <div class="hero-proof anim d5">
-      <div class="hero-proof-item"><div class="chk"><svg fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>No long-term contracts</div>
-      <div class="hero-proof-item"><div class="chk"><svg fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Cancel any time</div>
-      <div class="hero-proof-item"><div class="chk"><svg fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Built by producers</div>
-    </div>
-  </div>
-  <div class="hero-visual anim d3">
-    <div class="mockup-outer">
-      <div class="mockup-shadow"></div>
-      <div class="mockup">
-        <div class="mk-bar"><div class="mk-dot r"></div><div class="mk-dot y"></div><div class="mk-dot g"></div><div class="mk-url">producerstackcrm.com/app</div></div>
-        <div class="mk-body">
-          <div class="mk-s"><div class="mk-sl">Monthly AP</div><div class="mk-sv">$18,420</div><div class="mk-sd">↑ 34% vs last mo</div></div>
-          <div class="mk-s"><div class="mk-sl">Issued</div><div class="mk-sv">24</div><div class="mk-sd">↑ 8 this week</div></div>
-          <div class="mk-s"><div class="mk-sl">Leads Called</div><div class="mk-sv">187</div><div class="mk-sd">Dialer active</div></div>
-          <div class="mk-r2">
-            <div class="mk-pipe">
-              <div class="mk-pl">Pipeline</div>
-              <div class="mk-pb">
-                <div class="mk-pr"><span style="width:54px">New Lead</span><div class="mk-bw"><div class="mk-bf" style="width:85%;background:var(--accent)"></div></div><span>42</span></div>
-                <div class="mk-pr"><span style="width:54px">Contacted</span><div class="mk-bw"><div class="mk-bf" style="width:60%;background:var(--accent-l)"></div></div><span>29</span></div>
-                <div class="mk-pr"><span style="width:54px">Applied</span><div class="mk-bw"><div class="mk-bf" style="width:35%;background:var(--green)"></div></div><span>17</span></div>
-                <div class="mk-pr"><span style="width:54px">Issued</span><div class="mk-bw"><div class="mk-bf" style="width:20%;background:var(--gold)"></div></div><span>9</span></div>
-              </div>
-            </div>
-            <div class="mk-dial">
-              <div class="mk-dl">Power Dialer</div>
-              <div class="mk-dn">+1 (920) 555-0192</div>
-              <div class="mk-ds">Lead 3 of 12 · Session active</div>
-              <button class="mk-db">● Live Session</button>
-            </div>
-          </div>
-          <div class="mk-r3">
-            <div class="mk-tbl">
-              <div class="mk-th"><span style="flex:2">Name</span><span style="flex:1">Product</span><span style="flex:1">AP</span><span>Status</span></div>
-              <div class="mk-tr"><span class="mk-tn">Johnson, Mark</span><span style="flex:1">IUL</span><span style="flex:1;font-family:var(--mono)">$1,840</span><span class="mk-ts h">Hot</span></div>
-              <div class="mk-tr"><span class="mk-tn">Williams, Sara</span><span style="flex:1">Term</span><span style="flex:1;font-family:var(--mono)">$920</span><span class="mk-ts p">Applied</span></div>
-              <div class="mk-tr"><span class="mk-tn">Rodriguez, Amy</span><span style="flex:1">WL</span><span style="flex:1;font-family:var(--mono)">$2,400</span><span class="mk-ts w">Warm</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ STATS BAR ═════════════════════════════════ -->
-<div class="stats-bar">
-  <div class="stats-inner">
-    <div class="stat-item reveal"><div class="stat-n"><em>10</em>x</div><div class="stat-d">More calls per session with built-in Power Dialer</div></div>
-    <div class="stat-item reveal"><div class="stat-n"><em>Live</em></div><div class="stat-d">Multi-carrier rate quotes pulled in seconds</div></div>
-    <div class="stat-item reveal"><div class="stat-n">360<em>°</em></div><div class="stat-d">Production view from lead to commission</div></div>
-    <div class="stat-item reveal"><div class="stat-n">1 <em>App</em></div><div class="stat-d">Replace five disconnected tools with one platform</div></div>
-  </div>
-</div>
-
-<!-- ═══ EXPLORE ═══════════════════════════════════ -->
-<section class="section">
-<div class="sec-shell">
-  <div class="eyebrow reveal">Explore</div>
-  <h2 class="sec-h reveal">Everything you need to <span class="hl">close more business</span></h2>
-  <p class="sec-sub reveal">Built from the ground up for life insurance producers. Every tool, every feature, every detail — in one platform.</p>
-  <div class="explore-grid">
-    <a href="features.html" class="explore-card reveal">
-      <div class="explore-card-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>
-      <div class="explore-card-title">Features</div>
-      <div class="explore-card-desc">Power Dialer, Lead CRM, live rate quotes, AI Underwriter, KPI dashboard — purpose-built for life insurance.</div>
-      <div class="explore-card-link">Explore Features →</div>
-    </a>
-    <a href="how-it-works.html" class="explore-card reveal">
-      <div class="explore-card-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
-      <div class="explore-card-title">How It Works</div>
-      <div class="explore-card-desc">From import to close in minutes. No IT team, no long onboarding — you can be dialing leads on day one.</div>
-      <div class="explore-card-link">See How It Works →</div>
-    </a>
-    <a href="pricing.html" class="explore-card reveal">
-      <div class="explore-card-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
-      <div class="explore-card-title">Pricing</div>
-      <div class="explore-card-desc">Simple, transparent plans starting at $89.99/mo. No hidden fees, no long-term contracts. Cancel any time.</div>
-      <div class="explore-card-link">View Plans →</div>
-    </a>
-    <a href="support.html" class="explore-card reveal">
-      <div class="explore-card-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></div>
-      <div class="explore-card-title">Support</div>
-      <div class="explore-card-desc">Real people, real answers. Call or text the team that built Producer Stack — we'll get you set up fast.</div>
-      <div class="explore-card-link">Contact Support →</div>
-    </a>
-  </div>
-</div>
-</section>
-<!-- ═══ FINAL CTA ══════════════════════════════════ -->
-<div class="final-wrap">
-  <div class="final-card reveal">
-    <div class="final-inner">
-      <h2 class="final-h">Ready to produce at a higher level?</h2>
-      <p class="final-p">Join producers who've replaced five disconnected tools with one platform built for the way they actually work.</p>
-      <div class="final-btns">
-        <a href="app.html?view=signup" class="btn-cta">Start Free Trial <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-        <a href="app.html" class="btn-cta-outline">Sign In to Existing Account</a>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ═══ FOOTER ════════════════════════════════════ -->
-<footer>
-  <div class="ft">
-    <div class="ft-top">
-      <div class="ft-brand">
-        <a href="/" class="nav-logo">
-          <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
-          <div class="nav-logo-name">Producer Stack</div>
-        </a>
-        <p>The all-in-one CRM platform built for life insurance producers. Power Dialer, live rates, and full production analytics.</p>
-      </div>
-      <div class="ft-col">
-        <h4>Product</h4>
-        <a href="features.html">Features</a>
-        <a href="pricing.html">Pricing</a>
-        <a href="how-it-works.html">How It Works</a>
-        <a href="app.html?view=signup">Create Account</a>
-        <a href="app.html">Sign In</a>
-      </div>
-      <div class="ft-col">
-        <h4>Features</h4>
-        <a href="features.html">Power Dialer</a>
-        <a href="features.html">Lead CRM</a>
-        <a href="features.html">Rate Quoter</a>
-        <a href="features.html">AI Underwriter</a>
-        <a href="features.html">KPI Dashboard</a>
-        <a href="how-it-works.html">Lead Integration</a>
-        <a href="features.html">Team Leader</a>
-      </div>
-      <div class="ft-col">
-        <h4>Support</h4>
-        <a href="tel:9204227733">920-422-7733</a>
-        <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a>
-      </div>
-    </div>
-    <div class="ft-bottom">
-      <div class="ft-copy">&copy; 2026 Producer Stack. All rights reserved.</div>
-      <div class="ft-copy"><a href="#">Privacy</a> &nbsp;·&nbsp; <a href="#">Terms</a></div>
-    </div>
-  </div>
-</footer>
-
-<script>
-// Nav scroll
-window.addEventListener('scroll',()=>{
-  document.getElementById('main-nav').classList.toggle('scrolled',scrollY>24);
-},{passive:true});
-
-// Mobile menu
-document.getElementById('hbg').addEventListener('click',()=>{
-  document.getElementById('mob-menu').classList.toggle('open');
-});
-function closeMob(){document.getElementById('mob-menu').classList.remove('open')}
-
-// Scroll reveal
-const ro = new IntersectionObserver(e=>{
-  e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('in');ro.unobserve(x.target)}});
-},{threshold:.1,rootMargin:'0px 0px -32px 0px'});
-document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
-
-// Smooth anchor scroll
-document.querySelectorAll('a[href^="#"]').forEach(a=>{
-  a.addEventListener('click',e=>{
-    const el=document.getElementById(a.getAttribute('href').slice(1));
-    if(el){e.preventDefault();el.scrollIntoView({behavior:'smooth',block:'start'})}
-  });
-});
-</script>
-</body>
-</html>
