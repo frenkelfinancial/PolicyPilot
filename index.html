@@ -623,9 +623,7 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .cmpct-status{width:100%;margin-bottom:6px;padding:5px 7px;font-size:11px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:var(--sans);outline:none;cursor:pointer}
 .cmpct-bottom{display:flex;align-items:center;gap:5px;margin-top:5px}
 .cmpct-actions{display:flex;gap:5px;flex:1}
-.cmpct-actions button{flex:1;padding:4px 3px;font-size:10.5px;font-weight:600;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:background .13s,color .13s,border-color .13s}
-.cmpct-sold:hover{background:rgba(16,185,129,.1)!important;color:#10b981!important;border-color:rgba(16,185,129,.4)!important}
-.cmpct-quote:hover{background:rgba(99,102,241,.1)!important;color:#6366f1!important;border-color:rgba(99,102,241,.4)!important}
+.cmpct-actions button{flex:1;padding:4px 3px;font-size:10.5px;cursor:pointer}
 .cmpct-more-btn{padding:3px 7px;font-size:10px;font-weight:600;border-radius:5px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;white-space:nowrap;transition:all .13s;flex-shrink:0;line-height:1.5}
 .cmpct-more-btn:hover{color:var(--text2);border-color:var(--border2)}
 .cmpct-extra{display:none;grid-template-columns:1fr 1fr;gap:3px 8px;margin-top:7px;padding-top:7px;border-top:1px solid var(--border)}
@@ -8770,8 +8768,8 @@ function renderLeads() {
         </select>
         <div class="cmpct-bottom">
           <div class="cmpct-actions">
-            <button class="cmpct-sold lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
-            <button class="cmpct-quote lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
+            <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
+            <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
           </div>
           ${_sfHTML ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : ''}
         </div>
