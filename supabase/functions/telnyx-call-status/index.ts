@@ -66,16 +66,101 @@ function toE164(raw: string | undefined | null): string {
   return "";
 }
 
+// Report billed minutes to Stripe after a call completes.
+// Uses Stripe Meters API (billing/meter_events) — the meter must have
+// event_name="call_minutes", value key="value", customer key="stripe_customer_id".
+// Also ensures the meter-linked subscription item exists on the agent's subscription
+// so the charge appears on their invoice.
+// Best-effort: errors are logged but never throw.
+async function reportMinutesToStripe(
+  sb: ReturnType<typeof createClient>,
+  stripeKey: string,
+  agentId: string,
+  durationSec: number,
+) {
+  if (!agentId || durationSec <= 0) return;
+  try {
+    const [agentRes, configRes] = await Promise.all([
+      sb.from("agents")
+        .select("stripe_subscription_id, stripe_customer_id, stripe_minutes_item_id")
+        .eq("id", agentId)
+        .maybeSingle(),
+      sb.from("billing_config")
+        .select("stripe_minutes_price_id")
+        .eq("id", 1)
+        .maybeSingle(),
+    ]);
+
+    const agent  = agentRes.data;
+    const config = configRes.data;
+
+    if (!agent?.stripe_subscription_id || !agent?.stripe_customer_id) return;
+    if (!config?.stripe_minutes_price_id) return;
+
+    const stripeHdrs = {
+      "Authorization": `Bearer ${stripeKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    // Add the meter-linked subscription item if not yet on this agent's subscription.
+    // This is what makes the usage charge appear on their monthly invoice.
+    if (!agent.stripe_minutes_item_id) {
+      const addParams = new URLSearchParams({
+        "subscription": agent.stripe_subscription_id,
+        "price":        config.stripe_minutes_price_id,
+      });
+      const addRes = await fetch("https://api.stripe.com/v1/subscription_items", {
+        method: "POST",
+        headers: stripeHdrs,
+        body: addParams,
+      });
+      if (!addRes.ok) {
+        console.warn("[telnyx-call-status] Stripe add minutes item failed:", await addRes.text());
+        return;
+      }
+      const newItem = await addRes.json();
+      await sb.from("agents")
+        .update({ stripe_minutes_item_id: newItem.id })
+        .eq("id", agentId);
+      console.log(`[telnyx-call-status] Created Stripe minutes item ${newItem.id} for agent ${agentId}`);
+    }
+
+    // Report usage via Stripe Meters API — identifies the customer by their
+    // Stripe customer ID so Stripe knows whose meter to increment.
+    const minutes = Math.max(1, Math.ceil(durationSec / 60));
+    const eventParams = new URLSearchParams({
+      "event_name":                  "call_minutes",
+      "payload[stripe_customer_id]": agent.stripe_customer_id,
+      "payload[value]":              String(minutes),
+      "timestamp":                   String(Math.floor(Date.now() / 1000)),
+    });
+    const eventRes = await fetch("https://api.stripe.com/v1/billing/meter_events", {
+      method: "POST",
+      headers: stripeHdrs,
+      body: eventParams,
+    });
+    if (!eventRes.ok) {
+      console.warn("[telnyx-call-status] Stripe meter event failed:", await eventRes.text());
+      return;
+    }
+    console.log(`[telnyx-call-status] Reported ${minutes} min to Stripe meter for agent ${agentId}`);
+  } catch (e) {
+    console.error("[telnyx-call-status] Stripe minutes report error:", e);
+  }
+}
+
+// Close a call row and return { agentId, durationSec } so the caller can
+// report minutes to Stripe. Returns null if the row was already closed.
 async function closeCallRowById(
   sb: ReturnType<typeof createClient>,
   callRowId: string | null | undefined,
-) {
-  if (!callRowId) return;
+): Promise<{ agentId: string; durationSec: number } | null> {
+  if (!callRowId) return null;
   const { data: row } = await sb.from("calls")
-    .select("id, status, answered_at")
+    .select("id, status, answered_at, agent_id")
     .eq("id", callRowId)
     .maybeSingle();
-  if (!row || row.status === "completed") return;
+  if (!row || row.status === "completed") return null;
 
   const now = new Date();
   const durationSec = row.answered_at
@@ -86,6 +171,8 @@ async function closeCallRowById(
     ended_at:     now.toISOString(),
     duration_sec: durationSec,
   }).eq("id", row.id);
+
+  return { agentId: row.agent_id as string, durationSec };
 }
 
 // Speak a message to a call leg, then hang it up. Used for IVR errors and
@@ -130,6 +217,7 @@ async function dialNextLead(
   TELNYX_CONN_ID: string,
   webhookUrl: string,
   session: DialerSession,
+  stripeKey: string | undefined,
 ) {
   const { data: agent } = await sb.from("agents")
     .select("signalwire_caller_id")
@@ -160,7 +248,6 @@ async function dialNextLead(
     }
 
     if (!callerIdE164) {
-      // No caller-ID to dial from — nothing more we can do.
       await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
       continue;
     }
@@ -175,7 +262,6 @@ async function dialNextLead(
     const rawPhone: string = (leadRow?.data as { phone?: string } | undefined)?.phone || "";
     const leadPhone: string = toE164(rawPhone) || rawPhone;
     if (!leadPhone) {
-      // Skip leads with no phone number on file.
       await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
       continue;
     }
@@ -201,7 +287,6 @@ async function dialNextLead(
     });
 
     if (!callRes.ok) {
-      // Couldn't place this call — skip to the next lead.
       await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
       continue;
     }
@@ -211,6 +296,12 @@ async function dialNextLead(
     if (!leadCallControlId) {
       await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
       continue;
+    }
+
+    // Close the previous lead call row and report its minutes to Stripe.
+    const closed = await closeCallRowById(sb, session.current_call_row_id);
+    if (closed && stripeKey) {
+      await reportMinutesToStripe(sb, stripeKey, closed.agentId, closed.durationSec);
     }
 
     const { data: callRow } = await sb.from("calls").insert({
@@ -241,6 +332,7 @@ serve(async (req) => {
   const TELNYX_API_KEY    = Deno.env.get("TELNYX_API_KEY")!;
   const TELNYX_CONN_ID    = Deno.env.get("TELNYX_CONNECTION_ID")!;
   const TELNYX_DIALER_NUM = Deno.env.get("TELNYX_DIALER_NUMBER");
+  const STRIPE_KEY        = Deno.env.get("STRIPE_SECRET_KEY");
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
@@ -296,7 +388,6 @@ serve(async (req) => {
 
       if (!leadPhone || !callerId) return new Response("ok");
 
-      // client_state for the lead leg identifies it as role=lead and carries the agent's call_control_id
       const leadClientState = btoa(JSON.stringify({
         role:                   "lead",
         agent_call_control_id:  callControlId,
@@ -317,7 +408,6 @@ serve(async (req) => {
         }),
       });
 
-      // Update DB: agent answered, now ringing the lead
       if (callRowId) {
         await sb.from("calls").update({ status: "ringing" }).eq("id", callRowId);
       }
@@ -333,12 +423,11 @@ serve(async (req) => {
         method: "POST",
         headers: telnyxHeaders,
         body: JSON.stringify({
-          call_control_id: callControlId,  // lead's call_control_id
+          call_control_id: callControlId,
           command_id:      crypto.randomUUID(),
         }),
       });
 
-      // Update DB: both legs connected
       if (callRowId) {
         await sb.from("calls").update({
           status:      "answered",
@@ -428,8 +517,6 @@ serve(async (req) => {
       return new Response("ok");
     }
 
-    // Turn the agent's leg into a conference so leads can be joined/removed
-    // one at a time without disturbing the agent's call.
     const confRes = await fetch("https://api.telnyx.com/v2/conferences", {
       method: "POST",
       headers: telnyxHeaders,
@@ -459,18 +546,19 @@ serve(async (req) => {
       ...(session as DialerSession),
       conference_id:          conferenceId,
       agent_call_control_id:  callControlId,
-    });
+    }, STRIPE_KEY);
 
   } else if (eventType === "call.hangup") {
     const callRowId = ctx.call_row_id;
 
+    // Close a call row found by an arbitrary filter and report minutes to Stripe.
     const findAndClose = async (filter: Record<string, string>) => {
       const query = Object.entries(filter).reduce(
         (q, [k, v]) => q.eq(k, v),
-        sb.from("calls").select("id, status, answered_at")
+        sb.from("calls").select("id, status, answered_at, agent_id")
       );
       const { data: row } = await query.maybeSingle();
-      if (!row || row.status === "completed") return;
+      if (!row || row.status === "completed") return null;
 
       const now = new Date();
       const durationSec = row.answered_at
@@ -481,19 +569,24 @@ serve(async (req) => {
         ended_at:     now.toISOString(),
         duration_sec: durationSec,
       }).eq("id", row.id);
+
+      return { agentId: row.agent_id as string, durationSec };
     };
 
+    let closed: { agentId: string; durationSec: number } | null = null;
     if (callRowId) {
-      await findAndClose({ id: callRowId });
+      closed = await findAndClose({ id: callRowId });
     } else if (callControlId) {
-      await findAndClose({ sw_call_sid: callControlId });
+      closed = await findAndClose({ sw_call_sid: callControlId });
+    }
+
+    // Report billed minutes to Stripe for the closed call.
+    if (closed && STRIPE_KEY) {
+      await reportMinutesToStripe(sb, STRIPE_KEY, closed.agentId, closed.durationSec);
     }
 
     // Power Dialer: advance to the next lead, or end the session, when a
-    // dialer-controlled leg hangs up. Identified by call_control_id since
-    // the agent's inbound leg has no call_row_id in its client_state.
-    // Two separate .eq() lookups (rather than .or()) avoid PostgREST
-    // filter-string escaping issues with the colons in Telnyx call_control_ids.
+    // dialer-controlled leg hangs up.
     if (callControlId) {
       let dialerSession: DialerSession | null = null;
       const { data: byLeadLeg } = await sb.from("dialer_sessions")
@@ -514,8 +607,8 @@ serve(async (req) => {
 
       if (dialerSession) {
         if (callControlId === dialerSession.current_call_control_id) {
-          await closeCallRowById(sb, dialerSession.current_call_row_id);
-          await dialNextLead(sb, telnyxHeaders, TELNYX_CONN_ID, webhookUrl, dialerSession as DialerSession);
+          // The current lead leg hung up — dialNextLead handles closing its call row.
+          await dialNextLead(sb, telnyxHeaders, TELNYX_CONN_ID, webhookUrl, dialerSession as DialerSession, STRIPE_KEY);
         } else if (callControlId === dialerSession.agent_call_control_id) {
           await sb.from("dialer_sessions").update({
             status:   "cancelled",
@@ -523,7 +616,10 @@ serve(async (req) => {
           }).eq("id", dialerSession.id);
 
           if (dialerSession.current_call_control_id) {
-            await closeCallRowById(sb, dialerSession.current_call_row_id);
+            const dialerClosed = await closeCallRowById(sb, dialerSession.current_call_row_id);
+            if (dialerClosed && STRIPE_KEY) {
+              await reportMinutesToStripe(sb, STRIPE_KEY, dialerClosed.agentId, dialerClosed.durationSec);
+            }
             try {
               await fetch(`https://api.telnyx.com/v2/calls/${dialerSession.current_call_control_id}/actions/hangup`, {
                 method: "POST",

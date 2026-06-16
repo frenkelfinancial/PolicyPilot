@@ -1866,6 +1866,50 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   background:rgba(245,158,11,.06);
 }
 
+/* ── Billing Rates card ───────────────────────────────────────────────── */
+#sec-phonebook .pb-card-billing{ margin-bottom:18px; }
+#sec-phonebook .pb-billing-rate-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;
+}
+@media (max-width:600px){ #sec-phonebook .pb-billing-rate-grid{ grid-template-columns:1fr; } }
+#sec-phonebook .pb-billing-rate-item{
+  display:flex; flex-direction:column; gap:3px;
+  padding:12px 14px; border:1px solid var(--border); border-radius:10px;
+  background:rgba(255,255,255,.03);
+}
+#sec-phonebook .pb-billing-rate-label{
+  font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
+  color:var(--text3);
+}
+#sec-phonebook .pb-billing-rate-value{
+  font-size:22px; font-weight:700; color:var(--text);
+  font-variant-numeric:tabular-nums;
+}
+#sec-phonebook .pb-billing-rate-sub{
+  font-size:11.5px; color:var(--text2);
+}
+#sec-phonebook .pb-billing-estimate{
+  margin-top:14px; padding:10px 12px;
+  border:1px solid var(--border); border-radius:8px;
+  background:rgba(59,130,246,.05); font-size:12.5px; color:var(--text2);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+}
+#sec-phonebook .pb-billing-estimate strong{
+  font-size:15px; font-weight:700; color:var(--text);
+}
+
+/* Admin billing config card */
+#sec-phonebook .pb-card-billing-config{ margin-bottom:18px; }
+#sec-phonebook .pb-billing-config-grid{
+  display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;
+}
+@media (max-width:600px){ #sec-phonebook .pb-billing-config-grid{ grid-template-columns:1fr; } }
+#sec-phonebook .pb-billing-config-note{
+  margin-top:12px; font-size:11.5px; color:var(--text2); line-height:1.5;
+  padding:10px 12px; border:1px solid var(--border); border-radius:8px;
+  background:rgba(245,158,11,.06);
+}
+
 /* ============================================================
    MOBILE / PWA STYLES  (max-width: 767px)
    Hamburger drawer, overlay, responsive grids, safe-area
@@ -3044,6 +3088,68 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
       </div>
 
+      <!-- Billing Rates -->
+      <div class="card pb-card-billing">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px">
+          <span data-ico="currency-dollar" data-size="13"></span>Billing Rates
+        </div>
+        <div class="pb-billing-rate-grid">
+          <div class="pb-billing-rate-item">
+            <div class="pb-billing-rate-label">Per Phone Number</div>
+            <div class="pb-billing-rate-value" id="pb-rate-number">$3.00</div>
+            <div class="pb-billing-rate-sub">per number / month</div>
+          </div>
+          <div class="pb-billing-rate-item">
+            <div class="pb-billing-rate-label">Per Minute</div>
+            <div class="pb-billing-rate-value" id="pb-rate-minute">$0.02</div>
+            <div class="pb-billing-rate-sub">per call minute (rounded up)</div>
+          </div>
+        </div>
+        <div class="pb-billing-estimate" id="pb-billing-estimate" style="display:none">
+          <span>Estimated this month</span>
+          <strong id="pb-billing-estimate-val">—</strong>
+        </div>
+      </div>
+
+      <!-- Admin: Billing Config (admin-only, rendered by JS) -->
+      <div class="card pb-card-billing-config" id="pb-card-billing-config" style="display:none">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px">
+          <span data-ico="gear" data-size="13"></span>Billing Config <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:4px">(admin only)</span>
+        </div>
+        <div class="pb-billing-config-grid">
+          <div class="fg">
+            <label>Number Rate (cents/month)</label>
+            <input type="number" id="pb-cfg-number-rate" min="1" step="1" placeholder="300" style="width:100%">
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">e.g. 300 = $3.00/number/month</div>
+          </div>
+          <div class="fg">
+            <label>Minute Rate (cents/minute)</label>
+            <input type="number" id="pb-cfg-minute-rate" min="1" step="1" placeholder="2" style="width:100%">
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">e.g. 2 = $0.02/min</div>
+          </div>
+          <div class="fg">
+            <label>Stripe Numbers Price ID</label>
+            <input type="text" id="pb-cfg-numbers-price" placeholder="price_XXXX" style="width:100%;font-family:monospace;font-size:12px">
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Recurring $3/unit price from Stripe Dashboard</div>
+          </div>
+          <div class="fg">
+            <label>Stripe Minutes Price ID</label>
+            <input type="text" id="pb-cfg-minutes-price" placeholder="price_XXXX" style="width:100%;font-family:monospace;font-size:12px">
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">Metered $0.02/unit price from Stripe Dashboard</div>
+          </div>
+        </div>
+        <div class="pb-billing-config-note">
+          <strong>Setup:</strong> In Stripe Dashboard create two products:<br>
+          1. <strong>Phone Number</strong> → Recurring, $3.00/unit/month (not metered) → copy Price ID above.<br>
+          2. <strong>Call Minutes</strong> → Recurring, $0.02/unit/month, <em>metered</em> (aggregate: sum) → copy Price ID above.<br>
+          Changes take effect on the next purchase/call. Existing Stripe items are not retroactively updated.
+        </div>
+        <div id="pb-cfg-msg" style="font-size:12px;min-height:16px;margin-top:8px"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px">
+          <button class="btn btn-p btn-sm" onclick="pbSaveBillingConfig()">Save Billing Config</button>
+        </div>
+      </div>
+
       <!-- Call log -->
       <div class="card pb-card-calls">
         <div class="card-title" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
@@ -3328,7 +3434,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
     <div class="alert alert-i" style="margin-bottom:14px">
       <span data-ico="info"></span>
-      <div>Search US Local numbers by 3-digit area code. Telnyx bills <strong>~$1.00/month</strong> per number plus usage. Purchases are immediate.</div>
+      <div>Search US Local numbers by 3-digit area code. Each number is billed at <strong id="pb-buy-modal-rate">$3.00/month</strong> and added to your monthly Stripe charge immediately.</div>
     </div>
     <div class="pb-search-row">
       <div class="fg">
@@ -12653,6 +12759,7 @@ let _pbPlans          = [];     // catalog of plans
 let _pbNumbers        = [];     // phone_numbers rows for this agent
 let _pbNumbersError   = null;   // last phone_numbers fetch error (eg. table missing)
 let _pbCalls          = [];     // recent calls (cached for sort/filter)
+let _pbBillingConfig  = null;   // billing_config singleton row
 let _pbCallSort       = { col: 'started_at', dir: 'desc' };
 let _pbCallFilter     = 'all';
 let _pbRealtimeCh     = null;
@@ -12750,11 +12857,11 @@ async function renderPhoneBook() {
   // month-since-the-1st; quotes are trailing-30-days. Keep both.
   const quoteWindowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  // 6 parallel reads. None of them depends on another; failures
+  // 7 parallel reads. None of them depends on another; failures
   // are caught individually so one error doesn't blank the tab.
-  const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes] = await Promise.all([
+  const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes, billingConfigRes] = await Promise.all([
     sb.from('agents')
-      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id')
+      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id, is_admin')
       .eq('id', currentAgent.id).maybeSingle(),
     sb.from('plans')
       .select('id, slug, name, monthly_minutes, monthly_quote_limit, monthly_uw_prompt_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
@@ -12777,20 +12884,26 @@ async function renderPhoneBook() {
       .select('id', { count: 'exact', head: true })
       .eq('agent_id', currentAgent.id)
       .gte('created_at', quoteWindowStart.toISOString()),
+    sb.from('billing_config')
+      .select('number_rate_cents, minute_rate_cents, stripe_numbers_price_id, stripe_minutes_price_id')
+      .eq('id', 1)
+      .maybeSingle(),
   ]);
 
-  if (agentRes.error)      console.warn('[phonebook] agent fetch failed', agentRes.error);
-  if (plansRes.error)      console.warn('[phonebook] plans fetch failed', plansRes.error);
-  if (numbersRes.error)    console.warn('[phonebook] numbers fetch failed', numbersRes.error);
-  if (callsRes.error)      console.warn('[phonebook] calls fetch failed', callsRes.error);
-  if (monthCallsRes.error) console.warn('[phonebook] minute usage fetch failed', monthCallsRes.error);
-  if (quoteUsageRes.error) console.warn('[phonebook] quote usage fetch failed', quoteUsageRes.error);
+  if (agentRes.error)         console.warn('[phonebook] agent fetch failed', agentRes.error);
+  if (plansRes.error)         console.warn('[phonebook] plans fetch failed', plansRes.error);
+  if (numbersRes.error)       console.warn('[phonebook] numbers fetch failed', numbersRes.error);
+  if (callsRes.error)         console.warn('[phonebook] calls fetch failed', callsRes.error);
+  if (monthCallsRes.error)    console.warn('[phonebook] minute usage fetch failed', monthCallsRes.error);
+  if (quoteUsageRes.error)    console.warn('[phonebook] quote usage fetch failed', quoteUsageRes.error);
+  if (billingConfigRes.error) console.warn('[phonebook] billing config fetch failed', billingConfigRes.error);
 
-  _pbAgent        = agentRes.data || {};
-  _pbPlans        = plansRes.data || [];
-  _pbNumbers      = numbersRes.data || [];
-  _pbNumbersError = numbersRes.error || null;
-  _pbCalls        = callsRes.data || [];
+  _pbAgent          = agentRes.data || {};
+  _pbPlans          = plansRes.data || [];
+  _pbNumbers        = numbersRes.data || [];
+  _pbNumbersError   = numbersRes.error || null;
+  _pbCalls          = callsRes.data || [];
+  _pbBillingConfig  = billingConfigRes.data || { number_rate_cents: 300, minute_rate_cents: 2 };
 
   const usedSec = (monthCallsRes.data || []).reduce(
     (s, r) => s + (r.duration_sec || 0), 0);
@@ -12801,6 +12914,7 @@ async function renderPhoneBook() {
   pbRenderPickupCard(_pbAgent);
   pbRenderNumbersList(_pbNumbers);
   pbRenderCalls();
+  pbRenderBillingCard(usedMin);
 
   // Subscribe to live call updates so a dial from the Leads tab
   // shows up here within ~1s. Tear down any previous channel first
@@ -13103,6 +13217,93 @@ document.addEventListener('click', (e) => {
   pbRenderCalls();
 });
 
+// ── Billing Rates card ───────────────────────────────────────
+function pbRenderBillingCard(usedMinThisMonth) {
+  const cfg = _pbBillingConfig || { number_rate_cents: 300, minute_rate_cents: 2 };
+  const numRateCents = cfg.number_rate_cents || 300;
+  const minRateCents = cfg.minute_rate_cents || 2;
+
+  const numRateEl = document.getElementById('pb-rate-number');
+  const minRateEl = document.getElementById('pb-rate-minute');
+  if (numRateEl) numRateEl.textContent = '$' + (numRateCents / 100).toFixed(2);
+  if (minRateEl) minRateEl.textContent = '$' + (minRateCents / 100).toFixed(2);
+
+  // Update buy modal rate display
+  const modalRateEl = document.getElementById('pb-buy-modal-rate');
+  if (modalRateEl) modalRateEl.textContent = '$' + (numRateCents / 100).toFixed(2) + '/month';
+
+  // Estimated monthly charge = (numbers × numRate) + (minutes × minRate)
+  const numberCount = Array.isArray(_pbNumbers) ? _pbNumbers.length : 0;
+  if (numberCount > 0 || usedMinThisMonth > 0) {
+    const numberCharge = numberCount * numRateCents;
+    const minuteCharge = usedMinThisMonth * minRateCents;
+    const totalCents   = numberCharge + minuteCharge;
+    const estimateEl   = document.getElementById('pb-billing-estimate');
+    const estimateVal  = document.getElementById('pb-billing-estimate-val');
+    if (estimateEl) estimateEl.style.display = '';
+    if (estimateVal) {
+      estimateVal.textContent =
+        '$' + (totalCents / 100).toFixed(2) +
+        ' (' + numberCount + ' number' + (numberCount !== 1 ? 's' : '') +
+        ' + ' + usedMinThisMonth + ' min)';
+    }
+  }
+
+  // Admin-only billing config card
+  const isAdmin = _pbAgent && _pbAgent.is_admin;
+  const configCard = document.getElementById('pb-card-billing-config');
+  if (configCard) configCard.style.display = isAdmin ? '' : 'none';
+
+  if (isAdmin) {
+    const numRateInput  = document.getElementById('pb-cfg-number-rate');
+    const minRateInput  = document.getElementById('pb-cfg-minute-rate');
+    const numsPriceInput = document.getElementById('pb-cfg-numbers-price');
+    const minsPriceInput = document.getElementById('pb-cfg-minutes-price');
+    if (numRateInput  && !numRateInput.value)  numRateInput.value  = String(numRateCents);
+    if (minRateInput  && !minRateInput.value)  minRateInput.value  = String(minRateCents);
+    if (numsPriceInput && !numsPriceInput.value) numsPriceInput.value = cfg.stripe_numbers_price_id || '';
+    if (minsPriceInput && !minsPriceInput.value) minsPriceInput.value = cfg.stripe_minutes_price_id || '';
+  }
+}
+
+async function pbSaveBillingConfig() {
+  const msg = document.getElementById('pb-cfg-msg');
+  const btn = document.querySelector('[onclick="pbSaveBillingConfig()"]');
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Saving…'; }
+  if (btn) btn.disabled = true;
+
+  try {
+    const body = {};
+    const numRate  = parseInt(document.getElementById('pb-cfg-number-rate')?.value || '', 10);
+    const minRate  = parseInt(document.getElementById('pb-cfg-minute-rate')?.value || '', 10);
+    const numsPrice = (document.getElementById('pb-cfg-numbers-price')?.value || '').trim();
+    const minsPrice = (document.getElementById('pb-cfg-minutes-price')?.value || '').trim();
+
+    if (!isNaN(numRate)  && numRate > 0)  body.number_rate_cents = numRate;
+    if (!isNaN(minRate)  && minRate > 0)  body.minute_rate_cents = minRate;
+    body.stripe_numbers_price_id = numsPrice;
+    body.stripe_minutes_price_id = minsPrice;
+
+    const { data, error } = await sb.functions.invoke('stripe-billing-config', {
+      method: 'PUT',
+      body,
+    });
+    if (error) {
+      let detail = error.message;
+      try { const b = error.context && await error.context.json(); if (b?.error) detail = b.error; } catch(_){}
+      throw new Error(detail);
+    }
+    if (data?.config) _pbBillingConfig = data.config;
+    pbRenderBillingCard(0); // re-render rates display
+    if (msg) { msg.style.color = '#10b981'; msg.textContent = 'Saved successfully.'; }
+    setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
+  } catch(e) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = 'Save failed: ' + (e.message || e); }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 // ── Buy Number modal ────────────────────────────────────────
 // Returns how many additional numbers the agent can buy before they
 // start adding to their subscription fee. 0 means "all included slots
@@ -13177,16 +13378,18 @@ async function pbSearchNumbers() {
       return;
     }
     const remaining = _pbIncludedRemaining();
+    const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
+    const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
     const hint = remaining > 0
-      ? `${remaining} included with your plan, $1.50/mo each after that (billing not yet active).`
-      : `All included slots used — $1.50/mo each (billing not yet active).`;
+      ? `${remaining} included with your plan. Additional numbers billed at ${numRateStr} each.`
+      : `All included slots used — each number billed at ${numRateStr}.`;
     status.textContent = `${list.length} numbers available for ${area}. ${hint}`;
     wrap.style.display = '';
     tbody.innerHTML = list.map((n, i) => {
       const isIncluded = i < remaining;
       const label = isIncluded
         ? `<span class="pb-included-pill">Included</span>`
-        : `<span class="mono">$1.50/mo</span>`;
+        : `<span class="mono">${escapeHTML(numRateStr)}</span>`;
       return `
         <tr>
           <td class="mono">${escapeHTML(_pbFmtPhone(n.phone_number))}</td>
@@ -13218,14 +13421,15 @@ async function pbSearchNumbers() {
 async function pbConfirmBuy(n, btn) {
   const e164 = n.phone_number;
   const remaining = _pbIncludedRemaining();
+  const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
+  const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
   const msg = remaining > 0
     ? `Purchase ${_pbFmtPhone(e164)}?\n\n` +
       `This number is included with your plan — no extra subscription charge. ` +
       `Telnyx's own per-number fee still applies to your Telnyx account.`
     : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-      `This is beyond your plan's included numbers. When billing goes live this ` +
-      `will add $1.50/mo to your subscription; today the charge is informational only. ` +
-      `Telnyx's own per-number fee applies regardless.`;
+      `This is beyond your plan's included numbers. It will add ${numRateStr} to your ` +
+      `monthly Stripe charge starting today (prorated). Telnyx's own per-number fee also applies.`;
   const ok = window.confirm(msg);
   if (!ok) return;
 
