@@ -74,6 +74,14 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
 .hero-h1{font-size:clamp(34px,4.2vw,56px);font-weight:700;color:var(--text);letter-spacing:-.04em;line-height:1.07;margin-bottom:20px}
 .hero-h1 .hl{background:linear-gradient(130deg,var(--accent-l) 0%,var(--accent) 55%,#A8D4FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+/* ── FLIP TEXT ─────────────────────────────────── */
+.flip-wrap{display:inline-block;position:relative;vertical-align:baseline}
+.flip-word{display:inline-block;position:absolute;left:0;top:0;white-space:nowrap;background:linear-gradient(130deg,var(--accent-l) 0%,var(--accent) 55%,#A8D4FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;backface-visibility:hidden;transform-origin:50% 100%;animation:none}
+.flip-word.active{position:relative}
+.flip-word.flip-in{animation:flipIn .45s cubic-bezier(.22,.68,0,1.2) forwards}
+.flip-word.flip-out{animation:flipOut .35s cubic-bezier(.55,0,1,.45) forwards}
+@keyframes flipIn{from{opacity:0;transform:rotateX(-90deg) translateY(-8px)}to{opacity:1;transform:rotateX(0deg) translateY(0)}}
+@keyframes flipOut{from{opacity:1;transform:rotateX(0deg) translateY(0)}to{opacity:0;transform:rotateX(80deg) translateY(8px)}}
 .hero-sub{font-size:16px;font-weight:400;color:var(--text2);line-height:1.7;max-width:460px;margin-bottom:32px;letter-spacing:-.01em}
 .hero-ctas{display:flex;align-items:center;gap:12px;margin-bottom:40px}
 .btn-cta{font-family:var(--sans);font-size:14.5px;font-weight:500;color:#fff;background:var(--accent);border:none;padding:12px 24px;border-radius:var(--r12);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:7px;letter-spacing:-.02em;transition:background .2s,box-shadow .2s,transform .2s}
@@ -378,7 +386,7 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
 <section class="hero">
   <div>
     <div class="hero-eyebrow anim d1"><div class="hero-eyebrow-dot"></div>Built for Life Insurance Producers</div>
-    <h1 class="hero-h1 anim d2">The Platform That Powers <span class="hl">Elite Producers</span></h1>
+    <h1 class="hero-h1 anim d2">The Platform That Powers <span class="flip-wrap" id="flipWrap"><span class="flip-word active" id="flipWord">Top Performers</span></span></h1>
     <p class="hero-sub anim d3">Stop juggling spreadsheets, dialers, and rate cards. Producer Stack brings your lead CRM, Power Dialer, live carrier quotes, and production analytics into one seamless system.</p>
     <div class="hero-ctas anim d4">
       <a href="app.html?view=signup" class="btn-cta">Start Free Trial <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
@@ -555,6 +563,47 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
     if(el){e.preventDefault();el.scrollIntoView({behavior:'smooth',block:'start'})}
   });
 });
+
+// Flip text rotator
+(function(){
+  const words=["Top Performers","High Closers","Six-Figure Agents","Agents","Producers","Next-Level Agents","Relentless Producers"];
+  const wrap=document.getElementById('flipWrap');
+  const slot=document.getElementById('flipWord');
+  if(!wrap||!slot)return;
+
+  // Size the wrap to the widest word so layout never shifts
+  const sizer=document.createElement('span');
+  sizer.style.cssText='visibility:hidden;position:absolute;white-space:nowrap;font:inherit;font-weight:inherit;letter-spacing:inherit';
+  wrap.appendChild(sizer);
+  let maxW=0;
+  words.forEach(w=>{sizer.textContent=w;maxW=Math.max(maxW,sizer.offsetWidth)});
+  wrap.style.width=maxW+'px';
+  wrap.removeChild(sizer);
+
+  let idx=0;
+  slot.textContent=words[0];
+
+  setInterval(()=>{
+    idx=(idx+1)%words.length;
+    const next=words[idx];
+
+    // Flip current word out
+    slot.classList.remove('active','flip-in');
+    slot.classList.add('flip-out');
+
+    slot.addEventListener('animationend',function handler(){
+      slot.removeEventListener('animationend',handler);
+      slot.classList.remove('flip-out');
+      slot.textContent=next;
+      slot.classList.add('flip-in');
+      slot.addEventListener('animationend',function h2(){
+        slot.removeEventListener('animationend',h2);
+        slot.classList.remove('flip-in');
+        slot.classList.add('active');
+      },{once:true});
+    },{once:true});
+  },2400);
+})();
 </script>
 </body>
 </html>
