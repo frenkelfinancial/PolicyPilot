@@ -4311,7 +4311,8 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // Per-agent localStorage namespacing via k(). See docs/architecture.md.
 // ============================================================
 let currentAgent = null;
-let currentPlanName = null; // plan name loaded at boot, drives feature gating
+let currentPlanName = null;   // plan name loaded at boot, drives feature gating
+let currentAgentIsAdmin = false;
 
 function authShowView(view) {
   document.querySelectorAll('.auth-tab').forEach(b => b.classList.toggle('active', b.dataset.view === view));
@@ -14244,6 +14245,41 @@ async function renderAgencySection() {
 }
 
 async function _agRenderLeaderView(root) {
+  // Inject discount code card for admins before the rest renders
+  const discountCard = currentAgentIsAdmin ? `
+    <div class="card" id="ag-discount-card" style="margin-bottom:22px">
+      <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span data-ico="tag" data-size="13"></span>Generate Discount Code
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+        Creates a single-use Stripe promotion code. The agent enters it at checkout — Stripe automatically prevents reuse.
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px">
+          <input id="ag-pct-input" type="number" min="1" max="100" value="100"
+            style="width:72px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:14px;font-weight:600;text-align:center;outline:none"
+            onkeydown="if(event.key==='Enter')agGenerateCode()">
+          <span style="font-size:14px;font-weight:600;color:var(--text2)">% off</span>
+        </div>
+        <button class="btn btn-p btn-sm" onclick="agGenerateCode()"
+          style="display:inline-flex;align-items:center;gap:7px">
+          <span data-ico="lightning" data-size="14"></span>Generate Code
+        </button>
+      </div>
+      <div id="ag-code-result" style="display:none;margin-top:16px">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:8px">Generated Code</div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <div id="ag-code-display"
+            style="font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text);letter-spacing:.1em;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 18px"></div>
+          <button class="btn btn-g btn-sm" onclick="agCopyCode()"
+            style="display:inline-flex;align-items:center;gap:6px">
+            <span data-ico="copy" data-size="13"></span>Copy
+          </button>
+        </div>
+        <div id="ag-code-meta" style="font-size:12px;color:var(--text3);margin-top:8px"></div>
+      </div>
+    </div>` : '';
+
   const { data: invites, error } = await sb.from('agency_invites')
     .select('*').eq('leader_id', currentAgent.id)
     .order('created_at', { ascending: false });
@@ -14267,7 +14303,7 @@ async function _agRenderLeaderView(root) {
     if (statsRows) statsRows.forEach(r => { statsMap[r.agent_id] = r; });
   }
 
-  let h = `
+  let h = discountCard + `
     <div class="ag-header">
       <div>
         <div class="ag-header-title">My Agency</div>
@@ -14416,6 +14452,55 @@ function _agMigrationPrompt() {
     <p>The Agency feature needs a one-time database migration. Run the SQL from <code>supabase/migrations/20260616_agency.sql</code> in your Supabase SQL editor, then reload.</p>
     <a class="btn btn-p btn-sm" href="https://supabase.com/dashboard" target="_blank" rel="noopener">Open Supabase Dashboard</a>
   </div>`;
+}
+
+async function agGenerateCode() {
+  const pctInput = document.getElementById('ag-pct-input');
+  const pct = parseInt(pctInput ? pctInput.value : '');
+  if (!pct || pct < 1 || pct > 100) {
+    showToast('Enter a percentage between 1 and 100', '#dc2626');
+    return;
+  }
+  const btn = document.querySelector('#ag-discount-card .btn-p');
+  if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const resp = await fetch(
+      `${SUPABASE_URL}/functions/v1/stripe-create-promo`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ percent_off: pct }),
+      }
+    );
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'generation_failed');
+    const resultEl = document.getElementById('ag-code-result');
+    const codeEl   = document.getElementById('ag-code-display');
+    const metaEl   = document.getElementById('ag-code-meta');
+    if (codeEl)   codeEl.textContent  = result.code;
+    if (metaEl)   metaEl.textContent  = `${pct}% off · Single use · Applies to first invoice only`;
+    if (resultEl) resultEl.style.display = '';
+    if (typeof mountIcons === 'function') mountIcons(document.getElementById('ag-discount-card'));
+  } catch (e) {
+    showToast('Failed: ' + (e.message || e), '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<span data-ico="lightning" data-size="14"></span>Generate Code'; if (typeof mountIcons === 'function') mountIcons(btn); }
+  }
+}
+
+function agCopyCode() {
+  const codeEl = document.getElementById('ag-code-display');
+  if (!codeEl) return;
+  navigator.clipboard.writeText(codeEl.textContent.trim()).then(() => {
+    showToast('Code copied to clipboard', '#10b981');
+  }).catch(() => {
+    showToast('Copy failed — select the code manually', '#f59e0b');
+  });
 }
 
 async function agSendInvite() {
@@ -15844,15 +15929,16 @@ async function bootDashboard() {
   try {
     await sbFirstSyncIfNeeded();
 
-    // Fetch the agent's current plan so feature gating is accurate.
+    // Fetch the agent's current plan and admin flag so feature gating is accurate.
     try {
       const [agentRow, planRows] = await Promise.all([
-        sb.from('agents').select('plan_id').eq('id', currentAgent.id).maybeSingle(),
+        sb.from('agents').select('plan_id, is_admin').eq('id', currentAgent.id).maybeSingle(),
         sb.from('plans').select('id, name').eq('active', true),
       ]);
       if (!agentRow.error && !planRows.error && agentRow.data && planRows.data) {
         const match = planRows.data.find(p => p.id === agentRow.data.plan_id);
         currentPlanName = match ? match.name : null;
+        currentAgentIsAdmin = !!agentRow.data.is_admin;
         try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
         _applyPlanGating();
       }

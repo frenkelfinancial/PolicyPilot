@@ -130,6 +130,7 @@ serve(async (req) => {
     "mode":                                             "subscription",
     [`line_items[0][price]`]:                          plan.stripe_price_id,
     [`line_items[0][quantity]`]:                       "1",
+    "allow_promotion_codes":                           "true",
     "success_url":                                     `${APP_URL}?checkout=success`,
     "cancel_url":                                      `${APP_URL}?checkout=cancelled`,
     [`metadata[supabase_user_id]`]:                    user.id,
