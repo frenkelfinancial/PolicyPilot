@@ -8223,8 +8223,8 @@ function _planTier() {
   if (!currentPlanName) return null;
   const n = currentPlanName.toLowerCase();
   if (n.includes('leader')) return 'leader';
-  if (n.includes('pro'))    return 'pro';
   if (n.includes('basic'))  return 'basic';
+  if (n.includes('pro'))    return 'pro';
   return null;
 }
 
