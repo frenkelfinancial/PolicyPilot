@@ -8823,9 +8823,16 @@ const softphone = (() => {
     ringHandle: null,
     stubMode: false,        // flips true when edge function fails → simulated call so the UI keeps working
     stubReason: '',         // human-readable reason for stub mode — rendered into the yellow banner so non-devs can see edge-function errors without opening dev tools
-    sw_call_sid: '',        // SignalWire CallSid returned by signalwire-bridge; used for hangup invocation + Realtime row correlation
-    callRowId: null,        // id of the public.calls row (server-side now — frontend reads back via Realtime, keeps for potential stub-mode use)
+    sw_call_sid: '',        // kept for legacy Realtime outcome updates
+    callRowId: null,        // UUID of the public.calls row inserted by WebRTC dial
   };
+
+  // Telnyx WebRTC SDK state
+  let _TelnyxRTC      = null;   // SDK class, lazy-loaded
+  let _telnyxClient   = null;   // TelnyxRTC instance
+  let _telnyxReady    = false;  // true once client fires 'telnyx.ready'
+  let _activeCall     = null;   // current TelnyxRTC Call object
+  let _webrtcCallerId = '';     // caller ID (agent's Telnyx number) from token endpoint
 
   const NO_ANSWER_THRESHOLD_SEC = 15;      // ≤ this → auto-tag no_answer, no prompt
 
@@ -8927,51 +8934,161 @@ const softphone = (() => {
     if (state.timerHandle) { clearInterval(state.timerHandle); state.timerHandle = null; }
   }
 
-  // ── Bridge-dial path (REST) ───────────────────────────────
-  // Posts to the signalwire-bridge edge function, which places a
-  // SignalWire LaML REST call: SignalWire rings the agent's
-  // agent_phone first; inline TwiML dials the lead and bridges
-  // both legs when the agent picks up.
+  // ── Telnyx WebRTC softphone ───────────────────────────────
+  // Lazy-loads @telnyx/webrtc, authenticates with SIP credentials
+  // from the telnyx-webrtc-token edge function, then dials the lead
+  // directly from the browser — no agent bridge call needed.
   //
-  // Subsequent lifecycle transitions (ringing → answered → completed)
-  // arrive via the Realtime subscription set up in _initRealtime();
-  // _onCallRowUpdate() flips state.phase accordingly. This function
-  // returns immediately after the bridge call is placed.
+  // Call lifecycle is driven by TelnyxRTC SDK events rather than
+  // Realtime. A calls row is inserted client-side for history.
   //
   // Returns { ok: true } on success, or { ok: false, reason, detail }
   // mirroring the shape the old _realDial returned so the existing
   // error-mapping in dial() still works.
-  async function _bridgeDial(leadId) {
-    let r;
+  async function _loadTelnyxSDK() {
+    if (_TelnyxRTC) return _TelnyxRTC;
+    const mod = await import('https://esm.sh/@telnyx/webrtc');
+    _TelnyxRTC = mod.TelnyxRTC;
+    return _TelnyxRTC;
+  }
+
+  function _handleTelnyxNotification(notification) {
+    const call = notification && notification.call;
+    if (!call) return;
+    _activeCall = call;
+    const s = call.state;
+
+    if (s === 'active') {
+      if (state.phase !== 'connected') {
+        state.phase = 'connected';
+        _startTimer();
+        _render();
+        if (state.callRowId) {
+          sb.from('calls').update({ status: 'answered', answered_at: new Date().toISOString() })
+            .eq('id', state.callRowId).then(() => {});
+        }
+      }
+    } else if (s === 'hangup' || s === 'destroy' || s === 'purge') {
+      if (state.phase === 'idle' || state.phase === 'ended') return;
+      _activeCall = null;
+      _stopTimer();
+      const wasConnected = (state.phase === 'connected');
+      const dur = state.durationSec;
+      if (state.callRowId) {
+        sb.from('calls').update({
+          status: 'completed',
+          ended_at: new Date().toISOString(),
+          duration_sec: dur,
+        }).eq('id', state.callRowId).then(() => {});
+      }
+      state.phase = 'ended';
+      _render();
+      if (!wasConnected || dur < NO_ANSWER_THRESHOLD_SEC) {
+        _applyOutcome('no_answer', { auto: true });
+        setTimeout(close, 1200);
+      }
+    } else if (s === 'ringing' || s === 'trying' || s === 'requesting') {
+      if (state.phase === 'ringing-out') return;
+      state.phase = 'ringing-out';
+      _render();
+    }
+  }
+
+  async function _initTelnyxWebRTC() {
+    if (_telnyxClient && _telnyxReady) return { ok: true };
+
+    if (_telnyxClient) {
+      try { _telnyxClient.disconnect(); } catch {}
+      _telnyxClient = null;
+      _telnyxReady = false;
+    }
+
+    let creds;
     try {
-      r = await sb.functions.invoke('telnyx-bridge', { body: { lead_id: leadId } });
+      const r = await sb.functions.invoke('telnyx-webrtc-token', {});
+      if (r.error) {
+        let detail = r.error.message || 'token invoke failed';
+        try {
+          if (r.error.context && typeof r.error.context.json === 'function') {
+            const b = await r.error.context.clone().json();
+            detail = b.detail || b.error || detail;
+          }
+        } catch {}
+        return { ok: false, reason: 'token_error', detail };
+      }
+      if (!r.data || !r.data.ok) return { ok: false, reason: r.data && r.data.error || 'token_failed', detail: r.data };
+      creds = r.data;
     } catch (e) {
       return { ok: false, reason: 'network', detail: (e && e.message) || String(e) };
     }
-    // Supabase JS v2 wraps non-2xx responses as a FunctionsHttpError
-    // and sets r.data to null — the actual response body lives on
-    // r.error.context (a Response object). Without unpacking it, every
-    // edge-function business error (not_assigned, minute_cap_exceeded,
-    // signalwire_unreachable, etc.) collapses into the same useless
-    // "Edge Function returned a non-2xx status code" message. So we
-    // peek into context.json() to recover the specific reason.
-    if (r.error) {
-      let body = null;
-      try {
-        if (r.error.context && typeof r.error.context.json === 'function') {
-          body = await r.error.context.clone().json();
-        }
-      } catch { /* body wasn't JSON; fall through */ }
-      if (body && body.error) {
-        return { ok: false, reason: body.error, detail: body };
-      }
-      const status = (r.error.context && r.error.context.status) || '?';
-      return { ok: false, reason: 'invoke', detail: `HTTP ${status}: ${r.error.message || 'invoke failed'}` };
+
+    let RTC;
+    try {
+      RTC = await _loadTelnyxSDK();
+    } catch (e) {
+      return { ok: false, reason: 'sdk_load', detail: (e && e.message) || String(e) };
     }
-    if (!r.data)         return { ok: false, reason: 'empty',   detail: 'empty response' };
-    if (!r.data.ok)      return { ok: false, reason: r.data.error || 'unknown', detail: r.data };
-    if (!r.data.callSid) return { ok: false, reason: 'no_sid',  detail: 'response missing callSid' };
-    state.sw_call_sid = r.data.callSid;
+
+    _webrtcCallerId = creds.caller_id || '';
+
+    return new Promise((resolve) => {
+      const client = new RTC({ login: creds.sip_username, password: creds.sip_password });
+
+      client.on('telnyx.ready', () => {
+        _telnyxReady = true;
+        resolve({ ok: true });
+      });
+
+      client.on('telnyx.error', (err) => {
+        _telnyxReady = false;
+        resolve({ ok: false, reason: 'webrtc_error', detail: (err && err.message) || String(err) });
+      });
+
+      client.on('telnyx.socket.close', () => { _telnyxReady = false; });
+
+      client.on('telnyx.notification', (n) => _handleTelnyxNotification(n));
+
+      _telnyxClient = client;
+      client.connect();
+    });
+  }
+
+  async function _webrtcDial(leadId, phoneE164) {
+    const initResult = await _initTelnyxWebRTC();
+    if (!initResult.ok) return initResult;
+
+    // Insert a calls row for history — look up the lead UUID first.
+    try {
+      const { data: leadRow } = await sb.from('leads')
+        .select('id')
+        .eq('agent_id', (currentAgent || {}).id)
+        .eq('client_id', String(leadId))
+        .maybeSingle();
+      const { data: callRow } = await sb.from('calls').insert({
+        agent_id:   (currentAgent || {}).id,
+        lead_id:    leadRow ? leadRow.id : null,
+        direction:  'outbound',
+        phone_from: _webrtcCallerId || null,
+        phone_to:   phoneE164,
+        started_at: new Date().toISOString(),
+        status:     'initiated',
+      }).select('id').single();
+      if (callRow) state.callRowId = callRow.id;
+    } catch (e) {
+      console.warn('[softphone] calls row insert failed', e);
+    }
+
+    try {
+      _activeCall = _telnyxClient.newCall({
+        destinationNumber: phoneE164,
+        callerNumber: _webrtcCallerId || undefined,
+        audio: true,
+        video: false,
+      });
+    } catch (e) {
+      return { ok: false, reason: 'call_failed', detail: (e && e.message) || String(e) };
+    }
+
     return { ok: true };
   }
 
@@ -9003,13 +9120,13 @@ const softphone = (() => {
     state.stubReason   = '';
     _render();
 
-    // Try the real path — POST to signalwire-bridge edge function.
-    const result = await _bridgeDial(String(leadId));
+    // Try the WebRTC path — connects via Telnyx SIP and dials directly.
+    const result = await _webrtcDial(String(leadId), phoneE164);
     if (result.ok) return;
 
     // Map specific errors to actionable toasts.
-    if (result.reason === 'not_assigned') {
-      showToast('Set your pickup phone in the Phone Book tab first.', '#dc2626');
+    if (result.reason === 'sip_not_configured') {
+      showToast('WebRTC calling not configured. Check Phone Book settings.', '#dc2626');
       close();
       return;
     }
@@ -9050,9 +9167,9 @@ const softphone = (() => {
     // local UI cleanup synchronously regardless so the panel
     // doesn't sit on "On Call" while the network round-trip
     // resolves.
-    if (state.sw_call_sid && !state.stubMode) {
-      sb.functions.invoke('telnyx-hangup', { body: { call_sid: state.sw_call_sid } })
-        .catch(e => console.warn('[softphone] hangup invoke threw', e));
+    if (_activeCall && !state.stubMode) {
+      try { _activeCall.hangup(); } catch (e) { console.warn('[softphone] WebRTC hangup threw', e); }
+      _activeCall = null;
     }
 
     _stopTimer();
@@ -9074,11 +9191,10 @@ const softphone = (() => {
   }
 
   function toggleMute() {
-    // In bridge mode, audio is on the agent's own phone — the
-    // dashboard isn't in the audio path. Muting here is purely
-    // cosmetic; agents should use their phone's mute. We still
-    // toggle local state so the button click feels responsive.
     state.muted = !state.muted;
+    if (_activeCall) {
+      try { _activeCall.toggleAudioMute(); } catch (e) { console.warn('[softphone] mute failed', e); }
+    }
     _render();
   }
 
@@ -9117,13 +9233,12 @@ const softphone = (() => {
           if (typeof renderLeads === 'function') renderLeads();
         }
       }
-      // Persist the outcome on the calls row so admin reports can
-      // slice by it. Keyed by sw_call_sid since the row is now
-      // inserted server-side by signalwire-bridge (we don't have
-      // the row's primary key on the frontend). Best-effort —
+      // Persist the outcome on the calls row. Best-effort —
       // failure here doesn't block the UI flow.
-      if (state.sw_call_sid) {
-        sb.from('calls').update({ outcome: status }).eq('sw_call_sid', state.sw_call_sid).then(({ error }) => {
+      const callRef = state.callRowId || state.sw_call_sid;
+      if (callRef) {
+        const col = state.callRowId ? 'id' : 'sw_call_sid';
+        sb.from('calls').update({ outcome: status }).eq(col, callRef).then(({ error }) => {
           if (error) console.warn('[softphone] outcome update failed', error.message);
         });
       }
@@ -9135,8 +9250,10 @@ const softphone = (() => {
   function close() {
     _stopTimer();
     if (state.ringHandle) { clearTimeout(state.ringHandle); state.ringHandle = null; }
-    // No SDK objects to tear down in bridge mode — the audio path
-    // is on the agent's own phone, not in the browser.
+    if (_activeCall) {
+      try { _activeCall.hangup(); } catch {}
+      _activeCall = null;
+    }
     state.phase        = 'idle';
     state.leadId       = null;
     state.callRowId    = null;
