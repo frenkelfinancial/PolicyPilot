@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Power Dialer — Producer Stack CRM</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:      #06101e;
+  --bg2:     #09162a;
+  --bg3:     #0d1c32;
+  --card:    #0b182c;
+  --card2:   #0f1e34;
+  --border:  #162338;
+  --border2: #1f3252;
+  --text:    #ddeaf8;
+  --text2:   #8bafc9;
+  --text3:   #4a6880;
+  --blue:    #3b82f6;
+  --blue-d:  #2563eb;
+  --blue-bg: rgba(59,130,246,.13);
+  --green:   #10b981;
+  --green-bg:rgba(16,185,129,.13);
+  --amber:   #f59e0b;
+  --amber-bg:rgba(245,158,11,.13);
+  --red:     #ef4444;
+  --red-bg:  rgba(239,68,68,.13);
+  --purple:  #a78bfa;
+  --purple-bg:rgba(167,139,250,.13);
+  --orange:  #f97316;
+  --orange-bg:rgba(249,115,22,.13);
+}
+
+html,body{
+  height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',sans-serif;
+  font-size:14px;line-height:1.5;overflow:hidden;
+}
+
+/* ══════════════ HEADER ══════════════ */
+#hdr{
+  position:fixed;top:0;left:0;right:0;height:66px;z-index:200;
+  background:linear-gradient(135deg,#071120 0%,#0c1d38 55%,#091628 100%);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;
+  box-shadow:0 2px 20px rgba(0,0,0,.55);
+}
+
+/* Branding */
+.hdr-brand{display:flex;align-items:center;gap:10px;flex-shrink:0;margin-right:20px}
+.ps-logo{
+  width:34px;height:34px;border-radius:9px;flex-shrink:0;
+  background:linear-gradient(135deg,#3b82f6,#6366f1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:800;color:#fff;letter-spacing:-.5px;
+  box-shadow:0 2px 10px rgba(99,102,241,.4);
+}
+.brand-name{font-size:14px;font-weight:700;color:var(--text);line-height:1.15}
+.brand-tag{font-size:10px;color:var(--text3);font-weight:500;letter-spacing:.05em;text-transform:uppercase}
+
+.hdr-sep{width:1px;height:32px;background:var(--border2);flex-shrink:0;margin:0 4px}
+
+/* Stats row */
+.hdr-stats{display:flex;align-items:stretch;flex:1;gap:0}
+.stat-box{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:0 22px;border-left:1px solid var(--border2);line-height:1.1;
+  flex-shrink:0;
+}
+.stat-val{font-size:20px;font-weight:800;color:var(--text);font-variant-numeric:tabular-nums}
+.stat-lbl{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.stat-box.accent-blue  .stat-val{color:var(--blue)}
+.stat-box.accent-green .stat-val{color:var(--green)}
+.stat-box.accent-amber .stat-val{color:var(--amber)}
+
+/* Header right */
+.hdr-right{display:flex;align-items:center;gap:10px;flex-shrink:0;margin-left:auto}
+.hdr-status-pill{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;
+  border:1px solid var(--border2);color:var(--text3);
+}
+.pill-dot{width:7px;height:7px;border-radius:50%;background:var(--text3)}
+.hdr-status-pill.st-pending{border-color:rgba(245,158,11,.35);color:var(--amber);background:var(--amber-bg)}
+.hdr-status-pill.st-pending .pill-dot{background:var(--amber);animation:blink 1.4s ease-in-out infinite}
+.hdr-status-pill.st-dialing{border-color:rgba(59,130,246,.35);color:var(--blue);background:var(--blue-bg)}
+.hdr-status-pill.st-dialing .pill-dot{background:var(--blue);animation:blink 1s ease-in-out infinite}
+.hdr-status-pill.st-connected{border-color:rgba(16,185,129,.35);color:var(--green);background:var(--green-bg)}
+.hdr-status-pill.st-connected .pill-dot{background:var(--green);animation:blink 2s ease-in-out infinite}
+.hdr-status-pill.st-done{border-color:var(--border2);color:var(--text2)}
+.hdr-status-pill.st-done .pill-dot{background:var(--green)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.28}}
+
+.btn-end-session{
+  padding:7px 18px;background:var(--red-bg);border:1px solid rgba(239,68,68,.3);
+  color:var(--red);border-radius:8px;font-size:12px;font-weight:700;
+  cursor:pointer;transition:all .15s;letter-spacing:.03em;
+}
+.btn-end-session:hover{background:rgba(239,68,68,.24);border-color:rgba(239,68,68,.5)}
+
+/* ══════════════ SHELL ══════════════ */
+#shell{position:fixed;top:66px;left:0;right:0;bottom:0;overflow:hidden}
+
+/* ══════════════ FULL-SCREEN OVERLAYS ══════════════ */
+.fsscreen{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:100}
+.fsscreen.show{display:flex}
+
+.spinner{width:36px;height:36px;border:3px solid var(--border2);border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Start card ── */
+.start-card{
+  background:var(--card);border:1px solid var(--border);border-radius:22px;
+  padding:48px 52px;width:460px;text-align:center;
+  box-shadow:0 16px 55px rgba(0,0,0,.6);
+}
+.start-logo{
+  width:56px;height:56px;border-radius:15px;margin:0 auto 20px;
+  background:linear-gradient(135deg,#3b82f6,#6366f1);
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;font-weight:800;color:#fff;
+  box-shadow:0 4px 20px rgba(99,102,241,.45);
+}
+.start-card h1{font-size:24px;font-weight:800;margin-bottom:6px}
+.start-card .sub{font-size:13px;color:var(--text3);margin-bottom:26px}
+.count-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--blue-bg);border:1px solid rgba(59,130,246,.22);
+  color:var(--blue);font-size:17px;font-weight:700;
+  padding:9px 22px;border-radius:12px;margin-bottom:24px;
+}
+.start-bullets{background:var(--bg3);border:1px solid var(--border);border-radius:13px;padding:4px 0;margin-bottom:26px;text-align:left}
+.bullet-row{display:flex;align-items:center;gap:12px;padding:11px 18px;font-size:13px;color:var(--text2);border-bottom:1px solid var(--border)}
+.bullet-row:last-child{border-bottom:none}
+.bullet-icon{width:28px;height:28px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px}
+.btn-launch{
+  width:100%;padding:13px;border:none;border-radius:12px;
+  background:linear-gradient(135deg,#3b82f6,#6366f1);
+  color:#fff;font-size:15px;font-weight:700;cursor:pointer;
+  transition:all .15s;box-shadow:0 4px 18px rgba(99,102,241,.35);margin-bottom:10px;
+}
+.btn-launch:hover{transform:translateY(-1px);box-shadow:0 6px 24px rgba(99,102,241,.5)}
+.btn-launch:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-ghost{
+  width:100%;padding:10px;background:transparent;
+  border:1px solid var(--border2);border-radius:10px;
+  color:var(--text3);font-size:13px;cursor:pointer;transition:all .15s;
+}
+.btn-ghost:hover{color:var(--text2);background:var(--bg3)}
+
+/* ── Pending (call-in) card ── */
+.pending-card{
+  background:var(--card);border:1px solid var(--border);border-radius:22px;
+  padding:52px 58px;width:500px;text-align:center;
+  box-shadow:0 16px 55px rgba(0,0,0,.6);
+}
+.ring-wrap{width:96px;height:96px;margin:0 auto 28px;position:relative;display:flex;align-items:center;justify-content:center}
+.ring-wave{position:absolute;width:96px;height:96px;border-radius:50%;border:2px solid var(--blue);opacity:0;animation:wave 2.4s ease-out infinite}
+.ring-wave:nth-child(2){animation-delay:.75s}
+.ring-wave:nth-child(3){animation-delay:1.5s}
+@keyframes wave{0%{transform:scale(.42);opacity:.9}100%{transform:scale(2.3);opacity:0}}
+.ring-core{
+  position:relative;z-index:1;width:60px;height:60px;border-radius:50%;
+  background:var(--blue-bg);border:2px solid rgba(59,130,246,.38);
+  display:flex;align-items:center;justify-content:center;font-size:24px;
+}
+.pending-card h2{font-size:22px;font-weight:700;margin-bottom:8px}
+.pending-card .muted{font-size:13px;color:var(--text3);margin-bottom:24px}
+.dial-number{font-size:30px;font-weight:800;letter-spacing:.06em;color:var(--text);margin-bottom:26px;font-variant-numeric:tabular-nums}
+.pin-wrap{margin-bottom:26px}
+.pin-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:12px}
+.pin-row{display:flex;justify-content:center;gap:10px;margin-bottom:9px}
+.pin-d{
+  width:54px;height:66px;background:var(--bg3);border:2px solid var(--border2);border-radius:13px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:30px;font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums;
+}
+.pin-hint{font-size:12px;color:var(--text3)}
+.waiting-row{display:flex;align-items:center;justify-content:center;gap:9px;font-size:13px;font-weight:600;color:var(--amber);margin-bottom:24px}
+.wdots{display:flex;gap:5px}
+.wdot{width:6px;height:6px;border-radius:50%;background:var(--amber);animation:dotpop .9s ease-in-out infinite}
+.wdot:nth-child(2){animation-delay:.2s}
+.wdot:nth-child(3){animation-delay:.4s}
+@keyframes dotpop{0%,80%,100%{transform:scale(1);opacity:.45}40%{transform:scale(1.55);opacity:1}}
+.btn-danger-lg{
+  padding:9px 24px;background:var(--red-bg);border:1px solid rgba(239,68,68,.28);
+  color:var(--red);border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;
+}
+.btn-danger-lg:hover{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.45)}
+
+/* Auth/error */
+.auth-card{
+  background:var(--card);border:1px solid rgba(239,68,68,.2);border-radius:22px;
+  padding:48px 52px;width:420px;text-align:center;
+  box-shadow:0 16px 55px rgba(0,0,0,.6);
+}
+
+/* ══════════════ MAIN DIALER LAYOUT ══════════════ */
+#s-main{
+  position:absolute;inset:0;display:none;flex-direction:column;
+}
+#s-main.show{display:flex}
+
+/* Sub-header bar */
+#sub-hdr{
+  flex-shrink:0;height:42px;
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 22px;gap:0;
+}
+.sub-loc{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;color:var(--text3);flex:1;
+}
+.sub-loc-dot{font-size:13px}
+.sub-prog{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.prog-bar-wrap{width:140px;height:5px;background:var(--border2);border-radius:3px;overflow:hidden}
+.prog-bar-fill{height:100%;background:linear-gradient(90deg,#3b82f6,#6366f1);border-radius:3px;transition:width .5s ease}
+.sub-prog-text{font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap}
+
+/* Body: split left / right */
+.dialer-body{flex:1;display:flex;overflow:hidden}
+
+/* ── LEFT COLUMN ── */
+.left-col{
+  width:52%;border-right:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--bg);
+}
+
+/* Call-in-progress banner */
+.call-banner{
+  flex-shrink:0;padding:9px 20px;
+  display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;
+}
+.call-banner.b-dialing{background:rgba(245,158,11,.07);border-bottom:1px solid rgba(245,158,11,.18);color:var(--amber)}
+.call-banner.b-connected{background:rgba(16,185,129,.07);border-bottom:1px solid rgba(16,185,129,.18);color:var(--green)}
+.banner-dot{width:7px;height:7px;border-radius:50%}
+.call-banner.b-dialing .banner-dot{background:var(--amber);animation:blink 1s ease-in-out infinite}
+.call-banner.b-connected .banner-dot{background:var(--green);animation:blink 2s ease-in-out infinite}
+.banner-timer{margin-left:auto;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+
+/* Lead form */
+.lead-scroll{flex:1;overflow-y:auto;padding:18px 20px 12px}
+.lead-scroll::-webkit-scrollbar{width:4px}
+.lead-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+.form-section-hdr{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--text3);margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.form-section-hdr::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.form-row{display:flex;gap:10px;margin-bottom:10px}
+.form-field{display:flex;flex-direction:column;flex:1;min-width:0}
+.form-field.w2{flex:2}
+.form-field.w3{flex:3}
+.f-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:4px}
+.f-val{
+  background:var(--card2);border:1px solid var(--border);border-radius:8px;
+  padding:8px 11px;font-size:13px;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:36px;
+  display:flex;align-items:center;
+}
+.f-val.empty{color:var(--text3);font-style:italic}
+.f-val.highlight{border-color:rgba(59,130,246,.3);background:rgba(59,130,246,.06);color:var(--text)}
+.f-val a{color:var(--blue);text-decoration:none}
+.f-val a:hover{text-decoration:underline}
+
+/* Status badge inside lead */
+.status-chip{
+  display:inline-block;padding:3px 9px;border-radius:20px;
+  font-size:11px;font-weight:600;
+}
+
+/* Next lead */
+.next-lead-bar{
+  flex-shrink:0;border-top:1px solid var(--border);
+  padding:10px 20px;background:var(--bg2);
+}
+.next-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.next-lbl::after{content:'→';font-size:11px}
+.next-card{display:flex;align-items:center;gap:12px}
+.next-avatar{
+  width:34px;height:34px;border-radius:9px;flex-shrink:0;
+  background:var(--bg3);border:1px solid var(--border2);
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:var(--text3);
+}
+.next-info{}
+.next-name{font-size:13px;font-weight:600;color:var(--text)}
+.next-sub{font-size:11px;color:var(--text3)}
+.next-empty{font-size:13px;color:var(--text3);font-style:italic;padding:4px 0}
+
+/* ── RIGHT COLUMN ── */
+.right-col{
+  flex:1;display:flex;flex-direction:column;overflow:hidden;
+  background:var(--bg);
+}
+
+/* Tabs */
+.tab-bar{
+  flex-shrink:0;display:flex;border-bottom:1px solid var(--border);
+  background:var(--bg2);
+}
+.tab-btn{
+  padding:12px 20px;font-size:12px;font-weight:600;color:var(--text3);
+  border:none;background:transparent;cursor:pointer;
+  border-bottom:2px solid transparent;transition:all .15s;letter-spacing:.02em;
+  flex:1;
+}
+.tab-btn:hover{color:var(--text2);background:rgba(255,255,255,.03)}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
+
+/* Tab panels */
+.tab-panel{display:none;flex:1;overflow-y:auto}
+.tab-panel.active{display:flex;flex-direction:column}
+.tab-panel::-webkit-scrollbar{width:4px}
+.tab-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.tab-inner{padding:18px 20px;flex:1}
+
+/* Outcome buttons */
+.outcome-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.outcome-btn{
+  padding:8px 14px;border-radius:9px;font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .15s;border:1px solid transparent;
+}
+.outcome-btn:hover{filter:brightness(1.2);transform:translateY(-1px)}
+.outcome-btn.picked{
+  box-shadow:0 0 0 2px rgba(255,255,255,.2),0 0 0 4px rgba(255,255,255,.06);
+  transform:translateY(-1px);
+}
+.outcome-locked{
+  font-size:13px;color:var(--text3);padding:24px 0;text-align:center;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+.outcome-locked .lock-icon{font-size:28px;opacity:.4}
+
+/* Notes */
+.notes-ta{
+  width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;
+  color:var(--text);font-size:13px;padding:11px 13px;resize:none;
+  outline:none;font-family:inherit;transition:border-color .15s;min-height:110px;
+}
+.notes-ta:focus{border-color:var(--blue)}
+.notes-ta::placeholder{color:var(--text3)}
+
+.call-history{}
+.ch-item{
+  display:flex;align-items:flex-start;gap:10px;
+  padding:10px 0;border-bottom:1px solid var(--border);
+  font-size:12px;
+}
+.ch-item:last-child{border-bottom:none}
+.ch-dot{
+  width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;
+}
+.ch-time{color:var(--text3);flex-shrink:0;min-width:120px}
+.ch-outcome{font-weight:600}
+
+/* Script tab */
+.script-body{font-size:13px;color:var(--text2);line-height:1.75}
+.script-section-title{
+  font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--blue);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);
+}
+.script-section-title:first-child{margin-top:0}
+.script-body blockquote{
+  background:var(--card2);border-left:3px solid var(--blue);border-radius:0 8px 8px 0;
+  padding:12px 14px;font-style:italic;color:var(--text);margin-bottom:10px;font-size:13px;
+}
+.obj-row{margin-bottom:8px;padding:10px 12px;background:var(--card2);border-radius:8px;border:1px solid var(--border)}
+.obj-trigger{font-weight:600;color:var(--amber);font-size:12px;margin-bottom:4px}
+.obj-response{font-size:12px;color:var(--text2);line-height:1.6}
+
+/* ── FOOTER ACTION BAR ── */
+#footer-bar{
+  flex-shrink:0;height:54px;border-top:1px solid var(--border);
+  background:var(--bg2);
+  display:flex;align-items:center;padding:0 20px;gap:10px;
+}
+.btn-skip{
+  padding:9px 20px;background:var(--bg3);border:1px solid var(--border2);
+  color:var(--text2);border-radius:9px;font-size:13px;font-weight:600;
+  cursor:pointer;transition:all .15s;
+}
+.btn-skip:hover{background:var(--card2);color:var(--text)}
+.spacer{flex:1}
+.btn-danger-footer{
+  padding:9px 22px;background:var(--red-bg);border:1px solid rgba(239,68,68,.28);
+  color:var(--red);border-radius:9px;font-size:13px;font-weight:700;
+  cursor:pointer;transition:all .15s;
+}
+.btn-danger-footer:hover{background:rgba(239,68,68,.22);border-color:rgba(239,68,68,.46)}
+
+/* ══════════════ COMPLETED SCREEN ══════════════ */
+.completed-card{
+  background:var(--card);border:1px solid var(--border);border-radius:22px;
+  padding:52px 56px;width:500px;text-align:center;
+  box-shadow:0 16px 55px rgba(0,0,0,.6);
+}
+.check-circle{
+  width:68px;height:68px;border-radius:50%;margin:0 auto 20px;
+  background:var(--green-bg);border:2px solid rgba(16,185,129,.28);
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;color:var(--green);
+}
+.completed-card h2{font-size:22px;font-weight:700;margin-bottom:8px}
+.completed-card .sub{font-size:13px;color:var(--text3);margin-bottom:24px}
+.comp-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:28px}
+.comp-stat{background:var(--bg2);border:1px solid var(--border);border-radius:13px;padding:16px}
+.comp-val{font-size:26px;font-weight:800;margin-bottom:2px}
+.comp-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+.btn-close{
+  width:100%;padding:12px;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:11px;color:var(--text2);font-size:14px;font-weight:600;
+  cursor:pointer;transition:all .15s;
+}
+.btn-close:hover{background:var(--card2);color:var(--text)}
+
+/* Utility */
+.sec-lbl{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════ HEADER ══════════════════════ -->
+<header id="hdr">
+  <div class="hdr-brand">
+    <div class="ps-logo">PS</div>
+    <div>
+      <div class="brand-name">Producer Stack CRM</div>
+      <div class="brand-tag">Power Dialer</div>
+    </div>
+  </div>
+  <div class="hdr-sep"></div>
+  <div class="hdr-stats">
+    <div class="stat-box">
+      <div class="stat-val" id="stat-duration">00:00</div>
+      <div class="stat-lbl">Duration</div>
+    </div>
+    <div class="stat-box accent-blue">
+      <div class="stat-val" id="stat-contacts">0 / 0</div>
+      <div class="stat-lbl">Contacts</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="stat-calls">0</div>
+      <div class="stat-lbl">Calls Made</div>
+    </div>
+    <div class="stat-box accent-green">
+      <div class="stat-val" id="stat-talks">0</div>
+      <div class="stat-lbl">Talks</div>
+    </div>
+    <div class="stat-box accent-amber">
+      <div class="stat-val" id="stat-appts">0</div>
+      <div class="stat-lbl">Appts Set</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-status-pill" id="hdr-pill">
+      <span class="pill-dot" id="pill-dot"></span>
+      <span id="pill-text">Loading…</span>
+    </div>
+    <button class="btn-end-session" id="btn-end-hdr" style="display:none" onclick="pdEnd()">End Dialing</button>
+  </div>
+</header>
+
+<!-- ══════════════════════ SHELL ══════════════════════ -->
+<div id="shell">
+
+  <!-- ── LOADING ── -->
+  <div class="fsscreen show" id="s-loading">
+    <div style="text-align:center">
+      <div class="spinner" style="margin:0 auto 14px"></div>
+      <div style="color:var(--text3);font-size:13px">Initializing session…</div>
+    </div>
+  </div>
+
+  <!-- ── AUTH ERROR ── -->
+  <div class="fsscreen" id="s-auth">
+    <div class="auth-card">
+      <div style="font-size:42px;margin-bottom:16px">🔐</div>
+      <h2 style="font-size:20px;font-weight:700;margin-bottom:8px" id="auth-title">Sign In Required</h2>
+      <p style="font-size:13px;color:var(--text3);margin-bottom:24px" id="auth-msg">Sign in to Producer Stack CRM in the main tab, then click Power Dial again.</p>
+      <button class="btn-close" onclick="window.close()">Close Window</button>
+    </div>
+  </div>
+
+  <!-- ── START ── -->
+  <div class="fsscreen" id="s-start">
+    <div class="start-card">
+      <div class="start-logo">PS</div>
+      <h1>Ready to Power Dial?</h1>
+      <p class="sub">Review your queue, then launch your session.</p>
+
+      <div class="count-pill">
+        <span>📋</span>
+        <strong id="start-count">0</strong>&nbsp;leads queued
+      </div>
+
+      <div class="start-bullets">
+        <div class="bullet-row">
+          <div class="bullet-icon" style="background:var(--blue-bg)">📞</div>
+          Leads are dialed automatically in sequence
+        </div>
+        <div class="bullet-row">
+          <div class="bullet-icon" style="background:var(--green-bg)">🔗</div>
+          Call in from your phone to join the live conference
+        </div>
+        <div class="bullet-row">
+          <div class="bullet-icon" style="background:var(--amber-bg)">⚡</div>
+          Tag outcomes, take notes, and skip leads in real time
+        </div>
+      </div>
+
+      <button class="btn-launch" id="start-btn" onclick="pdStartSession()">Start Dialing Session</button>
+      <button class="btn-ghost" onclick="window.close()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ── PENDING: CALL IN ── -->
+  <div class="fsscreen" id="s-pending">
+    <div class="pending-card">
+      <div class="ring-wrap">
+        <div class="ring-wave"></div>
+        <div class="ring-wave"></div>
+        <div class="ring-wave"></div>
+        <div class="ring-core">📞</div>
+      </div>
+      <h2>Call In to Start</h2>
+      <p class="muted">Dial this number from your phone, then enter your PIN:</p>
+      <div class="dial-number" id="pending-number">—</div>
+      <div class="pin-wrap">
+        <div class="pin-lbl">Your PIN — enter each digit then press #</div>
+        <div class="pin-row" id="pin-row"></div>
+        <div class="pin-hint">e.g. press 1 2 3 4 # on your keypad</div>
+      </div>
+      <div class="waiting-row">
+        <div class="wdots"><div class="wdot"></div><div class="wdot"></div><div class="wdot"></div></div>
+        Waiting for your call…
+      </div>
+      <button class="btn-danger-lg" onclick="pdEnd()">End Session</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════ MAIN DIALER ══════════════════════ -->
+  <div id="s-main">
+
+    <!-- Sub-header: location + progress -->
+    <div id="sub-hdr">
+      <div class="sub-loc">
+        <span class="sub-loc-dot">📍</span>
+        <span id="sub-location">—</span>
+      </div>
+      <div class="sub-prog">
+        <span class="sub-prog-text" id="sub-prog-text">Lead 1 of 1</span>
+        <div class="prog-bar-wrap">
+          <div class="prog-bar-fill" id="prog-fill" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Split body -->
+    <div class="dialer-body">
+
+      <!-- ── LEFT: Lead info ── -->
+      <div class="left-col">
+
+        <!-- Call status banner -->
+        <div class="call-banner b-dialing" id="call-banner">
+          <div class="banner-dot"></div>
+          <span id="banner-text">Ringing…</span>
+          <span class="banner-timer" id="banner-timer" style="display:none">00:00</span>
+        </div>
+
+        <!-- Lead form fields -->
+        <div class="lead-scroll" id="lead-form">
+          <!-- rendered by JS -->
+        </div>
+
+        <!-- Next lead -->
+        <div class="next-lead-bar">
+          <div class="next-lbl">Next Up</div>
+          <div id="next-lead-card">
+            <div class="next-empty">No more leads in queue</div>
+          </div>
+        </div>
+
+      </div><!-- /left-col -->
+
+      <!-- ── RIGHT: Tabs ── -->
+      <div class="right-col">
+
+        <div class="tab-bar">
+          <button class="tab-btn active" id="tb-outcome" onclick="switchTab('outcome')">Mark Outcome</button>
+          <button class="tab-btn"         id="tb-notes"   onclick="switchTab('notes')">Notes &amp; History</button>
+          <button class="tab-btn"         id="tb-script"  onclick="switchTab('script')">Phone Script</button>
+        </div>
+
+        <!-- Outcome tab -->
+        <div class="tab-panel active" id="tp-outcome">
+          <div class="tab-inner">
+            <div id="outcome-area">
+              <!-- rendered by JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Notes tab -->
+        <div class="tab-panel" id="tp-notes">
+          <div class="tab-inner">
+            <span class="sec-lbl">Call Notes</span>
+            <textarea class="notes-ta" id="notes-ta" placeholder="Type notes during the call — they save automatically…" oninput="autoSaveNotes(this)" style="margin-bottom:20px"></textarea>
+            <span class="sec-lbl">Call History</span>
+            <div id="call-history">
+              <div style="font-size:13px;color:var(--text3);padding:6px 0">No previous calls logged for this lead.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Script tab -->
+        <div class="tab-panel" id="tp-script">
+          <div class="tab-inner">
+            <div class="script-body" id="script-body">
+              <!-- rendered by JS with lead's first name injected -->
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /right-col -->
+
+    </div><!-- /dialer-body -->
+
+    <!-- Footer -->
+    <div id="footer-bar">
+      <button class="btn-skip" onclick="pdSkip()">Skip Lead →</button>
+      <div class="spacer"></div>
+      <button class="btn-danger-footer" onclick="pdEnd()">End Dialing</button>
+    </div>
+
+  </div><!-- /s-main -->
+
+  <!-- ══════════════════════ COMPLETED ══════════════════════ -->
+  <div class="fsscreen" id="s-completed">
+    <div class="completed-card">
+      <div class="check-circle">✓</div>
+      <h2 id="comp-title">Session Complete!</h2>
+      <p class="sub" id="comp-msg">Great work today.</p>
+      <div class="comp-stats" id="comp-stats"></div>
+      <button class="btn-close" onclick="window.close()">Close Window</button>
+    </div>
+  </div>
+
+</div><!-- /shell -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ─── Config ───────────────────────────────
+const SUPABASE_URL      = 'https://cweiaibjigjwspmshcrj.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_L7-8QaRE4XwhIapCAANEpQ_JHi7FUYM';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const STATUS_CFG = {
+  new:            { label:'New',               color:'#60a5fa', bg:'rgba(59,130,246,.18)'  },
+  called:         { label:'Called',            color:'#34d399', bg:'rgba(16,185,129,.18)'  },
+  no_answer:      { label:'No Answer',         color:'#94a3b8', bg:'rgba(148,163,184,.12)' },
+  not_interested: { label:'Not Interested',    color:'#f87171', bg:'rgba(239,68,68,.18)'   },
+  sold:           { label:'Sold',              color:'#34d399', bg:'rgba(16,185,129,.27)'  },
+  appointment:    { label:'Appointment Set',   color:'#fbbf24', bg:'rgba(245,158,11,.18)'  },
+  social_obj:     { label:'Social Objection',  color:'#f97316', bg:'rgba(249,115,22,.18)'  },
+  banking_obj:    { label:'Banking Objection', color:'#a78bfa', bg:'rgba(167,139,250,.18)' },
+};
+
+// State timezone map for local time display
+const STATE_TZ = {
+  ME:'America/New_York',VT:'America/New_York',NH:'America/New_York',MA:'America/New_York',
+  RI:'America/New_York',CT:'America/New_York',NY:'America/New_York',NJ:'America/New_York',
+  PA:'America/New_York',DE:'America/New_York',MD:'America/New_York',VA:'America/New_York',
+  WV:'America/New_York',NC:'America/New_York',SC:'America/New_York',GA:'America/New_York',
+  FL:'America/New_York',OH:'America/New_York',MI:'America/New_York',IN:'America/Indiana/Indianapolis',
+  KY:'America/New_York',
+  IL:'America/Chicago',WI:'America/Chicago',MN:'America/Chicago',IA:'America/Chicago',
+  MO:'America/Chicago',AR:'America/Chicago',LA:'America/Chicago',MS:'America/Chicago',
+  AL:'America/Chicago',TN:'America/Chicago',ND:'America/Chicago',SD:'America/Chicago',
+  NE:'America/Chicago',KS:'America/Chicago',OK:'America/Chicago',TX:'America/Chicago',
+  MT:'America/Denver',WY:'America/Denver',CO:'America/Denver',NM:'America/Denver',
+  UT:'America/Denver',ID:'America/Boise',
+  AZ:'America/Phoenix',
+  NV:'America/Los_Angeles',CA:'America/Los_Angeles',OR:'America/Los_Angeles',WA:'America/Los_Angeles',
+  AK:'America/Anchorage',HI:'Pacific/Honolulu'
+};
+
+// ─── Runtime state ─────────────────────────
+let session      = null;
+let sessionId    = null;
+let rtChannel    = null;
+let leadsData    = [];
+let agentUser    = null;
+let callTimerH   = null;
+let sessTimerH   = null;
+let sessStart    = null;
+let outcomeMap   = {};   // leadId → status key
+let noteMap      = {};   // leadId → notes text
+let callLog      = {};   // leadId → [{ts, outcome}]
+let stats = { calls:0, talks:0, appts:0 };
+let activeTab    = 'outcome';
+let currentState = null;
+
+// ─── Utils ────────────────────────────────
+function fmtP(raw) {
+  if (!raw) return '';
+  const d = String(raw).replace(/\D/g,'');
+  if (d.length === 10) return `(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;
+  if (d.length === 11 && d[0]==='1') return `(${d.slice(1,4)}) ${d.slice(4,7)}-${d.slice(7)}`;
+  return String(raw);
+}
+
+function lName(l) {
+  if (!l) return 'Unknown';
+  return l.name || [l.first_name, l.last_name].filter(Boolean).join(' ') || 'Unknown';
+}
+
+function lFirstName(l) {
+  if (!l) return '';
+  if (l.first_name) return l.first_name;
+  const n = lName(l);
+  return n.split(' ')[0] || n;
+}
+
+function initials(name) {
+  const p = (name||'?').split(' ').filter(Boolean);
+  if (p.length >= 2) return (p[0][0]+p[p.length-1][0]).toUpperCase();
+  return (name||'?')[0].toUpperCase();
+}
+
+function fmtSec(sec) {
+  const m = String(Math.floor(sec/60)).padStart(2,'0');
+  const s = String(sec%60).padStart(2,'0');
+  return `${m}:${s}`;
+}
+
+function fmtDOB(raw) {
+  if (!raw) return '';
+  const d = new Date(raw + 'T00:00:00');
+  if (isNaN(d)) return raw;
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const yy = d.getFullYear();
+  const age = Math.floor((Date.now() - d.getTime()) / (365.25*24*3600*1000));
+  return `${mm}/${dd}/${yy} (Age ${age})`;
+}
+
+function localTime(state) {
+  if (!state) return null;
+  const tz = STATE_TZ[state.toUpperCase()];
+  if (!tz) return null;
+  try {
+    return new Date().toLocaleTimeString('en-US',{timeZone:tz,hour:'numeric',minute:'2-digit',hour12:true});
+  } catch { return null; }
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Screen routing ────────────────────────
+function showScreen(id) {
+  const fsIds = ['s-loading','s-auth','s-start','s-pending','s-completed'];
+  fsIds.forEach(sid => {
+    const el = document.getElementById(sid);
+    if (el) el.classList.toggle('show', sid === id);
+  });
+  const main = document.getElementById('s-main');
+  if (main) main.classList.toggle('show', id === 's-main');
+}
+
+function setHdrPill(cls, text) {
+  const pill = document.getElementById('hdr-pill');
+  const dot  = document.getElementById('pill-dot');
+  const span = document.getElementById('pill-text');
+  pill.className = 'hdr-status-pill ' + cls;
+  span.textContent = text;
+}
+
+// ─── Tabs ─────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  ['outcome','notes','script'].forEach(t => {
+    document.getElementById('tb-'+t).classList.toggle('active', t === tab);
+    document.getElementById('tp-'+t).classList.toggle('active', t === tab);
+  });
+}
+
+// ─── Timers ───────────────────────────────
+function startSessTimer() {
+  if (sessTimerH) return;
+  sessStart = Date.now();
+  sessTimerH = setInterval(() => {
+    const sec = Math.floor((Date.now()-sessStart)/1000);
+    document.getElementById('stat-duration').textContent = fmtSec(sec);
+  }, 1000);
+}
+
+function startCallTimer() {
+  stopCallTimer();
+  const start = Date.now();
+  const el = document.getElementById('banner-timer');
+  if (el) el.style.display = '';
+  callTimerH = setInterval(() => {
+    if (el) el.textContent = fmtSec(Math.floor((Date.now()-start)/1000));
+  }, 1000);
+}
+
+function stopCallTimer() {
+  if (callTimerH) { clearInterval(callTimerH); callTimerH = null; }
+  const el = document.getElementById('banner-timer');
+  if (el) { el.style.display = 'none'; el.textContent = '00:00'; }
+}
+
+// ─── Lead form builder ────────────────────
+function buildField(label, value, cls='', fullRow=false) {
+  const dispVal = value ? esc(value) : '<span class="empty" style="color:var(--text3);font-style:italic">—</span>';
+  return `<div class="form-field${fullRow?' fw':''}">
+    <div class="f-lbl">${label}</div>
+    <div class="f-val${cls?' '+cls:''}">${value ? esc(value) : '<span style="color:var(--text3);font-style:italic">—</span>'}</div>
+  </div>`;
+}
+
+function buildFieldHTML(label, value, cls='', fullRow=false) {
+  return `<div class="form-field${fullRow?' fw':''}">
+    <div class="f-lbl">${label}</div>
+    <div class="f-val${cls?' '+cls:''}">${value||'<span style="color:var(--text3);font-style:italic">—</span>'}</div>
+  </div>`;
+}
+
+function renderLeadForm(lead) {
+  const el = document.getElementById('lead-form');
+  if (!el) return;
+
+  if (!lead) {
+    el.innerHTML = '<div style="padding:20px;color:var(--text3);font-size:13px">No lead data available.</div>';
+    return;
+  }
+
+  const firstName = lead.first_name || (lName(lead).split(' ')[0]) || '';
+  const lastName  = lead.last_name  || (lName(lead).split(' ').slice(1).join(' ')) || '';
+  const sc = STATUS_CFG[lead.status] || STATUS_CFG.new;
+  const statusChip = lead.status
+    ? `<span class="status-chip" style="background:${sc.bg};color:${sc.color}">${sc.label}</span>`
+    : '<span style="color:var(--text3);font-style:italic">—</span>';
+
+  const emailLink = lead.email
+    ? `<a href="mailto:${esc(lead.email)}">${esc(lead.email)}</a>`
+    : null;
+
+  const lt = localTime(lead.state);
+  const locParts = [lead.city, lead.state].filter(Boolean);
+  const locStr   = locParts.length ? locParts.join(', ') + (lt ? ` — Local time: ${lt}` : '') : null;
+
+  // Update sub-header location
+  document.getElementById('sub-location').textContent = locStr
+    ? `Located in ${locStr}`
+    : 'Location unknown';
+
+  el.innerHTML = `
+    <div class="form-section-hdr">Contact Information</div>
+    <div class="form-row">
+      ${buildField('First Name', firstName, 'highlight')}
+      ${buildField('Last Name', lastName, 'highlight')}
+    </div>
+    <div class="form-row">
+      ${buildFieldHTML('Phone', lead.phone ? `<strong style="font-variant-numeric:tabular-nums">${esc(fmtP(lead.phone))}</strong>` : null)}
+      ${buildField('Status', '', '')}
+    </div>
+    <div class="form-row" style="margin-top:-10px">
+      <div class="form-field"></div>
+      <div class="form-field">
+        <div class="f-val">${statusChip}</div>
+      </div>
+    </div>
+    ${lead.email ? `<div class="form-row">${buildFieldHTML('Email Address', emailLink)}</div>` : ''}
+
+    <div class="form-section-hdr" style="margin-top:8px">Location</div>
+    <div class="form-row">
+      ${buildField('Address', lead.address)}
+    </div>
+    <div class="form-row">
+      <div class="form-field w3">${buildField('City', lead.city).replace('class="form-field"','class=""')}</div>
+      <div class="form-field">${buildField('State', lead.state ? lead.state.toUpperCase() : '').replace('class="form-field"','class=""')}</div>
+      <div class="form-field">${buildField('Zip', lead.zip).replace('class="form-field"','class=""')}</div>
+    </div>
+
+    <div class="form-section-hdr" style="margin-top:8px">Lead Details</div>
+    <div class="form-row">
+      ${buildField('Date of Birth', lead.dob ? fmtDOB(lead.dob) : '')}
+      ${buildField('Lead Source', lead.source)}
+    </div>
+    ${lead.coverage_wanted ? `<div class="form-row">${buildField('Coverage Wanted', lead.coverage_wanted)}</div>` : ''}
+  `;
+}
+
+// ─── Next lead preview ────────────────────
+function renderNextLead(s) {
+  const wrap = document.getElementById('next-lead-card');
+  if (!wrap || !s) return;
+
+  const nextIdx = (s.current_index ?? -1) + 1;
+  if (nextIdx >= s.lead_ids.length) {
+    wrap.innerHTML = '<div class="next-empty">Last lead in queue</div>';
+    return;
+  }
+
+  const nextId   = s.lead_ids[nextIdx];
+  const next     = leadsData.find(l => String(l.id) === String(nextId));
+  const name     = next ? lName(next) : `Lead ${nextIdx+1}`;
+  const phone    = next ? fmtP(next.phone) : '';
+  const loc      = next ? [next.city, next.state].filter(Boolean).join(', ') : '';
+
+  wrap.innerHTML = `
+    <div class="next-card">
+      <div class="next-avatar">${initials(name)}</div>
+      <div class="next-info">
+        <div class="next-name">${esc(name)}</div>
+        <div class="next-sub">${[phone, loc].filter(Boolean).join(' · ')}</div>
+      </div>
+    </div>`;
+}
+
+// ─── Progress & stats ─────────────────────
+function updateProgress(s) {
+  const cur = s.current_index ?? -1;
+  const total = s.lead_ids.length;
+  const shown = Math.max(0, cur) + 1;
+  const pct   = total > 0 ? Math.min(100, (shown / total) * 100) : 0;
+
+  document.getElementById('sub-prog-text').textContent = cur >= 0
+    ? `Lead ${shown} of ${total}` : `0 of ${total}`;
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('stat-contacts').textContent = `${stats.talks} / ${total}`;
+  document.getElementById('stat-calls').textContent   = stats.calls;
+  document.getElementById('stat-talks').textContent   = stats.talks;
+  document.getElementById('stat-appts').textContent   = stats.appts;
+}
+
+// ─── Outcome section ──────────────────────
+function renderOutcomeArea(leadId, isConnected) {
+  const wrap = document.getElementById('outcome-area');
+  if (!wrap) return;
+
+  if (!isConnected) {
+    wrap.innerHTML = `<div class="outcome-locked">
+      <div class="lock-icon">📞</div>
+      <div style="font-size:13px;color:var(--text3)">Outcome available once the lead answers.</div>
+    </div>`;
+    return;
+  }
+
+  const cur = outcomeMap[String(leadId)] || null;
+  const buttons = Object.entries(STATUS_CFG)
+    .filter(([k]) => k !== 'new')
+    .map(([key, cfg]) => {
+      const picked = cur === key ? 'picked' : '';
+      return `<button class="outcome-btn ${picked}"
+        style="background:${cfg.bg};color:${cfg.color};border-color:${cfg.color}25"
+        onclick="markOutcome('${leadId}','${key}')">${cfg.label}</button>`;
+    }).join('');
+
+  const chosen = cur ? STATUS_CFG[cur] : null;
+  const chosenHtml = chosen
+    ? `<div style="margin-bottom:14px;font-size:12px;color:var(--text3)">
+        Current outcome: <span class="status-chip" style="background:${chosen.bg};color:${chosen.color}">${chosen.label}</span>
+       </div>`
+    : '';
+
+  wrap.innerHTML = `
+    <span class="sec-lbl">Select the outcome for this call</span>
+    ${chosenHtml}
+    <div class="outcome-grid">${buttons}</div>
+    <div style="margin-top:18px;padding:12px 14px;background:var(--card2);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--text3)">
+      💡 Selecting an outcome saves automatically to the lead's record.
+    </div>
+  `;
+}
+
+async function markOutcome(leadId, status) {
+  const prev = outcomeMap[String(leadId)];
+  outcomeMap[String(leadId)] = status;
+
+  // Count appointments
+  if (status === 'appointment') {
+    if (prev !== 'appointment') stats.appts++;
+  } else if (prev === 'appointment') {
+    stats.appts = Math.max(0, stats.appts - 1);
+  }
+
+  const curId = currentLeadId();
+  renderOutcomeArea(leadId, String(leadId) === String(curId) && currentState === 'connected');
+  updateProgress(session);
+
+  // Log to call history
+  if (!callLog[String(leadId)]) callLog[String(leadId)] = [];
+  callLog[String(leadId)].push({ ts: Date.now(), outcome: status });
+  renderCallHistory(leadId);
+
+  // Persist to Supabase
+  const lead = leadsData.find(l => String(l.id) === String(leadId));
+  if (lead && agentUser) {
+    lead.status = status;
+    await sb.from('leads').upsert(
+      { agent_id: agentUser.id, client_id: String(leadId), data: { ...lead } },
+      { onConflict: 'agent_id,client_id' }
+    ).catch(e => console.warn('[markOutcome]', e));
+  }
+}
+
+// ─── Call history ─────────────────────────
+function renderCallHistory(leadId) {
+  const el = document.getElementById('call-history');
+  if (!el) return;
+  const log = callLog[String(leadId)] || [];
+
+  // Also include notes-based history from lead
+  const lead = leadsData.find(l => String(l.id) === String(leadId));
+  const existingNotes = lead?.notes || '';
+  const noteLines = existingNotes.split('\n').filter(l => l.includes('—') || l.includes('-'));
+
+  if (log.length === 0 && noteLines.length === 0) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--text3);padding:6px 0">No previous calls logged for this lead.</div>';
+    return;
+  }
+
+  const items = [...log].reverse().map(entry => {
+    const sc  = STATUS_CFG[entry.outcome] || {};
+    const dt  = new Date(entry.ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+    return `<div class="ch-item">
+      <div class="ch-dot" style="background:${sc.color || 'var(--text3)'}"></div>
+      <div class="ch-time">${dt}</div>
+      <div class="ch-outcome" style="color:${sc.color || 'var(--text2)'}">${sc.label || entry.outcome}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = items || '<div style="font-size:13px;color:var(--text3);padding:6px 0">No calls logged yet.</div>';
+}
+
+// ─── Notes ────────────────────────────────
+let _noteTimer = null;
+function autoSaveNotes(ta) {
+  clearTimeout(_noteTimer);
+  _noteTimer = setTimeout(async () => {
+    const leadId = currentLeadId();
+    if (!leadId) return;
+    noteMap[String(leadId)] = ta.value;
+    const lead = leadsData.find(l => String(l.id) === String(leadId));
+    if (lead && agentUser) {
+      lead.notes = ta.value;
+      await sb.from('leads').upsert(
+        { agent_id: agentUser.id, client_id: String(leadId), data: { ...lead } },
+        { onConflict: 'agent_id,client_id' }
+      ).catch(e => console.warn('[notes]', e));
+    }
+  }, 900);
+}
+
+// ─── Phone script ─────────────────────────
+function renderScript(lead) {
+  const el = document.getElementById('script-body');
+  if (!el) return;
+  const fn = esc(lFirstName(lead) || 'there');
+  el.innerHTML = `
+    <div class="script-section-title">Opening</div>
+    <blockquote>"Hello, may I speak with ${fn}? Hi ${fn}, this is [Your Name] calling from Producer Stack. How are you doing today?"</blockquote>
+    <blockquote>"Great! I'm reaching out because you requested some information about life insurance. Do you have just a couple of minutes to chat?"</blockquote>
+
+    <div class="script-section-title">Discovery</div>
+    <blockquote>"To make sure I find the best option for you — are you looking for coverage to protect your family, build savings, or both? And do you currently have any life insurance in place?"</blockquote>
+
+    <div class="script-section-title">Value Bridge</div>
+    <blockquote>"Based on what you've shared, it sounds like [product type] might be a great fit. Rates have come down significantly and many clients are getting more coverage than they expected for their budget."</blockquote>
+
+    <div class="script-section-title">Objection Handling</div>
+    <div class="obj-row">
+      <div class="obj-trigger">🚫 "I'm not interested."</div>
+      <div class="obj-response">"Completely understand. Would it be okay if I sent over some information by email so you can take a look on your own time? No pressure at all."</div>
+    </div>
+    <div class="obj-row">
+      <div class="obj-trigger">⏱ "This is a bad time."</div>
+      <div class="obj-response">"No problem at all, ${fn} — when would be a better time? I can schedule a quick 10-minute call that works for you."</div>
+    </div>
+    <div class="obj-row">
+      <div class="obj-trigger">✅ "I already have coverage."</div>
+      <div class="obj-response">"That's great! When was the last time you reviewed it? Rates have really improved lately — many clients are getting the same or more coverage for less. Would you be open to a quick comparison?"</div>
+    </div>
+    <div class="obj-row">
+      <div class="obj-trigger">💬 "Send me something in the mail."</div>
+      <div class="obj-response">"Absolutely, I can do that. Would email work? I can get that to you right away. What address should I use?"</div>
+    </div>
+
+    <div class="script-section-title">Closing</div>
+    <blockquote>"Based on everything you've shared, I think we can find something that fits your budget and gives your family real peace of mind. The next step would be a quick 20-minute call with our specialist. Does [day] or [day] work better for you?"</blockquote>
+  `;
+}
+
+// ─── Lead helpers ─────────────────────────
+function currentLeadId() {
+  if (!session || (session.current_index ?? -1) < 0) return null;
+  return session.lead_ids[session.current_index];
+}
+
+function currentLead() {
+  const id = currentLeadId();
+  if (!id) return null;
+  return leadsData.find(l => String(l.id) === String(id)) || null;
+}
+
+// ─── Main render ──────────────────────────
+function render(s) {
+  const prevState = currentState;
+  const prevIdx   = session?.current_index;
+  session = s;
+  currentState = s.status;
+
+  // Track stats
+  if (s.status === 'dialing' && prevState !== 'dialing') stats.calls++;
+  if (s.status === 'connected' && prevState !== 'connected') stats.talks++;
+
+  document.getElementById('btn-end-hdr').style.display = '';
+
+  if (s.status === 'pending') {
+    showScreen('s-pending');
+    setHdrPill('st-pending','Waiting for call');
+    startSessTimer();
+
+    document.getElementById('pending-number').textContent = fmtP(s.host_number) || s.host_number || '—';
+    const pin = String(s.pin || '----');
+    document.getElementById('pin-row').innerHTML = pin.split('').map(d =>
+      `<div class="pin-d">${d}</div>`
+    ).join('');
+
+  } else if (s.status === 'dialing' || s.status === 'connected') {
+    showScreen('s-main');
+    startSessTimer();
+
+    const lead = currentLead();
+    const leadId = currentLeadId();
+
+    if (s.status === 'dialing') {
+      setHdrPill('st-dialing','Ringing…');
+      stopCallTimer();
+
+      const banner = document.getElementById('call-banner');
+      banner.className = 'call-banner b-dialing';
+      document.getElementById('banner-text').textContent = `Calling ${lead ? lName(lead) : ''}…`;
+    } else {
+      setHdrPill('st-connected','Connected');
+      if (prevState !== 'connected') startCallTimer();
+
+      const banner = document.getElementById('call-banner');
+      banner.className = 'call-banner b-connected';
+      document.getElementById('banner-text').textContent = `Connected with ${lead ? lName(lead) : ''}`;
+    }
+
+    // Lead changed or first render
+    if (s.current_index !== prevIdx || prevState === 'pending') {
+      renderLeadForm(lead);
+      renderScript(lead);
+
+      // Notes
+      const ta = document.getElementById('notes-ta');
+      if (ta) ta.value = noteMap[String(leadId)] || (lead?.notes || '');
+
+      renderCallHistory(leadId);
+    }
+
+    renderOutcomeArea(leadId, s.status === 'connected');
+    renderNextLead(s);
+    updateProgress(s);
+
+  } else if (s.status === 'completed' || s.status === 'cancelled') {
+    showScreen('s-completed');
+    setHdrPill('st-done', s.status === 'completed' ? 'Complete' : 'Ended');
+    document.getElementById('btn-end-hdr').style.display = 'none';
+    stopCallTimer();
+    if (sessTimerH) { clearInterval(sessTimerH); sessTimerH = null; }
+    unsubscribe();
+
+    const total = s.lead_ids.length;
+    document.getElementById('comp-title').textContent = s.status === 'completed' ? 'Session Complete!' : 'Session Ended';
+    document.getElementById('comp-msg').textContent   = s.status === 'completed'
+      ? `You powered through ${total} lead${total!==1?'s':''} — excellent session!`
+      : 'Your power dialing session has ended.';
+
+    document.getElementById('comp-stats').innerHTML = `
+      <div class="comp-stat">
+        <div class="comp-val" style="color:var(--blue)">${total}</div>
+        <div class="comp-lbl">Total Leads</div>
+      </div>
+      <div class="comp-stat">
+        <div class="comp-val" style="color:var(--green)">${stats.talks}</div>
+        <div class="comp-lbl">Talks</div>
+      </div>
+      <div class="comp-stat">
+        <div class="comp-val" style="color:var(--amber)">${stats.appts}</div>
+        <div class="comp-lbl">Appts Set</div>
+      </div>
+      <div class="comp-stat">
+        <div class="comp-val" style="color:var(--purple)">${Object.values(outcomeMap).filter(v=>v==='sold').length}</div>
+        <div class="comp-lbl">Sales</div>
+      </div>
+    `;
+  }
+}
+
+// ─── Realtime ─────────────────────────────
+function subscribe(id) {
+  unsubscribe();
+  rtChannel = sb.channel('pd-tab-' + id)
+    .on('postgres_changes',
+      { event:'UPDATE', schema:'public', table:'dialer_sessions', filter:'id=eq.'+id },
+      ({ new: row }) => render(row))
+    .subscribe();
+}
+function unsubscribe() {
+  if (rtChannel) { sb.removeChannel(rtChannel); rtChannel = null; }
+}
+
+// ─── Session actions ──────────────────────
+async function pdStartSession() {
+  const btn = document.getElementById('start-btn');
+  btn.disabled = true;
+  btn.textContent = 'Starting…';
+
+  const leadIds = leadsData.map(l => String(l.id));
+  let r;
+  try {
+    r = await sb.functions.invoke('telnyx-dialer-create-session', { body: { lead_ids: leadIds } });
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Start Dialing Session';
+    alert('Could not start session: ' + (e?.message || e));
+    return;
+  }
+
+  if (r.error) {
+    btn.disabled = false;
+    btn.textContent = 'Start Dialing Session';
+    let msg = r.error?.message || 'Unknown error';
+    try {
+      if (r.error?.context) {
+        const body = await r.error.context.clone().json();
+        msg = body?.detail || body?.error || msg;
+      }
+    } catch {}
+    alert('Could not start session: ' + msg);
+    return;
+  }
+
+  sessionId = r.data.session_id;
+  subscribe(sessionId);
+  render({
+    id: sessionId, status: 'pending',
+    host_number: r.data.host_number, pin: r.data.pin,
+    lead_ids: leadIds, current_index: -1,
+  });
+}
+
+async function pdSkip() {
+  if (!sessionId) return;
+  try {
+    const { error } = await sb.functions.invoke('telnyx-dialer-skip', { body: { session_id: sessionId } });
+    if (error) console.error('skip', error);
+  } catch (e) { console.error('skip', e); }
+}
+
+async function pdEnd() {
+  if (!sessionId) { window.close(); return; }
+  try {
+    const { error } = await sb.functions.invoke('telnyx-dialer-end', { body: { session_id: sessionId } });
+    if (error) console.error('end', error);
+  } catch (e) { console.error('end', e); }
+}
+
+// ─── Init ─────────────────────────────────
+async function init() {
+  showScreen('s-loading');
+
+  const { data:{ user } } = await sb.auth.getUser();
+  if (!user) { showScreen('s-auth'); return; }
+  agentUser = user;
+
+  let launch;
+  try {
+    const raw = localStorage.getItem('pd_launch');
+    if (!raw) throw new Error('no data');
+    launch = JSON.parse(raw);
+  } catch {
+    document.getElementById('auth-title').textContent = 'No Session Data';
+    document.getElementById('auth-msg').textContent = 'Return to Producer Stack CRM and click Power Dial again.';
+    showScreen('s-auth');
+    return;
+  }
+
+  if (Date.now() - (launch.ts||0) > 5*60*1000) {
+    document.getElementById('auth-title').textContent = 'Session Expired';
+    document.getElementById('auth-msg').textContent = 'Return to Producer Stack CRM and click Power Dial again.';
+    showScreen('s-auth');
+    return;
+  }
+
+  leadsData = launch.leadsData || [];
+  document.getElementById('start-count').textContent = leadsData.length;
+  document.getElementById('stat-contacts').textContent = `0 / ${leadsData.length}`;
+  showScreen('s-start');
+}
+
+init();
+
+window.addEventListener('beforeunload', () => {
+  stopCallTimer();
+  if (sessTimerH) clearInterval(sessTimerH);
+  unsubscribe();
+});
+</script>
+</body>
+</html>

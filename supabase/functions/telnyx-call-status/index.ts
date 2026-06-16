@@ -55,6 +55,17 @@ function normalizeE164(num: string | undefined | null): string {
   return num.replace(/[^\d]/g, "").slice(-10);
 }
 
+// Convert a raw phone string to E.164. Returns "" if unrecognizable.
+function toE164(raw: string | undefined | null): string {
+  if (!raw) return "";
+  const d = String(raw).replace(/[^\d]/g, "");
+  if (!d) return "";
+  if (String(raw).trim().startsWith("+")) return "+" + d;
+  if (d.length === 10) return `+1${d}`;
+  if (d.length === 11 && d[0] === "1") return `+${d}`;
+  return "";
+}
+
 async function closeCallRowById(
   sb: ReturnType<typeof createClient>,
   callRowId: string | null | undefined,
@@ -161,7 +172,8 @@ async function dialNextLead(
       .eq("client_id", clientId)
       .maybeSingle();
 
-    const leadPhone: string = (leadRow?.data as { phone?: string } | undefined)?.phone || "";
+    const rawPhone: string = (leadRow?.data as { phone?: string } | undefined)?.phone || "";
+    const leadPhone: string = toE164(rawPhone) || rawPhone;
     if (!leadPhone) {
       // Skip leads with no phone number on file.
       await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
