@@ -3372,11 +3372,11 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div class="pb-empty">Loading plans…</div>
     </div>
     <div class="pb-billing-note" id="pb-billing-note">
-      Billing isn't wired up yet — switching plans just updates your monthly minute and quote caps right now. Included numbers absorb the Telnyx per-number fee up to your plan's count; "extras" are informational ($1.50/mo each) until payment processing lands.
+      Billed monthly via Stripe. Existing subscribers switch instantly; new subscribers are taken to a secure Stripe checkout page.
     </div>
     <div class="flex gap8 mt16" style="justify-content:flex-end">
       <button class="btn btn-s btn-sm" onclick="pbCloseUpgradeModal()">Cancel</button>
-      <button class="btn btn-g btn-sm" id="pb-upgrade-confirm" onclick="pbApplyPlanChange()" disabled>Switch plan</button>
+      <button class="btn btn-g btn-sm" id="pb-upgrade-confirm" onclick="pbApplyPlanChange()" disabled>Subscribe</button>
     </div>
   </div>
 </div>
@@ -13360,21 +13360,38 @@ async function pbApplyPlanChange() {
   const plan = _pbPlans.find(p => p.id === _pbSelectedPlanId);
   if (!plan) return;
   const btn = document.getElementById('pb-upgrade-confirm');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
   try {
-    const { error } = await sb.from('agents').update({
-      plan_id:              plan.id,
-      monthly_minute_limit: plan.monthly_minutes,
-      monthly_quote_limit:  plan.monthly_quote_limit,
-    }).eq('id', currentAgent.id);
-    if (error) throw error;
+    const { data: { session } } = await sb.auth.getSession();
+    const resp = await fetch(
+      `${SUPABASE_URL}/functions/v1/stripe-create-checkout`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ plan_id: plan.id }),
+      }
+    );
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+
+    if (result.url) {
+      // New subscriber — redirect to Stripe Checkout.
+      window.location.href = result.url;
+      return;
+    }
+
+    // Existing subscriber — plan switched via Stripe API.
     showToast(`Switched to ${plan.name}`, '#10b981');
     pbCloseUpgradeModal();
     await renderPhoneBook();
   } catch (e) {
     console.warn('[phonebook] plan switch failed', e);
     showToast(`Switch failed: ${e.message || e}`, '#dc2626');
-    if (btn) { btn.disabled = false; btn.textContent = 'Switch plan'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
   }
 }
 
@@ -15167,6 +15184,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.innerWidth <= 767) closeMobileSidebar();
     });
   });
+
+  // Show feedback after returning from Stripe Checkout, then clean the URL.
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('checkout') === 'success') {
+    showToast('Subscription active — welcome!', '#10b981');
+    history.replaceState({}, '', window.location.pathname);
+  } else if (params.get('checkout') === 'cancelled') {
+    showToast('Checkout cancelled — no charge made.', '#6b7280');
+    history.replaceState({}, '', window.location.pathname);
+  }
 });
 </script>
 

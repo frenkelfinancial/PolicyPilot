@@ -13,7 +13,6 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// Verify Stripe webhook signature using Web Crypto (no Stripe SDK needed).
 async function verifyStripeSignature(payload: string, sigHeader: string, secret: string): Promise<boolean> {
   const parts: Record<string, string> = {};
   for (const part of sigHeader.split(",")) {
@@ -36,18 +35,6 @@ async function verifyStripeSignature(payload: string, sigHeader: string, secret:
   return computed === v1;
 }
 
-// Listens for Stripe checkout.session.completed (one-time or subscription) and
-// customer.subscription.created events. On success, auto-purchases a Telnyx
-// local phone number for the subscribing user and sets it as their caller ID.
-//
-// REQUIRED Stripe metadata on Checkout Session or Subscription:
-//   metadata.supabase_user_id  — the user's Supabase auth UID
-//   metadata.area_code         — (optional) 3-digit area code, defaults to "202"
-//
-// REQUIRED Supabase secrets:
-//   STRIPE_WEBHOOK_SECRET  — from Stripe Dashboard → Webhooks → Signing secret
-//   TELNYX_API_KEY
-//   TELNYX_CONNECTION_ID
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -60,7 +47,6 @@ serve(async (req) => {
   if (!STRIPE_SECRET)                     return json({ error: "stripe_not_configured" }, 500);
   if (!TELNYX_API_KEY || !TELNYX_CONN_ID) return json({ error: "telnyx_not_configured" }, 500);
 
-  // Stripe sends the raw body — must be read before any parsing.
   const payload   = await req.text();
   const sigHeader = req.headers.get("stripe-signature") || "";
 
@@ -69,8 +55,79 @@ serve(async (req) => {
   }
 
   const event = JSON.parse(payload);
+  const sb    = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // Only handle relevant events.
+  // ── Plan change / cancellation ────────────────────────────────────────────
+  if (event.type === "customer.subscription.updated") {
+    const sub        = event.data.object;
+    const metadata   = (sub.metadata || {}) as Record<string, string>;
+    const userId     = metadata.supabase_user_id;
+    const planId     = metadata.plan_id;
+    const customerId = sub.customer as string;
+    const subId      = sub.id as string;
+
+    if (userId) {
+      // Look up the plan by stripe_price_id if plan_id is not in metadata
+      let planUpdate: Record<string, unknown> = {
+        stripe_customer_id:     customerId,
+        stripe_subscription_id: subId,
+      };
+      if (planId) {
+        const { data: plan } = await sb.from("plans").select("*").eq("id", planId).maybeSingle();
+        if (plan) {
+          planUpdate = {
+            ...planUpdate,
+            plan_id:              plan.id,
+            monthly_minute_limit: plan.monthly_minutes,
+            monthly_quote_limit:  plan.monthly_quote_limit,
+          };
+        }
+      } else {
+        // Fall back: match by stripe_price_id on the subscription item
+        const priceId = sub.items?.data?.[0]?.price?.id as string | undefined;
+        if (priceId) {
+          const { data: plan } = await sb.from("plans").select("*").eq("stripe_price_id", priceId).maybeSingle();
+          if (plan) {
+            planUpdate = {
+              ...planUpdate,
+              plan_id:              plan.id,
+              monthly_minute_limit: plan.monthly_minutes,
+              monthly_quote_limit:  plan.monthly_quote_limit,
+            };
+          }
+        }
+      }
+      await sb.from("agents").update(planUpdate).eq("id", userId);
+    }
+    return json({ ok: true });
+  }
+
+  if (event.type === "customer.subscription.deleted") {
+    const sub        = event.data.object;
+    const metadata   = (sub.metadata || {}) as Record<string, string>;
+    const userId     = metadata.supabase_user_id;
+    const customerId = sub.customer as string;
+
+    if (userId) {
+      // Find the Basic plan (smallest) to downgrade to on cancellation.
+      const { data: basicPlan } = await sb.from("plans")
+        .select("*").eq("slug", "basic").eq("active", true).maybeSingle();
+
+      const downgrade: Record<string, unknown> = {
+        stripe_subscription_id: null,
+        stripe_customer_id:     customerId,
+      };
+      if (basicPlan) {
+        downgrade.plan_id              = basicPlan.id;
+        downgrade.monthly_minute_limit = basicPlan.monthly_minutes;
+        downgrade.monthly_quote_limit  = basicPlan.monthly_quote_limit;
+      }
+      await sb.from("agents").update(downgrade).eq("id", userId);
+    }
+    return json({ ok: true });
+  }
+
+  // ── New subscription / checkout ───────────────────────────────────────────
   if (
     event.type !== "checkout.session.completed" &&
     event.type !== "customer.subscription.created"
@@ -78,41 +135,67 @@ serve(async (req) => {
     return json({ ok: true, ignored: true });
   }
 
-  // Extract supabase_user_id from metadata. When creating a Checkout Session,
-  // pass: metadata: { supabase_user_id: user.id, area_code: "415" }
-  const metadata: Record<string, string> = event.data?.object?.metadata || {};
-  const userId = metadata.supabase_user_id;
+  const obj        = event.data.object;
+  const metadata   = (obj.metadata || {}) as Record<string, string>;
+  const userId     = metadata.supabase_user_id;
+  const planId     = metadata.plan_id;
+  const customerId = (obj.customer ?? obj.data?.object?.customer) as string | undefined;
+  const subId      = (obj.subscription ?? obj.id) as string | undefined;
 
   if (!userId) {
     console.warn("[stripe-webhook] Event missing supabase_user_id in metadata:", event.id);
     return json({ ok: true, skipped: "no_user_id" });
   }
 
-  // For checkout.session.completed with payment_status !== 'paid', skip.
   if (event.type === "checkout.session.completed") {
-    const paymentStatus = event.data?.object?.payment_status;
-    if (paymentStatus && paymentStatus !== "paid") {
+    if (obj.payment_status && obj.payment_status !== "paid") {
       return json({ ok: true, skipped: "payment_not_complete" });
     }
   }
 
-  const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+  // Update plan caps + store Stripe IDs
+  const agentUpdate: Record<string, unknown> = {};
+  if (customerId) agentUpdate.stripe_customer_id     = customerId;
+  if (subId)      agentUpdate.stripe_subscription_id = subId;
 
-  // Idempotent: skip if user already has a caller ID.
+  if (planId) {
+    const { data: plan } = await sb.from("plans").select("*").eq("id", planId).maybeSingle();
+    if (plan) {
+      agentUpdate.plan_id              = plan.id;
+      agentUpdate.monthly_minute_limit = plan.monthly_minutes;
+      agentUpdate.monthly_quote_limit  = plan.monthly_quote_limit;
+    }
+  } else {
+    // Fall back: match by stripe_price_id
+    const priceId = obj.items?.data?.[0]?.price?.id as string | undefined;
+    if (priceId) {
+      const { data: plan } = await sb.from("plans").select("*").eq("stripe_price_id", priceId).maybeSingle();
+      if (plan) {
+        agentUpdate.plan_id              = plan.id;
+        agentUpdate.monthly_minute_limit = plan.monthly_minutes;
+        agentUpdate.monthly_quote_limit  = plan.monthly_quote_limit;
+      }
+    }
+  }
+
+  if (Object.keys(agentUpdate).length > 0) {
+    await sb.from("agents").update(agentUpdate).eq("id", userId);
+  }
+
+  // Idempotent: skip phone provisioning if user already has a caller ID.
   const { data: agent } = await sb.from("agents")
     .select("signalwire_caller_id")
     .eq("id", userId)
     .maybeSingle();
 
   if (agent?.signalwire_caller_id) {
-    console.log(`[stripe-webhook] User ${userId} already has ${agent.signalwire_caller_id} — skipping.`);
+    console.log(`[stripe-webhook] User ${userId} already has ${agent.signalwire_caller_id} — skipping provisioning.`);
     return json({ ok: true, skipped: "already_provisioned" });
   }
 
-  const areaCode    = (metadata.area_code || "202").replace(/\D/g, "").slice(0, 3);
-  const telnyxHdrs  = { "Authorization": `Bearer ${TELNYX_API_KEY}`, "Content-Type": "application/json" };
+  const areaCode   = ((metadata.area_code || "202").replace(/\D/g, "").slice(0, 3)) || "202";
+  const telnyxHdrs = { "Authorization": `Bearer ${TELNYX_API_KEY}`, "Content-Type": "application/json" };
 
-  // Search for an available local number in the requested area code.
   const searchParams = new URLSearchParams({
     "filter[national_destination_code]": areaCode,
     "filter[phone_number_type]":         "local",
@@ -140,7 +223,6 @@ serve(async (req) => {
 
   const chosen: string = available[0].phone_number;
 
-  // Purchase and assign to the Voice API Application.
   const orderRes = await fetch("https://api.telnyx.com/v2/number_orders", {
     method: "POST",
     headers: telnyxHdrs,
@@ -162,7 +244,6 @@ serve(async (req) => {
   const locality   = regionInfo.find((r: { region_type: string }) => r.region_type === "locality")?.region_name ?? null;
   const region     = regionInfo.find((r: { region_type: string }) => r.region_type === "state")?.region_name ?? null;
 
-  // Clear old primary flag (shouldn't exist, but be safe).
   await sb.from("phone_numbers").update({ is_primary: false }).eq("agent_id", userId);
 
   const { error: insertErr } = await sb.from("phone_numbers").insert({
