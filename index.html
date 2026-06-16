@@ -1652,38 +1652,38 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 @media (max-width:880px){ #sec-phonebook .pb-top-grid{ grid-template-columns:1fr; } }
 
 /* Plan card */
-#sec-phonebook .pb-card-plan .pb-plan-name{
+.pb-card-plan .pb-plan-name{
   font-size:22px; font-weight:700; letter-spacing:.3px;
   color:var(--text); margin-top:6px;
 }
-#sec-phonebook .pb-card-plan .pb-plan-cap{
+.pb-card-plan .pb-plan-cap{
   font-size:12.5px; color:var(--text2); margin-top:3px;
 }
-#sec-phonebook .pb-bar{
+.pb-bar{
   margin-top:14px; height:8px; border-radius:4px;
   background:rgba(255,255,255,.06); overflow:hidden;
 }
-#sec-phonebook .pb-bar-fill{
+.pb-bar-fill{
   height:100%; background:linear-gradient(90deg,#3b82f6,#8b5cf6);
   border-radius:4px; transition:width .4s ease;
 }
-#sec-phonebook .pb-bar-fill.warn{ background:linear-gradient(90deg,#f59e0b,#fbbf24); }
-#sec-phonebook .pb-bar-fill.over{ background:linear-gradient(90deg,#dc2626,#f59e0b); }
-#sec-phonebook .pb-bar-meta{
+.pb-bar-fill.warn{ background:linear-gradient(90deg,#f59e0b,#fbbf24); }
+.pb-bar-fill.over{ background:linear-gradient(90deg,#dc2626,#f59e0b); }
+.pb-bar-meta{
   display:flex; justify-content:space-between; align-items:baseline;
   font-size:11.5px; color:var(--text2); margin-top:6px; font-variant-numeric:tabular-nums;
 }
-#sec-phonebook .pb-plan-renews{
+.pb-plan-renews{
   margin-top:10px; font-size:11.5px; color:var(--text3);
 }
-#sec-phonebook .pb-plan-numbers,
-#sec-phonebook .pb-plan-retention{
+.pb-plan-numbers,
+.pb-plan-retention{
   font-size:12px;
   color:var(--text2);
   margin-top:4px;
 }
-#sec-phonebook .pb-plan-numbers.over{ color:var(--ds-color-warning); }
-#sec-phonebook .pb-plan-upgrade{ margin-top:14px; }
+.pb-plan-numbers.over{ color:var(--ds-color-warning); }
+.pb-plan-upgrade{ margin-top:14px; }
 
 /* Pickup card */
 #sec-phonebook .pb-card-pickup .pb-pickup-num{
@@ -3075,34 +3075,16 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         </div>
       </div>
 
-      <!-- Row 1: Plan + Pickup Phone -->
-      <div class="pb-top-grid">
-        <div class="card pb-card-plan">
-          <div class="card-title" style="display:flex;align-items:center;gap:8px">
-            <span data-ico="trophy" data-size="13"></span>My Plan
-          </div>
-          <div class="pb-plan-name" id="pb-plan-name">Loading…</div>
-          <div class="pb-plan-cap"><span id="pb-plan-cost">$—</span>/mo</div>
-          <div class="pb-bar"><div class="pb-bar-fill" id="pb-plan-q-bar" style="width:0%"></div></div>
-          <div class="pb-bar-meta">
-            <span><span id="pb-plan-q-used">0</span> / <span id="pb-plan-q-cap">—</span> live quotes used (last 30 days)</span>
-            <span id="pb-plan-q-pct">0%</span>
-          </div>
-          <div class="pb-plan-numbers" id="pb-plan-uw">—</div>
-          <div class="pb-plan-renews">Resets <span id="pb-plan-renews">—</span></div>
-          <button class="btn btn-g pb-plan-upgrade" id="pb-plan-upgrade-btn" onclick="pbOpenUpgradeModal()">Upgrade Plan</button>
+      <!-- Pickup Phone -->
+      <div class="card pb-card-pickup">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px">
+          <span data-ico="phone" data-size="13"></span>My Pickup Phone
         </div>
-
-        <div class="card pb-card-pickup">
-          <div class="card-title" style="display:flex;align-items:center;gap:8px">
-            <span data-ico="phone" data-size="13"></span>My Pickup Phone
-          </div>
-          <div class="pb-pickup-num mono" id="pb-pickup-num">— not set —</div>
-          <a href="#" class="pb-pickup-edit" id="pb-pickup-edit">Edit number</a>
-          <div class="pb-pickup-help">
-            Telnyx rings this number first when you place a call from the dashboard, then bridges you to the lead.
-            Both sides see your <strong>primary</strong> number as the caller-ID.
-          </div>
+        <div class="pb-pickup-num mono" id="pb-pickup-num">— not set —</div>
+        <a href="#" class="pb-pickup-edit" id="pb-pickup-edit">Edit number</a>
+        <div class="pb-pickup-help">
+          Telnyx rings this number first when you place a call from the dashboard, then bridges you to the lead.
+          Both sides see your <strong>primary</strong> number as the caller-ID.
         </div>
       </div>
 
@@ -3347,6 +3329,23 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- My Plan -->
+        <div class="card pb-card-plan" style="margin-top:4px">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            <span data-ico="trophy" data-size="13"></span>My Plan
+          </div>
+          <div class="pb-plan-name" id="pb-plan-name">Loading…</div>
+          <div class="pb-plan-cap"><span id="pb-plan-cost">$—</span>/mo</div>
+          <div class="pb-bar"><div class="pb-bar-fill" id="pb-plan-q-bar" style="width:0%"></div></div>
+          <div class="pb-bar-meta">
+            <span><span id="pb-plan-q-used">0</span> / <span id="pb-plan-q-cap">—</span> live quotes used (last 30 days)</span>
+            <span id="pb-plan-q-pct">0%</span>
+          </div>
+          <div class="pb-plan-numbers" id="pb-plan-uw">—</div>
+          <div class="pb-plan-renews">Resets <span id="pb-plan-renews">—</span></div>
+          <button class="btn btn-g pb-plan-upgrade" id="pb-plan-upgrade-btn" onclick="pbOpenUpgradeModal()">Change Plan</button>
         </div>
 
         <div style="margin-top:24px;padding-top:14px;border-top:1px solid var(--border);text-align:center">
@@ -14169,6 +14168,38 @@ function initSettingsSection() {
   const tabs = document.querySelectorAll('#sec-settings > .tabs .tab');
   tabs.forEach((t, i) => t.classList.toggle('active', i === 0));
   mountIcons(document.getElementById('sec-settings'));
+  _stgLoadPlanCard();
+}
+
+async function _stgLoadPlanCard() {
+  if (!currentAgent || !currentAgent.id) return;
+  const monthStart30 = new Date();
+  monthStart30.setUTCDate(monthStart30.getUTCDate() - 30);
+  // Re-use cached phone book data if available, otherwise fetch lean subset
+  if (_pbAgent && _pbAgent.id && _pbPlans.length) {
+    const { count } = await sb.from('quote_usage')
+      .select('id', { count: 'exact', head: true })
+      .eq('agent_id', currentAgent.id)
+      .gte('created_at', monthStart30.toISOString());
+    pbRenderPlanCard(_pbAgent, 0, count || 0);
+    return;
+  }
+  const [agentRes, plansRes, quoteRes] = await Promise.all([
+    sb.from('agents')
+      .select('id, monthly_minute_limit, monthly_quote_limit, plan_id')
+      .eq('id', currentAgent.id).maybeSingle(),
+    sb.from('plans')
+      .select('id, slug, name, monthly_minutes, monthly_quote_limit, monthly_uw_prompt_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
+      .eq('active', true).order('sort_order', { ascending: true }),
+    sb.from('quote_usage')
+      .select('id', { count: 'exact', head: true })
+      .eq('agent_id', currentAgent.id)
+      .gte('created_at', monthStart30.toISOString()),
+  ]);
+  _pbAgent = agentRes.data || {};
+  _pbPlans = (plansRes.data || []).filter(p => p.name !== 'Starter' && p.name !== 'Scale');
+  pbRenderPlanCard(_pbAgent, 0, quoteRes.count || 0);
+  if (typeof mountIcons === 'function') mountIcons(document.getElementById('sec-settings'));
 }
 
 function saveAccountProfile() {
