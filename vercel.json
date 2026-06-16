@@ -1,0 +1,9 @@
+{
+  "buildCommand": null,
+  "outputDirectory": ".",
+  "framework": null,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/", "destination": "/index-github-latest.html" }
+  ]
+}
