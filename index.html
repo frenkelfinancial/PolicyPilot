@@ -8229,18 +8229,19 @@ function _planTier() {
 }
 
 function _applyPlanGating() {
-  const isBasic = _planTier() === 'basic';
-  // Advanced summary sections — hidden on Basic plan
+  const tier = _planTier();
+  const restricted = tier !== 'pro' && tier !== 'leader';
   ['income-reality', 'activity-momentum', 'persistency-health', 'pipeline-funnel'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.style.display = isBasic ? 'none' : '';
+    if (el) el.style.display = restricted ? 'none' : '';
   });
   const btiCard = document.querySelector('.bti-card');
-  if (btiCard) btiCard.style.display = isBasic ? 'none' : '';
+  if (btiCard) btiCard.style.display = restricted ? 'none' : '';
 }
 
 function guardedOpenPowerDialer() {
-  if (_planTier() === 'basic') {
+  const tier = _planTier();
+  if (tier !== 'pro' && tier !== 'leader') {
     showToast('Upgrade to Pro or Leader plan to use Power Dialer', '#f59e0b');
     return;
   }
@@ -8248,7 +8249,8 @@ function guardedOpenPowerDialer() {
 }
 
 function guardedOpenPreviewDialer() {
-  if (_planTier() === 'basic') {
+  const tier = _planTier();
+  if (tier !== 'pro' && tier !== 'leader') {
     showToast('Upgrade to Pro or Leader plan to use Preview Dialer', '#f59e0b');
     return;
   }
