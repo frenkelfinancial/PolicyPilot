@@ -2841,6 +2841,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="openPowerDialerModal()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
+        <button class="btn btn-sm" style="background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.28);color:#14b8a6;display:inline-flex;align-items:center;gap:6px" onclick="openPreviewDialer()"><span data-ico="eye" data-size="14"></span>Preview Dial</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
         <button class="btn btn-s btn-sm" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px" onclick="clearBulkSelection()"><span data-ico="x" data-size="14"></span>Clear Selection</button>
@@ -9834,6 +9835,16 @@ async function openPowerDialerModal() {
 function closePowerDialerModal() {
   const m = document.getElementById('powerDialerModal');
   if (m) m.classList.remove('open');
+}
+
+async function openPreviewDialer() {
+  if (selectedLeadIds.size === 0) { showToast('Select at least one lead first', '#dc2626'); return; }
+  if (selectedLeadIds.size > 500) { showToast('Select 500 or fewer leads per session', '#dc2626'); return; }
+  const leadIds = [...selectedLeadIds];
+  const leadsForDialer = leads.filter(l => leadIds.includes(String(l.id)));
+  localStorage.setItem('pd_launch', JSON.stringify({ leadIds, leadsData: leadsForDialer, ts: Date.now(), mode: 'preview' }));
+  const popup = window.open('power-dialer.html','ProducerStackDialer','width=1300,height=820,toolbar=0,menubar=0,scrollbars=0,resizable=1,location=0');
+  if (!popup) showToast('Enable pop-ups for this site to use the Power Dialer', '#f59e0b');
 }
 
 // Listen for messages from the power dialer popup window

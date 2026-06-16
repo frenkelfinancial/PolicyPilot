@@ -643,6 +643,34 @@ html,body{
 }
 .btn-close:hover{background:var(--raised);color:var(--text);border-color:var(--border3)}
 
+/* ── Footer center Dial button ── */
+.btn-dial-center{
+  padding:8px 28px;border-radius:9px;
+  font-size:12.5px;font-weight:700;cursor:pointer;
+  transition:all .15s;
+  display:inline-flex;align-items:center;gap:7px;
+  white-space:nowrap;border:none;
+}
+.btn-dial-center.dc-idle{
+  background:linear-gradient(135deg,#1d4ed8 0%,#3b82f6 100%);
+  color:#fff;
+  box-shadow:0 4px 14px rgba(37,99,235,.35);
+}
+.btn-dial-center.dc-idle:hover{opacity:.9;transform:translateY(-1px)}
+.btn-dial-center.dc-ringing{
+  background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);
+  color:var(--amber);cursor:default;
+}
+.btn-dial-center.dc-connected{
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.28);
+  color:var(--green);cursor:default;
+}
+.dc-dot{
+  width:6px;height:6px;border-radius:50%;flex-shrink:0;display:inline-block;
+}
+.dc-ringing .dc-dot{background:var(--amber);animation:pulse 1s ease-in-out infinite}
+.dc-connected .dc-dot{background:var(--green);animation:pulse 1.8s ease-in-out infinite}
+
 /* ── Call status badge ── */
 .call-status-badge{
   display:inline-flex;align-items:center;gap:5px;
@@ -754,7 +782,10 @@ html,body{
         <img src="ChatGPT%20Image%20May%208,%202026,%2007_49_20%20PM.png" alt="ProducerStack">
       </div>
 
-      <h1>Power Dial</h1>
+      <h1 id="start-title">Power Dial</h1>
+      <div id="pd-mode-pill" style="display:none;margin-bottom:14px">
+        <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.25);color:#14b8a6">👁 Preview Mode</span>
+      </div>
       <div class="start-greeting" id="pd-greeting">Good morning.</div>
 
       <div class="count-badge">
@@ -769,7 +800,7 @@ html,body{
       <div class="start-bullets">
         <div class="bullet-row">
           <div class="bi-num">1</div>
-          <div class="bullet-text"><strong>Automatic sequence</strong> — each lead is dialed in order without interruption</div>
+          <div class="bullet-text" id="bullet-text-1"><strong>Automatic sequence</strong> — each lead is dialed in order without interruption</div>
         </div>
         <div class="bullet-row">
           <div class="bi-num">2</div>
@@ -777,7 +808,7 @@ html,body{
         </div>
         <div class="bullet-row">
           <div class="bi-num">3</div>
-          <div class="bullet-text"><strong>Manage in real time</strong> — tag outcomes, take notes, and skip leads on the fly</div>
+          <div class="bullet-text" id="bullet-text-3"><strong>Manage in real time</strong> — tag outcomes, take notes, and skip leads on the fly</div>
         </div>
       </div>
 
@@ -889,7 +920,9 @@ html,body{
 
     <!-- Footer -->
     <div id="footer-bar">
-      <button class="btn-skip" onclick="pdSkip()">Skip Lead →</button>
+      <button class="btn-skip" onclick="pdSkipLead()">Skip Lead →</button>
+      <div class="spacer"></div>
+      <button id="btn-dial-center" class="btn-dial-center dc-idle" onclick="pdDial()">▶&thinsp;Dial</button>
       <div class="spacer"></div>
       <button class="btn-end-footer" onclick="pdEnd()">End Dialing</button>
     </div>
@@ -1057,6 +1090,7 @@ let callLog      = {};   // leadId → [{ts, outcome}]
 let stats = { calls:0, talks:0, appts:0 };
 let activeTab    = 'outcome';
 let currentState = null;
+let dialMode     = 'power'; // 'power' | 'preview'
 
 // ─── Utils ────────────────────────────────
 function fmtP(raw) {
@@ -1387,7 +1421,10 @@ async function markOutcome(leadId, status) {
   if (AUTO_ADVANCE.has(status)) {
     const banner = document.getElementById('call-banner');
     if (banner) document.getElementById('banner-text').textContent = 'Moving to next lead…';
-    setTimeout(() => pdSkip(), 400);
+    setTimeout(async () => {
+      await pdSkip();
+      if (dialMode === 'preview') await pdPauseAfterAdvance();
+    }, 400);
   }
 }
 
@@ -1566,6 +1603,7 @@ function render(s) {
 
     renderOutcomeArea(leadId);
     updateCallBadge(s.status);
+    updateDialBtn();
     renderNextLead(s);
     updateProgress(s);
 
@@ -1665,18 +1703,72 @@ async function pdSkip() {
   } catch (e) { console.error('skip', e); }
 }
 
-let _isPaused = false;
-async function pdTogglePause() {
-  _isPaused = !_isPaused;
-  const btn = document.getElementById('btn-pause');
-  if (btn) {
-    btn.textContent = _isPaused ? '▶ Resume' : '⏸ Pause';
-    btn.classList.toggle('paused', _isPaused);
+function updateDialBtn() {
+  const btn = document.getElementById('btn-dial-center');
+  if (!btn) return;
+  if (currentState === 'dialing') {
+    btn.className = 'btn-dial-center dc-ringing';
+    btn.innerHTML = '<span class="dc-dot"></span>Ringing';
+    btn.disabled = true;
+  } else if (currentState === 'connected') {
+    btn.className = 'btn-dial-center dc-connected';
+    btn.innerHTML = '<span class="dc-dot"></span>Connected';
+    btn.disabled = true;
+  } else {
+    btn.className = 'btn-dial-center dc-idle';
+    btn.innerHTML = '▶&thinsp;Dial';
+    btn.disabled = false;
   }
+}
+
+async function pdDial() {
+  if (!sessionId) return;
+  if (currentState === 'dialing' || currentState === 'connected') return;
+  _isPaused = false;
+  const pauseBtn = document.getElementById('btn-pause');
+  if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
+  updateDialBtn();
+  try {
+    await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: false } });
+  } catch {}
+}
+
+async function pdPauseAfterAdvance() {
+  _isPaused = true;
+  const pauseBtn = document.getElementById('btn-pause');
+  if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
+  updateDialBtn();
   if (!sessionId) return;
   try {
-    await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: _isPaused } });
-  } catch(e) { /* edge function pending */ }
+    await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: true } });
+  } catch {}
+}
+
+async function pdSkipLead() {
+  await pdSkip();
+  if (dialMode === 'preview') await pdPauseAfterAdvance();
+}
+
+let _isPaused = false;
+async function pdTogglePause() {
+  if (!_isPaused) {
+    // Pause: hang up current call then freeze queue
+    _isPaused = true;
+    const btn = document.getElementById('btn-pause');
+    if (btn) { btn.textContent = '▶ Resume'; btn.classList.add('paused'); }
+    updateDialBtn();
+    if (sessionId) {
+      try {
+        await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: true } });
+      } catch {}
+    }
+    // Hang up the active call by skipping it
+    if (currentState === 'dialing' || currentState === 'connected') {
+      await pdSkip();
+    }
+  } else {
+    await pdDial();
+  }
 }
 
 async function pdEnd() {
@@ -2073,8 +2165,20 @@ async function init() {
   }
 
   leadsData = launch.leadsData || [];
+  dialMode  = launch.mode === 'preview' ? 'preview' : 'power';
   document.getElementById('start-count').textContent = leadsData.length;
   document.getElementById('stat-contacts').textContent = `0 / ${leadsData.length}`;
+
+  if (dialMode === 'preview') {
+    document.getElementById('start-title').textContent = 'Preview Dial';
+    document.getElementById('pd-mode-pill').style.display = '';
+    const b1 = document.getElementById('bullet-text-1');
+    if (b1) b1.innerHTML = '<strong>Preview mode</strong> — review each lead\'s info before the call goes out';
+    const b3 = document.getElementById('bullet-text-3');
+    if (b3) b3.innerHTML = '<strong>Click Dial when ready</strong> — you control the pace, no automatic calling';
+    const startBtn = document.getElementById('start-btn');
+    if (startBtn) startBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M4.5 2.5L12.5 7.5L4.5 12.5V2.5Z" fill="white"/></svg>Start Preview Session`;
+  }
 
   // Resolve first name: user metadata → agents table → email prefix
   let firstName = '';
