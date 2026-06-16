@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -2177,7 +2177,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
     <div class="auth-tabs" id="auth-tabs">
       <button class="auth-tab active" data-view="signin" onclick="authShowView('signin')">Sign in</button>
-      <button class="auth-tab" data-view="signup" onclick="authShowView('signup')">Sign up</button>
+      <button class="auth-tab" data-view="signup" onclick="authShowView('signup')">Create account</button>
     </div>
 
     <button class="auth-google" id="auth-google-btn" onclick="authSignInWithGoogle()" type="button">
@@ -2201,10 +2201,25 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
 
     <div class="auth-view" id="view-signup">
+      <div class="auth-field-row">
+        <div class="auth-field"><label>First Name</label><input type="text" id="signup-first" autocomplete="given-name" placeholder="Jane"></div>
+        <div class="auth-field"><label>Last Name</label><input type="text" id="signup-last" autocomplete="family-name" placeholder="Smith"></div>
+      </div>
+      <div class="auth-field"><label>Phone Number</label><input type="tel" id="signup-phone" autocomplete="tel" placeholder="(555) 000-0000"></div>
       <div class="auth-field"><label>Email</label><input type="email" id="signup-email" autocomplete="email"></div>
       <div class="auth-field"><label>Password</label><input type="password" id="signup-pw" autocomplete="new-password" minlength="8"></div>
       <div class="auth-field"><label>Confirm password</label><input type="password" id="signup-pw2" autocomplete="new-password" minlength="8"></div>
-      <button class="auth-submit" onclick="authSignUp()">Create account</button>
+      <div class="auth-field"><label>National Producer Number <span class="auth-field-optional">(optional)</span></label><input type="text" id="signup-npn" autocomplete="off" placeholder="e.g. 12345678"></div>
+      <div class="auth-field"><label>Agency Code <span class="auth-field-optional">(optional)</span></label><input type="text" id="signup-agency-code" autocomplete="off" placeholder="Enter your leader's code"></div>
+      <div class="auth-plan-section">
+        <div class="auth-plan-section-label">Choose Your Plan</div>
+        <div class="auth-plan-cards" id="signup-plan-cards">
+          <div style="grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:18px">Loading plans&hellip;</div>
+        </div>
+        <input type="hidden" id="signup-plan-id" value="">
+        <input type="hidden" id="signup-plan-name-val" value="">
+      </div>
+      <button class="auth-submit" onclick="authSignUp()">Create account &amp; proceed to checkout</button>
     </div>
 
     <div class="auth-view" id="view-reset">
@@ -2212,6 +2227,21 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div class="auth-field"><label>Confirm new password</label><input type="password" id="reset-pw2" autocomplete="new-password" minlength="8"></div>
       <button class="auth-submit" onclick="authUpdatePassword()">Update password</button>
     </div>
+  </div>
+</div>
+
+<!-- PLAN REQUIRED OVERLAY - shown after login when agent has no plan -->
+<div id="plan-required-overlay">
+  <div class="pro-card">
+    <div class="pro-title">Choose Your Plan to Continue</div>
+    <div class="pro-sub">Select a subscription to unlock Producer Stack. You will be taken to a secure Stripe checkout page.</div>
+    <div class="auth-msg" id="pro-msg"></div>
+    <div class="auth-plan-cards" id="pro-plan-cards" style="margin-bottom:20px">
+      <div style="grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:18px">Loading plans...</div>
+    </div>
+    <input type="hidden" id="pro-plan-id" value="">
+    <button class="auth-submit" id="pro-subscribe-btn" onclick="planRequiredSubscribe()" disabled>Subscribe</button>
+    <div style="text-align:center;margin-top:12px"><button class="auth-link" onclick="authSignOut()" style="font-size:12px">Sign out</button></div>
   </div>
 </div>
 
@@ -4319,6 +4349,9 @@ function authShowView(view) {
   document.querySelectorAll('.auth-view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + view).classList.add('active');
   authMsg('', null);
+  const card = document.querySelector('.auth-card');
+  if (card) card.classList.toggle('auth-card-wide', view === 'signup');
+  if (view === 'signup') authLoadSignupPlans();
 }
 
 function authMsg(text, kind) {
@@ -4351,19 +4384,162 @@ async function authSignInWithGoogle() {
 }
 
 async function authSignUp() {
-  const email = document.getElementById('signup-email').value.trim();
-  const pw = document.getElementById('signup-pw').value;
-  const pw2 = document.getElementById('signup-pw2').value;
-  if (!email || !pw) return authMsg('Email and password required.', 'err');
-  if (pw.length < 8) return authMsg('Password must be at least 8 characters.', 'err');
-  if (pw !== pw2) return authMsg('Passwords do not match.', 'err');
-  const { error } = await sb.auth.signUp({ email, password: pw });
+  const first  = document.getElementById('signup-first').value.trim();
+  const last   = document.getElementById('signup-last').value.trim();
+  const phone  = document.getElementById('signup-phone').value.trim();
+  const email  = document.getElementById('signup-email').value.trim();
+  const pw     = document.getElementById('signup-pw').value;
+  const pw2    = document.getElementById('signup-pw2').value;
+  const npn    = document.getElementById('signup-npn').value.trim();
+  const agCode = document.getElementById('signup-agency-code').value.trim();
+  const planId = document.getElementById('signup-plan-id').value;
+  const planNm = document.getElementById('signup-plan-name-val').value;
+  if (!first)          return authMsg('First name is required.', 'err');
+  if (!last)           return authMsg('Last name is required.', 'err');
+  if (!phone)          return authMsg('Phone number is required.', 'err');
+  if (!email || !pw)   return authMsg('Email and password are required.', 'err');
+  if (pw.length < 8)  return authMsg('Password must be at least 8 characters.', 'err');
+  if (pw !== pw2)      return authMsg('Passwords do not match.', 'err');
+  if (!planId)         return authMsg('Please choose a plan to continue.', 'err');
+  const meta = { first_name: first, last_name: last, phone_number: phone };
+  if (npn)    meta.npn           = npn;
+  if (agCode) meta.agency_code   = agCode;
+  meta.pending_plan_id   = planId;
+  meta.pending_plan_name = planNm;
+  const { error } = await sb.auth.signUp({ email, password: pw, options: { data: meta } });
   if (error) return authMsg(error.message, 'err');
+  try { localStorage.setItem('pp_pending_plan_id',   planId); } catch(_) {}
+  try { localStorage.setItem('pp_pending_plan_name', planNm); } catch(_) {}
+  if (agCode) { try { localStorage.setItem('pp_pending_agency_code', agCode); } catch(_) {} }
   authShowView('signin');
   document.getElementById('signin-email').value = email;
-  authMsg('Account created. Check your email to confirm before signing in.', 'ok');
+  authMsg(`Account created! Check your email to confirm, then sign in. Once verified, you will be taken to checkout to activate your ${planNm || 'selected'} plan.`, 'ok');
 }
 
+// ---- Signup plan selection helpers ----
+let _signupPlans = [];
+
+async function authLoadSignupPlans() {
+  const wrap = document.getElementById('signup-plan-cards');
+  if (!wrap || wrap.dataset.loaded === '1') return;
+  try {
+    const { data, error } = await sb.from('plans')
+      .select('id, slug, name, monthly_cost, sort_order')
+      .eq('active', true).order('sort_order', { ascending: true });
+    if (error || !data || !data.length) throw new Error('no plans');
+    _signupPlans = data.filter(p => ['basic','pro','leader'].some(t => p.name.toLowerCase().includes(t)));
+    if (!_signupPlans.length) _signupPlans = data;
+    const descs = { basic: 'Core CRM tools', pro: 'Power Dialer + Advanced Analytics', leader: 'Agency management + all Pro features' };
+    wrap.innerHTML = _signupPlans.map(p => {
+      const tier  = p.slug || p.name.toLowerCase();
+      const price = p.monthly_cost ? `$${p.monthly_cost}/mo` : '';
+      const desc  = descs[tier] || descs[Object.keys(descs).find(k => tier.includes(k))] || '';
+      return `<div class="auth-plan-card" data-plan-id="${escapeHTML(p.id)}" data-plan-name="${escapeHTML(p.name)}" onclick="authSelectPlan(this)">` +
+        `<div class="auth-plan-card-name">${escapeHTML(p.name)}</div>` +
+        (price ? `<div class="auth-plan-card-price">${price}</div>` : '') +
+        (desc  ? `<div class="auth-plan-card-desc">${escapeHTML(desc)}</div>` : '') +
+        '</div>';
+    }).join('');
+    wrap.dataset.loaded = '1';
+    const pendingId = localStorage.getItem('pp_pending_plan_id');
+    if (pendingId) {
+      const el = wrap.querySelector(`[data-plan-id="${pendingId}"]`);
+      if (el) authSelectPlan(el);
+    }
+  } catch(e) {
+    wrap.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#E07B7B;font-size:12px;padding:12px">Could not load plans. Check your connection and try again.</div>';
+  }
+}
+
+function authSelectPlan(el) {
+  const wrap = document.getElementById('signup-plan-cards');
+  if (wrap) wrap.querySelectorAll('.auth-plan-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('signup-plan-id').value = el.dataset.planId;
+  document.getElementById('signup-plan-name-val').value = el.dataset.planName;
+}
+
+// ---- Plan Required Overlay (post-login, no plan) ----
+let _proPlans = [];
+let _proSelectedId = null;
+
+async function showPlanRequiredOverlay() {
+  const overlay = document.getElementById('plan-required-overlay');
+  if (!overlay) return;
+  overlay.classList.add('show');
+  const wrap = document.getElementById('pro-plan-cards');
+  const btn  = document.getElementById('pro-subscribe-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const { data, error } = await sb.from('plans')
+      .select('id, slug, name, monthly_cost, sort_order')
+      .eq('active', true).order('sort_order', { ascending: true });
+    if (error || !data || !data.length) throw new Error('no plans');
+    _proPlans = data.filter(p => ['basic','pro','leader'].some(t => p.name.toLowerCase().includes(t)));
+    if (!_proPlans.length) _proPlans = data;
+    const descs = { basic: 'Core CRM tools', pro: 'Power Dialer + Advanced Analytics', leader: 'Agency management + all Pro features' };
+    wrap.innerHTML = _proPlans.map(p => {
+      const tier  = p.slug || p.name.toLowerCase();
+      const price = p.monthly_cost ? `$${p.monthly_cost}/mo` : '';
+      const desc  = descs[tier] || descs[Object.keys(descs).find(k => tier.includes(k))] || '';
+      return `<div class="auth-plan-card" data-plan-id="${escapeHTML(p.id)}" data-plan-name="${escapeHTML(p.name)}" onclick="proSelectPlan(this)">` +
+        `<div class="auth-plan-card-name">${escapeHTML(p.name)}</div>` +
+        (price ? `<div class="auth-plan-card-price">${price}</div>` : '') +
+        (desc  ? `<div class="auth-plan-card-desc">${escapeHTML(desc)}</div>` : '') +
+        '</div>';
+    }).join('');
+    const pendingId = (currentAgent && currentAgent.user_metadata && currentAgent.user_metadata.pending_plan_id)
+      || localStorage.getItem('pp_pending_plan_id');
+    if (pendingId) {
+      const el = wrap.querySelector(`[data-plan-id="${pendingId}"]`);
+      if (el) proSelectPlan(el);
+    }
+  } catch(e) {
+    wrap.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#E07B7B;font-size:12px;padding:12px">Could not load plans. Reload to try again.</div>';
+  }
+}
+
+function proSelectPlan(el) {
+  const wrap = document.getElementById('pro-plan-cards');
+  if (wrap) wrap.querySelectorAll('.auth-plan-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  _proSelectedId = el.dataset.planId;
+  document.getElementById('pro-plan-id').value = _proSelectedId;
+  const btn = document.getElementById('pro-subscribe-btn');
+  if (btn) { btn.disabled = false; btn.textContent = `Subscribe to ${el.dataset.planName}`; }
+}
+
+async function planRequiredSubscribe() {
+  const planId = document.getElementById('pro-plan-id').value;
+  if (!planId) { const m = document.getElementById('pro-msg'); if (m) { m.textContent = 'Please select a plan.'; m.className = 'auth-msg show err'; } return; }
+  const btn = document.getElementById('pro-subscribe-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting to checkout...'; }
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Not signed in');
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ plan_id: planId }),
+    });
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+    if (result.url) { window.location.href = result.url; return; }
+    currentPlanName = (_proPlans.find(p => p.id === planId) || {}).name || null;
+    try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
+    _applyPlanGating();
+    document.getElementById('plan-required-overlay').classList.remove('show');
+    showToast(`${currentPlanName} plan activated!`, '#10b981');
+  } catch(e) {
+    const msgEl = document.getElementById('pro-msg');
+    if (msgEl) { msgEl.textContent = e.message || 'Checkout failed. Please try again.'; msgEl.className = 'auth-msg show err'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
+  }
+}
 async function authForgot() {
   const email = document.getElementById('signin-email').value.trim();
   if (!email) return authMsg('Enter your email above first, then click Forgot password.', 'err');
@@ -14305,7 +14481,30 @@ async function _agRenderLeaderView(root) {
     if (statsRows) statsRows.forEach(r => { statsMap[r.agent_id] = r; });
   }
 
-  let h = discountCard + `
+  // --- Agency Code Card ---
+  const codeVal = myAgencyCode || "";
+  const codeDisplay = codeVal
+    ? `<span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);letter-spacing:.18em;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 18px">${escapeHTML(codeVal)}</span>`
+    : `<span style="color:var(--text3);font-size:13px">No code yet — click Generate to create one.</span>`;
+  const agCodeCard = `
+    <div class="card" style="margin-bottom:22px">
+      <div class="card-title" style="display:flex;align-items:center;gap:8px">
+        <span data-ico="key" data-size="13"></span>Your Agency Code
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
+        Share this code with agents when they sign up. They enter it in the <strong>Agency Code</strong> field and are automatically added to your agency.
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div id="ag-my-code-display">${codeDisplay}</div>
+        ${codeVal ? `<button class="btn btn-g btn-sm" onclick="agCopyAgencyCode()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="copy" data-size="13"></span>Copy</button>` : ""}
+      </div>
+      <button class="btn btn-p btn-sm" onclick="agGenerateAgencyCode()" style="display:inline-flex;align-items:center;gap:7px">
+        <span data-ico="arrows-clockwise" data-size="14"></span>${codeVal ? "Regenerate Code" : "Generate Code"}
+      </button>
+      <div id="ag-code-gen-msg" style="font-size:12px;color:var(--ds-color-success);margin-top:10px;display:none"></div>
+    </div>`;
+  let h = discountCard + agCodeCard + `
+
     <div class="ag-header">
       <div>
         <div class="ag-header-title">My Agency</div>
@@ -14505,6 +14704,69 @@ function agCopyCode() {
   });
 }
 
+
+// ---- Agency Code management (leader) ----
+async function _processAgencyCodeIfPending() {
+  if (!currentAgent) return;
+  // Only run once: check localStorage flag
+  const doneKey = `ag_code_joined_${currentAgent.id}`;
+  if (localStorage.getItem(doneKey)) return;
+  const agencyCode = (currentAgent.user_metadata && currentAgent.user_metadata.agency_code)
+    || localStorage.getItem('pp_pending_agency_code');
+  if (!agencyCode) return;
+  try {
+    const { data, error } = await sb.rpc('process_agency_code_join', { p_code: agencyCode });
+    if (error) {
+      if (error.code === 'PGRST202' || error.message.includes('process_agency_code_join')) return; // migration not run yet
+      console.warn('[agency] code join failed:', error.message);
+      return;
+    }
+    if (data && data.ok) {
+      try { localStorage.setItem(doneKey, '1'); } catch(_) {}
+      try { localStorage.removeItem('pp_pending_agency_code'); } catch(_) {}
+      showToast(`Joined ${data.leader_name || 'agency'} successfully!`, '#10b981');
+    }
+  } catch(e) {
+    console.warn('[agency] code join error:', e);
+  }
+}
+function _generateAgencyCodeValue() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length: 8}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+async function agGenerateAgencyCode() {
+  const btn = document.querySelector('#ag-my-code-display')?.closest('.card')?.querySelector('.btn-p');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  const code = _generateAgencyCodeValue();
+  try {
+    const { data, error } = await sb.rpc('set_my_agency_code', { p_code: code });
+    if (error) throw error;
+    const savedCode = data || code;
+    const msgEl = document.getElementById('ag-code-gen-msg');
+    if (msgEl) { msgEl.textContent = 'Code saved!'; msgEl.style.display = ''; setTimeout(() => { msgEl.style.display = 'none'; }, 3000); }
+    const dispEl = document.getElementById('ag-my-code-display');
+    if (dispEl) {
+      dispEl.innerHTML = `<span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);letter-spacing:.18em;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 18px">${escapeHTML(savedCode)}</span>` +
+        ` <button class="btn btn-g btn-sm" onclick="agCopyAgencyCode()" style="display:inline-flex;align-items:center;gap:6px;margin-left:8px"><span data-ico="copy" data-size="13"></span>Copy</button>`;
+      if (typeof mountIcons === 'function') mountIcons(dispEl);
+    }
+    if (btn) { btn.disabled = false; btn.textContent = 'Regenerate Code'; }
+    window._myAgencyCode = savedCode;
+  } catch(e) {
+    showToast(e.message || 'Failed to save agency code', '#dc2626');
+    if (btn) { btn.disabled = false; btn.textContent = 'Generate Code'; }
+  }
+}
+
+function agCopyAgencyCode() {
+  const code = window._myAgencyCode ||
+    document.querySelector('#ag-my-code-display span[style*="mono"]')?.textContent?.trim();
+  if (!code) return;
+  navigator.clipboard.writeText(code).then(() => showToast('Agency code copied!', '#10b981')).catch(() => {
+    prompt('Copy this code and share it with your agents:', code);
+  });
+}
 async function agSendInvite() {
   const input = document.getElementById('ag-invite-email');
   const email = (input ? input.value : '').trim().toLowerCase();
@@ -15943,8 +16205,12 @@ async function bootDashboard() {
         currentAgentIsAdmin = !!agentRow.data.is_admin;
         try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
         _applyPlanGating();
+        if (!currentPlanName) showPlanRequiredOverlay();
       }
     } catch(_) {}
+
+    // Process pending agency code join (set at signup, executed once post-login)
+    _processAgencyCodeIfPending();
 
     const remotePolicies = await sbPullPolicies();
     if (remotePolicies !== null) {
