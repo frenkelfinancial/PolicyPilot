@@ -9782,16 +9782,16 @@ async function _pdInvokeErrorDetail(error) {
 }
 
 async function openPowerDialerModal() {
-  const m = document.getElementById('powerDialerModal');
-  if (!m) return;
-
-  // Resume an already-active session if one exists.
+  // If there's a live session already, show it in the modal (resume flow)
   if (powerDialerSessionId) {
-    const { data: session } = await sb.from('dialer_sessions').select('*').eq('id', powerDialerSessionId).maybeSingle();
-    if (session && ['pending','dialing','connected'].includes(session.status)) {
-      m.classList.add('open');
-      _pdRender(session);
-      return;
+    const m = document.getElementById('powerDialerModal');
+    if (m) {
+      const { data: session } = await sb.from('dialer_sessions').select('*').eq('id', powerDialerSessionId).maybeSingle();
+      if (session && ['pending','dialing','connected'].includes(session.status)) {
+        m.classList.add('open');
+        _pdRender(session);
+        return;
+      }
     }
     powerDialerSessionId = null;
   }
@@ -9805,9 +9805,30 @@ async function openPowerDialerModal() {
     return;
   }
 
-  document.getElementById('pd-start-count').textContent = selectedLeadIds.size;
-  _pdShowState('start');
-  m.classList.add('open');
+  // Package lead data for the Power Dialer tab to pick up via localStorage
+  const leadIds = [...selectedLeadIds];
+  const leadsForDialer = leads.filter(l => leadIds.includes(String(l.id)));
+  localStorage.setItem('pd_launch', JSON.stringify({
+    leadIds,
+    leadsData: leadsForDialer,
+    ts: Date.now()
+  }));
+
+  // Open the dedicated Power Dialer window
+  const popup = window.open(
+    'power-dialer.html',
+    'ProducerStackDialer',
+    'width=1300,height=820,toolbar=0,menubar=0,scrollbars=0,resizable=1,location=0'
+  );
+
+  if (!popup) {
+    // Popup blocked — fall back to the in-page modal
+    showToast('Enable pop-ups for this site to use the full Power Dialer', '#f59e0b');
+    document.getElementById('pd-start-count').textContent = selectedLeadIds.size;
+    _pdShowState('start');
+    const m = document.getElementById('powerDialerModal');
+    if (m) m.classList.add('open');
+  }
 }
 
 function closePowerDialerModal() {
