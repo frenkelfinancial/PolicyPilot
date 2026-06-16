@@ -9836,6 +9836,18 @@ function closePowerDialerModal() {
   if (m) m.classList.remove('open');
 }
 
+// Listen for messages from the power dialer popup window
+window.addEventListener('message', e => {
+  if (e.data?.type === 'pd-policy-saved') {
+    // Power dialer saved a policy — refresh policy tracker if it's visible
+    const policy = e.data.policy;
+    if (policy) {
+      loadPolicies?.().catch(() => {});
+      showToast(`Policy saved for ${policy.name || 'lead'} — check Policy Tracker`, '#10b981');
+    }
+  }
+});
+
 async function startPowerDialerSession() {
   const btn = document.getElementById('pd-start-btn');
   const leadIds = [...selectedLeadIds];

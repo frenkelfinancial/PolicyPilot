@@ -105,27 +105,37 @@ html,body{
 .hdr-logo{display:flex;align-items:center;gap:12px;flex-shrink:0;text-decoration:none}
 .logo-mark{
   height:36px;flex-shrink:0;
-  background:white;border-radius:8px;
   display:flex;align-items:center;
-  overflow:hidden;padding:4px 10px;
-  box-shadow:0 0 0 1px rgba(255,255,255,.12);
+  overflow:visible;
 }
-.logo-mark img{height:100%;width:auto;display:block}
+.logo-mark img{
+  height:100%;width:auto;display:block;
+  filter:invert(1) hue-rotate(180deg) contrast(1.12) saturate(1.15);
+  mix-blend-mode:screen;
+  image-rendering:-webkit-optimize-contrast;
+}
+[data-theme="light"] .logo-mark img{
+  filter:contrast(1.12) saturate(1.15);
+  mix-blend-mode:multiply;
+}
 .logo-text{display:flex;flex-direction:column;line-height:1.1}
 .logo-name{font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:-.01em}
 .logo-sub{font-size:10px;font-weight:700;color:var(--indigo-l);text-transform:uppercase;letter-spacing:.1em;margin-top:1px}
 
 /* Start screen logo badge */
 .start-logo-badge{
-  width:190px;margin:0 auto 30px;
-  background:white;border-radius:14px;
-  padding:14px 22px;
-  box-shadow:0 6px 28px rgba(0,0,0,.22),0 0 0 1px rgba(255,255,255,.08);
+  width:170px;margin:0 auto 30px;
 }
-[data-theme="light"] .start-logo-badge{
-  background:transparent;box-shadow:none;padding:0;
+.start-logo-badge img{
+  width:100%;height:auto;display:block;
+  filter:invert(1) hue-rotate(180deg) contrast(1.12) saturate(1.15);
+  mix-blend-mode:screen;
+  image-rendering:-webkit-optimize-contrast;
 }
-.start-logo-badge img{width:100%;height:auto;display:block}
+[data-theme="light"] .start-logo-badge img{
+  filter:contrast(1.12) saturate(1.15);
+  mix-blend-mode:multiply;
+}
 
 .hdr-div{width:1px;height:30px;background:var(--border2);flex-shrink:0;margin:0 16px}
 
@@ -478,110 +488,115 @@ html,body{
 /* ── RIGHT PANEL ── */
 .right-col{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg)}
 
-/* Tabs */
-.tab-bar{
-  flex-shrink:0;display:flex;
-  border-bottom:1px solid var(--border);
-  background:var(--surface);
-}
-.tab-btn{
-  flex:1;padding:0 16px;height:42px;
-  font-size:12px;font-weight:600;color:var(--text3);
-  border:none;background:transparent;cursor:pointer;
-  border-bottom:2px solid transparent;
-  transition:color .15s,border-color .15s;
-  letter-spacing:.01em;
-}
-.tab-btn:hover{color:var(--text2);background:rgba(255,255,255,.02)}
-.tab-btn.active{color:var(--indigo-l);border-bottom-color:var(--indigo)}
-
-/* Tab panels */
-.tab-panel{display:none;flex:1;overflow-y:auto}
-.tab-panel.active{display:flex;flex-direction:column}
-.tab-panel::-webkit-scrollbar{width:3px}
-.tab-panel::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
-.tab-inner{padding:16px 18px;flex:1}
-
-/* Outcome buttons */
-.outcome-locked{
-  display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:12px;
-  padding:40px 20px;text-align:center;
-}
-.lock-icon{font-size:30px;opacity:.35}
-.lock-text{font-size:13px;color:var(--text3)}
-
-.oc-section-lbl{
-  font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
-  color:var(--text3);margin-bottom:10px;
-}
-.outcome-grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;
-}
+/* Outcome buttons — bottom-right grid */
+.outcome-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .outcome-btn{
-  padding:11px 10px;border-radius:10px;
-  font-size:12.5px;font-weight:700;cursor:pointer;
-  border:1px solid transparent;
-  transition:filter .12s,transform .12s,box-shadow .12s;
-  text-align:center;line-height:1.3;
+  padding:8px 6px;border-radius:8px;
+  font-size:11px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border2);background:var(--card2);color:var(--text2);
+  transition:background .13s,border-color .13s,color .13s;
+  text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.outcome-btn:hover{filter:brightness(1.2);transform:translateY(-1px)}
+.outcome-btn:hover{background:var(--raised);border-color:var(--border3);color:var(--text)}
 .outcome-btn.picked{
-  box-shadow:0 0 0 2px rgba(255,255,255,.15),0 0 0 4px rgba(255,255,255,.04);
-  transform:translateY(-1px);
+  background:rgba(99,102,241,.15);border-color:rgba(99,102,241,.4);
+  color:var(--indigo-l);font-weight:700;
 }
-.oc-current{
-  display:flex;align-items:center;gap:9px;
-  padding:10px 14px;margin-bottom:14px;
-  background:var(--card2);border:1px solid var(--border);border-radius:10px;
-  font-size:12px;color:var(--text2);
+.outcome-delete{
+  background:rgba(239,68,68,.07)!important;border-color:rgba(239,68,68,.22)!important;
+  color:var(--red)!important;
 }
-.oc-tip{
-  margin-top:16px;padding:11px 13px;
-  background:var(--card2);border:1px solid var(--border);
-  border-radius:10px;font-size:12px;color:var(--text3);
-  display:flex;align-items:flex-start;gap:9px;
+.outcome-delete:hover{background:rgba(239,68,68,.16)!important;border-color:rgba(239,68,68,.4)!important}
+
+/* Right panel — notes+history top, outcome section bottom */
+.right-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:14px 18px 0;min-height:0}
+.right-outcome-section{
+  flex-shrink:0;border-top:1px solid var(--border);
+  padding:11px 18px 13px;background:var(--surface);
 }
+.panel-lbl{display:block;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:8px}
+.history-scroll{flex:1;overflow-y:auto;min-height:40px;margin-top:4px}
+.history-scroll::-webkit-scrollbar{width:3px}
+.history-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* Pause button in banner */
+.btn-banner-pause{
+  padding:3px 9px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
+  color:var(--amber);border-radius:6px;font-size:10.5px;font-weight:700;
+  cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;line-height:1.4;
+}
+.btn-banner-pause:hover{background:rgba(245,158,11,.16);border-color:rgba(245,158,11,.4)}
+.btn-banner-pause.paused{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:var(--green)}
+
+/* Sold modal overlay */
+#pd-sold-overlay{
+  position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.72);
+  display:none;align-items:center;justify-content:center;
+}
+#pd-sold-overlay.open{display:flex}
+.pd-sold-card{
+  background:var(--card);border:1px solid var(--border2);border-radius:20px;
+  padding:28px 30px;width:540px;max-width:92vw;max-height:90vh;
+  overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.65);
+}
+.pd-sold-card::-webkit-scrollbar{width:4px}
+.pd-sold-card::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.pd-sold-title{font-size:16px;font-weight:800;color:var(--text);margin-bottom:3px}
+.pd-sold-sub{font-size:12px;color:var(--text3);margin-bottom:16px}
+.pd-sold-strip{
+  background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);
+  border-radius:9px;padding:10px 14px;margin-bottom:16px;
+  display:grid;grid-template-columns:1fr 1fr;gap:5px 18px;font-size:12px;
+}
+.pd-frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.pd-frow.single{grid-template-columns:1fr}
+.pd-frow.triple{grid-template-columns:1fr 1fr 1fr}
+.pd-fg label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:5px}
+.pd-fg input,.pd-fg select{
+  width:100%;background:var(--card2);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);font-size:13px;padding:8px 10px;outline:none;
+  font-family:inherit;transition:border-color .15s;
+}
+.pd-fg input:focus,.pd-fg select:focus{border-color:var(--indigo)}
+.pd-fg input[readonly]{opacity:.6;cursor:not-allowed}
+.pd-commtotal{
+  background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.22);
+  border-radius:8px;padding:8px 11px;font-size:14px;font-weight:700;
+  color:var(--green);font-family:monospace;min-height:34px;display:flex;align-items:center;
+}
+.pd-sold-actions{display:flex;gap:10px;margin-top:16px}
+.pd-btn-save{
+  flex:1;padding:12px;background:linear-gradient(135deg,#059669,#10b981);
+  border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;
+  cursor:pointer;transition:opacity .15s;
+}
+.pd-btn-save:hover{opacity:.9}
+.pd-btn-cancel{
+  padding:12px 20px;background:var(--card2);border:1px solid var(--border2);
+  border-radius:10px;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;
+  transition:all .15s;
+}
+.pd-btn-cancel:hover{background:var(--raised);color:var(--text)}
 
 /* Notes */
 .notes-ta{
   width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;
   color:var(--text);font-size:13px;padding:11px 13px;resize:none;
-  outline:none;font-family:inherit;transition:border-color .15s;min-height:120px;
-  line-height:1.6;
+  outline:none;font-family:inherit;transition:border-color .15s;min-height:130px;
+  line-height:1.6;flex-shrink:0;
 }
 .notes-ta:focus{border-color:var(--indigo)}
 .notes-ta::placeholder{color:var(--text3)}
 
 .ch-item{
   display:flex;align-items:flex-start;gap:10px;
-  padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;
+  padding:9px 0;border-bottom:1px solid var(--border);
 }
 .ch-item:last-child{border-bottom:none}
-.ch-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:4px}
-.ch-time{color:var(--text3);flex-shrink:0;min-width:115px}
-.ch-out{font-weight:600}
-
-/* Script */
-.script-body{font-size:13px;color:var(--text2);line-height:1.75}
-.script-section{
-  font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;
-  color:var(--indigo-l);margin:18px 0 9px;padding-bottom:6px;
-  border-bottom:1px solid var(--border);
-}
-.script-section:first-child{margin-top:0}
-.script-body blockquote{
-  background:var(--card2);border-left:2.5px solid var(--indigo);
-  border-radius:0 9px 9px 0;padding:11px 14px;
-  font-style:italic;color:var(--text);
-  margin-bottom:9px;font-size:13px;line-height:1.65;
-}
-.obj-row{
-  margin-bottom:8px;padding:10px 12px;
-  background:var(--card2);border-radius:9px;border:1px solid var(--border);
-}
-.obj-trigger{font-weight:600;color:var(--amber);font-size:12px;margin-bottom:4px}
-.obj-response{font-size:12px;color:var(--text2);line-height:1.6}
+.ch-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:5px;background:var(--border3)}
+.ch-body{flex:1;min-width:0}
+.ch-out{font-size:12.5px;font-weight:600;color:var(--text);display:block}
+.ch-time{font-size:11px;color:var(--text3);display:block;margin-top:2px}
 
 /* ── FOOTER ── */
 #footer-bar{
@@ -764,8 +779,8 @@ html,body{
         <div class="ring-wave"></div>
         <div class="ring-core">📞</div>
       </div>
-      <h2>Call In to Start</h2>
-      <p class="muted">Dial this number from your phone, then enter your PIN when prompted:</p>
+      <h2 id="pending-title">Call In to Start</h2>
+      <p class="muted" id="pending-subtitle">Dial this number from your phone, then enter your PIN when prompted:</p>
       <div class="dial-number" id="pending-number">—</div>
       <div class="pin-wrap">
         <div class="pin-lbl">Your PIN — enter each digit, then press #</div>
@@ -808,6 +823,7 @@ html,body{
         <!-- Call banner -->
         <div class="call-banner b-dialing" id="call-banner">
           <div class="banner-dot"></div>
+          <button class="btn-banner-pause" id="btn-pause" onclick="pdTogglePause()">⏸ Pause</button>
           <span id="banner-text">Ringing…</span>
           <span class="banner-timer" id="banner-timer" style="display:none">00:00</span>
         </div>
@@ -827,44 +843,25 @@ html,body{
 
       </div>
 
-      <!-- ── RIGHT: Tabs ── -->
+      <!-- ── RIGHT: Notes + History (top) | Outcome (bottom) ── -->
       <div class="right-col">
-
-        <div class="tab-bar">
-          <button class="tab-btn active" id="tb-outcome" onclick="switchTab('outcome')">Mark Outcome</button>
-          <button class="tab-btn"        id="tb-notes"   onclick="switchTab('notes')">Notes &amp; History</button>
-          <button class="tab-btn"        id="tb-script"  onclick="switchTab('script')">Phone Script</button>
-        </div>
-
-        <!-- Outcome -->
-        <div class="tab-panel active" id="tp-outcome">
-          <div class="tab-inner">
-            <div id="outcome-area"></div>
-          </div>
-        </div>
-
-        <!-- Notes -->
-        <div class="tab-panel" id="tp-notes">
-          <div class="tab-inner">
-            <span class="sec-lbl">Call Notes</span>
-            <textarea class="notes-ta" id="notes-ta"
-              placeholder="Type notes during the call — they save automatically…"
-              oninput="autoSaveNotes(this)"
-              style="margin-bottom:20px"></textarea>
-            <span class="sec-lbl">Call History</span>
+        <div class="right-panel">
+          <span class="panel-lbl">Notes</span>
+          <textarea class="notes-ta" id="notes-ta"
+            placeholder="Notes — save automatically and sync to leads tab…"
+            oninput="autoSaveNotes(this)"></textarea>
+          <span class="panel-lbl" style="margin-top:14px">Call History</span>
+          <div class="history-scroll">
             <div id="call-history">
-              <div style="font-size:13px;color:var(--text3);padding:6px 0">No previous calls logged for this lead.</div>
+              <div style="font-size:12px;color:var(--text3);padding:6px 0">No previous calls logged for this lead.</div>
             </div>
           </div>
         </div>
-
-        <!-- Script -->
-        <div class="tab-panel" id="tp-script">
-          <div class="tab-inner">
-            <div class="script-body" id="script-body"></div>
-          </div>
+        <!-- Mark Outcome — bottom of right col -->
+        <div class="right-outcome-section">
+          <span class="panel-lbl">Mark Outcome</span>
+          <div id="outcome-area"></div>
         </div>
-
       </div>
 
     </div>
@@ -888,6 +885,102 @@ html,body{
       <button class="btn-close" onclick="window.close()">Close Window</button>
     </div>
   </div>
+
+<!-- ── SOLD MODAL ── -->
+<div id="pd-sold-overlay">
+  <div class="pd-sold-card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+      <div>
+        <div class="pd-sold-title">Submit as Sold 🎉</div>
+        <div class="pd-sold-sub" id="pd-sold-lead-name">—</div>
+      </div>
+      <button onclick="pdCloseSold()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;line-height:1;padding:2px 6px">✕</button>
+    </div>
+    <!-- Lead strip -->
+    <div class="pd-sold-strip" id="pd-sold-strip"></div>
+    <!-- Carrier & Product -->
+    <div class="pd-frow">
+      <div class="pd-fg">
+        <label>Carrier</label>
+        <select id="pd-sold-carrier" onchange="pdUpdateProduct();pdUpdateHealthClass();pdUpdateComm()">
+          <option value="">— Select Carrier —</option>
+        </select>
+      </div>
+      <div class="pd-fg">
+        <label>Product</label>
+        <select id="pd-sold-product" onchange="pdUpdateHealthClass();pdUpdateComm()">
+          <option value="">— Select Product —</option>
+        </select>
+      </div>
+    </div>
+    <!-- Health Class + Term Year -->
+    <div class="pd-frow" id="pd-sold-hc-row">
+      <div class="pd-fg">
+        <label>Health Class</label>
+        <select id="pd-sold-hclass" onchange="pdUpdateComm()">
+          <option value="">— Select —</option>
+        </select>
+      </div>
+      <div class="pd-fg" id="pd-sold-term-row" style="display:none">
+        <label>Term Length</label>
+        <select id="pd-sold-term">
+          <option value="10">10-Year</option>
+          <option value="15">15-Year</option>
+          <option value="20" selected>20-Year</option>
+          <option value="25">25-Year</option>
+          <option value="30">30-Year</option>
+        </select>
+      </div>
+    </div>
+    <!-- Commission + Monthly Premium -->
+    <div class="pd-frow triple">
+      <div class="pd-fg">
+        <label>Commission %</label>
+        <input type="number" id="pd-sold-comm" placeholder="e.g. 85" min="0" max="200" oninput="pdUpdateCommTotal()">
+      </div>
+      <div class="pd-fg">
+        <label>Monthly Premium</label>
+        <input type="number" id="pd-sold-monthly" placeholder="0.00" min="0" step="0.01" oninput="pdCalcAP();pdUpdateCommTotal()">
+      </div>
+      <div class="pd-fg">
+        <label>Annual Premium</label>
+        <input type="number" id="pd-sold-annual" placeholder="0.00" min="0" step="0.01" readonly>
+      </div>
+    </div>
+    <!-- Coverage + Draft Date -->
+    <div class="pd-frow">
+      <div class="pd-fg">
+        <label>Coverage Amount ($)</label>
+        <input type="number" id="pd-sold-coverage" placeholder="e.g. 50000" min="0">
+      </div>
+      <div class="pd-fg">
+        <label>Draft Date</label>
+        <input type="number" id="pd-sold-draft" placeholder="Day of month (1–31)" min="1" max="31">
+      </div>
+    </div>
+    <!-- Policy Status -->
+    <div class="pd-frow single">
+      <div class="pd-fg">
+        <label>Policy Status</label>
+        <select id="pd-sold-status">
+          <option value="pending">Pending</option>
+          <option value="active">Active</option>
+          <option value="lapsed">Lapsed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <!-- Est Commission -->
+    <div style="margin-top:4px;margin-bottom:4px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Est. 1st Year Commission</div>
+      <div class="pd-commtotal" id="pd-sold-commtotal">—</div>
+    </div>
+    <div class="pd-sold-actions">
+      <button class="pd-btn-cancel" onclick="pdCloseSold()">Cancel</button>
+      <button class="pd-btn-save" onclick="pdSubmitSold()">Save Policy &amp; Mark Sold</button>
+    </div>
+  </div>
+</div>
 
 </div><!-- /shell -->
 
@@ -1020,14 +1113,6 @@ function setHdrPill(cls, text) {
   span.textContent = text;
 }
 
-// ─── Tabs ─────────────────────────────────
-function switchTab(tab) {
-  activeTab = tab;
-  ['outcome','notes','script'].forEach(t => {
-    document.getElementById('tb-'+t).classList.toggle('active', t === tab);
-    document.getElementById('tp-'+t).classList.toggle('active', t === tab);
-  });
-}
 
 // ─── Timers ───────────────────────────────
 function startSessTimer() {
@@ -1115,23 +1200,32 @@ function renderLeadForm(lead) {
         ${dv(lead.dob ? fmtDOB(lead.dob) : '')}
       </div>
       <div class="detail-item">
+        <div class="d-lbl">Local Time</div>
+        <div class="d-val" id="lead-local-time">${lt || '—'}</div>
+      </div>
+      <div class="detail-item">
+        <div class="d-lbl">State</div>
+        ${dv((lead.state || '').toUpperCase())}
+      </div>
+      <div class="detail-item">
+        <div class="d-lbl">Zip Code</div>
+        ${dv(lead.zip)}
+      </div>
+      <div class="detail-item full">
+        <div class="d-lbl">Email</div>
+        ${emailLink ? `<div class="d-val">${emailLink}</div>` : '<div class="d-val empty">—</div>'}
+      </div>
+      ${lead.source ? `
+      <div class="detail-item full">
         <div class="d-lbl">Lead Source</div>
         ${dv(lead.source)}
-      </div>
+      </div>` : ''}
       ${lead.coverage_wanted ? `
       <div class="detail-item full">
         <div class="d-lbl">Coverage Wanted</div>
         ${dv(lead.coverage_wanted)}
       </div>` : ''}
-      ${lead.email ? `
-      <div class="detail-item full">
-        <div class="d-lbl">Email Address</div>
-        ${dv(null, emailLink)}
-      </div>` : ''}
-    </div>
-
-    <div class="section-label">Location</div>
-    <div class="detail-grid">
+      ${lead.address ? `
       <div class="detail-item full">
         <div class="d-lbl">Address</div>
         ${dv(lead.address)}
@@ -1139,13 +1233,21 @@ function renderLeadForm(lead) {
       <div class="detail-item">
         <div class="d-lbl">City</div>
         ${dv(lead.city)}
-      </div>
-      <div class="detail-item">
-        <div class="d-lbl">State / ZIP</div>
-        ${dv([(lead.state||'').toUpperCase(), lead.zip].filter(Boolean).join(' · '))}
-      </div>
+      </div>` : ''}
     </div>
   `;
+
+  startLocalTimeTimer(lead);
+}
+
+let _localTimeTimer = null;
+function startLocalTimeTimer(lead) {
+  if (_localTimeTimer) { clearInterval(_localTimeTimer); _localTimeTimer = null; }
+  if (!lead?.state) return;
+  _localTimeTimer = setInterval(() => {
+    const el = document.getElementById('lead-local-time');
+    if (el) el.textContent = localTime(lead.state) || '—';
+  }, 30000);
 }
 
 // ─── Next lead preview ────────────────────
@@ -1192,48 +1294,28 @@ function updateProgress(s) {
 }
 
 // ─── Outcome section ──────────────────────
-function renderOutcomeArea(leadId, isConnected) {
+function renderOutcomeArea(leadId) {
   const wrap = document.getElementById('outcome-area');
-  if (!wrap) return;
-
-  if (!isConnected) {
-    wrap.innerHTML = `<div class="outcome-locked">
-      <div class="lock-icon">📞</div>
-      <div class="lock-text">Outcome becomes available once the lead picks up.</div>
-    </div>`;
-    return;
-  }
-
+  if (!wrap || !leadId) return;
   const cur = outcomeMap[String(leadId)] || null;
   const buttons = Object.entries(STATUS_CFG)
     .filter(([k]) => k !== 'new')
     .map(([key, cfg]) => {
-      const picked = cur === key ? 'picked' : '';
-      return `<button class="outcome-btn ${picked}"
-        style="background:${cfg.bg};color:${cfg.color};border-color:${cfg.color}30"
-        onclick="markOutcome('${leadId}','${key}')">${cfg.label}</button>`;
+      const picked = cur === key ? ' picked' : '';
+      return `<button class="outcome-btn${picked}" onclick="markOutcome('${leadId}','${key}')">${cfg.label}</button>`;
     }).join('');
-
-  const chosen = cur ? STATUS_CFG[cur] : null;
-  const chosenHtml = chosen
-    ? `<div class="oc-current">
-        <span style="font-size:11px;color:var(--text3)">Current outcome:</span>
-        <span class="status-chip" style="background:${chosen.bg};color:${chosen.color}">${chosen.label}</span>
-       </div>`
-    : '';
-
-  wrap.innerHTML = `
-    <span class="oc-section-lbl">Select outcome for this call</span>
-    ${chosenHtml}
-    <div class="outcome-grid">${buttons}</div>
-    <div class="oc-tip">
-      <span>💡</span>
-      <span>Selecting an outcome saves automatically to the lead's record.</span>
-    </div>
-  `;
+  const deleteBtn = `<button class="outcome-btn outcome-delete" onclick="pdDeleteLead('${leadId}')">Delete Lead</button>`;
+  wrap.innerHTML = `<div class="outcome-grid">${buttons}${deleteBtn}</div>`;
 }
 
 async function markOutcome(leadId, status) {
+  // Sold: open sold modal instead of immediately marking
+  if (status === 'sold') {
+    const lead = leadsData.find(l => String(l.id) === String(leadId));
+    pdOpenSold(lead || { id: leadId });
+    return;
+  }
+
   const prev = outcomeMap[String(leadId)];
   outcomeMap[String(leadId)] = status;
 
@@ -1243,42 +1325,84 @@ async function markOutcome(leadId, status) {
     stats.appts = Math.max(0, stats.appts - 1);
   }
 
-  const curId = currentLeadId();
-  renderOutcomeArea(leadId, String(leadId) === String(curId) && currentState === 'connected');
+  renderOutcomeArea(leadId);
   updateProgress(session);
 
+  const entry = { ts: Date.now(), outcome: status };
   if (!callLog[String(leadId)]) callLog[String(leadId)] = [];
-  callLog[String(leadId)].push({ ts: Date.now(), outcome: status });
+  callLog[String(leadId)].push(entry);
   renderCallHistory(leadId);
+
+  // Auto-note for No Answer
+  if (status === 'no_answer' && String(leadId) === String(currentLeadId())) {
+    const ta = document.getElementById('notes-ta');
+    if (ta) {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      const noteEntry = `No Answer — ${dateStr}, ${timeStr}`;
+      ta.value = ta.value ? noteEntry + '\n' + ta.value : noteEntry;
+      noteMap[String(leadId)] = ta.value;
+    }
+  }
 
   const lead = leadsData.find(l => String(l.id) === String(leadId));
   if (lead && agentUser) {
     lead.status = status;
+    if (!lead.call_history) lead.call_history = [];
+    lead.call_history.push(entry);
+    if (noteMap[String(leadId)]) lead.notes = noteMap[String(leadId)];
     await sb.from('leads').upsert(
       { agent_id: agentUser.id, client_id: String(leadId), data: { ...lead } },
       { onConflict: 'agent_id,client_id' }
     ).catch(e => console.warn('[markOutcome]', e));
   }
+
+  // Auto-hangup and skip for No Answer / Not Interested
+  if (status === 'no_answer' || status === 'not_interested') {
+    setTimeout(() => pdSkip(), 900);
+  }
+}
+
+// ─── Delete lead ──────────────────────────
+async function pdDeleteLead(leadId) {
+  if (!confirm('Delete this lead permanently? This cannot be undone.')) return;
+  if (agentUser) {
+    await sb.from('leads')
+      .delete()
+      .eq('agent_id', agentUser.id)
+      .eq('client_id', String(leadId))
+      .catch(e => console.warn('[pdDeleteLead]', e));
+  }
+  leadsData = leadsData.filter(l => String(l.id) !== String(leadId));
+  pdSkip();
 }
 
 // ─── Call history ─────────────────────────
 function renderCallHistory(leadId) {
   const el = document.getElementById('call-history');
   if (!el) return;
-  const log = callLog[String(leadId)] || [];
 
-  if (log.length === 0) {
-    el.innerHTML = '<div style="font-size:13px;color:var(--text3);padding:6px 0">No calls logged yet for this lead.</div>';
+  const sessionLog = callLog[String(leadId)] || [];
+  const lead = leadsData.find(l => String(l.id) === String(leadId));
+  const stored = (lead?.call_history || []).filter(e => !sessionLog.some(s => s.ts === e.ts));
+  const merged = [...sessionLog, ...stored].sort((a, b) => b.ts - a.ts);
+
+  if (merged.length === 0) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:6px 0">No calls logged yet for this lead.</div>';
     return;
   }
 
-  el.innerHTML = [...log].reverse().map(entry => {
-    const sc  = STATUS_CFG[entry.outcome] || {};
-    const dt  = new Date(entry.ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',hour12:true});
+  el.innerHTML = merged.map(entry => {
+    const sc = STATUS_CFG[entry.outcome] || {};
+    const dt = new Date(entry.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const tm = new Date(entry.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
     return `<div class="ch-item">
-      <div class="ch-dot" style="background:${sc.color || 'var(--text3)'}"></div>
-      <div class="ch-time">${dt}</div>
-      <div class="ch-out" style="color:${sc.color || 'var(--text2)'}">${sc.label || entry.outcome}</div>
+      <div class="ch-dot"></div>
+      <div class="ch-body">
+        <span class="ch-out">${sc.label || entry.outcome}</span>
+        <span class="ch-time">${dt} at ${tm}</span>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1366,9 +1490,17 @@ function render(s) {
   document.getElementById('btn-end-hdr').style.display = '';
 
   if (s.status === 'pending') {
+    const isReconnect = prevState && ['dialing','connected'].includes(prevState);
     showScreen('s-pending');
-    setHdrPill('st-pending','Waiting for call');
+    setHdrPill('st-pending', isReconnect ? 'Reconnecting…' : 'Waiting for call');
     startSessTimer();
+
+    const titleEl    = document.getElementById('pending-title');
+    const subtitleEl = document.getElementById('pending-subtitle');
+    if (titleEl)    titleEl.textContent    = isReconnect ? 'Call Disconnected' : 'Call In to Start';
+    if (subtitleEl) subtitleEl.textContent = isReconnect
+      ? 'Your phone disconnected. Call back in to resume where you left off:'
+      : 'Dial this number from your phone, then enter your PIN when prompted:';
 
     document.getElementById('pending-number').textContent = fmtP(s.host_number) || s.host_number || '—';
     const pin = String(s.pin || '----');
@@ -1399,13 +1531,12 @@ function render(s) {
 
     if (s.current_index !== prevIdx || prevState === 'pending') {
       renderLeadForm(lead);
-      renderScript(lead);
       const ta = document.getElementById('notes-ta');
       if (ta) ta.value = noteMap[String(leadId)] || (lead?.notes || '');
       renderCallHistory(leadId);
     }
 
-    renderOutcomeArea(leadId, s.status === 'connected');
+    renderOutcomeArea(leadId);
     renderNextLead(s);
     updateProgress(s);
 
@@ -1505,6 +1636,20 @@ async function pdSkip() {
   } catch (e) { console.error('skip', e); }
 }
 
+let _isPaused = false;
+async function pdTogglePause() {
+  _isPaused = !_isPaused;
+  const btn = document.getElementById('btn-pause');
+  if (btn) {
+    btn.textContent = _isPaused ? '▶ Resume' : '⏸ Pause';
+    btn.classList.toggle('paused', _isPaused);
+  }
+  if (!sessionId) return;
+  try {
+    await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: _isPaused } });
+  } catch(e) { /* edge function pending */ }
+}
+
 async function pdEnd() {
   if (!sessionId) { window.close(); return; }
   try {
@@ -1574,6 +1719,251 @@ function setPdGreeting(firstName) {
   el.textContent = pool[Math.floor(Math.random() * pool.length)];
 }
 
+// ─── Sold Modal ───────────────────────────
+const PD_CARRIER_PRODUCTS = {
+  'Americo':            { products: {'Whole Life':'wl', 'Term':'term'} },
+  'Aetna / Accendo':    { products: {'Whole Life':'wl', 'IUL':'iul'} },
+  'American-Amicable':  { products: {'Whole Life':'wl', 'Term':'term', 'IUL':'iul'} },
+  'Transamerica':       { products: {'Whole Life':'wl', 'Term':'term', 'IUL':'iul'} },
+  'Corebridge':         { products: {'Whole Life':'wl'}, gi: true },
+  'Chubb':              { products: {'Whole Life':'wl'} },
+  'Ethos':              { products: {'Whole Life':'wl', 'Term':'term', 'IUL':'iul'}, gi: true },
+  'Mutual of Omaha':    { products: {'Whole Life':'wl', 'Term':'term', 'IUL':'iul'} },
+  'United Home Life':   { products: {'Whole Life':'wl', 'Term':'term'} },
+  'American Home Life': { products: {'Whole Life':'wl'} },
+  'SBLI':               { products: {'Whole Life':'wl'} },
+  'Baltimore Life':     { products: {'Whole Life':'wl', 'Term':'term'} },
+  'Elco Mutual':        { products: {'Whole Life':'wl'} },
+  'Mutual Trust Life':  { products: {'Whole Life':'wl', 'Term':'term'} },
+  'Legal & General':    { products: {'Term':'term'} },
+  'John Hancock':       { products: {'Term':'term'} },
+  'Kansas City Life':   { products: {'Whole Life':'wl', 'Term':'term', 'IUL':'iul'} },
+  'Foresters':          { products: {'Whole Life':'wl', 'Term':'term', 'IUL':'iul'} },
+  'Aflac':              { products: {'Whole Life':'wl'} },
+  'Liberty Bankers':    { products: {'Whole Life':'wl'} },
+  'Ladder Life':        { products: {'Term':'term'} },
+  'Royal Neighbors':    { products: {'Whole Life':'wl', 'Term':'term', 'IUL':'iul'} },
+};
+const PD_GI_CARRIERS = new Set(['Corebridge', 'Ethos']);
+
+let _pdSoldLead = null;
+
+function pdGetCarriers() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('stg_carriers') || '[]');
+    if (stored.length > 0) return stored.map(k => {
+      // map key → label (best effort: capitalize each word)
+      return Object.keys(PD_CARRIER_PRODUCTS).find(n => n.toLowerCase().replace(/[^a-z]/g,'').includes(k.replace(/[^a-z]/g,''))) || k;
+    }).filter(Boolean);
+  } catch {}
+  return Object.keys(PD_CARRIER_PRODUCTS);
+}
+
+function pdOpenSold(lead) {
+  _pdSoldLead = lead;
+  const overlay = document.getElementById('pd-sold-overlay');
+  if (!overlay) return;
+
+  // Lead strip
+  document.getElementById('pd-sold-lead-name').textContent = lead.name || 'Unknown Lead';
+  const strip = document.getElementById('pd-sold-strip');
+  strip.innerHTML = [
+    lead.phone   ? `<span><b>Phone:</b> ${lead.phone}</span>` : '',
+    lead.state   ? `<span><b>State:</b> ${(lead.state||'').toUpperCase()}</span>` : '',
+    lead.dob     ? `<span><b>DOB:</b> ${lead.dob}</span>` : '',
+    lead.email   ? `<span><b>Email:</b> ${lead.email}</span>` : '',
+  ].filter(Boolean).join('');
+
+  // Populate carrier dropdown
+  const carrierSel = document.getElementById('pd-sold-carrier');
+  const carriers = Object.keys(PD_CARRIER_PRODUCTS);
+  carrierSel.innerHTML = '<option value="">— Select Carrier —</option>' +
+    carriers.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  document.getElementById('pd-sold-product').innerHTML = '<option value="">— Select Product —</option>';
+  document.getElementById('pd-sold-hclass').innerHTML = '<option value="">— Select —</option>';
+  document.getElementById('pd-sold-term-row').style.display = 'none';
+  document.getElementById('pd-sold-comm').value = '';
+  document.getElementById('pd-sold-monthly').value = '';
+  document.getElementById('pd-sold-annual').value = '';
+  document.getElementById('pd-sold-coverage').value = '';
+  document.getElementById('pd-sold-draft').value = '';
+  document.getElementById('pd-sold-status').value = 'pending';
+  document.getElementById('pd-sold-commtotal').textContent = '—';
+
+  overlay.classList.add('open');
+}
+
+function pdCloseSold() {
+  const overlay = document.getElementById('pd-sold-overlay');
+  if (overlay) overlay.classList.remove('open');
+  _pdSoldLead = null;
+}
+
+function pdUpdateProduct() {
+  const carrier = document.getElementById('pd-sold-carrier').value;
+  const cfg = PD_CARRIER_PRODUCTS[carrier] || {};
+  const cats = Object.keys(cfg.products || {'Whole Life':''});
+  document.getElementById('pd-sold-product').innerHTML =
+    cats.map(c => `<option value="${c}">${c}</option>`).join('');
+  const prod = document.getElementById('pd-sold-product').value;
+  document.getElementById('pd-sold-term-row').style.display = prod === 'Term' ? '' : 'none';
+}
+
+function pdUpdateHealthClass() {
+  const carrier = document.getElementById('pd-sold-carrier').value;
+  const prod = document.getElementById('pd-sold-product').value;
+  document.getElementById('pd-sold-term-row').style.display = prod === 'Term' ? '' : 'none';
+  const isGI = PD_GI_CARRIERS.has(carrier);
+  const opts = [
+    {l:'Preferred/Standard', k:'std'},
+    {l:'Graded/Modified', k:'graded'},
+  ];
+  if (isGI) opts.push({l:'Guaranteed Issue', k:'gi'});
+  document.getElementById('pd-sold-hclass').innerHTML =
+    opts.map(o => `<option value="${o.k}">${o.l}</option>`).join('');
+}
+
+function pdUpdateComm() {
+  pdUpdateHealthClass();
+  // Auto-fill commission % from localStorage override if available
+  const carrier = document.getElementById('pd-sold-carrier').value;
+  const prod = document.getElementById('pd-sold-product').value;
+  const cls = document.getElementById('pd-sold-hclass').value;
+  if (!carrier || !prod || !cls) return;
+  try {
+    const overrides = JSON.parse(localStorage.getItem('ff_comm_pct_overrides') || '{}');
+    const key = `${carrier}|${prod}|${cls}`;
+    if (overrides[key]) document.getElementById('pd-sold-comm').value = overrides[key];
+  } catch {}
+  pdUpdateCommTotal();
+}
+
+function pdCalcAP() {
+  const monthly = parseFloat(document.getElementById('pd-sold-monthly').value) || 0;
+  document.getElementById('pd-sold-annual').value = monthly > 0 ? (monthly * 12).toFixed(2) : '';
+  pdUpdateCommTotal();
+}
+
+function pdUpdateCommTotal() {
+  const monthly = parseFloat(document.getElementById('pd-sold-monthly').value) || 0;
+  const commPct = parseFloat(document.getElementById('pd-sold-comm').value) || 0;
+  const el = document.getElementById('pd-sold-commtotal');
+  if (monthly > 0 && commPct > 0) {
+    const ap = monthly * 12;
+    const total = +(ap * commPct / 100 * 0.75).toFixed(2);
+    el.textContent = '$' + total.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  } else {
+    el.textContent = '—';
+  }
+}
+
+async function pdSubmitSold() {
+  const lead = _pdSoldLead;
+  if (!lead || !agentUser) return;
+
+  const carrier  = document.getElementById('pd-sold-carrier').value;
+  const product  = document.getElementById('pd-sold-product').value;
+  const cls      = document.getElementById('pd-sold-hclass').value;
+  const commPct  = parseFloat(document.getElementById('pd-sold-comm').value) || 0;
+  const monthly  = parseFloat(document.getElementById('pd-sold-monthly').value) || 0;
+  const annual   = parseFloat(document.getElementById('pd-sold-annual').value) || +(monthly * 12).toFixed(2);
+  const coverage = parseFloat(document.getElementById('pd-sold-coverage').value) || 0;
+  const draft    = document.getElementById('pd-sold-draft').value;
+  const status   = document.getElementById('pd-sold-status').value;
+  const term     = document.getElementById('pd-sold-term').value;
+
+  if (!carrier || !product) { alert('Please select a carrier and product.'); return; }
+
+  const policyId = String(lead.id) + '_' + Date.now();
+  const policy = {
+    id: policyId,
+    client_id: String(lead.id),
+    name: lead.name || '',
+    phone: lead.phone || '',
+    email: lead.email || '',
+    state: lead.state || '',
+    dob: lead.dob || '',
+    carrier,
+    product,
+    cls,
+    comm_pct: commPct,
+    monthly_premium: monthly,
+    annual_premium: annual,
+    coverage_amount: coverage,
+    draft_date: draft,
+    policy_status: status,
+    term_year: product === 'Term' ? term : undefined,
+    sold_date: new Date().toISOString(),
+    source: 'power_dialer',
+  };
+
+  // Save commission override for next time
+  if (carrier && product && cls && commPct) {
+    try {
+      const overrides = JSON.parse(localStorage.getItem('ff_comm_pct_overrides') || '{}');
+      overrides[`${carrier}|${product}|${cls}`] = commPct;
+      localStorage.setItem('ff_comm_pct_overrides', JSON.stringify(overrides));
+    } catch {}
+  }
+
+  const saveBtn = document.querySelector('.pd-btn-save');
+  if (saveBtn) { saveBtn.textContent = 'Saving…'; saveBtn.disabled = true; }
+
+  try {
+    // Save policy
+    await sb.from('policies').upsert(
+      { agent_id: agentUser.id, client_id: policyId, data: policy },
+      { onConflict: 'agent_id,client_id' }
+    );
+
+    // Mark lead as sold
+    const leadObj = leadsData.find(l => String(l.id) === String(lead.id));
+    if (leadObj) {
+      leadObj.status = 'sold';
+      await sb.from('leads').upsert(
+        { agent_id: agentUser.id, client_id: String(lead.id), data: { ...leadObj } },
+        { onConflict: 'agent_id,client_id' }
+      );
+    }
+
+    // Update outcome map and UI
+    const leadId = String(lead.id);
+    const prev = outcomeMap[leadId];
+    outcomeMap[leadId] = 'sold';
+    if (prev === 'appointment') stats.appts = Math.max(0, stats.appts - 1);
+    stats.sold = (stats.sold || 0) + 1;
+    const entry = { ts: Date.now(), outcome: 'sold' };
+    if (!callLog[leadId]) callLog[leadId] = [];
+    callLog[leadId].push(entry);
+    updateProgress(session);
+    renderOutcomeArea(leadId);
+    renderCallHistory(leadId);
+
+    pdCloseSold();
+
+    // Notify main window to refresh policy tracker
+    if (window.opener && !window.opener.closed) {
+      try { window.opener.postMessage({ type: 'pd-policy-saved', policy }, '*'); } catch {}
+    }
+
+    // Brief toast then skip to next lead
+    const banner = document.getElementById('call-banner');
+    if (banner) {
+      const prev = banner.innerHTML;
+      banner.style.background = 'rgba(16,185,129,.2)';
+      document.getElementById('banner-text').textContent = '✓ Sold — moving to next lead…';
+      setTimeout(() => { banner.style.background = ''; pdSkip(); }, 1400);
+    } else {
+      setTimeout(() => pdSkip(), 800);
+    }
+  } catch (e) {
+    console.error('[pdSubmitSold]', e);
+    alert('Error saving policy. Please try again.');
+    if (saveBtn) { saveBtn.textContent = 'Save Policy & Mark Sold'; saveBtn.disabled = false; }
+  }
+}
+
 // ─── Init ─────────────────────────────────
 async function init() {
   showScreen('s-loading');
@@ -1630,6 +2020,26 @@ async function init() {
 }
 
 init();
+
+// Listen for messages from main window (e.g., sold-complete from index.html sold modal)
+window.addEventListener('message', e => {
+  if (e.data?.type === 'pd-sold-complete') {
+    pdCloseSold();
+    const leadId = e.data.leadId ? String(e.data.leadId) : null;
+    if (leadId) {
+      const prev = outcomeMap[leadId];
+      outcomeMap[leadId] = 'sold';
+      if (prev === 'appointment') stats.appts = Math.max(0, stats.appts - 1);
+      const entry = { ts: Date.now(), outcome: 'sold' };
+      if (!callLog[leadId]) callLog[leadId] = [];
+      callLog[leadId].push(entry);
+      updateProgress(session);
+      renderOutcomeArea(leadId);
+      renderCallHistory(leadId);
+    }
+    setTimeout(() => pdSkip(), 800);
+  }
+});
 
 window.addEventListener('beforeunload', () => {
   stopCallTimer();
