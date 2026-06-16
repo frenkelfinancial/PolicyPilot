@@ -9800,6 +9800,10 @@ async function openPowerDialerModal() {
     showToast('Select at least one lead first', '#dc2626');
     return;
   }
+  if (selectedLeadIds.size > 500) {
+    showToast('Select 500 or fewer leads per session', '#dc2626');
+    return;
+  }
 
   document.getElementById('pd-start-count').textContent = selectedLeadIds.size;
   _pdShowState('start');

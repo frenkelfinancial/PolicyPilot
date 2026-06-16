@@ -54,7 +54,7 @@ serve(async (req) => {
     ? body.lead_ids.filter((v): v is string => typeof v === "string" && v.length > 0)
     : [];
   if (leadIds.length === 0) return json({ error: "no_leads_selected" }, 400);
-  if (leadIds.length > 100) return json({ error: "too_many_leads", detail: "Select 100 or fewer leads per session." }, 400);
+  if (leadIds.length > 500) return json({ error: "too_many_leads", detail: "Select 500 or fewer leads per session." }, 400);
 
   // Load agent — need a Telnyx caller-ID number to dial leads from, plus
   // any existing dialer PIN.
