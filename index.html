@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Producer Stack — CRM Built for Life Insurance Producers</title>
-<link rel="icon" href="assets/logos/producer-stack-icon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/logos/producer-stack-logo.png" type="image/png">
 <meta name="description" content="The all-in-one CRM platform built exclusively for life insurance producers. Power Dialer, live carrier quotes, pipeline tracking, and production analytics.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,15 +29,21 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 /* ── ANIMATED BACKGROUND ───────────────────────── */
 .bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
 .orb{position:absolute;border-radius:50%;filter:blur(110px);will-change:transform}
-.orb-1{width:680px;height:680px;background:rgba(59,120,220,.14);top:-260px;right:-180px;animation:drift-a 22s ease-in-out infinite alternate}
-.orb-2{width:520px;height:520px;background:rgba(45,95,180,.12);bottom:-160px;left:-160px;animation:drift-b 28s ease-in-out infinite alternate}
-.orb-3{width:360px;height:360px;background:rgba(75,191,160,.07);top:40%;left:38%;transform:translate(-50%,-50%);animation:drift-c 19s ease-in-out infinite alternate}
-.orb-4{width:280px;height:280px;background:rgba(100,140,240,.08);top:68%;right:12%;animation:drift-d 24s ease-in-out infinite alternate}
-.bg-grid{position:absolute;inset:0;background-image:radial-gradient(circle at 1px 1px,rgba(91,159,232,.028) 1px,transparent 0);background-size:36px 36px;opacity:1}
+.orb-1{width:780px;height:780px;background:rgba(59,120,220,.17);top:-300px;right:-200px;animation:drift-a 22s ease-in-out infinite alternate}
+.orb-2{width:580px;height:580px;background:rgba(45,95,180,.14);bottom:-180px;left:-180px;animation:drift-b 28s ease-in-out infinite alternate}
+.orb-3{width:420px;height:420px;background:rgba(75,191,160,.09);top:40%;left:38%;transform:translate(-50%,-50%);animation:drift-c 19s ease-in-out infinite alternate}
+.orb-4{width:320px;height:320px;background:rgba(100,140,240,.10);top:68%;right:12%;animation:drift-d 24s ease-in-out infinite alternate}
+.orb-5{width:500px;height:500px;background:rgba(130,60,220,.09);top:20%;left:8%;animation:drift-e 33s ease-in-out infinite alternate}
+.orb-6{width:380px;height:380px;background:rgba(0,210,210,.06);bottom:15%;right:8%;animation:drift-f 27s ease-in-out infinite alternate}
+.bg-aurora{position:absolute;top:0;left:0;right:0;height:520px;background:linear-gradient(180deg,rgba(70,100,220,.11) 0%,rgba(91,159,232,.05) 45%,transparent 100%);pointer-events:none}
+.bg-grid{position:absolute;inset:0;background-image:radial-gradient(circle at 1px 1px,rgba(91,159,232,.038) 1px,transparent 0);background-size:36px 36px;opacity:1}
+.bg-vignette{position:absolute;inset:0;background:radial-gradient(ellipse 90% 90% at 50% 50%,transparent 40%,rgba(3,5,18,.55) 100%);pointer-events:none}
 @keyframes drift-a{from{transform:translate(0,0) scale(1)}to{transform:translate(-80px,100px) scale(1.18)}}
 @keyframes drift-b{from{transform:translate(0,0) scale(1)}to{transform:translate(90px,-70px) scale(1.12)}}
 @keyframes drift-c{from{transform:translate(-50%,-50%) scale(1);opacity:.7}to{transform:translate(-50%,-50%) translate(60px,-90px) scale(1.3);opacity:1}}
 @keyframes drift-d{from{transform:translate(0,0)}to{transform:translate(-50px,60px) scale(1.1)}}
+@keyframes drift-e{from{transform:translate(0,0) scale(1)}to{transform:translate(70px,50px) scale(1.15)}}
+@keyframes drift-f{from{transform:translate(0,0) scale(1)}to{transform:translate(-60px,-80px) scale(1.2)}}
 
 /* ── NAV ──────────────────────────────────────── */
 .nav{
@@ -49,7 +55,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .nav.scrolled{background:rgba(5,9,26,.88);border-bottom-color:var(--border);backdrop-filter:blur(20px) saturate(150%);-webkit-backdrop-filter:blur(20px) saturate(150%)}
 .nav-inner{max-width:1160px;margin:0 auto;padding:0 24px;display:flex;align-items:center;width:100%;gap:0}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
-.nav-logo-icon{width:36px;height:32px;flex-shrink:0}
+.nav-logo-icon{width:auto;height:38px;flex-shrink:0}
 .nav-logo-name{font-size:15.5px;font-weight:600;color:var(--text);letter-spacing:-.02em;line-height:1}
 .nav-links{display:flex;align-items:center;gap:2px;margin:0 auto}
 .nav-links a{font-size:13.5px;font-weight:400;color:var(--text3);text-decoration:none;padding:6px 13px;border-radius:var(--r8);transition:color .2s,background .2s;letter-spacing:-.01em}
@@ -184,7 +190,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .km-d{font-size:8px;color:var(--green);margin-top:2px}
 
 /* ── HOW IT WORKS ──────────────────────────────── */
-.how-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.how-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px}
 .how-card{padding:32px 28px;border-radius:var(--r20);background:linear-gradient(165deg,rgba(12,18,38,.9),rgba(8,14,30,.95));border:1px solid var(--border);position:relative;overflow:hidden;transition:border-color .3s}
 .how-card:hover{border-color:rgba(91,159,232,.18)}
 .how-n{font-size:52px;font-weight:300;color:rgba(91,159,232,.08);line-height:1;position:absolute;top:18px;right:20px;letter-spacing:-.04em;font-style:italic}
@@ -298,6 +304,7 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
   .bento{grid-template-columns:1fr}
   .bc.s2,.bc.s3{grid-column:1}
   .how-grid,.plan-row{grid-template-columns:1fr}
+  .how-grid{grid-template-columns:1fr}
   .nav-links,.nav-right .btn-ghost{display:none}
   .hamburger{display:flex}
   .ft-top{grid-template-columns:1fr 1fr;gap:24px}
@@ -319,28 +326,22 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
 
 <!-- animated background -->
 <div class="bg-canvas" aria-hidden="true">
+  <div class="bg-aurora"></div>
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
   <div class="orb orb-3"></div>
   <div class="orb orb-4"></div>
+  <div class="orb orb-5"></div>
+  <div class="orb orb-6"></div>
   <div class="bg-grid"></div>
+  <div class="bg-vignette"></div>
 </div>
 
 <!-- ═══ NAV ══════════════════════════════════════ -->
 <nav class="nav" id="main-nav">
   <div class="nav-inner">
     <a href="/" class="nav-logo">
-      <svg class="nav-logo-icon" viewBox="0 0 100 88" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="ga" x1="15" y1="12" x2="85" y2="52" gradientUnits="userSpaceOnUse"><stop stop-color="#D4EAFB"/><stop offset="1" stop-color="#9DC8F6"/></linearGradient>
-          <linearGradient id="gb" x1="15" y1="28" x2="85" y2="68" gradientUnits="userSpaceOnUse"><stop stop-color="#9DC8F6"/><stop offset="1" stop-color="#60ABF0"/></linearGradient>
-          <linearGradient id="gc" x1="15" y1="44" x2="85" y2="84" gradientUnits="userSpaceOnUse"><stop stop-color="#60ABF0"/><stop offset="1" stop-color="#3D88D9"/></linearGradient>
-        </defs>
-        <polygon points="50,84 88,62 50,42 12,62" fill="url(#gc)" opacity="0.65"/>
-        <polygon points="50,68 88,46 50,26 12,46" fill="url(#gb)" opacity="0.82"/>
-        <polygon points="50,52 88,30 50,10 12,30" fill="url(#ga)"/>
-        <text x="50" y="36" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="19" font-weight="800" font-family="'DM Sans',Arial,sans-serif">P</text>
-      </svg>
+      <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
       <div class="nav-logo-name">Producer Stack</div>
     </a>
     <div class="nav-links">
@@ -499,6 +500,35 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
       </div>
     </div>
 
+    <div class="bc s2 reveal" style="border-color:rgba(130,60,220,.18);background:linear-gradient(165deg,rgba(18,12,42,.9) 0%,rgba(10,8,30,.95) 100%)">
+      <div class="bc-ico" style="background:rgba(130,60,220,.1);border-color:rgba(130,60,220,.25)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" style="color:#a78bf7"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg></div>
+      <div class="bc-tag" style="color:#a78bf7;background:rgba(130,60,220,.08);border-color:rgba(130,60,220,.2)">AI-Powered</div>
+      <h3 class="bc-h">AI Underwriter</h3>
+      <p class="bc-p">One of the biggest pain points in life insurance sales is not knowing which carrier will actually approve your client. Age, health conditions, medications, build — every carrier has different guidelines, and guessing costs you apps and commission.</p>
+      <p class="bc-p" style="margin-top:10px">The AI Underwriter solves this with <strong style="color:var(--text)">live data from every major carrier</strong>. Enter your client's health profile and instantly see which carriers are likely to approve, at which rate class — before you ever submit an application.</p>
+      <ul class="bc-list" style="margin-top:16px">
+        <li>Live carrier approval likelihood by health profile</li>
+        <li>Rate class predictions (Preferred, Standard, Substandard)</li>
+        <li>Side-by-side carrier comparison before you apply</li>
+        <li>Stop wasting apps on carriers that won't approve</li>
+      </ul>
+    </div>
+
+    <div class="bc reveal" style="border-color:rgba(130,60,220,.12);background:linear-gradient(165deg,rgba(16,10,36,.9) 0%,rgba(10,8,28,.95) 100%)">
+      <div class="bc-ico" style="background:rgba(130,60,220,.08);border-color:rgba(130,60,220,.18)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" style="color:#a78bf7"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></div>
+      <div class="bc-tag" style="color:#a78bf7;background:rgba(130,60,220,.08);border-color:rgba(130,60,220,.2)">Instant Insight</div>
+      <h3 class="bc-h">Know Before You Apply</h3>
+      <p class="bc-p" style="margin-bottom:14px">Stop submitting blind. The AI Underwriter gives you the confidence to present the right carrier to the right client every time.</p>
+      <div style="background:rgba(130,60,220,.06);border:1px solid rgba(130,60,220,.15);border-radius:10px;padding:14px">
+        <div style="font-size:9px;color:#a78bf7;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-weight:500">Sample Result</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:10.5px"><span style="color:var(--text2)">Americo</span><span style="color:var(--green);font-weight:600;font-size:10px">Likely Approved · Std+</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:10.5px"><span style="color:var(--text2)">Aetna</span><span style="color:var(--gold);font-weight:600;font-size:10px">Possible · Standard</span></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;font-size:10.5px"><span style="color:var(--text2)">Transamerica</span><span style="color:var(--coral);font-weight:600;font-size:10px">Unlikely · Health flag</span></div>
+        </div>
+      </div>
+    </div>
+
     <div class="bc s3 reveal" style="border-color:rgba(212,169,106,.14)">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center">
         <div>
@@ -540,6 +570,12 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
       <div class="how-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
       <h3 class="how-h">Close More Business</h3>
       <p class="how-p">Track every application from submitted to issued. Know your monthly AP, issue rate, and bonus tier in real time — every decision backed by data.</p>
+    </div>
+    <div class="how-card reveal" style="border-color:rgba(75,191,160,.16)">
+      <div class="how-n">04</div>
+      <div class="how-ico" style="background:rgba(75,191,160,.08);border-color:rgba(75,191,160,.2)"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" style="color:var(--green)"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+      <h3 class="how-h">Automatically Integrated Leads</h3>
+      <p class="how-p">Connect directly to your lead vendors and have fresh leads drip straight into your pipeline automatically — the moment they're generated. No manual imports, no CSV gymnastics. New leads from any vendor appear in your call queue instantly, so you're always working the hottest data.</p>
     </div>
   </div>
 </section>
@@ -749,17 +785,7 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
     <div class="ft-top">
       <div class="ft-brand">
         <a href="/" class="nav-logo">
-          <svg class="nav-logo-icon" viewBox="0 0 100 88" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="fga" x1="15" y1="12" x2="85" y2="52" gradientUnits="userSpaceOnUse"><stop stop-color="#D4EAFB"/><stop offset="1" stop-color="#9DC8F6"/></linearGradient>
-              <linearGradient id="fgb" x1="15" y1="28" x2="85" y2="68" gradientUnits="userSpaceOnUse"><stop stop-color="#9DC8F6"/><stop offset="1" stop-color="#60ABF0"/></linearGradient>
-              <linearGradient id="fgc" x1="15" y1="44" x2="85" y2="84" gradientUnits="userSpaceOnUse"><stop stop-color="#60ABF0"/><stop offset="1" stop-color="#3D88D9"/></linearGradient>
-            </defs>
-            <polygon points="50,84 88,62 50,42 12,62" fill="url(#fgc)" opacity="0.65"/>
-            <polygon points="50,68 88,46 50,26 12,46" fill="url(#fgb)" opacity="0.82"/>
-            <polygon points="50,52 88,30 50,10 12,30" fill="url(#fga)"/>
-            <text x="50" y="36" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="19" font-weight="800" font-family="'DM Sans',Arial,sans-serif">P</text>
-          </svg>
+          <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
           <div class="nav-logo-name">Producer Stack</div>
         </a>
         <p>The all-in-one CRM platform built for life insurance producers. Power Dialer, live rates, and full production analytics.</p>
@@ -777,7 +803,9 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
         <a href="#features">Power Dialer</a>
         <a href="#features">Lead CRM</a>
         <a href="#features">Rate Quoter</a>
+        <a href="#features">AI Underwriter</a>
         <a href="#features">KPI Dashboard</a>
+        <a href="#how">Lead Integration</a>
         <a href="#features">Team Leader</a>
       </div>
       <div class="ft-col">
