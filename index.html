@@ -1939,6 +1939,40 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   background:rgba(245,158,11,.06);
 }
 
+/* ── Agency tab ─────────────────────────────────────────────────────────── */
+#sec-agency .ag-header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px;flex-wrap:wrap}
+#sec-agency .ag-header-title{font-size:22px;font-weight:600;color:var(--text)}
+#sec-agency .ag-header-sub{font-size:13px;color:var(--text2);margin-top:4px}
+#sec-agency .ag-invite-row{display:flex;gap:10px;align-items:center;margin-bottom:22px;flex-wrap:wrap}
+#sec-agency .ag-invite-input{flex:1;min-width:200px;max-width:380px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;outline:none;transition:border-color .14s}
+#sec-agency .ag-invite-input:focus{border-color:var(--accent)}
+#sec-agency .ag-section-lbl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--text3);margin-bottom:10px}
+.ag-agent-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:12px;transition:border-color .14s;flex-wrap:wrap}
+.ag-agent-card:hover{border-color:var(--border2)}
+.ag-agent-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#6366f1);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0}
+.ag-agent-info{flex:1;min-width:140px}
+.ag-agent-name{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ag-agent-email{font-size:12px;color:var(--text2);margin-top:2px}
+.ag-agent-plan{display:inline-block;padding:2px 8px;border-radius:99px;font-size:9.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;background:rgba(59,130,246,.12);color:#60a5fa;margin-top:4px}
+.ag-stats{display:flex;gap:20px;flex-wrap:wrap}
+.ag-stat{text-align:center;min-width:50px}
+.ag-stat-val{font-size:18px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.ag-stat-lbl{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
+.ag-pending-card{background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px;margin-bottom:10px;flex-wrap:wrap}
+.ag-pending-card.info{background:rgba(59,130,246,.07);border-color:rgba(59,130,246,.25)}
+.ag-pending-card.declined{background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.2)}
+.ag-pending-info{flex:1;min-width:180px;font-size:13px;color:var(--text)}
+.ag-pending-sub{font-size:11.5px;color:var(--text3);margin-top:3px}
+.ag-pending-actions{display:flex;gap:8px;flex-shrink:0}
+.ag-access-row{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:8px;flex-wrap:wrap}
+.ag-access-info{flex:1;font-size:13px;color:var(--text2)}
+.ag-empty-state{text-align:center;padding:52px 24px;color:var(--text3)}
+.ag-empty-state h3{font-size:17px;font-weight:600;color:var(--text);margin-bottom:8px}
+.ag-empty-state p{font-size:13px;line-height:1.55;max-width:400px;margin:0 auto 20px}
+.ag-leader-only{background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:12px;text-align:center;padding:52px 24px}
+.ag-leader-only h3{font-size:17px;font-weight:600;color:var(--text);margin-bottom:8px}
+.ag-leader-only p{font-size:13px;color:var(--text2);line-height:1.55;max-width:400px;margin:0 auto 20px}
+
 /* ============================================================
    MOBILE / PWA STYLES  (max-width: 767px)
    Hamburger drawer, overlay, responsive grids, safe-area
@@ -2210,6 +2244,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     <div class="nav-item" onclick="nav('calendar')"><span class="ico" data-ico="calendar-check"></span><span class="nav-lbl-text">Calendar</span></div>
 
     <div class="nav-item" onclick="nav('phonebook')"><span class="ico" data-ico="phone"></span><span class="nav-lbl-text">Phone Book</span></div>
+    <div class="nav-item" onclick="nav('agency')"><span class="ico" data-ico="buildings"></span><span class="nav-lbl-text">Agency</span></div>
   </div>
   <div class="sidebar-bot">
     <div class="nav-item" onclick="nav('settings')"><span class="ico" data-ico="gear"></span><span class="nav-lbl-text">Settings</span></div>
@@ -3449,6 +3484,11 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       </div>
 
     </div><!-- /sec-settings -->
+
+    <!-- ========== AGENCY ========== -->
+    <div class="section" id="sec-agency">
+      <div id="ag-root"><div class="pb-empty" style="padding:40px">Loading…</div></div>
+    </div><!-- /sec-agency -->
 
   </div><!-- /content -->
 </div><!-- /main -->
@@ -12027,6 +12067,7 @@ const NAV_TITLES = {
   leads:'Leads',
   calendar:'Calendar',
   phonebook:'Phone Book',
+  agency:'Agency',
   settings:'Settings',
 };
 
@@ -12043,7 +12084,7 @@ function nav(id) {
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
   // Highlight active nav item
   const items = document.querySelectorAll('.nav-item');
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, settings:7 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, agency:7, settings:8 };
   if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
@@ -12060,6 +12101,7 @@ function nav(id) {
   if (id === 'tracker') { populateTrackerCarrierFilter(); const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
   if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
   if (id === 'phonebook') renderPhoneBook();
+  if (id === 'agency') renderAgencySection();
   if (id === 'settings') initSettingsSection();
   // Tear down the Phone Book's live-calls subscription whenever we leave it.
   if (id !== 'phonebook' && typeof _pbTeardown === 'function') _pbTeardown();
@@ -14177,6 +14219,264 @@ function closeStatesPanel() {
   if (trigger) trigger.classList.remove('open');
 }
 
+// ============================================================
+// AGENCY — invite / downline management
+// ============================================================
+async function renderAgencySection() {
+  const root = document.getElementById('ag-root');
+  if (!root || !currentAgent) return;
+  root.innerHTML = '<div class="pb-empty" style="padding:40px">Loading…</div>';
+  const tier = _planTier();
+  if (tier === 'leader') {
+    await _agRenderLeaderView(root);
+  } else {
+    await _agRenderAgentView(root);
+  }
+  if (typeof mountIcons === 'function') mountIcons(root);
+}
+
+async function _agRenderLeaderView(root) {
+  const { data: invites, error } = await sb.from('agency_invites')
+    .select('*').eq('leader_id', currentAgent.id)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (error.code === '42P01') {
+      root.innerHTML = _agMigrationPrompt();
+      return;
+    }
+    root.innerHTML = `<div class="pb-empty">${escapeHTML(error.message)}</div>`;
+    return;
+  }
+
+  const accepted = (invites || []).filter(i => i.status === 'accepted');
+  const pending  = (invites || []).filter(i => i.status === 'pending');
+  const declined = (invites || []).filter(i => i.status === 'declined');
+
+  let statsMap = {};
+  if (accepted.length) {
+    const { data: statsRows } = await sb.rpc('get_agency_stats', { p_leader_id: currentAgent.id });
+    if (statsRows) statsRows.forEach(r => { statsMap[r.agent_id] = r; });
+  }
+
+  let h = `
+    <div class="ag-header">
+      <div>
+        <div class="ag-header-title">My Agency</div>
+        <div class="ag-header-sub">Invite downline agents to share their performance data with you.</div>
+      </div>
+    </div>
+    <div class="ag-invite-row">
+      <input class="ag-invite-input" id="ag-invite-email" type="email" placeholder="Agent's email address…"
+        onkeydown="if(event.key==='Enter')agSendInvite()">
+      <button class="btn btn-p btn-sm" onclick="agSendInvite()"
+        style="display:inline-flex;align-items:center;gap:7px">
+        <span data-ico="paper-plane-right" data-size="14"></span>Send Invite
+      </button>
+    </div>`;
+
+  if (pending.length) {
+    h += `<div class="ag-section-lbl">Pending Invites (${pending.length})</div>`;
+    pending.forEach(inv => {
+      h += `<div class="ag-pending-card">
+        <span data-ico="clock" data-size="18" style="color:#f59e0b;flex-shrink:0"></span>
+        <div class="ag-pending-info">
+          <div>${escapeHTML(inv.invitee_email)}</div>
+          <div class="ag-pending-sub">Sent ${new Date(inv.created_at).toLocaleDateString()}</div>
+        </div>
+        <button class="btn btn-s btn-sm" onclick="agCancelInvite('${inv.id}')"
+          style="color:var(--ds-color-danger)">Cancel</button>
+      </div>`;
+    });
+  }
+
+  if (declined.length) {
+    h += `<div class="ag-section-lbl" style="margin-top:18px">Declined</div>`;
+    declined.forEach(inv => {
+      h += `<div class="ag-pending-card declined">
+        <span data-ico="x-circle" data-size="18" style="color:#ef4444;flex-shrink:0"></span>
+        <div class="ag-pending-info">
+          <div>${escapeHTML(inv.invitee_email)}</div>
+          <div class="ag-pending-sub">Declined · ${new Date(inv.created_at).toLocaleDateString()}</div>
+        </div>
+        <button class="btn btn-s btn-sm" onclick="agCancelInvite('${inv.id}')">Remove</button>
+      </div>`;
+    });
+  }
+
+  if (accepted.length) {
+    h += `<div class="ag-section-lbl" style="margin-top:${(pending.length||declined.length)?20:0}px">Connected Agents (${accepted.length})</div>`;
+    accepted.forEach(inv => {
+      const s = statsMap[inv.invitee_id] || {};
+      const initials = (s.agent_name || inv.invitee_email || '?').slice(0,2).toUpperCase();
+      const ap = (s.total_ap || 0);
+      const apFmt = ap >= 1000 ? '$' + (ap/1000).toFixed(1) + 'k' : '$' + Math.round(ap);
+      const planBadge = s.agent_plan ? `<span class="ag-agent-plan">${escapeHTML(s.agent_plan)}</span>` : '';
+      h += `<div class="ag-agent-card">
+        <div class="ag-agent-avatar">${escapeHTML(initials)}</div>
+        <div class="ag-agent-info">
+          <div class="ag-agent-name">${escapeHTML(s.agent_name || inv.invitee_email)}</div>
+          <div class="ag-agent-email">${escapeHTML(inv.invitee_email)}</div>
+          ${planBadge}
+        </div>
+        <div class="ag-stats">
+          <div class="ag-stat"><div class="ag-stat-val">${(s.policy_count||0).toLocaleString()}</div><div class="ag-stat-lbl">Policies</div></div>
+          <div class="ag-stat"><div class="ag-stat-val">${apFmt}</div><div class="ag-stat-lbl">Prem AP</div></div>
+          <div class="ag-stat"><div class="ag-stat-val">${(s.call_count||0).toLocaleString()}</div><div class="ag-stat-lbl">Dials</div></div>
+          <div class="ag-stat"><div class="ag-stat-val">${(s.lead_count||0).toLocaleString()}</div><div class="ag-stat-lbl">Leads</div></div>
+        </div>
+        <button class="btn btn-s btn-sm" onclick="agRemoveConnection('${inv.id}')"
+          style="margin-left:4px;color:var(--ds-color-danger)">Remove</button>
+      </div>`;
+    });
+  } else if (!pending.length && !declined.length) {
+    h += `<div class="ag-empty-state">
+      <h3>No agents connected yet</h3>
+      <p>Enter an agent's email above to invite them. They'll receive a notification in their Agency tab and can accept or decline.</p>
+    </div>`;
+  }
+
+  root.innerHTML = h;
+}
+
+async function _agRenderAgentView(root) {
+  const [pendRes, accRes] = await Promise.all([
+    sb.from('agency_invites').select('*').eq('invitee_email', currentAgent.email).eq('status','pending'),
+    sb.from('agency_invites').select('*').eq('invitee_email', currentAgent.email).eq('status','accepted'),
+  ]);
+
+  if (pendRes.error && pendRes.error.code === '42P01') {
+    root.innerHTML = _agMigrationPrompt();
+    return;
+  }
+
+  const pending  = pendRes.data || [];
+  const accepted = accRes.data  || [];
+
+  let h = `<div class="ag-header">
+    <div>
+      <div class="ag-header-title">Agency</div>
+      <div class="ag-header-sub">Agency leaders can request access to view your performance data. You control who sees your information.</div>
+    </div>
+  </div>`;
+
+  if (pending.length) {
+    h += `<div class="ag-section-lbl">Access Requests (${pending.length})</div>`;
+    pending.forEach(inv => {
+      h += `<div class="ag-pending-card info">
+        <span data-ico="info" data-size="18" style="color:#3b82f6;flex-shrink:0"></span>
+        <div class="ag-pending-info">
+          <div><strong>${escapeHTML(inv.leader_name || inv.leader_email || 'A leader')}</strong> wants to view your performance data</div>
+          <div class="ag-pending-sub">${escapeHTML(inv.leader_email||'')} · Received ${new Date(inv.created_at).toLocaleDateString()}</div>
+        </div>
+        <div class="ag-pending-actions">
+          <button class="btn btn-p btn-sm" onclick="agAcceptInvite('${inv.id}')">Accept</button>
+          <button class="btn btn-s btn-sm" onclick="agDeclineInvite('${inv.id}')">Decline</button>
+        </div>
+      </div>`;
+    });
+  }
+
+  if (accepted.length) {
+    h += `<div class="ag-section-lbl" style="margin-top:${pending.length?20:0}px">Sharing Your Data With</div>`;
+    accepted.forEach(inv => {
+      h += `<div class="ag-access-row">
+        <span data-ico="eye" data-size="16" style="color:var(--ds-color-success);flex-shrink:0"></span>
+        <div class="ag-access-info">
+          <strong>${escapeHTML(inv.leader_name || inv.leader_email || 'A leader')}</strong>
+          <span style="color:var(--text3);font-size:12px;margin-left:8px">${escapeHTML(inv.leader_email||'')}</span>
+        </div>
+        <button class="btn btn-s btn-sm" onclick="agRevokeAccess('${inv.id}')"
+          style="color:var(--ds-color-danger)">Revoke Access</button>
+      </div>`;
+    });
+  }
+
+  if (!pending.length && !accepted.length) {
+    h += `<div class="ag-empty-state">
+      <h3>No access requests</h3>
+      <p>When an agency leader invites you, their request will appear here. You control exactly who can view your data — and you can revoke access at any time.</p>
+    </div>`;
+  }
+
+  root.innerHTML = h;
+}
+
+function _agMigrationPrompt() {
+  return `<div class="ag-leader-only">
+    <h3>Database setup required</h3>
+    <p>The Agency feature needs a one-time database migration. Run the SQL from <code>supabase/migrations/20260616_agency.sql</code> in your Supabase SQL editor, then reload.</p>
+    <a class="btn btn-p btn-sm" href="https://supabase.com/dashboard" target="_blank" rel="noopener">Open Supabase Dashboard</a>
+  </div>`;
+}
+
+async function agSendInvite() {
+  const input = document.getElementById('ag-invite-email');
+  const email = (input ? input.value : '').trim().toLowerCase();
+  if (!email || !email.includes('@')) { showToast('Enter a valid email address', '#dc2626'); return; }
+  if (email === (currentAgent.email||'').toLowerCase()) { showToast('You cannot invite yourself', '#dc2626'); return; }
+  const leaderName = localStorage.getItem(k('stg_display_name')) || currentAgent.email || '';
+  const { error } = await sb.from('agency_invites').insert({
+    leader_id: currentAgent.id,
+    leader_email: currentAgent.email,
+    leader_name: leaderName,
+    invitee_email: email,
+    status: 'pending',
+  });
+  if (error) {
+    showToast(error.code === '23505' ? 'Invite already sent to this agent' : 'Send failed: ' + error.message, '#dc2626');
+    return;
+  }
+  if (input) input.value = '';
+  showToast('Invite sent to ' + email, '#10b981');
+  await renderAgencySection();
+}
+
+async function agCancelInvite(id) {
+  const { error } = await sb.from('agency_invites').delete().eq('id', id).eq('leader_id', currentAgent.id);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  showToast('Invite removed', '#10b981');
+  await renderAgencySection();
+}
+
+async function agRemoveConnection(id) {
+  if (!window.confirm('Remove this agent from your agency? They will no longer share data with you.')) return;
+  const { error } = await sb.from('agency_invites').delete().eq('id', id).eq('leader_id', currentAgent.id);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  showToast('Agent removed', '#10b981');
+  await renderAgencySection();
+}
+
+async function agAcceptInvite(id) {
+  const { error } = await sb.from('agency_invites')
+    .update({ status: 'accepted', invitee_id: currentAgent.id })
+    .eq('id', id).eq('invitee_email', currentAgent.email);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  showToast('Access granted', '#10b981');
+  await renderAgencySection();
+}
+
+async function agDeclineInvite(id) {
+  const { error } = await sb.from('agency_invites')
+    .update({ status: 'declined' })
+    .eq('id', id).eq('invitee_email', currentAgent.email);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  showToast('Invite declined', '#10b981');
+  await renderAgencySection();
+}
+
+async function agRevokeAccess(id) {
+  if (!window.confirm("Revoke this leader's access to your performance data?")) return;
+  const { error } = await sb.from('agency_invites')
+    .update({ status: 'declined', invitee_id: null })
+    .eq('id', id).eq('invitee_email', currentAgent.email);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  showToast('Access revoked', '#10b981');
+  await renderAgencySection();
+}
+
+// ============================================================
+
 function initSettingsSection() {
   // Populate account fields
   const nameEl = document.getElementById('stg-display-name');
@@ -15588,7 +15888,7 @@ async function bootDashboard() {
   // Default-active section in HTML is 'summary'; only re-nav if a different one was saved.
   try {
     const saved = localStorage.getItem(k('pp_current_section'));
-    const valid = { summary:1, quoter:1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, settings:1 };
+    const valid = { summary:1, quoter:1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, agency:1, settings:1 };
     if (saved && valid[saved] && saved !== 'summary') nav(saved);
   } catch (e) {}
   if (typeof dsInitPlayground === 'function') dsInitPlayground();
@@ -15603,7 +15903,7 @@ async function bootDashboard() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, settings:7 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, agency:7, settings:8 };
   if (!saved || !(saved in idxMap) || saved === 'summary') return;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   const sec = document.getElementById('sec-' + saved);
