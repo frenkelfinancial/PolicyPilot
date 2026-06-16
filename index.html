@@ -621,6 +621,11 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .cmpct-fv{font-size:11px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
 .cmpct-fv a{color:var(--accent);text-decoration:none}
 .cmpct-status{width:100%;margin-bottom:6px;padding:5px 7px;font-size:11px;border-radius:7px;border:1px solid var(--border);background:var(--bg3);color:var(--text);font-family:var(--sans);outline:none;cursor:pointer}
+.cmpct-status-btn{padding:3px 7px;font-size:10px;font-weight:700;border-radius:12px;border:1px solid;font-family:var(--sans);outline:none;cursor:pointer;flex-shrink:0;appearance:none;-webkit-appearance:none;line-height:1.3;max-width:76px;background:transparent;transition:filter .13s}
+.cmpct-status-btn:hover{filter:brightness(1.15)}
+.cmpct-status-btn:focus{outline:2px solid rgba(143,194,247,.35);outline-offset:1px}
+.cmpct-notes{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text);font-family:var(--sans);font-size:10.5px;outline:none;resize:none;height:44px;margin:5px 0 4px;box-sizing:border-box;transition:border-color .14s}
+.cmpct-notes:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--ds-color-info-bg)}
 .cmpct-bottom{display:flex;align-items:center;gap:5px;margin-top:5px}
 .cmpct-actions{display:flex;gap:5px;flex:1}
 .cmpct-actions button{flex:1;padding:4px 3px;font-size:10.5px;cursor:pointer}
@@ -8755,6 +8760,10 @@ function renderLeads() {
         <div class="cmpct-hdr">
           <input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead" style="flex-shrink:0">
           <div class="cmpct-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
+          <select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb" data-lid="${lid}" style="color:${sc.color};border-color:${sc.color}55;background:${sc.bg}" title="Set status">
+            ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
+            ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
+          </select>
           <div class="cmpct-call-wrap">
             <button class="cmpct-call lead-call-btn lead-click-to-call" data-lid="${lid}" data-phone-href="${callHref}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${icon('phone',{size:11})}&thinsp;Call</button>
             ${callCount > 0 ? `<span class="lead-call-badge" style="top:-4px;right:-4px">${callCount}</span>` : ''}
@@ -8762,10 +8771,7 @@ function renderLeads() {
         </div>
         ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
         ${_pfHTML ? `<div class="cmpct-fields">${_pfHTML}</div>` : ''}
-        <select class="cmpct-status lead-disposition-sel lead-disposition-cb" data-lid="${lid}">
-          ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
-          ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
-        </select>
+        <textarea class="cmpct-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes…">${escapeHTML(lead.notes||'')}</textarea>
         <div class="cmpct-bottom">
           <div class="cmpct-actions">
             <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
