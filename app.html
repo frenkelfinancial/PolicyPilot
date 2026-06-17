@@ -5257,7 +5257,6 @@ function wizStep2Next() {
   const first = v('signup-first'), last = v('signup-last');
   const email = v('signup-email'), phone = v('signup-phone');
   const planName = v('signup-plan-name-val') || 'Selected Plan';
-  const selCard = document.querySelector('#signup-wizard .apc-plan-col.selected');
   const priceEl = selCard ? selCard.querySelector('[id^="pricing-price-"]') : null;
   const price = priceEl ? priceEl.textContent : '—';
   const set = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
