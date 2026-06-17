@@ -1515,6 +1515,180 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 /* Pricing right panel hidden by default */
 .auth-gate-right{display:none;overflow-y:auto}
 
+/* ════════════════════════════════════════════════
+   SIGNUP WIZARD — 3-step multi-page onboarding
+   ════════════════════════════════════════════════ */
+#auth-gate.signup-mode .auth-gate-wrap{display:none !important}
+#auth-gate.signup-mode>a[href="/"]{display:none !important}
+#signup-wizard{display:none;position:absolute;inset:0;z-index:5;background:var(--bg);overflow-y:auto;overflow-x:hidden}
+#auth-gate.signup-mode #signup-wizard{display:block}
+
+/* Nav */
+.swiz-nav{height:60px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 28px;gap:20px;position:sticky;top:0;z-index:20;background:rgba(7,13,26,.94);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.swiz-logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0}
+.swiz-logo img{height:32px;width:auto}
+.swiz-logo-name{font-family:var(--display);font-size:13.5px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.swiz-nav-links{display:flex;align-items:center;gap:2px;margin:0 auto}
+.swiz-nav-links a{font-size:12.5px;color:var(--text3);text-decoration:none;padding:5px 12px;border-radius:7px;transition:color .18s,background .18s;letter-spacing:-.01em}
+.swiz-nav-links a:hover{color:var(--text2);background:rgba(255,255,255,.04)}
+.swiz-signin-hint{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.swiz-signin-hint span{font-size:12.5px;color:var(--text3)}
+.swiz-signin-btn{font-size:12.5px;font-weight:600;color:var(--accent);text-decoration:none;border:1px solid rgba(143,194,247,.22);border-radius:7px;padding:5px 13px;transition:all .18s;white-space:nowrap}
+.swiz-signin-btn:hover{background:rgba(143,194,247,.07);border-color:rgba(143,194,247,.4)}
+
+/* Stepper */
+.swiz-stepper{display:flex;align-items:center;justify-content:center;padding:26px 28px 18px;gap:0}
+.swiz-step{display:flex;flex-direction:column;align-items:center;gap:6px}
+.swiz-dot{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;border:2px solid var(--border2);color:var(--text3);background:var(--bg2);transition:all .35s cubic-bezier(.16,1,.3,1);font-family:var(--mono)}
+.swiz-step.swiz-active .swiz-dot{background:var(--accent);border-color:var(--accent);color:#061222;box-shadow:0 0 0 5px rgba(143,194,247,.13)}
+.swiz-step.swiz-done .swiz-dot{background:var(--ds-color-success);border-color:var(--ds-color-success);color:#061222}
+.swiz-step-lbl{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;transition:color .3s;white-space:nowrap}
+.swiz-step.swiz-active .swiz-step-lbl{color:var(--accent)}
+.swiz-step.swiz-done .swiz-step-lbl{color:var(--ds-color-success)}
+.swiz-line{width:72px;height:2px;background:var(--border);margin:0 8px;margin-bottom:22px;border-radius:1px;position:relative;overflow:hidden}
+.swiz-line::after{content:'';position:absolute;left:0;top:0;height:100%;width:0;background:var(--accent);border-radius:1px;transition:width .55s cubic-bezier(.16,1,.3,1)}
+.swiz-line.swiz-done::after{width:100%}
+
+/* Panels */
+.swiz-panels{position:relative;min-height:calc(100vh - 210px)}
+.swiz-panel{display:none;padding:32px 24px 72px}
+.swiz-panel.swiz-panel-active{display:block;animation:swiz-in .38s cubic-bezier(.16,1,.3,1)}
+@keyframes swiz-in{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:none}}
+@keyframes swiz-in-back{from{opacity:0;transform:translateX(-32px)}to{opacity:1;transform:none}}
+.swiz-panel.swiz-panel-back{animation:swiz-in-back .38s cubic-bezier(.16,1,.3,1)}
+@media(prefers-reduced-motion:reduce){
+  .swiz-panel.swiz-panel-active,.swiz-panel.swiz-panel-back{animation:none}
+  .swiz-dot,.swiz-line::after{transition:none}
+  @keyframes swiz-shimmer{0%,100%{opacity:.8}}
+}
+
+/* ── Step 1: Your Info ── */
+.swiz-s1{max-width:560px;margin:0 auto}
+.swiz-s1-hed{font-family:var(--display);font-size:clamp(26px,3vw,38px);font-weight:800;color:var(--text);letter-spacing:-.045em;line-height:1.08;margin-bottom:6px}
+.swiz-s1-sub{font-size:14.5px;color:var(--text2);margin-bottom:32px;line-height:1.6;font-weight:400}
+.swiz-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.swiz-f{display:flex;flex-direction:column;gap:5px}
+.swiz-f label{font-size:10.5px;font-weight:700;color:var(--text3);letter-spacing:.08em;text-transform:uppercase}
+.swiz-f .opt{font-size:9.5px;text-transform:lowercase;font-style:italic;font-weight:400;letter-spacing:0}
+.swiz-f input{background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:14px;color:var(--text);font-family:var(--sans);transition:border-color .18s,box-shadow .18s;outline:none;width:100%}
+.swiz-f input::placeholder{color:var(--text3);opacity:.65}
+.swiz-f input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(143,194,247,.1)}
+.swiz-pw{position:relative}
+.swiz-pw input{padding-right:52px}
+.swiz-eye{position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:10.5px;font-weight:700;color:var(--text3);cursor:pointer;font-family:var(--sans);letter-spacing:.05em;padding:4px;transition:color .18s}
+.swiz-eye:hover{color:var(--accent)}
+.swiz-opt-lbl{font-size:11.5px;color:var(--text3);margin:12px 0 10px}
+.swiz-err{font-size:12.5px;padding:9px 13px;border-radius:8px;margin:10px 0 0;display:none;background:var(--ds-color-danger-bg);color:var(--ds-color-danger);border:1px solid rgba(224,123,123,.15)}
+.swiz-err.on{display:block}
+.swiz-err.ok{background:var(--ds-color-success-bg);color:var(--ds-color-success);border-color:rgba(92,201,167,.15)}
+.swiz-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:28px}
+.swiz-btn-p{font-family:var(--sans);font-size:14px;font-weight:700;color:#061222;background:var(--accent);border:none;border-radius:10px;padding:11px 26px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;letter-spacing:-.02em;transition:all .2s;white-space:nowrap}
+.swiz-btn-p:hover{background:var(--accent-2);box-shadow:0 8px 28px rgba(143,194,247,.22);transform:translateY(-1px)}
+.swiz-btn-p:disabled{background:var(--border2);color:var(--text3);cursor:not-allowed;box-shadow:none;transform:none}
+.swiz-btn-s{font-family:var(--sans);font-size:13.5px;font-weight:500;color:var(--text3);background:none;border:1px solid var(--border);border-radius:10px;padding:10px 20px;cursor:pointer;letter-spacing:-.01em;transition:all .18s}
+.swiz-btn-s:hover{color:var(--text2);border-color:var(--border2)}
+
+/* ── Step 2: Plan cards ── */
+.swiz-s2-head{text-align:center;margin-bottom:36px}
+.swiz-s2-hed{font-family:var(--display);font-size:clamp(24px,3vw,38px);font-weight:800;color:var(--text);letter-spacing:-.045em;margin-bottom:6px}
+.swiz-s2-sub{font-size:14.5px;color:var(--text2);line-height:1.6;font-weight:400}
+/* ── Step 2: Plan cards (dark always — hardcoded to ensure readability in any mode) ── */
+.swiz-plans{display:flex;gap:16px;align-items:stretch;max-width:1060px;margin:0 auto 32px}
+/* Card base — dark slate navy, never uses light-mode CSS vars */
+.swiz-pc{flex:1;border-radius:20px;overflow:hidden;cursor:pointer;transition:border-color .25s,box-shadow .3s;position:relative;background:linear-gradient(158deg,#111e34 0%,#080f1c 100%);border:1.5px solid rgba(90,130,200,.25);display:flex;flex-direction:column}
+.swiz-pc.swiz-pc-feat{background:linear-gradient(158deg,#0d2450 0%,#060f28 100%);border-color:rgba(143,194,247,.45)}
+.swiz-pc.swiz-pc-lead{background:linear-gradient(158deg,#1f1400 0%,#0d0900 100%);border-color:rgba(224,184,132,.42)}
+/* Hover states */
+.swiz-pc:hover{border-color:rgba(90,130,200,.55);box-shadow:0 18px 50px -14px rgba(0,0,0,.65)}
+.swiz-pc.swiz-pc-feat:hover{border-color:rgba(143,194,247,.7);box-shadow:0 0 0 1px rgba(143,194,247,.22),0 22px 60px -14px rgba(143,194,247,.22)}
+.swiz-pc.swiz-pc-lead:hover{border-color:rgba(224,184,132,.65);box-shadow:0 0 0 1px rgba(224,184,132,.18),0 22px 60px -14px rgba(224,184,132,.18)}
+/* Selected ring */
+#signup-wizard .apc-plan-col.selected{box-shadow:0 0 0 2.5px #8FC2F7,0 18px 50px -10px rgba(143,194,247,.28) !important;border-color:#8FC2F7 !important}
+#signup-wizard .apc-plan-col.selected.swiz-pc-lead{box-shadow:0 0 0 2.5px #E0B884,0 18px 50px -10px rgba(224,184,132,.22) !important;border-color:#E0B884 !important}
+/* Top accent bar */
+.swiz-pc-bar{height:3px;flex-shrink:0}
+.swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-bar{background:linear-gradient(90deg,rgba(90,140,220,.35),rgba(110,160,250,.6),rgba(90,140,220,.35))}
+.swiz-pc.swiz-pc-feat .swiz-pc-bar{background:linear-gradient(90deg,transparent,#8FC2F7 35%,#b4d6ff 65%,transparent);animation:swiz-shimmer 2.8s ease-in-out infinite}
+.swiz-pc.swiz-pc-lead .swiz-pc-bar{background:linear-gradient(90deg,transparent,#E0B884 35%,rgba(224,184,132,.55) 65%,transparent)}
+@keyframes swiz-shimmer{0%,100%{opacity:.45}50%{opacity:1}}
+/* Badge row */
+.swiz-pc-badges{height:28px;display:flex;align-items:center;justify-content:center;padding-top:6px;flex-shrink:0}
+.swiz-bdg{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-radius:20px;padding:3px 11px;border:1px solid}
+.swiz-bdg.pop{color:#8FC2F7;background:rgba(143,194,247,.13);border-color:rgba(143,194,247,.3)}
+.swiz-bdg.lead{color:#E0B884;background:rgba(224,184,132,.11);border-color:rgba(224,184,132,.28)}
+/* Plan header — all white text on dark bg */
+.swiz-pc-head{padding:12px 22px 14px;text-align:center;flex-shrink:0}
+.swiz-pc-tier{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);margin-bottom:5px}
+.swiz-pc.swiz-pc-feat .swiz-pc-tier{color:#8FC2F7}
+.swiz-pc.swiz-pc-lead .swiz-pc-tier{color:#E0B884}
+.swiz-pc-name{font-family:var(--display);font-size:22px;font-weight:800;color:#fff;letter-spacing:-.04em;line-height:1.05;margin-bottom:11px}
+.swiz-pc-price{font-family:var(--display);font-size:32px;font-weight:800;color:#fff;letter-spacing:-.05em;line-height:1}
+.swiz-pc-per{font-size:11px;color:rgba(255,255,255,.36);margin-top:4px}
+/* Divider */
+.swiz-pc-div{height:1px;margin:13px 22px;background:rgba(255,255,255,.08);flex-shrink:0}
+.swiz-pc.swiz-pc-feat .swiz-pc-div{background:rgba(143,194,247,.16)}
+.swiz-pc.swiz-pc-lead .swiz-pc-div{background:rgba(224,184,132,.16)}
+/* Feature list — flex:1 so CTA sticks to bottom */
+.swiz-pc-feats{padding:0 20px;display:flex;flex-direction:column;gap:6px;margin-bottom:16px;flex:1}
+.swiz-pf{font-size:12px;color:rgba(255,255,255,.82);display:flex;align-items:center;gap:8px;line-height:1.3}
+.swiz-pf svg{flex-shrink:0;width:13px;height:13px}
+.swiz-pf.on svg{color:#5CC9A7}
+.swiz-pf.off{color:rgba(255,255,255,.28)}
+.swiz-pf.off svg{color:rgba(255,255,255,.18)}
+/* CTA button */
+.swiz-pc-cta{display:block;width:calc(100% - 44px);margin:auto 22px 22px;padding:11px 0;border-radius:10px;font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;text-align:center;transition:all .2s;letter-spacing:-.02em;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:rgba(255,255,255,.9)}
+.swiz-pc.swiz-pc-feat .swiz-pc-cta{background:#8FC2F7;color:#061222;border-color:transparent}
+.swiz-pc.swiz-pc-lead .swiz-pc-cta{border-color:rgba(224,184,132,.42);background:rgba(224,184,132,.1);color:#E0B884}
+#signup-wizard .apc-plan-col.selected .swiz-pc-cta{background:#8FC2F7 !important;color:#061222 !important;border-color:transparent !important}
+#signup-wizard .apc-plan-col.selected.swiz-pc-lead .swiz-pc-cta{background:#E0B884 !important;color:#0a0800 !important;border-color:transparent !important}
+.swiz-pc-cta:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35)}
+.swiz-pc.swiz-pc-feat .swiz-pc-cta:hover{background:#a8d4ff;border-color:transparent}
+.swiz-pc.swiz-pc-lead .swiz-pc-cta:hover{background:rgba(224,184,132,.18);border-color:rgba(224,184,132,.55)}
+.swiz-2-nav{display:flex;align-items:center;justify-content:center;gap:14px;padding:0 24px 8px}
+
+/* ── Step 3: Confirm ── */
+.swiz-s3{max-width:640px;margin:0 auto}
+.swiz-s3-hed{font-family:var(--display);font-size:clamp(24px,3vw,36px);font-weight:800;color:var(--text);letter-spacing:-.045em;margin-bottom:6px}
+.swiz-s3-sub{font-size:14.5px;color:var(--text2);margin-bottom:28px;line-height:1.6;font-weight:400}
+.swiz-plan-summ{background:linear-gradient(135deg,var(--bg2) 0%,rgba(143,194,247,.03) 100%);border:1px solid rgba(143,194,247,.18);border-radius:14px;padding:18px 20px;display:flex;align-items:center;gap:14px;margin-bottom:18px}
+.swiz-plan-summ-ico{width:40px;height:40px;border-radius:10px;background:rgba(143,194,247,.08);border:1px solid rgba(143,194,247,.16);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.swiz-plan-summ-ico svg{width:20px;height:20px;color:var(--accent)}
+.swiz-plan-summ-name{font-family:var(--display);font-size:16px;font-weight:800;color:var(--text);letter-spacing:-.03em}
+.swiz-plan-summ-price{font-size:12.5px;color:var(--text3);margin-top:2px}
+.swiz-plan-summ-price span{color:var(--accent);font-weight:600}
+.swiz-confirm-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+.swiz-cbox{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:18px}
+.swiz-cbox-ttl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:12px}
+.swiz-crow{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;font-size:12.5px}
+.swiz-crow:last-child{margin-bottom:0}
+.swiz-crow-k{color:var(--text3)}
+.swiz-crow-v{color:var(--text);font-weight:500;text-align:right;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.swiz-crow-v.good{color:var(--ds-color-success)}
+.swiz-submit-btn{width:100%;font-family:var(--sans);font-size:14.5px;font-weight:700;color:#061222;background:var(--accent);border:none;border-radius:11px;padding:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.02em;transition:all .2s;margin-bottom:12px}
+.swiz-submit-btn:hover{background:var(--accent-2);box-shadow:0 8px 32px rgba(143,194,247,.28);transform:translateY(-1px)}
+.swiz-submit-btn:disabled{background:var(--border);color:var(--text3);cursor:not-allowed;transform:none;box-shadow:none}
+.swiz-stripe-note{text-align:center;font-size:11px;color:var(--text3);display:flex;align-items:center;justify-content:center;gap:5px}
+.swiz-stripe-note svg{width:12px;height:12px;flex-shrink:0;opacity:.6}
+
+/* Responsive */
+@media(max-width:860px){
+  .swiz-nav-links{display:none}
+  .swiz-signin-hint span{display:none}
+  .swiz-plans{flex-direction:column;align-items:stretch}
+  .swiz-pc-name{font-size:20px}
+  .swiz-pc-price{font-size:28px}
+}
+@media(max-width:600px){
+  .swiz-grid{grid-template-columns:1fr}
+  .swiz-confirm-grid{grid-template-columns:1fr}
+  .swiz-line{width:40px}
+}
+@media(max-width:420px){
+  .swiz-step-lbl{display:none}
+  .swiz-line{width:24px}
+  .swiz-nav{padding:0 16px}
+}
+
 /* ── Pricing panel ── */
 .auth-pricing-hero{text-align:center;margin-bottom:28px}
 .auth-pricing-eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.22em;color:#5BA0E8;margin-bottom:10px}
@@ -2413,26 +2587,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
 
     <div class="auth-view" id="view-signup">
-      <div class="auth-field-row">
-        <div class="auth-field"><label>First Name</label><input type="text" id="signup-first" autocomplete="given-name" placeholder="Jane"></div>
-        <div class="auth-field"><label>Last Name</label><input type="text" id="signup-last" autocomplete="family-name" placeholder="Smith"></div>
-      </div>
-      <div class="auth-field-row">
-        <div class="auth-field"><label>Phone</label><input type="tel" id="signup-phone" autocomplete="tel" placeholder="(555) 000-0000"></div>
-        <div class="auth-field"><label>Email</label><input type="email" id="signup-email" autocomplete="email"></div>
-      </div>
-      <div class="auth-field-row">
-        <div class="auth-field"><label>Password</label><div class="auth-pw-wrap"><input type="password" id="signup-pw" autocomplete="new-password" minlength="8"><button type="button" class="auth-pw-toggle" onclick="togglePw('signup-pw',this)" tabindex="-1">Show</button></div></div>
-        <div class="auth-field"><label>Confirm</label><div class="auth-pw-wrap"><input type="password" id="signup-pw2" autocomplete="new-password" minlength="8"><button type="button" class="auth-pw-toggle" onclick="togglePw('signup-pw2',this)" tabindex="-1">Show</button></div></div>
-      </div>
-      <div class="auth-field-row">
-        <div class="auth-field"><label>NPN <span class="auth-field-optional">(optional)</span></label><input type="text" id="signup-npn" autocomplete="off" placeholder="e.g. 12345678"></div>
-        <div class="auth-field"><label>Agency Code <span class="auth-field-optional">(optional)</span></label><input type="text" id="signup-agency-code" autocomplete="off" placeholder="Your leader's code"></div>
-      </div>
-      <input type="hidden" id="signup-plan-id" value="">
-      <input type="hidden" id="signup-plan-name-val" value="">
-      <p style="font-size:12px;color:#7A92B3;text-align:center;margin:10px 0 12px">Select a plan on the right, then click below.</p>
-      <button class="auth-submit" onclick="authSignUp()">Create account &amp; subscribe</button>
+      <!-- Fields moved to #signup-wizard; kept empty for tab-system compatibility -->
     </div>
 
     <div class="auth-view" id="view-reset">
@@ -2442,7 +2597,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     </div>
   </div>
   </div><!-- /.auth-gate-left -->
-  <div class="auth-gate-right" id="auth-pricing-panel">
+  <div class="auth-gate-right" id="auth-pricing-panel-legacy">
     <div class="auth-pricing-dark-top">
       <div class="auth-pricing-dark-eyebrow">All-in-one Insurance CRM</div>
       <div class="auth-pricing-dark-title">The Only Tool <em>You'll Ever Need.</em></div>
@@ -2542,6 +2697,278 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   </div><!-- /.auth-pricing-body -->
   </div><!-- /.auth-gate-right -->
   </div><!-- /.auth-gate-wrap -->
+
+  <!-- ═══ SIGNUP WIZARD ═══════════════════════════ -->
+  <div id="signup-wizard">
+
+    <!-- Nav bar -->
+    <nav class="swiz-nav">
+      <a href="/" class="swiz-logo">
+        <img src="assets/logos/producer-stack-logo.png" alt="Producer Stack">
+        <span class="swiz-logo-name">Producer Stack</span>
+      </a>
+      <div class="swiz-nav-links">
+        <a href="features.html">Features</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="support.html">Support</a>
+      </div>
+      <div class="swiz-signin-hint">
+        <span>Already have an account?</span>
+        <a href="javascript:void(0)" class="swiz-signin-btn" onclick="authShowView('signin')">Sign In</a>
+      </div>
+    </nav>
+
+    <!-- Stepper -->
+    <div class="swiz-stepper">
+      <div class="swiz-step swiz-active" id="wiz-st-1">
+        <div class="swiz-dot" id="wiz-dot-1">1</div>
+        <span class="swiz-step-lbl">Your Info</span>
+      </div>
+      <div class="swiz-line" id="wiz-line-1"></div>
+      <div class="swiz-step" id="wiz-st-2">
+        <div class="swiz-dot" id="wiz-dot-2">2</div>
+        <span class="swiz-step-lbl">Choose Plan</span>
+      </div>
+      <div class="swiz-line" id="wiz-line-2"></div>
+      <div class="swiz-step" id="wiz-st-3">
+        <div class="swiz-dot" id="wiz-dot-3">3</div>
+        <span class="swiz-step-lbl">Confirm</span>
+      </div>
+    </div>
+
+    <!-- Panels -->
+    <div class="swiz-panels">
+
+      <!-- ── STEP 1: Your Info ── -->
+      <div class="swiz-panel swiz-panel-active" id="wiz-panel-1">
+        <div class="swiz-s1">
+          <h2 class="swiz-s1-hed">Tell us about you.</h2>
+          <p class="swiz-s1-sub">Set up your Producer Stack account in under 60 seconds.</p>
+          <div class="swiz-grid">
+            <div class="swiz-f">
+              <label for="signup-first">First Name</label>
+              <input type="text" id="signup-first" autocomplete="given-name" placeholder="Jane">
+            </div>
+            <div class="swiz-f">
+              <label for="signup-last">Last Name</label>
+              <input type="text" id="signup-last" autocomplete="family-name" placeholder="Smith">
+            </div>
+          </div>
+          <div class="swiz-grid">
+            <div class="swiz-f">
+              <label for="signup-phone">Phone</label>
+              <input type="tel" id="signup-phone" autocomplete="tel" placeholder="(555) 000-0000">
+            </div>
+            <div class="swiz-f">
+              <label for="signup-email">Email</label>
+              <input type="email" id="signup-email" autocomplete="email" placeholder="you@example.com">
+            </div>
+          </div>
+          <div class="swiz-grid">
+            <div class="swiz-f">
+              <label for="signup-pw">Password</label>
+              <div class="swiz-pw">
+                <input type="password" id="signup-pw" autocomplete="new-password" minlength="8" placeholder="8+ characters">
+                <button type="button" class="swiz-eye" onclick="wizEye('signup-pw',this)">Show</button>
+              </div>
+            </div>
+            <div class="swiz-f">
+              <label for="signup-pw2">Confirm Password</label>
+              <div class="swiz-pw">
+                <input type="password" id="signup-pw2" autocomplete="new-password" minlength="8" placeholder="Match above">
+                <button type="button" class="swiz-eye" onclick="wizEye('signup-pw2',this)">Show</button>
+              </div>
+            </div>
+          </div>
+          <p class="swiz-opt-lbl">Optional — helps your team leader track production:</p>
+          <div class="swiz-grid">
+            <div class="swiz-f">
+              <label for="signup-npn">NPN <span class="opt">(optional)</span></label>
+              <input type="text" id="signup-npn" autocomplete="off" placeholder="e.g. 12345678">
+            </div>
+            <div class="swiz-f">
+              <label for="signup-agency-code">Agency Code <span class="opt">(optional)</span></label>
+              <input type="text" id="signup-agency-code" autocomplete="off" placeholder="Your leader's code">
+            </div>
+          </div>
+          <div class="swiz-err" id="wiz-err-1"></div>
+          <div class="swiz-actions">
+            <button class="swiz-btn-p" onclick="wizStep1Next()">
+              Choose Your Plan
+              <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── STEP 2: Choose Plan ── -->
+      <div class="swiz-panel" id="wiz-panel-2">
+        <div id="auth-pricing-panel">
+          <div class="swiz-s2-head">
+            <h2 class="swiz-s2-hed">Pick your plan.</h2>
+            <p class="swiz-s2-sub">Every plan includes a free trial. Upgrade or cancel any time.</p>
+          </div>
+
+          <div class="swiz-plans" id="swiz-plan-table">
+
+
+            <!-- ── BASIC PRODUCER ── -->
+            <div class="swiz-pc apc-plan-col" id="pricing-col-basic" data-tier="basic" data-plan-name="Basic Producer" onclick="wizSelectPlan(this)">
+              <div class="swiz-pc-bar"></div>
+              <div class="swiz-pc-badges"></div>
+              <div class="swiz-pc-head">
+                <div class="swiz-pc-tier">Individual</div>
+                <div class="swiz-pc-name">Basic Producer</div>
+                <div class="swiz-pc-price" id="pricing-price-basic">$89.99/mo</div>
+                <div class="swiz-pc-per">billed monthly</div>
+              </div>
+              <div class="swiz-pc-div"></div>
+              <div class="swiz-pc-feats">
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Policy Tracker</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Lead Management</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>250 Quotes / mo</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>200 AI Underwriter / mo</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Activity Dashboard</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Calendar Integration</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Cloud VoIP Softphone</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Local ID</div>
+                <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Bonus Tracker</div>
+                <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Power Dialer</div>
+                <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Advanced Analytics</div>
+                <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Agency Management</div>
+                <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Team Access</div>
+                <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Priority Support</div>
+              </div>
+              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Select Basic</button>
+            </div>
+
+            <!-- ── PRO PRODUCER ── -->
+            <div class="swiz-pc swiz-pc-feat apc-plan-col" id="pricing-col-pro" data-tier="pro" data-plan-name="Pro Producer" onclick="wizSelectPlan(this)">
+              <div class="swiz-pc-bar"></div>
+              <div class="swiz-pc-badges"><span class="swiz-bdg pop">Most Popular</span></div>
+              <div class="swiz-pc-head">
+                <div class="swiz-pc-tier">Top Producers</div>
+                <div class="swiz-pc-name">Pro Producer</div>
+                <div class="swiz-pc-price" id="pricing-price-pro">$149.99/mo</div>
+                <div class="swiz-pc-per">billed monthly</div>
+              </div>
+              <div class="swiz-pc-div"></div>
+              <div class="swiz-pc-feats">
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Policy Tracker</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Lead Management</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>500 Quotes / mo</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>500 AI Underwriter / mo</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Activity Dashboard</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Calendar Integration</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Cloud VoIP Softphone</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Local ID</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Bonus Tracker</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Power Dialer</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Advanced Analytics</div>
+                <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Agency Management</div>
+                <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Team Access</div>
+                <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Priority Support</div>
+              </div>
+              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Select Pro</button>
+            </div>
+
+            <!-- ── TEAM LEADER ── -->
+            <div class="swiz-pc swiz-pc-lead apc-plan-col" id="pricing-col-leader" data-tier="leader" data-plan-name="Team Leader" onclick="wizSelectPlan(this)">
+              <div class="swiz-pc-bar"></div>
+              <div class="swiz-pc-badges"><span class="swiz-bdg lead">Agency Leader</span></div>
+              <div class="swiz-pc-head">
+                <div class="swiz-pc-tier">Agency Leaders</div>
+                <div class="swiz-pc-name">Team Leader</div>
+                <div class="swiz-pc-price" id="pricing-price-leader">$249.99/mo</div>
+                <div class="swiz-pc-per">billed monthly</div>
+              </div>
+              <div class="swiz-pc-div"></div>
+              <div class="swiz-pc-feats">
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Policy Tracker</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Lead Management</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>1,000 Quotes / mo</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Unlimited AI Underwriter</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Activity Dashboard</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Calendar Integration</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Cloud VoIP Softphone</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Local ID</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Bonus Tracker</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Power Dialer</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Advanced Analytics</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Agency Management</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Team Access</div>
+                <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Priority Support</div>
+              </div>
+              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Select Leader</button>
+            </div>
+
+          </div><!-- /.swiz-plans -->
+
+          <div class="swiz-err" id="wiz-err-2" style="max-width:480px;margin:0 auto 16px"></div>
+          <div class="swiz-2-nav">
+            <button class="swiz-btn-s" onclick="wizGoTo(1,true)">← Back</button>
+            <button class="swiz-btn-p" onclick="wizStep2Next()">
+              Continue
+              <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── STEP 3: Confirm ── -->
+      <div class="swiz-panel" id="wiz-panel-3">
+        <div class="swiz-s3">
+          <h2 class="swiz-s3-hed">You're almost in.</h2>
+          <p class="swiz-s3-sub">Review your details — then we'll create your account and take you to secure payment.</p>
+
+          <div class="swiz-plan-summ">
+            <div class="swiz-plan-summ-ico">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div>
+              <div class="swiz-plan-summ-name" id="wiz-conf-plan-name">—</div>
+              <div class="swiz-plan-summ-price">Starting at <span id="wiz-conf-plan-price">—</span> · free trial included</div>
+            </div>
+          </div>
+
+          <div class="swiz-confirm-grid">
+            <div class="swiz-cbox">
+              <div class="swiz-cbox-ttl">Your Account</div>
+              <div class="swiz-crow"><span class="swiz-crow-k">Name</span><span class="swiz-crow-v" id="wiz-conf-name">—</span></div>
+              <div class="swiz-crow"><span class="swiz-crow-k">Email</span><span class="swiz-crow-v" id="wiz-conf-email">—</span></div>
+              <div class="swiz-crow"><span class="swiz-crow-k">Phone</span><span class="swiz-crow-v" id="wiz-conf-phone">—</span></div>
+            </div>
+            <div class="swiz-cbox">
+              <div class="swiz-cbox-ttl">What's Included</div>
+              <div class="swiz-crow"><span class="swiz-crow-k">Free Trial</span><span class="swiz-crow-v good">✓ Included</span></div>
+              <div class="swiz-crow"><span class="swiz-crow-k">Setup Fee</span><span class="swiz-crow-v good">None</span></div>
+              <div class="swiz-crow"><span class="swiz-crow-k">Cancel Anytime</span><span class="swiz-crow-v good">✓</span></div>
+            </div>
+          </div>
+
+          <!-- Hidden inputs for authSignUp() compatibility -->
+          <input type="hidden" id="signup-plan-id" value="">
+          <input type="hidden" id="signup-plan-name-val" value="">
+
+          <div class="swiz-err" id="wiz-err-3"></div>
+          <button class="swiz-submit-btn" id="wiz-submit-btn" onclick="wizSubmit()">
+            <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Create Account &amp; Continue to Payment
+          </button>
+          <div class="swiz-stripe-note">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Secured by Stripe · Your card is never stored on our servers
+          </div>
+          <div style="text-align:center;margin-top:20px">
+            <button class="swiz-btn-s" onclick="wizGoTo(2,true)">← Change Plan</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /.swiz-panels -->
+  </div><!-- /#signup-wizard -->
+
 </div>
 
 <!-- PLAN REQUIRED OVERLAY - shown after login when agent has no plan -->
@@ -4686,6 +5113,160 @@ function authShowView(view) {
     };
     tryShow();
   }
+})();
+
+/* ═══════════════════════════════════════════════════════
+   SIGNUP WIZARD JS
+   ═══════════════════════════════════════════════════════ */
+let _wizStep = 1;
+
+function wizGoTo(step, isBack) {
+  const prev = _wizStep;
+  if (step === prev) return;
+  const prevPanel = document.getElementById('wiz-panel-' + prev);
+  const nextPanel = document.getElementById('wiz-panel-' + step);
+  if (!prevPanel || !nextPanel) return;
+
+  prevPanel.classList.remove('swiz-panel-active','swiz-panel-back');
+  nextPanel.classList.remove('swiz-panel-active','swiz-panel-back');
+  prevPanel.style.display = 'none';
+  nextPanel.style.display = 'block';
+  // Trigger animation on next frame
+  requestAnimationFrame(() => {
+    nextPanel.classList.add('swiz-panel-active');
+    if (isBack) nextPanel.classList.add('swiz-panel-back');
+  });
+
+  _wizStep = step;
+  _wizUpdateStepper(step);
+
+  // Scroll to top
+  const wiz = document.getElementById('signup-wizard');
+  if (wiz) wiz.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function _wizUpdateStepper(step) {
+  const checkSvg = '<svg width="12" height="12" fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  [1,2,3].forEach(n => {
+    const st = document.getElementById('wiz-st-' + n);
+    const dot = document.getElementById('wiz-dot-' + n);
+    if (!st || !dot) return;
+    st.classList.remove('swiz-active','swiz-done');
+    if (n < step) { st.classList.add('swiz-done'); dot.innerHTML = checkSvg; }
+    else if (n === step) { st.classList.add('swiz-active'); dot.textContent = n; }
+    else { dot.textContent = n; }
+  });
+  [1,2].forEach(n => {
+    const line = document.getElementById('wiz-line-' + n);
+    if (line) line.classList.toggle('swiz-done', n < step);
+  });
+}
+
+function _wizErr(n, msg) {
+  const el = document.getElementById('wiz-err-' + n);
+  if (!el) return;
+  el.textContent = msg || '';
+  el.classList.toggle('on', !!msg);
+}
+
+function wizEye(id, btn) {
+  const inp = document.getElementById(id);
+  if (!inp) return;
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.textContent = show ? 'Hide' : 'Show';
+}
+
+function wizStep1Next() {
+  _wizErr(1, '');
+  const v = id => (document.getElementById(id) || {}).value || '';
+  const first = v('signup-first').trim(), last = v('signup-last').trim();
+  const phone = v('signup-phone').trim(), email = v('signup-email').trim();
+  const pw = v('signup-pw'), pw2 = v('signup-pw2');
+  if (!first)       return _wizErr(1, 'First name is required.');
+  if (!last)        return _wizErr(1, 'Last name is required.');
+  if (!phone)       return _wizErr(1, 'Phone number is required.');
+  if (!email)       return _wizErr(1, 'Email is required.');
+  if (!pw)          return _wizErr(1, 'Password is required.');
+  if (pw.length<8)  return _wizErr(1, 'Password must be at least 8 characters.');
+  if (pw !== pw2)   return _wizErr(1, 'Passwords do not match.');
+  wizGoTo(2);
+}
+
+function wizSelectPlan(el) {
+  document.querySelectorAll('#signup-wizard .apc-plan-col').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const hidId = document.getElementById('signup-plan-id');
+  const hidNm = document.getElementById('signup-plan-name-val');
+  if (hidId) hidId.value = el.dataset.planId || el.dataset.tier || '_sel_';
+  if (hidNm) hidNm.value = el.dataset.planName || '';
+  _wizErr(2, '');
+}
+
+function wizStep2Next() {
+  const planId = (document.getElementById('signup-plan-id') || {}).value || '';
+  if (!planId) return _wizErr(2, 'Please select a plan to continue.');
+  // Populate step 3 confirm panel
+  const v = id => ((document.getElementById(id) || {}).value || '').trim();
+  const first = v('signup-first'), last = v('signup-last');
+  const email = v('signup-email'), phone = v('signup-phone');
+  const planName = v('signup-plan-name-val') || 'Selected Plan';
+  const selCard = document.querySelector('#signup-wizard .apc-plan-col.selected');
+  const priceEl = selCard ? selCard.querySelector('[id^="pricing-price-"]') : null;
+  const price = priceEl ? priceEl.textContent : '—';
+  const set = (id, val) => { const e = document.getElementById(id); if (e) e.textContent = val; };
+  set('wiz-conf-name',       first + ' ' + last);
+  set('wiz-conf-email',      email);
+  set('wiz-conf-phone',      phone);
+  set('wiz-conf-plan-name',  planName);
+  set('wiz-conf-plan-price', price);
+  wizGoTo(3);
+}
+
+async function wizSubmit() {
+  const btn = document.getElementById('wiz-submit-btn');
+  _wizErr(3, '');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating your account…'; }
+  await authSignUp();
+  // authSignUp shows its own errors via authMsg (patched below) or redirects
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Create Account &amp; Continue to Payment';
+  }
+}
+
+// Mirror authMsg errors into the wizard when wizard is active
+(function(){
+  const orig = window.authMsg;
+  window.authMsg = function(text, kind) {
+    orig(text, kind);
+    const gate = document.getElementById('auth-gate');
+    if (gate && gate.classList.contains('signup-mode') && _wizStep === 3 && text) {
+      const el = document.getElementById('wiz-err-3');
+      if (el) { el.textContent = text; el.classList.add('on'); if (kind==='ok') el.classList.add('ok'); }
+    }
+  };
+})();
+
+// Redirect legacy selectPricingPlan calls (from authLoadSignupPlans) to wizard handler
+window.selectPricingPlan = wizSelectPlan;
+
+// Reset wizard to step 1 when switching to signup view
+(function(){
+  const orig = window.authShowView;
+  window.authShowView = function(view) {
+    orig(view);
+    if (view === 'signup') {
+      _wizStep = 1;
+      document.querySelectorAll('.swiz-panel').forEach((p, i) => {
+        p.style.display = i === 0 ? 'block' : 'none';
+        p.classList.remove('swiz-panel-active','swiz-panel-back');
+        if (i === 0) p.classList.add('swiz-panel-active');
+      });
+      _wizUpdateStepper(1);
+      [1,2,3].forEach(n => _wizErr(n,''));
+    }
+  };
 })();
 
 function initFeatCarousel() {
