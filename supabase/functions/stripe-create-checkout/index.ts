@@ -141,6 +141,7 @@ serve(async (req) => {
     [`subscription_data[metadata][supabase_user_id]`]: user.id,
     [`subscription_data[metadata][plan_id]`]:          plan.id,
     [`subscription_data[metadata][area_code]`]:        areaCode,
+    "subscription_data[trial_period_days]":            "7",
   });
 
   if (agent?.stripe_customer_id) {

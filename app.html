@@ -1616,6 +1616,11 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .swiz-bdg{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;border-radius:20px;padding:3px 11px;border:1px solid}
 .swiz-bdg.pop{color:#8FC2F7;background:rgba(143,194,247,.13);border-color:rgba(143,194,247,.3)}
 .swiz-bdg.lead{color:#E0B884;background:rgba(224,184,132,.11);border-color:rgba(224,184,132,.28)}
+.swiz-bdg.trial{color:#4ade80;background:rgba(74,222,128,.12);border-color:rgba(74,222,128,.3)}
+.swiz-trial-strip{background:linear-gradient(90deg,rgba(74,222,128,.06) 0%,rgba(74,222,128,.13) 50%,rgba(74,222,128,.06) 100%);border:1px solid rgba(74,222,128,.22);border-radius:12px;padding:11px 22px;text-align:center;margin:0 auto 26px;max-width:700px;font-size:12.5px;font-weight:600;color:rgba(255,255,255,.82);display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap}
+.swiz-trial-dot{width:3px;height:3px;border-radius:50%;background:rgba(74,222,128,.4);flex-shrink:0}
+.swiz-trial-ico{color:#4ade80;display:flex;align-items:center}
+.swiz-pc-trial{font-size:10.5px;font-weight:600;color:#4ade80;margin-top:6px;letter-spacing:.01em}
 /* Plan header — all white text on dark bg */
 .swiz-pc-head{padding:12px 22px 14px;text-align:center;flex-shrink:0}
 .swiz-pc-tier{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.38);margin-bottom:5px}
@@ -2662,8 +2667,9 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <div class="auth-pricing-dark-top">
       <div class="auth-pricing-dark-eyebrow">All-in-one Insurance CRM</div>
       <div class="auth-pricing-dark-title">The Only Tool <em>You'll Ever Need.</em></div>
-      <div class="auth-pricing-dark-sub">Manage your entire book of business — from first dial to final close — without juggling multiple apps.</div>
+      <div class="auth-pricing-dark-sub">Manage your entire book of business — from first dial to final close — without juggling multiple apps. <strong style="color:#4ade80">Try free for 7 days.</strong></div>
       <div class="auth-pricing-dark-chips">
+        <span class="auth-pricing-dark-chip" style="color:#4ade80;background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.28)">7-Day Free Trial</span>
         <span class="auth-pricing-dark-chip">AI Underwriting</span>
         <span class="auth-pricing-dark-chip">Power Dialer</span>
         <span class="auth-pricing-dark-chip">Lead Management</span>
@@ -2672,7 +2678,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
       </div>
     </div>
     <div class="auth-pricing-body">
-    <div class="auth-pricing-plans-label">Select a plan to get started</div>
+    <div class="auth-pricing-plans-label">7-day free trial · Select a plan to get started</div>
     <div class="auth-pricing-table">
       <div class="apc-features-col">
         <div class="apc-feat-header">Features</div>
@@ -2868,21 +2874,32 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <div id="auth-pricing-panel">
           <div class="swiz-s2-head">
             <h2 class="swiz-s2-hed">Pick your plan.</h2>
-            <p class="swiz-s2-sub">Every plan includes a free trial. Upgrade or cancel any time.</p>
+            <p class="swiz-s2-sub">Start with a <strong style="color:#4ade80">7-day free trial</strong> on every plan — no charge until day 8. Cancel anytime.</p>
           </div>
 
+          <div class="swiz-trial-strip">
+            <span class="swiz-trial-ico"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            <span>7-day free trial on every plan</span>
+            <span class="swiz-trial-dot"></span>
+            <span>No charge until day 8</span>
+            <span class="swiz-trial-dot"></span>
+            <span>Cancel anytime</span>
+            <span class="swiz-trial-dot"></span>
+            <span>No setup fees</span>
+          </div>
           <div class="swiz-plans" id="swiz-plan-table">
 
 
             <!-- ── BASIC PRODUCER ── -->
             <div class="swiz-pc apc-plan-col" id="pricing-col-basic" data-tier="basic" data-plan-name="Basic Producer" onclick="wizSelectPlan(this)">
               <div class="swiz-pc-bar"></div>
-              <div class="swiz-pc-badges"></div>
+              <div class="swiz-pc-badges"><span class="swiz-bdg trial">7-Day Free Trial</span></div>
               <div class="swiz-pc-head">
                 <div class="swiz-pc-tier">Individual</div>
                 <div class="swiz-pc-name">Basic Producer</div>
                 <div class="swiz-pc-price" id="pricing-price-basic">$89.99/mo</div>
-                <div class="swiz-pc-per">billed monthly</div>
+                <div class="swiz-pc-per">billed monthly after trial</div>
+                <div class="swiz-pc-trial">Free for 7 days</div>
               </div>
               <div class="swiz-pc-div"></div>
               <div class="swiz-pc-feats">
@@ -2901,7 +2918,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
                 <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Team Access</div>
                 <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Priority Support</div>
               </div>
-              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Select Basic</button>
+              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Start Free Trial</button>
             </div>
 
             <!-- ── PRO PRODUCER ── -->
@@ -2912,7 +2929,8 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
                 <div class="swiz-pc-tier">Top Producers</div>
                 <div class="swiz-pc-name">Pro Producer</div>
                 <div class="swiz-pc-price" id="pricing-price-pro">$149.99/mo</div>
-                <div class="swiz-pc-per">billed monthly</div>
+                <div class="swiz-pc-per">billed monthly after trial</div>
+                <div class="swiz-pc-trial">Free for 7 days</div>
               </div>
               <div class="swiz-pc-div"></div>
               <div class="swiz-pc-feats">
@@ -2931,7 +2949,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
                 <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Team Access</div>
                 <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Priority Support</div>
               </div>
-              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Select Pro</button>
+              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Start Free Trial</button>
             </div>
 
             <!-- ── TEAM LEADER ── -->
@@ -2942,7 +2960,8 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
                 <div class="swiz-pc-tier">Agency Leaders</div>
                 <div class="swiz-pc-name">Team Leader</div>
                 <div class="swiz-pc-price" id="pricing-price-leader">$249.99/mo</div>
-                <div class="swiz-pc-per">billed monthly</div>
+                <div class="swiz-pc-per">billed monthly after trial</div>
+                <div class="swiz-pc-trial">Free for 7 days</div>
               </div>
               <div class="swiz-pc-div"></div>
               <div class="swiz-pc-feats">
@@ -2961,7 +2980,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
                 <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Team Access</div>
                 <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Priority Support</div>
               </div>
-              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Select Leader</button>
+              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Start Free Trial</button>
             </div>
 
           </div><!-- /.swiz-plans -->
@@ -2981,7 +3000,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
       <div class="swiz-panel" id="wiz-panel-3">
         <div class="swiz-s3">
           <h2 class="swiz-s3-hed">You're almost in.</h2>
-          <p class="swiz-s3-sub">Review your details — then we'll create your account and take you to secure payment.</p>
+          <p class="swiz-s3-sub">Review your details — then we'll create your account. <strong style="color:#4ade80">Your 7-day free trial starts today.</strong> No charge until day 8.</p>
 
           <div class="swiz-plan-summ">
             <div class="swiz-plan-summ-ico">
@@ -2989,7 +3008,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
             </div>
             <div>
               <div class="swiz-plan-summ-name" id="wiz-conf-plan-name">—</div>
-              <div class="swiz-plan-summ-price">Starting at <span id="wiz-conf-plan-price">—</span> · free trial included</div>
+              <div class="swiz-plan-summ-price">7-day free trial · then <span id="wiz-conf-plan-price">—</span>/mo</div>
             </div>
           </div>
 
@@ -3002,7 +3021,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
             </div>
             <div class="swiz-cbox">
               <div class="swiz-cbox-ttl">What's Included</div>
-              <div class="swiz-crow"><span class="swiz-crow-k">Free Trial</span><span class="swiz-crow-v good">✓ Included</span></div>
+              <div class="swiz-crow"><span class="swiz-crow-k">7-Day Free Trial</span><span class="swiz-crow-v good">✓ Starts today</span></div>
               <div class="swiz-crow"><span class="swiz-crow-k">Setup Fee</span><span class="swiz-crow-v good">None</span></div>
               <div class="swiz-crow"><span class="swiz-crow-k">Cancel Anytime</span><span class="swiz-crow-v good">✓</span></div>
             </div>
@@ -3015,11 +3034,11 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <div class="swiz-err" id="wiz-err-3"></div>
           <button class="swiz-submit-btn" id="wiz-submit-btn" onclick="wizSubmit()">
             <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Create Account &amp; Continue to Payment
+            Start My Free Trial
           </button>
           <div class="swiz-stripe-note" id="wiz-stripe-note">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Secured by Stripe · Your card is never stored on our servers
+            Secured by Stripe · Free for 7 days · No charge until day 8 · Cancel anytime
           </div>
           <!-- Stripe popup payment waiting state — shown while the payment popup is open -->
           <div id="wiz-stripe-popup-state" style="display:none">
@@ -17772,6 +17791,29 @@ async function loadIntegrations() {
   }).join('');
 }
 
+// Re-check the agent's plan_id when the tab regains focus. If the subscription
+// was canceled server-side while the user had the app open, this revokes access
+// without requiring a full page reload.
+let _subRecheckLast = 0;
+async function _recheckSubscription() {
+  if (!currentAgent || !sb) return;
+  const now = Date.now();
+  if (now - _subRecheckLast < 30_000) return; // throttle to once per 30 s
+  _subRecheckLast = now;
+  try {
+    const { data: agent } = await sb.from('agents')
+      .select('plan_id, is_admin').eq('id', currentAgent.id).maybeSingle();
+    if (!agent) return;
+    if (!agent.plan_id && !agent.is_admin) {
+      currentPlanName = null;
+      currentAgentIsAdmin = false;
+      try { localStorage.setItem(k('pp_plan_name'), ''); } catch(_) {}
+      _applyPlanGating();
+      showPlanRequiredOverlay();
+    }
+  } catch(_) {}
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const _cp = new URLSearchParams(location.search);
   // If we're the Stripe return URL inside a popup — notify parent then close.
@@ -17785,6 +17827,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Flag so bootDashboard knows to retry the plan fetch if webhook hasn't fired yet.
   window._stripeCheckoutReturn = _cp.get('checkout') === 'success';
   subscribeAuth();
+  // Re-check subscription whenever the user returns to this tab.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') _recheckSubscription();
+  });
   if (_cp.get('checkout') === 'success') {
     history.replaceState(null, '', location.pathname);
     showToast('Payment confirmed — welcome to Producer Stack!', '#10b981');

@@ -40,12 +40,9 @@ serve(async (req) => {
 
   const SUPABASE_URL   = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
-  const TELNYX_CONN_ID = Deno.env.get("TELNYX_CONNECTION_ID");
   const STRIPE_SECRET  = Deno.env.get("STRIPE_WEBHOOK_SECRET");
 
-  if (!STRIPE_SECRET)                     return json({ error: "stripe_not_configured" }, 500);
-  if (!TELNYX_API_KEY || !TELNYX_CONN_ID) return json({ error: "telnyx_not_configured" }, 500);
+  if (!STRIPE_SECRET) return json({ error: "stripe_not_configured" }, 500);
 
   const payload   = await req.text();
   const sigHeader = req.headers.get("stripe-signature") || "";
@@ -65,8 +62,21 @@ serve(async (req) => {
     const planId     = metadata.plan_id;
     const customerId = sub.customer as string;
     const subId      = sub.id as string;
+    const subStatus  = sub.status as string;
 
     if (userId) {
+      // Subscription canceled or unpaid — revoke access immediately.
+      if (subStatus === "canceled" || subStatus === "unpaid") {
+        await sb.from("agents").update({
+          plan_id:                null,
+          monthly_minute_limit:   0,
+          monthly_quote_limit:    0,
+          stripe_subscription_id: null,
+          stripe_customer_id:     customerId,
+        }).eq("id", userId);
+        return json({ ok: true });
+      }
+
       // Look up the plan by stripe_price_id if plan_id is not in metadata
       let planUpdate: Record<string, unknown> = {
         stripe_customer_id:     customerId,
@@ -109,20 +119,14 @@ serve(async (req) => {
     const customerId = sub.customer as string;
 
     if (userId) {
-      // Find the Basic plan (smallest) to downgrade to on cancellation.
-      const { data: basicPlan } = await sb.from("plans")
-        .select("*").eq("slug", "basic").eq("active", true).maybeSingle();
-
-      const downgrade: Record<string, unknown> = {
+      // Subscription deleted — revoke dashboard access by clearing plan_id.
+      await sb.from("agents").update({
+        plan_id:                null,
+        monthly_minute_limit:   0,
+        monthly_quote_limit:    0,
         stripe_subscription_id: null,
         stripe_customer_id:     customerId,
-      };
-      if (basicPlan) {
-        downgrade.plan_id              = basicPlan.id;
-        downgrade.monthly_minute_limit = basicPlan.monthly_minutes;
-        downgrade.monthly_quote_limit  = basicPlan.monthly_quote_limit;
-      }
-      await sb.from("agents").update(downgrade).eq("id", userId);
+      }).eq("id", userId);
     }
     return json({ ok: true });
   }
@@ -182,97 +186,5 @@ serve(async (req) => {
     await sb.from("agents").update(agentUpdate).eq("id", userId);
   }
 
-  // Idempotent: skip phone provisioning if user already has a caller ID.
-  const { data: agent } = await sb.from("agents")
-    .select("signalwire_caller_id")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (agent?.signalwire_caller_id) {
-    console.log(`[stripe-webhook] User ${userId} already has ${agent.signalwire_caller_id} — skipping provisioning.`);
-    return json({ ok: true, skipped: "already_provisioned" });
-  }
-
-  const areaCode   = ((metadata.area_code || "202").replace(/\D/g, "").slice(0, 3)) || "202";
-  const telnyxHdrs = { "Authorization": `Bearer ${TELNYX_API_KEY}`, "Content-Type": "application/json" };
-
-  const searchParams = new URLSearchParams({
-    "filter[national_destination_code]": areaCode,
-    "filter[phone_number_type]":         "local",
-    "filter[country_code]":              "US",
-    "filter[limit]":                     "5",
-  });
-
-  const searchRes = await fetch(`https://api.telnyx.com/v2/available_phone_numbers?${searchParams}`, {
-    headers: { "Authorization": `Bearer ${TELNYX_API_KEY}` },
-  });
-
-  if (!searchRes.ok) {
-    const err = await searchRes.text();
-    console.error("[stripe-webhook] Telnyx search failed:", err);
-    return json({ error: "search_failed", detail: err }, 502);
-  }
-
-  const searchData = await searchRes.json();
-  const available  = searchData.data || [];
-
-  if (available.length === 0) {
-    console.error(`[stripe-webhook] No numbers in area code ${areaCode} for user ${userId}`);
-    return json({ error: "no_numbers_available", area_code: areaCode }, 404);
-  }
-
-  const chosen: string = available[0].phone_number;
-
-  const orderRes = await fetch("https://api.telnyx.com/v2/number_orders", {
-    method: "POST",
-    headers: telnyxHdrs,
-    body: JSON.stringify({
-      phone_numbers: [{ phone_number: chosen }],
-      connection_id: TELNYX_CONN_ID,
-    }),
-  });
-
-  if (!orderRes.ok) {
-    const err = await orderRes.text();
-    console.error("[stripe-webhook] Telnyx purchase failed:", err);
-    return json({ error: "purchase_failed", detail: err }, 502);
-  }
-
-  const orderData  = await orderRes.json();
-  const orderId    = orderData?.data?.id ?? "";
-  const regionInfo = available[0].region_information || [];
-  const locality   = regionInfo.find((r: { region_type: string }) => r.region_type === "locality")?.region_name ?? null;
-  const region     = regionInfo.find((r: { region_type: string }) => r.region_type === "state")?.region_name ?? null;
-
-  await sb.from("phone_numbers").update({ is_primary: false }).eq("agent_id", userId);
-
-  const { error: insertErr } = await sb.from("phone_numbers").insert({
-    agent_id:      userId,
-    e164:          chosen,
-    friendly_name: chosen,
-    locality,
-    region,
-    sw_phone_sid:  orderId,
-    monthly_cost:  "1.00",
-    is_primary:    true,
-    status:        "active",
-    purchased_at:  new Date().toISOString(),
-  });
-
-  if (insertErr) {
-    console.error("[stripe-webhook] DB insert failed:", insertErr.message);
-    return json({ error: "db_insert_failed", detail: insertErr.message }, 500);
-  }
-
-  const { error: updateErr } = await sb.from("agents")
-    .update({ signalwire_caller_id: chosen })
-    .eq("id", userId);
-
-  if (updateErr) {
-    console.error("[stripe-webhook] agents update failed:", updateErr.message);
-    return json({ error: "agents_update_failed", detail: updateErr.message }, 500);
-  }
-
-  console.log(`[stripe-webhook] Provisioned ${chosen} for user ${userId} (order ${orderId})`);
-  return json({ ok: true, e164: chosen, order_id: orderId });
+  return json({ ok: true });
 });
