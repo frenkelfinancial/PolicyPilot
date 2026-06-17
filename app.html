@@ -15326,7 +15326,7 @@ function pbOpenUpgradeModal() {
   }
   const cancelSubBtn = document.getElementById('pb-cancel-sub-btn');
   if (cancelSubBtn) {
-    const hasActiveSub = !!(  _pbAgent && _pbAgent.plan_id && !_isDev());
+    const hasActiveSub = !!(  _pbAgent && _pbAgent.plan_id); // DEV TEST: temporarily show cancel for dev accounts
     cancelSubBtn.style.display = hasActiveSub ? '' : 'none';
     cancelSubBtn.disabled = false;
     cancelSubBtn.textContent = 'Cancel subscription';
