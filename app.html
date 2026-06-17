@@ -14,6 +14,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Producer Stack">
 <link rel="apple-touch-icon" href="assets/logos/policypilot-logo.jpg">
+<script src="https://js.stripe.com/v3/"></script>
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
@@ -2431,7 +2432,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <input type="hidden" id="signup-plan-id" value="">
       <input type="hidden" id="signup-plan-name-val" value="">
       <p style="font-size:12px;color:#7A92B3;text-align:center;margin:10px 0 12px">Select a plan on the right, then click below.</p>
-      <button class="auth-submit" onclick="authSignUp()">Create account &amp; proceed to checkout</button>
+      <button class="auth-submit" onclick="authSignUp()">Create account &amp; subscribe</button>
     </div>
 
     <div class="auth-view" id="view-reset">
@@ -2547,7 +2548,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 <div id="plan-required-overlay" style="display:none">
   <div class="pro-card">
     <div class="pro-title">Choose Your Plan to Continue</div>
-    <div class="pro-sub">Select a subscription to unlock Producer Stack. You will be taken to a secure Stripe checkout page.</div>
+    <div class="pro-sub">Select a subscription to unlock Producer Stack. Your payment is processed securely by Stripe.</div>
     <div class="auth-msg" id="pro-msg"></div>
     <div class="auth-plan-cards" id="pro-plan-cards" style="margin-bottom:20px">
       <div style="grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:18px">Loading plans...</div>
@@ -4645,8 +4646,9 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 // SUPABASE CONFIG — paste project URL + anon key from Supabase dashboard.
 // Anon key is RLS-safe to ship in client JS. See docs/security-notes.md.
 // ============================================================
-const SUPABASE_URL      = 'https://cweiaibjigjwspmshcrj.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_L7-8QaRE4XwhIapCAANEpQ_JHi7FUYM';
+const SUPABASE_URL         = 'https://cweiaibjigjwspmshcrj.supabase.co';
+const SUPABASE_ANON_KEY    = 'sb_publishable_L7-8QaRE4XwhIapCAANEpQ_JHi7FUYM';
+const STRIPE_PUBLISHABLE_KEY = 'pk_live_YOUR_STRIPE_PUBLISHABLE_KEY'; // ← replace with your pk_live_... key
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================================
@@ -4891,7 +4893,7 @@ async function planRequiredSubscribe() {
   const planId = document.getElementById('pro-plan-id').value;
   if (!planId) { const m = document.getElementById('pro-msg'); if (m) { m.textContent = 'Please select a plan.'; m.className = 'auth-msg show err'; } return; }
   const btn = document.getElementById('pro-subscribe-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Redirecting to checkout...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening checkout…'; }
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('Not signed in');
@@ -4906,7 +4908,13 @@ async function planRequiredSubscribe() {
     });
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || 'checkout_failed');
-    if (result.url) { window.location.href = result.url; return; }
+    if (result.client_secret) {
+      document.getElementById('plan-required-overlay').classList.remove('show');
+      await _mountEmbeddedCheckout(result.client_secret);
+      if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
+      return;
+    }
+    // Existing subscriber plan switch (no checkout needed)
     currentPlanName = (_proPlans.find(p => p.id === planId) || {}).name || null;
     try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
     _applyPlanGating();
@@ -4918,12 +4926,30 @@ async function planRequiredSubscribe() {
     if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
   }
 }
+let _stripeCheckoutInstance = null;
+
+async function _mountEmbeddedCheckout(clientSecret) {
+  const modal = document.getElementById('stripe-checkout-modal');
+  const container = document.getElementById('stripe-checkout-container');
+  container.innerHTML = '';
+  if (_stripeCheckoutInstance) { try { _stripeCheckoutInstance.destroy(); } catch(_) {} }
+  const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
+  _stripeCheckoutInstance = await stripe.initEmbeddedCheckout({ clientSecret });
+  _stripeCheckoutInstance.mount('#stripe-checkout-container');
+  modal.style.display = 'flex';
+}
+
+function closeStripeCheckout() {
+  const modal = document.getElementById('stripe-checkout-modal');
+  modal.style.display = 'none';
+  if (_stripeCheckoutInstance) { try { _stripeCheckoutInstance.destroy(); } catch(_) {} _stripeCheckoutInstance = null; }
+}
+
 async function _autoCheckout(planId) {
-  // Show a brief redirecting state on the auth gate
   showGate();
   document.getElementById('auth-gate').classList.remove('signup-mode');
   const m = document.getElementById('auth-msg');
-  if (m) { m.textContent = 'Redirecting to secure checkout…'; m.className = 'auth-msg show ok'; }
+  if (m) { m.textContent = 'Setting up your subscription…'; m.className = 'auth-msg show ok'; }
   try {
     const { data: sd } = await sb.auth.getSession();
     if (!sd || !sd.session) throw new Error('no session');
@@ -4938,8 +4964,13 @@ async function _autoCheckout(planId) {
     });
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || 'checkout_failed');
-    if (result.url) { window.location.href = result.url; return; }
-    throw new Error('no checkout url returned');
+    if (result.client_secret) {
+      hideGate();
+      await _mountEmbeddedCheckout(result.client_secret);
+      return;
+    }
+    if (result.ok) { hideGate(); return; }
+    throw new Error('no checkout response');
   } catch(e) {
     hideGate();
     showPlanRequiredOverlay();
@@ -16780,6 +16811,12 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme();              // ensure login screen matches saved theme before auth resolves
   restoreSectionFromCache(); // swap visible section before paint to avoid Summary flash
   subscribeAuth();
+  // Handle return from Stripe embedded checkout
+  const _cp = new URLSearchParams(location.search);
+  if (_cp.get('checkout') === 'success') {
+    history.replaceState(null, '', location.pathname);
+    showToast('Payment successful! Welcome to Producer Stack.', '#10b981');
+  }
 });
 
 function toggleMobileSidebar() {
@@ -16852,6 +16889,14 @@ document.addEventListener('DOMContentLoaded', () => {
       <span data-ico="warning" data-size="13"></span>
       <span id="sp-stub-banner-text">Simulated call — Telnyx couldn't be reached. Check the Phone Book tab, or the server console.</span>
     </div>
+  </div>
+</div>
+
+<!-- Stripe Embedded Checkout Modal -->
+<div id="stripe-checkout-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(7,13,26,.82);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 24px 80px rgba(0,0,0,.45)">
+    <button onclick="closeStripeCheckout()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;line-height:1;color:#6A8CAE;cursor:pointer;z-index:1;padding:4px 8px" aria-label="Close">&times;</button>
+    <div id="stripe-checkout-container" style="min-height:420px"></div>
   </div>
 </div>
 </body>

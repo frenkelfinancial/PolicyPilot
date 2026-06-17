@@ -125,14 +125,14 @@ serve(async (req) => {
     return json({ ok: true, upgraded: true });
   }
 
-  // New subscriber: create a Stripe Checkout Session.
+  // New subscriber: create an embedded Stripe Checkout Session.
   const sessionParams = new URLSearchParams({
     "mode":                                             "subscription",
+    "ui_mode":                                         "embedded",
     [`line_items[0][price]`]:                          plan.stripe_price_id,
     [`line_items[0][quantity]`]:                       "1",
     "allow_promotion_codes":                           "true",
-    "success_url":                                     `${APP_URL}?checkout=success`,
-    "cancel_url":                                      `${APP_URL}?checkout=cancelled`,
+    "return_url":                                      `${APP_URL}/app.html?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     [`metadata[supabase_user_id]`]:                    user.id,
     [`metadata[plan_id]`]:                             plan.id,
     [`metadata[area_code]`]:                           areaCode,
@@ -159,5 +159,5 @@ serve(async (req) => {
   }
 
   const session = await sessionRes.json();
-  return json({ url: session.url });
+  return json({ client_secret: session.client_secret });
 });
