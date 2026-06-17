@@ -2249,6 +2249,52 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   background:rgba(245,158,11,.06);
 }
 
+/* Cancel subscription modal */
+.pb-cancel-modal{ width:480px; max-width:95vw; }
+.pb-cancel-step{ display:none; }
+.pb-cancel-step.active{ display:block; }
+.pb-cancel-sub-desc{ font-size:13px; color:var(--text2); margin-bottom:18px; line-height:1.55; }
+.pb-cancel-reasons{ display:flex; flex-direction:column; gap:8px; margin-bottom:20px; }
+.pb-cancel-reason{
+  display:flex; align-items:flex-start; gap:10px; cursor:pointer;
+  padding:10px 13px; border:1px solid var(--border); border-radius:9px;
+  background:var(--bg2); transition:border-color .14s, background .14s;
+  font-size:13px; color:var(--text2); user-select:none;
+}
+.pb-cancel-reason:hover{ border-color:var(--border2); background:var(--bg3); color:var(--text); }
+.pb-cancel-reason.checked{ border-color:rgba(91,159,232,.5); background:rgba(91,159,232,.07); color:var(--text); }
+.pb-cancel-reason input[type=checkbox]{ flex-shrink:0; margin-top:1px; width:15px; height:15px; accent-color:var(--accent); cursor:pointer; }
+.pb-cancel-reason-label{ flex:1; line-height:1.4; }
+.pb-cancel-other-txt{
+  display:none; width:100%; margin-top:8px;
+  background:var(--bg3); border:1px solid var(--border); border-radius:7px;
+  padding:8px 11px; color:var(--text); font-size:13px; font-family:var(--sans);
+  outline:none; box-sizing:border-box; resize:vertical; min-height:52px;
+}
+.pb-cancel-other-txt:focus{ border-color:var(--accent); }
+.pb-cancel-confirm-box{
+  padding:14px 16px; border:1px solid rgba(220,38,38,.28);
+  border-radius:10px; background:rgba(220,38,38,.06); margin-bottom:16px;
+}
+.pb-cancel-confirm-title{ font-size:14px; font-weight:600; color:#ef4444; margin-bottom:10px; }
+.pb-cancel-confirm-list{ list-style:none; display:flex; flex-direction:column; gap:7px; }
+.pb-cancel-confirm-list li{
+  font-size:13px; color:var(--text2); display:flex; align-items:flex-start; gap:9px; line-height:1.45;
+}
+.pb-cancel-confirm-list li::before{
+  content:''; flex-shrink:0; width:5px; height:5px;
+  border-radius:50%; background:#ef4444; margin-top:6px;
+}
+.pb-cancel-note{ font-size:11.5px; color:var(--text3); line-height:1.55; margin-bottom:20px; }
+.btn-danger{
+  background:rgba(220,38,38,.12); color:#ef4444;
+  border:1px solid rgba(220,38,38,.3); font-weight:500;
+}
+.btn-danger:hover{ background:rgba(220,38,38,.22); border-color:rgba(220,38,38,.5); }
+.btn-danger:disabled{ opacity:.5; cursor:not-allowed; }
+body.light .btn-danger{ background:#fef2f2; color:#c53030; border-color:rgba(220,38,38,.28); }
+body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5); }
+
 /* ── Billing Rates card ───────────────────────────────────────────────── */
 #sec-phonebook .pb-card-billing{ margin-bottom:18px; }
 #sec-phonebook .pb-billing-rate-grid{
@@ -4422,10 +4468,87 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <div class="pb-billing-note" id="pb-billing-note">
       Billed monthly via Stripe. Existing subscribers switch instantly; new subscribers are taken to a secure Stripe checkout page.
     </div>
-    <div class="flex gap8 mt16" style="justify-content:flex-end">
-      <button class="btn btn-s btn-sm" onclick="pbCloseUpgradeModal()">Cancel</button>
-      <button class="btn btn-g btn-sm" id="pb-upgrade-confirm" onclick="pbApplyPlanChange()" disabled>Subscribe</button>
+    <div class="flex gap8 mt16" style="justify-content:space-between;align-items:center">
+      <button id="pb-cancel-sub-btn" onclick="pbOpenCancelSubModal()" style="display:none;background:none;border:none;padding:0;font-size:12.5px;color:#dc2626;cursor:pointer;letter-spacing:-.01em;text-decoration:underline;font-family:var(--sans)">Cancel subscription</button>
+      <div class="flex gap8">
+        <button class="btn btn-s btn-sm" onclick="pbCloseUpgradeModal()">Close</button>
+        <button class="btn btn-g btn-sm" id="pb-upgrade-confirm" onclick="pbApplyPlanChange()" disabled>Subscribe</button>
+      </div>
     </div>
+  </div>
+</div>
+
+<!-- CANCEL SUBSCRIPTION MODAL -->
+<div class="overlay" id="pbCancelSubModal">
+  <div class="modal pb-cancel-modal">
+
+    <!-- Step 1: reasons -->
+    <div class="pb-cancel-step active" id="pb-cancel-step-1">
+      <div class="mhdr">
+        <div class="mtitle">Before you go…</div>
+        <button class="mclose" onclick="pbCloseCancelSubModal()" data-ico="x" data-size="14"></button>
+      </div>
+      <div class="pb-cancel-sub-desc">Please explain why you want to cancel. Select all that apply.</div>
+      <div class="pb-cancel-reasons" id="pb-cancel-reasons">
+        <label class="pb-cancel-reason">
+          <input type="checkbox" onchange="pbCancelReasonChange(this)" value="Too expensive">
+          <span class="pb-cancel-reason-label">Too expensive</span>
+        </label>
+        <label class="pb-cancel-reason">
+          <input type="checkbox" onchange="pbCancelReasonChange(this)" value="Not using it enough">
+          <span class="pb-cancel-reason-label">Not using it enough</span>
+        </label>
+        <label class="pb-cancel-reason">
+          <input type="checkbox" onchange="pbCancelReasonChange(this)" value="Missing features I need">
+          <span class="pb-cancel-reason-label">Missing features I need</span>
+        </label>
+        <label class="pb-cancel-reason">
+          <input type="checkbox" onchange="pbCancelReasonChange(this)" value="Switching to another tool">
+          <span class="pb-cancel-reason-label">Switching to another tool</span>
+        </label>
+        <label class="pb-cancel-reason">
+          <input type="checkbox" onchange="pbCancelReasonChange(this)" value="Technical issues">
+          <span class="pb-cancel-reason-label">Technical issues</span>
+        </label>
+        <label class="pb-cancel-reason">
+          <input type="checkbox" onchange="pbCancelReasonChange(this)" value="Just testing / temporary">
+          <span class="pb-cancel-reason-label">Just testing / temporary</span>
+        </label>
+        <label class="pb-cancel-reason" id="pb-cancel-reason-other">
+          <input type="checkbox" onchange="pbCancelReasonChange(this)" value="Other" id="pb-cr-other-chk">
+          <span class="pb-cancel-reason-label">
+            Other
+            <textarea class="pb-cancel-other-txt" id="pb-cancel-other-txt" rows="2" placeholder="Tell us more…" onclick="event.stopPropagation()"></textarea>
+          </span>
+        </label>
+      </div>
+      <div class="flex gap8" style="justify-content:flex-end">
+        <button class="btn btn-s btn-sm" onclick="pbCloseCancelSubModal()">Close</button>
+        <button class="btn btn-sm" id="pb-cancel-next-btn" onclick="pbCancelStep1Next()" style="background:var(--accent);color:#fff;border:none;opacity:.4;cursor:not-allowed" disabled>Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: confirm -->
+    <div class="pb-cancel-step" id="pb-cancel-step-2">
+      <div class="mhdr">
+        <div class="mtitle">Are you sure you want to cancel this plan?</div>
+        <button class="mclose" onclick="pbCloseCancelSubModal()" data-ico="x" data-size="14"></button>
+      </div>
+      <div class="pb-cancel-confirm-box">
+        <div class="pb-cancel-confirm-title">Here's what will happen:</div>
+        <ul class="pb-cancel-confirm-list">
+          <li>All your phone numbers will be permanently deleted immediately</li>
+          <li>Dashboard access continues until the end of your current billing period</li>
+          <li>After that, your account will be downgraded and access removed</li>
+        </ul>
+      </div>
+      <div class="pb-cancel-note">Your subscription will not auto-renew. You will not be charged again after your current period ends.</div>
+      <div class="flex gap8" style="justify-content:flex-end">
+        <button class="btn btn-s btn-sm" onclick="pbCancelModalBack()">No, keep it</button>
+        <button class="btn btn-danger btn-sm" id="pb-cancel-confirm-btn" onclick="pbCancelModalConfirm()">Yes, I do want to cancel</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -15201,6 +15324,13 @@ function pbOpenUpgradeModal() {
   } else {
     pbRenderUpgradeOptions();
   }
+  const cancelSubBtn = document.getElementById('pb-cancel-sub-btn');
+  if (cancelSubBtn) {
+    const hasActiveSub = !!(  _pbAgent && _pbAgent.plan_id && !_isDev());
+    cancelSubBtn.style.display = hasActiveSub ? '' : 'none';
+    cancelSubBtn.disabled = false;
+    cancelSubBtn.textContent = 'Cancel subscription';
+  }
   m.classList.add('open');
   if (typeof mountIcons === 'function') mountIcons(m);
 }
@@ -15465,9 +15595,107 @@ async function pbApplyPlanChange() {
   }
 }
 
+function pbOpenCancelSubModal() {
+  // Reset to step 1
+  document.getElementById('pb-cancel-step-1')?.classList.add('active');
+  document.getElementById('pb-cancel-step-2')?.classList.remove('active');
+  // Clear checkboxes and other text
+  document.querySelectorAll('#pb-cancel-reasons input[type=checkbox]').forEach(cb => {
+    cb.checked = false;
+    cb.closest('.pb-cancel-reason')?.classList.remove('checked');
+  });
+  const otherTxt = document.getElementById('pb-cancel-other-txt');
+  if (otherTxt) { otherTxt.value = ''; otherTxt.style.display = 'none'; }
+  // Reset Next button
+  const nextBtn = document.getElementById('pb-cancel-next-btn');
+  if (nextBtn) { nextBtn.disabled = true; nextBtn.style.opacity = '.4'; nextBtn.style.cursor = 'not-allowed'; }
+  // Reset confirm button
+  const confirmBtn = document.getElementById('pb-cancel-confirm-btn');
+  if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Yes, I do want to cancel'; }
+  // Close Change Plan modal, then open this one
+  pbCloseUpgradeModal();
+  const m = document.getElementById('pbCancelSubModal');
+  if (!m) return;
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+}
+
+function pbCancelReasonChange(cb) {
+  // Toggle highlighted state on the label
+  const label = cb.closest('.pb-cancel-reason');
+  if (label) label.classList.toggle('checked', cb.checked);
+  // Show/hide "Other" textarea
+  const otherChk = document.getElementById('pb-cr-other-chk');
+  const otherTxt = document.getElementById('pb-cancel-other-txt');
+  if (otherTxt) otherTxt.style.display = (otherChk && otherChk.checked) ? 'block' : 'none';
+  // Enable Next only when at least one reason is checked
+  const anyChecked = Array.from(
+    document.querySelectorAll('#pb-cancel-reasons input[type=checkbox]')
+  ).some(c => c.checked);
+  const nextBtn = document.getElementById('pb-cancel-next-btn');
+  if (nextBtn) {
+    nextBtn.disabled = !anyChecked;
+    nextBtn.style.opacity = anyChecked ? '1' : '.4';
+    nextBtn.style.cursor = anyChecked ? 'pointer' : 'not-allowed';
+  }
+}
+
+function pbCancelStep1Next() {
+  const anyChecked = Array.from(
+    document.querySelectorAll('#pb-cancel-reasons input[type=checkbox]')
+  ).some(cb => cb.checked);
+  if (!anyChecked) return;
+  document.getElementById('pb-cancel-step-1')?.classList.remove('active');
+  document.getElementById('pb-cancel-step-2')?.classList.add('active');
+}
+
+function pbCancelModalBack() {
+  document.getElementById('pb-cancel-step-2')?.classList.remove('active');
+  document.getElementById('pb-cancel-step-1')?.classList.add('active');
+}
+
+function pbCloseCancelSubModal() {
+  const m = document.getElementById('pbCancelSubModal');
+  if (m) m.classList.remove('open');
+}
+
+async function pbCancelModalConfirm() {
+  const btn = document.getElementById('pb-cancel-confirm-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Cancelling…'; }
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const resp = await fetch(
+      `${SUPABASE_URL}/functions/v1/stripe-cancel-subscription`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': SUPABASE_ANON_KEY,
+        },
+      }
+    );
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'cancel_failed');
+    pbCloseCancelSubModal();
+    let msg = 'Subscription cancelled. Phone numbers deleted.';
+    if (result.access_until) {
+      const until = new Date(result.access_until);
+      const fmt = until.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      msg += ` Access continues until ${fmt}.`;
+    }
+    showToast(msg, '#f59e0b');
+    await renderPhoneBook();
+  } catch (e) {
+    console.warn('[phonebook] cancel subscription failed', e);
+    showToast(`Cancellation failed: ${e.message || e}`, '#dc2626');
+    if (btn) { btn.disabled = false; btn.textContent = 'Yes, I do want to cancel'; }
+  }
+}
+
 // Close phone-book modals on overlay-click / Escape, matching the
 // rest of the app's modal behavior.
-['pbBuyModal', 'pbUpgradeModal', 'pbManageModal', 'pbReplaceModal'].forEach(id => {
+['pbBuyModal', 'pbUpgradeModal', 'pbManageModal', 'pbReplaceModal', 'pbCancelSubModal'].forEach(id => {
   document.addEventListener('click', (e) => {
     const overlay = document.getElementById(id);
     if (overlay && e.target === overlay) overlay.classList.remove('open');
@@ -15475,7 +15703,7 @@ async function pbApplyPlanChange() {
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  ['pbBuyModal', 'pbUpgradeModal', 'pbManageModal', 'pbReplaceModal'].forEach(id => {
+  ['pbBuyModal', 'pbUpgradeModal', 'pbManageModal', 'pbReplaceModal', 'pbCancelSubModal'].forEach(id => {
     const o = document.getElementById(id);
     if (o && o.classList.contains('open')) o.classList.remove('open');
   });
