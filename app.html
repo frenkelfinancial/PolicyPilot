@@ -9690,6 +9690,7 @@ function showUpgradeGate(featureName, requiredTier) {
       <button onclick="closeUpgradeGate()" style="background:none;border:none;color:var(--text3,#8AA8CA);font-size:13px;cursor:pointer;font-family:var(--sans);padding:4px 8px">Maybe later</button>
     </div>`;
     document.body.appendChild(el);
+    el.addEventListener('click', function(e) { if (e.target === el) closeUpgradeGate(); });
   }
   document.getElementById('_ug-title').textContent = featureName + ' requires an upgrade';
   document.getElementById('_ug-sub').textContent = 'This feature is included in the ' + tierLabel + ' plan (' + tierPrice + '/mo) and above. Upgrade your plan to unlock it.';
@@ -9725,10 +9726,11 @@ function renderSummary() {
   _applyPlanGating();
   renderGreeting();
   if (typeof renderActionHub === 'function') renderActionHub();
-  if (_planTier() !== 'basic' && typeof renderPipelineFunnel === 'function') renderPipelineFunnel();
-  if (_planTier() !== 'basic' && typeof renderIncomeReality === 'function') renderIncomeReality();
-  if (_planTier() !== 'basic' && typeof renderActivityMomentum === 'function') renderActivityMomentum();
-  if (_planTier() !== 'basic' && typeof renderPersistencyHealth === 'function') renderPersistencyHealth();
+  const _rsTier = _planTier();
+  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderPipelineFunnel === 'function') renderPipelineFunnel();
+  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderIncomeReality === 'function') renderIncomeReality();
+  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderActivityMomentum === 'function') renderActivityMomentum();
+  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderPersistencyHealth === 'function') renderPersistencyHealth();
   const pols = Array.isArray(policies) ? policies : [];
   const today = new Date();
   const range = summaryPeriodRange(summaryPeriod, today);
@@ -17509,6 +17511,21 @@ async function bootDashboard() {
         currentPlanName = match ? match.name : null;
         currentAgentIsAdmin = !!agentRow.data.is_admin;
         try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
+        // After a Stripe redirect the webhook may not have updated plan_id yet.
+        // If plan is still null, wait 3 s and retry once before showing the plan overlay.
+        if (!currentPlanName && !currentAgentIsAdmin && window._stripeCheckoutReturn) {
+          window._stripeCheckoutReturn = false;
+          await new Promise(r => setTimeout(r, 3000));
+          const [r2, rp2] = await Promise.all([
+            sb.from('agents').select('plan_id, is_admin').eq('id', currentAgent.id).maybeSingle(),
+            sb.from('plans').select('id, name').eq('active', true),
+          ]);
+          if (!r2.error && r2.data && rp2.data) {
+            const m2 = rp2.data.find(p => p.id === r2.data.plan_id);
+            if (m2) { currentPlanName = m2.name; try { localStorage.setItem(k('pp_plan_name'), currentPlanName); } catch(_) {} }
+          }
+        }
+        window._stripeCheckoutReturn = false;
         _applyPlanGating();
         if (!currentPlanName && !currentAgentIsAdmin) {
           const pid = (currentAgent && currentAgent.user_metadata && currentAgent.user_metadata.pending_plan_id)
@@ -17578,7 +17595,9 @@ function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
   const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, agency:7, settings:8 };
-  if (!saved || !(saved in idxMap) || saved === 'summary') return;
+  // Skip plan-gated sections — plan can't be verified before auth resolves.
+  // bootDashboard() will navigate to the correct section for the user's tier.
+  if (!saved || !(saved in idxMap) || saved === 'summary' || saved === 'bonuses' || saved === 'agency') return;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   const sec = document.getElementById('sec-' + saved);
   if (sec) sec.classList.add('active');
@@ -17685,10 +17704,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   applyTheme();              // ensure login screen matches saved theme before auth resolves
   restoreSectionFromCache(); // swap visible section before paint to avoid Summary flash
+  // Flag so bootDashboard knows to retry the plan fetch if webhook hasn't fired yet.
+  window._stripeCheckoutReturn = _cp.get('checkout') === 'success';
   subscribeAuth();
   if (_cp.get('checkout') === 'success') {
     history.replaceState(null, '', location.pathname);
-    showToast('Payment successful! Welcome to Producer Stack.', '#10b981');
+    showToast('Payment confirmed — welcome to Producer Stack!', '#10b981');
+  } else if (_cp.get('checkout') === 'cancelled') {
+    showToast('Checkout cancelled — no charge was made.', '#6b7280');
+    history.replaceState({}, '', location.pathname);
   }
 });
 
@@ -17711,16 +17735,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (window.innerWidth <= 767) closeMobileSidebar();
     });
   });
-
-  // Show feedback after returning from Stripe Checkout, then clean the URL.
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('checkout') === 'success') {
-    showToast('Subscription active — welcome!', '#10b981');
-    history.replaceState({}, '', window.location.pathname);
-  } else if (params.get('checkout') === 'cancelled') {
-    showToast('Checkout cancelled — no charge made.', '#6b7280');
-    history.replaceState({}, '', window.location.pathname);
-  }
 });
 </script>
 
