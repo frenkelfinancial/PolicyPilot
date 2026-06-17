@@ -5515,10 +5515,15 @@ async function authLoadSignupPlans() {
       // 'max' plan in DB maps to the 'leader' card in the wizard UI
       if (!key && (t.includes('max') || t.includes('team'))) key = 'leader';
       if (!key) return;
-      const priceEl = document.getElementById(`pricing-price-${key}`);
-      if (priceEl && p.monthly_cost) priceEl.textContent = `$${p.monthly_cost}/mo`;
-      const colEl = document.getElementById(`pricing-col-${key}`);
-      if (colEl) { colEl.dataset.planId = p.id; colEl.dataset.planName = p.name; }
+      // Use querySelectorAll because wizard and outer auth panels share the same IDs
+      if (p.monthly_cost) {
+        document.querySelectorAll(`[id="pricing-price-${key}"]`).forEach(el => {
+          el.textContent = `$${p.monthly_cost}/mo`;
+        });
+      }
+      document.querySelectorAll(`[id="pricing-col-${key}"]`).forEach(colEl => {
+        colEl.dataset.planId = p.id; colEl.dataset.planName = p.name;
+      });
     });
     const pendingId = localStorage.getItem('pp_pending_plan_id');
     if (pendingId) {
