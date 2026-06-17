@@ -1644,6 +1644,28 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .swiz-pc-cta:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.35)}
 .swiz-pc.swiz-pc-feat .swiz-pc-cta:hover{background:#a8d4ff;border-color:transparent}
 .swiz-pc.swiz-pc-lead .swiz-pc-cta:hover{background:rgba(224,184,132,.18);border-color:rgba(224,184,132,.55)}
+
+/* ── Wizard plan card overrides (ID specificity beats .apc-plan-col's #FAFCFF) ── */
+/* Basic → same deep blue as Pro was */
+#signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead){background:linear-gradient(158deg,#0d2450 0%,#060f28 100%);border-color:rgba(143,194,247,.45)}
+#signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead):hover{border-color:rgba(143,194,247,.7);box-shadow:0 0 0 1px rgba(143,194,247,.22),0 22px 60px -14px rgba(143,194,247,.22)}
+#signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-bar{background:linear-gradient(90deg,transparent,#8FC2F7 35%,#b4d6ff 65%,transparent)}
+#signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-tier{color:#8FC2F7}
+#signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-div{background:rgba(143,194,247,.16)}
+#signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-cta{background:#8FC2F7;color:#061222;border-color:transparent}
+#signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-cta:hover{background:#a8d4ff}
+/* Pro → cool silver */
+#signup-wizard .swiz-pc.swiz-pc-feat{background:linear-gradient(158deg,#28303f 0%,#19202d 100%);border-color:rgba(168,190,218,.42)}
+#signup-wizard .swiz-pc.swiz-pc-feat:hover{border-color:rgba(192,212,232,.7);box-shadow:0 0 0 1px rgba(192,212,232,.2),0 22px 60px -14px rgba(168,190,218,.18)}
+#signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-bar{background:linear-gradient(90deg,transparent,#9ab4cc 28%,#cce0f0 55%,#9ab4cc 78%,transparent);animation:swiz-shimmer 2.8s ease-in-out infinite}
+#signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-tier{color:#a8c0d6}
+#signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-div{background:rgba(168,190,218,.2)}
+#signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-cta{background:linear-gradient(135deg,#6e8eae 0%,#a8c4d8 50%,#6e8eae 100%);color:#070f1a;border-color:transparent}
+#signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-cta:hover{background:linear-gradient(135deg,#7ea0be 0%,#bcd4e8 50%,#7ea0be 100%)}
+/* Selected states */
+#signup-wizard .apc-plan-col.selected.swiz-pc-feat{box-shadow:0 0 0 2.5px #a8c0d6,0 18px 50px -10px rgba(168,192,218,.28) !important;border-color:#a8c0d6 !important}
+#signup-wizard .apc-plan-col.selected.swiz-pc-feat .swiz-pc-cta{background:linear-gradient(135deg,#7ea0be 0%,#bcd4e8 50%,#7ea0be 100%) !important;color:#070f1a !important;border-color:transparent !important}
+
 .swiz-2-nav{display:flex;align-items:center;justify-content:center;gap:14px;padding:0 24px 8px}
 
 /* ── Step 3: Confirm ── */
@@ -1669,6 +1691,11 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .swiz-submit-btn:disabled{background:var(--border);color:var(--text3);cursor:not-allowed;transform:none;box-shadow:none}
 .swiz-stripe-note{text-align:center;font-size:11px;color:var(--text3);display:flex;align-items:center;justify-content:center;gap:5px}
 .swiz-stripe-note svg{width:12px;height:12px;flex-shrink:0;opacity:.6}
+#wiz-stripe-embed{border-radius:12px;overflow:hidden;margin:20px 0;border:1px solid var(--border)}
+.swiz-finish-btn{width:100%;font-family:var(--sans);font-size:14.5px;font-weight:700;color:#fff;background:#10b981;border:none;border-radius:11px;padding:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.02em;transition:all .2s;margin-bottom:12px;box-shadow:0 4px 20px rgba(16,185,129,.28)}
+.swiz-finish-btn:hover{background:#0ea872;box-shadow:0 8px 32px rgba(16,185,129,.4);transform:translateY(-1px)}
+.swiz-finish-btn:disabled{background:var(--border);color:var(--text3);cursor:not-allowed;transform:none;box-shadow:none}
+.swiz-err.on.ok{color:#10b981;border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.08)}
 
 /* Responsive */
 @media(max-width:860px){
@@ -2956,11 +2983,18 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Create Account &amp; Continue to Payment
           </button>
-          <div class="swiz-stripe-note">
+          <div class="swiz-stripe-note" id="wiz-stripe-note">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Secured by Stripe · Your card is never stored on our servers
           </div>
-          <div style="text-align:center;margin-top:20px">
+          <!-- Stripe checkout embedded inline — appears after account is created -->
+          <div id="wiz-stripe-embed" style="display:none"></div>
+          <!-- Finish button — enabled only after Stripe payment is confirmed -->
+          <button class="swiz-finish-btn" id="wiz-finish-btn" onclick="wizGoDashboard()" style="display:none" disabled>
+            <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Go to Dashboard
+          </button>
+          <div style="text-align:center;margin-top:20px" id="wiz-change-plan-wrap">
             <button class="swiz-btn-s" onclick="wizGoTo(2,true)">← Change Plan</button>
           </div>
         </div>
@@ -5223,16 +5257,95 @@ function wizStep2Next() {
   wizGoTo(3);
 }
 
+let _wizPaymentPending = false;
+let _wizStripeInlineInstance = null;
+
 async function wizSubmit() {
   const btn = document.getElementById('wiz-submit-btn');
   _wizErr(3, '');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating your account…'; }
+
+  const planId = (document.getElementById('signup-plan-id') || {}).value || '';
+  _wizPaymentPending = true;
+
   await authSignUp();
-  // authSignUp shows its own errors via authMsg (patched below) or redirects
-  if (btn) {
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Create Account &amp; Continue to Payment';
+
+  // Check for errors written by the mirrored authMsg
+  const err3 = document.getElementById('wiz-err-3');
+  const hasErr = err3 && err3.classList.contains('on') && !err3.classList.contains('ok');
+  if (!currentAgent || hasErr) {
+    _wizPaymentPending = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Create Account &amp; Continue to Payment';
+    }
+    return;
   }
+
+  // Account created — now mount Stripe embedded checkout inline on this same page
+  if (btn) { btn.disabled = true; btn.textContent = 'Setting up payment…'; }
+
+  try {
+    const { data: sd } = await sb.auth.getSession();
+    if (!sd || !sd.session) throw new Error('no_session');
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sd.session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ plan_id: planId }),
+    });
+    const result = await resp.json();
+    if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+    if (result.client_secret) {
+      // Hide the "Create Account" button and decorative elements; show Stripe inline
+      if (btn) btn.style.display = 'none';
+      const note = document.getElementById('wiz-stripe-note');
+      if (note) note.style.display = 'none';
+      const changePlan = document.getElementById('wiz-change-plan-wrap');
+      if (changePlan) changePlan.style.display = 'none';
+      await _wizMountStripeInline(result.client_secret);
+      return;
+    }
+    // Already subscribed — go to dashboard
+    _wizPaymentPending = false;
+    hideGate();
+    bootDashboard();
+  } catch(e) {
+    _wizPaymentPending = false;
+    _wizErr(3, e.message || 'Payment setup failed. Please try again.');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Create Account &amp; Continue to Payment';
+    }
+  }
+}
+
+async function _wizMountStripeInline(clientSecret) {
+  const container = document.getElementById('wiz-stripe-embed');
+  if (!container) return;
+  container.innerHTML = '<div id="wiz-stripe-form"></div>';
+  container.style.display = 'block';
+  if (_wizStripeInlineInstance) { try { _wizStripeInlineInstance.destroy(); } catch(_) {} }
+  const stripeObj = Stripe(STRIPE_PUBLISHABLE_KEY);
+  _wizStripeInlineInstance = await stripeObj.initEmbeddedCheckout({ clientSecret, onComplete: _wizPaymentComplete });
+  _wizStripeInlineInstance.mount('#wiz-stripe-form');
+  container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function _wizPaymentComplete() {
+  _wizPaymentPending = false;
+  if (_wizStripeInlineInstance) { try { _wizStripeInlineInstance.destroy(); } catch(_) {} _wizStripeInlineInstance = null; }
+  const embed = document.getElementById('wiz-stripe-embed');
+  if (embed) embed.style.display = 'none';
+  const err3 = document.getElementById('wiz-err-3');
+  if (err3) { err3.textContent = 'Payment complete — your account is ready!'; err3.className = 'swiz-err on ok'; }
+  const finishBtn = document.getElementById('wiz-finish-btn');
+  if (finishBtn) { finishBtn.style.display = ''; finishBtn.removeAttribute('disabled'); }
+}
+
+function wizGoDashboard() {
+  _wizPaymentPending = false;
+  hideGate();
+  bootDashboard();
 }
 
 // Mirror authMsg errors into the wizard when wizard is active
@@ -5360,9 +5473,9 @@ async function authSignUp() {
   try { localStorage.setItem('pp_pending_plan_name', planNm); } catch(_) {}
   if (agCode) { try { localStorage.setItem('pp_pending_agency_code', agCode); } catch(_) {} }
   if (signUpData && signUpData.session) {
-    // Email auto-confirmed — go straight to Stripe checkout
+    // Email auto-confirmed — wizard handles Stripe inline; legacy callers use _autoCheckout
     currentAgent = signUpData.session.user;
-    await _autoCheckout(planId);
+    if (!_wizPaymentPending) await _autoCheckout(planId);
   } else {
     // Email verification required — sign in after confirming, then auto-checkout kicks in
     authShowView('signin');
@@ -5745,8 +5858,10 @@ function subscribeAuth() {
       const same = currentAgent && currentAgent.id === session.user.id;
       currentAgent = session.user;
       claimLegacyData();
-      hideGate();
-      if (!same) bootDashboard();
+      if (!_wizPaymentPending) {
+        hideGate();
+        if (!same) bootDashboard();
+      }
       // The softphone's Realtime subscription needs currentAgent.id
       // to scope its postgres_changes filter. _bindOnce calls
       // _initRealtime when the panel binds, but at that moment
