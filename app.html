@@ -5328,7 +5328,7 @@ async function wizSubmit() {
       body: JSON.stringify({ plan_id: planId }),
     });
     const result = await resp.json();
-    if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+    if (!resp.ok) throw new Error((result.detail ? result.error + ' — ' + result.detail : result.error) || 'checkout_failed');
     if (result.url) {
       // Open Stripe checkout in a popup; hide wizard actions while waiting
       if (btn) btn.style.display = 'none';

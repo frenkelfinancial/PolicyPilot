@@ -156,10 +156,20 @@ serve(async (req) => {
   });
 
   if (!sessionRes.ok) {
-    const err = await sessionRes.text();
-    return json({ error: "checkout_session_failed", detail: err }, 502);
+    const errText = await sessionRes.text();
+    let stripeMsg = errText;
+    try {
+      const parsed = JSON.parse(errText);
+      stripeMsg = parsed?.error?.message || errText;
+    } catch (_) {}
+    console.error("Stripe checkout session error:", stripeMsg);
+    return json({ error: "checkout_session_failed", detail: stripeMsg }, 502);
   }
 
   const session = await sessionRes.json();
+  if (!session.url) {
+    console.error("Stripe returned no URL. Session:", JSON.stringify(session));
+    return json({ error: "checkout_session_no_url", detail: JSON.stringify(session) }, 502);
+  }
   return json({ url: session.url });
 });
