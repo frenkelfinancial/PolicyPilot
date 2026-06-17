@@ -2390,11 +2390,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
       <div class="auth-card-title">Welcome back.</div>
       <div class="auth-card-sub-text">Sign in to access your agent dashboard.</div>
     </div>
-    <div class="auth-tabs" id="auth-tabs">
-      <button class="auth-tab active" data-view="signin" onclick="authShowView('signin')">Sign in</button>
-      <button class="auth-tab" data-view="signup" onclick="authShowView('signup')">Create account</button>
-    </div>
-
     <button class="auth-google" id="auth-google-btn" onclick="authSignInWithGoogle()" type="button">
       <svg viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
@@ -2411,8 +2406,9 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     <div class="auth-view active" id="view-signin">
       <div class="auth-field"><label>Email</label><input type="email" id="signin-email" autocomplete="email"></div>
       <div class="auth-field"><label>Password</label><div class="auth-pw-wrap"><input type="password" id="signin-pw" autocomplete="current-password"><button type="button" class="auth-pw-toggle" onclick="togglePw('signin-pw',this)" tabindex="-1">Show</button></div></div>
-      <button class="auth-submit" onclick="authSignIn()">Sign in</button>
-      <div style="text-align:center"><button class="auth-link" onclick="authForgot()">Forgot password?</button></div>
+      <button class="auth-submit" onclick="authSignIn()" style="width:auto;min-width:140px;display:block;margin:6px auto 0;padding-left:36px;padding-right:36px">Sign in</button>
+      <div style="text-align:center;margin-top:12px;font-size:13px;color:#5BA0E8">No Account? <a href="javascript:void(0)" onclick="authShowView('signup')" style="color:#5BA0E8;text-decoration:underline;font-weight:600">Register Here</a></div>
+      <div style="text-align:center;margin-top:8px"><button class="auth-link" onclick="authForgot()">Forgot password?</button></div>
     </div>
 
     <div class="auth-view" id="view-signup">
