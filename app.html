@@ -5228,11 +5228,19 @@ function wizStep1Next() {
 }
 
 function wizSelectPlan(el) {
+  const planId = el.dataset.planId || '';
+  if (!planId) {
+    // Plans haven't finished loading from DB — retry and ask user to wait
+    _signupPlansLoaded = false;
+    authLoadSignupPlans();
+    _wizErr(2, 'Plan details are still loading — please wait a moment and try again.');
+    return;
+  }
   document.querySelectorAll('#signup-wizard .apc-plan-col').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
   const hidId = document.getElementById('signup-plan-id');
   const hidNm = document.getElementById('signup-plan-name-val');
-  if (hidId) hidId.value = el.dataset.planId || el.dataset.tier || '_sel_';
+  if (hidId) hidId.value = planId;
   if (hidNm) hidNm.value = el.dataset.planName || '';
   _wizErr(2, '');
 }
@@ -5240,6 +5248,11 @@ function wizSelectPlan(el) {
 function wizStep2Next() {
   const planId = (document.getElementById('signup-plan-id') || {}).value || '';
   if (!planId) return _wizErr(2, 'Please select a plan to continue.');
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId)) {
+    _signupPlansLoaded = false;
+    authLoadSignupPlans();
+    return _wizErr(2, 'Plan details are still loading — please wait a moment and try again.');
+  }
   // Populate step 3 confirm panel
   const v = id => ((document.getElementById(id) || {}).value || '').trim();
   const first = v('signup-first'), last = v('signup-last');
@@ -5496,11 +5509,13 @@ async function authLoadSignupPlans() {
       .select('id, slug, name, monthly_cost, sort_order')
       .eq('active', true).order('sort_order', { ascending: true });
     if (error || !data || !data.length) throw new Error('no plans');
-    _signupPlans = data.filter(p => ['basic','pro','leader'].some(t => p.name.toLowerCase().includes(t)));
+    _signupPlans = data.filter(p => ['basic','pro','leader','max'].some(t => p.name.toLowerCase().includes(t) || (p.slug||'').toLowerCase().includes(t)));
     if (!_signupPlans.length) _signupPlans = data;
     _signupPlans.forEach(p => {
       const t = (p.slug || p.name).toLowerCase();
-      const key = ['basic','pro','leader'].find(k => t.includes(k));
+      let key = ['basic','pro','leader'].find(k => t.includes(k));
+      // 'max' plan in DB maps to the 'leader' card in the wizard UI
+      if (!key && (t.includes('max') || t.includes('team'))) key = 'leader';
       if (!key) return;
       const priceEl = document.getElementById(`pricing-price-${key}`);
       if (priceEl && p.monthly_cost) priceEl.textContent = `$${p.monthly_cost}/mo`;
@@ -5513,6 +5528,7 @@ async function authLoadSignupPlans() {
       if (col) selectPricingPlan(col);
     }
   } catch(e) {
+    _signupPlansLoaded = false; // allow retry on next attempt
     const panel = document.getElementById('auth-pricing-panel');
     if (panel) panel.insertAdjacentHTML('afterbegin','<div style="text-align:center;color:#E07B7B;font-size:12px;padding:12px 0 0">Could not load plan prices. Check your connection.</div>');
   }

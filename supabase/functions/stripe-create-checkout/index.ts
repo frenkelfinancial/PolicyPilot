@@ -49,11 +49,13 @@ serve(async (req) => {
 
   if (!planId) return json({ error: "plan_id_required" }, 400);
 
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId);
+
   // Developer account bypass — skip Stripe, apply plan directly in DB.
   const DEV_EMAIL = 'jacef8778099@gmail.com';
   if (user.email === DEV_EMAIL) {
     const { data: devPlan, error: devPlanErr } = await sb
-      .from("plans").select("*").eq("id", planId).eq("active", true).maybeSingle();
+      .from("plans").select("*").eq(isUuid ? "id" : "slug", planId).eq("active", true).maybeSingle();
     if (devPlanErr || !devPlan) return json({ error: "plan_not_found" }, 404);
     await sb.from("agents").update({
       plan_id:              devPlan.id,
@@ -66,7 +68,7 @@ serve(async (req) => {
   const { data: plan, error: planErr } = await sb
     .from("plans")
     .select("*")
-    .eq("id", planId)
+    .eq(isUuid ? "id" : "slug", planId)
     .eq("active", true)
     .maybeSingle();
 
