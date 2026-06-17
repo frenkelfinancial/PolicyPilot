@@ -1692,6 +1692,19 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .swiz-stripe-note{text-align:center;font-size:11px;color:var(--text3);display:flex;align-items:center;justify-content:center;gap:5px}
 .swiz-stripe-note svg{width:12px;height:12px;flex-shrink:0;opacity:.6}
 #wiz-stripe-embed{border-radius:12px;overflow:hidden;margin:20px 0;border:1px solid var(--border)}
+/* Stripe popup waiting state */
+#wiz-stripe-popup-state{margin:20px 0;border:1px solid rgba(143,194,247,.2);border-radius:14px;padding:28px 24px;text-align:center;background:rgba(143,194,247,.04)}
+.swiz-popup-ico{width:52px;height:52px;border-radius:14px;background:rgba(143,194,247,.1);border:1px solid rgba(143,194,247,.2);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.swiz-popup-ico svg{width:26px;height:26px;color:var(--accent)}
+.swiz-popup-ttl{font-family:var(--display);font-size:17px;font-weight:800;color:var(--text);letter-spacing:-.03em;margin-bottom:8px}
+.swiz-popup-sub{font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:18px}
+.swiz-popup-dots{display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:18px}
+.swiz-popup-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:swiz-pulse-dot 1.4s ease-in-out infinite}
+.swiz-popup-dot:nth-child(2){animation-delay:.22s}
+.swiz-popup-dot:nth-child(3){animation-delay:.44s}
+@keyframes swiz-pulse-dot{0%,80%,100%{opacity:.22;transform:scale(.85)}40%{opacity:1;transform:scale(1.12)}}
+.swiz-popup-reopen-btn{font-family:var(--sans);font-size:13px;font-weight:600;color:var(--accent);background:rgba(143,194,247,.1);border:1px solid rgba(143,194,247,.25);border-radius:9px;padding:9px 20px;cursor:pointer;transition:all .18s;letter-spacing:-.01em}
+.swiz-popup-reopen-btn:hover{background:rgba(143,194,247,.18);border-color:rgba(143,194,247,.45)}
 .swiz-finish-btn{width:100%;font-family:var(--sans);font-size:14.5px;font-weight:700;color:#fff;background:#10b981;border:none;border-radius:11px;padding:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;letter-spacing:-.02em;transition:all .2s;margin-bottom:12px;box-shadow:0 4px 20px rgba(16,185,129,.28)}
 .swiz-finish-btn:hover{background:#0ea872;box-shadow:0 8px 32px rgba(16,185,129,.4);transform:translateY(-1px)}
 .swiz-finish-btn:disabled{background:var(--border);color:var(--text3);cursor:not-allowed;transform:none;box-shadow:none}
@@ -2987,8 +3000,16 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Secured by Stripe · Your card is never stored on our servers
           </div>
-          <!-- Stripe checkout embedded inline — appears after account is created -->
-          <div id="wiz-stripe-embed" style="display:none"></div>
+          <!-- Stripe popup payment waiting state — shown while the payment popup is open -->
+          <div id="wiz-stripe-popup-state" style="display:none">
+            <div class="swiz-popup-ico">
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 10h20" stroke-linecap="round"/></svg>
+            </div>
+            <div class="swiz-popup-ttl">Payment Window Open</div>
+            <div class="swiz-popup-sub">Complete your payment in the popup window.<br>This page will update automatically when you're done.</div>
+            <div class="swiz-popup-dots"><span class="swiz-popup-dot"></span><span class="swiz-popup-dot"></span><span class="swiz-popup-dot"></span></div>
+            <button class="swiz-popup-reopen-btn" id="wiz-popup-reopen-btn" style="display:none" onclick="_wizReopenStripePopup()">↗ Reopen Payment Window</button>
+          </div>
           <!-- Finish button — enabled only after Stripe payment is confirmed -->
           <button class="swiz-finish-btn" id="wiz-finish-btn" onclick="wizGoDashboard()" style="display:none" disabled>
             <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -5269,7 +5290,9 @@ function wizStep2Next() {
 }
 
 let _wizPaymentPending = false;
-let _wizStripeInlineInstance = null;
+let _wizStripePopupRef = null;
+let _wizLastStripeUrl = null;
+let _wizStripePopupPoll = null;
 
 async function wizSubmit() {
   const btn = document.getElementById('wiz-submit-btn');
@@ -5306,14 +5329,14 @@ async function wizSubmit() {
     });
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || 'checkout_failed');
-    if (result.client_secret) {
-      // Hide the "Create Account" button and decorative elements; show Stripe inline
+    if (result.url) {
+      // Open Stripe checkout in a popup; hide wizard actions while waiting
       if (btn) btn.style.display = 'none';
       const note = document.getElementById('wiz-stripe-note');
       if (note) note.style.display = 'none';
       const changePlan = document.getElementById('wiz-change-plan-wrap');
       if (changePlan) changePlan.style.display = 'none';
-      await _wizMountStripeInline(result.client_secret);
+      _wizOpenStripePopup(result.url);
       return;
     }
     // Already subscribed — go to dashboard
@@ -5330,23 +5353,57 @@ async function wizSubmit() {
   }
 }
 
-async function _wizMountStripeInline(clientSecret) {
-  const container = document.getElementById('wiz-stripe-embed');
-  if (!container) return;
-  container.innerHTML = '<div id="wiz-stripe-form"></div>';
-  container.style.display = 'block';
-  if (_wizStripeInlineInstance) { try { _wizStripeInlineInstance.destroy(); } catch(_) {} }
-  const stripeObj = Stripe(STRIPE_PUBLISHABLE_KEY);
-  _wizStripeInlineInstance = await stripeObj.initEmbeddedCheckout({ clientSecret, onComplete: _wizPaymentComplete });
-  _wizStripeInlineInstance.mount('#wiz-stripe-form');
-  container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+function _wizOpenStripePopup(url) {
+  _wizLastStripeUrl = url;
+  _wizPaymentPending = true;
+
+  // Show waiting state
+  const waiting = document.getElementById('wiz-stripe-popup-state');
+  if (waiting) waiting.style.display = '';
+  const reopenBtn = document.getElementById('wiz-popup-reopen-btn');
+  if (reopenBtn) reopenBtn.style.display = 'none';
+
+  // Open popup centered on screen
+  const pw = 540, ph = 760;
+  const left = Math.max(0, Math.round((screen.width  - pw) / 2));
+  const top  = Math.max(0, Math.round((screen.height - ph) / 2));
+  _wizStripePopupRef = window.open(url, 'stripe_checkout',
+    `width=${pw},height=${ph},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no`);
+
+  // Listen for completion message from the popup
+  function _onMsg(e) {
+    if (e.data && e.data.type === 'stripe_checkout_complete') {
+      window.removeEventListener('message', _onMsg);
+      if (_wizStripePopupPoll) { clearInterval(_wizStripePopupPoll); _wizStripePopupPoll = null; }
+      _wizPaymentComplete();
+    }
+  }
+  window.addEventListener('message', _onMsg);
+
+  // Poll for popup being closed before payment (show "reopen" button)
+  if (_wizStripePopupPoll) clearInterval(_wizStripePopupPoll);
+  _wizStripePopupPoll = setInterval(() => {
+    if (_wizStripePopupRef && _wizStripePopupRef.closed) {
+      clearInterval(_wizStripePopupPoll);
+      _wizStripePopupPoll = null;
+      if (_wizPaymentPending) {
+        const reopenBtn = document.getElementById('wiz-popup-reopen-btn');
+        if (reopenBtn) reopenBtn.style.display = '';
+      }
+    }
+  }, 600);
+}
+
+function _wizReopenStripePopup() {
+  if (_wizLastStripeUrl) _wizOpenStripePopup(_wizLastStripeUrl);
 }
 
 function _wizPaymentComplete() {
   _wizPaymentPending = false;
-  if (_wizStripeInlineInstance) { try { _wizStripeInlineInstance.destroy(); } catch(_) {} _wizStripeInlineInstance = null; }
-  const embed = document.getElementById('wiz-stripe-embed');
-  if (embed) embed.style.display = 'none';
+  if (_wizStripePopupRef && !_wizStripePopupRef.closed) { try { _wizStripePopupRef.close(); } catch(_) {} }
+  _wizStripePopupRef = null;
+  const waiting = document.getElementById('wiz-stripe-popup-state');
+  if (waiting) waiting.style.display = 'none';
   const err3 = document.getElementById('wiz-err-3');
   if (err3) { err3.textContent = 'Payment complete — your account is ready!'; err3.className = 'swiz-err on ok'; }
   const finishBtn = document.getElementById('wiz-finish-btn');
@@ -17523,11 +17580,16 @@ async function loadIntegrations() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const _cp = new URLSearchParams(location.search);
+  // If we're the Stripe return URL inside a popup — notify parent then close.
+  if (_cp.get('checkout') === 'success' && window.opener && !window.opener.closed) {
+    try { window.opener.postMessage({ type: 'stripe_checkout_complete' }, '*'); } catch(_) {}
+    setTimeout(() => window.close(), 400);
+    return;
+  }
   applyTheme();              // ensure login screen matches saved theme before auth resolves
   restoreSectionFromCache(); // swap visible section before paint to avoid Summary flash
   subscribeAuth();
-  // Handle return from Stripe embedded checkout
-  const _cp = new URLSearchParams(location.search);
   if (_cp.get('checkout') === 'success') {
     history.replaceState(null, '', location.pathname);
     showToast('Payment successful! Welcome to Producer Stack.', '#10b981');
