@@ -2515,6 +2515,27 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   .topbar{padding:8px 10px}
   .topbar h1,.topbar #pgTitle{font-size:13px}
 }
+/* ── Plan Required Overlay (post-login, no active subscription) ── */
+#plan-required-overlay{position:fixed;inset:0;z-index:1500;background:rgba(7,14,28,.92);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:24px}
+.pro-card{background:#fff;border-radius:18px;padding:36px 32px 28px;width:100%;max-width:480px;box-shadow:0 24px 80px rgba(0,0,0,.5);font-family:var(--sans)}
+body:not(.light) .pro-card{background:#0f1d32;border:1px solid rgba(143,194,247,.12)}
+.pro-badge{display:inline-flex;align-items:center;gap:7px;background:#FEF2F2;border:1px solid rgba(239,68,68,.22);border-radius:99px;padding:5px 14px 5px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#DC2626;margin-bottom:18px}
+body:not(.light) .pro-badge{background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:#f87171}
+.pro-title{font-size:24px;font-weight:900;color:#0B1F3A;letter-spacing:-.04em;margin-bottom:10px;line-height:1.1}
+body:not(.light) .pro-title{color:#e2eaf4}
+.pro-sub{font-size:14px;color:#6A8CAE;line-height:1.6;margin-bottom:22px}
+body:not(.light) .pro-sub{color:#8aa8ca}
+.auth-plan-cards{display:grid;grid-template-columns:1fr;gap:10px}
+.auth-plan-card{border:2px solid #D6E3F2;border-radius:12px;padding:14px 16px;cursor:pointer;transition:border-color .15s,background .15s;background:#FAFCFF}
+body:not(.light) .auth-plan-card{background:rgba(143,194,247,.04);border-color:rgba(143,194,247,.18)}
+.auth-plan-card:hover{border-color:#5BA0E8;background:#F0F7FF}
+body:not(.light) .auth-plan-card:hover{border-color:rgba(143,194,247,.5);background:rgba(143,194,247,.08)}
+.auth-plan-card.selected{border-color:#0B1F3A;background:#EEF4FB}
+body:not(.light) .auth-plan-card.selected{border-color:#8FC2F7;background:rgba(143,194,247,.12)}
+.auth-plan-card-name{font-size:14px;font-weight:700;color:#0B1F3A}
+body:not(.light) .auth-plan-card-name{color:#e2eaf4}
+.auth-plan-card-price{font-size:12.5px;font-weight:600;color:#5BA0E8;margin-top:2px}
+.auth-plan-card-desc{font-size:12px;color:#8AA8CA;margin-top:3px}
 </style>
 </head>
 <body>
@@ -3013,7 +3034,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
           <!-- Finish button — enabled only after Stripe payment is confirmed -->
           <button class="swiz-finish-btn" id="wiz-finish-btn" onclick="wizGoDashboard()" style="display:none" disabled>
             <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            Go to Dashboard
+            Log in to Dashboard
           </button>
           <div style="text-align:center;margin-top:20px" id="wiz-change-plan-wrap">
             <button class="swiz-btn-s" onclick="wizGoTo(2,true)">← Change Plan</button>
@@ -3029,8 +3050,12 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 <!-- PLAN REQUIRED OVERLAY - shown after login when agent has no plan -->
 <div id="plan-required-overlay" style="display:none">
   <div class="pro-card">
-    <div class="pro-title">Choose Your Plan to Continue</div>
-    <div class="pro-sub">Select a subscription to unlock Producer Stack. Your payment is processed securely by Stripe.</div>
+    <div class="pro-badge">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      No Active Subscription
+    </div>
+    <div class="pro-title">Choose a plan to continue</div>
+    <div class="pro-sub">Your account was created, but no subscription was found. Select a plan below to unlock Producer Stack — payment is processed securely by Stripe.</div>
     <div class="auth-msg" id="pro-msg"></div>
     <div class="auth-plan-cards" id="pro-plan-cards" style="margin-bottom:20px">
       <div style="grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:18px">Loading plans...</div>
@@ -5405,7 +5430,7 @@ function _wizPaymentComplete() {
   const waiting = document.getElementById('wiz-stripe-popup-state');
   if (waiting) waiting.style.display = 'none';
   const err3 = document.getElementById('wiz-err-3');
-  if (err3) { err3.textContent = 'Payment complete — your account is ready!'; err3.className = 'swiz-err on ok'; }
+  if (err3) { err3.textContent = 'Thank you for your purchase! Your subscription is now active.'; err3.className = 'swiz-err on ok'; }
   const finishBtn = document.getElementById('wiz-finish-btn');
   if (finishBtn) { finishBtn.style.display = ''; finishBtn.removeAttribute('disabled'); }
 }
@@ -5616,7 +5641,7 @@ let _proSelectedId = null;
 async function showPlanRequiredOverlay() {
   const overlay = document.getElementById('plan-required-overlay');
   if (!overlay) return;
-  overlay.classList.add('show');
+  overlay.style.display = 'flex';
   const wrap = document.getElementById('pro-plan-cards');
   const btn  = document.getElementById('pro-subscribe-btn');
   if (btn) btn.disabled = true;
@@ -5679,7 +5704,7 @@ async function planRequiredSubscribe() {
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || 'checkout_failed');
     if (result.client_secret) {
-      document.getElementById('plan-required-overlay').classList.remove('show');
+      document.getElementById('plan-required-overlay').style.display = 'none';
       await _mountEmbeddedCheckout(result.client_secret);
       if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
       return;
@@ -5688,7 +5713,7 @@ async function planRequiredSubscribe() {
     currentPlanName = (_proPlans.find(p => p.id === planId) || {}).name || null;
     try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
     _applyPlanGating();
-    document.getElementById('plan-required-overlay').classList.remove('show');
+    document.getElementById('plan-required-overlay').style.display = 'none';
     showToast(`${currentPlanName} plan activated!`, '#10b981');
   } catch(e) {
     const msgEl = document.getElementById('pro-msg');
@@ -9617,19 +9642,69 @@ function _planTier() {
 
 function _applyPlanGating() {
   const tier = _planTier();
-  const restricted = tier !== 'pro' && tier !== 'leader';
+  const restricted = tier !== 'pro' && tier !== 'leader'; // basic or no plan
+  const isLeader = tier === 'leader';
+  // Summary analytics cards — hidden for Basic
   ['income-reality', 'activity-momentum', 'persistency-health', 'pipeline-funnel'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = restricted ? 'none' : '';
   });
   const btiCard = document.querySelector('.bti-card');
   if (btiCard) btiCard.style.display = restricted ? 'none' : '';
+  // Nav items — Bonus Tracker requires Pro+, Agency requires Leader
+  const navItems = document.querySelectorAll('.nav-item');
+  const idxMap = { bonuses: 3, agency: 7 };
+  if (navItems[idxMap.bonuses]) navItems[idxMap.bonuses].style.display = restricted ? 'none' : '';
+  if (navItems[idxMap.agency])  navItems[idxMap.agency].style.display  = isLeader  ? '' : 'none';
+  // If user landed on a gated section (e.g. page reload with cached section), redirect to Summary
+  const activeSec = document.querySelector('.section.active');
+  if (activeSec) {
+    const activeId = activeSec.id.replace('sec-', '');
+    const shouldRedirect = (activeId === 'bonuses' && restricted) || (activeId === 'agency' && !isLeader);
+    if (shouldRedirect) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      const sum = document.getElementById('sec-summary');
+      if (sum) sum.classList.add('active');
+      document.querySelectorAll('.nav-item').forEach((n, i) => n.classList.toggle('active', i === 0));
+    }
+  }
+}
+
+// Upgrade gate — shown when a user tries to access a plan-locked feature
+function showUpgradeGate(featureName, requiredTier) {
+  const isLeaderReq = requiredTier === 'leader';
+  const tierLabel = isLeaderReq ? 'Team Leader' : 'Pro Producer';
+  const tierPrice = isLeaderReq ? '$249.99' : '$149.99';
+  let el = document.getElementById('_upgrade-gate');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = '_upgrade-gate';
+    el.setAttribute('style','position:fixed;inset:0;z-index:2001;background:rgba(7,13,26,.8);display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px)');
+    el.innerHTML = `<div style="background:var(--card,#fff);border-radius:16px;padding:32px 28px 24px;max-width:380px;width:100%;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.45);font-family:var(--sans)">
+      <div style="width:54px;height:54px;border-radius:14px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);display:flex;align-items:center;justify-content:center;margin:0 auto 18px">
+        <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#f59e0b" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+      </div>
+      <div id="_ug-title" style="font-size:20px;font-weight:900;color:var(--text,#0B1F3A);letter-spacing:-.04em;margin-bottom:9px;line-height:1.15"></div>
+      <div id="_ug-sub" style="font-size:13.5px;color:var(--text2,#6A8CAE);line-height:1.6;margin-bottom:24px"></div>
+      <button id="_ug-upgrade-btn" onclick="closeUpgradeGate();pbOpenUpgradeModal()" style="width:100%;padding:12px;background:#0B1F3A;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px;font-family:var(--sans);letter-spacing:-.02em;transition:background .14s" onmouseover="this.style.background='#13335a'" onmouseout="this.style.background='#0B1F3A'">Upgrade to Continue</button>
+      <button onclick="closeUpgradeGate()" style="background:none;border:none;color:var(--text3,#8AA8CA);font-size:13px;cursor:pointer;font-family:var(--sans);padding:4px 8px">Maybe later</button>
+    </div>`;
+    document.body.appendChild(el);
+  }
+  document.getElementById('_ug-title').textContent = featureName + ' requires an upgrade';
+  document.getElementById('_ug-sub').textContent = 'This feature is included in the ' + tierLabel + ' plan (' + tierPrice + '/mo) and above. Upgrade your plan to unlock it.';
+  el.style.display = 'flex';
+}
+
+function closeUpgradeGate() {
+  const el = document.getElementById('_upgrade-gate');
+  if (el) el.style.display = 'none';
 }
 
 function guardedOpenPowerDialer() {
   const tier = _planTier();
   if (tier !== 'pro' && tier !== 'leader') {
-    showToast('Upgrade to Pro or Leader plan to use Power Dialer', '#f59e0b');
+    showUpgradeGate('Power Dialer', 'pro');
     return;
   }
   openPowerDialerModal();
@@ -9638,7 +9713,7 @@ function guardedOpenPowerDialer() {
 function guardedOpenPreviewDialer() {
   const tier = _planTier();
   if (tier !== 'pro' && tier !== 'leader') {
-    showToast('Upgrade to Pro or Leader plan to use Preview Dialer', '#f59e0b');
+    showUpgradeGate('Preview Dialer', 'pro');
     return;
   }
   openPreviewDialer();
@@ -13470,6 +13545,16 @@ const NAV_TITLES = {
 };
 
 function nav(id) {
+  // Plan gate — intercept before navigating
+  const _navTier = _planTier();
+  if (id === 'bonuses' && _navTier !== 'pro' && _navTier !== 'leader') {
+    showUpgradeGate('Bonus Tracker', 'pro');
+    return;
+  }
+  if (id === 'agency' && _navTier !== 'leader') {
+    showUpgradeGate('Agency Management', 'leader');
+    return;
+  }
   // Hide all sections
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   // Deactivate all nav items
@@ -15063,7 +15148,16 @@ function pbOpenUpgradeModal() {
   if (note) note.textContent = _isDev()
     ? 'Developer account — plan switches are free and instant. No Stripe payment required.'
     : 'Billed monthly via Stripe. Existing subscribers switch instantly; new subscribers are taken to a secure Stripe checkout page.';
-  pbRenderUpgradeOptions();
+  if (!_pbPlans.length) {
+    const wrap = document.getElementById('pb-upgrade-options');
+    if (wrap) wrap.innerHTML = '<div class="pb-empty">Loading plans…</div>';
+    sb.from('plans')
+      .select('id, slug, name, monthly_minutes, monthly_quote_limit, monthly_uw_prompt_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
+      .eq('active', true).order('sort_order', { ascending: true })
+      .then(({ data }) => { if (data) { _pbPlans = data.filter(p => p.name !== 'Starter' && p.name !== 'Scale'); pbRenderUpgradeOptions(); } });
+  } else {
+    pbRenderUpgradeOptions();
+  }
   m.classList.add('open');
   if (typeof mountIcons === 'function') mountIcons(m);
 }
@@ -17466,8 +17560,10 @@ async function bootDashboard() {
   // Default-active section in HTML is 'summary'; only re-nav if a different one was saved.
   try {
     const saved = localStorage.getItem(k('pp_current_section'));
-    const valid = { summary:1, quoter:1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, agency:1, settings:1 };
-    if (saved && valid[saved] && saved !== 'summary') nav(saved);
+    const valid = { summary:1, 'api-quoter':1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, agency:1, settings:1 };
+    const _rt = _planTier();
+    const _gated = (saved === 'bonuses' && _rt !== 'pro' && _rt !== 'leader') || (saved === 'agency' && _rt !== 'leader');
+    if (saved && valid[saved] && saved !== 'summary' && !_gated) nav(saved);
   } catch (e) {}
   if (typeof dsInitPlayground === 'function') dsInitPlayground();
   // Phase 7: wire drag-to-reorder once DOM is settled.
