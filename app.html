@@ -5147,7 +5147,8 @@ function subscribeAuth() {
     } else {
       currentAgent = null;
       showGate();
-      authShowView('signin');
+      const urlView = new URLSearchParams(location.search).get('view');
+      authShowView(urlView === 'signup' ? 'signup' : 'signin');
     }
   });
 }
