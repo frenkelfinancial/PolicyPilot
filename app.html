@@ -5228,30 +5228,29 @@ function wizStep1Next() {
 }
 
 function wizSelectPlan(el) {
-  const planId = el.dataset.planId || '';
-  if (!planId) {
-    // Plans haven't finished loading from DB — retry and ask user to wait
-    _signupPlansLoaded = false;
-    authLoadSignupPlans();
-    _wizErr(2, 'Plan details are still loading — please wait a moment and try again.');
-    return;
-  }
   document.querySelectorAll('#signup-wizard .apc-plan-col').forEach(c => c.classList.remove('selected'));
   el.classList.add('selected');
   const hidId = document.getElementById('signup-plan-id');
   const hidNm = document.getElementById('signup-plan-name-val');
-  if (hidId) hidId.value = planId;
+  if (hidId) hidId.value = el.dataset.planId || el.dataset.tier || '';
   if (hidNm) hidNm.value = el.dataset.planName || '';
   _wizErr(2, '');
 }
 
 function wizStep2Next() {
+  // Re-read planId from the selected card — authLoadSignupPlans may have
+  // finished loading since the user first clicked the card.
+  const selCard = document.querySelector('#signup-wizard .apc-plan-col.selected');
+  if (selCard && selCard.dataset.planId) {
+    const hidId = document.getElementById('signup-plan-id');
+    if (hidId) hidId.value = selCard.dataset.planId;
+  }
   const planId = (document.getElementById('signup-plan-id') || {}).value || '';
   if (!planId) return _wizErr(2, 'Please select a plan to continue.');
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId)) {
     _signupPlansLoaded = false;
     authLoadSignupPlans();
-    return _wizErr(2, 'Plan details are still loading — please wait a moment and try again.');
+    return _wizErr(2, 'Plan prices are still loading — please wait a moment and try again.');
   }
   // Populate step 3 confirm panel
   const v = id => ((document.getElementById(id) || {}).value || '').trim();
