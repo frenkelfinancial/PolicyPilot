@@ -1595,16 +1595,16 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 /* ── Step 2: Plan cards (dark always — hardcoded to ensure readability in any mode) ── */
 .swiz-plans{display:flex;gap:16px;align-items:stretch;max-width:1060px;margin:0 auto 32px}
 /* Card base — dark slate navy, never uses light-mode CSS vars */
-.swiz-pc{flex:1;border-radius:20px;overflow:hidden;cursor:pointer;transition:border-color .25s,box-shadow .3s;position:relative;background:linear-gradient(158deg,#111e34 0%,#080f1c 100%);border:1.5px solid rgba(90,130,200,.25);display:flex;flex-direction:column}
+.swiz-pc{flex:1;border-radius:20px;overflow:hidden;cursor:pointer;transition:border-color .22s,box-shadow .28s,transform .22s;position:relative;background:linear-gradient(158deg,#111e34 0%,#080f1c 100%);border:1.5px solid rgba(90,130,200,.25);display:flex;flex-direction:column}
 .swiz-pc.swiz-pc-feat{background:linear-gradient(158deg,#0d2450 0%,#060f28 100%);border-color:rgba(143,194,247,.45)}
 .swiz-pc.swiz-pc-lead{background:linear-gradient(158deg,#1f1400 0%,#0d0900 100%);border-color:rgba(224,184,132,.42)}
 /* Hover states */
-.swiz-pc:hover{border-color:rgba(90,130,200,.55);box-shadow:0 18px 50px -14px rgba(0,0,0,.65)}
-.swiz-pc.swiz-pc-feat:hover{border-color:rgba(143,194,247,.7);box-shadow:0 0 0 1px rgba(143,194,247,.22),0 22px 60px -14px rgba(143,194,247,.22)}
-.swiz-pc.swiz-pc-lead:hover{border-color:rgba(224,184,132,.65);box-shadow:0 0 0 1px rgba(224,184,132,.18),0 22px 60px -14px rgba(224,184,132,.18)}
+.swiz-pc:hover{border-color:rgba(90,130,200,.85);box-shadow:0 0 0 2px rgba(90,130,200,.38),0 22px 56px -12px rgba(0,0,0,.72);transform:translateY(-5px) scale(1.018)}
+.swiz-pc.swiz-pc-feat:hover{border-color:rgba(143,194,247,.95);box-shadow:0 0 0 2.5px rgba(143,194,247,.38),0 26px 64px -12px rgba(143,194,247,.32);transform:translateY(-5px) scale(1.018)}
+.swiz-pc.swiz-pc-lead:hover{border-color:rgba(224,184,132,.9);box-shadow:0 0 0 2.5px rgba(224,184,132,.32),0 26px 64px -12px rgba(224,184,132,.30);transform:translateY(-5px) scale(1.018)}
 /* Selected ring */
-#signup-wizard .apc-plan-col.selected{box-shadow:0 0 0 2.5px #8FC2F7,0 18px 50px -10px rgba(143,194,247,.28) !important;border-color:#8FC2F7 !important}
-#signup-wizard .apc-plan-col.selected.swiz-pc-lead{box-shadow:0 0 0 2.5px #E0B884,0 18px 50px -10px rgba(224,184,132,.22) !important;border-color:#E0B884 !important}
+#signup-wizard .apc-plan-col.selected{box-shadow:0 0 0 3.5px #8FC2F7,0 0 28px rgba(143,194,247,.45),0 24px 60px -8px rgba(143,194,247,.38) !important;border-color:#8FC2F7 !important;transform:translateY(-7px) scale(1.028) !important}
+#signup-wizard .apc-plan-col.selected.swiz-pc-lead{box-shadow:0 0 0 3.5px #E0B884,0 0 28px rgba(224,184,132,.4),0 24px 60px -8px rgba(224,184,132,.35) !important;border-color:#E0B884 !important;transform:translateY(-7px) scale(1.028) !important}
 /* Top accent bar */
 .swiz-pc-bar{height:3px;flex-shrink:0}
 .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-bar{background:linear-gradient(90deg,rgba(90,140,220,.35),rgba(110,160,250,.6),rgba(90,140,220,.35))}
@@ -1648,7 +1648,7 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 /* ── Wizard plan card overrides (ID specificity beats .apc-plan-col's #FAFCFF) ── */
 /* Basic → same deep blue as Pro was */
 #signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead){background:linear-gradient(158deg,#0d2450 0%,#060f28 100%);border-color:rgba(143,194,247,.45)}
-#signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead):hover{border-color:rgba(143,194,247,.7);box-shadow:0 0 0 1px rgba(143,194,247,.22),0 22px 60px -14px rgba(143,194,247,.22)}
+#signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead):hover{border-color:rgba(143,194,247,.95);box-shadow:0 0 0 2.5px rgba(143,194,247,.38),0 26px 64px -12px rgba(143,194,247,.32);transform:translateY(-5px) scale(1.018)}
 #signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-bar{background:linear-gradient(90deg,transparent,#8FC2F7 35%,#b4d6ff 65%,transparent)}
 #signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-tier{color:#8FC2F7}
 #signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-div{background:rgba(143,194,247,.16)}
@@ -1656,14 +1656,14 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 #signup-wizard .swiz-pc:not(.swiz-pc-feat):not(.swiz-pc-lead) .swiz-pc-cta:hover{background:#a8d4ff}
 /* Pro → cool silver */
 #signup-wizard .swiz-pc.swiz-pc-feat{background:linear-gradient(158deg,#28303f 0%,#19202d 100%);border-color:rgba(168,190,218,.42)}
-#signup-wizard .swiz-pc.swiz-pc-feat:hover{border-color:rgba(192,212,232,.7);box-shadow:0 0 0 1px rgba(192,212,232,.2),0 22px 60px -14px rgba(168,190,218,.18)}
+#signup-wizard .swiz-pc.swiz-pc-feat:hover{border-color:rgba(168,204,242,.95);box-shadow:0 0 0 2.5px rgba(168,204,242,.35),0 26px 64px -12px rgba(168,190,218,.28);transform:translateY(-5px) scale(1.018)}
 #signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-bar{background:linear-gradient(90deg,transparent,#9ab4cc 28%,#cce0f0 55%,#9ab4cc 78%,transparent);animation:swiz-shimmer 2.8s ease-in-out infinite}
 #signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-tier{color:#a8c0d6}
 #signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-div{background:rgba(168,190,218,.2)}
 #signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-cta{background:linear-gradient(135deg,#6e8eae 0%,#a8c4d8 50%,#6e8eae 100%);color:#070f1a;border-color:transparent}
 #signup-wizard .swiz-pc.swiz-pc-feat .swiz-pc-cta:hover{background:linear-gradient(135deg,#7ea0be 0%,#bcd4e8 50%,#7ea0be 100%)}
 /* Selected states */
-#signup-wizard .apc-plan-col.selected.swiz-pc-feat{box-shadow:0 0 0 2.5px #a8c0d6,0 18px 50px -10px rgba(168,192,218,.28) !important;border-color:#a8c0d6 !important}
+#signup-wizard .apc-plan-col.selected.swiz-pc-feat{box-shadow:0 0 0 3.5px #c0d8f0,0 0 28px rgba(168,204,242,.4),0 24px 60px -8px rgba(168,192,218,.35) !important;border-color:#c0d8f0 !important;transform:translateY(-7px) scale(1.028) !important}
 #signup-wizard .apc-plan-col.selected.swiz-pc-feat .swiz-pc-cta{background:linear-gradient(135deg,#7ea0be 0%,#bcd4e8 50%,#7ea0be 100%) !important;color:#070f1a !important;border-color:transparent !important}
 
 .swiz-2-nav{display:flex;align-items:center;justify-content:center;gap:14px;padding:0 24px 8px}
