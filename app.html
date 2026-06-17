@@ -3347,6 +3347,16 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         #sec-api-quoter .aq-limit-banner, #leadApiQuoteModal .aq-limit-banner { margin-bottom:14px; padding:12px 14px; border:1px solid rgba(220,38,38,.45); background:rgba(220,38,38,.08); border-radius:var(--ds-radius-md,10px); color:var(--text2); font-size:12.5px; line-height:1.45; }
         #sec-api-quoter .aq-limit-banner strong, #leadApiQuoteModal .aq-limit-banner strong { color:var(--ds-color-danger,#dc2626); font-weight:600; }
         @media (max-width: 900px) { #sec-api-quoter .aq-podium, #leadApiQuoteModal .aq-podium { grid-template-columns:1fr; } }
+        /* Multi-product group expand button */
+        #sec-api-quoter .aq-expand-btn, #leadApiQuoteModal .aq-expand-btn { display:inline-flex; align-items:center; gap:3px; cursor:pointer; font-size:10.5px; color:var(--text3); font-weight:600; border:1px solid var(--border); border-radius:999px; padding:1px 8px; background:var(--bg3); transition:background 150ms,color 150ms; white-space:nowrap; vertical-align:middle; margin-left:6px; line-height:1.6; }
+        #sec-api-quoter .aq-expand-btn:hover, #leadApiQuoteModal .aq-expand-btn:hover { background:var(--bg2); color:var(--text2); }
+        #sec-api-quoter .aq-expand-btn .aq-expand-icon, #leadApiQuoteModal .aq-expand-btn .aq-expand-icon { display:inline-block; transition:transform 150ms; font-size:8px; line-height:1; }
+        #sec-api-quoter .aq-expand-btn.open .aq-expand-icon, #leadApiQuoteModal .aq-expand-btn.open .aq-expand-icon { transform:rotate(180deg); }
+        /* Alt (sub-product) rows */
+        #sec-api-quoter .aq-alt-row td, #leadApiQuoteModal .aq-alt-row td { background:var(--bg3); padding:6px 10px; font-size:12px; color:var(--text2); border-bottom:1px solid var(--border); }
+        #sec-api-quoter .aq-alt-row:last-child td, #leadApiQuoteModal .aq-alt-row:last-child td { border-bottom:none; }
+        #sec-api-quoter table.aq-table tbody .aq-alt-row:hover td, #leadApiQuoteModal table.aq-table tbody .aq-alt-row:hover td { background:var(--bg3); }
+        #sec-api-quoter .aq-alt-rank, #leadApiQuoteModal .aq-alt-rank { color:var(--text3); font-size:11px; }
       </style>
 
       <div class="flex jb aic" style="margin-bottom:18px">
@@ -17085,6 +17095,33 @@ function fmtMoney(n) {
   return '$' + num.toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: (Number.isInteger(num) ? 0 : 2) });
 }
 
+// Group a sorted quote list by base company name (parenthetical product suffix stripped).
+// First occurrence of each base becomes the primary (lowest sort rank); the rest are alternates.
+function aqGroupQuotesByBase(sortedQuotes) {
+  const seen = new Map(); // base → index in result
+  const result = [];
+  for (const q of sortedQuotes) {
+    const base = aqCleanCompany(q.company) || (q.company || '');
+    if (seen.has(base)) {
+      result[seen.get(base)].alternates.push(q);
+    } else {
+      seen.set(base, result.length);
+      result.push({ primary: q, alternates: [] });
+    }
+  }
+  return result;
+}
+
+function aqToggleGroup(btn, gi) {
+  const table = btn.closest('table');
+  if (!table) return;
+  const altRows = table.querySelectorAll('tr[data-group-alt="' + gi + '"]');
+  const isOpen = btn.classList.contains('open');
+  altRows.forEach(r => { r.style.display = isOpen ? 'none' : ''; });
+  btn.classList.toggle('open', !isOpen);
+  btn.setAttribute('aria-expanded', String(!isOpen));
+}
+
 function renderApiQuoteResults(reuseLast) {
   const slot = document.getElementById(_aqCtx.resultsId);
   if (!slot) return;
@@ -17140,15 +17177,26 @@ function renderApiQuoteResults(reuseLast) {
   }).join('');
 
   const sorted = aqSortedQuotes(quotes);
-  const rows = sorted.map((q, i) => {
+  const groups = aqGroupQuotesByBase(sorted);
+  let rowNum = 0;
+  const rows = groups.map((g, gi) => {
+    rowNum++;
+    const q = g.primary;
     const comm = aqEstimateCommission(q.company, q.yearly);
     const eapp = (q.eapp_link && q.eapp_link !== '#')
       ? '<a href="' + escapeHTML(q.eapp_link) + '" target="_blank" rel="noopener" style="color:var(--text-g);text-decoration:underline;white-space:nowrap">eApp →</a>'
       : '';
-    return '<tr data-company="' + escapeHTML(q.company || '') + '">' +
-      '<td class="aq-rank-cell">' + (i + 1) + '</td>' +
+    const expandBtn = g.alternates.length
+      ? '<button type="button" class="aq-expand-btn" onclick="aqToggleGroup(this,' + gi + ')" aria-expanded="false">' +
+        '<span class="aq-expand-icon">▼</span> +' + g.alternates.length + ' more' +
+        '</button>'
+      : '';
+    const primaryRow = '<tr data-company="' + escapeHTML(q.company || '') + '" data-group-primary="' + gi + '">' +
+      '<td class="aq-rank-cell">' + rowNum + '</td>' +
       '<td><div class="aq-carrier"><span class="aq-logo-box">' + aqLogoCell(q, 20) + '</span>' +
-        '<div style="min-width:0"><div class="aq-carrier-name" title="' + escapeHTML(q.company || '') + '">' + escapeHTML(aqCleanCompany(q.company)) + '</div></div>' +
+        '<div style="min-width:0"><div class="aq-carrier-name" title="' + escapeHTML(q.company || '') + '">' + escapeHTML(aqCleanCompany(q.company)) + '</div>' +
+        expandBtn +
+        '</div>' +
       '</div></td>' +
       '<td>' + escapeHTML(q.plan_name || q.tier_name || '') +
         (q.warning
@@ -17161,6 +17209,24 @@ function renderApiQuoteResults(reuseLast) {
       '<td class="right">' + (comm != null ? fmtMoney(comm) : '<span style="color:var(--text3)">—</span>') + '</td>' +
       '<td class="right">' + eapp + '</td>' +
     '</tr>';
+    const altRows = g.alternates.map(aq => {
+      const acomm = aqEstimateCommission(aq.company, aq.yearly);
+      const aeapp = (aq.eapp_link && aq.eapp_link !== '#')
+        ? '<a href="' + escapeHTML(aq.eapp_link) + '" target="_blank" rel="noopener" style="color:var(--text-g);text-decoration:underline;white-space:nowrap">eApp →</a>'
+        : '';
+      return '<tr class="aq-alt-row" data-company="' + escapeHTML(aq.company || '') + '" data-group-alt="' + gi + '" style="display:none">' +
+        '<td class="aq-rank-cell aq-alt-rank">↳</td>' +
+        '<td><div class="aq-carrier"><span class="aq-logo-box" style="width:32px;height:32px">' + aqLogoCell(aq, 16) + '</span>' +
+          '<div style="min-width:0"><div class="aq-carrier-name" style="font-size:12px;font-weight:500">' + escapeHTML(aq.plan_name || aq.tier_name || aq.company || '') + '</div></div>' +
+        '</div></td>' +
+        '<td></td>' +
+        '<td class="right"><strong>' + fmtMoney(aqNum(aq.monthly)) + '</strong></td>' +
+        '<td class="right">' + fmtMoney(aqNum(aq.yearly)) + '</td>' +
+        '<td class="right">' + (acomm != null ? fmtMoney(acomm) : '<span style="color:var(--text3)">—</span>') + '</td>' +
+        '<td class="right">' + aeapp + '</td>' +
+      '</tr>';
+    }).join('');
+    return primaryRow + altRows;
   }).join('');
 
   const sortClass = name => 'class="' + (name === 'company' || name === 'plan' ? '' : 'right ') + (_aqSortCol === name ? ('sort-' + _aqSortDir) : '') + '"';
