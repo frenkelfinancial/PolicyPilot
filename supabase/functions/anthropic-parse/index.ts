@@ -25,11 +25,7 @@ const MODEL = "claude-sonnet-4-20250514";
 const MAX_TOKENS = 500;
 const MAX_INPUT_LEN = 4000;
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 const SYSTEM_PROMPT = `You are a life insurance underwriting specialist helping insurance agents get a general estimate of carrier approval likelihood. Be LENIENT and realistic — insurers often approve clients with conditions at modified or graded levels that agents might expect to be declined. Many carriers have flexible underwriting and approve conditions that seem severe.
 
@@ -50,15 +46,14 @@ Medication mapping: insulin → Diabetes Type 1 / On Insulin; metformin/ozempic/
 
 Return ONLY a JSON array of matching condition names. No explanation, no markdown. Example: ["Diabetes Type 2 — Controlled (A1C ≤ 8.6, no insulin)", "Sleep Apnea (CPAP OK)"]`;
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
-}
-
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const cors = corsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
