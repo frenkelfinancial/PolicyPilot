@@ -438,10 +438,10 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
                 <div class="mk-pr"><span style="width:54px">Issued</span><div class="mk-bw"><div class="mk-bf" style="width:20%;background:var(--gold)"></div></div><span>9</span></div>
               </div>
             </div>
-            <div class="mk-dial">
+            <div class="mk-dial" id="mk-dialer">
               <div class="mk-dl">Power Dialer</div>
-              <div class="mk-dn">+1 (920) 555-0192</div>
-              <div class="mk-ds">Lead 3 of 12 · Session active</div>
+              <div class="mk-dn" id="mk-phone">+1 (920) 555-0192</div>
+              <div class="mk-ds" id="mk-status">Lead 3 of 12 · <span class="mk-timer" id="mk-timer">0:14</span></div>
               <button class="mk-db">● Live Session</button>
             </div>
           </div>
@@ -712,6 +712,41 @@ document.querySelectorAll('a[href^="#"]').forEach(a=>{
       },{once:true});
     },{once:true});
   },2400);
+})();
+
+// Dialer live session – call timer + lead auto-advance
+(function(){
+  const leads=[
+    {phone:'+1 (920) 555-0192',num:3},
+    {phone:'+1 (414) 555-0387',num:4},
+    {phone:'+1 (262) 555-0841',num:5},
+    {phone:'+1 (608) 555-0229',num:6},
+  ];
+  let li=0,secs=14;
+  const phoneEl=document.getElementById('mk-phone');
+  const statusEl=document.getElementById('mk-status');
+  const dialEl=document.getElementById('mk-dialer');
+  if(!phoneEl||!statusEl)return;
+  function pad(n){return n<10?'0'+n:''+n}
+  function getTimer(){return document.getElementById('mk-timer')}
+  setInterval(()=>{
+    secs++;
+    const t=getTimer();
+    if(t)t.textContent=Math.floor(secs/60)+':'+pad(secs%60);
+    if(secs%22===0){
+      li=(li+1)%leads.length;
+      if(dialEl){dialEl.classList.remove('advancing');void dialEl.offsetWidth;dialEl.classList.add('advancing');setTimeout(()=>dialEl.classList.remove('advancing'),700)}
+      phoneEl.style.opacity='0';
+      phoneEl.style.transform='translateY(-4px)';
+      setTimeout(()=>{
+        phoneEl.textContent=leads[li].phone;
+        statusEl.innerHTML='Lead '+leads[li].num+' of 12 · <span class="mk-timer" id="mk-timer">0:00</span>';
+        phoneEl.style.opacity='1';
+        phoneEl.style.transform='';
+        secs=0;
+      },220);
+    }
+  },1000);
 })();
 </script>
 </body>

@@ -73,7 +73,7 @@
         <div class="bc-stat"><div class="bc-stat-n"><em>Any</em></div><div class="bc-stat-l">Phone or carrier</div></div>
       </div>
       <div class="dialer-live">
-        <div class="dialer-live-top"><span class="dialer-live-lbl">Session in Progress</span><span class="live-pill">Live</span></div>
+        <div class="dialer-live-top"><span class="dialer-live-lbl">Session in Progress</span><div style="display:flex;align-items:center;gap:10px"><span id="feat-timer" style="font-size:9px;font-family:var(--mono);color:var(--text3)">0:14</span><span class="live-pill">Live</span></div></div>
         <div class="dial-chips">
           <span class="dc done">Lead 1 ✓</span><span class="dc done">Lead 2 ✓</span><span class="dc active">Lead 3 ← Now</span><span class="dc queue">Lead 4</span><span class="dc queue">+8 queue</span>
         </div>
@@ -228,6 +228,34 @@ document.getElementById('hbg').addEventListener('click',()=>{document.getElement
 function closeMob(){document.getElementById('mob-menu').classList.remove('open')}
 const ro=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('in');ro.unobserve(x.target)}})},{threshold:.1,rootMargin:'0px 0px -32px 0px'});
 document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+// Power Dialer – chip cycling + call timer
+(function(){
+  const chips=document.querySelector('.dial-chips');
+  const timerEl=document.getElementById('feat-timer');
+  if(!chips)return;
+  const states=[
+    [['done','Lead 1 ✓'],['done','Lead 2 ✓'],['active','Lead 3 ← Now'],['queue','Lead 4'],['queue','+8 queue']],
+    [['done','Lead 1 ✓'],['done','Lead 2 ✓'],['done','Lead 3 ✓'],['active','Lead 4 ← Now'],['queue','+7 queue']],
+    [['done','Lead 2 ✓'],['done','Lead 3 ✓'],['done','Lead 4 ✓'],['active','Lead 5 ← Now'],['queue','+6 queue']],
+    [['done','Lead 3 ✓'],['done','Lead 4 ✓'],['done','Lead 5 ✓'],['active','Lead 6 ← Now'],['queue','+5 queue']],
+  ];
+  let si=0,secs=14;
+  const chipEls=chips.querySelectorAll('.dc');
+  function pad(n){return n<10?'0'+n:''+n}
+  setInterval(()=>{secs++;if(timerEl)timerEl.textContent=Math.floor(secs/60)+':'+pad(secs%60)},1000);
+  setInterval(()=>{
+    si=(si+1)%states.length;secs=0;
+    if(timerEl)timerEl.textContent='0:00';
+    const s=states[si];
+    chipEls.forEach((el,i)=>{
+      const[cls,txt]=s[i];
+      const changed=!el.classList.contains(cls);
+      el.className='dc '+cls;el.textContent=txt;
+      if(changed&&cls==='active'){el.classList.remove('chip-pop');void el.offsetWidth;el.classList.add('chip-pop')}
+    });
+  },4000);
+})();
 </script>
 </body>
 </html>

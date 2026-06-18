@@ -5261,7 +5261,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <p style="font-size:12px;color:var(--text3)" id="pd-progress"></p>
       </div>
       <div class="flex gap8 mt16" style="justify-content:flex-end">
-        <button class="btn btn-s btn-sm" onclick="powerDialerSkip()">Skip</button>
+        <button class="btn btn-s btn-sm" id="pd-skip-dialing" onclick="powerDialerSkip()">Skip Lead</button>
         <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger)" onclick="powerDialerEnd()">End Session</button>
       </div>
     </div>
@@ -5280,7 +5280,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <div class="flex gap8" style="flex-wrap:wrap" id="pd-outcome-btns"></div>
       </div>
       <div class="flex gap8 mt16" style="justify-content:flex-end">
-        <button class="btn btn-s btn-sm" onclick="powerDialerSkip()">Skip / Next</button>
+        <button class="btn btn-s btn-sm" id="pd-skip-connected" onclick="powerDialerSkip()">Next Lead →</button>
         <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger)" onclick="powerDialerEnd()">End Session</button>
       </div>
     </div>
@@ -11890,6 +11890,7 @@ function saveLeadNote(lid, text) {
 let powerDialerSessionId   = null;
 let powerDialerSessionData = null;
 let powerDialerChannel     = null;
+let _pdSkipping            = false;  // debounce guard — prevents double-advance on rapid clicks
 let _pdTimerHandle         = null;
 
 function _pdShowState(name) {
@@ -11925,8 +11926,23 @@ function _pdRenderOutcomeButtons(clientId) {
   if (!wrap) return;
   wrap.innerHTML = Object.entries(STATUS_CONFIG)
     .filter(([key]) => key !== 'new')
-    .map(([key, cfg]) => `<button class="btn btn-s btn-sm" style="background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.bg}" onclick="updateLeadStatus('${clientId}','${key}')">${cfg.label}</button>`)
+    .map(([key, cfg]) => `<button class="btn btn-s btn-sm" style="background:${cfg.bg};color:${cfg.color};border:1px solid ${cfg.bg}" onclick="_pdSetOutcomeAndAdvance('${clientId}','${key}',this)">${cfg.label}</button>`)
     .join('');
+}
+
+// Save outcome then immediately advance to the next lead.
+async function _pdSetOutcomeAndAdvance(lid, status, btn) {
+  if (_pdSkipping) return;
+  // Persist the outcome locally
+  updateLeadStatus(lid, status);
+  // Lock the outcome grid so the agent can see their choice registered
+  const wrap = document.getElementById('pd-outcome-btns');
+  if (wrap) {
+    wrap.querySelectorAll('.btn').forEach(b => { b.disabled = true; b.style.opacity = '0.45'; });
+    if (btn) { btn.style.opacity = '1'; btn.style.boxShadow = '0 0 0 2px rgba(255,255,255,.35)'; }
+  }
+  // Advance
+  await powerDialerSkip();
 }
 
 // Render the modal for the current dialer_sessions row.
@@ -12112,13 +12128,37 @@ async function startPowerDialerSession() {
 }
 
 async function powerDialerSkip() {
-  if (!powerDialerSessionId) return;
+  if (!powerDialerSessionId || _pdSkipping) return;
+  _pdSkipping = true;
+
+  // Immediate feedback — disable both skip buttons and show progress
+  const skipBtns = [
+    document.getElementById('pd-skip-dialing'),
+    document.getElementById('pd-skip-connected'),
+  ].filter(Boolean);
+  skipBtns.forEach(b => { b.disabled = true; b.textContent = 'Advancing…'; });
+
   try {
     const { error } = await sb.functions.invoke('telnyx-dialer-skip', { body: { session_id: powerDialerSessionId } });
-    if (error) showToast('Skip failed: ' + (await _pdInvokeErrorDetail(error)), '#dc2626');
+    if (error) {
+      showToast('Could not advance: ' + (await _pdInvokeErrorDetail(error)), '#dc2626');
+      // Restore buttons on failure
+      const d = document.getElementById('pd-skip-dialing');
+      const c = document.getElementById('pd-skip-connected');
+      if (d) { d.disabled = false; d.textContent = 'Skip Lead'; }
+      if (c) { c.disabled = false; c.textContent = 'Next Lead →'; }
+    }
+    // On success the Realtime subscription fires _pdRender() which re-renders
+    // the entire modal state — buttons are rebuilt, so no manual restore needed.
   } catch (e) {
-    showToast('Skip failed: ' + (e?.message || e), '#dc2626');
+    showToast('Could not advance: ' + (e?.message || e), '#dc2626');
+    const d = document.getElementById('pd-skip-dialing');
+    const c = document.getElementById('pd-skip-connected');
+    if (d) { d.disabled = false; d.textContent = 'Skip Lead'; }
+    if (c) { c.disabled = false; c.textContent = 'Next Lead →'; }
   }
+
+  _pdSkipping = false;
 }
 
 async function powerDialerEnd() {
