@@ -26,7 +26,7 @@ const MAX_TOKENS = 500;
 const MAX_INPUT_LEN = 4000;
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };

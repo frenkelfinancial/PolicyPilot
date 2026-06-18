@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# ============================================================
+# .githooks/pre-commit — secret & PII guard for PolicyPilot
+#
+# Blocks a commit when staged content contains:
+#   1. High-signal secrets (API keys, tokens, private keys, JWTs)
+#   2. Real-looking PII in CSV files — the data/templates/*.csv
+#      files are intentionally synthetic and must only use
+#      @example.com / .org / .net email addresses. A non-example
+#      address is treated as a possible real client export.
+#
+# Enable (per clone): git config core.hooksPath .githooks
+# Bypass a false positive (review first!): git commit --no-verify
+# ============================================================
+set -u
+
+fail=0
+
+# High-signal secret patterns. Deliberately specific to avoid noise.
+# Covers Stripe (sk_live/sk_test/rk_/whsec_), Anthropic, AWS, Google,
+# GitHub, Slack, Supabase service keys, and PEM private keys.
+SECRET_RE='(sk-ant-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{20,}|sk_test_[A-Za-z0-9]{20,}|rk_(live|test)_[A-Za-z0-9]{20,}|whsec_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_-]{35}|gh[pousr]_[0-9A-Za-z]{30,}|xox[baprs]-[0-9A-Za-z-]{10,}|sb_secret_[A-Za-z0-9_-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(SIGNALWIRE_API_TOKEN|TELNYX_API_KEY|ANTHROPIC_API_KEY|ITK_API_KEY|STRIPE_SECRET_KEY|SERVICE_ROLE_KEY)[[:space:]]*[:=][[:space:]]*["'\''][A-Za-z0-9_.+/-]{16,})'
+
+EMAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+
+  # Skip binary / non-text files.
+  case "$f" in
+    *.png|*.jpg|*.jpeg|*.gif|*.ico|*.pdf|*.xlsx|*.docx|*.woff|*.woff2|*.ttf) continue ;;
+  esac
+
+  content=$(git show ":$f" 2>/dev/null) || continue
+
+  # 1) Secret scan.
+  hits=$(printf '%s\n' "$content" | grep -nE "$SECRET_RE" | head -5)
+  if [ -n "$hits" ]; then
+    echo "✖ Potential secret in staged file: $f"
+    printf '%s\n' "$hits" | sed 's/^/    /'
+    fail=1
+  fi
+
+  # 2) Real-PII guard for CSVs.
+  case "$f" in
+    *.csv)
+      bad=$(printf '%s\n' "$content" \
+        | grep -oiE "$EMAIL_RE" \
+        | grep -ivE '@example\.(com|org|net)$' \
+        | sort -u | head -5)
+      if [ -n "$bad" ]; then
+        echo "✖ Non-example email in CSV (possible real PII): $f"
+        printf '%s\n' "$bad" | sed 's/^/    /'
+        fail=1
+      fi
+      ;;
+  esac
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "Commit blocked by .githooks/pre-commit (secret / PII guard)."
+  echo "If this is a verified false positive, bypass with: git commit --no-verify"
+  exit 1
+fi
+
+exit 0

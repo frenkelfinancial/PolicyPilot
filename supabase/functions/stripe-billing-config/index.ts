@@ -15,7 +15,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 // REQUIRED Supabase secrets: none beyond the standard ones.
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 

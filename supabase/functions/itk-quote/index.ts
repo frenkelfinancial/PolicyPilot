@@ -36,7 +36,7 @@ const QUOTA_WINDOW_MS = 30 * 24 * 60 * 60 * 1000; // rolling 30 days
 const QUOTA_DEFAULT   = 250;
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };

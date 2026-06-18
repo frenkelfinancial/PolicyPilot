@@ -1,5 +1,41 @@
 # Security Notes
 
+## 2026-06-17 — Audit & CORS hardening (on the Producer Stack trunk)
+
+Secret/leak scan of the working tree **and all of `main`'s history**: **no leaked
+secrets.** No Stripe secret keys (`sk_live`/`whsec`), no Supabase service-role
+keys, no Telnyx/SignalWire tokens, no private keys in source. The only
+client-side keys are **publishable by design** — Stripe `pk_live_…` in `app.html`
+and the Supabase publishable key — and are safe to ship.
+
+**CORS lockdown.** All **24 browser-facing Edge Functions** had
+`Access-Control-Allow-Origin: "*"` replaced with the production origin
+`https://producerstackcrm.com`. This is defense-in-depth — every one of these
+also enforces a Supabase JWT. GitHub Pages redirects the `www.` and `*.github.io`
+variants to the apex domain, so the single static origin covers production.
+- ⚠️ **Local dev:** a browser on `localhost` calling the *deployed* functions
+  will now be blocked by CORS. Test against `supabase functions serve` locally,
+  or temporarily widen the origin. **If the prod domain changes, update the
+  `Access-Control-Allow-Origin` line in each function.**
+
+**Intentionally left wildcard** (CORS is irrelevant to their callers — locking
+them would risk breaking integrations):
+- `lead-ingest` — public vendor webhook (JWT disabled, vendor-token auth; may be
+  posted cross-origin from a browser form).
+- `stripe-webhook` — Stripe → server, signature-verified.
+- `signalwire-swml-outbound` — SignalWire fetches SWML server-side.
+- `daily-digest`, `signalwire-call-status`, `telnyx-call-status` — cron/webhooks,
+  already had no CORS.
+
+**Pre-commit secret/PII guard** added at `.githooks/pre-commit` (blocks the secret
+patterns above + non-`@example.*` emails in CSVs). Enable with
+`git config core.hooksPath .githooks`; bypass a verified false positive with
+`git commit --no-verify`.
+
+**Accepted residual risk:** the Supabase session token lives in `localStorage`
+(supabase-js default; no SSR layer to move it to httpOnly cookies). Mitigation is
+XSS prevention. Same for the Google OAuth session.
+
 ## Authentication — Supabase Auth (in place)
 
 `index.html` is gated by Supabase Auth. The login / sign-up / reset-password
