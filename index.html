@@ -5576,7 +5576,7 @@ async function uwChatSend() {
       messages: _uwChat.messages.map(m => ({ role: m.role, content: m.content })),
       context: uwChatContext(),
     };
-    const res = await sb.functions.invoke('anthropic-uw-chat', { body: payload });
+    const res = await sb.functions.invoke('uw-chat', { body: payload });
     data = res.data; error = res.error;
   } catch (e) { error = e; }
 
