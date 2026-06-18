@@ -8117,30 +8117,182 @@ function safeParseLS(key, fallback){
 }
 
 // ============================================================
-// AI HEALTH PARSER — uses Claude API
+// AI HEALTH PARSER — local keyword fallback
 // ============================================================
-// Per-field caches keyed by text content
 const healthCache = {};
 
-// Routes through the `anthropic-parse` Supabase Edge Function so the
-// ANTHROPIC_API_KEY never ships to the browser. System prompt + model
-// live in supabase/functions/anthropic-parse/index.ts.
+function localParseHealth(text) {
+  if (!text || text.trim().length < 3) return [];
+  const t = text.toLowerCase();
+  const results = new Set();
+
+  function yearsAgo(src) {
+    const m = src.match(/(\d+)\s*(?:year|yr)/i);
+    if (m) return parseInt(m[1]);
+    const m2 = src.match(/(\d+)\s*month/i);
+    if (m2) return Math.round(parseInt(m2[1]) / 12);
+    return null;
+  }
+
+  // Stroke / TIA
+  if (/\b(stroke|tia|transient ischemic)\b/.test(t)) {
+    const y = yearsAgo(t);
+    results.add(y !== null && y < 2 ? 'Stroke/TIA (within 2 yrs)' : 'Stroke/TIA (2+ yrs ago)');
+  }
+
+  // Diabetes
+  const hasInsulin = /\binsulin\b/.test(t);
+  const hasT2Med   = /\b(metformin|januvia|jardiance|glipizide|ozempic|trulicity|victoza|farxiga|invokana|rybelsus)\b/.test(t);
+  const hasDM      = /\b(diabetes|diabetic|dm\b|type 2|type ii)\b/.test(t);
+  const hasT1      = /\b(type 1|type i\b|t1d|lada)\b/.test(t);
+  if (hasDM || hasT2Med || hasInsulin) {
+    if (hasInsulin || hasT1) {
+      results.add('Diabetes Type 1 / On Insulin');
+    } else if (/\b(uncontrolled|poorly controlled)\b/.test(t) || /a1c\s*[>≥]\s*[89]/.test(t)) {
+      results.add('Diabetes Type 2 — Uncontrolled or A1C > 8.6');
+    } else {
+      results.add('Diabetes Type 2 — Controlled (A1C ≤ 8.6, no insulin)');
+    }
+  }
+  if (/\b(neuropathy|retinopathy|nephropathy)\b/.test(t) && hasDM) results.add('Diabetic Complications (neuropathy/retinopathy)');
+
+  // COPD / Oxygen / Lung
+  if (/\b(copd|emphysema)\b/.test(t)) {
+    results.add(/\b(oxygen|o2)\b/.test(t) && !/cpap|bipap/.test(t) ? 'COPD (On Oxygen)' : 'COPD (Inhaler — no oxygen)');
+  } else if (/\b(oxygen|o2)\b/.test(t) && !/cpap|bipap/.test(t)) {
+    results.add('Oxygen Use (not CPAP)');
+  }
+  if (/\b(sleep apnea|cpap|bipap)\b/.test(t)) results.add('Sleep Apnea (CPAP OK)');
+  if (/\basthma\b/.test(t)) results.add('Asthma (Chronic)');
+  if (/\bchronic bronchitis\b/.test(t)) results.add('Bronchitis (Chronic)');
+  if (/\bpulmonary fibrosis\b/.test(t)) results.add('Pulmonary Fibrosis');
+
+  // Heart
+  if (/\b(heart attack|myocardial infarction|\bmi\b|cardiac arrest)\b/.test(t)) {
+    const y = yearsAgo(t); results.add(y !== null && y < 2 ? 'Heart Attack (within 2 yrs)' : 'Heart Attack (2+ yrs ago)');
+  }
+  if (/\b(heart surgery|open heart|bypass|cabg)\b/.test(t)) {
+    const y = yearsAgo(t); results.add(y !== null && y < 2 ? 'Heart Surgery (within 2 yrs)' : 'Heart Surgery (2+ yrs ago)');
+  }
+  if (/\bstent\b/.test(t)) {
+    const y = yearsAgo(t); results.add(y !== null && y < 2 ? 'Stent (within 2 yrs)' : 'Stent (2+ yrs ago)');
+  }
+  if (/\b(pacemaker|defibrillator|\bicd\b|\baicd\b)\b/.test(t)) {
+    const y = yearsAgo(t); results.add(y !== null && y < 2 ? 'Pacemaker / Defibrillator (within 2 yrs)' : 'Pacemaker / Defibrillator (2+ yrs ago)');
+  }
+  if (/\bangioplasty\b/.test(t)) results.add('Angioplasty');
+  if (/\b(afib|atrial fibrillation|irregular heartbeat)\b/.test(t)) results.add('AFIB / Irregular Heartbeat');
+  if (/\b(angina|chest pain)\b/.test(t)) results.add('Angina (Chest Pain)');
+  if (/\baneurysm\b/.test(t)) results.add('Aneurysm');
+  if (/\b(heart failure|chf|congestive heart)\b/.test(t)) results.add('Congestive Heart Failure');
+  if (/\b(coronary artery disease|\bcad\b)\b/.test(t)) results.add('Coronary Artery Disease');
+  if (/\b(heart valve|valve replacement)\b/.test(t)) results.add('Heart Valve Replacement');
+  if (/\b(eliquis|xarelto|warfarin|coumadin|plavix|clopidogrel|blood clot|\bdvt\b|pulmonary embolism)\b/.test(t)) results.add('Blood Clots');
+
+  // Cancer
+  if (/\b(cancer|tumor|malignant|lymphoma|leukemia|carcinoma|melanoma)\b/.test(t)) {
+    if (/\b(basal cell|skin cancer)\b/.test(t) && !/melanoma/.test(t)) {
+      results.add('Cancer — Basal Cell Skin Only');
+    } else if (/\bmelanoma\b/.test(t)) {
+      const y = yearsAgo(t); results.add(y !== null && y < 3 ? 'Melanoma (within 3 yrs)' : 'Melanoma (3+ yrs ago)');
+    } else {
+      const y = yearsAgo(t);
+      if (y === null || y < 2) results.add('Cancer — Active or Treatment within 2 yrs');
+      else if (y < 4)          results.add('Cancer — Last Treatment 2–4 yrs ago');
+      else                     results.add('Cancer — 4+ yrs cancer free');
+    }
+  }
+
+  // Neurological
+  if (/\b(alzheimer|dementia|memory loss)\b/.test(t)) results.add("Alzheimer's / Dementia / Memory Loss");
+  if (/\b(als|lou gehrig|amyotrophic)\b/.test(t)) results.add("ALS (Lou Gehrig's)");
+  if (/\bparkinson\b/.test(t)) results.add("Parkinson's Disease");
+  if (/\b(multiple sclerosis|\bms\b)\b/.test(t)) results.add('Multiple Sclerosis (MS)');
+  if (/\b(seizure|epilepsy)\b/.test(t)) {
+    const y = yearsAgo(t); results.add(y !== null && y < 3 ? 'Epilepsy / Seizures (within 3 yrs)' : 'Epilepsy / Seizures (3+ yrs)');
+  }
+  if (/\bcerebral palsy\b/.test(t)) results.add('Cerebral Palsy');
+  if (/\bhuntington\b/.test(t)) results.add("Huntington's Disease");
+
+  // Mental health
+  if (/\b(bipolar|manic|mania|abilify|lithium|depakote|aripiprazole)\b/.test(t)) results.add('Bipolar Disorder');
+  if (/\bschizophreni/.test(t)) results.add('Schizophrenia');
+  if (/\b(ptsd|post.traumatic)\b/.test(t)) results.add('PTSD');
+  if (/\b(depression|depressed|prozac|zoloft|lexapro|wellbutrin|sertraline|fluoxetine|escitalopram)\b/.test(t)) results.add('Depression');
+  if (/\b(anxiety|xanax|klonopin|ativan|alprazolam|lorazepam|clonazepam)\b/.test(t)) results.add('Depression');
+
+  // Liver / GI / Kidney
+  if (/\bcirrhosis\b/.test(t)) results.add('Cirrhosis');
+  if (/\bhepatitis a\b/.test(t)) results.add('Hepatitis A');
+  if (/\bhepatitis b\b/.test(t)) results.add('Hepatitis B');
+  if (/\bhepatitis c\b/.test(t)) results.add('Hepatitis C');
+  if (/\b(liver disease|liver failure)\b/.test(t)) results.add('Liver Disease / Liver Failure');
+  if (/\bpancreatitis\b/.test(t)) results.add('Pancreatitis');
+  if (/\bcrohn\b/.test(t)) results.add("Crohn's Disease");
+  if (/\bulcerative colitis\b/.test(t)) results.add('Ulcerative Colitis');
+  if (/\bcystic fibrosis\b/.test(t)) results.add('Cystic Fibrosis');
+  if (/\b(kidney disease|kidney failure|renal failure|\bckd\b)\b/.test(t)) results.add('Kidney Disease / Kidney Failure');
+  if (/\bdialysis\b/.test(t)) results.add('Dialysis');
+
+  // Mobility / living situation
+  if (/\b(wheelchair|scooter|electric cart)\b/.test(t)) results.add('Wheelchair / Scooter / Electric Cart');
+  if (/\bwalker\b/.test(t)) results.add('Walker Use');
+  if (/\b(assisted living|nursing home|long.term care)\b/.test(t)) results.add('Assisted Living / Long-Term Care Facility');
+  if (/\bamputat/.test(t)) results.add(hasDM ? 'Amputation (due to diabetes or disease)' : 'Amputation (trauma)');
+
+  // Autoimmune / blood
+  if (/\b(rheumatoid arthritis|\bra\b|humira|enbrel|methotrexate|remicade|adalimumab)\b/.test(t)) results.add('Rheumatoid Arthritis');
+  if (/\b(hemophilia|thrombocytopenia)\b/.test(t)) results.add('Blood Disorder (Hemophilia / Thrombocytopenia)');
+  if (/\b(hiv|aids)\b/.test(t)) results.add('HIV / AIDS / ARC');
+  if (/\blupus\b/.test(t)) results.add('Lupus (SLE)');
+  if (/\bsickle cell\b/.test(t)) results.add('Sickle Cell Anemia');
+  if (/\bsarcoidosis\b/.test(t)) results.add('Sarcoidosis');
+  if (/\bneuropathy\b/.test(t) && !hasDM) results.add('Neuropathy (not diabetic)');
+
+  // Substance / legal
+  if (/\b(alcohol abuse|alcoholism|drug abuse|substance abuse)\b/.test(t)) {
+    const y = yearsAgo(t); results.add(y !== null && y < 2 ? 'Alcohol or Drug Abuse (within 2 yrs)' : 'Alcohol or Drug Abuse (2+ yrs clean)');
+  }
+  if (/\b(dui|dwi)\b/.test(t)) {
+    const y = yearsAgo(t); results.add(y !== null && y < 2 ? 'DUI (within 2 yrs)' : 'DUI (2+ yrs ago)');
+  }
+  if (/\b(felony)\b/.test(t)) {
+    const y = yearsAgo(t); results.add(y !== null && y < 0.5 ? 'Felony (within 6 months)' : 'Felony (6+ months ago)');
+  }
+  if (/\b(parole|probation)\b/.test(t)) results.add('Parole or Probation (currently)');
+  if (/\b(incarcerated|jail|prison)\b/.test(t)) results.add('Incarcerated / Jail');
+  if (/\b(illegal drug|cocaine|heroin|\bmeth\b|crystal meth)\b/.test(t)) {
+    const y = yearsAgo(t); results.add(y !== null && y < 2 ? 'Illegal Drug Use (within 2 yrs)' : 'Illegal Drug Use (2+ yrs clean)');
+  }
+  if (/\b(oxycodone|hydrocodone|morphine|fentanyl|narcotic)\b/.test(t)) results.add('Chronic Narcotic Pain Medications (6+ fills/month)');
+
+  // Transplant / terminal
+  if (/\borgan transplant\b/.test(t)) results.add('Organ Transplant');
+  if (/\bbone marrow transplant\b/.test(t)) results.add('Bone Marrow Transplant');
+  if (/\b(terminal|hospice)\b/.test(t)) results.add('Terminal Illness (death expected within 12 months)');
+
+  // Other
+  if (/\bautis/.test(t)) results.add('Autism');
+  if (/\bdown.?s syndrome\b/.test(t)) results.add("Down's Syndrome");
+
+  return [...results];
+}
+
 async function aiParseHealth(text) {
   if (!text || text.trim().length < 3) return [];
   if (healthCache[text]) return healthCache[text];
 
   try {
     const { data, error } = await sb.functions.invoke('anthropic-parse', { body: { text } });
-    if (error || !data?.ok) {
-      console.error('AI health parse error:', error || data?.error);
-      return [];
-    }
+    if (error || !data?.ok) throw new Error(data?.error || 'non-2xx');
     const result = Array.isArray(data.conditions) ? data.conditions : [];
     healthCache[text] = result;
     return result;
   } catch(e) {
-    console.error('AI health parse error:', e);
-    return [];
+    console.warn('[health] AI parse failed, using local fallback:', e.message);
+    const result = localParseHealth(text);
+    healthCache[text] = result;
+    return result;
   }
 }
 
