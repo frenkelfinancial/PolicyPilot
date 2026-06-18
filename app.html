@@ -9377,6 +9377,9 @@ function setMonthlyGoal(n) {
   const v = parseFloat(n);
   if (!isFinite(v) || v <= 0) return;
   try { localStorage.setItem(k('pp_monthly_goal'), String(v)); } catch (e) {}
+  sb.auth.getUser().then(({ data }) => {
+    if (data?.user) sb.from('agents').update({ monthly_goal: v }).eq('id', data.user.id);
+  });
   renderSummary();
 }
 // Days remaining in current month (incl. today). Drives "X days left" copy.
