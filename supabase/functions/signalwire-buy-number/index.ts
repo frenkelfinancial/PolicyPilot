@@ -46,6 +46,92 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Mirror of telnyx-buy-number's syncNumberOnStripe — adds $3/mo number line
+// item to the agent's Stripe subscription (or increments qty if already there).
+// Best-effort: errors are logged but never fail the purchase response.
+async function syncNumberOnStripe(
+  sb: ReturnType<typeof createClient>,
+  stripeKey: string,
+  agentId: string,
+) {
+  try {
+    const [agentRes, configRes] = await Promise.all([
+      sb.from("agents")
+        .select("stripe_subscription_id, stripe_numbers_item_id")
+        .eq("id", agentId)
+        .maybeSingle(),
+      sb.from("billing_config")
+        .select("stripe_numbers_price_id")
+        .eq("id", 1)
+        .maybeSingle(),
+    ]);
+
+    const agent  = agentRes.data;
+    const config = configRes.data;
+
+    if (!agent?.stripe_subscription_id) return;
+    if (!config?.stripe_numbers_price_id) return;
+
+    const stripeHdrs = {
+      "Authorization": `Bearer ${stripeKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    const existingItemId = agent.stripe_numbers_item_id;
+
+    if (!existingItemId) {
+      const addParams = new URLSearchParams({
+        "subscription":       agent.stripe_subscription_id,
+        "price":              config.stripe_numbers_price_id,
+        "quantity":           "1",
+        "proration_behavior": "create_prorations",
+      });
+      const addRes = await fetch("https://api.stripe.com/v1/subscription_items", {
+        method: "POST",
+        headers: stripeHdrs,
+        body: addParams,
+      });
+      if (!addRes.ok) {
+        console.warn("[signalwire-buy-number] Stripe add number item failed:", await addRes.text());
+        return;
+      }
+      const newItem = await addRes.json();
+      await sb.from("agents")
+        .update({ stripe_numbers_item_id: newItem.id })
+        .eq("id", agentId);
+      console.log(`[signalwire-buy-number] Created Stripe number item ${newItem.id} for agent ${agentId}`);
+      return;
+    }
+
+    const itemRes = await fetch(
+      `https://api.stripe.com/v1/subscription_items/${existingItemId}`,
+      { headers: stripeHdrs },
+    );
+    if (!itemRes.ok) {
+      console.warn("[signalwire-buy-number] Stripe fetch item failed:", await itemRes.text());
+      return;
+    }
+    const item   = await itemRes.json();
+    const newQty = (item.quantity || 0) + 1;
+
+    const updateParams = new URLSearchParams({
+      "quantity":           String(newQty),
+      "proration_behavior": "create_prorations",
+    });
+    const updateRes = await fetch(
+      `https://api.stripe.com/v1/subscription_items/${existingItemId}`,
+      { method: "POST", headers: stripeHdrs, body: updateParams },
+    );
+    if (!updateRes.ok) {
+      console.warn("[signalwire-buy-number] Stripe update qty failed:", await updateRes.text());
+      return;
+    }
+    console.log(`[signalwire-buy-number] Updated Stripe number qty to ${newQty} for agent ${agentId}`);
+  } catch (e) {
+    console.error("[signalwire-buy-number] Stripe sync error:", e);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
@@ -60,6 +146,8 @@ Deno.serve(async (req) => {
 
   const SUPABASE_URL      = Deno.env.get("SUPABASE_URL")      ?? "";
   const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const SERVICE_KEY       = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const STRIPE_KEY        = Deno.env.get("STRIPE_SECRET_KEY");
   const authHeader = req.headers.get("Authorization") ?? "";
   const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: authHeader } },
@@ -196,6 +284,14 @@ Deno.serve(async (req) => {
       ok: false,
       error: `Number was purchased on SignalWire but we couldn't record it locally: ${(e as Error)?.message || 'unknown'}. Contact support — SID ${swSid}.`,
     }, 503);
+  }
+
+  // Sync the phone number quantity to the agent's Stripe subscription.
+  // Best-effort — never fails the buy response.
+  const DEV_EMAIL = 'jacef8778099@gmail.com';
+  if (STRIPE_KEY && userClient && (await userClient.auth.getUser()).data?.user?.email !== DEV_EMAIL) {
+    const sbService = createClient(SUPABASE_URL, SERVICE_KEY);
+    await syncNumberOnStripe(sbService, STRIPE_KEY, userId);
   }
 
   // If this is the agent's first number, mirror it into the caller_id
