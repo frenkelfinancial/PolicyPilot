@@ -1145,14 +1145,14 @@ const SUPABASE_ANON_KEY = 'sb_publishable_L7-8QaRE4XwhIapCAANEpQ_JHi7FUYM';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const STATUS_CFG = {
-  new:            { label:'New',               color:'#60a5fa', bg:'rgba(59,130,246,.18)'  },
-  called:         { label:'Called',            color:'#34d399', bg:'rgba(16,185,129,.18)'  },
-  no_answer:      { label:'No Answer',         color:'#94a3b8', bg:'rgba(148,163,184,.12)' },
-  not_interested: { label:'Not Interested',    color:'#f87171', bg:'rgba(239,68,68,.18)'   },
-  sold:           { label:'Sold',              color:'#34d399', bg:'rgba(16,185,129,.27)'  },
-  appointment:    { label:'Appointment Set',   color:'#fbbf24', bg:'rgba(245,158,11,.18)'  },
-  social_obj:     { label:'Social Objection',  color:'#f97316', bg:'rgba(249,115,22,.18)'  },
-  banking_obj:    { label:'Banking Objection', color:'#a78bfa', bg:'rgba(167,139,250,.18)' },
+  new:            { label:'New',               color:'#60a5fa', bg:'rgba(59,130,246,.18)'                   },
+  called:         { label:'Called',            color:'#34d399', bg:'rgba(16,185,129,.18)'                   },
+  no_answer:      { label:'No Answer',         color:'#94a3b8', bg:'rgba(148,163,184,.12)', inDropdown:true },
+  not_interested: { label:'Not Interested',    color:'#f87171', bg:'rgba(239,68,68,.18)',   inDropdown:true },
+  sold:           { label:'Sold',              color:'#34d399', bg:'rgba(16,185,129,.27)',  inDropdown:true },
+  appointment:    { label:'Appointment Set',   color:'#fbbf24', bg:'rgba(245,158,11,.18)',  inDropdown:true },
+  social_obj:     { label:'Social Objection',  color:'#f97316', bg:'rgba(249,115,22,.18)',  inDropdown:true },
+  banking_obj:    { label:'Banking Objection', color:'#a78bfa', bg:'rgba(167,139,250,.18)', inDropdown:true },
 };
 
 // State timezone map for local time display
@@ -1699,14 +1699,12 @@ function render(s) {
         stopRingback();
         setHdrPill('st-dialing', 'Call Ended');
         document.getElementById('banner-text').textContent = `Call ended — mark outcome or re-dial`;
-        // Pause the backend immediately so it cannot auto-advance to the next lead.
-        // The agent must explicitly mark an outcome (skip) or click Dial (re-dial same lead).
-        if (!_isPaused && sessionId) {
+        // Hold the UI in a paused state so the agent must explicitly mark an
+        // outcome or click Dial before the next call goes out.
+        if (!_isPaused) {
           _isPaused = true;
           const pauseBtn = document.getElementById('btn-pause');
           if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
-          // Store the promise so pdSkipLead can await it before sending unpause
-          _pendingPause = sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: true } }).catch(() => {});
         }
       } else {
         setHdrPill('st-dialing','Ringing…');
@@ -1852,12 +1850,9 @@ async function pdStartSession() {
     lead_ids: leadIds, current_index: -1,
   });
 
-  // Preview mode: pre-pause the session so even the first lead requires a manual Dial click
+  // Preview mode: pre-pause the UI so even the first lead requires a manual Dial click
   if (dialMode === 'preview') {
     _isPaused = true;
-    try {
-      await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: true } });
-    } catch {}
   }
 }
 
@@ -1915,9 +1910,6 @@ async function pdDial() {
   const pauseBtn = document.getElementById('btn-pause');
   if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
   updateDialBtn();
-  try {
-    await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: false } });
-  } catch {}
 }
 
 async function pdPauseAfterAdvance() {
@@ -1925,33 +1917,24 @@ async function pdPauseAfterAdvance() {
   const pauseBtn = document.getElementById('btn-pause');
   if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
   updateDialBtn();
-  if (!sessionId) return;
-  try {
-    await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: true } });
-  } catch {}
 }
 
 async function pdSkipLead() {
   stopRingback();
   _ringbackCallId = null;
   playTransitionBeep();
-  // If we auto-paused after a call ended, clear the pause state first so the
-  // backend can advance to the next lead and begin dialing it after the skip.
-  if (_isPaused && sessionId) {
-    // Await the in-flight pause request so our unpause cannot race ahead of it
-    if (_pendingPause) { try { await _pendingPause; } catch {} _pendingPause = null; }
+  // Clear frontend pause state so the dial button reflects the new call.
+  if (_isPaused) {
     _isPaused = false;
     const pauseBtn = document.getElementById('btn-pause');
     if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
     updateDialBtn();
-    try { await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: false } }); } catch {}
   }
   await pdSkip();
   if (dialMode === 'preview') await pdPauseAfterAdvance();
 }
 
 let _isPaused = false;
-let _pendingPause = null; // tracks the in-flight pause API call so we can await it before unpausing
 async function pdTogglePause() {
   if (!_isPaused) {
     // Pause: hang up current call then freeze queue
@@ -1962,11 +1945,6 @@ async function pdTogglePause() {
     const btn = document.getElementById('btn-pause');
     if (btn) { btn.textContent = '▶ Resume'; btn.classList.add('paused'); }
     updateDialBtn();
-    if (sessionId) {
-      try {
-        await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: true } });
-      } catch {}
-    }
     // Hang up the active call by skipping it
     if (currentState === 'dialing' || currentState === 'connected') {
       await pdSkip();
