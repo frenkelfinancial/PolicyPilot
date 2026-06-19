@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  DialerSession,
+  closeCallRowById,
+  reportMinutesToStripe,
+  dialNextLead,
+} from "../_shared/dialer-next-lead.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "https://producerstackcrm.com",
@@ -13,20 +19,29 @@ function json(body: unknown, status = 200) {
   });
 }
 
-// Skips the current lead in an active Power Dialer session by hanging up
-// its leg. The resulting call.hangup webhook (role=dialer_lead) drives
-// dialNextLead() in telnyx-call-status — this function doesn't advance the
-// session itself.
+// Advances the Power Dialer to the next lead.
+//
+// Steps:
+//   1. Pre-clear current_call_control_id in the DB so that if Telnyx fires
+//      a call.hangup event for the leg we're about to hang up, the webhook
+//      handler won't try to process it (it won't find a matching session row).
+//   2. Close the current call row for billing (idempotent).
+//   3. Hang up the current lead leg if one is active.
+//   4. Call dialNextLead() to place the call to the next lead and update the
+//      session. dialNextLead is passed current_call_row_id=null so it doesn't
+//      try to close a row that's already closed.
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
-  const SUPABASE_URL   = Deno.env.get("SUPABASE_URL")!;
-  const SERVICE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const ANON_KEY       = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
+  const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_KEY     = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const ANON_KEY        = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const TELNYX_API_KEY  = Deno.env.get("TELNYX_API_KEY");
+  const TELNYX_CONN_ID  = Deno.env.get("TELNYX_CONNECTION_ID")!;
+  const STRIPE_KEY      = Deno.env.get("STRIPE_SECRET_KEY");
 
   if (!TELNYX_API_KEY) {
-    return json({ error: "telnyx_not_configured", detail: "TELNYX_API_KEY secret is missing from Supabase." }, 500);
+    return json({ error: "telnyx_not_configured", detail: "TELNYX_API_KEY secret is missing." }, 500);
   }
 
   const authHeader = req.headers.get("Authorization");
@@ -47,7 +62,7 @@ serve(async (req) => {
   if (!sessionId) return json({ error: "missing_session_id" }, 400);
 
   const { data: session } = await sb.from("dialer_sessions")
-    .select("id, agent_id, status, current_call_control_id")
+    .select("*")
     .eq("id", sessionId)
     .eq("agent_id", user.id)
     .maybeSingle();
@@ -56,18 +71,56 @@ serve(async (req) => {
   if (!["dialing", "connected"].includes(session.status)) {
     return json({ error: "session_not_active" }, 409);
   }
-  if (!session.current_call_control_id) {
-    return json({ error: "no_active_lead" }, 409);
+
+  const prevCallControlId = session.current_call_control_id as string | null;
+  const prevCallRowId     = session.current_call_row_id as string | null;
+
+  // Step 1: Pre-clear the active call from the session.
+  // This prevents the call.hangup webhook from treating this as a natural
+  // hangup — it won't find a matching current_call_control_id.
+  if (prevCallControlId || prevCallRowId) {
+    await sb.from("dialer_sessions").update({
+      current_call_control_id: null,
+      current_call_row_id:     null,
+    }).eq("id", sessionId);
   }
 
-  await fetch(`https://api.telnyx.com/v2/calls/${session.current_call_control_id}/actions/hangup`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${TELNYX_API_KEY}`,
-      "Content-Type":  "application/json",
-    },
-    body: JSON.stringify({ command_id: crypto.randomUUID() }),
-  });
+  // Step 2: Close the current call row for billing.
+  const closed = await closeCallRowById(sb, prevCallRowId);
+  if (closed && STRIPE_KEY) {
+    await reportMinutesToStripe(sb, STRIPE_KEY, closed.agentId, closed.durationSec);
+  }
+
+  // Step 3: Hang up the current lead leg if active.
+  if (prevCallControlId) {
+    try {
+      await fetch(`https://api.telnyx.com/v2/calls/${prevCallControlId}/actions/hangup`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${TELNYX_API_KEY}`,
+          "Content-Type":  "application/json",
+        },
+        body: JSON.stringify({ command_id: crypto.randomUUID() }),
+      });
+    } catch { /* best effort */ }
+  }
+
+  // Step 4: Advance to the next lead.
+  // Pass the session with cleared call IDs so dialNextLead won't try to
+  // close a row we already closed above.
+  const webhookUrl = `${SUPABASE_URL}/functions/v1/telnyx-call-status`;
+  const sessionForDial: DialerSession = {
+    ...(session as DialerSession),
+    current_call_control_id: null,
+    current_call_row_id:     null,
+  };
+
+  const telnyxHeaders = {
+    "Authorization": `Bearer ${TELNYX_API_KEY}`,
+    "Content-Type":  "application/json",
+  };
+
+  await dialNextLead(sb, telnyxHeaders, TELNYX_CONN_ID, webhookUrl, sessionForDial, STRIPE_KEY);
 
   return json({ ok: true });
 });

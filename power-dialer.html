@@ -1549,8 +1549,11 @@ function render(s) {
   session = s;
   currentState = s.status;
 
-  if (s.status === 'dialing' && prevState !== 'dialing') stats.calls++;
-  if (s.status === 'dialing' && (prevState !== 'dialing' || s.current_index !== prevIdx)) {
+  // Boom + stats only when a genuinely new lead is being dialed
+  // (current_index changed AND a call is actually active).
+  // Natural lead hangup leaves current_index unchanged, so no boom there.
+  if (s.status === 'dialing' && s.current_index !== prevIdx && s.current_call_control_id) {
+    stats.calls++;
     if (dialMode === 'preview' && !_previewManualDial) {
       // Auto-dial intercepted — pause immediately so agent must click Dial
       pdPauseAfterAdvance();
@@ -1590,11 +1593,17 @@ function render(s) {
     const leadId = currentLeadId();
 
     if (s.status === 'dialing') {
-      setHdrPill('st-dialing','Ringing…');
       stopCallTimer();
       const banner = document.getElementById('call-banner');
       banner.className = 'call-banner b-dialing';
-      document.getElementById('banner-text').textContent = `Calling ${lead ? lName(lead) : ''}…`;
+      if (!s.current_call_control_id) {
+        // Call ended naturally — lead hung up or call dropped before agent acted
+        setHdrPill('st-dialing', 'Call Ended');
+        document.getElementById('banner-text').textContent = `Call ended — mark outcome and click Skip →`;
+      } else {
+        setHdrPill('st-dialing','Ringing…');
+        document.getElementById('banner-text').textContent = `Calling ${lead ? lName(lead) : ''}…`;
+      }
     } else {
       setHdrPill('st-connected','Connected');
       if (prevState !== 'connected') startCallTimer();
@@ -1611,7 +1620,9 @@ function render(s) {
     }
 
     renderOutcomeArea(leadId);
-    updateCallBadge(s.status);
+    // Show Disconnected badge when call has ended but agent hasn't skipped yet
+    const badgeStatus = (s.status === 'dialing' && !s.current_call_control_id) ? 'disconnected' : s.status;
+    updateCallBadge(badgeStatus);
     updateDialBtn();
     renderNextLead(s);
     updateProgress(s);
