@@ -692,6 +692,18 @@ html,body{
 .csb-connected .csb-dot{background:var(--green);animation:pulse 1.8s ease-in-out infinite}
 .csb-disconnected .csb-dot{background:var(--red)}
 
+/* Redial button (phone row) */
+.btn-redial{
+  padding:5px 13px;border-radius:7px;flex-shrink:0;
+  font-size:11.5px;font-weight:700;cursor:pointer;
+  background:linear-gradient(135deg,#1d4ed8,#3b82f6);
+  color:#fff;border:none;letter-spacing:.02em;
+  transition:opacity .15s,transform .15s;
+  box-shadow:0 2px 8px rgba(37,99,235,.35);
+}
+.btn-redial:hover{opacity:.88;transform:translateY(-1px)}
+.btn-redial:active{opacity:1;transform:none}
+
 /* Utility */
 .sec-lbl{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:8px}
 
@@ -1337,7 +1349,8 @@ function renderLeadForm(lead) {
       </div>
       <div class="lead-phone-row">
         <span class="lead-phone-icon">📞</span>
-        <span class="lead-phone-num">${lead.phone ? esc(fmtP(lead.phone)) : '—'}</span>
+        <span class="lead-phone-num" style="flex:1">${lead.phone ? esc(fmtP(lead.phone)) : '—'}</span>
+        ${lead.phone ? `<button class="btn-redial" onclick="pdDial()" title="Dial / Re-dial this lead">▶ Dial</button>` : ''}
       </div>
     </div>
 
@@ -1509,7 +1522,7 @@ async function markOutcome(leadId, status) {
   // Auto-advance: identical to clicking "Skip Lead →"
   const AUTO_ADVANCE = new Set(['no_answer','not_interested','social_obj','banking_obj']);
   if (AUTO_ADVANCE.has(status)) {
-    pdSkipLead();
+    await pdSkipLead();
   }
 }
 
@@ -1685,7 +1698,16 @@ function render(s) {
         _ringbackCallId = null;
         stopRingback();
         setHdrPill('st-dialing', 'Call Ended');
-        document.getElementById('banner-text').textContent = `Call ended — mark outcome and click Skip →`;
+        document.getElementById('banner-text').textContent = `Call ended — mark outcome or re-dial`;
+        // Pause the backend immediately so it cannot auto-advance to the next lead.
+        // The agent must explicitly mark an outcome (skip) or click Dial (re-dial same lead).
+        if (!_isPaused && sessionId) {
+          _isPaused = true;
+          const pauseBtn = document.getElementById('btn-pause');
+          if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
+          // Store the promise so pdSkipLead can await it before sending unpause
+          _pendingPause = sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: true } }).catch(() => {});
+        }
       } else {
         setHdrPill('st-dialing','Ringing…');
         document.getElementById('banner-text').textContent = `Calling ${lead ? lName(lead) : ''}…`;
@@ -1861,8 +1883,8 @@ async function pdSkip() {
 function updateDialBtn() {
   const btn = document.getElementById('btn-dial-center');
   if (!btn) return;
-  // In preview mode while paused, always show ▶ Dial — even if backend briefly reports 'dialing'
-  if (dialMode === 'preview' && _isPaused) {
+  // When paused (preview or power mode), always show ▶ Dial so agent can re-dial
+  if (_isPaused) {
     btn.className = 'btn-dial-center dc-idle';
     btn.innerHTML = '▶&thinsp;Dial';
     btn.disabled = false;
@@ -1885,7 +1907,9 @@ function updateDialBtn() {
 
 async function pdDial() {
   if (!sessionId) return;
-  if (currentState === 'dialing' || currentState === 'connected') return;
+  // Allow dial when explicitly paused (call ended / auto-paused) even if currentState is still 'dialing'.
+  // Block only when an active call is genuinely ringing or connected.
+  if (!_isPaused && (currentState === 'dialing' || currentState === 'connected')) return;
   _isPaused = false;
   _previewManualDial = true; // tell render() this dial is intentional — don't auto-pause
   const pauseBtn = document.getElementById('btn-pause');
@@ -1911,11 +1935,23 @@ async function pdSkipLead() {
   stopRingback();
   _ringbackCallId = null;
   playTransitionBeep();
+  // If we auto-paused after a call ended, clear the pause state first so the
+  // backend can advance to the next lead and begin dialing it after the skip.
+  if (_isPaused && sessionId) {
+    // Await the in-flight pause request so our unpause cannot race ahead of it
+    if (_pendingPause) { try { await _pendingPause; } catch {} _pendingPause = null; }
+    _isPaused = false;
+    const pauseBtn = document.getElementById('btn-pause');
+    if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
+    updateDialBtn();
+    try { await sb.functions.invoke('telnyx-dialer-pause', { body: { session_id: sessionId, paused: false } }); } catch {}
+  }
   await pdSkip();
   if (dialMode === 'preview') await pdPauseAfterAdvance();
 }
 
 let _isPaused = false;
+let _pendingPause = null; // tracks the in-flight pause API call so we can await it before unpausing
 async function pdTogglePause() {
   if (!_isPaused) {
     // Pause: hang up current call then freeze queue
@@ -2328,8 +2364,8 @@ function _doRingback() {
       osc.type = 'sine';
       osc.frequency.value = freq;
       gain.gain.setValueAtTime(0, now);
-      gain.gain.linearRampToValueAtTime(0.06, now + 0.03);
-      gain.gain.setValueAtTime(0.06, now + 1.97);
+      gain.gain.linearRampToValueAtTime(0.14, now + 0.03);
+      gain.gain.setValueAtTime(0.14, now + 1.97);
       gain.gain.linearRampToValueAtTime(0, now + 2.0);
       osc.start(now); osc.stop(now + 2.0);
     });
@@ -2482,6 +2518,15 @@ async function init() {
 
   showScreen('s-start');
 }
+
+// Unlock AudioContext on the first user gesture so ringback works immediately
+// when the backend starts dialing (browser blocks audio until a user gesture).
+document.addEventListener('click', () => {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  } catch {}
+}, { capture: true, once: true });
 
 init();
 
