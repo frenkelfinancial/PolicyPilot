@@ -120,6 +120,32 @@ serve(async (req) => {
     "Content-Type":  "application/json",
   };
 
+  // Play a short transition beep on the agent's bridge phone before dialing next lead
+  const agentCallId     = (session as DialerSession).agent_call_control_id;
+  const transitionUrl   = Deno.env.get("TRANSITION_AUDIO_URL") || "";
+  if (agentCallId && transitionUrl) {
+    try {
+      // Stop any lingering ringback first
+      await fetch(`https://api.telnyx.com/v2/calls/${agentCallId}/actions/playback_stop`, {
+        method: "POST",
+        headers: telnyxHeaders,
+        body: JSON.stringify({ command_id: crypto.randomUUID() }),
+      });
+      // Play the transition beep
+      await fetch(`https://api.telnyx.com/v2/calls/${agentCallId}/actions/playback_start`, {
+        method: "POST",
+        headers: telnyxHeaders,
+        body: JSON.stringify({
+          audio_url:  transitionUrl,
+          loop:       1,
+          command_id: crypto.randomUUID(),
+        }),
+      });
+      // Brief pause so the beep plays before the next call starts dialing
+      await new Promise((r) => setTimeout(r, 700));
+    } catch { /* best effort */ }
+  }
+
   await dialNextLead(sb, telnyxHeaders, TELNYX_CONN_ID, webhookUrl, sessionForDial, STRIPE_KEY);
 
   return json({ ok: true });

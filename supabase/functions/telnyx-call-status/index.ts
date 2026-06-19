@@ -192,9 +192,21 @@ serve(async (req) => {
 
       if (sessionId) {
         const { data: session } = await sb.from("dialer_sessions")
-          .select("current_call_row_id")
+          .select("current_call_row_id, agent_call_control_id")
           .eq("id", sessionId)
           .maybeSingle();
+
+        // Lead answered — stop the ringback on the agent's bridge phone
+        if (session?.agent_call_control_id) {
+          fetch(
+            `https://api.telnyx.com/v2/calls/${session.agent_call_control_id}/actions/playback_stop`,
+            {
+              method: "POST",
+              headers: telnyxHeaders,
+              body: JSON.stringify({ command_id: crypto.randomUUID() }),
+            },
+          ).catch(() => {});
+        }
 
         await sb.from("dialer_sessions").update({
           status:                  "connected",
@@ -340,6 +352,18 @@ serve(async (req) => {
             current_call_control_id: null,
             current_call_row_id:     null,
           }).eq("id", dialerSession.id);
+
+          // Stop the ringback — call ended before lead answered
+          if (dialerSession.agent_call_control_id) {
+            fetch(
+              `https://api.telnyx.com/v2/calls/${dialerSession.agent_call_control_id}/actions/playback_stop`,
+              {
+                method: "POST",
+                headers: telnyxHeaders,
+                body: JSON.stringify({ command_id: crypto.randomUUID() }),
+              },
+            ).catch(() => {});
+          }
 
         } else if (callControlId === dialerSession.agent_call_control_id) {
           // Agent hung up their phone — cancel the session.

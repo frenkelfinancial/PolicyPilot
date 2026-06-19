@@ -1506,15 +1506,10 @@ async function markOutcome(leadId, status) {
     ).catch(e => console.warn('[markOutcome]', e));
   }
 
-  // Auto-hangup and advance for No Answer / Not Interested / Objections
+  // Auto-advance: identical to clicking "Skip Lead →"
   const AUTO_ADVANCE = new Set(['no_answer','not_interested','social_obj','banking_obj']);
   if (AUTO_ADVANCE.has(status)) {
-    const banner = document.getElementById('call-banner');
-    if (banner) document.getElementById('banner-text').textContent = 'Moving to next lead…';
-    setTimeout(async () => {
-      await pdSkip();
-      if (dialMode === 'preview') await pdPauseAfterAdvance();
-    }, 400);
+    pdSkipLead();
   }
 }
 
@@ -1687,13 +1682,21 @@ function render(s) {
       banner.className = 'call-banner b-dialing';
       if (!s.current_call_control_id) {
         // Call ended naturally — lead hung up or call dropped before agent acted
+        _ringbackCallId = null;
+        stopRingback();
         setHdrPill('st-dialing', 'Call Ended');
         document.getElementById('banner-text').textContent = `Call ended — mark outcome and click Skip →`;
       } else {
         setHdrPill('st-dialing','Ringing…');
         document.getElementById('banner-text').textContent = `Calling ${lead ? lName(lead) : ''}…`;
+        if (_ringbackCallId !== s.current_call_control_id) {
+          _ringbackCallId = s.current_call_control_id;
+          startRingback();
+        }
       }
     } else {
+      _ringbackCallId = null;
+      stopRingback();
       setHdrPill('st-connected','Connected');
       if (prevState !== 'connected') startCallTimer();
       const banner = document.getElementById('call-banner');
@@ -1729,6 +1732,8 @@ function render(s) {
     }
 
   } else if (s.status === 'completed' || s.status === 'cancelled') {
+    _ringbackCallId = null;
+    stopRingback();
     showScreen('s-completed');
     setHdrPill('st-done', s.status === 'completed' ? 'Complete' : 'Ended');
     document.getElementById('btn-end-hdr').style.display = 'none';
@@ -1789,10 +1794,11 @@ async function pdStartSession() {
   try {
     r = await sb.functions.invoke('telnyx-dialer-create-session', {
       body: {
-        lead_ids:          leadIds,
-        caller_id_mode:    callerIdMode,
-        caller_id_fixed:   callerIdMode === 'fixed' ? fixedNumber : null,
-        caller_id_numbers: allNumbers,
+        lead_ids:            leadIds,
+        caller_id_mode:      callerIdMode,
+        caller_id_fixed:     callerIdMode === 'fixed' ? fixedNumber : null,
+        caller_id_numbers:   allNumbers,
+        skip_invalid_phones: false,
       }
     });
   } catch (e) {
@@ -1837,8 +1843,19 @@ async function pdSkip() {
   if (!sessionId) return;
   try {
     const { error } = await sb.functions.invoke('telnyx-dialer-skip', { body: { session_id: sessionId } });
-    if (error) console.error('skip', error);
-  } catch (e) { console.error('skip', e); }
+    if (error) {
+      console.error('skip', error);
+      const banner = document.getElementById('call-banner');
+      const bannerText = document.getElementById('banner-text');
+      if (banner && bannerText) {
+        bannerText.textContent = `Skip failed: ${error.message || 'unknown error'} — try clicking Skip Lead again`;
+      }
+    }
+  } catch (e) {
+    console.error('skip', e);
+    const bannerText = document.getElementById('banner-text');
+    if (bannerText) bannerText.textContent = 'Skip failed — try clicking Skip Lead again';
+  }
 }
 
 function updateDialBtn() {
@@ -1891,6 +1908,9 @@ async function pdPauseAfterAdvance() {
 }
 
 async function pdSkipLead() {
+  stopRingback();
+  _ringbackCallId = null;
+  playTransitionBeep();
   await pdSkip();
   if (dialMode === 'preview') await pdPauseAfterAdvance();
 }
@@ -1899,6 +1919,9 @@ let _isPaused = false;
 async function pdTogglePause() {
   if (!_isPaused) {
     // Pause: hang up current call then freeze queue
+    stopRingback();
+    _ringbackCallId = null;
+    playTransitionBeep();
     _isPaused = true;
     const btn = document.getElementById('btn-pause');
     if (btn) { btn.textContent = '▶ Resume'; btn.classList.add('paused'); }
@@ -2245,7 +2268,10 @@ function updateCallBadge(status) {
 }
 
 // ─── Ba-dum tone ──────────────────────────
-let _audioCtx = null;
+let _audioCtx       = null;
+let _ringbackActive = false;
+let _ringbackTimer  = null;
+let _ringbackCallId = null;
 function playBaDum() {
   try {
     if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2276,6 +2302,66 @@ function playBaDum() {
     g2.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
     o2.start(t); o2.stop(t + 0.18);
   } catch (e) {}
+}
+
+// ─── Ringback tone (US standard: 440+480Hz, 2s on / 4s off) ──────────────────
+function startRingback() {
+  stopRingback();
+  _ringbackActive = true;
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    _doRingback();
+  } catch(e) {}
+}
+
+function _doRingback() {
+  if (!_ringbackActive) return;
+  try {
+    const ctx = _audioCtx;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    [440, 480].forEach(freq => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.06, now + 0.03);
+      gain.gain.setValueAtTime(0.06, now + 1.97);
+      gain.gain.linearRampToValueAtTime(0, now + 2.0);
+      osc.start(now); osc.stop(now + 2.0);
+    });
+  } catch(e) {}
+  // 2s ring + 4s silence = 6s period
+  _ringbackTimer = setTimeout(_doRingback, 6000);
+}
+
+function stopRingback() {
+  _ringbackActive = false;
+  if (_ringbackTimer) { clearTimeout(_ringbackTimer); _ringbackTimer = null; }
+}
+
+// ─── Transition beep (3 ascending tones played in browser) ───────────────────
+function playTransitionBeep() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    const ctx = _audioCtx;
+    const now = ctx.currentTime;
+    [880, 1100, 1320].forEach((freq, i) => {
+      const t    = now + i * 0.13;
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.18, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.10);
+      osc.start(t); osc.stop(t + 0.11);
+    });
+  } catch(e) {}
 }
 
 // ─── Caller ID picker ─────────────────────
@@ -2421,6 +2507,7 @@ window.addEventListener('message', e => {
 
 window.addEventListener('beforeunload', () => {
   stopCallTimer();
+  stopRingback();
   if (sessTimerH) clearInterval(sessTimerH);
   unsubscribe();
 });

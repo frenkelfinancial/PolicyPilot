@@ -404,15 +404,48 @@ export async function dialNextLead(
     });
 
     if (!callRes.ok) {
-      await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
-      continue;
+      // Telnyx rejected the number (e.g., invalid/fake number).
+      // Stall at this lead so the agent sees it in the UI and can manually mark + skip.
+      // Previously this silently looped to the next lead, causing leads to disappear.
+      await sb.from("dialer_sessions").update({
+        current_index:           nextIndex,
+        status:                  "dialing",
+        current_call_control_id: null,
+        current_call_row_id:     null,
+      }).eq("id", session.id);
+      return;
     }
 
     const callData = await callRes.json();
     const leadCallControlId: string = callData?.data?.call_control_id || "";
     if (!leadCallControlId) {
-      await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
-      continue;
+      // Telnyx accepted the call but returned no control ID — treat same as rejection.
+      await sb.from("dialer_sessions").update({
+        current_index:           nextIndex,
+        status:                  "dialing",
+        current_call_control_id: null,
+        current_call_row_id:     null,
+      }).eq("id", session.id);
+      return;
+    }
+
+    // Play US ringback tone on the agent's bridge so they hear ringing on their phone
+    if (session.agent_call_control_id) {
+      const ringbackUrl = Deno.env.get("RINGBACK_AUDIO_URL") || "";
+      if (ringbackUrl) {
+        fetch(
+          `https://api.telnyx.com/v2/calls/${session.agent_call_control_id}/actions/playback_start`,
+          {
+            method: "POST",
+            headers: telnyxHeaders,
+            body: JSON.stringify({
+              audio_url:  ringbackUrl,
+              loop:       0,
+              command_id: crypto.randomUUID(),
+            }),
+          },
+        ).catch(() => {});
+      }
     }
 
     // Close the previous call row (no-op when current_call_row_id is null,
