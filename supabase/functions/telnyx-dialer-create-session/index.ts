@@ -66,8 +66,16 @@ serve(async (req) => {
     ? (body.caller_id_mode as "fixed" | "smart_local")
     : "fixed";
   const callerIdFixed   = typeof body.caller_id_fixed === "string" ? body.caller_id_fixed : null;
+
+  // Strip the dialer host number from the caller ID pool — it cannot be used
+  // as an outbound caller ID because Telnyx needs it free for the inbound call.
+  const hostNorm = TELNYX_DIALER_NUM ? TELNYX_DIALER_NUM.replace(/[^\d]/g, "").slice(-10) : "";
   const callerIdNumbers = Array.isArray(body.caller_id_numbers)
-    ? body.caller_id_numbers.filter((v): v is string => typeof v === "string" && v.length > 0)
+    ? body.caller_id_numbers.filter((v): v is string => {
+        if (typeof v !== "string" || v.length === 0) return false;
+        if (hostNorm && v.replace(/[^\d]/g, "").slice(-10) === hostNorm) return false;
+        return true;
+      })
     : [];
 
   // Load agent — need existing caller ID as fallback and the dialer PIN.

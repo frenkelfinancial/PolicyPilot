@@ -78,12 +78,18 @@ serve(async (req) => {
 
   // ---- Power Dialer: agent calling into the host number ------------------
   if (eventType === "call.initiated") {
-    if (
-      p.direction === "incoming" &&
-      TELNYX_DIALER_NUM &&
-      normalizeE164(p.to) === normalizeE164(TELNYX_DIALER_NUM)
-    ) {
-      await fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/answer`, {
+    const toNorm     = normalizeE164(p.to);
+    const dialerNorm = normalizeE164(TELNYX_DIALER_NUM);
+    const isDialerCall = p.direction === "incoming" &&
+      (!dialerNorm || toNorm === dialerNorm);
+
+    console.log("[dialer] call.initiated", JSON.stringify({
+      direction: p.direction, to: p.to, toNorm,
+      dialerNum: TELNYX_DIALER_NUM, dialerNorm, isDialerCall,
+    }));
+
+    if (isDialerCall) {
+      const ansRes = await fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/answer`, {
         method: "POST",
         headers: telnyxHeaders,
         body: JSON.stringify({
@@ -91,6 +97,10 @@ serve(async (req) => {
           client_state: btoa(JSON.stringify({ role: "dialer_ivr" })),
         }),
       });
+      if (!ansRes.ok) {
+        const errText = await ansRes.text();
+        console.error("[dialer] answer action failed:", ansRes.status, errText);
+      }
     }
     return new Response("ok");
   }
@@ -204,12 +214,15 @@ serve(async (req) => {
     if (ctx.role !== "dialer_ivr") return new Response("ok");
 
     const digits = p.digits || "";
+    console.log("[dialer] call.gather.ended digits entered:", digits.length, "digits");
+
     const { data: matchedAgent } = await sb.from("agents")
       .select("id")
       .eq("dialer_pin", digits)
       .maybeSingle();
 
     if (!matchedAgent) {
+      console.log("[dialer] PIN not recognized");
       await speakAndHangup(telnyxHeaders, callControlId, "Sorry, that pin was not recognized. Goodbye.");
       return new Response("ok");
     }
