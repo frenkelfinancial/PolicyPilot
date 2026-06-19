@@ -694,6 +694,65 @@ html,body{
 
 /* Utility */
 .sec-lbl{display:block;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);margin-bottom:8px}
+
+/* ── Caller ID picker (start page) ── */
+.cid-section{
+  margin-bottom:20px;
+  background:var(--card2);
+  border:1px solid var(--border2);
+  border-radius:12px;
+  padding:13px 15px;
+}
+.cid-section-label{
+  font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.13em;
+  color:var(--text3);margin-bottom:10px;display:flex;align-items:center;gap:7px;
+}
+.cid-section-label::after{content:'';flex:1;height:1px;background:var(--border2)}
+.cid-mode-row{display:flex;gap:7px;margin-bottom:10px}
+.cid-mode-btn{
+  flex:1;padding:8px 10px;border-radius:9px;
+  font-size:12px;font-weight:600;cursor:pointer;
+  border:1px solid var(--border2);background:var(--card);color:var(--text2);
+  transition:all .15s;text-align:center;line-height:1.3;
+}
+.cid-mode-btn.active{
+  background:rgba(37,99,235,.13);border-color:rgba(59,130,246,.4);
+  color:var(--indigo-l);font-weight:700;
+}
+.cid-mode-btn:hover:not(.active){background:var(--raised);color:var(--text);border-color:var(--border3)}
+.cid-mode-tag{
+  display:inline-block;font-size:8.5px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.07em;
+  padding:2px 5px;border-radius:4px;margin-left:5px;
+  background:rgba(20,184,166,.12);color:#14b8a6;border:1px solid rgba(20,184,166,.25);
+}
+.cid-desc{font-size:11.5px;color:var(--text3);line-height:1.55;margin-bottom:8px}
+.cid-select{
+  width:100%;background:var(--card);border:1px solid var(--border2);
+  border-radius:8px;color:var(--text);font-size:12.5px;
+  padding:8px 10px;outline:none;font-family:inherit;
+  transition:border-color .15s;cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238890ac' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;
+  padding-right:28px;
+}
+.cid-select:focus{border-color:var(--indigo)}
+.cid-no-numbers{
+  font-size:12px;color:var(--amber);
+  padding:8px 10px;background:var(--amber-bg);border:1px solid var(--amber-brd);
+  border-radius:8px;line-height:1.5;
+}
+
+/* ── Caller ID strip (active dialing sub-header) ── */
+.sub-cid{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  flex-shrink:0;padding:0 14px;
+  border-left:1px solid var(--border);border-right:1px solid var(--border);
+  gap:1px;
+}
+.sub-cid-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3)}
+.sub-cid-num{font-size:11.5px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:.03em}
 </style>
 </head>
 <body>
@@ -797,6 +856,30 @@ html,body{
         </div>
       </div>
 
+      <!-- Caller ID picker -->
+      <div class="cid-section" id="cid-section">
+        <div class="cid-section-label">Caller ID</div>
+        <div id="cid-no-numbers" class="cid-no-numbers" style="display:none">
+          No phone numbers found. Go to Phone Book to purchase a number first.
+        </div>
+        <div id="cid-picker">
+          <div class="cid-mode-row">
+            <button class="cid-mode-btn active" id="cid-btn-smart" onclick="setCidMode('smart_local')">
+              Smart Local <span class="cid-mode-tag">Recommended</span>
+            </button>
+            <button class="cid-mode-btn" id="cid-btn-fixed" onclick="setCidMode('fixed')">
+              Fixed Number
+            </button>
+          </div>
+          <div id="cid-smart-desc" class="cid-desc">
+            Rotates through your numbers and picks the closest area code for each lead — maximizes answer rates.
+          </div>
+          <div id="cid-fixed-wrap" style="display:none">
+            <select class="cid-select" id="cid-fixed-select"></select>
+          </div>
+        </div>
+      </div>
+
       <div class="start-bullets">
         <div class="bullet-row">
           <div class="bi-num">1</div>
@@ -857,6 +940,10 @@ html,body{
       <div class="sub-loc">
         <span class="sub-loc-icon">📍</span>
         <span id="sub-location">—</span>
+      </div>
+      <div class="sub-cid" id="sub-cid" style="display:none">
+        <span class="sub-cid-lbl">Your Caller ID</span>
+        <span class="sub-cid-num" id="sub-cid-num">—</span>
       </div>
       <div class="sub-prog">
         <span class="sub-prog-text" id="sub-prog-text">Lead 1 of 1</span>
@@ -1092,6 +1179,8 @@ let activeTab    = 'outcome';
 let currentState = null;
 let dialMode            = 'power'; // 'power' | 'preview'
 let _previewManualDial  = false;   // true when agent explicitly clicked Dial
+let callerNumbers       = [];      // phone_numbers rows loaded at init
+let callerIdMode        = 'smart_local'; // 'smart_local' | 'fixed'
 
 // ─── Utils ────────────────────────────────
 function fmtP(raw) {
@@ -1627,6 +1716,18 @@ function render(s) {
     renderNextLead(s);
     updateProgress(s);
 
+    // Show/update the Caller ID chip in the sub-header
+    const cidEl  = document.getElementById('sub-cid');
+    const cidNum = document.getElementById('sub-cid-num');
+    if (cidEl && cidNum) {
+      if (s.current_caller_id) {
+        cidEl.style.display  = '';
+        cidNum.textContent   = fmtP(s.current_caller_id);
+      } else {
+        cidEl.style.display  = 'none';
+      }
+    }
+
   } else if (s.status === 'completed' || s.status === 'cancelled') {
     showScreen('s-completed');
     setHdrPill('st-done', s.status === 'completed' ? 'Complete' : 'Ended');
@@ -1682,9 +1783,18 @@ async function pdStartSession() {
   btn.textContent = 'Starting…';
 
   const leadIds = leadsData.map(l => String(l.id));
+  const allNumbers = callerNumbers.map(n => n.e164).filter(Boolean);
+  const fixedNumber = (document.getElementById('cid-fixed-select') || {}).value || (allNumbers[0] || '');
   let r;
   try {
-    r = await sb.functions.invoke('telnyx-dialer-create-session', { body: { lead_ids: leadIds } });
+    r = await sb.functions.invoke('telnyx-dialer-create-session', {
+      body: {
+        lead_ids:          leadIds,
+        caller_id_mode:    callerIdMode,
+        caller_id_fixed:   callerIdMode === 'fixed' ? fixedNumber : null,
+        caller_id_numbers: allNumbers,
+      }
+    });
   } catch (e) {
     btn.disabled = false;
     btn.textContent = 'Start Dialing Session';
@@ -2168,6 +2278,46 @@ function playBaDum() {
   } catch (e) {}
 }
 
+// ─── Caller ID picker ─────────────────────
+function setCidMode(mode) {
+  callerIdMode = mode;
+  document.getElementById('cid-btn-smart').classList.toggle('active', mode === 'smart_local');
+  document.getElementById('cid-btn-fixed').classList.toggle('active', mode === 'fixed');
+  document.getElementById('cid-smart-desc').style.display = mode === 'smart_local' ? '' : 'none';
+  document.getElementById('cid-fixed-wrap').style.display = mode === 'fixed' ? '' : 'none';
+}
+
+function renderCallerIdPicker(numbers) {
+  const noNumEl   = document.getElementById('cid-no-numbers');
+  const pickerEl  = document.getElementById('cid-picker');
+  const selectEl  = document.getElementById('cid-fixed-select');
+  if (!noNumEl || !pickerEl || !selectEl) return;
+
+  if (!numbers || numbers.length === 0) {
+    noNumEl.style.display  = '';
+    pickerEl.style.display = 'none';
+    return;
+  }
+
+  noNumEl.style.display  = 'none';
+  pickerEl.style.display = '';
+
+  selectEl.innerHTML = numbers.map(n => {
+    const label = fmtP(n.e164);
+    const loc   = [n.locality, n.region].filter(Boolean).join(', ');
+    const tag   = n.is_primary ? ' (Primary)' : '';
+    return `<option value="${esc(n.e164)}">${label}${loc ? ' — ' + esc(loc) : ''}${tag}</option>`;
+  }).join('');
+
+  // If only 1 number, default to fixed and hide the mode toggle
+  if (numbers.length === 1) {
+    setCidMode('fixed');
+    document.querySelector('.cid-mode-row').style.display = 'none';
+    document.getElementById('cid-smart-desc').style.display = 'none';
+    document.getElementById('cid-fixed-wrap').style.display = '';
+  }
+}
+
 // ─── Init ─────────────────────────────────
 async function init() {
   showScreen('s-loading');
@@ -2204,6 +2354,18 @@ async function init() {
   dialMode  = launch.mode === 'preview' ? 'preview' : 'power';
   document.getElementById('start-count').textContent = leadsData.length;
   document.getElementById('stat-contacts').textContent = `0 / ${leadsData.length}`;
+
+  // Load purchased phone numbers for the caller ID picker.
+  try {
+    const { data: nums } = await sb.from('phone_numbers')
+      .select('e164, friendly_name, locality, region, is_primary')
+      .eq('agent_id', agentUser.id)
+      .eq('status', 'active')
+      .order('is_primary', { ascending: false })
+      .order('purchased_at', { ascending: true });
+    callerNumbers = nums || [];
+  } catch { callerNumbers = []; }
+  renderCallerIdPicker(callerNumbers);
 
   if (dialMode === 'preview') {
     document.getElementById('start-title').textContent = 'Preview Dial';

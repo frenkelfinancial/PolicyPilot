@@ -47,7 +47,12 @@ serve(async (req) => {
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  let body: { lead_ids?: unknown };
+  let body: {
+    lead_ids?:          unknown;
+    caller_id_mode?:    unknown;
+    caller_id_fixed?:   unknown;
+    caller_id_numbers?: unknown;
+  };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
   const leadIds = Array.isArray(body.lead_ids)
@@ -56,16 +61,29 @@ serve(async (req) => {
   if (leadIds.length === 0) return json({ error: "no_leads_selected" }, 400);
   if (leadIds.length > 500) return json({ error: "too_many_leads", detail: "Select 500 or fewer leads per session." }, 400);
 
-  // Load agent — need a Telnyx caller-ID number to dial leads from, plus
-  // any existing dialer PIN.
+  // Caller ID configuration from the frontend picker.
+  const callerIdMode    = typeof body.caller_id_mode === "string"
+    ? (body.caller_id_mode as "fixed" | "smart_local")
+    : "fixed";
+  const callerIdFixed   = typeof body.caller_id_fixed === "string" ? body.caller_id_fixed : null;
+  const callerIdNumbers = Array.isArray(body.caller_id_numbers)
+    ? body.caller_id_numbers.filter((v): v is string => typeof v === "string" && v.length > 0)
+    : [];
+
+  // Load agent — need existing caller ID as fallback and the dialer PIN.
   const { data: agent } = await sb.from("agents")
     .select("signalwire_caller_id, dialer_pin")
     .eq("id", user.id)
     .maybeSingle();
 
-  const callerIdE164: string = agent?.signalwire_caller_id || "";
-  if (!callerIdE164) {
-    return json({ error: "no_caller_id", detail: "No Telnyx number assigned. Buy one in the Phone Book tab before using the power dialer." }, 422);
+  // Determine the effective caller ID: prefer what the frontend sent, fall
+  // back to the agent's primary number.
+  const effectiveCallerId = callerIdFixed || (callerIdNumbers[0]) || agent?.signalwire_caller_id || "";
+  if (!effectiveCallerId) {
+    return json({
+      error:  "no_caller_id",
+      detail: "No Telnyx number assigned. Buy one in the Phone Book tab before using the power dialer.",
+    }, 422);
   }
 
   const telnyxHeaders = {
@@ -88,14 +106,12 @@ serve(async (req) => {
     if (error && error.code !== "23505") {
       return json({ error: "pin_generation_failed", detail: error.message }, 500);
     }
-    // Either a collision on the candidate, or someone else set it concurrently.
     const { data: refetched } = await sb.from("agents").select("dialer_pin").eq("id", user.id).maybeSingle();
     if (refetched?.dialer_pin) pin = refetched.dialer_pin;
   }
   if (!pin) return json({ error: "pin_generation_failed" }, 500);
 
-  // Cancel any prior non-terminal session for this agent, hanging up its
-  // legs best-effort so a stale session doesn't keep ringing.
+  // Cancel any prior non-terminal session, hanging up its legs best-effort.
   const { data: oldSessions } = await sb.from("dialer_sessions")
     .select("id, agent_call_control_id, current_call_control_id")
     .eq("agent_id", user.id)
@@ -117,13 +133,16 @@ serve(async (req) => {
       .eq("id", old.id);
   }
 
-  // Create the new pending session.
+  // Create the new pending session, storing the caller ID configuration.
   const { data: session, error: insertErr } = await sb.from("dialer_sessions").insert({
-    agent_id:    user.id,
+    agent_id:          user.id,
     pin,
-    lead_ids:    leadIds,
-    status:      "pending",
-    host_number: TELNYX_DIALER_NUM,
+    lead_ids:          leadIds,
+    status:            "pending",
+    host_number:       TELNYX_DIALER_NUM,
+    caller_id_mode:    callerIdMode,
+    caller_id_fixed:   callerIdFixed,
+    caller_id_numbers: callerIdNumbers.length > 0 ? callerIdNumbers : null,
   }).select("id").single();
 
   if (insertErr || !session) {

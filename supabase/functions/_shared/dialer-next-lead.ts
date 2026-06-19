@@ -10,6 +10,11 @@ export type DialerSession = {
   agent_call_control_id: string | null;
   current_call_control_id: string | null;
   current_call_row_id: string | null;
+  // Caller ID configuration (added in 20260618 migration)
+  caller_id_mode: "fixed" | "smart_local" | null;
+  caller_id_fixed: string | null;
+  caller_id_numbers: string[] | null;
+  current_caller_id: string | null;
 };
 
 export function toE164(raw: string | undefined | null): string {
@@ -20,6 +25,55 @@ export function toE164(raw: string | undefined | null): string {
   if (d.length === 10) return `+1${d}`;
   if (d.length === 11 && d[0] === "1") return `+${d}`;
   return "";
+}
+
+// Pick the caller ID to use for a given lead call.
+//
+// Fixed mode: always uses caller_id_fixed (or falls back to fallback).
+// Smart Local: picks the agent number whose area code best matches the
+// lead's area code, then rotates among equally-ranked numbers so calls
+// are spread evenly across all purchased numbers.
+export function selectCallerId(
+  mode: string | null,
+  numbers: string[] | null,
+  fixed: string | null,
+  fallback: string,
+  leadPhone: string,
+  callIndex: number,
+): string {
+  const pool = numbers?.filter(Boolean) ?? [];
+
+  if (!mode || mode === "fixed") {
+    return fixed || (pool.length > 0 ? pool[0] : fallback);
+  }
+
+  // Smart Local
+  if (pool.length === 0) return fixed || fallback;
+  if (pool.length === 1) return pool[0];
+
+  // Extract the 3-digit US area code from the lead's phone.
+  const leadDigits = leadPhone.replace(/[^\d]/g, "").slice(-10);
+  const leadAC = leadDigits.slice(0, 3); // first 3 digits of 10-digit number
+
+  if (!leadAC) return pool[callIndex % pool.length];
+
+  // Score each agent number: 3=exact area code match, 2=2-digit match, …
+  const scored = pool.map((num) => {
+    const d = num.replace(/[^\d]/g, "").slice(-10);
+    const ac = d.slice(0, 3);
+    let score = 0;
+    for (let i = 0; i < 3; i++) {
+      if (ac[i] === leadAC[i]) score++;
+      else break;
+    }
+    return { num, score };
+  });
+
+  const maxScore = Math.max(...scored.map((s) => s.score));
+  const best = scored.filter((s) => s.score === maxScore);
+
+  // Rotate among equally-ranked matches so numbers are distributed evenly.
+  return best[callIndex % best.length].num;
 }
 
 export async function reportMinutesToStripe(
@@ -146,14 +200,9 @@ export async function speakAndHangup(
 }
 
 // Dial the next lead in session.lead_ids, joining it to the existing
-// conference once answered. Skips leads with no phone on file. Marks the
-// session 'completed' (and says goodbye to the agent) once the list is
-// exhausted.
-//
-// NOTE: session.current_call_row_id should be null when called from
-// telnyx-dialer-skip (the caller closes the row itself before calling this).
-// When called from telnyx-call-status for completeness we leave the behavior
-// as-is so dialNextLead is the single source of row close logic.
+// conference once answered. Applies caller ID selection (fixed or smart local)
+// based on session.caller_id_mode. Skips leads with no phone on file.
+// Marks the session 'completed' (and says goodbye to the agent) once exhausted.
 export async function dialNextLead(
   sb: ReturnType<typeof createClient>,
   telnyxHeaders: Record<string, string>,
@@ -162,11 +211,12 @@ export async function dialNextLead(
   session: DialerSession,
   stripeKey: string | undefined,
 ) {
+  // Resolve the agent's fallback caller ID (primary number on agent row).
   const { data: agent } = await sb.from("agents")
     .select("signalwire_caller_id")
     .eq("id", session.agent_id)
     .maybeSingle();
-  const callerIdE164: string = agent?.signalwire_caller_id || "";
+  const fallbackCallerId: string = agent?.signalwire_caller_id || "";
 
   let nextIndex = session.current_index;
 
@@ -190,11 +240,6 @@ export async function dialNextLead(
       return;
     }
 
-    if (!callerIdE164) {
-      await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
-      continue;
-    }
-
     const clientId = session.lead_ids[nextIndex];
     const { data: leadRow } = await sb.from("leads")
       .select("id, data")
@@ -205,6 +250,21 @@ export async function dialNextLead(
     const rawPhone: string = (leadRow?.data as { phone?: string } | undefined)?.phone || "";
     const leadPhone: string = toE164(rawPhone) || rawPhone;
     if (!leadPhone) {
+      await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
+      continue;
+    }
+
+    // Select the caller ID for this lead based on mode.
+    const callerIdE164 = selectCallerId(
+      session.caller_id_mode,
+      session.caller_id_numbers,
+      session.caller_id_fixed,
+      fallbackCallerId,
+      leadPhone,
+      nextIndex,
+    );
+
+    if (!callerIdE164) {
       await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
       continue;
     }
@@ -241,8 +301,9 @@ export async function dialNextLead(
       continue;
     }
 
-    // Close the previous lead call row (no-op when called from telnyx-dialer-skip
-    // since it already closed the row and passed current_call_row_id = null).
+    // Close the previous call row (no-op when current_call_row_id is null,
+    // which is the case when called from telnyx-dialer-skip since it already
+    // closed the row before calling us).
     const closed = await closeCallRowById(sb, session.current_call_row_id);
     if (closed && stripeKey) {
       await reportMinutesToStripe(sb, stripeKey, closed.agentId, closed.durationSec);
@@ -264,6 +325,7 @@ export async function dialNextLead(
       status:                  "dialing",
       current_call_control_id: leadCallControlId,
       current_call_row_id:     callRow?.id || null,
+      current_caller_id:       callerIdE164,
     }).eq("id", session.id);
 
     return;
