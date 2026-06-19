@@ -3412,6 +3412,28 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         #sec-api-quoter .aq-limit-banner, #leadApiQuoteModal .aq-limit-banner { margin-bottom:14px; padding:12px 14px; border:1px solid rgba(220,38,38,.45); background:rgba(220,38,38,.08); border-radius:var(--ds-radius-md,10px); color:var(--text2); font-size:12.5px; line-height:1.45; }
         #sec-api-quoter .aq-limit-banner strong, #leadApiQuoteModal .aq-limit-banner strong { color:var(--ds-color-danger,#dc2626); font-weight:600; }
         @media (max-width: 900px) { #sec-api-quoter .aq-podium, #leadApiQuoteModal .aq-podium { grid-template-columns:1fr; } }
+        /* Underwriting Copilot chat (tab health box) */
+        #sec-api-quoter .uw-chat { border:1px solid var(--border); border-radius:var(--ds-radius-md,10px); background:var(--bg2); overflow:hidden; }
+        #sec-api-quoter .uw-chat-thread { max-height:260px; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:8px; }
+        #sec-api-quoter .uw-chat-thread:empty::before { content:"Start by describing the client's health and medications — I'll track conditions and recommend the best carrier for approval as we talk."; display:block; color:var(--text3); font-size:12px; font-style:italic; line-height:1.5; }
+        #sec-api-quoter .uw-msg { max-width:86%; padding:8px 11px; border-radius:12px; font-size:12.5px; line-height:1.45; white-space:pre-wrap; word-wrap:break-word; }
+        #sec-api-quoter .uw-msg.user { align-self:flex-end; background:var(--ds-color-accent,#2563eb); color:#fff; border-bottom-right-radius:4px; }
+        #sec-api-quoter .uw-msg.bot { align-self:flex-start; background:var(--bg); border:1px solid var(--border); color:var(--text); border-bottom-left-radius:4px; }
+        #sec-api-quoter .uw-msg.bot.err { border-color:rgba(220,38,38,.45); color:var(--ds-color-danger,#dc2626); background:rgba(220,38,38,.06); }
+        #sec-api-quoter .uw-msg.typing { color:var(--text3); font-style:italic; }
+        #sec-api-quoter .uw-chat-reco { padding:9px 12px; border-top:1px solid var(--border); font-size:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+        #sec-api-quoter .uw-chat-reco .uw-reco-lbl { color:var(--text3); }
+        #sec-api-quoter .uw-chat-reco .uw-reco-name { font-weight:600; color:var(--text); }
+        #sec-api-quoter .uw-chat-input { display:flex; gap:8px; padding:10px 12px; border-top:1px solid var(--border); align-items:flex-end; }
+        #sec-api-quoter .uw-chat-input textarea { flex:1; resize:none; min-height:34px; max-height:120px; margin:0; }
+        #sec-api-quoter .uw-chat-input button { white-space:nowrap; }
+        #sec-api-quoter .uw-chat-input button:disabled { opacity:.55; cursor:default; }
+        #sec-api-quoter .aq-uw-reco, #leadApiQuoteModal .aq-uw-reco { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; padding:11px 14px; border:1px solid var(--border); border-radius:var(--ds-radius-md,10px); background:var(--bg2); font-size:12.5px; }
+        #sec-api-quoter .aq-uw-reco .aq-uw-reco-pill { display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:3px 10px; border-radius:999px; }
+        #sec-api-quoter .aq-uw-reco.t-ok .aq-uw-reco-pill { background:rgba(34,197,94,.14); color:#16a34a; }
+        #sec-api-quoter .aq-uw-reco.t-gr .aq-uw-reco-pill { background:rgba(245,158,11,.16); color:#d97706; }
+        #sec-api-quoter .aq-uw-reco.t-no .aq-uw-reco-pill { background:rgba(239,68,68,.14); color:var(--ds-color-danger,#dc2626); }
+        #sec-api-quoter .aq-uw-reco .aq-uw-reco-why { color:var(--text2); }
         /* Multi-product group expand button */
         #sec-api-quoter .aq-expand-btn, #leadApiQuoteModal .aq-expand-btn { display:inline-flex; align-items:center; gap:3px; cursor:pointer; font-size:10.5px; color:var(--text3); font-weight:600; border:1px solid var(--border); border-radius:999px; padding:1px 8px; background:var(--bg3); transition:background 150ms,color 150ms; white-space:nowrap; vertical-align:middle; margin-left:6px; line-height:1.6; }
         #sec-api-quoter .aq-expand-btn:hover, #leadApiQuoteModal .aq-expand-btn:hover { background:var(--bg2); color:var(--text2); }
@@ -3500,11 +3522,17 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <div>IUL quotes are <strong>premium-range estimates</strong>. Always run a full carrier illustration before binding — these numbers won't include indexed crediting, riders, or projected cash value.</div>
         </div>
         <div class="fg" style="margin-top:10px">
-          <label>Health conditions &amp; medications</label>
-          <textarea id="aq-health-text" rows="2" placeholder="e.g. Type 2 diabetes (controlled), high blood pressure, former smoker quit 2019"></textarea>
-          <div id="aq-health-spinner" style="display:none;font-size:11.5px;color:var(--text3);margin-top:6px">Parsing health conditions…</div>
+          <label>Underwriting Copilot — health &amp; medications</label>
+          <div id="uw-chat" class="uw-chat">
+            <div id="uw-chat-thread" class="uw-chat-thread"></div>
+            <div id="uw-chat-reco" class="uw-chat-reco" style="display:none"></div>
+            <div class="uw-chat-input">
+              <textarea id="uw-chat-text" rows="1" placeholder="Describe the client's health &amp; meds — e.g. Type 2 diabetes on metformin, controlled high blood pressure…" onkeydown="uwChatKeydown(event)" oninput="uwChatAutogrow(this)"></textarea>
+              <button class="btn btn-p" id="uw-chat-send" type="button" onclick="uwChatSend()">Send</button>
+            </div>
+          </div>
           <div id="aq-health-tags" style="margin-top:8px"></div>
-          <div class="laq-health-note">Health drives the local approval-class estimate only — it is <strong>not</strong> sent to the carrier rate API. Approval badges cover Americo, Aetna, American-Amicable, Transamerica, and Corebridge.</div>
+          <div class="laq-health-note">The copilot estimates approval likelihood and best carrier locally — health is <strong>not</strong> sent to the carrier rate API. Underwriting data covers Americo, Aetna, American-Amicable, Transamerica, and Corebridge.</div>
         </div>
         <div class="mt16 flex aic" style="gap:12px;flex-wrap:wrap">
           <button class="btn btn-p" onclick="runApiQuote()">Run Quote</button>
@@ -8312,6 +8340,109 @@ function renderHealthTags(containerId, conds) {
   });
 }
 
+// ============================================================
+// UNDERWRITING COPILOT — continuous chat (Quote + Underwriting tab)
+// ============================================================
+// Multi-turn conversation that drives the same _aqHealthCw → badge + reco
+// machinery the one-shot parse used. Source of conditions for the tab context.
+const _uwChat = { messages: [], conditions: [], busy: false };
+
+function uwChatAutogrow(ta) {
+  if (!ta) return;
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+}
+
+function uwChatKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); uwChatSend(); }
+}
+
+function uwChatRenderThread(typing) {
+  const thread = document.getElementById('uw-chat-thread');
+  if (!thread) return;
+  let html = _uwChat.messages.map(m =>
+    `<div class="uw-msg ${m.role === 'user' ? 'user' : 'bot'}${m.err ? ' err' : ''}">${escHTML(m.content)}</div>`
+  ).join('');
+  if (typing) html += `<div class="uw-msg bot typing">Thinking…</div>`;
+  thread.innerHTML = html;
+  thread.scrollTop = thread.scrollHeight;
+}
+
+// Reset the conversation + all derived overlay state (called by Clear).
+function uwChatReset() {
+  _uwChat.messages = [];
+  _uwChat.conditions = [];
+  _uwChat.busy = false;
+  uwChatRenderThread(false);
+  const reco = document.getElementById('uw-chat-reco');
+  if (reco) { reco.style.display = 'none'; reco.innerHTML = ''; }
+  const send = document.getElementById('uw-chat-send');
+  if (send) send.disabled = false;
+}
+
+// Quote context passed to the copilot so its recommendation matches the form.
+function uwChatContext() {
+  const val = (id) => (document.getElementById(id) || {}).value || '';
+  let carriers = [];
+  try {
+    carriers = (getContractedCarriers() || [])
+      .map(k => UW_KEY_LABEL[UW_LOCAL_TO_KEY[k]])
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i);
+  } catch (_) {}
+  return {
+    product: val('aq-product'), age: val('aq-age'), sex: val('aq-sex'),
+    state: val('aq-state'), face: val('aq-face'), tobacco: val('aq-tobacco'),
+    carriers,
+  };
+}
+
+async function uwChatSend() {
+  if (_uwChat.busy) return;
+  const ta = document.getElementById('uw-chat-text');
+  const send = document.getElementById('uw-chat-send');
+  const text = ta ? ta.value.trim() : '';
+  if (!text) return;
+
+  _uwChat.messages.push({ role: 'user', content: text });
+  if (ta) { ta.value = ''; uwChatAutogrow(ta); }
+  _uwChat.busy = true;
+  if (send) send.disabled = true;
+  uwChatRenderThread(true);
+
+  let data = null, error = null;
+  try {
+    const payload = {
+      messages: _uwChat.messages.map(m => ({ role: m.role, content: m.content })),
+      context: uwChatContext(),
+    };
+    const res = await sb.functions.invoke('uw-chat', { body: payload });
+    data = res.data; error = res.error;
+  } catch (e) { error = e; }
+
+  _uwChat.busy = false;
+  if (send) send.disabled = false;
+
+  if (error || !data || data.ok === false) {
+    console.error('[uw-chat] error', error || (data && data.error));
+    _uwChat.messages.push({ role: 'assistant', err: true,
+      content: "I couldn't reach the underwriting model just now — try sending that again." });
+    uwChatRenderThread(false);
+    return;
+  }
+
+  _uwChat.messages.push({ role: 'assistant', content: data.reply || '…' });
+  _uwChat.conditions = Array.isArray(data.conditions) ? data.conditions : [];
+  uwChatRenderThread(false);
+
+  // Drive the shared overlay machinery: tags, per-carrier classes, badges, reco.
+  renderHealthTags('aq-health-tags', _uwChat.conditions);
+  setHealthCwFromConditions(_uwChat.conditions);
+  renderUwReco();
+  // Repaint badges + banner if a quote is already on screen.
+  if (_aqCtx.source === 'tab') { try { reapplyApiHealthBadges(); } catch (_) {} }
+}
+
 // Health class lookup: condition → { americo, aetna, aa, trans, core }
 // Values: 'level','select2','graded','rop','decline','gi','preferred','standard'
 const UW_CLASS = {
@@ -12483,6 +12614,17 @@ function laqHealthKeyForCompany(company) {
 // Leads-tab modal and the standalone "Quote + Underwriting" tab via _aqCtx;
 // triggered by runApiQuote() after a successful render.
 async function applyApiHealthOverlay() {
+  // Tab path: the Underwriting Copilot chat is the condition source — no
+  // textarea read, no extra one-shot parse. The modal path still parses its
+  // textarea via aiParseHealth().
+  if (_aqCtx.source === 'tab') {
+    const conds = _uwChat.conditions || [];
+    if (_aqCtx.healthTagsId) renderHealthTags(_aqCtx.healthTagsId, conds);
+    setHealthCwFromConditions(conds);
+    reapplyApiHealthBadges();
+    return;
+  }
+
   const textId    = _aqCtx.healthTextId;
   const tagsId    = _aqCtx.healthTagsId;
   const spinnerId = _aqCtx.healthSpinnerId;
@@ -12504,14 +12646,20 @@ async function applyApiHealthOverlay() {
   finally { if (spinner) spinner.style.display = 'none'; }
 
   if (tagsId) renderHealthTags(tagsId, conds);
+  setHealthCwFromConditions(conds);
+  reapplyApiHealthBadges();
+}
 
-  // Worst class per covered carrier across all parsed conditions.
+// Compute worst underwriting class per covered carrier (am/at/aa/tr/co) from a
+// list of canonical condition names, into the shared _aqHealthCw used by the
+// badge + recommendation painters. Null when there are no conditions.
+function setHealthCwFromConditions(conds) {
+  if (!conds || !conds.length) { _aqHealthCw = null; return; }
   const cw = {};
   ['am', 'at', 'aa', 'tr', 'co'].forEach(k => {
     cw[k] = worstClass(conds.map(c => (UW_CLASS[c] && UW_CLASS[c][k]) || 'level'));
   });
   _aqHealthCw = cw;
-  reapplyApiHealthBadges();
 }
 
 // Synchronously (re-)inject the approval badges into the active results
@@ -12552,6 +12700,76 @@ function reapplyApiHealthBadges() {
     const badge = badgeFor(card.getAttribute('data-company'));
     if (badge) card.appendChild(badge);
   });
+
+  // Tab only: pin the "best for approval" banner derived from the chat.
+  if (_aqCtx.source === 'tab') renderUwRecoBanner(root);
+}
+
+// Map our local carrier keys (Settings → Carriers) to the five UW_CLASS keys.
+const UW_LOCAL_TO_KEY = { americo:'am', aetna:'at', aamicable:'aa', trans:'tr', corebridge:'co' };
+const UW_KEY_LABEL    = { am:'Americo', at:'Aetna', aa:'American-Amicable', tr:'Transamerica', co:'Corebridge' };
+
+// Among the agent's licensed carriers that we have underwriting data for, pick
+// the one with the best approval outlook for the current conditions. Returns
+// { key, label, approval, cls } or null when nothing applies.
+function bestApprovalCarrier() {
+  if (!_aqHealthCw) return null;
+  const rank = {decline:0,gi:1,oxygen:2,graded:2,rop:3,modified:4,check:4,stent:5,immediate:5,select2:6,standard:6,select1:7,preferred:7,level:7};
+  let licensed = [];
+  try { licensed = getContractedCarriers() || []; } catch (_) { licensed = []; }
+  const order = ['am','at','aa','tr','co'];
+  const eligible = licensed
+    .map(k => UW_LOCAL_TO_KEY[k])
+    .filter(Boolean)
+    .filter((v, i, a) => a.indexOf(v) === i);
+  if (!eligible.length) return null;
+  let best = null;
+  eligible
+    .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+    .forEach(key => {
+      const cls = _aqHealthCw[key] || 'level';
+      const r = rank[cls] ?? 7;
+      if (!best || r > best.r) best = { key, label: UW_KEY_LABEL[key], cls, approval: classToApproval(cls), r };
+    });
+  return best ? { key: best.key, label: best.label, approval: best.approval, cls: best.cls } : null;
+}
+
+const UW_APPROVAL_TONE  = { approved:'t-ok', non_instant:'t-ok', graded:'t-gr', declined:'t-no' };
+const UW_APPROVAL_LABEL = { approved:'Likely approved', non_instant:'Likely standard', graded:'Likely graded', declined:'Likely decline' };
+
+// Compact recommendation chip under the chat thread (visible pre-quote too).
+function renderUwReco() {
+  const el = document.getElementById('uw-chat-reco');
+  if (!el) return;
+  if (!_aqHealthCw) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  let licensed = [];
+  try { licensed = getContractedCarriers() || []; } catch (_) {}
+  const best = bestApprovalCarrier();
+  el.style.display = 'flex';
+  if (!best) {
+    el.innerHTML = !licensed.length
+      ? `<span class="uw-reco-lbl">Set your licensed carriers in <a href="#" onclick="nav('settings');return false" style="color:var(--text-g);text-decoration:underline">Settings → Carriers</a> to get a recommendation.</span>`
+      : `<span class="uw-reco-lbl">No underwriting data for your licensed carriers (covers Americo, Aetna, American-Amicable, Transamerica, Corebridge).</span>`;
+    return;
+  }
+  el.innerHTML =
+    `<span class="uw-reco-lbl">Best for approval:</span>` +
+    `<span class="uw-reco-name">${escHTML(best.label)}</span>` +
+    `<span class="badge ${UW_APPROVAL_TONE[best.approval] === 't-no' ? 'b-no' : (UW_APPROVAL_TONE[best.approval] === 't-gr' ? 'b-gr' : 'b-ok')}">${UW_APPROVAL_LABEL[best.approval]}</span>`;
+}
+
+// Pinned banner at the top of the quote results, mirroring the chip.
+function renderUwRecoBanner(root) {
+  root.querySelectorAll('.aq-uw-reco').forEach(el => el.remove());
+  const best = bestApprovalCarrier();
+  if (!best) return;
+  const tone = UW_APPROVAL_TONE[best.approval] || 't-ok';
+  const banner = document.createElement('div');
+  banner.className = 'aq-uw-reco ' + tone;
+  banner.innerHTML =
+    `<span class="aq-uw-reco-pill">${icon('check', {size:13})}Best for approval: ${escHTML(best.label)}</span>` +
+    `<span class="aq-uw-reco-why">${UW_APPROVAL_LABEL[best.approval]} based on the conditions from your Underwriting Copilot chat.</span>`;
+  root.insertBefore(banner, root.firstChild);
 }
 
 // Convert status pill into an inline <select> for manual override (full status list).
@@ -16999,7 +17217,7 @@ let _aqOnSelectQuote = null; // forward-compat hook for future save-to-policy
 // context before calling runApiQuote().
 let _aqCtx = {
   resultsId: 'api-quoter-results', source: 'tab', hintId: 'aq-form-hint',
-  healthTextId: 'aq-health-text', healthTagsId: 'aq-health-tags', healthSpinnerId: 'aq-health-spinner',
+  healthTextId: null, healthTagsId: 'aq-health-tags', healthSpinnerId: null, // tab uses the Underwriting Copilot chat
 };
 
 // Coerce ITK's stringy "$42.10" / "504.99" into a sortable number.
@@ -17126,10 +17344,9 @@ function clearApiQuoterForm() {
   if (slot) { slot.style.display = 'none'; slot.innerHTML = ''; }
   const hint = document.getElementById('aq-form-hint');
   if (hint) { hint.textContent = 'Fill age, sex, state, and face amount.'; hint.style.color = 'var(--text3)'; }
-  // Health overlay — clear textarea, parsed tags, spinner, and cached classes.
-  const ht = document.getElementById('aq-health-text'); if (ht) ht.value = '';
+  // Health overlay — reset the Underwriting Copilot chat, tags, cached classes.
+  uwChatReset();
   const htags = document.getElementById('aq-health-tags'); if (htags) htags.innerHTML = '';
-  const hspin = document.getElementById('aq-health-spinner'); if (hspin) hspin.style.display = 'none';
   _aqHealthCw = null;
   _aqLastQuotes = []; _aqLastExcluded = []; _aqLastBody = null; _aqLastMs = 0;
   try { apiQuoterToggleFields(); } catch (_) {}
@@ -17280,7 +17497,7 @@ async function runApiQuote(prefilledBody) {
   // path sets _aqCtx itself before calling in with a body.
   if (!prefilledBody) _aqCtx = {
     resultsId: 'api-quoter-results', source: 'tab', hintId: 'aq-form-hint',
-    healthTextId: 'aq-health-text', healthTagsId: 'aq-health-tags', healthSpinnerId: 'aq-health-spinner',
+    healthTextId: null, healthTagsId: 'aq-health-tags', healthSpinnerId: null, // tab uses the Underwriting Copilot chat
   };
   const body = prefilledBody || readApiQuoterForm();
   const hint = document.getElementById(_aqCtx.hintId);
