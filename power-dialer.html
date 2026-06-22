@@ -1193,6 +1193,7 @@ let dialMode            = 'power'; // 'power' | 'preview'
 let _previewManualDial  = false;   // true when agent explicitly clicked Dial
 let callerNumbers       = [];      // phone_numbers rows loaded at init
 let callerIdMode        = 'smart_local'; // 'smart_local' | 'fixed'
+let _lastCountedCallId  = null;    // tracks which call_control_id was last counted to avoid double-counting
 
 // ─── Utils ────────────────────────────────
 function fmtP(raw) {
@@ -1646,10 +1647,10 @@ function render(s) {
   session = s;
   currentState = s.status;
 
-  // Boom + stats only when a genuinely new lead is being dialed
-  // (current_index changed AND a call is actually active).
-  // Natural lead hangup leaves current_index unchanged, so no boom there.
-  if (s.status === 'dialing' && s.current_index !== prevIdx && s.current_call_control_id) {
+  // Count each call exactly once when it has a live call_control_id — tracked by ID to
+  // survive transitional backend states where the index changes before the ID appears.
+  if (s.status === 'dialing' && s.current_call_control_id && s.current_call_control_id !== _lastCountedCallId) {
+    _lastCountedCallId = s.current_call_control_id;
     stats.calls++;
     if (dialMode === 'preview' && !_previewManualDial) {
       // Auto-dial intercepted — pause immediately so agent must click Dial
@@ -1694,19 +1695,30 @@ function render(s) {
       const banner = document.getElementById('call-banner');
       banner.className = 'call-banner b-dialing';
       if (!s.current_call_control_id) {
-        // Call ended naturally — lead hung up or call dropped before agent acted
         _ringbackCallId = null;
         stopRingback();
-        setHdrPill('st-dialing', 'Call Ended');
-        document.getElementById('banner-text').textContent = `Call ended — mark outcome or re-dial`;
-        // Hold the UI in a paused state so the agent must explicitly mark an
-        // outcome or click Dial before the next call goes out.
-        if (!_isPaused) {
-          _isPaused = true;
-          const pauseBtn = document.getElementById('btn-pause');
-          if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
+        if (_isSkipping) {
+          // Transitional state during skip — backend cleared old call before placing new one.
+          // Do NOT auto-pause; the skip already cleared the paused state.
+          setHdrPill('st-dialing', 'Loading…');
+          document.getElementById('banner-text').textContent = 'Moving to next lead…';
+        } else {
+          // Call ended naturally — lead hung up or call dropped before agent acted.
+          setHdrPill('st-dialing', 'Call Ended');
+          document.getElementById('banner-text').textContent = `Call ended — mark outcome or re-dial`;
+          // Hold the UI in a paused state so the agent must explicitly mark an
+          // outcome or click Dial before the next call goes out.
+          if (!_isPaused) {
+            _isPaused = true;
+            const pauseBtn = document.getElementById('btn-pause');
+            if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
+          }
         }
       } else {
+        // A live call is ringing — clear skip flag and re-enable controls.
+        _isSkipping = false;
+        const skipBtn = document.querySelector('.btn-skip');
+        if (skipBtn) skipBtn.disabled = false;
         setHdrPill('st-dialing','Ringing…');
         document.getElementById('banner-text').textContent = `Calling ${lead ? lName(lead) : ''}…`;
         if (_ringbackCallId !== s.current_call_control_id) {
@@ -1715,6 +1727,9 @@ function render(s) {
         }
       }
     } else {
+      _isSkipping = false;
+      const skipBtn = document.querySelector('.btn-skip');
+      if (skipBtn) skipBtn.disabled = false;
       _ringbackCallId = null;
       stopRingback();
       setHdrPill('st-connected','Connected');
@@ -1857,21 +1872,21 @@ async function pdStartSession() {
 }
 
 async function pdSkip() {
-  if (!sessionId) return;
+  if (!sessionId) return false;
   try {
     const { error } = await sb.functions.invoke('telnyx-dialer-skip', { body: { session_id: sessionId } });
     if (error) {
       console.error('skip', error);
-      const banner = document.getElementById('call-banner');
       const bannerText = document.getElementById('banner-text');
-      if (banner && bannerText) {
-        bannerText.textContent = `Skip failed: ${error.message || 'unknown error'} — try clicking Skip Lead again`;
-      }
+      if (bannerText) bannerText.textContent = `Skip failed: ${error.message || 'unknown error'} — try again`;
+      return false;
     }
+    return true;
   } catch (e) {
     console.error('skip', e);
     const bannerText = document.getElementById('banner-text');
-    if (bannerText) bannerText.textContent = 'Skip failed — try clicking Skip Lead again';
+    if (bannerText) bannerText.textContent = 'Skip failed — try again';
+    return false;
   }
 }
 
@@ -1910,6 +1925,11 @@ async function pdDial() {
   const pauseBtn = document.getElementById('btn-pause');
   if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
   updateDialBtn();
+  // If the backend call is already active, restart ringback so it plays immediately
+  if (currentState === 'dialing' && session?.current_call_control_id) {
+    _ringbackCallId = session.current_call_control_id;
+    startRingback();
+  }
 }
 
 async function pdPauseAfterAdvance() {
@@ -1920,8 +1940,17 @@ async function pdPauseAfterAdvance() {
 }
 
 async function pdSkipLead() {
+  if (_isSkipping) return; // prevent double-skip during transition
   stopRingback();
   _ringbackCallId = null;
+  _isSkipping = true;
+
+  // Immediate visual feedback — don't make the user wait 2s in silence
+  const skipBtn = document.querySelector('.btn-skip');
+  if (skipBtn) skipBtn.disabled = true;
+  const bannerText = document.getElementById('banner-text');
+  if (bannerText) bannerText.textContent = 'Moving to next lead…';
+
   playTransitionBeep();
   // Clear frontend pause state so the dial button reflects the new call.
   if (_isPaused) {
@@ -1930,11 +1959,27 @@ async function pdSkipLead() {
     if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
     updateDialBtn();
   }
-  await pdSkip();
+  // Safety: clear _isSkipping after 8s regardless (handles slow/failed backend response)
+  setTimeout(() => {
+    if (_isSkipping) {
+      _isSkipping = false;
+      const btn = document.querySelector('.btn-skip');
+      if (btn) btn.disabled = false;
+    }
+  }, 8000);
+  const ok = await pdSkip();
+  if (!ok) {
+    // Skip failed — restore state immediately rather than waiting for the 8s safety timeout
+    _isSkipping = false;
+    const btn = document.querySelector('.btn-skip');
+    if (btn) btn.disabled = false;
+    return;
+  }
   if (dialMode === 'preview') await pdPauseAfterAdvance();
 }
 
-let _isPaused = false;
+let _isPaused  = false;
+let _isSkipping = false; // true while a skip is in-flight; suppresses the "call ended" auto-pause
 async function pdTogglePause() {
   if (!_isPaused) {
     // Pause: hang up current call then freeze queue
@@ -2286,13 +2331,17 @@ let _audioCtx       = null;
 let _ringbackActive = false;
 let _ringbackTimer  = null;
 let _ringbackCallId = null;
-function playBaDum() {
-  try {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (_audioCtx.state === 'suspended') _audioCtx.resume();
-    const ctx = _audioCtx;
-    const now = ctx.currentTime;
 
+function _ensureAudioCtx() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _audioCtx;
+}
+
+function _doBaDum() {
+  try {
+    const ctx = _audioCtx;
+    if (!ctx || ctx.state !== 'running') return;
+    const now = ctx.currentTime;
     // "Ba" — low thump
     const o1 = ctx.createOscillator();
     const g1 = ctx.createGain();
@@ -2303,7 +2352,6 @@ function playBaDum() {
     g1.gain.setValueAtTime(0.22, now);
     g1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
     o1.start(now); o1.stop(now + 0.15);
-
     // "Dum" — slightly higher thump
     const t = now + 0.21;
     const o2 = ctx.createOscillator();
@@ -2315,16 +2363,27 @@ function playBaDum() {
     g2.gain.setValueAtTime(0.30, t);
     g2.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
     o2.start(t); o2.stop(t + 0.18);
+  } catch(e) {}
+}
+
+function playBaDum() {
+  try {
+    _ensureAudioCtx();
+    if (_audioCtx.state === 'suspended') {
+      _audioCtx.resume().then(() => _doBaDum()).catch(() => {});
+    } else {
+      _doBaDum();
+    }
   } catch (e) {}
 }
 
 // ─── Ringback tone (US standard: 440+480Hz, 2s on / 4s off) ──────────────────
-function startRingback() {
+async function startRingback() {
   stopRingback();
   _ringbackActive = true;
   try {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    _ensureAudioCtx();
+    if (_audioCtx.state === 'suspended') await _audioCtx.resume();
     _doRingback();
   } catch(e) {}
 }
@@ -2333,7 +2392,11 @@ function _doRingback() {
   if (!_ringbackActive) return;
   try {
     const ctx = _audioCtx;
-    if (!ctx) return;
+    if (!ctx || ctx.state !== 'running') {
+      // Context got suspended mid-session — retry shortly; user click will resume it
+      _ringbackTimer = setTimeout(_doRingback, 500);
+      return;
+    }
     const now = ctx.currentTime;
     [440, 480].forEach(freq => {
       const osc  = ctx.createOscillator();
@@ -2358,11 +2421,10 @@ function stopRingback() {
 }
 
 // ─── Transition beep (3 ascending tones played in browser) ───────────────────
-function playTransitionBeep() {
+function _doTransitionBeep() {
   try {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if (_audioCtx.state === 'suspended') _audioCtx.resume();
     const ctx = _audioCtx;
+    if (!ctx || ctx.state !== 'running') return;
     const now = ctx.currentTime;
     [880, 1100, 1320].forEach((freq, i) => {
       const t    = now + i * 0.13;
@@ -2375,6 +2437,16 @@ function playTransitionBeep() {
       gain.gain.exponentialRampToValueAtTime(0.001, t + 0.10);
       osc.start(t); osc.stop(t + 0.11);
     });
+  } catch(e) {}
+}
+function playTransitionBeep() {
+  try {
+    _ensureAudioCtx();
+    if (_audioCtx.state === 'suspended') {
+      _audioCtx.resume().then(() => _doTransitionBeep()).catch(() => {});
+    } else {
+      _doTransitionBeep();
+    }
   } catch(e) {}
 }
 
@@ -2497,14 +2569,13 @@ async function init() {
   showScreen('s-start');
 }
 
-// Unlock AudioContext on the first user gesture so ringback works immediately
-// when the backend starts dialing (browser blocks audio until a user gesture).
+// Unlock AudioContext on every user gesture — browser can re-suspend it between calls.
 document.addEventListener('click', () => {
   try {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    _ensureAudioCtx();
     if (_audioCtx.state === 'suspended') _audioCtx.resume();
   } catch {}
-}, { capture: true, once: true });
+}, { capture: true });
 
 init();
 
