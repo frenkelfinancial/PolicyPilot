@@ -11262,6 +11262,12 @@ const softphone = (() => {
   let _activeCall     = null;   // current TelnyxRTC Call object
   let _webrtcCallerId = '';     // caller ID (agent's Telnyx number) from token endpoint
 
+  // Ringback tone state (US standard 440+480Hz, 2s on / 4s off)
+  let _spAudioCtx    = null;
+  let _spRingActive  = false;
+  let _spRingTimer   = null;
+  let _remoteAudioEl = null;   // <audio> element for remote WebRTC stream
+
   const NO_ANSWER_THRESHOLD_SEC = 15;      // ≤ this → auto-tag no_answer, no prompt
 
   // SDK_URL + _loadSDK removed 2026-05-17 (commit pivot to REST agent-
@@ -11362,6 +11368,52 @@ const softphone = (() => {
     if (state.timerHandle) { clearInterval(state.timerHandle); state.timerHandle = null; }
   }
 
+  // ── Ringback tone (US: 440+480 Hz, 2s on / 4s off) ────────
+  function _ensureSpAudioCtx() {
+    if (!_spAudioCtx) _spAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    return _spAudioCtx;
+  }
+
+  function _spDoRingback() {
+    if (!_spRingActive) return;
+    try {
+      const ctx = _spAudioCtx;
+      if (!ctx || ctx.state !== 'running') {
+        _spRingTimer = setTimeout(_spDoRingback, 500);
+        return;
+      }
+      const now = ctx.currentTime;
+      [440, 480].forEach(freq => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.14, now + 0.03);
+        gain.gain.setValueAtTime(0.14, now + 1.97);
+        gain.gain.linearRampToValueAtTime(0, now + 2.0);
+        osc.start(now); osc.stop(now + 2.0);
+      });
+    } catch(e) {}
+    _spRingTimer = setTimeout(_spDoRingback, 6000);
+  }
+
+  async function _startSpRingback() {
+    _stopSpRingback();
+    _spRingActive = true;
+    try {
+      _ensureSpAudioCtx();
+      if (_spAudioCtx.state === 'suspended') await _spAudioCtx.resume();
+      _spDoRingback();
+    } catch(e) {}
+  }
+
+  function _stopSpRingback() {
+    _spRingActive = false;
+    if (_spRingTimer) { clearTimeout(_spRingTimer); _spRingTimer = null; }
+  }
+
   // ── Telnyx WebRTC softphone ───────────────────────────────
   // Lazy-loads @telnyx/webrtc, authenticates with SIP credentials
   // from the telnyx-webrtc-token edge function, then dials the lead
@@ -11390,6 +11442,19 @@ const softphone = (() => {
     const s = call.state;
 
     if (s === 'active') {
+      _stopSpRingback();
+      // Attach remote audio stream so the agent can hear the other party.
+      try {
+        const stream = call.remoteStream || (call.options && call.options.remoteStream);
+        if (stream) {
+          if (!_remoteAudioEl) {
+            _remoteAudioEl = new Audio();
+            _remoteAudioEl.autoplay = true;
+          }
+          _remoteAudioEl.srcObject = stream;
+          _remoteAudioEl.play().catch(() => {});
+        }
+      } catch(e) {}
       if (state.phase !== 'connected') {
         state.phase = 'connected';
         _startTimer();
@@ -11401,6 +11466,8 @@ const softphone = (() => {
       }
     } else if (s === 'hangup' || s === 'destroy' || s === 'purge') {
       if (state.phase === 'idle' || state.phase === 'ended') return;
+      _stopSpRingback();
+      if (_remoteAudioEl) { try { _remoteAudioEl.srcObject = null; } catch(e) {} }
       _activeCall = null;
       _stopTimer();
       const wasConnected = (state.phase === 'connected');
@@ -11419,9 +11486,11 @@ const softphone = (() => {
         setTimeout(close, 1200);
       }
     } else if (s === 'ringing' || s === 'trying' || s === 'requesting') {
-      if (state.phase === 'ringing-out') return;
-      state.phase = 'ringing-out';
-      _render();
+      if (state.phase !== 'ringing-out') {
+        state.phase = 'ringing-out';
+        _render();
+      }
+      _startSpRingback();
     }
   }
 
@@ -11550,6 +11619,7 @@ const softphone = (() => {
     state.stubMode     = false;
     state.stubReason   = '';
     _render();
+    _startSpRingback();
 
     // Try the WebRTC path — connects via Telnyx SIP and dials directly.
     const result = await _webrtcDial(String(leadId), phoneE164);
@@ -11598,6 +11668,9 @@ const softphone = (() => {
     // local UI cleanup synchronously regardless so the panel
     // doesn't sit on "On Call" while the network round-trip
     // resolves.
+    _stopSpRingback();
+    if (_remoteAudioEl) { try { _remoteAudioEl.srcObject = null; } catch(e) {} }
+
     if (_activeCall && !state.stubMode) {
       try { _activeCall.hangup(); } catch (e) { console.warn('[softphone] WebRTC hangup threw', e); }
       _activeCall = null;
