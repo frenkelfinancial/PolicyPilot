@@ -1926,6 +1926,13 @@ async function pdDial() {
   // Allow dial when explicitly paused (call ended / auto-paused) even if currentState is still 'dialing'.
   // Block only when an active call is genuinely ringing or connected.
   if (!_isPaused && (currentState === 'dialing' || currentState === 'connected')) return;
+  // If paused because the call couldn't be placed (no call_control_id), there's
+  // nothing to resume — the backend stalled. Show a hint and stay paused.
+  if (_isPaused && currentState === 'dialing' && session && !session.current_call_control_id) {
+    const bt = document.getElementById('banner-text');
+    if (bt) bt.textContent = 'Call failed — mark outcome or skip this lead';
+    return;
+  }
   _isPaused = false;
   _previewManualDial = true; // tell render() this dial is intentional — don't auto-pause
   const pauseBtn = document.getElementById('btn-pause');
@@ -1971,6 +1978,7 @@ async function pdSkipLead() {
       _isSkipping = false;
       const btn = document.querySelector('.btn-skip');
       if (btn) btn.disabled = false;
+      updateDialBtn();
     }
   }, 8000);
   const ok = await pdSkip();
@@ -1980,6 +1988,22 @@ async function pdSkipLead() {
     const btn = document.querySelector('.btn-skip');
     if (btn) btn.disabled = false;
     return;
+  }
+  // Successful skip: clear the flag now. Both Realtime updates (pre-clear and new call)
+  // fire during edge function execution, so they arrived while _isSkipping was true
+  // and may have skipped auto-pause if the next lead couldn't be dialed. Re-evaluate here.
+  _isSkipping = false;
+  if (session && session.status === 'dialing' && !session.current_call_control_id && (session.current_index ?? -1) >= 0) {
+    // Backend stalled — next lead's call failed. Enter paused state so the
+    // agent can mark an outcome and skip rather than being left in a broken "Loading…" limbo.
+    _isPaused = true;
+    const pauseBtn = document.getElementById('btn-pause');
+    if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
+    updateDialBtn();
+    const bt = document.getElementById('banner-text');
+    if (bt) bt.textContent = 'Call failed — mark outcome or skip lead';
+    const skipBtn = document.querySelector('.btn-skip');
+    if (skipBtn) { skipBtn.disabled = false; skipBtn.textContent = 'Skip Lead →'; }
   }
   if (dialMode === 'preview') await pdPauseAfterAdvance();
 }
