@@ -1992,6 +1992,15 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   display:flex; align-items:flex-start; gap:6px;
 }
 .sp-stub-banner span[data-ico]{ flex-shrink:0; margin-top:1px; }
+.sp-caller-id{
+  display:flex; align-items:center; justify-content:space-between;
+  margin:8px 0 2px; padding:7px 10px;
+  border-radius:8px;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--border,#1e293b);
+}
+.sp-caller-id-lbl{ font-size:11px; color:var(--text2,#94a3b8); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+.sp-caller-id-val{ font-size:12px; font-weight:700; color:var(--text,#e2e8f0); font-variant-numeric:tabular-nums; letter-spacing:.04em; }
 
 /* ── Phone Book tab ─────────────────────────────────────────────────────── */
 #sec-phonebook .pb-header{
@@ -11318,6 +11327,19 @@ const softphone = (() => {
     _el('sp-avatar').textContent       = _initialsFor(state.leadName);
     _el('sp-timer').textContent        = _fmtTimer(state.durationSec);
 
+    // Caller ID strip — show the number the lead sees
+    const cidEl = _el('sp-caller-id');
+    const cidVal = _el('sp-caller-id-val');
+    if (cidEl && cidVal) {
+      const callerNum = _webrtcCallerId || state.callerId;
+      if (callerNum) {
+        cidVal.textContent = (typeof formatPhone === 'function' ? formatPhone(callerNum) : null) || callerNum;
+        cidEl.style.display = '';
+      } else {
+        cidEl.style.display = 'none';
+      }
+    }
+
     const title = (
       state.phase === 'ringing-out' ? 'Calling…' :
       state.phase === 'ringing-in'  ? 'Incoming' :
@@ -11530,6 +11552,7 @@ const softphone = (() => {
     }
 
     _webrtcCallerId = creds.caller_id || '';
+    _render(); // refresh caller ID strip now that we have the number
 
     return new Promise((resolve) => {
       const client = new RTC({ login: creds.sip_username, password: creds.sip_password });
@@ -18588,6 +18611,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="sp-callee-name" id="sp-callee-name">—</div>
         <div class="sp-callee-phone mono" id="sp-callee-phone">—</div>
       </div>
+    </div>
+    <div class="sp-caller-id" id="sp-caller-id" style="display:none">
+      <span class="sp-caller-id-lbl">Your number</span>
+      <span class="sp-caller-id-val" id="sp-caller-id-val">—</span>
     </div>
     <div class="sp-timer"><span class="sp-timer-val" id="sp-timer">00:00</span></div>
     <div class="sp-controls" id="sp-controls-active">

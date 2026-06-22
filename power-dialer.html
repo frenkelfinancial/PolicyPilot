@@ -1702,6 +1702,12 @@ function render(s) {
           // Do NOT auto-pause; the skip already cleared the paused state.
           setHdrPill('st-dialing', 'Loading…');
           document.getElementById('banner-text').textContent = 'Moving to next lead…';
+        } else if ((s.current_index ?? -1) < 0) {
+          // Session just started — first lead hasn't been dialed yet (current_index = -1).
+          // The backend fires a transitional dialing event before dialNextLead places the call.
+          // Don't auto-pause; the real state with current_index >= 0 will follow immediately.
+          setHdrPill('st-dialing', 'Connecting…');
+          document.getElementById('banner-text').textContent = 'Starting session…';
         } else {
           // Call ended naturally — lead hung up or call dropped before agent acted.
           setHdrPill('st-dialing', 'Call Ended');
@@ -1739,7 +1745,7 @@ function render(s) {
       document.getElementById('banner-text').textContent = `Connected — ${lead ? lName(lead) : ''}`;
     }
 
-    if (s.current_index !== prevIdx || prevState === 'pending') {
+    if ((s.current_index !== prevIdx || prevState === 'pending') && (s.current_index ?? -1) >= 0) {
       renderLeadForm(lead);
       const ta = document.getElementById('notes-ta');
       if (ta) ta.value = noteMap[String(leadId)] || (lead?.notes || '');

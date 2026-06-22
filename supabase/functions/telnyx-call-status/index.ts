@@ -347,11 +347,15 @@ serve(async (req) => {
           // Lead leg ended naturally (not triggered by telnyx-dialer-skip).
           // Clear the active call from the session but do NOT auto-advance —
           // the agent must click an outcome/skip button to move to the next lead.
+          // Use a conditional update (.eq current_call_control_id) so that if
+          // telnyx-dialer-skip already cleared/replaced this field, this stale
+          // webhook update is a no-op and doesn't trigger a spurious "Call Ended"
+          // realtime event on the frontend.
           await sb.from("dialer_sessions").update({
             status:                  "dialing",
             current_call_control_id: null,
             current_call_row_id:     null,
-          }).eq("id", dialerSession.id);
+          }).eq("id", dialerSession.id).eq("current_call_control_id", callControlId);
 
           // Stop the ringback — call ended before lead answered
           if (dialerSession.agent_call_control_id) {
