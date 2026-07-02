@@ -11270,6 +11270,7 @@ const softphone = (() => {
   let _telnyxReady    = false;  // true once client fires 'telnyx.ready'
   let _activeCall     = null;   // current TelnyxRTC Call object
   let _endedCallId    = null;   // id of the most recently finalized call — blocks its trailing hangup/destroy/purge echoes from being misapplied to the next call dialed shortly after
+  let _reachedCarrierRinging = false; // true once Telnyx confirms the call actually left our end and is ringing at the carrier — distinguishes a real unanswered call from one that failed before ever dialing out (e.g. blocked mic)
   let _webrtcCallerId = '';     // caller ID (agent's Telnyx number) from token endpoint
 
   // Ringback tone state (US standard 440+480Hz, 2s on / 4s off)
@@ -11504,6 +11505,8 @@ const softphone = (() => {
       _stopTimer();
       const wasConnected = (state.phase === 'connected');
       const dur = state.durationSec;
+      const cause = call.cause || '';
+      if (cause) console.warn('[softphone] call ended — cause:', cause, call.causeCode);
       if (state.callRowId) {
         sb.from('calls').update({
           status: 'completed',
@@ -11514,10 +11517,27 @@ const softphone = (() => {
       state.phase = 'ended';
       _render();
       if (!wasConnected || dur < NO_ANSWER_THRESHOLD_SEC) {
-        _applyOutcome('no_answer', { auto: true });
+        if (!_reachedCarrierRinging) {
+          // The call never made it out to the carrier — it failed inside
+          // the WebRTC SDK itself (commonly a blocked/denied microphone,
+          // since Telnyx needs a live local audio track to build the peer
+          // connection before it can send the outbound INVITE). The lead
+          // was never actually rung, so don't taint their status with
+          // "no_answer" — surface the real cause instead.
+          showToast(`Call failed before ringing (${cause || 'no carrier response'}) — lead was not actually called.`, '#dc2626');
+        } else {
+          _applyOutcome('no_answer', { auto: true });
+        }
         setTimeout(close, 1200);
       }
-    } else if (s === 'ringing' || s === 'trying' || s === 'requesting') {
+    } else if (s === 'ringing') {
+      _reachedCarrierRinging = true;
+      if (state.phase !== 'ringing-out') {
+        state.phase = 'ringing-out';
+        _render();
+      }
+      _startSpRingback();
+    } else if (s === 'trying' || s === 'requesting') {
       if (state.phase !== 'ringing-out') {
         state.phase = 'ringing-out';
         _render();
@@ -11636,6 +11656,22 @@ const softphone = (() => {
       showToast('No valid phone number for this lead', '#dc2626');
       return;
     }
+
+    // The Telnyx WebRTC SDK needs a live microphone track to build the
+    // call's peer connection before it can send the outbound INVITE. If
+    // mic access is blocked/denied, the SDK fails the call internally
+    // within a few hundred ms and the lead's phone never actually rings —
+    // which used to look identical to a real "no answer". Check up front
+    // so a blocked mic gets a clear, actionable error instead.
+    try {
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStream.getTracks().forEach(t => t.stop());
+    } catch (e) {
+      showToast('Microphone access is blocked — allow mic access for this site, then try calling again.', '#dc2626');
+      return;
+    }
+
+    _reachedCarrierRinging = false;
 
     // Optimistic UI: show "Calling…" immediately while we mint the token.
     state.phase       = 'ringing-out';
