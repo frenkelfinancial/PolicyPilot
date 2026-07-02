@@ -11706,6 +11706,11 @@ const softphone = (() => {
       close();
       return;
     }
+    if (result.reason === 'no_caller_id') {
+      showToast('No phone number assigned to your account yet. Buy or assign one in the Phone Book tab.', '#dc2626');
+      close();
+      return;
+    }
 
     // Everything else (secrets not configured on server, edge function
     // down, SignalWire upstream error) → fall back to stub mode so the
