@@ -11269,6 +11269,7 @@ const softphone = (() => {
   let _telnyxClient   = null;   // TelnyxRTC instance
   let _telnyxReady    = false;  // true once client fires 'telnyx.ready'
   let _activeCall     = null;   // current TelnyxRTC Call object
+  let _endedCallId    = null;   // id of the most recently finalized call — blocks its trailing hangup/destroy/purge echoes from being misapplied to the next call dialed shortly after
   let _webrtcCallerId = '';     // caller ID (agent's Telnyx number) from token endpoint
 
   // Ringback tone state (US standard 440+480Hz, 2s on / 4s off)
@@ -11460,6 +11461,14 @@ const softphone = (() => {
   function _handleTelnyxNotification(notification) {
     const call = notification && notification.call;
     if (!call) return;
+    // A call keeps emitting notifications (hangup → destroy → purge) after
+    // it's over, and those can land after we've already started dialing
+    // the next lead. Without these guards a trailing echo from the call
+    // that just ended gets treated as an event for the new call in
+    // progress, making it look like the new call rang once and hung up
+    // — this was auto-marking fresh dials as "no answer" instantly.
+    if (call.id && call.id === _endedCallId) return;
+    if (_activeCall && _activeCall.id && call.id && call.id !== _activeCall.id) return;
     _activeCall = call;
     const s = call.state;
 
@@ -11490,6 +11499,7 @@ const softphone = (() => {
       if (state.phase === 'idle' || state.phase === 'ended') return;
       _stopSpRingback();
       if (_remoteAudioEl) { try { _remoteAudioEl.srcObject = null; } catch(e) {} }
+      _endedCallId = call.id || _endedCallId;
       _activeCall = null;
       _stopTimer();
       const wasConnected = (state.phase === 'connected');
@@ -11695,6 +11705,7 @@ const softphone = (() => {
     if (_remoteAudioEl) { try { _remoteAudioEl.srcObject = null; } catch(e) {} }
 
     if (_activeCall && !state.stubMode) {
+      _endedCallId = _activeCall.id || _endedCallId;
       try { _activeCall.hangup(); } catch (e) { console.warn('[softphone] WebRTC hangup threw', e); }
       _activeCall = null;
     }
@@ -11781,6 +11792,7 @@ const softphone = (() => {
     _stopTimer();
     if (state.ringHandle) { clearTimeout(state.ringHandle); state.ringHandle = null; }
     if (_activeCall) {
+      _endedCallId = _activeCall.id || _endedCallId;
       try { _activeCall.hangup(); } catch {}
       _activeCall = null;
     }
