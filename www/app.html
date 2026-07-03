@@ -10538,7 +10538,7 @@ function _applyPlanGating() {
   if (btiCard) btiCard.style.display = restricted ? 'none' : '';
   // Nav items — Bonus Tracker requires Pro+, Agency requires Leader
   const navItems = document.querySelectorAll('.nav-item');
-  const idxMap = { bonuses: 3, agency: 7 };
+  const idxMap = { bonuses: 3, agency: 8 };
   if (navItems[idxMap.bonuses]) navItems[idxMap.bonuses].style.display = restricted ? 'none' : '';
   if (navItems[idxMap.agency])  navItems[idxMap.agency].style.display  = isLeader  ? '' : 'none';
   // If user landed on a gated section (e.g. page reload with cached section), redirect to Summary
@@ -17443,10 +17443,15 @@ async function renderAgencySection() {
   if (!root || !currentAgent) return;
   root.innerHTML = '<div class="pb-empty" style="padding:40px">Loading…</div>';
   const tier = _planTier();
-  if (tier === 'leader') {
-    await _agRenderLeaderView(root);
-  } else {
-    await _agRenderAgentView(root);
+  try {
+    if (tier === 'leader') {
+      await _agRenderLeaderView(root);
+    } else {
+      await _agRenderAgentView(root);
+    }
+  } catch (e) {
+    root.innerHTML = `<div class="pb-empty">${escapeHTML(e.message || 'Failed to load Agency data.')}</div>`;
+    return;
   }
   if (typeof mountIcons === 'function') mountIcons(root);
 }
@@ -17511,7 +17516,11 @@ async function _agRenderLeaderView(root) {
   }
 
   // --- Agency Code Card ---
-  const codeVal = myAgencyCode || "";
+  if (window._myAgencyCode === undefined) {
+    const { data: myRow } = await sb.from('agents').select('agency_code').eq('id', currentAgent.id).maybeSingle();
+    window._myAgencyCode = (myRow && myRow.agency_code) || null;
+  }
+  const codeVal = window._myAgencyCode || "";
   const codeDisplay = codeVal
     ? `<span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);letter-spacing:.18em;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 18px">${escapeHTML(codeVal)}</span>`
     : `<span style="color:var(--text3);font-size:13px">No code yet — click Generate to create one.</span>`;
