@@ -1895,16 +1895,18 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
    via this class so every rule scoped to #sec-webdialer keeps applying.
    Floating mode shows the phone itself only — the leads/history/quick-action
    column and call-history card (relevant on the full Web Dialer page) are
-   hidden, and the header collapses to just the close button. Anchored to
-   the left edge (not centered) with top/bottom margins that hold it inside
-   the viewport instead of a transform-based center that can overflow. */
+   hidden, and the header collapses to just the close button. Pinned to the
+   bottom-right corner (small 24px margin from each edge) and sized to its
+   content rather than stretched full-height, stacked just above the FAB
+   launcher so the two don't overlap. No background/border/shadow of its
+   own — the wd-dial-card underneath is the only visible "phone" box, so
+   the widget doesn't double up into two nested rectangles. */
 #sec-webdialer.dialer-floating{
-  position:fixed; left:24px; top:24px; bottom:24px; margin:auto 0; z-index:1400;
-  width:min(90vw,360px); max-height:calc(100vh - 48px);
+  position:fixed; right:24px; bottom:92px; z-index:1400;
+  width:min(90vw,360px); max-height:calc(100vh - 116px);
   overflow-y:auto; overflow-x:hidden;
-  background:var(--card); border:1px solid var(--border);
-  border-radius:20px; padding:20px 20px 24px;
-  box-shadow:0 24px 70px rgba(0,0,0,.45), 0 2px 10px rgba(0,0,0,.2);
+  background:transparent; border:none; box-shadow:none;
+  border-radius:0; padding:8px 8px 12px;
   animation: dialer-floating-in var(--ds-duration-base,180ms) ease-out;
 }
 @keyframes dialer-floating-in { from { transform:translateY(16px); opacity:0; } to { transform:translateY(0); opacity:1; } }
@@ -1914,6 +1916,13 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 #sec-webdialer.dialer-floating .wd-header{ min-height:30px; margin-bottom:6px; }
 #sec-webdialer.dialer-floating .wd-header-title,
 #sec-webdialer.dialer-floating .wd-header-sub{ display:none; }
+/* Number display shrinks in the floating popup — the widget is narrower
+   than the full Web Dialer page's dial card, so the full-size digits
+   would otherwise overflow the display box. */
+#sec-webdialer.dialer-floating .wd-number-prefix,
+#sec-webdialer.dialer-floating .wd-number-input{ font-size:20px; }
+#sec-webdialer.dialer-floating .wd-display{ padding:0 6px 0 14px; }
+#sec-webdialer.dialer-floating .wd-backspace{ width:38px; height:38px; }
 #sec-webdialer .wd-header{ position:relative; }
 .wd-floating-close{
   display:none; position:absolute; top:0; right:0;
@@ -2684,10 +2693,11 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
   .overlay{align-items:flex-end}
 
   /* Floating Web Dialer — the phone-only widget is compact enough to stay
-     left-anchored on mobile too, just with tighter margins. */
+     bottom-right-anchored on mobile too, just with tighter margins and
+     clearance above the FAB (which sits lower, with its own safe-area pad). */
   #sec-webdialer.dialer-floating{
-    left:12px !important; top:12px !important; bottom:12px !important;
-    width:min(88vw,360px) !important; max-height:calc(100vh - 24px) !important; max-width:calc(100vw - 24px) !important;
+    right:12px !important; bottom:calc(84px + env(safe-area-inset-bottom)) !important;
+    width:min(88vw,360px) !important; max-height:calc(100vh - 108px) !important; max-width:calc(100vw - 24px) !important;
   }
   .dialer-fab{ right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); }
 
@@ -12481,7 +12491,10 @@ const webDialer = (() => {
         return;
       }
       sel.innerHTML = nums.map(n => {
-        const label = (n.friendly_name ? n.friendly_name + ' — ' : '') +
+        // Telnyx often sets friendly_name to the raw E.164 number itself —
+        // showing both would duplicate the same number twice in one option.
+        const showName = n.friendly_name && n.friendly_name !== n.e164;
+        const label = (showName ? n.friendly_name + ' — ' : '') +
           (formatPhone(n.e164) || n.e164) + (n.is_primary ? ' (Primary)' : '');
         return `<option value="${n.e164}">${label}</option>`;
       }).join('');
