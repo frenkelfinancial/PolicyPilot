@@ -12154,12 +12154,8 @@ const softphone = (() => {
     if (state.phase === 'idle' || state.phase === 'ended') return;
     if (state.ringHandle) { clearTimeout(state.ringHandle); state.ringHandle = null; }
 
-    // Tell SignalWire to drop both legs of the bridge via the
-    // signalwire-hangup edge function. Failure here is non-fatal —
-    // agents can also just hang up on their own phone, and the
-    // webhook will catch the 'completed' event either way. We do
-    // local UI cleanup synchronously regardless so the panel
-    // doesn't sit on "On Call" while the network round-trip
+    // Local UI cleanup happens synchronously regardless of network
+    // round-trips, so the panel doesn't sit on "On Call" while anything
     // resolves.
     _stopSpRingback();
     if (_remoteAudioEl) { try { _remoteAudioEl.srcObject = null; } catch(e) {} }
@@ -12168,6 +12164,20 @@ const softphone = (() => {
       _endedCallId = _activeCall.id || _endedCallId;
       try { _activeCall.hangup(); } catch (e) { console.warn('[softphone] WebRTC hangup threw', e); }
       _activeCall = null;
+    }
+
+    // Close the row + report minutes to Stripe ourselves rather than relying
+    // on the SDK's async hangup/destroy/purge notification (_handleTelnyxNotification):
+    // that handler bails out as soon as state.phase is 'ended' — to ignore
+    // trailing echoes from a call that's already been dealt with — and we're
+    // about to set state.phase = 'ended' right below. Without this, an
+    // agent-initiated hang up (the normal way a call ends) would never reach
+    // telnyx-report-call-minutes and the row would sit open forever. Safe to
+    // call even if the notification also fires later — closeCallRowById is
+    // idempotent.
+    if (state.callRowId) {
+      sb.functions.invoke('telnyx-report-call-minutes', { body: { call_row_id: state.callRowId } })
+        .catch((e) => console.warn('[softphone] minute billing report failed', e));
     }
 
     _stopTimer();
