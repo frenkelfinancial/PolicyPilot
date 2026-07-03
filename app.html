@@ -1875,132 +1875,71 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   }
 }
 
-/* ── SoftphonePanel — bottom-right floating dialer (SignalWire WIP) ────── */
-.sp-panel{
-  position:fixed; right:24px; bottom:24px; z-index:9000;
-  width:320px; border-radius:16px;
-  background:var(--bg2,#0f172a);
-  border:1px solid var(--border,#1e293b);
-  box-shadow:0 18px 48px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.3);
-  overflow:hidden;
-  animation: sp-slide-up var(--ds-duration-base,180ms) ease-out;
-  color:var(--text,#e2e8f0);
-}
-@keyframes sp-slide-up { from { transform:translateY(20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-.sp-head{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:12px 14px;
-  background:linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.05));
-  border-bottom:1px solid var(--border,#1e293b);
-}
-.sp-head-title{ font-size:13px; font-weight:600; letter-spacing:.2px; }
-.sp-head-state{
-  display:inline-block; width:8px; height:8px; border-radius:50%;
-  background:#94a3b8; margin-right:8px; vertical-align:1px;
-}
-.sp-panel[data-phase="ringing-out"] .sp-head-state,
-.sp-panel[data-phase="ringing-in"]  .sp-head-state { background:#fbbf24; animation:sp-pulse 1s ease-in-out infinite; }
-.sp-panel[data-phase="connected"]   .sp-head-state { background:#10b981; }
-.sp-panel[data-phase="ended"]       .sp-head-state { background:#94a3b8; }
-@keyframes sp-pulse { 0%,100% { opacity:1 } 50% { opacity:.35 } }
-.sp-head-close{
-  background:transparent; border:none; color:var(--text2,#94a3b8);
-  font-size:20px; line-height:1; cursor:pointer; padding:2px 6px; border-radius:6px;
-}
-.sp-head-close:hover{ color:var(--text,#e2e8f0); background:rgba(255,255,255,.06); }
-.sp-body{ padding:16px 16px 18px; }
-.sp-callee{
-  display:flex; align-items:center; gap:12px; margin-bottom:10px;
-}
-.sp-avatar{
-  width:44px; height:44px; border-radius:50%;
-  background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+/* ── Dialer FAB — bottom-right circular launcher, visible on every page ── */
+.dialer-fab{
+  position:fixed; right:24px; bottom:24px; z-index:1400;
+  width:56px; height:56px; border-radius:50%; border:none;
+  background:#1f9d55; color:#fff; cursor:pointer;
   display:flex; align-items:center; justify-content:center;
-  font-size:15px; font-weight:600; color:#fff;
-  flex-shrink:0;
+  box-shadow:0 10px 26px -6px rgba(31,157,85,.55), 0 2px 8px rgba(0,0,0,.25);
+  transition:background .15s,transform .1s,box-shadow .15s;
 }
-.sp-callee-meta{ min-width:0; flex:1; }
-.sp-callee-name{
-  font-size:14px; font-weight:600;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+.dialer-fab:hover{ background:#1a8a4a; transform:translateY(-1px); }
+.dialer-fab:active{ transform:scale(.95); }
+.dialer-fab.is-live{ background:#dc2626; box-shadow:0 10px 26px -6px rgba(220,38,38,.6), 0 2px 8px rgba(0,0,0,.25); animation:dialer-fab-pulse 1.6s ease-in-out infinite; }
+@keyframes dialer-fab-pulse{ 0%,100%{ box-shadow:0 10px 26px -6px rgba(220,38,38,.6), 0 0 0 0 rgba(220,38,38,.4); } 50%{ box-shadow:0 10px 26px -6px rgba(220,38,38,.6), 0 0 0 8px rgba(220,38,38,0); } }
+.dialer-fab[hidden]{ display:none; }
+
+/* ── Web Dialer, in its floating-widget presentation ─────────────────────
+   Same #sec-webdialer markup as the full page — only repositioned/resized
+   via this class so every rule scoped to #sec-webdialer keeps applying. */
+#sec-webdialer.dialer-floating{
+  position:fixed; right:24px; bottom:92px; z-index:1400;
+  width:min(94vw,420px); max-height:min(82vh,720px);
+  overflow-y:auto; overflow-x:hidden;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:20px; padding:20px 20px 24px;
+  box-shadow:0 24px 70px rgba(0,0,0,.45), 0 2px 10px rgba(0,0,0,.2);
+  animation: dialer-floating-in var(--ds-duration-base,180ms) ease-out;
 }
-.sp-callee-phone{
-  font-size:12px; color:var(--text2,#94a3b8); margin-top:1px;
+@keyframes dialer-floating-in { from { transform:translateY(16px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+#sec-webdialer.dialer-floating .wd-wrap{ grid-template-columns:1fr; max-width:100%; gap:16px; }
+#sec-webdialer.dialer-floating .wd-history-card{ grid-column:auto; }
+#sec-webdialer.dialer-floating .wd-header{ margin-bottom:14px; }
+#sec-webdialer .wd-header{ position:relative; }
+.wd-floating-close{
+  display:none; position:absolute; top:0; right:0;
+  width:30px; height:30px; border-radius:8px; border:none;
+  background:transparent; color:var(--text2); cursor:pointer;
+  align-items:center; justify-content:center;
 }
-.sp-timer{
-  text-align:center; font-size:26px; font-weight:300; letter-spacing:1px;
-  padding:6px 0 14px; color:var(--text,#e2e8f0);
+.wd-floating-close:hover{ background:rgba(255,255,255,.06); color:var(--text); }
+#sec-webdialer.dialer-floating .wd-floating-close{ display:flex; }
+
+/* Post-call outcome picker — inline in the dial card, same footprint style
+   as the rest of the Web Dialer widget. */
+#sec-webdialer .wd-cs-outcome{ width:100%; }
+#sec-webdialer .wd-cs-outcome-lbl{ font-size:12px; color:#8a8a86; margin-bottom:8px; font-weight:600; text-align:center; }
+#sec-webdialer .wd-cs-outcome-grid{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+#sec-webdialer .wd-out-btn{
+  padding:10px 10px; border-radius:10px;
+  background:#f6f6f5; border:1px solid #ececeb; color:#1c1c1c;
+  font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer;
+  transition:background .12s,border-color .12s;
 }
-.sp-panel[data-phase="ringing-out"] .sp-timer::after{ content:'Calling…'; }
-.sp-panel[data-phase="ringing-in"]  .sp-timer::after{ content:'Incoming…'; }
-.sp-panel[data-phase="ringing-out"] .sp-timer,
-.sp-panel[data-phase="ringing-in"]  .sp-timer { font-size:15px; padding:14px 0 16px; color:var(--text2,#94a3b8); }
-.sp-panel[data-phase="ringing-out"] .sp-timer .sp-timer-val,
-.sp-panel[data-phase="ringing-in"]  .sp-timer .sp-timer-val { display:none; }
-.sp-controls{
-  display:grid; grid-template-columns:1fr 1fr; gap:8px;
-}
-.sp-btn{
-  display:flex; align-items:center; justify-content:center; gap:6px;
-  padding:10px 12px; border-radius:10px;
-  border:1px solid var(--border,#1e293b);
-  background:rgba(255,255,255,.04);
-  color:var(--text,#e2e8f0);
-  font-size:13px; font-weight:600; cursor:pointer;
-  transition: background var(--ds-duration-fast,120ms);
-}
-.sp-btn:hover{ background:rgba(255,255,255,.08); }
-.sp-btn-mute.is-muted{ background:rgba(251,191,36,.18); border-color:rgba(251,191,36,.45); color:#fbbf24; }
-.sp-btn-hangup{
-  background:#dc2626; border-color:#b91c1c; color:#fff;
-}
-.sp-btn-hangup:hover{ background:#b91c1c; }
-.sp-btn-accept{
-  background:#10b981; border-color:#059669; color:#fff;
-}
-.sp-btn-accept:hover{ background:#059669; }
-.sp-outcome{
-  margin-top:14px; padding-top:14px;
-  border-top:1px dashed var(--border,#1e293b);
-}
-.sp-outcome-lbl{
-  font-size:12px; color:var(--text2,#94a3b8);
-  margin-bottom:8px; font-weight:600;
-}
-.sp-outcome-grid{
-  display:grid; grid-template-columns:1fr 1fr; gap:6px;
-}
-.sp-out-btn{
-  padding:8px 10px; border-radius:8px;
-  background:rgba(255,255,255,.04);
-  border:1px solid var(--border,#1e293b);
-  color:var(--text,#e2e8f0);
-  font-size:12px; font-weight:600; cursor:pointer;
-  transition: background var(--ds-duration-fast,120ms);
-}
-.sp-out-btn:hover{ background:rgba(255,255,255,.10); }
-.sp-out-btn-sold{ background:rgba(16,185,129,.14); border-color:rgba(16,185,129,.45); color:#34d399; }
-.sp-out-btn-sold:hover{ background:rgba(16,185,129,.22); }
-.sp-out-btn-skip{ color:var(--text2,#94a3b8); }
-.sp-stub-banner{
-  margin-top:12px; padding:8px 10px;
-  border-radius:8px;
-  background:rgba(251,191,36,.10);
-  border:1px solid rgba(251,191,36,.30);
-  color:#fbbf24;
-  font-size:11px; line-height:1.45;
+#sec-webdialer .wd-out-btn:hover{ background:#ececeb; }
+#sec-webdialer .wd-out-btn-sold{ background:rgba(31,157,85,.12); border-color:rgba(31,157,85,.4); color:#1a8a4a; }
+#sec-webdialer .wd-out-btn-sold:hover{ background:rgba(31,157,85,.2); }
+#sec-webdialer .wd-out-btn-skip{ color:#8a8a86; }
+
+/* Stub-mode banner — shown when the real dial path failed and the call is simulated. */
+#sec-webdialer .wd-stub-banner{
+  width:100%; margin-top:2px; padding:8px 10px; border-radius:8px;
+  background:rgba(251,191,36,.12); border:1px solid rgba(217,164,6,.35);
+  color:#92650a; font-size:11px; line-height:1.45;
   display:flex; align-items:flex-start; gap:6px;
 }
-.sp-stub-banner span[data-ico]{ flex-shrink:0; margin-top:1px; }
-.sp-caller-id{
-  display:flex; align-items:center; justify-content:space-between;
-  margin:8px 0 2px; padding:7px 10px;
-  border-radius:8px;
-  background:rgba(255,255,255,.04);
-  border:1px solid var(--border,#1e293b);
-}
-.sp-caller-id-lbl{ font-size:11px; color:var(--text2,#94a3b8); font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
-.sp-caller-id-val{ font-size:12px; font-weight:700; color:var(--text,#e2e8f0); font-variant-numeric:tabular-nums; letter-spacing:.04em; }
+#sec-webdialer .wd-stub-banner span[data-ico]{ flex-shrink:0; margin-top:1px; }
 
 /* ── Phone Book tab ─────────────────────────────────────────────────────── */
 #sec-phonebook .pb-header{
@@ -2116,10 +2055,6 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 .wd-qa-btn:hover{ background:var(--bg3); border-color:var(--border2); }
 .wd-qa-btn:active{ transform:scale(.98); }
 .wd-qa-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
-.wd-qa-btn-quote{
-  background:var(--ds-color-momentum-bg); border-color:var(--ds-color-momentum); color:var(--ds-color-momentum);
-}
-.wd-qa-btn-quote:hover{ filter:brightness(1.12); }
 
 /* Call History — compact recent-calls list filling the right column */
 .wd-history-list{ display:flex; flex-direction:column; }
@@ -2714,11 +2649,13 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
   }
   .overlay{align-items:flex-end}
 
-  /* Softphone panel — full width at bottom */
-  #softphone-panel{
-    width:100% !important;right:0 !important;bottom:0 !important;
-    border-radius:14px 14px 0 0 !important;
+  /* Floating Web Dialer — full width sheet at bottom on mobile */
+  #sec-webdialer.dialer-floating{
+    width:100% !important; right:0 !important; bottom:0 !important; left:0 !important;
+    max-height:88vh !important; max-width:100% !important;
+    border-radius:16px 16px 0 0 !important;
   }
+  .dialer-fab{ right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); }
 
   /* Topbar right — hide date on small screens */
   #todayDate{display:none}
@@ -4365,6 +4302,9 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
       <div class="wd-header">
         <div class="wd-header-title">Web Dialer</div>
         <div class="wd-header-sub">Dial any number by hand — no lead required.</div>
+        <button type="button" class="wd-floating-close" id="wd-floating-close" aria-label="Close dialer" title="Close">
+          <span data-ico="x" data-size="16"></span>
+        </button>
       </div>
 
       <div class="wd-wrap">
@@ -4418,6 +4358,27 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
             </button>
           </div>
 
+          <!-- Post-call outcome picker — only shown when the just-ended call
+               was placed against a lead (e.g. click-to-call from Leads/Phone
+               Book) and lasted long enough to count as an actual conversation. -->
+          <div class="wd-cs-outcome" id="wd-cs-outcome" style="display:none">
+            <div class="wd-cs-outcome-lbl">How did the call go?</div>
+            <div class="wd-cs-outcome-grid">
+              <button type="button" class="wd-out-btn" data-outcome="appointment">Appointment</button>
+              <button type="button" class="wd-out-btn" data-outcome="social_obj">Social Obj.</button>
+              <button type="button" class="wd-out-btn" data-outcome="banking_obj">Banking Obj.</button>
+              <button type="button" class="wd-out-btn" data-outcome="not_interested">Not Interested</button>
+              <button type="button" class="wd-out-btn wd-out-btn-sold" data-outcome="sold">Sold</button>
+              <button type="button" class="wd-out-btn wd-out-btn-skip" data-outcome="">Skip</button>
+            </div>
+          </div>
+
+          <!-- Shown when the real dial path failed and the call is simulated. -->
+          <div class="wd-stub-banner" id="wd-stub-banner" style="display:none">
+            <span data-ico="warning" data-size="13"></span>
+            <span id="wd-stub-banner-text">Simulated call — Telnyx couldn't be reached. Check the Phone Book tab, or the server console.</span>
+          </div>
+
           <!-- Kept for JS (lead-name lookup on the active call); not shown in this design -->
           <div class="wd-cs-meta" aria-hidden="true">
             <span id="wd-cs-avatar"></span>
@@ -4450,7 +4411,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
               <span data-ico="user" data-size="20"></span>
               <span>Add as Lead</span>
             </button>
-            <button type="button" class="wd-qa-btn wd-qa-btn-quote" id="wd-quote-btn">
+            <button type="button" class="wd-qa-btn" id="wd-quote-btn">
               <span data-ico="currency-dollar" data-size="20"></span>
               <span>Quote</span>
             </button>
@@ -11591,17 +11552,6 @@ const softphone = (() => {
   // docs/superpowers/specs/2026-05-17-signalwire-agent-bridge-design.md
   // for the full investigation.
 
-  function _el(id) { return document.getElementById(id); }
-  function _panel() { return _el('softphone-panel'); }
-
-  function _fmtTimer(sec) {
-    const m = Math.floor(sec/60); const s = sec%60;
-    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  }
-  function _initialsFor(name) {
-    return (name||'?').trim().split(/\s+/).slice(0,2).map(w => (w[0]||'').toUpperCase()).join('') || '?';
-  }
-
   // Turn a _realDial failure result into a short, human-readable string
   // for the yellow stub banner. Truncates long detail strings to keep
   // the panel from blowing up vertically.
@@ -11621,74 +11571,31 @@ const softphone = (() => {
   }
 
   // ── Render ─────────────────────────────────────────────────
-  // The Web Dialer tab renders call state inline (timer + centered number +
-  // hangup/mute in the dial card itself), so the floating bottom-right
-  // popup would just be a redundant second copy of the same call while
-  // that tab is open — suppress it there regardless of how the call
-  // was placed (click-to-call elsewhere still gets the floating panel).
+  // There's only one call-screen UI in the app now — the Web Dialer's own
+  // inline call state (timer + centered number + hangup/mute/outcome in the
+  // dial card). This just decides whether that UI needs to be surfaced as
+  // the floating widget: a call placed from elsewhere (e.g. click-to-call
+  // on Leads) pops it open over whatever page the agent is on, and it's
+  // suppressed here while they're already on the real Web Dialer page
+  // (which shows the same state inline instead of floating).
   function _onWebDialerTab() {
     const sec = document.getElementById('sec-webdialer');
-    return !!(sec && sec.classList.contains('active'));
+    return !!(sec && sec.classList.contains('active') && !sec.classList.contains('dialer-floating'));
   }
   function _render() {
-    const panel = _panel(); if (!panel) return;
-    panel.dataset.phase = state.phase;
-    panel.style.display = (state.phase === 'idle' || _onWebDialerTab()) ? 'none' : '';
-
-    if (state.phase === 'idle') return;
-
-    _el('sp-callee-name').textContent  = state.leadName || 'Unknown';
-    _el('sp-callee-phone').textContent = state.phoneFmt || '—';
-    _el('sp-avatar').textContent       = _initialsFor(state.leadName);
-    _el('sp-timer').textContent        = _fmtTimer(state.durationSec);
-
-    // Caller ID strip — show the number the lead sees
-    const cidEl = _el('sp-caller-id');
-    const cidVal = _el('sp-caller-id-val');
-    if (cidEl && cidVal) {
-      const callerNum = _webrtcCallerId || state.callerId;
-      if (callerNum) {
-        cidVal.textContent = (typeof formatPhone === 'function' ? formatPhone(callerNum) : null) || callerNum;
-        cidEl.style.display = '';
-      } else {
-        cidEl.style.display = 'none';
-      }
+    if (_onWebDialerTab()) return;
+    // Ad hoc Web Dialer calls (no lead attached) have nothing left to show
+    // once they've ended — don't pop the widget open just to display an
+    // empty dial pad. A call still ringing/connected always needs surfacing,
+    // and one that just ended against a lead may still need an outcome (or
+    // is about to auto-close after a brief "no answer" flash).
+    const needsSurface = state.phase === 'ringing-out' || state.phase === 'ringing-in'
+      || state.phase === 'connected' || (state.phase === 'ended' && !!state.leadId);
+    if (needsSurface) {
+      if (typeof openDialerWidget === 'function') openDialerWidget();
+    } else if (typeof closeDialerWidget === 'function') {
+      closeDialerWidget();
     }
-
-    const title = (
-      state.phase === 'ringing-out' ? 'Calling…' :
-      state.phase === 'ringing-in'  ? 'Incoming' :
-      state.phase === 'connected'   ? 'On Call' :
-      state.phase === 'ended'       ? 'Call Ended' : 'Phone'
-    );
-    _el('sp-head-title').textContent = title;
-
-    // Control sets
-    _el('sp-controls-active').style.display  = (state.phase === 'ringing-in') ? 'none' : '';
-    _el('sp-controls-inbound').style.display = (state.phase === 'ringing-in') ? '' : 'none';
-
-    // Mute label
-    const muteBtn = _el('sp-mute');
-    muteBtn.classList.toggle('is-muted', state.muted);
-    _el('sp-mute-lbl').textContent = state.muted ? 'Muted' : 'Mute';
-
-    // Outcome picker only after ended-with-conversation, and only when a
-    // lead is attached — ad hoc Web Dialer calls have no lead status to set.
-    _el('sp-outcome').style.display = (state.phase === 'ended' && state.durationSec >= NO_ANSWER_THRESHOLD_SEC && state.leadId) ? '' : 'none';
-
-    // Stub banner only when the real path failed and we're simulating.
-    // When we have a specific failure reason from _realDial, surface it
-    // in the banner text — saves the user from having to open dev tools
-    // to find out why SignalWire couldn't be reached.
-    _el('sp-stub-banner').style.display = state.stubMode ? '' : 'none';
-    const stubTextEl = _el('sp-stub-banner-text');
-    if (stubTextEl) {
-      stubTextEl.textContent = state.stubReason
-        || "Simulated call — Telnyx couldn't be reached. Check the Phone Book tab, or the server console.";
-    }
-
-    // Re-mount icons in case the panel was just shown
-    if (typeof mountIcons === 'function') mountIcons(panel);
   }
 
   // ── Timer ──────────────────────────────────────────────────
@@ -11698,8 +11605,6 @@ const softphone = (() => {
     if (state.timerHandle) clearInterval(state.timerHandle);
     state.timerHandle = setInterval(() => {
       state.durationSec = Math.floor((Date.now() - state.startedAt) / 1000);
-      const tEl = _el('sp-timer');
-      if (tEl) tEl.textContent = _fmtTimer(state.durationSec);
     }, 1000);
   }
   function _stopTimer() {
@@ -12250,8 +12155,6 @@ const softphone = (() => {
         if (state.timerHandle) clearInterval(state.timerHandle);
         state.timerHandle = setInterval(() => {
           state.durationSec = Math.floor((Date.now() - state.startedAt) / 1000);
-          const tEl = _el('sp-timer');
-          if (tEl) tEl.textContent = _fmtTimer(state.durationSec);
         }, 1000);
         _render();
       }
@@ -12278,38 +12181,21 @@ const softphone = (() => {
     // logged to the row for admin visibility only.
   }
 
-  // ── Wire up DOM listeners on first interaction ────────────
-  // Lazy-bound on first dial — the panel markup is static, so handlers
-  // attach once and persist.
+  // ── Wire up Realtime on first load ────────────────────────
+  // Hangup/mute/outcome controls now live in the Web Dialer's own call
+  // screen (bound in webDialer._bindOnce) — this module only needs to get
+  // its Realtime subscription going once the agent is known.
   let _bound = false;
   function _bindOnce() {
     if (_bound) return; _bound = true;
-    _el('sp-close').addEventListener('click', () => {
-      if (state.phase === 'connected' || state.phase === 'ringing-out' || state.phase === 'ringing-in') hangup();
-      else close();
-    });
-    _el('sp-hangup').addEventListener('click', hangup);
-    _el('sp-mute').addEventListener('click', toggleMute);
-    _el('sp-decline').addEventListener('click', hangup);
-    _el('sp-accept').addEventListener('click', () => {
-      // Phase C: real inbound accept. Phase A stub: flip to connected.
-      state.phase = 'connected';
-      _startTimer();
-      _render();
-    });
-    document.querySelectorAll('#sp-outcome .sp-out-btn').forEach(btn => {
-      btn.addEventListener('click', () => setOutcome(btn.dataset.outcome));
-    });
-    // Wire Realtime now (no-ops if currentAgent isn't loaded yet;
-    // login flow re-calls softphone.initRealtime() once it is).
+    // No-ops if currentAgent isn't loaded yet; login flow re-calls
+    // softphone.initRealtime() once it is.
     _initRealtime();
   }
 
-  // Bind as soon as the panel exists.
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _bindOnce);
   } else {
-    // markup is at end of body, so DOM is ready by the time this loads
     setTimeout(_bindOnce, 0);
   }
 
@@ -12487,32 +12373,53 @@ const webDialer = (() => {
   // moment a call ends (inCall true → false) and refresh Call History.
   let _wasInCall = false;
 
+  // Must match softphone's own NO_ANSWER_THRESHOLD_SEC — kept as a separate
+  // constant since the two are independent IIFEs.
+  const _OUTCOME_MIN_DURATION_SEC = 15;
+
   // The display + keypad stay mounted in both states; only the bottom
-  // action row swaps (single call button ↔ hangup/mute) and the elapsed-
-  // time readout appears above the display, driven purely by polling
-  // softphone.state — there's no event bus for phase changes.
+  // action row swaps (single call button ↔ hangup/mute/outcome) and the
+  // elapsed-time readout appears above the display, driven purely by
+  // polling softphone.state — there's no event bus for phase changes.
   function _renderCallState() {
     const sp = (window.softphone && softphone.state) || {};
     const phase = sp.phase || 'idle';
-    const inCall = (phase !== 'idle' && phase !== 'ended');
+    // A call just ended against a lead (click-to-call from Leads/Phone
+    // Book, not an ad hoc Web Dialer number) and lasted long enough to be
+    // a real conversation — keep the call screen up to collect an outcome
+    // instead of snapping straight back to the idle dial view.
+    const endedNeedsOutcome = phase === 'ended' && !!sp.leadId && (sp.durationSec || 0) >= _OUTCOME_MIN_DURATION_SEC;
+    const showCallScreen = (phase !== 'idle' && phase !== 'ended') || endedNeedsOutcome;
 
     const dialCard = _el('wd-dial-card');
     const dialView = _el('wd-dialview');
-    const callScreen = _el('wd-callscreen');
+    const callControls = _el('wd-callscreen');
+    const outcomeEl = _el('wd-cs-outcome');
+    const stubEl = _el('wd-stub-banner');
     const timerEl = _el('wd-cs-timer');
     const inp = _input();
-    if (dialCard) dialCard.classList.toggle('in-call', inCall);
-    if (dialView) dialView.style.display = inCall ? 'none' : '';
-    if (callScreen) callScreen.style.display = inCall ? '' : 'none';
-    if (timerEl) timerEl.style.display = inCall ? 'block' : 'none';
-    if (inp) inp.readOnly = inCall;
+    if (dialCard) dialCard.classList.toggle('in-call', showCallScreen);
+    if (dialView) dialView.style.display = showCallScreen ? 'none' : '';
+    if (callControls) callControls.style.display = (showCallScreen && !endedNeedsOutcome) ? '' : 'none';
+    if (outcomeEl) outcomeEl.style.display = endedNeedsOutcome ? '' : 'none';
+    if (stubEl) {
+      stubEl.style.display = (phase !== 'idle' && sp.stubMode) ? '' : 'none';
+      const stubTextEl = _el('wd-stub-banner-text');
+      if (stubTextEl) {
+        stubTextEl.textContent = sp.stubReason
+          || "Simulated call — Telnyx couldn't be reached. Check the Phone Book tab, or the server console.";
+      }
+    }
+    if (timerEl) timerEl.style.display = showCallScreen ? 'block' : 'none';
+    if (inp) inp.readOnly = showCallScreen;
 
     // Call just ended — the `calls` row is finalized server-side a moment
     // after this, so wait a beat before pulling fresh history.
-    if (_wasInCall && !inCall) setTimeout(_loadCallHistory, 1500);
-    _wasInCall = inCall;
+    const inCallForHistory = (phase !== 'idle' && phase !== 'ended');
+    if (_wasInCall && !inCallForHistory) setTimeout(_loadCallHistory, 1500);
+    _wasInCall = inCallForHistory;
 
-    if (!inCall) {
+    if (!showCallScreen) {
       const dot = _el('wd-conn-dot'); const lbl = _el('wd-conn-label');
       if (dot) dot.classList.remove('is-ringing', 'is-live');
       if (lbl) lbl.textContent = 'Ready to call';
@@ -12520,9 +12427,8 @@ const webDialer = (() => {
     }
 
     if (timerEl) {
-      timerEl.textContent = (phase === 'connected')
-        ? _fmtTimer(sp.durationSec || 0)
-        : 'Calling…';
+      timerEl.textContent = endedNeedsOutcome ? 'Call ended' :
+        (phase === 'connected') ? _fmtTimer(sp.durationSec || 0) : 'Calling…';
     }
 
     const displayName = sp.leadName || sp.phoneFmt || 'Unknown';
@@ -12531,6 +12437,8 @@ const webDialer = (() => {
     const numEl = _el('wd-cs-number');
     if (numEl) { numEl.textContent = sameAsNumber ? '' : (sp.phoneFmt || ''); }
     const avatarEl = _el('wd-cs-avatar'); if (avatarEl) avatarEl.textContent = _initials(displayName);
+
+    if (endedNeedsOutcome) return;
 
     const muteBtn = _el('wd-cs-mute');
     if (muteBtn) muteBtn.classList.toggle('is-muted', !!sp.muted);
@@ -12652,8 +12560,22 @@ const webDialer = (() => {
     const callBtn = _el('wd-call-btn'); if (callBtn) callBtn.addEventListener('click', placeCall);
     const csMute = _el('wd-cs-mute'); if (csMute) csMute.addEventListener('click', () => { if (window.softphone) softphone.toggleMute(); });
     const csHangup = _el('wd-cs-hangup'); if (csHangup) csHangup.addEventListener('click', () => { if (window.softphone) softphone.hangup(); });
+    document.querySelectorAll('#wd-cs-outcome .wd-out-btn').forEach(btn => {
+      btn.addEventListener('click', () => { if (window.softphone) softphone.setOutcome(btn.dataset.outcome); });
+    });
     const addLeadBtn = _el('wd-add-lead-btn'); if (addLeadBtn) addLeadBtn.addEventListener('click', _addAsLead);
     const quoteBtn = _el('wd-quote-btn'); if (quoteBtn) quoteBtn.addEventListener('click', _openQuote);
+    // Floating-mode close (✕) — hangs up a live call rather than just
+    // hiding it (an active call shouldn't be dismissable without ending
+    // it), otherwise dismisses a finished/idle widget.
+    const floatClose = _el('wd-floating-close');
+    if (floatClose) floatClose.addEventListener('click', () => {
+      const sp = window.softphone;
+      const phase = sp && sp.state && sp.state.phase;
+      if (phase === 'connected' || phase === 'ringing-out' || phase === 'ringing-in') sp.hangup();
+      else if (phase === 'ended') sp.close();
+      else if (typeof closeDialerWidget === 'function') closeDialerWidget();
+    });
     const inp = _input();
     if (inp) {
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') placeCall(); });
@@ -12682,6 +12604,48 @@ const webDialer = (() => {
   return { render };
 })();
 window.webDialer = webDialer;
+
+// ============================================================
+// DIALER WIDGET — floating Web Dialer launched from the bottom-right FAB
+// ============================================================
+// Reuses the exact #sec-webdialer markup used by the full Web Dialer page.
+// Opening/closing just toggles the .dialer-floating class (CSS repositions
+// it into a fixed bottom-right card) so every #sec-webdialer-scoped style
+// and the webDialer module's own bindings/polling keep working unchanged
+// regardless of where it's being shown.
+function openDialerWidget() {
+  const sec = document.getElementById('sec-webdialer');
+  if (!sec) return;
+  if (sec.classList.contains('active') && !sec.classList.contains('dialer-floating')) return; // already the full page
+  sec.classList.add('active', 'dialer-floating');
+  const fab = document.getElementById('dialer-fab');
+  if (fab) fab.classList.add('is-open');
+  if (window.webDialer && typeof webDialer.render === 'function') webDialer.render();
+}
+
+function closeDialerWidget() {
+  const sec = document.getElementById('sec-webdialer');
+  if (!sec || !sec.classList.contains('dialer-floating')) return;
+  sec.classList.remove('dialer-floating', 'active');
+  const fab = document.getElementById('dialer-fab');
+  if (fab) fab.classList.remove('is-open');
+}
+
+function toggleDialerWidget() {
+  const sec = document.getElementById('sec-webdialer');
+  if (sec && sec.classList.contains('dialer-floating')) closeDialerWidget();
+  else openDialerWidget();
+}
+
+// Pulses the FAB red while a call is live, so an agent who minimized the
+// widget (or never opened it) can still see something's in progress.
+function _syncDialerFabLiveState() {
+  const fab = document.getElementById('dialer-fab');
+  if (!fab) return;
+  const phase = window.softphone && softphone.state && softphone.state.phase;
+  fab.classList.toggle('is-live', phase === 'ringing-out' || phase === 'ringing-in' || phase === 'connected');
+}
+setInterval(_syncDialerFabLiveState, 1000);
 
 function clearBulkSelection() {
   selectedLeadIds.clear();
@@ -14992,14 +14956,32 @@ function nav(id) {
     showUpgradeGate('Agency Management', 'leader');
     return;
   }
-  // Hide all sections
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  // A floating Web Dialer widget persists across page navigation (e.g. a
+  // call stays visible while the agent browses Leads) — unless they're
+  // navigating to the Web Dialer tab itself, in which case it "maximizes"
+  // into the normal full page instead of staying an overlay.
+  const dialerSec = document.getElementById('sec-webdialer');
+  const dialerWasFloating = !!(dialerSec && dialerSec.classList.contains('dialer-floating'));
+  if (id === 'webdialer' && dialerWasFloating) {
+    dialerSec.classList.remove('dialer-floating');
+    const fabEl = document.getElementById('dialer-fab');
+    if (fabEl) fabEl.classList.remove('is-open');
+  }
+  // Hide all sections, except a still-floating dialer widget.
+  document.querySelectorAll('.section').forEach(s => {
+    if (s === dialerSec && dialerWasFloating && id !== 'webdialer') return;
+    s.classList.remove('active');
+  });
   // Deactivate all nav items
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   // Show target section
   const sec = document.getElementById('sec-' + id);
   if (sec) sec.classList.add('active');
-  // Re-check the floating call panel's visibility now that the active tab
+  // The FAB launcher is redundant on the real Web Dialer page itself, since
+  // that page already renders the same call screen inline.
+  const dialerFab = document.getElementById('dialer-fab');
+  if (dialerFab) dialerFab.hidden = (id === 'webdialer');
+  // Re-check the floating call widget's visibility now that the active tab
   // changed — an in-progress call should surface it the instant the agent
   // leaves the Web Dialer tab (which shows call state inline instead), and
   // hide it the instant they arrive there.
@@ -19371,49 +19353,13 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <!-- ── SoftphonePanel — bottom-right floating dialer (Telnyx bridge) ── -->
-<div id="softphone-panel" class="sp-panel" data-phase="idle" style="display:none" role="dialog" aria-label="Phone call" aria-live="polite">
-  <div class="sp-head">
-    <div class="sp-head-title"><span class="sp-head-state"></span><span id="sp-head-title">Phone</span></div>
-    <button type="button" class="sp-head-close" id="sp-close" aria-label="Close" title="Close">×</button>
-  </div>
-  <div class="sp-body">
-    <div class="sp-callee">
-      <div class="sp-avatar" id="sp-avatar">?</div>
-      <div class="sp-callee-meta">
-        <div class="sp-callee-name" id="sp-callee-name">—</div>
-        <div class="sp-callee-phone mono" id="sp-callee-phone">—</div>
-      </div>
-    </div>
-    <div class="sp-caller-id" id="sp-caller-id" style="display:none">
-      <span class="sp-caller-id-lbl">Your number</span>
-      <span class="sp-caller-id-val" id="sp-caller-id-val">—</span>
-    </div>
-    <div class="sp-timer"><span class="sp-timer-val" id="sp-timer">00:00</span></div>
-    <div class="sp-controls" id="sp-controls-active">
-      <button type="button" class="sp-btn sp-btn-mute" id="sp-mute"><span id="sp-mute-lbl">Mute</span></button>
-      <button type="button" class="sp-btn sp-btn-hangup" id="sp-hangup"><span data-ico="x" data-size="16"></span>Hang Up</button>
-    </div>
-    <div class="sp-controls" id="sp-controls-inbound" style="display:none">
-      <button type="button" class="sp-btn" id="sp-decline"><span data-ico="x" data-size="16"></span>Decline</button>
-      <button type="button" class="sp-btn sp-btn-accept" id="sp-accept"><span data-ico="phone" data-size="16"></span>Accept</button>
-    </div>
-    <div class="sp-outcome" id="sp-outcome" style="display:none">
-      <div class="sp-outcome-lbl">How did the call go?</div>
-      <div class="sp-outcome-grid">
-        <button type="button" class="sp-out-btn" data-outcome="appointment">Appointment</button>
-        <button type="button" class="sp-out-btn" data-outcome="social_obj">Social Obj.</button>
-        <button type="button" class="sp-out-btn" data-outcome="banking_obj">Banking Obj.</button>
-        <button type="button" class="sp-out-btn" data-outcome="not_interested">Not Interested</button>
-        <button type="button" class="sp-out-btn sp-out-btn-sold" data-outcome="sold">Sold</button>
-        <button type="button" class="sp-out-btn sp-out-btn-skip" data-outcome="">Skip</button>
-      </div>
-    </div>
-    <div class="sp-stub-banner" id="sp-stub-banner">
-      <span data-ico="warning" data-size="13"></span>
-      <span id="sp-stub-banner-text">Simulated call — Telnyx couldn't be reached. Check the Phone Book tab, or the server console.</span>
-    </div>
-  </div>
-</div>
+<!-- Global floating dialer launcher — visible on every dashboard page.
+     Opens the exact same #sec-webdialer markup as the Web Dialer tab,
+     repositioned into a floating card via the .dialer-floating class
+     (see nav()/dialer widget helpers). -->
+<button type="button" id="dialer-fab" class="dialer-fab" onclick="toggleDialerWidget()" aria-label="Open Web Dialer" title="Web Dialer">
+  <span data-ico="phone" data-size="24"></span>
+</button>
 
 <!-- Stripe Embedded Checkout Modal -->
 <div id="stripe-checkout-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(7,13,26,.82);align-items:center;justify-content:center;padding:20px">
