@@ -1892,10 +1892,15 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 
 /* ── Web Dialer, in its floating-widget presentation ─────────────────────
    Same #sec-webdialer markup as the full page — only repositioned/resized
-   via this class so every rule scoped to #sec-webdialer keeps applying. */
+   via this class so every rule scoped to #sec-webdialer keeps applying.
+   Floating mode shows the phone itself only — the leads/history/quick-action
+   column and call-history card (relevant on the full Web Dialer page) are
+   hidden, and the header collapses to just the close button. Anchored to
+   the left edge (not centered) with top/bottom margins that hold it inside
+   the viewport instead of a transform-based center that can overflow. */
 #sec-webdialer.dialer-floating{
-  position:fixed; right:24px; bottom:92px; z-index:1400;
-  width:min(94vw,420px); max-height:min(82vh,720px);
+  position:fixed; left:24px; top:24px; bottom:24px; margin:auto 0; z-index:1400;
+  width:min(90vw,360px); max-height:calc(100vh - 48px);
   overflow-y:auto; overflow-x:hidden;
   background:var(--card); border:1px solid var(--border);
   border-radius:20px; padding:20px 20px 24px;
@@ -1903,9 +1908,12 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   animation: dialer-floating-in var(--ds-duration-base,180ms) ease-out;
 }
 @keyframes dialer-floating-in { from { transform:translateY(16px); opacity:0; } to { transform:translateY(0); opacity:1; } }
-#sec-webdialer.dialer-floating .wd-wrap{ grid-template-columns:1fr; max-width:100%; gap:16px; }
-#sec-webdialer.dialer-floating .wd-history-card{ grid-column:auto; }
-#sec-webdialer.dialer-floating .wd-header{ margin-bottom:14px; }
+#sec-webdialer.dialer-floating .wd-wrap{ grid-template-columns:1fr; max-width:100%; gap:0; display:block; }
+#sec-webdialer.dialer-floating .wd-settings-col{ display:none; }
+#sec-webdialer.dialer-floating .wd-history-card{ display:none; }
+#sec-webdialer.dialer-floating .wd-header{ min-height:30px; margin-bottom:6px; }
+#sec-webdialer.dialer-floating .wd-header-title,
+#sec-webdialer.dialer-floating .wd-header-sub{ display:none; }
 #sec-webdialer .wd-header{ position:relative; }
 .wd-floating-close{
   display:none; position:absolute; top:0; right:0;
@@ -2649,11 +2657,11 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
   }
   .overlay{align-items:flex-end}
 
-  /* Floating Web Dialer — full width sheet at bottom on mobile */
+  /* Floating Web Dialer — the phone-only widget is compact enough to stay
+     left-anchored on mobile too, just with tighter margins. */
   #sec-webdialer.dialer-floating{
-    width:100% !important; right:0 !important; bottom:0 !important; left:0 !important;
-    max-height:88vh !important; max-width:100% !important;
-    border-radius:16px 16px 0 0 !important;
+    left:12px !important; top:12px !important; bottom:12px !important;
+    width:min(88vw,360px) !important; max-height:calc(100vh - 24px) !important; max-width:calc(100vw - 24px) !important;
   }
   .dialer-fab{ right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); }
 
@@ -3209,7 +3217,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 10h20" stroke-linecap="round"/></svg>
             </div>
             <div class="swiz-popup-ttl">Payment Window Open</div>
-            <div class="swiz-popup-sub">Complete your payment in the popup window.<br>This page will update automatically when you're done.</div>
+            <div class="swiz-popup-sub">Complete your payment, then come back to this screen.<br>We'll confirm it automatically once you return.</div>
             <div class="swiz-popup-dots"><span class="swiz-popup-dot"></span><span class="swiz-popup-dot"></span><span class="swiz-popup-dot"></span></div>
             <button class="swiz-popup-reopen-btn" id="wiz-popup-reopen-btn" style="display:none" onclick="_wizReopenStripePopup()">↗ Reopen Payment Window</button>
           </div>
@@ -3983,7 +3991,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <button class="tab"        data-tab="not_interested" onclick="leadsTab('not_interested', this)">Not Interested <span class="tab-count" data-count="not_interested">0</span></button>
         </div>
         <div style="flex:1"></div>
-        <div style="display:flex;align-items:center;gap:8px">
+        <div class="js-desktop-only-dialer" style="display:flex;align-items:center;gap:8px">
           <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPowerDialer()">
             <span data-ico="phone" data-size="14"></span>Power Dial
           </button>
@@ -4079,9 +4087,9 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <option value="banking_obj">Banking Objection</option>
         </select>
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
-        <div style="width:1px;height:22px;background:var(--border)"></div>
-        <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
-        <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
+        <div class="js-desktop-only-dialer" style="width:1px;height:22px;background:var(--border)"></div>
+        <button class="btn btn-sm js-desktop-only-dialer" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
+        <button class="btn btn-sm js-desktop-only-dialer" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
         <button class="btn btn-s btn-sm" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px" onclick="clearBulkSelection()"><span data-ico="x" data-size="14"></span>Clear Selection</button>
@@ -4316,12 +4324,24 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 
       <div class="wd-wrap">
         <div class="card wd-dial-card" id="wd-dial-card">
+          <div class="wd-caller-fields">
+            <div class="wd-caller-fg">
+              <label>Caller ID Name</label>
+              <input type="text" id="wd-caller-name" placeholder="Your name or business" maxlength="30">
+            </div>
+            <div class="wd-caller-fg">
+              <label>Caller ID Number</label>
+              <select id="wd-caller-id"><option value="">Loading…</option></select>
+            </div>
+          </div>
+
           <div class="wd-display-wrap">
             <!-- Elapsed-time readout — shown above the display while ringing/connected -->
             <div class="wd-cs-timer" id="wd-cs-timer">Calling…</div>
 
             <div class="wd-display">
-              <input type="text" id="wd-number-input" class="wd-number-input" placeholder="Enter a number" inputmode="tel" autocomplete="off">
+              <span class="wd-number-prefix">+1</span>
+              <input type="text" id="wd-number-input" class="wd-number-input" placeholder="000-000-0000" inputmode="tel" autocomplete="off" maxlength="12">
               <button type="button" class="wd-backspace" id="wd-backspace" title="Backspace" aria-label="Backspace">
                 <span data-ico="backspace" data-size="18"></span>
               </button>
@@ -4398,14 +4418,6 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <div class="card wd-settings-card">
             <div class="card-title" style="display:flex;align-items:center;gap:8px">
               <span data-ico="gear" data-size="13"></span>Call Settings
-            </div>
-            <div class="fg">
-              <label>Caller ID Number</label>
-              <select id="wd-caller-id"><option value="">Loading…</option></select>
-            </div>
-            <div class="fg">
-              <label>Caller ID Name</label>
-              <input type="text" id="wd-caller-name" placeholder="Your name or business" maxlength="30">
             </div>
             <div class="wd-hint">
               Calls placed here use your Telnyx WebRTC connection — the same one behind click-to-call on the Leads tab.
@@ -5826,6 +5838,20 @@ async function wizSubmit() {
   }
 }
 
+// True only inside the native iOS/Android shell (Capacitor), never on the web deployment.
+function _wizIsNative() {
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+
+// Power Dial / Preview Dial rely on window.open() popups (a batch-calling,
+// call-in-with-a-PIN flow) that don't work in a native WKWebView shell.
+// They stay fully available on desktop/web; Web Dialer + click-to-dial cover
+// the native app instead.
+function _hideDesktopOnlyDialerControls() {
+  if (!_wizIsNative()) return;
+  document.querySelectorAll('.js-desktop-only-dialer').forEach(el => { el.style.display = 'none'; });
+}
+
 function _wizOpenStripePopup(url) {
   _wizLastStripeUrl = url;
   _wizPaymentPending = true;
@@ -5836,7 +5862,32 @@ function _wizOpenStripePopup(url) {
   const reopenBtn = document.getElementById('wiz-popup-reopen-btn');
   if (reopenBtn) reopenBtn.style.display = 'none';
 
-  // Open popup centered on screen
+  if (_wizIsNative()) {
+    // Native app: window.open()/postMessage don't exist across a WKWebView ↔
+    // system-browser boundary. Hand off to the system browser via
+    // @capacitor/browser (SFSafariViewController on iOS) — this is also what
+    // keeps Stripe's hosted checkout genuinely "outside the app" for Apple's
+    // payment-info privacy exemption and for Guideline 3.1.1.
+    const Browser = window.Capacitor.Plugins.Browser;
+    Browser.open({ url });
+    // Fires when the user dismisses the system browser (Done/swipe-down),
+    // whether because they finished paying or gave up. There's no postMessage
+    // channel back from a system browser, so we ask the server (Stripe
+    // webhook already wrote stripe_subscription_id by the time they return).
+    Browser.addListener('browserFinished', async () => {
+      Browser.removeAllListeners();
+      const complete = await _wizCheckStripeCompletion();
+      if (complete) {
+        _wizPaymentComplete();
+      } else if (_wizPaymentPending) {
+        const reopenBtn2 = document.getElementById('wiz-popup-reopen-btn');
+        if (reopenBtn2) reopenBtn2.style.display = '';
+      }
+    });
+    return;
+  }
+
+  // Web: open popup centered on screen
   const pw = 540, ph = 760;
   const left = Math.max(0, Math.round((screen.width  - pw) / 2));
   const top  = Math.max(0, Math.round((screen.height - ph) / 2));
@@ -5872,6 +5923,20 @@ function _wizOpenStripePopup(url) {
       }
     }
   }, 600);
+}
+
+// Server is the source of truth: the Stripe webhook (supabase/functions/stripe-webhook)
+// sets agents.stripe_subscription_id once checkout actually completes.
+async function _wizCheckStripeCompletion() {
+  try {
+    const { data: sd } = await sb.auth.getSession();
+    const uid = sd?.session?.user?.id;
+    if (!uid) return false;
+    const { data } = await sb.from('agents').select('stripe_subscription_id').eq('id', uid).single();
+    return !!(data && data.stripe_subscription_id);
+  } catch (_) {
+    return false;
+  }
 }
 
 function _wizReopenStripePopup() {
@@ -10432,6 +10497,10 @@ function closeUpgradeGate() {
 }
 
 function guardedOpenPowerDialer() {
+  if (_wizIsNative()) {
+    showToast('Power Dialer is available on desktop — use Web Dialer here instead', '#f59e0b');
+    return;
+  }
   const tier = _planTier();
   if (tier !== 'pro' && tier !== 'leader') {
     showUpgradeGate('Power Dialer', 'pro');
@@ -10441,6 +10510,10 @@ function guardedOpenPowerDialer() {
 }
 
 function guardedOpenPreviewDialer() {
+  if (_wizIsNative()) {
+    showToast('Preview Dial is available on desktop — use Web Dialer here instead', '#f59e0b');
+    return;
+  }
   const tier = _planTier();
   if (tier !== 'pro' && tier !== 'leader') {
     showUpgradeGate('Preview Dialer', 'pro');
@@ -19047,6 +19120,7 @@ function applyTheme() {
 // Re-entrant safe: callable on agent switch.
 async function bootDashboard() {
   mountIcons();
+  _hideDesktopOnlyDialerControls();
   document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
   // 1. Optimistic hydrate from localStorage cache (instant render).
   currentPlanName = localStorage.getItem(k('pp_plan_name')) || null;

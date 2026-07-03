@@ -17,7 +17,6 @@ const pages = [
   'support.html',
   'privacy-policy.html',
   'terms-of-service.html',
-  'power-dialer.html',
 ];
 
 for (const file of [...pages, 'manifest.json', 'sw.js', 'styles.css']) {
