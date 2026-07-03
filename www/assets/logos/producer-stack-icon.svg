@@ -1,0 +1,27 @@
+<svg viewBox="0 0 100 88" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <defs>
+    <linearGradient id="ga" x1="15" y1="12" x2="85" y2="52" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D4EAFB"/>
+      <stop offset="1" stop-color="#9DC8F6"/>
+    </linearGradient>
+    <linearGradient id="gb" x1="15" y1="28" x2="85" y2="68" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9DC8F6"/>
+      <stop offset="1" stop-color="#60ABF0"/>
+    </linearGradient>
+    <linearGradient id="gc" x1="15" y1="44" x2="85" y2="84" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60ABF0"/>
+      <stop offset="1" stop-color="#3D88D9"/>
+    </linearGradient>
+  </defs>
+  <!-- Bottom diamond layer -->
+  <polygon points="50,84 88,62 50,42 12,62" fill="url(#gc)" opacity="0.65"/>
+  <!-- Middle diamond layer -->
+  <polygon points="50,68 88,46 50,26 12,46" fill="url(#gb)" opacity="0.82"/>
+  <!-- Top diamond layer (foreground) -->
+  <polygon points="50,52 88,30 50,10 12,30" fill="url(#ga)"/>
+  <!-- P lettermark -->
+  <text x="50" y="35" text-anchor="middle" dominant-baseline="middle"
+    fill="white" font-size="19" font-weight="800"
+    font-family="'DM Sans',Arial,Helvetica,sans-serif"
+    style="letter-spacing:-0.5px">P</text>
+</svg>

@@ -25,11 +25,19 @@ const MODEL = "deepseek-chat";
 const MAX_TOKENS = 500;
 const MAX_INPUT_LEN = 4000;
 
-const CORS = {
-  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+const ALLOWED_ORIGINS = new Set([
+  "https://producerstackcrm.com",
+  "https://localhost", // iOS/Android app (Capacitor, androidScheme/iosScheme: "https")
+]);
+
+function corsHeaders(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
+}
 
 const SYSTEM_PROMPT = `You are a life insurance underwriting specialist helping insurance agents get a general estimate of carrier approval likelihood. Be LENIENT and realistic — insurers often approve clients with conditions at modified or graded levels that agents might expect to be declined. Many carriers have flexible underwriting and approve conditions that seem severe.
 
@@ -50,15 +58,12 @@ Medication mapping: insulin → Diabetes Type 1 / On Insulin; metformin/ozempic/
 
 Return ONLY a JSON array of matching condition names. No explanation, no markdown. Example: ["Diabetes Type 2 — Controlled (A1C ≤ 8.6, no insulin)", "Sleep Apnea (CPAP OK)"]`;
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
-}
-
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const cors = corsHeaders(req.headers.get("origin"));
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
   const apiKey = Deno.env.get("DEEPSEEK_API_KEY");

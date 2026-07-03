@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pricing — Producer Stack</title>
+<link rel="icon" href="assets/logos/producer-stack-logo.png" type="image/png">
+<meta name="description" content="Start your 7-day free trial today. Simple, transparent pricing starting at $89.99/mo after trial. No hidden fees, no long-term contracts. Cancel any time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="bg-canvas" aria-hidden="true">
+  <div class="bg-aurora"></div>
+  <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+  <div class="orb orb-4"></div><div class="orb orb-5"></div><div class="orb orb-6"></div>
+  <div class="bg-grid"></div><div class="bg-vignette"></div>
+</div>
+
+<nav class="nav" id="main-nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
+      <div class="nav-logo-name">Producer Stack</div>
+    </a>
+    <div class="nav-links">
+      <a href="features.html">Features</a>
+      <a href="how-it-works.html">How It Works</a>
+      <a href="pricing.html" class="active">Pricing</a>
+      <a href="support.html">Support</a>
+    </div>
+    <div class="nav-right">
+      <a href="app.html" class="btn-ghost">Sign In</a>
+      <a href="app.html?view=signup" class="btn-nav">Start Free Trial</a>
+    </div>
+    <button class="hamburger" id="hbg" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<div class="mob-menu" id="mob-menu">
+  <a href="features.html" onclick="closeMob()">Features</a>
+  <a href="how-it-works.html" onclick="closeMob()">How It Works</a>
+  <a href="pricing.html" onclick="closeMob()">Pricing</a>
+  <a href="support.html" onclick="closeMob()">Support</a>
+  <div class="mob-div"></div>
+  <a href="app.html">Sign In</a>
+  <a href="app.html?view=signup" style="color:var(--accent)">Get Started →</a>
+</div>
+
+<!-- PAGE HERO -->
+<div class="page-hero">
+  <div class="eyebrow anim d1">Pricing</div>
+  <h1 class="page-h anim d2">Simple, transparent <span class="hl">pricing</span></h1>
+  <p class="page-sub anim d3">Every plan starts with a <strong>7-day free trial</strong> — no charge until day 8. Pick the plan that matches where you are. Upgrade or cancel anytime.</p>
+  <div class="trial-banner anim d4">
+    <span class="trial-banner-ico"><svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span>7-day free trial</span>
+    <span class="trial-banner-sep"></span>
+    <span>No charge until day 8</span>
+    <span class="trial-banner-sep"></span>
+    <span>Cancel anytime</span>
+    <span class="trial-banner-sep"></span>
+    <span>No setup fees</span>
+  </div>
+</div>
+
+<!-- PRICING -->
+<section class="section">
+<div class="sec-shell">
+  <div class="pricing-wrap">
+    <div class="plan-row">
+      <div class="plan-card reveal">
+        <div class="plan-name">Basic Producer</div>
+        <div class="plan-desc">Everything a solo producer needs to organize leads and start dialing.</div>
+        <div class="plan-price"><div class="plan-amt"><sup>$</sup>89.99</div><div class="plan-per">per month after trial</div><div class="plan-trial">Free for 7 days</div></div>
+        <div class="plan-div"></div>
+        <ul class="plan-feats">
+          <li>Policy Tracker</li>
+          <li>Lead Management CRM</li>
+          <li>250 Quotes / month</li>
+          <li>200 AI Underwriter queries / month</li>
+          <li>Activity Dashboard</li>
+          <li>Calendar Integration</li>
+          <li>Cloud VoIP Softphone</li>
+          <li>Local Presence ID</li>
+        </ul>
+        <a href="app.html?view=signup" class="plan-cta out">Start Free Trial</a>
+      </div>
+
+      <div class="plan-card feat reveal">
+        <div class="plan-badge">Most Popular</div>
+        <div class="plan-name">Pro Producer</div>
+        <div class="plan-desc">For serious producers who want to maximize call volume and production.</div>
+        <div class="plan-price"><div class="plan-amt"><sup>$</sup>149.99</div><div class="plan-per">per month after trial</div><div class="plan-trial">Free for 7 days</div></div>
+        <div class="plan-div"></div>
+        <ul class="plan-feats">
+          <li>Everything in Basic</li>
+          <li>500 Quotes / month</li>
+          <li>500 AI Underwriter queries / month</li>
+          <li>Bonus Tracker</li>
+          <li>Power Dialer (batch calling)</li>
+          <li>Advanced Analytics</li>
+          <li>Goal &amp; Pace Tracking</li>
+          <li>Activity Momentum Tracker</li>
+        </ul>
+        <a href="app.html?view=signup" class="plan-cta fill">Start Free Trial</a>
+      </div>
+
+      <div class="plan-card reveal">
+        <div class="plan-name">Team Leader</div>
+        <div class="plan-desc">For agency builders managing a downline and growing a team.</div>
+        <div class="plan-price"><div class="plan-amt"><sup>$</sup>249.99</div><div class="plan-per">per month after trial</div><div class="plan-trial">Free for 7 days</div></div>
+        <div class="plan-div"></div>
+        <ul class="plan-feats">
+          <li>Everything in Pro</li>
+          <li>1000 Quotes / month</li>
+          <li>Unlimited AI Underwriter</li>
+          <li>Agency Management</li>
+          <li>Team Access &amp; Dashboards</li>
+          <li>Priority Support</li>
+          <li>Dedicated Onboarding</li>
+          <li>Custom Agency Codes</li>
+        </ul>
+        <a href="app.html?view=signup" class="plan-cta out">Start Free Trial</a>
+      </div>
+    </div>
+
+    <div class="compare-wrap reveal">
+      <div class="compare-header">
+        <div class="compare-header-cell">Features</div>
+        <div class="compare-header-cell plan-col">Basic</div>
+        <div class="compare-header-cell plan-col feat-col">Pro</div>
+        <div class="compare-header-cell plan-col">Leader</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Policy Tracker</div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Lead Management</div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Quotes</div>
+        <div class="compare-cell"><span class="ci-val">250/mo</span></div>
+        <div class="compare-cell"><span class="ci-val hi">500/mo</span></div>
+        <div class="compare-cell"><span class="ci-val best">1,000/mo</span></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">AI Underwriter</div>
+        <div class="compare-cell"><span class="ci-val">200/mo</span></div>
+        <div class="compare-cell"><span class="ci-val hi">500/mo</span></div>
+        <div class="compare-cell"><span class="ci-val best">Unlimited</span></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Activity Dashboard</div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Calendar Integration</div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Cloud VoIP Softphone</div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Local Presence ID</div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Bonus Tracker</div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Power Dialer</div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Advanced Analytics</div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Agency Management</div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Team Access</div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-feat">Priority Support</div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<div class="final-wrap">
+  <div class="final-card reveal">
+    <div class="final-inner">
+      <h2 class="final-h">Not sure which plan is right?</h2>
+      <p class="final-p">Call or text us at 920-422-7733. We'll help you pick the right plan for where you are in your production.</p>
+      <div class="final-btns">
+        <a href="app.html?view=signup" class="btn-cta">Start Free Trial <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        <a href="support.html" class="btn-cta-outline">Talk to Us</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <div class="ft">
+    <div class="ft-top">
+      <div class="ft-brand">
+        <a href="/" class="nav-logo">
+          <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
+          <div class="nav-logo-name">Producer Stack</div>
+        </a>
+        <p>The all-in-one CRM platform built for life insurance producers. Power Dialer, live rates, and full production analytics.</p>
+      </div>
+      <div class="ft-col">
+        <h4>Product</h4>
+        <a href="features.html">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="app.html?view=signup">Create Account</a>
+        <a href="app.html">Sign In</a>
+      </div>
+      <div class="ft-col">
+        <h4>Features</h4>
+        <a href="features.html">Power Dialer</a>
+        <a href="features.html">Lead CRM</a>
+        <a href="features.html">Rate Quoter</a>
+        <a href="features.html">AI Underwriter</a>
+        <a href="features.html">KPI Dashboard</a>
+        <a href="how-it-works.html">Lead Integration</a>
+        <a href="features.html">Team Leader</a>
+      </div>
+      <div class="ft-col">
+        <h4>Support</h4>
+        <a href="tel:9204227733">920-422-7733</a>
+        <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <div class="ft-copy">&copy; 2026 Producer Stack. All rights reserved.</div>
+      <div class="ft-copy"><a href="#">Privacy</a> &nbsp;·&nbsp; <a href="#">Terms</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+window.addEventListener('scroll',()=>{document.getElementById('main-nav').classList.toggle('scrolled',scrollY>24)},{passive:true});
+document.getElementById('hbg').addEventListener('click',()=>{document.getElementById('mob-menu').classList.toggle('open')});
+function closeMob(){document.getElementById('mob-menu').classList.remove('open')}
+const ro=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('in');ro.unobserve(x.target)}})},{threshold:.1,rootMargin:'0px 0px -32px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+</script>
+</body>
+</html>

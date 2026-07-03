@@ -1,6 +1,6 @@
 {
-  "name": "PolicyPilot – Producer Stack",
-  "short_name": "PolicyPilot",
+  "name": "Producer Stack",
+  "short_name": "Producer Stack",
   "description": "Life insurance agent dashboard — leads, quotes, policies, and calls.",
   "start_url": "/index.html",
   "display": "standalone",
@@ -9,9 +9,9 @@
   "theme_color": "#070d1a",
   "icons": [
     {
-      "src": "assets/logos/policypilot-logo.jpg",
-      "sizes": "any",
-      "type": "image/jpeg",
+      "src": "assets/logos/producer-stack-logo.png",
+      "sizes": "512x450",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ],
