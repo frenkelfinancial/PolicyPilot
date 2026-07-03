@@ -1987,20 +1987,45 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
     0 16px 40px -18px rgba(23,23,23,.22),
     0 24px 56px -28px rgba(0,0,0,.55);
 }
+/* Caller-ID Name/Number — live at the top of the dial card itself so the
+   phone is fully self-contained in the floating widget (no separate
+   settings column needed there). Styled to match the light "device" card
+   rather than the app's theme-aware form fields. */
+#sec-webdialer .wd-caller-fields{ display:flex; flex-direction:column; gap:10px; width:100%; }
+#sec-webdialer .wd-caller-fg{ display:flex; flex-direction:column; gap:5px; width:100%; }
+#sec-webdialer .wd-caller-fg label{ font-size:10.5px; font-weight:600; color:#adaca7; text-transform:uppercase; letter-spacing:.08em; }
+#sec-webdialer .wd-caller-fg input,
+#sec-webdialer .wd-caller-fg select{
+  width:100%; background:#f6f6f5; border:1px solid #ececeb; border-radius:10px;
+  padding:9px 12px; color:#000; font-family:inherit; font-size:13.5px; outline:none;
+  transition:border-color .14s;
+}
+#sec-webdialer .wd-caller-fg input::placeholder{ color:#adaca7; }
+#sec-webdialer .wd-caller-fg input:focus,
+#sec-webdialer .wd-caller-fg select:focus{ border-color:#5BA0E8; }
+/* Caller ID shouldn't change mid-call — collapse it once dialing starts,
+   same rationale as the number display going read-only below. */
+#sec-webdialer .wd-dial-card.in-call .wd-caller-fields{ display:none; }
 #sec-webdialer .wd-display-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; }
 #sec-webdialer .wd-cs-timer{
   display:none; font-size:12px; font-weight:600; letter-spacing:.04em;
   color:#8a8a86; font-variant-numeric:tabular-nums;
 }
 #sec-webdialer .wd-display{
-  width:100%; display:flex; align-items:center; gap:10px;
+  width:100%; display:flex; align-items:center; gap:8px;
   background:#f6f6f5; border:1px solid #ececeb; border-radius:14px;
   height:60px; padding:0 8px 0 18px;
+}
+/* Fixed, non-editable country code — the agent can only ever change the
+   10-digit number that follows it. */
+#sec-webdialer .wd-number-prefix{
+  flex-shrink:0; font-family:inherit; font-size:26px; font-weight:500;
+  letter-spacing:.4px; color:#000;
 }
 #sec-webdialer .wd-number-input{
   flex:1; border:none; background:transparent; outline:none;
   font-family:inherit; font-size:26px; font-weight:500; letter-spacing:.4px;
-  color:#1c1c1c; min-width:0;
+  color:#000; min-width:0;
 }
 #sec-webdialer .wd-number-input::placeholder{ color:#adaca7; font-weight:400; }
 /* In-call: the display stops acting like an editable field — box and
@@ -2009,6 +2034,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 #sec-webdialer .wd-dial-card.in-call .wd-display{
   background:transparent; border:none; height:auto; padding:0; justify-content:center;
 }
+#sec-webdialer .wd-dial-card.in-call .wd-number-prefix{ display:none; }
 #sec-webdialer .wd-dial-card.in-call .wd-number-input{
   flex:none; text-align:center; font-size:30px; font-weight:600; letter-spacing:.3px; cursor:default;
 }
@@ -12338,6 +12364,16 @@ const webDialer = (() => {
     } catch (e) {}
   }
 
+  // The +1 shown before the field is fixed — the field itself only ever
+  // holds the 10-digit local number, auto-formatted as 000-000-0000.
+  function _rawDigits(inp) { return String(inp.value || '').replace(/\D/g, '').slice(0, 10); }
+  function _formatLocalNumber(digits) {
+    if (digits.length > 6) return `${digits.slice(0,3)}-${digits.slice(3,6)}-${digits.slice(6)}`;
+    if (digits.length > 3) return `${digits.slice(0,3)}-${digits.slice(3)}`;
+    return digits;
+  }
+  function _setInputDigits(inp, digits) { inp.value = _formatLocalNumber(digits.slice(0, 10)); }
+
   function appendDigit(d) {
     const inp = _input(); if (!inp) return;
     _playDtmfTone(d);
@@ -12347,15 +12383,26 @@ const webDialer = (() => {
       softphone.sendDigit(d);
       return;
     }
-    inp.value += d;
+    if (!/^[0-9]$/.test(d)) { inp.focus(); return; } // * / # are DTMF-only, not part of a dialable number
+    const digits = _rawDigits(inp);
+    if (digits.length < 10) _setInputDigits(inp, digits + d);
     inp.focus();
     _checkLeadMatch();
   }
 
   function backspace() {
     const inp = _input(); if (!inp) return;
-    inp.value = inp.value.slice(0, -1);
+    _setInputDigits(inp, _rawDigits(inp).slice(0, -1));
     inp.focus();
+    _checkLeadMatch();
+  }
+
+  // Reformats after manual typing/paste directly into the field (the
+  // keypad and backspace button already produce formatted output on their
+  // own via _setInputDigits, so this only matters for keyboard/paste input).
+  function _onManualInput() {
+    const inp = _input(); if (!inp) return;
+    _setInputDigits(inp, _rawDigits(inp));
     _checkLeadMatch();
   }
 
@@ -12661,7 +12708,7 @@ const webDialer = (() => {
     const inp = _input();
     if (inp) {
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') placeCall(); });
-      inp.addEventListener('input', _checkLeadMatch);
+      inp.addEventListener('input', _onManualInput);
     }
     // No event bus for softphone phase changes — poll while this tab is open.
     _statusTimer = setInterval(_renderCallState, 1000);
