@@ -2,12 +2,12 @@
 // supabase/functions/anthropic-parse/index.ts
 //
 // Proxy for the AI health-parser feature. The dashboard's quote panels
-// send raw client health text; this function asks Claude to return a
+// send raw client health text; this function asks DeepSeek to return a
 // JSON array of standardized condition names that map to UW_CLASS in
 // the dashboard.
 //
 // Required secret (set in Supabase dashboard or via `supabase secrets set`):
-//   - ANTHROPIC_API_KEY   API key from console.anthropic.com
+//   - DEEPSEEK_API_KEY   API key from platform.deepseek.com
 //
 // Auth: Edge Function platform verifies the caller's JWT before this
 // runs (verify_jwt = true is the default). Anonymous calls return 401
@@ -20,8 +20,8 @@
 // Response (4xx/5xx): { ok: false, error: string }
 // ============================================================
 
-const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-20250514";
+const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
+const MODEL = "deepseek-chat";
 const MAX_TOKENS = 500;
 const MAX_INPUT_LEN = 4000;
 
@@ -61,8 +61,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!apiKey) return json({ ok: false, error: "ANTHROPIC_API_KEY not configured on server" }, 500);
+  const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
+  if (!apiKey) return json({ ok: false, error: "DEEPSEEK_API_KEY not configured on server" }, 500);
 
   let body: { text?: unknown };
   try {
@@ -79,18 +79,19 @@ Deno.serve(async (req) => {
 
   let upstream: Response;
   try {
-    upstream = await fetch(ANTHROPIC_URL, {
+    upstream = await fetch(DEEPSEEK_URL, {
       method: "POST",
       headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: `Client health description: "${text}"` }],
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: `Client health description: "${text}"` },
+        ],
       }),
     });
   } catch (e) {
@@ -102,7 +103,7 @@ Deno.serve(async (req) => {
   if (!upstream.ok) {
     console.error(`[anthropic-parse] upstream ${upstream.status}:`, raw);
     const status = upstream.status === 401 ? 502 : upstream.status;
-    return json({ ok: false, error: `Anthropic error ${upstream.status}` }, status);
+    return json({ ok: false, error: `DeepSeek error ${upstream.status}` }, status);
   }
 
   let payload: any;
@@ -110,7 +111,7 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: "Invalid response from upstream" }, 502);
   }
 
-  const reply = payload?.content?.[0]?.text || "[]";
+  const reply = payload?.choices?.[0]?.message?.content || "[]";
   const cleaned = reply.replace(/```json|```/g, "").trim();
   let conditions: unknown;
   try { conditions = JSON.parse(cleaned); } catch {

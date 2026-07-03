@@ -156,12 +156,31 @@ Deno.serve(async (req) => {
 
   // ---- Auth ----------------------------------------------------------
   let userId: string;
+  let userEmail: string | undefined;
   try {
     const { data, error } = await userClient.auth.getUser();
     if (error || !data?.user?.id) return json({ ok: false, error: "unauthenticated" }, 401);
     userId = data.user.id;
+    userEmail = data.user.email;
   } catch {
     return json({ ok: false, error: "unauthenticated" }, 401);
+  }
+
+  // ---- Require an active paid plan (or admin) -------------------------
+  // Numbers are billed to us immediately by SignalWire regardless of whether
+  // the agent ever completes Stripe checkout, so this must be enforced here
+  // — not just gated client-side — or an authenticated-but-unpaid session
+  // can buy numbers for free.
+  const DEV_EMAIL_GATE = 'jacef8778099@gmail.com';
+  if (userEmail !== DEV_EMAIL_GATE) {
+    const sbCheck = createClient(SUPABASE_URL, SERVICE_KEY);
+    const { data: agentCheck } = await sbCheck.from("agents")
+      .select("plan_id, is_admin")
+      .eq("id", userId)
+      .maybeSingle();
+    if (!agentCheck?.is_admin && !agentCheck?.plan_id) {
+      return json({ ok: false, error: "active_subscription_required" }, 402);
+    }
   }
 
   // ---- Parse body ----------------------------------------------------
@@ -288,8 +307,7 @@ Deno.serve(async (req) => {
 
   // Sync the phone number quantity to the agent's Stripe subscription.
   // Best-effort — never fails the buy response.
-  const DEV_EMAIL = 'jacef8778099@gmail.com';
-  if (STRIPE_KEY && userClient && (await userClient.auth.getUser()).data?.user?.email !== DEV_EMAIL) {
+  if (STRIPE_KEY && userEmail !== DEV_EMAIL_GATE) {
     const sbService = createClient(SUPABASE_URL, SERVICE_KEY);
     await syncNumberOnStripe(sbService, STRIPE_KEY, userId);
   }
