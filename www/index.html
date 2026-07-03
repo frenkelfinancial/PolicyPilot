@@ -5983,6 +5983,10 @@ function _wizPaymentComplete() {
   _wizPaymentPending = false;
   if (_wizStripePopupRef && !_wizStripePopupRef.closed) { try { _wizStripePopupRef.close(); } catch(_) {} }
   _wizStripePopupRef = null;
+  // Popup/native returns never touch the main window's URL, so bootDashboard()'s
+  // own "?checkout=success" flag never gets set. Set it directly here so the
+  // 3s retry-before-paywall logic still runs when wizGoDashboard() boots.
+  window._stripeCheckoutReturn = true;
   const waiting = document.getElementById('wiz-stripe-popup-state');
   if (waiting) waiting.style.display = 'none';
   const err3 = document.getElementById('wiz-err-3');
@@ -6259,13 +6263,16 @@ async function planRequiredSubscribe() {
     });
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || 'checkout_failed');
-    if (result.client_secret) {
-      document.getElementById('plan-required-overlay').style.display = 'none';
-      await _mountEmbeddedCheckout(result.client_secret);
-      if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
+    if (result.url) {
+      // New subscriber — open hosted Stripe Checkout (popup on web, system
+      // browser on native) and only resolve once payment actually completes.
+      _openStripeCheckoutPopup(result.url, {
+        onComplete: _goToSuccessUrl,
+        onCancel: () => { if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; } },
+      });
       return;
     }
-    // Existing subscriber plan switch (no checkout needed)
+    // Existing subscriber plan switch (no checkout needed) — server already applied it.
     currentPlanName = (_proPlans.find(p => p.id === planId) || {}).name || null;
     try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
     _applyPlanGating();
@@ -6276,6 +6283,51 @@ async function planRequiredSubscribe() {
     if (msgEl) { msgEl.textContent = e.message || 'Checkout failed. Please try again.'; msgEl.className = 'auth-msg show err'; }
     if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
   }
+}
+
+// Opens Stripe hosted checkout for a brand-new subscriber and invokes a
+// callback once the return page confirms success/cancellation. Popup+postMessage
+// on web, system browser handoff on native — same mechanism as the signup
+// wizard's _wizOpenStripePopup, but usable from any screen (not just the wizard).
+function _openStripeCheckoutPopup(url, { onComplete, onCancel }) {
+  if (_wizIsNative()) {
+    const Browser = window.Capacitor.Plugins.Browser;
+    Browser.open({ url });
+    Browser.addListener('browserFinished', async () => {
+      Browser.removeAllListeners();
+      const complete = await _wizCheckStripeCompletion();
+      if (complete) onComplete(); else onCancel();
+    });
+    return;
+  }
+  const pw = 540, ph = 760;
+  const left = Math.max(0, Math.round((screen.width  - pw) / 2));
+  const top  = Math.max(0, Math.round((screen.height - ph) / 2));
+  const popupRef = window.open(url, 'stripe_checkout',
+    `width=${pw},height=${ph},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no`);
+  let poll;
+  function cleanup() {
+    window.removeEventListener('message', onMsg);
+    if (poll) { clearInterval(poll); poll = null; }
+  }
+  function onMsg(e) {
+    if (e.data && e.data.type === 'stripe_checkout_complete') { cleanup(); onComplete(); }
+    else if (e.data && e.data.type === 'stripe_checkout_cancelled') { cleanup(); onCancel(); }
+  }
+  window.addEventListener('message', onMsg);
+  poll = setInterval(() => {
+    if (popupRef && popupRef.closed) { cleanup(); onCancel(); }
+  }, 600);
+}
+
+// The main window never navigates during a popup/native checkout, so
+// bootDashboard()'s "?checkout=success" retry-before-paywall flag never gets
+// set. Navigating here (rather than a plain reload) reuses that exact same
+// tested success handling instead of duplicating the webhook-lag retry logic.
+function _goToSuccessUrl() {
+  const url = new URL(location.href);
+  url.searchParams.set('checkout', 'success');
+  location.href = url.toString();
 }
 let _stripeCheckoutInstance = null;
 
@@ -6315,9 +6367,12 @@ async function _autoCheckout(planId) {
     });
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || 'checkout_failed');
-    if (result.client_secret) {
+    if (result.url) {
       hideGate();
-      await _mountEmbeddedCheckout(result.client_secret);
+      _openStripeCheckoutPopup(result.url, {
+        onComplete: _goToSuccessUrl,
+        onCancel: () => { showPlanRequiredOverlay(); },
+      });
       return;
     }
     if (result.ok) { hideGate(); return; }
@@ -19431,12 +19486,27 @@ async function _recheckSubscription() {
     const { data: agent } = await sb.from('agents')
       .select('plan_id, is_admin').eq('id', currentAgent.id).maybeSingle();
     if (!agent) return;
-    if (!agent.plan_id && !agent.is_admin) {
+    currentAgentIsAdmin = !!agent.is_admin;
+    if (!agent.plan_id && !currentAgentIsAdmin) {
       currentPlanName = null;
-      currentAgentIsAdmin = false;
       try { localStorage.setItem(k('pp_plan_name'), ''); } catch(_) {}
       _applyPlanGating();
       showPlanRequiredOverlay();
+      return;
+    }
+    // Plan is now active (e.g. the Stripe webhook caught up after a delayed
+    // checkout) — self-heal a stale paywall instead of leaving the user stuck
+    // on it until they reload or re-click Subscribe.
+    if (agent.plan_id && !currentPlanName) {
+      const { data: plan } = await sb.from('plans').select('name').eq('id', agent.plan_id).maybeSingle();
+      currentPlanName = plan ? plan.name : currentPlanName;
+      try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
+      _applyPlanGating();
+      const overlay = document.getElementById('plan-required-overlay');
+      if (overlay && overlay.style.display !== 'none') {
+        overlay.style.display = 'none';
+        showToast(`${currentPlanName} plan activated!`, '#10b981');
+      }
     }
   } catch(_) {}
 }
