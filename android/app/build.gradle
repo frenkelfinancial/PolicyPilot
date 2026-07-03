@@ -1,8 +1,29 @@
 apply plugin: 'com.android.application'
 
+// Release signing credentials live in android/keystore.properties, which is
+// gitignored and never committed. See keystore.properties.example for the
+// expected format. Release builds fail fast if it's missing rather than
+// silently falling back to debug signing.
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasKeystoreProperties = keystorePropertiesFile.exists()
+if (hasKeystoreProperties) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace "com.policypilot.app"
     compileSdk rootProject.ext.compileSdkVersion
+    if (hasKeystoreProperties) {
+        signingConfigs {
+            release {
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     defaultConfig {
         applicationId "com.policypilot.app"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -20,6 +41,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasKeystoreProperties) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
