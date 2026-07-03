@@ -22,7 +22,7 @@ if('serviceWorker' in navigator){
 </script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Sora:wght@700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&family=Sora:wght@700;800&family=Inter+Tight:wght@400;500;600&display=swap');
 :root{
   /* Producer Stack — DARK theme (refined: deeper, cleaner contrast) */
   --bg:#070d1a;--bg2:#0d1729;--bg3:#142239;--card:#0c1729;
@@ -2014,6 +2014,170 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 }
 @media (max-width:880px){ #sec-phonebook .pb-top-grid{ grid-template-columns:1fr; } }
 
+/* ---- WEB DIALER ---- */
+#sec-webdialer .wd-header{ margin-bottom:22px; }
+#sec-webdialer .wd-header-title{ font-size:22px; font-weight:600; color:var(--text); }
+#sec-webdialer .wd-header-sub{ font-size:13px; color:var(--text2); margin-top:4px; }
+.wd-wrap{
+  display:grid; grid-template-columns:minmax(300px,340px) minmax(280px,320px) minmax(260px,300px);
+  gap:24px; align-items:start; max-width:1020px;
+}
+@media (max-width:1020px){ .wd-wrap{ grid-template-columns:minmax(300px,340px) 1fr; } .wd-history-card{ grid-column:1 / -1; } }
+@media (max-width:640px){ .wd-wrap{ grid-template-columns:1fr; max-width:420px; } .wd-history-card{ grid-column:auto; } }
+
+/* Dial pad — a self-contained "device" widget. Deliberately white/light in
+   both app themes (matches the standalone-dialer reference) and lifted off
+   the dashboard with its own elevation rather than tinted to --card. */
+#sec-webdialer .wd-dial-card{
+  display:flex; flex-direction:column; align-items:center; gap:18px;
+  font-family:'Inter Tight',var(--sans);
+  background:#ffffff;
+  border:1px solid #e6e5e3;
+  border-radius:26px;
+  padding:26px 24px 28px;
+  box-shadow:
+    0 1px 2px rgba(23,23,23,.05),
+    0 16px 40px -18px rgba(23,23,23,.22),
+    0 24px 56px -28px rgba(0,0,0,.55);
+}
+#sec-webdialer .wd-display-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; width:100%; }
+#sec-webdialer .wd-cs-timer{
+  display:none; font-size:12px; font-weight:600; letter-spacing:.04em;
+  color:#8a8a86; font-variant-numeric:tabular-nums;
+}
+#sec-webdialer .wd-display{
+  width:100%; display:flex; align-items:center; gap:10px;
+  background:#f6f6f5; border:1px solid #ececeb; border-radius:14px;
+  height:60px; padding:0 8px 0 18px;
+}
+#sec-webdialer .wd-number-input{
+  flex:1; border:none; background:transparent; outline:none;
+  font-family:inherit; font-size:26px; font-weight:500; letter-spacing:.4px;
+  color:#1c1c1c; min-width:0;
+}
+#sec-webdialer .wd-number-input::placeholder{ color:#adaca7; font-weight:400; }
+/* In-call: the display stops acting like an editable field — box and
+   backspace disappear, the number becomes plain centered text under the
+   timer (edits during a call go to DTMF via the keypad, not this field). */
+#sec-webdialer .wd-dial-card.in-call .wd-display{
+  background:transparent; border:none; height:auto; padding:0; justify-content:center;
+}
+#sec-webdialer .wd-dial-card.in-call .wd-number-input{
+  flex:none; text-align:center; font-size:30px; font-weight:600; letter-spacing:.3px; cursor:default;
+}
+#sec-webdialer .wd-dial-card.in-call .wd-backspace{ display:none; }
+#sec-webdialer .wd-backspace{
+  flex-shrink:0; width:44px; height:44px; border:none; background:transparent; color:#8a8a86;
+  cursor:pointer; border-radius:10px; display:flex; align-items:center; justify-content:center;
+  transition:background .15s,color .15s;
+}
+#sec-webdialer .wd-backspace:hover{ background:#ececeb; color:#525250; }
+#sec-webdialer .wd-keypad{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; width:100%; }
+#sec-webdialer .wd-key{
+  aspect-ratio:auto; height:64px; border-radius:14px; border:1px solid #efeeec;
+  background:#ffffff; color:#1c1c1c; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  transition:background .12s,border-color .12s,transform .06s;
+  font-family:inherit;
+}
+#sec-webdialer .wd-key:hover{ background:#f6f6f5; border-color:#e2e1de; }
+#sec-webdialer .wd-key:active{ transform:scale(.97); }
+#sec-webdialer .wd-key:focus-visible{ outline:2px solid #5BA0E8; outline-offset:2px; }
+#sec-webdialer .wd-key-num{ font-size:24px; font-weight:500; color:#1c1c1c; line-height:1; }
+#sec-webdialer .wd-key-sub{ font-size:10px; font-weight:500; letter-spacing:1.5px; color:#adaca7; height:11px; line-height:1; }
+
+/* Idle action — single call button */
+#sec-webdialer #wd-dialview{ display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; }
+#sec-webdialer .wd-call-btn{
+  width:66px; height:66px; border-radius:50%; border:none;
+  background:#1f9d55; color:#fff; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 6px 16px -4px rgba(31,157,85,.5);
+  transition:background .15s,transform .08s,box-shadow .15s;
+}
+#sec-webdialer .wd-call-btn:hover{ background:#1a8a4a; box-shadow:0 8px 20px -4px rgba(31,157,85,.55); }
+#sec-webdialer .wd-call-btn:active{ transform:scale(.94); }
+#sec-webdialer .wd-call-btn:focus-visible{ outline:2px solid #5BA0E8; outline-offset:3px; }
+#sec-webdialer .wd-call-btn:disabled{ opacity:.5; cursor:not-allowed; box-shadow:none; }
+#sec-webdialer .wd-status{ display:none; }
+.wd-settings-col{ display:flex; flex-direction:column; gap:18px; }
+.wd-settings-card .fg{ margin-bottom:14px; }
+.wd-hint{ font-size:12px; color:var(--text3); line-height:1.5; margin-top:4px; }
+
+/* Quick actions — the two big buttons below Call Settings */
+.wd-quick-actions{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.wd-qa-btn{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+  padding:18px 12px; border-radius:var(--ds-radius-lg,12px); border:1px solid var(--border);
+  background:var(--card); color:var(--text);
+  font-family:var(--sans); font-size:13px; font-weight:600; cursor:pointer;
+  transition:background var(--ds-duration-fast,150ms),border-color var(--ds-duration-fast,150ms),transform 80ms;
+}
+.wd-qa-btn:hover{ background:var(--bg3); border-color:var(--border2); }
+.wd-qa-btn:active{ transform:scale(.98); }
+.wd-qa-btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.wd-qa-btn-quote{
+  background:var(--ds-color-momentum-bg); border-color:var(--ds-color-momentum); color:var(--ds-color-momentum);
+}
+.wd-qa-btn-quote:hover{ filter:brightness(1.12); }
+
+/* Call History — compact recent-calls list filling the right column */
+.wd-history-list{ display:flex; flex-direction:column; }
+.wd-history-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding:10px 0; border-bottom:1px solid var(--border);
+}
+.wd-history-row:last-child{ border-bottom:none; }
+.wd-history-main{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.wd-history-num{ font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wd-history-time{ font-size:11.5px; color:var(--text3); }
+.wd-history-side{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+.wd-history-dur{ font-size:12px; color:var(--text2); font-variant-numeric:tabular-nums; }
+.wd-hist-chip{ display:inline-block; padding:1px 8px; border-radius:20px; font-size:10.5px; font-weight:600; text-transform:capitalize; }
+.wd-hist-chip.ok      { background:rgba(16,185,129,.15);  color:#34d399; }
+.wd-hist-chip.live    { background:rgba(59,130,246,.15);  color:#60a5fa; }
+.wd-hist-chip.miss    { background:rgba(245,158,11,.15);  color:#fbbf24; }
+.wd-hist-chip.fail    { background:rgba(220,38,38,.15);   color:#f87171; }
+.wd-hist-chip.neutral { background:rgba(148,163,184,.15); color:#94a3b8; }
+.wd-history-empty{ padding:10px 0; font-size:12.5px; color:var(--text3); }
+
+/* In-call action — hangup + mute, same footprint as the idle call button so
+   the keypad never has to reflow when a call connects. */
+#sec-webdialer .wd-cs-controls{
+  display:flex; align-items:center; justify-content:center; gap:22px; width:100%;
+}
+#sec-webdialer .wd-cs-btn{
+  width:66px; height:66px; border-radius:50%; border:1px solid #efeeec;
+  background:#f6f6f5; color:#3f3f3d; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  font-family:inherit; transition:background .15s,border-color .15s,color .15s,transform .08s;
+}
+#sec-webdialer .wd-cs-btn:hover{ background:#ececeb; }
+#sec-webdialer .wd-cs-btn:active{ transform:scale(.94); }
+#sec-webdialer .wd-cs-btn:focus-visible{ outline:2px solid #5BA0E8; outline-offset:3px; }
+#sec-webdialer .wd-cs-btn.is-muted{ background:rgba(251,191,36,.18); border-color:rgba(217,164,6,.4); color:#b45309; }
+#sec-webdialer .wd-cs-btn-hangup{ background:#dc2626; border-color:#dc2626; color:#fff; box-shadow:0 6px 16px -4px rgba(220,38,38,.45); }
+#sec-webdialer .wd-cs-btn-hangup:hover{ background:#b91c1c; border-color:#b91c1c; }
+.wd-cs-btn-hangup svg{ transform:rotate(135deg); }
+#sec-webdialer .wd-cs-btn-lbl{ display:none; }
+#sec-webdialer .wd-cs-meta{ display:none; }
+
+/* Matched-lead card */
+.wd-lead-head{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.wd-lead-avatar{
+  width:44px; height:44px; border-radius:50%;
+  background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+  display:flex; align-items:center; justify-content:center;
+  font-size:15px; font-weight:600; color:#fff; flex-shrink:0;
+}
+.wd-lead-name{ font-size:15px; font-weight:600; color:var(--text); }
+.wd-lead-status{ display:inline-block; margin-top:4px; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
+.wd-lead-fields{ display:flex; flex-direction:column; }
+.wd-lead-field{ display:flex; justify-content:space-between; gap:10px; font-size:12.5px; padding:7px 0; border-bottom:1px solid var(--border); }
+.wd-lead-field:last-child{ border-bottom:none; }
+.wd-lead-field .lbl{ color:var(--text3); flex-shrink:0; }
+.wd-lead-field .val{ color:var(--text); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
 /* Plan card */
 .pb-card-plan .pb-plan-name{
   font-size:22px; font-weight:700; letter-spacing:.3px;
@@ -3169,6 +3333,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <div class="nav-item" onclick="nav('calendar')"><span class="ico" data-ico="calendar-check"></span><span class="nav-lbl-text">Calendar</span></div>
 
     <div class="nav-item" onclick="nav('phonebook')"><span class="ico" data-ico="phone"></span><span class="nav-lbl-text">Phone Book</span></div>
+    <div class="nav-item" onclick="nav('webdialer')"><span class="ico" data-ico="dialpad"></span><span class="nav-lbl-text">Web Dialer</span></div>
     <div class="nav-item" onclick="nav('agency')"><span class="ico" data-ico="buildings"></span><span class="nav-lbl-text">Agency</span></div>
   </div>
   <div class="sidebar-bot">
@@ -4194,6 +4359,130 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
       </div>
 
     </div><!-- /sec-phonebook -->
+
+    <!-- ========== WEB DIALER ========== -->
+    <div class="section" id="sec-webdialer">
+      <div class="wd-header">
+        <div class="wd-header-title">Web Dialer</div>
+        <div class="wd-header-sub">Dial any number by hand — no lead required.</div>
+      </div>
+
+      <div class="wd-wrap">
+        <div class="card wd-dial-card" id="wd-dial-card">
+          <div class="wd-display-wrap">
+            <!-- Elapsed-time readout — shown above the display while ringing/connected -->
+            <div class="wd-cs-timer" id="wd-cs-timer">Calling…</div>
+
+            <div class="wd-display">
+              <input type="text" id="wd-number-input" class="wd-number-input" placeholder="Enter a number" inputmode="tel" autocomplete="off">
+              <button type="button" class="wd-backspace" id="wd-backspace" title="Backspace" aria-label="Backspace">
+                <span data-ico="backspace" data-size="18"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="wd-keypad" id="wd-keypad">
+            <button type="button" class="wd-key" data-digit="1"><span class="wd-key-num">1</span></button>
+            <button type="button" class="wd-key" data-digit="2"><span class="wd-key-num">2</span><span class="wd-key-sub">ABC</span></button>
+            <button type="button" class="wd-key" data-digit="3"><span class="wd-key-num">3</span><span class="wd-key-sub">DEF</span></button>
+            <button type="button" class="wd-key" data-digit="4"><span class="wd-key-num">4</span><span class="wd-key-sub">GHI</span></button>
+            <button type="button" class="wd-key" data-digit="5"><span class="wd-key-num">5</span><span class="wd-key-sub">JKL</span></button>
+            <button type="button" class="wd-key" data-digit="6"><span class="wd-key-num">6</span><span class="wd-key-sub">MNO</span></button>
+            <button type="button" class="wd-key" data-digit="7"><span class="wd-key-num">7</span><span class="wd-key-sub">PQRS</span></button>
+            <button type="button" class="wd-key" data-digit="8"><span class="wd-key-num">8</span><span class="wd-key-sub">TUV</span></button>
+            <button type="button" class="wd-key" data-digit="9"><span class="wd-key-num">9</span><span class="wd-key-sub">WXYZ</span></button>
+            <button type="button" class="wd-key" data-digit="*"><span class="wd-key-num">*</span></button>
+            <button type="button" class="wd-key" data-digit="0"><span class="wd-key-num">0</span><span class="wd-key-sub">+</span></button>
+            <button type="button" class="wd-key" data-digit="#"><span class="wd-key-num">#</span></button>
+          </div>
+
+          <!-- Idle action — shown while no call is active -->
+          <div id="wd-dialview">
+            <button type="button" class="wd-call-btn" id="wd-call-btn" aria-label="Call">
+              <span data-ico="phone" data-size="22"></span>
+            </button>
+            <div class="wd-status" id="wd-status">
+              <span class="wd-conn-dot" id="wd-conn-dot"></span>
+              <span id="wd-conn-label">Ready to call</span>
+            </div>
+          </div>
+
+          <!-- In-call action — hangup + mute, shown while ringing/connected -->
+          <div class="wd-cs-controls" id="wd-callscreen" style="display:none">
+            <button type="button" class="wd-cs-btn wd-cs-btn-hangup" id="wd-cs-hangup" aria-label="Hang up">
+              <span data-ico="phone" data-size="22"></span>
+            </button>
+            <button type="button" class="wd-cs-btn" id="wd-cs-mute" aria-label="Mute">
+              <span class="wd-cs-btn-ico" id="wd-cs-mute-ico" data-ico="microphone" data-size="20"></span>
+              <span class="wd-cs-btn-lbl" id="wd-cs-mute-lbl">Mute</span>
+            </button>
+          </div>
+
+          <!-- Kept for JS (lead-name lookup on the active call); not shown in this design -->
+          <div class="wd-cs-meta" aria-hidden="true">
+            <span id="wd-cs-avatar"></span>
+            <span id="wd-cs-name"></span>
+            <span id="wd-cs-number"></span>
+          </div>
+        </div>
+
+        <div class="wd-settings-col">
+          <div class="card wd-settings-card">
+            <div class="card-title" style="display:flex;align-items:center;gap:8px">
+              <span data-ico="gear" data-size="13"></span>Call Settings
+            </div>
+            <div class="fg">
+              <label>Caller ID Number</label>
+              <select id="wd-caller-id"><option value="">Loading…</option></select>
+            </div>
+            <div class="fg">
+              <label>Caller ID Name</label>
+              <input type="text" id="wd-caller-name" placeholder="Your name or business" maxlength="30">
+            </div>
+            <div class="wd-hint">
+              Calls placed here use your Telnyx WebRTC connection — the same one behind click-to-call on the Leads tab.
+            </div>
+          </div>
+
+          <!-- Quick actions on the currently-dialed number -->
+          <div class="wd-quick-actions">
+            <button type="button" class="wd-qa-btn" id="wd-add-lead-btn">
+              <span data-ico="user" data-size="20"></span>
+              <span>Add as Lead</span>
+            </button>
+            <button type="button" class="wd-qa-btn wd-qa-btn-quote" id="wd-quote-btn">
+              <span data-ico="currency-dollar" data-size="20"></span>
+              <span>Quote</span>
+            </button>
+          </div>
+
+          <!-- Populated automatically when the dialed number matches an existing lead -->
+          <div class="card wd-lead-card" id="wd-lead-card" style="display:none">
+            <div class="card-title" style="display:flex;align-items:center;gap:8px">
+              <span data-ico="user" data-size="13"></span>Matched Lead
+            </div>
+            <div class="wd-lead-head">
+              <div class="wd-lead-avatar" id="wd-lead-avatar">?</div>
+              <div class="wd-lead-head-meta">
+                <div class="wd-lead-name" id="wd-lead-name">—</div>
+                <span class="wd-lead-status" id="wd-lead-status"></span>
+              </div>
+            </div>
+            <div class="wd-lead-fields" id="wd-lead-fields"></div>
+          </div>
+        </div>
+
+        <!-- Recent calls placed/received on this account — sits to the right of Call Settings -->
+        <div class="card wd-history-card">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            <span data-ico="clock" data-size="13"></span>Call History
+          </div>
+          <div class="wd-history-list" id="wd-history-list">
+            <div class="wd-history-empty">Loading…</div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /sec-webdialer -->
 
     <!-- ========== SETTINGS ========== -->
     <div class="section" id="sec-settings">
@@ -5584,12 +5873,19 @@ function _wizOpenStripePopup(url) {
   _wizStripePopupRef = window.open(url, 'stripe_checkout',
     `width=${pw},height=${ph},left=${left},top=${top},resizable=yes,scrollbars=yes,toolbar=no,menubar=no,location=no,status=no`);
 
-  // Listen for completion message from the popup
+  // Listen for completion/cancellation message from the popup
   function _onMsg(e) {
     if (e.data && e.data.type === 'stripe_checkout_complete') {
       window.removeEventListener('message', _onMsg);
       if (_wizStripePopupPoll) { clearInterval(_wizStripePopupPoll); _wizStripePopupPoll = null; }
       _wizPaymentComplete();
+    } else if (e.data && e.data.type === 'stripe_checkout_cancelled') {
+      window.removeEventListener('message', _onMsg);
+      if (_wizStripePopupPoll) { clearInterval(_wizStripePopupPoll); _wizStripePopupPoll = null; }
+      if (_wizPaymentPending) {
+        const reopenBtn = document.getElementById('wiz-popup-reopen-btn');
+        if (reopenBtn) reopenBtn.style.display = '';
+      }
     }
   }
   window.addEventListener('message', _onMsg);
@@ -6209,6 +6505,10 @@ const ICONS = {
   'prohibit': '<circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 14.14 14.14"/>',
   'info': '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
   'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  'dialpad': '<circle cx="5" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="5" r="1.6" fill="currentColor" stroke="none"/><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="19" r="1.6" fill="currentColor" stroke="none"/>',
+  'backspace': '<path d="M9 4h11a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9l-7-8Z"/><line x1="13.5" y1="9.5" x2="18.5" y2="14.5"/><line x1="18.5" y1="9.5" x2="13.5" y2="14.5"/>',
+  'microphone': '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>',
+  'microphone-slash': '<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="3" y1="3" x2="21" y2="21"/>',
   'gear': '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>',
   'user': '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
   'buildings': '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>',
@@ -11230,6 +11530,10 @@ function showLeadNotification(lead) {
 //
 // Public surface (window.softphone):
 //   .dial(leadId)        Start an outbound call to a lead.
+//   .dialNumber(e164, displayName, callerIdOverride)
+//                        Start an ad hoc call with no lead attached —
+//                        used by the Web Dialer tab's manual keypad.
+//   .sendDigit(d)        Send a DTMF tone into the live call.
 //   .hangup()            End the active call (via signalwire-hangup).
 //   .toggleMute()        UI-only mute toggle (real audio is on the
 //                        agent's own phone in bridge mode).
@@ -11317,10 +11621,19 @@ const softphone = (() => {
   }
 
   // ── Render ─────────────────────────────────────────────────
+  // The Web Dialer tab renders call state inline (timer + centered number +
+  // hangup/mute in the dial card itself), so the floating bottom-right
+  // popup would just be a redundant second copy of the same call while
+  // that tab is open — suppress it there regardless of how the call
+  // was placed (click-to-call elsewhere still gets the floating panel).
+  function _onWebDialerTab() {
+    const sec = document.getElementById('sec-webdialer');
+    return !!(sec && sec.classList.contains('active'));
+  }
   function _render() {
     const panel = _panel(); if (!panel) return;
     panel.dataset.phase = state.phase;
-    panel.style.display = (state.phase === 'idle') ? 'none' : '';
+    panel.style.display = (state.phase === 'idle' || _onWebDialerTab()) ? 'none' : '';
 
     if (state.phase === 'idle') return;
 
@@ -11359,8 +11672,9 @@ const softphone = (() => {
     muteBtn.classList.toggle('is-muted', state.muted);
     _el('sp-mute-lbl').textContent = state.muted ? 'Muted' : 'Mute';
 
-    // Outcome picker only after ended-with-conversation
-    _el('sp-outcome').style.display = (state.phase === 'ended' && state.durationSec >= NO_ANSWER_THRESHOLD_SEC) ? '' : 'none';
+    // Outcome picker only after ended-with-conversation, and only when a
+    // lead is attached — ad hoc Web Dialer calls have no lead status to set.
+    _el('sp-outcome').style.display = (state.phase === 'ended' && state.durationSec >= NO_ANSWER_THRESHOLD_SEC && state.leadId) ? '' : 'none';
 
     // Stub banner only when the real path failed and we're simulating.
     // When we have a specific failure reason from _realDial, surface it
@@ -11508,11 +11822,13 @@ const softphone = (() => {
       const cause = call.cause || '';
       if (cause) console.warn('[softphone] call ended — cause:', cause, call.causeCode);
       if (state.callRowId) {
-        sb.from('calls').update({
-          status: 'completed',
-          ended_at: new Date().toISOString(),
-          duration_sec: dur,
-        }).eq('id', state.callRowId).then(() => {});
+        // telnyx-report-call-minutes closes the row server-side (computing
+        // duration from answered_at, same as the Power Dialer flow) and
+        // reports the elapsed minutes to Stripe metered billing — the
+        // WebRTC softphone has no Call Control webhook wired to it, so
+        // nothing else ever bills these calls at $0.02/min.
+        sb.functions.invoke('telnyx-report-call-minutes', { body: { call_row_id: state.callRowId } })
+          .catch((e) => console.warn('[softphone] minute billing report failed', e));
       }
       state.phase = 'ended';
       _render();
@@ -11606,22 +11922,27 @@ const softphone = (() => {
     });
   }
 
-  async function _webrtcDial(leadId, phoneE164) {
+  async function _webrtcDial(leadId, phoneE164, callerIdOverride, callerNameOverride) {
     const initResult = await _initTelnyxWebRTC();
     if (!initResult.ok) return initResult;
 
     // Insert a calls row for history — look up the lead UUID first.
+    // Ad hoc Web Dialer calls pass leadId === null and skip this lookup.
     try {
-      const { data: leadRow } = await sb.from('leads')
-        .select('id')
-        .eq('agent_id', (currentAgent || {}).id)
-        .eq('client_id', String(leadId))
-        .maybeSingle();
+      let leadRowId = null;
+      if (leadId) {
+        const { data: leadRow } = await sb.from('leads')
+          .select('id')
+          .eq('agent_id', (currentAgent || {}).id)
+          .eq('client_id', String(leadId))
+          .maybeSingle();
+        leadRowId = leadRow ? leadRow.id : null;
+      }
       const { data: callRow } = await sb.from('calls').insert({
         agent_id:   (currentAgent || {}).id,
-        lead_id:    leadRow ? leadRow.id : null,
+        lead_id:    leadRowId,
         direction:  'outbound',
-        phone_from: _webrtcCallerId || null,
+        phone_from: callerIdOverride || _webrtcCallerId || null,
         phone_to:   phoneE164,
         started_at: new Date().toISOString(),
         status:     'initiated',
@@ -11634,7 +11955,8 @@ const softphone = (() => {
     try {
       _activeCall = _telnyxClient.newCall({
         destinationNumber: phoneE164,
-        callerNumber: _webrtcCallerId || undefined,
+        callerNumber: callerIdOverride || _webrtcCallerId || undefined,
+        callerName: callerNameOverride || undefined,
         audio: true,
         video: false,
       });
@@ -11646,17 +11968,10 @@ const softphone = (() => {
   }
 
   // ── Public API ────────────────────────────────────────────
-  async function dial(leadId) {
-    // `leads` is module-scoped (let leads = [] at top of this script tag),
-    // so a bare reference works from inside the IIFE.
-    const lead = (typeof leads !== 'undefined' ? leads : []).find(l => String(l.id) === String(leadId));
-    if (!lead) { showToast('Lead not found', '#dc2626'); return; }
-    const phoneE164 = toE164(lead.phone);
-    if (!phoneE164) {
-      showToast('No valid phone number for this lead', '#dc2626');
-      return;
-    }
-
+  // Shared tail of dial()/dialNumber() — mic check, optimistic UI,
+  // the actual WebRTC dial, and error-to-toast mapping. leadId is
+  // null for ad hoc Web Dialer calls (no lead to attach the row to).
+  async function _startCall({ leadId, displayName, phoneE164, callerIdOverride, callerNameOverride }) {
     // The Telnyx WebRTC SDK needs a live microphone track to build the
     // call's peer connection before it can send the outbound INVITE. If
     // mic access is blocked/denied, the SDK fails the call internally
@@ -11675,9 +11990,9 @@ const softphone = (() => {
 
     // Optimistic UI: show "Calling…" immediately while we mint the token.
     state.phase       = 'ringing-out';
-    state.leadId      = String(leadId);
-    state.leadName    = lead.name || `${lead.first_name||''} ${lead.last_name||''}`.trim() || 'Unknown';
-    state.phoneFmt    = formatPhone(lead.phone) || lead.phone;
+    state.leadId      = leadId ? String(leadId) : null;
+    state.leadName    = displayName || 'Unknown';
+    state.phoneFmt    = formatPhone(phoneE164) || phoneE164;
     state.targetE164  = phoneE164;
     state.callerId    = '';
     state.direction   = 'outbound';
@@ -11691,7 +12006,7 @@ const softphone = (() => {
     _startSpRingback();
 
     // Try the WebRTC path — connects via Telnyx SIP and dials directly.
-    const result = await _webrtcDial(String(leadId), phoneE164);
+    const result = await _webrtcDial(leadId ? String(leadId) : null, phoneE164, callerIdOverride, callerNameOverride);
     if (result.ok) return;
 
     // Map specific errors to actionable toasts.
@@ -11729,6 +12044,32 @@ const softphone = (() => {
       _startTimer();
       _render();
     }, 1500);
+  }
+
+  async function dial(leadId) {
+    // `leads` is module-scoped (let leads = [] at top of this script tag),
+    // so a bare reference works from inside the IIFE.
+    const lead = (typeof leads !== 'undefined' ? leads : []).find(l => String(l.id) === String(leadId));
+    if (!lead) { showToast('Lead not found', '#dc2626'); return; }
+    const phoneE164 = toE164(lead.phone);
+    if (!phoneE164) {
+      showToast('No valid phone number for this lead', '#dc2626');
+      return;
+    }
+    const displayName = lead.name || `${lead.first_name||''} ${lead.last_name||''}`.trim() || 'Unknown';
+    await _startCall({ leadId, displayName, phoneE164 });
+  }
+
+  // Ad hoc dial for the Web Dialer tab — same call machinery as dial(),
+  // but with no lead attached, so _applyOutcome() no-ops (it requires a
+  // leadId) and the outcome picker stays hidden after the call ends.
+  async function dialNumber(phoneE164, displayName, callerIdOverride, callerNameOverride) {
+    if (!phoneE164) { showToast('Enter a valid phone number', '#dc2626'); return; }
+    if (state.phase !== 'idle' && state.phase !== 'ended') {
+      showToast('A call is already in progress.', '#dc2626');
+      return;
+    }
+    await _startCall({ leadId: null, displayName: displayName || formatPhone(phoneE164) || phoneE164, phoneE164, callerIdOverride, callerNameOverride });
   }
 
   function hangup() {
@@ -11775,6 +12116,15 @@ const softphone = (() => {
       try { _activeCall.toggleAudioMute(); } catch (e) { console.warn('[softphone] mute failed', e); }
     }
     _render();
+  }
+
+  // Send a DTMF tone into the live call (IVR navigation, extensions, etc).
+  // Used by the Web Dialer keypad when a call is already connected.
+  function sendDigit(digit) {
+    if (state.phase !== 'connected' || !_activeCall) return;
+    try {
+      if (typeof _activeCall.dtmf === 'function') _activeCall.dtmf(String(digit));
+    } catch (e) { console.warn('[softphone] dtmf send failed', e); }
   }
 
   // ── Call logging ──────────────────────────────────────────
@@ -11964,9 +12314,13 @@ const softphone = (() => {
   }
 
   return {
-    dial, hangup, toggleMute, setOutcome, close, isAdmin,
+    dial, dialNumber, hangup, toggleMute, setOutcome, close, isAdmin, sendDigit,
     loadAdminFlag: _loadAdminFlag,
     initRealtime:  _initRealtime,
+    // Re-runs the floating-panel visibility check (idle / on the Web Dialer
+    // tab → hidden) without waiting for the next state-driven render —
+    // called from nav() so switching tabs mid-call shows/hides it right away.
+    renderPanel:   _render,
     get state() { return { ...state }; },
     get unavailable() { return false; },   // reserved for future "no creds" hard-disable
     get stub()        { return state.stubMode; },
@@ -11974,6 +12328,360 @@ const softphone = (() => {
 })();
 // Expose for inline onclick handlers and dev-tools probing
 window.softphone = softphone;
+
+// ============================================================
+// WEB DIALER — manual dialpad tab (nav('webdialer')). Dials any
+// typed number through the same Telnyx WebRTC softphone plumbing
+// as click-to-call (softphone.dialNumber), so the active call
+// still shows in the floating softphone panel for mute/hangup/timer.
+// ============================================================
+const webDialer = (() => {
+  let _bound = false;
+  let _numbersLoaded = false;
+  let _statusTimer = null;
+
+  function _el(id) { return document.getElementById(id); }
+  function _input() { return _el('wd-number-input'); }
+
+  // DTMF tone pairs (standard touch-tone frequencies), used both for the
+  // audible key-press feedback and to key mid-call digits into an IVR.
+  const DTMF_FREQS = {
+    '1':[697,1209], '2':[697,1336], '3':[697,1477],
+    '4':[770,1209], '5':[770,1336], '6':[770,1477],
+    '7':[852,1209], '8':[852,1336], '9':[852,1477],
+    '*':[941,1209], '0':[941,1336], '#':[941,1477],
+  };
+  let _dtmfCtx = null;
+  function _playDtmfTone(d) {
+    const freqs = DTMF_FREQS[d]; if (!freqs) return;
+    try {
+      if (!_dtmfCtx) _dtmfCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (_dtmfCtx.state === 'suspended') _dtmfCtx.resume();
+      const now = _dtmfCtx.currentTime;
+      freqs.forEach(freq => {
+        const osc = _dtmfCtx.createOscillator();
+        const gain = _dtmfCtx.createGain();
+        osc.connect(gain); gain.connect(_dtmfCtx.destination);
+        osc.type = 'sine'; osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.09, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.12);
+        osc.start(now); osc.stop(now + 0.13);
+      });
+    } catch (e) {}
+  }
+
+  function appendDigit(d) {
+    const inp = _input(); if (!inp) return;
+    _playDtmfTone(d);
+    // Mid-call: keypad sends DTMF into the live call (IVR nav) instead of
+    // editing the (now irrelevant) number display.
+    if (window.softphone && softphone.state && softphone.state.phase === 'connected') {
+      softphone.sendDigit(d);
+      return;
+    }
+    inp.value += d;
+    inp.focus();
+    _checkLeadMatch();
+  }
+
+  function backspace() {
+    const inp = _input(); if (!inp) return;
+    inp.value = inp.value.slice(0, -1);
+    inp.focus();
+    _checkLeadMatch();
+  }
+
+  // ── Lead auto-match — as the number is typed, check it against the
+  // already-loaded `leads` array (same global used by click-to-call) and
+  // surface a match in the card below Call Settings. ──
+  let _matchedLead = null;
+  function _last10(raw) {
+    const d = String(raw || '').replace(/\D/g, '');
+    return d.length >= 10 ? d.slice(-10) : '';
+  }
+  function _leadFullName(lead) {
+    if (!lead) return '';
+    if (lead.name) return lead.name;
+    return [lead.first_name, lead.last_name].filter(Boolean).join(' ');
+  }
+  function _initials(name) {
+    return (name || '?').trim().split(/\s+/).slice(0, 2).map(w => (w[0] || '').toUpperCase()).join('') || '?';
+  }
+  function _renderLeadCard(lead) {
+    const card = _el('wd-lead-card');
+    if (!card) return;
+    if (!lead) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    const fullName = _leadFullName(lead) || 'Unknown';
+    const nameEl = _el('wd-lead-name'); if (nameEl) nameEl.textContent = fullName;
+    const avatarEl = _el('wd-lead-avatar'); if (avatarEl) avatarEl.textContent = _initials(fullName);
+    const statusEl = _el('wd-lead-status');
+    if (statusEl) {
+      const status = lead.status || 'new';
+      const sc = (typeof STATUS_CONFIG !== 'undefined' && STATUS_CONFIG[status]) ||
+        { label: status, color: '#94a3b8', bg: 'rgba(148,163,184,.12)' };
+      statusEl.textContent = sc.label;
+      statusEl.style.color = sc.color;
+      statusEl.style.background = sc.bg;
+    }
+    const cityState = [lead.city, lead.state].filter(Boolean).join(', ');
+    const fields = [
+      ['Phone', formatPhone(lead.phone) || lead.phone],
+      ['Email', lead.email],
+      ['Location', [lead.address, cityState].filter(Boolean).join(', ') || cityState],
+      ['Source', lead.source],
+      ['Calls', lead.call_count],
+    ].filter(([, v]) => v != null && v !== '');
+    const fieldsEl = _el('wd-lead-fields');
+    if (fieldsEl) {
+      fieldsEl.innerHTML = fields.map(([k, v]) =>
+        `<div class="wd-lead-field"><span class="lbl">${k}</span><span class="val" title="${escapeHTML(String(v))}">${escapeHTML(String(v))}</span></div>`
+      ).join('');
+    }
+  }
+  function _checkLeadMatch() {
+    const inp = _input(); if (!inp) return;
+    const last10 = _last10(inp.value);
+    if (!last10) { _matchedLead = null; _renderLeadCard(null); return; }
+    const list = (typeof leads !== 'undefined' ? leads : []);
+    const found = list.find(l => _last10(l.phone) === last10) || null;
+    _matchedLead = found;
+    _renderLeadCard(found);
+  }
+
+  async function _loadCallerIdOptions() {
+    const sel = _el('wd-caller-id');
+    if (!sel || !currentAgent || !currentAgent.id) return;
+    sel.innerHTML = '<option value="">Loading…</option>';
+    try {
+      const { data, error } = await sb.from('phone_numbers')
+        .select('e164, friendly_name, is_primary, status')
+        .eq('agent_id', currentAgent.id)
+        .eq('status', 'active')
+        .order('is_primary', { ascending: false });
+      if (error) throw error;
+      const nums = data || [];
+      if (!nums.length) {
+        sel.innerHTML = '<option value="">No numbers — buy one in Phone Book</option>';
+        return;
+      }
+      sel.innerHTML = nums.map(n => {
+        const label = (n.friendly_name ? n.friendly_name + ' — ' : '') +
+          (formatPhone(n.e164) || n.e164) + (n.is_primary ? ' (Primary)' : '');
+        return `<option value="${n.e164}">${label}</option>`;
+      }).join('');
+      const primary = nums.find(n => n.is_primary) || nums[0];
+      if (primary) sel.value = primary.e164;
+    } catch (e) {
+      console.warn('[webdialer] caller id load failed', e);
+      sel.innerHTML = '<option value="">Couldn\'t load numbers</option>';
+    }
+  }
+
+  function _fmtTimer(sec) {
+    const m = Math.floor(sec / 60); const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  // Tracks the previous poll's call state so we can detect the exact
+  // moment a call ends (inCall true → false) and refresh Call History.
+  let _wasInCall = false;
+
+  // The display + keypad stay mounted in both states; only the bottom
+  // action row swaps (single call button ↔ hangup/mute) and the elapsed-
+  // time readout appears above the display, driven purely by polling
+  // softphone.state — there's no event bus for phase changes.
+  function _renderCallState() {
+    const sp = (window.softphone && softphone.state) || {};
+    const phase = sp.phase || 'idle';
+    const inCall = (phase !== 'idle' && phase !== 'ended');
+
+    const dialCard = _el('wd-dial-card');
+    const dialView = _el('wd-dialview');
+    const callScreen = _el('wd-callscreen');
+    const timerEl = _el('wd-cs-timer');
+    const inp = _input();
+    if (dialCard) dialCard.classList.toggle('in-call', inCall);
+    if (dialView) dialView.style.display = inCall ? 'none' : '';
+    if (callScreen) callScreen.style.display = inCall ? '' : 'none';
+    if (timerEl) timerEl.style.display = inCall ? 'block' : 'none';
+    if (inp) inp.readOnly = inCall;
+
+    // Call just ended — the `calls` row is finalized server-side a moment
+    // after this, so wait a beat before pulling fresh history.
+    if (_wasInCall && !inCall) setTimeout(_loadCallHistory, 1500);
+    _wasInCall = inCall;
+
+    if (!inCall) {
+      const dot = _el('wd-conn-dot'); const lbl = _el('wd-conn-label');
+      if (dot) dot.classList.remove('is-ringing', 'is-live');
+      if (lbl) lbl.textContent = 'Ready to call';
+      return;
+    }
+
+    if (timerEl) {
+      timerEl.textContent = (phase === 'connected')
+        ? _fmtTimer(sp.durationSec || 0)
+        : 'Calling…';
+    }
+
+    const displayName = sp.leadName || sp.phoneFmt || 'Unknown';
+    const sameAsNumber = displayName === sp.phoneFmt;
+    const nameEl = _el('wd-cs-name'); if (nameEl) nameEl.textContent = displayName;
+    const numEl = _el('wd-cs-number');
+    if (numEl) { numEl.textContent = sameAsNumber ? '' : (sp.phoneFmt || ''); }
+    const avatarEl = _el('wd-cs-avatar'); if (avatarEl) avatarEl.textContent = _initials(displayName);
+
+    const muteBtn = _el('wd-cs-mute');
+    if (muteBtn) muteBtn.classList.toggle('is-muted', !!sp.muted);
+    const muteIcoEl = _el('wd-cs-mute-ico');
+    if (muteIcoEl) muteIcoEl.innerHTML = icon(sp.muted ? 'microphone-slash' : 'microphone', { size: 20 });
+    const muteLblEl = _el('wd-cs-mute-lbl');
+    if (muteLblEl) muteLblEl.textContent = sp.muted ? 'Muted' : 'Mute';
+  }
+
+  function placeCall() {
+    const inp = _input(); if (!inp) return;
+    const raw = inp.value.trim();
+    if (!raw) { showToast('Enter a number to call', '#dc2626'); return; }
+    const e164 = toE164(raw);
+    if (!e164) { showToast('Enter a valid phone number', '#dc2626'); return; }
+    if (!window.softphone || typeof softphone.dialNumber !== 'function') {
+      showToast('Dialer is not available right now.', '#dc2626'); return;
+    }
+    const callerSel = _el('wd-caller-id');
+    const callerOverride = callerSel && callerSel.value ? callerSel.value : null;
+    const nameInp = _el('wd-caller-name');
+    const callerNameOverride = nameInp && nameInp.value.trim() ? nameInp.value.trim() : null;
+    // If this number matches a known lead, show their name on the call
+    // screen instead of the raw number.
+    const leadName = _leadFullName(_matchedLead);
+    softphone.dialNumber(e164, leadName || formatPhone(raw), callerOverride, callerNameOverride);
+    if (nameInp) nameInp.blur();
+  }
+
+  // ── Quick actions ──────────────────────────────────────────
+  function _addAsLead() {
+    const inp = _input(); if (!inp) return;
+    const raw = inp.value.trim();
+    if (!raw) { showToast('Enter a number to add as a lead', '#dc2626'); return; }
+    if (typeof openAddLeadModal !== 'function') {
+      showToast('The lead form is not available right now.', '#dc2626'); return;
+    }
+    openAddLeadModal();
+    const phoneInp = document.getElementById('al-phone');
+    if (phoneInp) phoneInp.value = (typeof formatPhone === 'function' ? formatPhone(raw) : raw) || raw;
+  }
+
+  // Always opens as a popup over the Web Dialer — never navigates the agent
+  // away to the standalone Quote + Underwriting tab. A matched lead gets the
+  // same prefilled lead-quote modal used from the Leads tab; an ad hoc
+  // number gets the identical modal in a blank state (no lead to attach the
+  // quote to, so the info strip says so instead of showing lead fields).
+  function _openQuote() {
+    if (_matchedLead && typeof openQuoteForLead === 'function') {
+      openQuoteForLead(_matchedLead.id);
+      return;
+    }
+    const overlay = document.getElementById('leadApiQuoteModal');
+    if (!overlay || typeof clearLeadApiQuote !== 'function') {
+      showToast('Quoter is not available right now.', '#dc2626'); return;
+    }
+    const inp = _input();
+    const dialed = inp ? inp.value.trim() : '';
+    const nameEl  = document.getElementById('laq-lead-name');
+    const subEl   = document.getElementById('laq-lead-sub');
+    const stripEl = document.getElementById('laq-lead-strip');
+    if (nameEl)  nameEl.textContent = 'New Quote';
+    if (subEl)   subEl.textContent  = dialed ? (formatPhone(dialed) || dialed) : 'No number dialed yet';
+    if (stripEl) stripEl.innerHTML  = '<div style="color:var(--text3)">No lead attached — use "Add as Lead" first to save this quote against a lead.</div>';
+    clearLeadApiQuote();
+    if (typeof renderApiQuoterCounter === 'function') renderApiQuoterCounter('modal');
+    overlay.classList.add('open');
+  }
+
+  // ── Call History — compact recent-calls list in the right column ──
+  function _histOtherPartyNumber(r) {
+    return r.direction === 'inbound' ? r.phone_from : r.phone_to;
+  }
+  function _fmtHistRow(r) {
+    const chipCls = _PB_STATUS_CHIP[r.status] || 'neutral';
+    const num = _histOtherPartyNumber(r);
+    return `
+      <div class="wd-history-row">
+        <div class="wd-history-main">
+          <span class="wd-history-num">${escapeHTML(_pbFmtPhone(num))}</span>
+          <span class="wd-history-time">${escapeHTML(_pbFmtTime(r.started_at))}</span>
+        </div>
+        <div class="wd-history-side">
+          <span class="wd-history-dur">${escapeHTML(_pbFmtDur(r.duration_sec))}</span>
+          <span class="wd-hist-chip ${chipCls}">${escapeHTML(r.status || 'unknown')}</span>
+        </div>
+      </div>`;
+  }
+  async function _loadCallHistory() {
+    const list = _el('wd-history-list');
+    if (!list) return;
+    if (!currentAgent || !currentAgent.id) {
+      list.innerHTML = '<div class="wd-history-empty">Sign in to see your call history.</div>';
+      return;
+    }
+    try {
+      const { data, error } = await sb.from('calls')
+        .select('id, direction, phone_from, phone_to, started_at, duration_sec, status')
+        .eq('agent_id', currentAgent.id)
+        .order('started_at', { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      const rows = data || [];
+      list.innerHTML = rows.length
+        ? rows.map(_fmtHistRow).join('')
+        : '<div class="wd-history-empty">No calls yet — dial a number to get started.</div>';
+    } catch (e) {
+      console.warn('[webdialer] call history load failed', e);
+      list.innerHTML = '<div class="wd-history-empty">Couldn\'t load call history.</div>';
+    }
+  }
+
+  function _bindOnce() {
+    if (_bound) return; _bound = true;
+    document.querySelectorAll('#wd-keypad .wd-key').forEach(btn => {
+      btn.addEventListener('click', () => appendDigit(btn.dataset.digit));
+    });
+    const bs = _el('wd-backspace'); if (bs) bs.addEventListener('click', backspace);
+    const callBtn = _el('wd-call-btn'); if (callBtn) callBtn.addEventListener('click', placeCall);
+    const csMute = _el('wd-cs-mute'); if (csMute) csMute.addEventListener('click', () => { if (window.softphone) softphone.toggleMute(); });
+    const csHangup = _el('wd-cs-hangup'); if (csHangup) csHangup.addEventListener('click', () => { if (window.softphone) softphone.hangup(); });
+    const addLeadBtn = _el('wd-add-lead-btn'); if (addLeadBtn) addLeadBtn.addEventListener('click', _addAsLead);
+    const quoteBtn = _el('wd-quote-btn'); if (quoteBtn) quoteBtn.addEventListener('click', _openQuote);
+    const inp = _input();
+    if (inp) {
+      inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') placeCall(); });
+      inp.addEventListener('input', _checkLeadMatch);
+    }
+    // No event bus for softphone phase changes — poll while this tab is open.
+    _statusTimer = setInterval(_renderCallState, 1000);
+  }
+
+  function render() {
+    _bindOnce();
+    if (!_numbersLoaded) {
+      _numbersLoaded = true;
+      _loadCallerIdOptions();
+      const nameInp = _el('wd-caller-name');
+      if (nameInp && !nameInp.value && currentAgent && currentAgent.display_name) {
+        nameInp.value = currentAgent.display_name;
+      }
+    }
+    _checkLeadMatch();
+    _renderCallState();
+    _loadCallHistory();
+    if (typeof mountIcons === 'function') mountIcons(_el('sec-webdialer'));
+  }
+
+  return { render };
+})();
+window.webDialer = webDialer;
 
 function clearBulkSelection() {
   selectedLeadIds.clear();
@@ -14268,6 +14976,7 @@ const NAV_TITLES = {
   leads:'Leads',
   calendar:'Calendar',
   phonebook:'Phone Book',
+  webdialer:'Web Dialer',
   agency:'Agency',
   settings:'Settings',
 };
@@ -14290,12 +14999,17 @@ function nav(id) {
   // Show target section
   const sec = document.getElementById('sec-' + id);
   if (sec) sec.classList.add('active');
+  // Re-check the floating call panel's visibility now that the active tab
+  // changed — an in-progress call should surface it the instant the agent
+  // leaves the Web Dialer tab (which shows call state inline instead), and
+  // hide it the instant they arrive there.
+  if (window.softphone && typeof softphone.renderPanel === 'function') softphone.renderPanel();
   // Update page title
   const titleEl = document.getElementById('pgTitle');
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
   // Highlight active nav item
   const items = document.querySelectorAll('.nav-item');
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, agency:7, settings:8 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, webdialer:7, agency:8, settings:9 };
   if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
@@ -14312,6 +15026,7 @@ function nav(id) {
   if (id === 'tracker') { populateTrackerCarrierFilter(); const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
   if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
   if (id === 'phonebook') renderPhoneBook();
+  if (id === 'webdialer') webDialer.render();
   if (id === 'agency') renderAgencySection();
   if (id === 'settings') initSettingsSection();
   // Tear down the Phone Book's live-calls subscription whenever we leave it.
@@ -15695,18 +16410,8 @@ async function pbSaveBillingConfig() {
 }
 
 // ── Buy Number modal ────────────────────────────────────────
-// Returns how many additional numbers the agent can buy before they
-// start adding to their subscription fee. 0 means "all included slots
-// are used; the next one is an extra."
-function _pbIncludedRemaining() {
-  if (_isDev()) return 999;
-  if (!_pbAgent || !_pbAgent.plan_id || !Array.isArray(_pbPlans)) return 0;
-  const plan = _pbPlans.find(p => p.id === _pbAgent.plan_id);
-  if (!plan || typeof plan.included_numbers !== 'number') return 0;
-  const owned = Array.isArray(_pbNumbers) ? _pbNumbers.length : 0;
-  return Math.max(0, plan.included_numbers - owned);
-}
-
+// No plan includes free numbers — every number always adds the
+// per-number add-on charge to the agent's Stripe subscription.
 function pbOpenBuyModal() {
   const m = document.getElementById('pbBuyModal');
   if (!m) return;
@@ -15775,18 +16480,16 @@ async function pbSearchNumbers() {
       wrap.style.display = 'none';
       return;
     }
-    const remaining = _pbIncludedRemaining();
     const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
     const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
-    const hint = remaining > 0
-      ? `${remaining} included with your plan. Additional numbers billed at ${numRateStr} each.`
-      : `All included slots used — each number billed at ${numRateStr}.`;
+    const hint = _isDev()
+      ? 'Developer account — numbers are free.'
+      : `Each number billed at ${numRateStr}.`;
     status.textContent = `${list.length} numbers available for ${area}. ${hint}`;
     wrap.style.display = '';
     tbody.innerHTML = list.map((n, i) => {
-      const isIncluded = i < remaining;
-      const label = isIncluded
-        ? `<span class="pb-included-pill">Included</span>`
+      const label = _isDev()
+        ? `<span class="pb-included-pill">Free</span>`
         : `<span class="mono">${escapeHTML(numRateStr)}</span>`;
       return `
         <tr>
@@ -15818,18 +16521,13 @@ async function pbSearchNumbers() {
 
 async function pbConfirmBuy(n, btn) {
   const e164 = n.phone_number;
-  const remaining = _pbIncludedRemaining();
   const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
   const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
   const msg = _isDev()
     ? `Purchase ${_pbFmtPhone(e164)}?\n\nDeveloper account — this number will be acquired for free.`
-    : remaining > 0
-      ? `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-        `This number is included with your plan — no extra subscription charge. ` +
-        `Telnyx's own per-number fee still applies to your Telnyx account.`
-      : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-        `This is beyond your plan's included numbers. It will add ${numRateStr} to your ` +
-        `monthly Stripe charge starting today (prorated). Telnyx's own per-number fee also applies.`;
+    : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
+      `It will add ${numRateStr} to your monthly Stripe charge starting today (prorated). ` +
+      `Telnyx's own per-number fee also applies.`;
   const ok = window.confirm(msg);
   if (!ok) return;
 
@@ -15857,7 +16555,11 @@ async function pbConfirmBuy(n, btn) {
     await renderPhoneBook();
   } catch (e) {
     console.warn('[phonebook] buy failed', e);
-    showToast(`Purchase failed: ${e.message || e}`, '#dc2626');
+    const rawMsg = e.message || String(e);
+    const friendly = rawMsg.includes('active_subscription_required')
+      ? 'An active subscription is required to purchase a number.'
+      : rawMsg;
+    showToast(`Purchase failed: ${friendly}`, '#dc2626');
     if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
   }
 }
@@ -18387,40 +19089,51 @@ async function bootDashboard() {
     await sbFirstSyncIfNeeded();
 
     // Fetch the agent's current plan and admin flag so feature gating is accurate.
+    // Fail CLOSED: if this check can't be completed for any reason, treat the
+    // agent as unplanned and show the paywall rather than silently granting
+    // dashboard access.
     try {
       const [agentRow, planRows] = await Promise.all([
         sb.from('agents').select('plan_id, is_admin').eq('id', currentAgent.id).maybeSingle(),
         sb.from('plans').select('id, name').eq('active', true),
       ]);
-      if (!agentRow.error && !planRows.error && agentRow.data && planRows.data) {
-        const match = planRows.data.find(p => p.id === agentRow.data.plan_id);
-        currentPlanName = match ? match.name : null;
-        currentAgentIsAdmin = !!agentRow.data.is_admin;
-        try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
-        // After a Stripe redirect the webhook may not have updated plan_id yet.
-        // If plan is still null, wait 3 s and retry once before showing the plan overlay.
-        if (!currentPlanName && !currentAgentIsAdmin && window._stripeCheckoutReturn) {
-          window._stripeCheckoutReturn = false;
-          await new Promise(r => setTimeout(r, 3000));
-          const [r2, rp2] = await Promise.all([
-            sb.from('agents').select('plan_id, is_admin').eq('id', currentAgent.id).maybeSingle(),
-            sb.from('plans').select('id, name').eq('active', true),
-          ]);
-          if (!r2.error && r2.data && rp2.data) {
-            const m2 = rp2.data.find(p => p.id === r2.data.plan_id);
-            if (m2) { currentPlanName = m2.name; try { localStorage.setItem(k('pp_plan_name'), currentPlanName); } catch(_) {} }
-          }
-        }
+      if (agentRow.error || planRows.error || !agentRow.data || !planRows.data) {
+        throw new Error('plan_check_failed');
+      }
+      const match = planRows.data.find(p => p.id === agentRow.data.plan_id);
+      currentPlanName = match ? match.name : null;
+      currentAgentIsAdmin = !!agentRow.data.is_admin;
+      try { localStorage.setItem(k('pp_plan_name'), currentPlanName || ''); } catch(_) {}
+      // After a Stripe redirect the webhook may not have updated plan_id yet.
+      // If plan is still null, wait 3 s and retry once before showing the plan overlay.
+      if (!currentPlanName && !currentAgentIsAdmin && window._stripeCheckoutReturn) {
         window._stripeCheckoutReturn = false;
-        _applyPlanGating();
-        if (!currentPlanName && !currentAgentIsAdmin) {
-          const pid = (currentAgent && currentAgent.user_metadata && currentAgent.user_metadata.pending_plan_id)
-            || localStorage.getItem('pp_pending_plan_id');
-          if (pid) await _autoCheckout(pid);
-          else showPlanRequiredOverlay();
+        await new Promise(r => setTimeout(r, 3000));
+        const [r2, rp2] = await Promise.all([
+          sb.from('agents').select('plan_id, is_admin').eq('id', currentAgent.id).maybeSingle(),
+          sb.from('plans').select('id, name').eq('active', true),
+        ]);
+        if (!r2.error && r2.data && rp2.data) {
+          const m2 = rp2.data.find(p => p.id === r2.data.plan_id);
+          if (m2) { currentPlanName = m2.name; try { localStorage.setItem(k('pp_plan_name'), currentPlanName); } catch(_) {} }
         }
       }
-    } catch(_) {}
+      window._stripeCheckoutReturn = false;
+      _applyPlanGating();
+      if (!currentPlanName && !currentAgentIsAdmin) {
+        const pid = (currentAgent && currentAgent.user_metadata && currentAgent.user_metadata.pending_plan_id)
+          || localStorage.getItem('pp_pending_plan_id');
+        if (pid) await _autoCheckout(pid);
+        else showPlanRequiredOverlay();
+      }
+    } catch(_) {
+      // Plan check failed — don't fail open. Show the paywall so an
+      // unverified agent can't sit on the dashboard.
+      currentPlanName = null;
+      currentAgentIsAdmin = false;
+      _applyPlanGating();
+      showPlanRequiredOverlay();
+    }
 
     // Process pending agency code join (set at signup, executed once post-login)
     _processAgencyCodeIfPending();
@@ -18463,7 +19176,7 @@ async function bootDashboard() {
   // Default-active section in HTML is 'summary'; only re-nav if a different one was saved.
   try {
     const saved = localStorage.getItem(k('pp_current_section'));
-    const valid = { summary:1, 'api-quoter':1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, agency:1, settings:1 };
+    const valid = { summary:1, 'api-quoter':1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, webdialer:1, agency:1, settings:1 };
     const _rt = _planTier();
     const _gated = (saved === 'bonuses' && _rt !== 'pro' && _rt !== 'leader') || (saved === 'agency' && _rt !== 'leader');
     if (saved && valid[saved] && saved !== 'summary' && !_gated) nav(saved);
@@ -18480,7 +19193,7 @@ async function bootDashboard() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, agency:7, settings:8 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, webdialer:7, agency:8, settings:9 };
   // Skip plan-gated sections — plan can't be verified before auth resolves.
   // bootDashboard() will navigate to the correct section for the user's tier.
   if (!saved || !(saved in idxMap) || saved === 'summary' || saved === 'bonuses' || saved === 'agency') return;
@@ -18606,8 +19319,14 @@ async function _recheckSubscription() {
 document.addEventListener('DOMContentLoaded', () => {
   const _cp = new URLSearchParams(location.search);
   // If we're the Stripe return URL inside a popup — notify parent then close.
-  if (_cp.get('checkout') === 'success' && window.opener && !window.opener.closed) {
-    try { window.opener.postMessage({ type: 'stripe_checkout_complete' }, '*'); } catch(_) {}
+  // This applies to BOTH success and cancel: the popup must never boot the
+  // full dashboard itself (e.g. via the Stripe Checkout page's own "back to
+  // merchant" arrow, which navigates the popup to cancel_url). Without this,
+  // an authenticated-but-unpaid session could load the whole app inside the
+  // small popup window and reach the dashboard without ever completing payment.
+  if ((_cp.get('checkout') === 'success' || _cp.get('checkout') === 'cancelled') && window.opener && !window.opener.closed) {
+    const msgType = _cp.get('checkout') === 'success' ? 'stripe_checkout_complete' : 'stripe_checkout_cancelled';
+    try { window.opener.postMessage({ type: msgType }, '*'); } catch(_) {}
     setTimeout(() => window.close(), 400);
     return;
   }
