@@ -10538,7 +10538,7 @@ function _applyPlanGating() {
   if (btiCard) btiCard.style.display = restricted ? 'none' : '';
   // Nav items — Bonus Tracker requires Pro+, Agency requires Leader
   const navItems = document.querySelectorAll('.nav-item');
-  const idxMap = { bonuses: 3, agency: 7 };
+  const idxMap = { bonuses: 3, agency: 8 };
   if (navItems[idxMap.bonuses]) navItems[idxMap.bonuses].style.display = restricted ? 'none' : '';
   if (navItems[idxMap.agency])  navItems[idxMap.agency].style.display  = isLeader  ? '' : 'none';
   // If user landed on a gated section (e.g. page reload with cached section), redirect to Summary
@@ -17443,10 +17443,15 @@ async function renderAgencySection() {
   if (!root || !currentAgent) return;
   root.innerHTML = '<div class="pb-empty" style="padding:40px">Loading…</div>';
   const tier = _planTier();
-  if (tier === 'leader') {
-    await _agRenderLeaderView(root);
-  } else {
-    await _agRenderAgentView(root);
+  try {
+    if (tier === 'leader') {
+      await _agRenderLeaderView(root);
+    } else {
+      await _agRenderAgentView(root);
+    }
+  } catch (e) {
+    root.innerHTML = `<div class="pb-empty">${escapeHTML(e.message || 'Failed to load Agency data.')}</div>`;
+    return;
   }
   if (typeof mountIcons === 'function') mountIcons(root);
 }
@@ -17510,33 +17515,47 @@ async function _agRenderLeaderView(root) {
     if (statsRows) statsRows.forEach(r => { statsMap[r.agent_id] = r; });
   }
 
-  // --- Agency Code Card ---
-  const codeVal = myAgencyCode || "";
-  const codeDisplay = codeVal
-    ? `<span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);letter-spacing:.18em;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 18px">${escapeHTML(codeVal)}</span>`
-    : `<span style="color:var(--text3);font-size:13px">No code yet — click Generate to create one.</span>`;
+  // --- Agency Profile Card (custom code + name) ---
+  if (window._myAgencyCode === undefined) {
+    const { data: myRow } = await sb.from('agents').select('agency_code, agency_name').eq('id', currentAgent.id).maybeSingle();
+    window._myAgencyCode = (myRow && myRow.agency_code) || null;
+    window._myAgencyName = (myRow && myRow.agency_name) || null;
+  }
+  const codeVal = window._myAgencyCode || "";
+  const nameVal = window._myAgencyName || "";
   const agCodeCard = `
     <div class="card" style="margin-bottom:22px">
       <div class="card-title" style="display:flex;align-items:center;gap:8px">
-        <span data-ico="key" data-size="13"></span>Your Agency Code
+        <span data-ico="key" data-size="13"></span>Your Agency
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
-        Share this code with agents when they sign up. They enter it in the <strong>Agency Code</strong> field and are automatically added to your agency.
+        Set your agency name and a custom code. Share the code with agents when they sign up — they'll be automatically added to your agency and get <strong>20% off</strong> their Basic or Pro plan for as long as they stay connected to you.
       </div>
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
-        <div id="ag-my-code-display">${codeDisplay}</div>
-        ${codeVal ? `<button class="btn btn-g btn-sm" onclick="agCopyAgencyCode()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="copy" data-size="13"></span>Copy</button>` : ""}
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="flex:1;min-width:180px">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);display:block;margin-bottom:6px">Agency Name</label>
+          <input id="ag-name-input" type="text" maxlength="60" value="${escapeHTML(nameVal)}" placeholder="e.g. Smith Family Agency"
+            style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;outline:none">
+        </div>
+        <div style="flex:1;min-width:180px">
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text3);display:block;margin-bottom:6px">Agency Code</label>
+          <input id="ag-code-input" type="text" maxlength="20" value="${escapeHTML(codeVal)}" placeholder="e.g. SMITH2024"
+            style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;outline:none">
+        </div>
       </div>
-      <button class="btn btn-p btn-sm" onclick="agGenerateAgencyCode()" style="display:inline-flex;align-items:center;gap:7px">
-        <span data-ico="arrows-clockwise" data-size="14"></span>${codeVal ? "Regenerate Code" : "Generate Code"}
-      </button>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button id="ag-save-profile-btn" class="btn btn-p btn-sm" onclick="agSaveAgencyProfile()" style="display:inline-flex;align-items:center;gap:7px">
+          <span data-ico="arrows-clockwise" data-size="14"></span>Save
+        </button>
+        ${codeVal ? `<button class="btn btn-g btn-sm" onclick="agCopyAgencyCode()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="copy" data-size="13"></span>Copy Code</button>` : ""}
+      </div>
       <div id="ag-code-gen-msg" style="font-size:12px;color:var(--ds-color-success);margin-top:10px;display:none"></div>
     </div>`;
   let h = discountCard + agCodeCard + `
 
     <div class="ag-header">
       <div>
-        <div class="ag-header-title">My Agency</div>
+        <div class="ag-header-title">${nameVal ? escapeHTML(nameVal) : 'My Agency'}</div>
         <div class="ag-header-sub">Invite downline agents to share their performance data with you.</div>
       </div>
     </div>
@@ -17759,38 +17778,32 @@ async function _processAgencyCodeIfPending() {
     console.warn('[agency] code join error:', e);
   }
 }
-function _generateAgencyCodeValue() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({length: 8}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-}
-
-async function agGenerateAgencyCode() {
-  const btn = document.querySelector('#ag-my-code-display')?.closest('.card')?.querySelector('.btn-p');
+async function agSaveAgencyProfile() {
+  const codeInput = document.getElementById('ag-code-input');
+  const nameInput = document.getElementById('ag-name-input');
+  const rawCode = (codeInput ? codeInput.value : '').trim();
+  const rawName = (nameInput ? nameInput.value : '').trim();
+  if (!rawCode || rawCode.length < 4) { showToast('Agency code must be at least 4 characters', '#dc2626'); return; }
+  const btn = document.getElementById('ag-save-profile-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-  const code = _generateAgencyCodeValue();
   try {
-    const { data, error } = await sb.rpc('set_my_agency_code', { p_code: code });
+    const { data, error } = await sb.rpc('set_my_agency_profile', { p_code: rawCode, p_name: rawName });
     if (error) throw error;
-    const savedCode = data || code;
+    window._myAgencyCode = (data && data.code) || rawCode.toUpperCase();
+    window._myAgencyName = (data && data.name) || null;
     const msgEl = document.getElementById('ag-code-gen-msg');
-    if (msgEl) { msgEl.textContent = 'Code saved!'; msgEl.style.display = ''; setTimeout(() => { msgEl.style.display = 'none'; }, 3000); }
-    const dispEl = document.getElementById('ag-my-code-display');
-    if (dispEl) {
-      dispEl.innerHTML = `<span style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--text);letter-spacing:.18em;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:8px 18px">${escapeHTML(savedCode)}</span>` +
-        ` <button class="btn btn-g btn-sm" onclick="agCopyAgencyCode()" style="display:inline-flex;align-items:center;gap:6px;margin-left:8px"><span data-ico="copy" data-size="13"></span>Copy</button>`;
-      if (typeof mountIcons === 'function') mountIcons(dispEl);
-    }
-    if (btn) { btn.disabled = false; btn.textContent = 'Regenerate Code'; }
-    window._myAgencyCode = savedCode;
+    if (msgEl) { msgEl.textContent = 'Saved!'; msgEl.style.display = ''; setTimeout(() => { msgEl.style.display = 'none'; }, 3000); }
+    showToast('Agency profile saved!', '#10b981');
+    await renderAgencySection();
   } catch(e) {
-    showToast(e.message || 'Failed to save agency code', '#dc2626');
-    if (btn) { btn.disabled = false; btn.textContent = 'Generate Code'; }
+    showToast(e.message || 'Failed to save agency profile', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
   }
 }
 
 function agCopyAgencyCode() {
-  const code = window._myAgencyCode ||
-    document.querySelector('#ag-my-code-display span[style*="mono"]')?.textContent?.trim();
+  const code = window._myAgencyCode;
   if (!code) return;
   navigator.clipboard.writeText(code).then(() => showToast('Agency code copied!', '#10b981')).catch(() => {
     prompt('Copy this code and share it with your agents:', code);
@@ -17825,10 +17838,28 @@ async function agCancelInvite(id) {
   await renderAgencySection();
 }
 
+// Unlinks an agency_invites row and, if the invitee has no other accepted
+// agency link left, strips their 20% downline discount from Stripe.
+async function _agUnlink(id, mode) {
+  const { data: { session } } = await sb.auth.getSession();
+  const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-agency-unlink`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+      'apikey': SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ invite_id: id, mode }),
+  });
+  const result = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(result.error || 'unlink_failed');
+}
+
 async function agRemoveConnection(id) {
   if (!window.confirm('Remove this agent from your agency? They will no longer share data with you.')) return;
-  const { error } = await sb.from('agency_invites').delete().eq('id', id).eq('leader_id', currentAgent.id);
-  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  try {
+    await _agUnlink(id, 'remove');
+  } catch (e) { showToast('Failed: ' + e.message, '#dc2626'); return; }
   showToast('Agent removed', '#10b981');
   await renderAgencySection();
 }
@@ -17853,10 +17884,9 @@ async function agDeclineInvite(id) {
 
 async function agRevokeAccess(id) {
   if (!window.confirm("Revoke this leader's access to your performance data?")) return;
-  const { error } = await sb.from('agency_invites')
-    .update({ status: 'declined', invitee_id: null })
-    .eq('id', id).eq('invitee_email', currentAgent.email);
-  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  try {
+    await _agUnlink(id, 'revoke');
+  } catch (e) { showToast('Failed: ' + e.message, '#dc2626'); return; }
   showToast('Access revoked', '#10b981');
   await renderAgencySection();
 }

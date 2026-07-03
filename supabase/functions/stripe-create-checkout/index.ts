@@ -13,6 +13,25 @@ function json(body: unknown, status = 200) {
   });
 }
 
+// Reusable coupon backing the agency downline discount. Created lazily on
+// first use so no manual Stripe Dashboard setup is required.
+const AGENCY_DISCOUNT_COUPON_ID = "agency-downline-20";
+
+async function ensureAgencyDiscountCoupon(stripeHdrs: Record<string, string>) {
+  const getRes = await fetch(`https://api.stripe.com/v1/coupons/${AGENCY_DISCOUNT_COUPON_ID}`, { headers: stripeHdrs });
+  if (getRes.ok) return;
+  await fetch("https://api.stripe.com/v1/coupons", {
+    method: "POST",
+    headers: stripeHdrs,
+    body: new URLSearchParams({
+      id: AGENCY_DISCOUNT_COUPON_ID,
+      percent_off: "20",
+      duration: "forever",
+      name: "Agency Downline 20% Off",
+    }),
+  }).catch(() => {});
+}
+
 // Called by the authenticated browser to start or change a Stripe subscription.
 //
 // Body:
@@ -86,6 +105,21 @@ serve(async (req) => {
     "Content-Type": "application/x-www-form-urlencoded",
   };
 
+  // Downline agents on Basic/Pro get an ongoing 20% discount for as long as
+  // they stay linked to a team leader via a valid agency code.
+  const planTier = (plan.name || "").toLowerCase();
+  let applyAgencyDiscount = false;
+  if (planTier.includes("basic") || planTier.includes("pro")) {
+    const { data: links } = await sb
+      .from("agency_invites")
+      .select("id")
+      .eq("invitee_id", user.id)
+      .eq("status", "accepted")
+      .limit(1);
+    applyAgencyDiscount = !!(links && links.length);
+  }
+  if (applyAgencyDiscount) await ensureAgencyDiscountCoupon(stripeHdrs);
+
   // Existing subscriber: update price via Stripe API — no checkout redirect needed.
   if (agent?.stripe_subscription_id) {
     const subRes = await fetch(
@@ -108,6 +142,7 @@ serve(async (req) => {
       [`metadata[plan_id]`]:          plan.id,
       [`metadata[area_code]`]:        areaCode,
     });
+    if (applyAgencyDiscount) updateParams.set(`discounts[0][coupon]`, AGENCY_DISCOUNT_COUPON_ID);
     const updateRes = await fetch(
       `https://api.stripe.com/v1/subscriptions/${agent.stripe_subscription_id}`,
       { method: "POST", headers: stripeHdrs, body: updateParams },
@@ -128,11 +163,13 @@ serve(async (req) => {
   }
 
   // New subscriber: create a hosted Stripe Checkout Session (opens in popup).
+  // Note: Stripe disallows combining `discounts` with `allow_promotion_codes`,
+  // so a downline agent gets their agency discount applied silently instead
+  // of being able to type in a separate promo code.
   const sessionParams = new URLSearchParams({
     "mode":                                             "subscription",
     [`line_items[0][price]`]:                          plan.stripe_price_id,
     [`line_items[0][quantity]`]:                       "1",
-    "allow_promotion_codes":                           "true",
     "success_url":                                     `${APP_URL}/app.html?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
     "cancel_url":                                      `${APP_URL}/app.html?checkout=cancelled`,
     [`metadata[supabase_user_id]`]:                    user.id,
@@ -143,6 +180,11 @@ serve(async (req) => {
     [`subscription_data[metadata][area_code]`]:        areaCode,
     "subscription_data[trial_period_days]":            "7",
   });
+  if (applyAgencyDiscount) {
+    sessionParams.set(`discounts[0][coupon]`, AGENCY_DISCOUNT_COUPON_ID);
+  } else {
+    sessionParams.set("allow_promotion_codes", "true");
+  }
 
   if (agent?.stripe_customer_id) {
     sessionParams.set("customer", agent.stripe_customer_id);
