@@ -335,6 +335,109 @@ footer{border-top:1px solid var(--border);padding:48px 24px 32px;position:relati
   .compare-feat,.compare-cell{padding:10px 10px}
   .explore-grid{grid-template-columns:1fr}
 }
+
+/* ── PORTRAIT PHONE (≤480px) — mobile-first experience ─── */
+@media(max-width:480px){
+  /* NAV */
+  .nav-inner{padding:0 14px}
+  .hamburger{padding:8px;min-width:40px;min-height:40px;align-items:center;justify-content:center}
+
+  /* MOB MENU */
+  .mob-menu{padding:16px 14px;gap:4px}
+  .mob-menu a,.mob-menu button{font-size:15px;padding:14px 12px;min-height:48px;display:flex;align-items:center}
+
+  /* HERO */
+  .hero{padding:calc(var(--nav-h) + 36px) 14px 36px;gap:22px;text-align:left}
+  .hero-eyebrow{font-size:10px;padding:4px 10px}
+  .hero-h1{font-size:clamp(26px,7.5vw,34px);margin-bottom:14px}
+  .hero-sub{font-size:14px;margin-bottom:20px}
+  .hero-ctas{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:22px}
+  .btn-cta{text-align:center;justify-content:center;padding:15px 18px;font-size:15px;border-radius:10px}
+  .btn-cta-outline{text-align:center;justify-content:center;padding:14px 18px;font-size:15px;border-radius:10px}
+  .hero-proof{flex-direction:column;gap:10px;align-items:flex-start}
+  .hero-proof-item{font-size:12.5px}
+
+  /* STATS BAR */
+  .stat-item{padding:18px 12px}
+  .stat-n{font-size:28px}
+  .stat-d{font-size:12px}
+
+  /* PAGE HERO (sub-pages: features, pricing, how-it-works, support) */
+  .page-hero{padding:calc(var(--nav-h) + 28px) 14px 0}
+  .page-h{font-size:clamp(20px,7vw,32px)}
+  .page-sub{font-size:14px;margin-bottom:32px}
+
+  /* SECTION */
+  .section{padding:8px 10px 14px}
+  .sec-shell{padding:22px 14px 26px;border-radius:14px}
+  .sec-h{font-size:clamp(20px,6vw,28px)}
+  .sec-sub{font-size:13.5px;margin-bottom:22px}
+  .eyebrow{font-size:10px}
+
+  /* BENTO CARDS */
+  .bc{padding:18px 14px}
+  .bc-h{font-size:17px;margin-bottom:7px}
+  .bc-p{font-size:13px}
+  .bc-stats{flex-direction:column;gap:8px}
+  .bc-stat{padding:10px 12px}
+  .bc-stat-n{font-size:19px}
+
+  /* COMMISSION PREVIEW */
+  .comm-row{flex-direction:column;align-items:flex-start;gap:5px;padding:10px 12px}
+  .comm-calc{gap:6px}
+  .comm-total{flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px}
+  .comm-total-lbl{font-size:11px}
+  .comm-total-val{font-size:17px}
+
+  /* MOB FEATURE LIST (iOS/Android section) */
+  .mob-feat{font-size:12px;padding:8px 10px}
+  .app-badges{flex-direction:column;gap:8px}
+  .app-badge{padding:10px 14px;font-size:13px}
+
+  /* HOW GRID */
+  .how-card{padding:22px 16px}
+
+  /* PRICING PLANS */
+  .plan-card{padding:22px 16px}
+  .plan-amt{font-size:36px}
+  .plan-desc{min-height:auto}
+  .plan-feats li{font-size:12.5px}
+  .trial-banner{padding:8px 14px;font-size:11.5px}
+
+  /* COMPARE TABLE — horizontal scroll so all plans remain accessible */
+  .compare-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px}
+  .compare-header,.compare-row{
+    grid-template-columns:130px repeat(3,100px);
+    min-width:430px;
+    font-size:10.5px
+  }
+  .compare-feat,.compare-cell{padding:9px 8px}
+
+  /* EXPLORE GRID */
+  .explore-grid{grid-template-columns:1fr}
+  .explore-card{padding:18px 14px}
+  .explore-card-title{font-size:15px}
+
+  /* SUPPORT */
+  .support-contacts{flex-direction:column;gap:12px}
+  .sup-contact{font-size:13px}
+  .sup-ico{width:38px;height:38px;flex-shrink:0}
+
+  /* FINAL CTA */
+  .final-wrap{padding:0 12px 52px}
+  .final-card{padding:28px 14px}
+  .final-h{font-size:clamp(20px,6vw,28px)}
+  .final-p{font-size:14px}
+  .final-btns{flex-direction:column;align-items:stretch;gap:10px}
+  .final-btns .btn-cta,.final-btns .btn-cta-outline{text-align:center;justify-content:center}
+
+  /* FOOTER */
+  footer{padding:28px 14px 24px}
+  .ft-top{gap:18px}
+  .ft-bottom{flex-direction:column;align-items:center;text-align:center;gap:8px}
+  .ft-copy{text-align:center}
+  .ft-col a{margin-bottom:10px;min-height:36px;display:flex;align-items:center}
+}
 /* ── POWER DIALER MOTION UPGRADES ────────────────── */
 @keyframes live-dot{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.48);opacity:.18}}
 .live-pill::before{animation:live-dot 1.8s cubic-bezier(.45,0,.55,1) infinite}

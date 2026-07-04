@@ -2712,6 +2712,88 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
   /* Make tap targets at least 44px */
   .nav-item{min-height:44px}
   .btn-p,.btn-s,.lead-act-btn{min-height:40px}
+
+  /* iOS Safari auto-zoom prevention — inputs < 16px font-size cause page zoom on focus */
+  input,select,textarea{font-size:16px !important}
+
+  /* Tabs — horizontally scrollable instead of wrapping to new rows */
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:3px;padding-bottom:2px}
+  .tab{font-size:11.5px;padding:6px 10px;min-height:36px;white-space:nowrap;flex-shrink:0}
+
+  /* Status segments */
+  .status-seg{font-size:11.5px;padding:5px 10px;min-height:36px;white-space:nowrap;flex-shrink:0}
+
+  /* Summary padding */
+  .sum-v3{padding:12px 12px 20px}
+
+  /* Period row chips */
+  .sum-period-chips{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  /* Carrier cards — single column on phones */
+  .g2.carrier-grid,.carrier-grid{grid-template-columns:1fr !important}
+
+  /* Bulk action bar */
+  .bulk-bar{flex-wrap:wrap;gap:8px}
+  .bulk-count{font-size:12px}
+}
+
+/* ── PORTRAIT PHONE (≤480px) — tightest phone sizes ── */
+@media (max-width:480px){
+  /* Topbar */
+  .topbar{padding:8px 12px;gap:8px}
+  .topbar h1,.topbar #pgTitle{font-size:14px}
+
+  /* Content padding */
+  .content{padding:10px 10px}
+
+  /* Buttons — full tap target */
+  .btn-p,.btn-s{min-height:44px;font-size:13px}
+  .lead-act-btn{min-height:44px;min-width:44px}
+  .mob-menu-btn{min-width:40px;min-height:40px}
+
+  /* KPI grid — 2-col on most phones, handled by 767px block; ensure single column on tiny phones */
+  .kpi-grid{grid-template-columns:repeat(2,1fr) !important}
+
+  /* Summary hero goal ring — scale down for narrow screens */
+  .ring-wrap,.goal-ring{width:140px !important;height:140px !important}
+  .goal-num{font-size:24px;line-height:28px}
+  .goal-center{width:110px}
+
+  /* Lead row action buttons spacing */
+  .lead-actions{gap:6px}
+
+  /* Bulk bar — stack actions */
+  .bulk-bar{flex-direction:column;align-items:stretch}
+  .bulk-bar .btn-s{font-size:12px;min-height:40px;text-align:center;justify-content:center}
+
+  /* Auth pricing comparison table — horizontal scroll */
+  .auth-pricing-table{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .apc-features-col{flex:0 0 90px}
+  .apc-feat-row{font-size:10.5px;padding-right:4px}
+  .apc-plan-name{font-size:12.5px}
+  .apc-plan-price{font-size:10.5px}
+  .apc-check-row{font-size:14px}
+
+  /* Signup wizard nav */
+  .swiz-nav{padding:0 10px}
+  .swiz-step-lbl{display:none}
+  .swiz-line{width:20px}
+  .swiz-pc-name{font-size:17px}
+  .swiz-pc-price{font-size:24px}
+
+  /* Plan required overlay card */
+  .pro-card{padding:24px 18px 20px;border-radius:14px}
+  .pro-title{font-size:20px}
+
+  /* Settings carrier cards — single column */
+  .stg-carrier-grid{grid-template-columns:1fr}
+
+  /* Modal — ensure header/body padding is comfortable */
+  .modal-head{padding:14px 14px 10px}
+  .modal-body{padding:10px 14px 14px}
+
+  /* Period row — stack label + chips */
+  .sum-period-row{flex-direction:column;align-items:flex-start;gap:8px}
 }
 
 @media (max-width:400px){
