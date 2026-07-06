@@ -4619,6 +4619,13 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
                 <input type="text" id="stg-npn" placeholder="12345678">
               </div>
             </div>
+            <div class="frow" style="margin-top:8px">
+              <div class="fg">
+                <label>Caller ID Name <span style="color:var(--text3);font-weight:400;font-size:11.5px">(shown when you call leads)</span></label>
+                <input type="text" id="stg-cnam-name" maxlength="15" placeholder="e.g. JOHN SMITH INS" autocomplete="off" style="text-transform:uppercase">
+                <div style="font-size:11px;color:var(--text3);margin-top:3px">Applies to all your numbers automatically · max 15 chars · carrier delivery varies</div>
+              </div>
+            </div>
             <div class="fg" style="margin-top:8px">
               <label>Licensed States</label>
               <div class="stg-states-field" id="stg-states-field">
@@ -16839,7 +16846,7 @@ async function pbConfirmBuy(n, btn) {
     });
     const result = await resp.json();
     if (result.url) {
-      // Store pending number in localStorage (shared with the popup window).
+      // Store pending number in storage (shared with the popup window).
       try { localStorage.setItem('pp_pending_number_popup', JSON.stringify({ ...n, ts: Date.now() })); } catch(_) {}
       const popup = window.open(result.url, 'stripe_number_checkout', 'width=620,height=820,scrollbars=yes,resizable=yes');
       if (!popup) {
@@ -18080,6 +18087,13 @@ function initSettingsSection() {
   licensedStatesSelected = new Set(statesRaw.split(',').map(s => s.trim().toUpperCase()).filter(Boolean));
   renderStatesGrid();
   closeStatesPanel();
+  // Load CNAM from DB
+  const cnamEl = document.getElementById('stg-cnam-name');
+  if (cnamEl && currentAgent) {
+    sb.from('agents').select('cnam_name').eq('id', currentAgent.id).maybeSingle().then(({ data }) => {
+      if (cnamEl) cnamEl.value = data?.cnam_name || '';
+    });
+  }
   // Reset messages
   const pm = document.getElementById('stg-profile-msg');
   const pwm = document.getElementById('stg-pw-msg');
@@ -18126,17 +18140,37 @@ async function _stgLoadPlanCard() {
   if (typeof mountIcons === 'function') mountIcons(document.getElementById('sec-settings'));
 }
 
-function saveAccountProfile() {
+async function saveAccountProfile() {
   const name   = document.getElementById('stg-display-name').value.trim();
   const phone  = document.getElementById('stg-phone').value.trim();
   const npn    = document.getElementById('stg-npn').value.trim();
+  const cnam   = (document.getElementById('stg-cnam-name')?.value || '').trim();
   const states = US_STATES.filter(s => licensedStatesSelected.has(s[0])).map(s => s[0]).join(', ');
   localStorage.setItem(k('stg_display_name'), name);
   localStorage.setItem(k('stg_phone'), phone);
   localStorage.setItem(k('stg_npn'), npn);
   localStorage.setItem(k('stg_states'), states);
   const msg = document.getElementById('stg-profile-msg');
-  if (msg) { msg.style.color = 'var(--a2)'; msg.textContent = 'Profile saved.'; setTimeout(() => { msg.textContent = ''; }, 3000); }
+  const saveBtn = document.querySelector('#sec-settings button[onclick="saveAccountProfile()"]');
+  if (saveBtn) { saveBtn.disabled = true; }
+  try {
+    const { data, error } = await sb.functions.invoke('telnyx-update-all-cnam', {
+      body: { cnam_name: cnam },
+    });
+    if (error || !data?.ok) {
+      const detail = error?.message || (data && data.error) || 'Unknown';
+      if (msg) { msg.style.color = '#dc2626'; msg.textContent = `Profile saved. Caller ID update failed: ${detail}`; }
+    } else if (data.updated > 0) {
+      if (msg) { msg.style.color = 'var(--a2)'; msg.textContent = `Profile saved. Caller ID updated on ${data.updated} number${data.updated === 1 ? '' : 's'}.`; }
+    } else {
+      if (msg) { msg.style.color = 'var(--a2)'; msg.textContent = 'Profile saved.'; }
+    }
+  } catch (e) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = `Profile saved. Caller ID update error: ${e.message || e}`; }
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; }
+    setTimeout(() => { if (msg) msg.textContent = ''; }, 4000);
+  }
 }
 
 async function saveAccountPassword() {

@@ -187,7 +187,8 @@ serve(async (req) => {
   }
 
   const orderData = await orderRes.json();
-  const telnyxPhoneSid: string = orderData?.data?.id || orderData?.data?.phone_numbers?.[0]?.id || "";
+  // phone_numbers[0].id is the phone number resource ID; data.id is the order ID
+  const telnyxPhoneSid: string = orderData?.data?.phone_numbers?.[0]?.id || orderData?.data?.id || "";
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
@@ -200,11 +201,13 @@ serve(async (req) => {
 
   // If this is the agent's first number, auto-set it as primary so they can
   // call immediately without a manual "Set as Primary" step.
+  // Also read the agent's global CNAM setting to auto-apply to the new number.
   const { data: agentRow } = await sb.from("agents")
-    .select("signalwire_caller_id")
+    .select("signalwire_caller_id, cnam_name")
     .eq("id", user.id)
     .maybeSingle();
   const isFirstNumber = !agentRow?.signalwire_caller_id;
+  const cnamName: string | null = agentRow?.cnam_name || null;
 
   const { error: insertErr } = await sb.from("phone_numbers").insert({
     agent_id:      user.id,
@@ -218,6 +221,27 @@ serve(async (req) => {
     status:        "active",
     purchased_at:  new Date().toISOString(),
   });
+
+  // Best-effort: apply the agent's global CNAM to the new number on Telnyx.
+  if (cnamName && telnyxPhoneSid) {
+    try {
+      const patchRes = await fetch(`https://api.telnyx.com/v2/phone_numbers/${telnyxPhoneSid}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${TELNYX_API_KEY}`,
+          "Content-Type":  "application/json",
+        },
+        body: JSON.stringify({ caller_id: { name: cnamName } }),
+      });
+      if (!patchRes.ok) {
+        console.warn("[telnyx-buy-number] CNAM PATCH failed:", await patchRes.text());
+      } else {
+        console.log(`[telnyx-buy-number] Auto-applied CNAM "${cnamName}" to ${e164}`);
+      }
+    } catch (e) {
+      console.warn("[telnyx-buy-number] CNAM set error:", e);
+    }
+  }
 
   if (insertErr) {
     console.warn("[telnyx-buy-number] DB insert failed:", insertErr.message);
