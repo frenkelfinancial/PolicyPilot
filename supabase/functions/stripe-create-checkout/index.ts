@@ -110,11 +110,8 @@ serve(async (req) => {
       "metadata[supabase_user_id]":                       user.id,
       "subscription_data[metadata][supabase_user_id]":    user.id,
     });
-
-    if (billingConfig.stripe_minutes_price_id) {
-      sessionParams.set("line_items[1][price]", billingConfig.stripe_minutes_price_id);
-      // No quantity — metered usage price
-    }
+    // The minutes price (metered usage) is NOT included here — reportMinutesToStripe
+    // adds it lazily as a subscription item when the agent's first call ends.
 
     if (agent?.stripe_customer_id) {
       sessionParams.set("customer", agent.stripe_customer_id);
