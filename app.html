@@ -2040,14 +2040,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 /* In-call: the display stops acting like an editable field — box and
    backspace disappear, the number becomes plain centered text under the
    timer (edits during a call go to DTMF via the keypad, not this field). */
-#sec-webdialer .wd-dial-card.in-call .wd-display{
-  background:transparent; border:none; height:auto; padding:0; justify-content:center;
-}
-#sec-webdialer .wd-dial-card.in-call .wd-number-prefix{ display:none; }
-#sec-webdialer .wd-dial-card.in-call .wd-number-input{
-  flex:none; text-align:center; font-size:30px; font-weight:600; letter-spacing:.3px; cursor:default;
-}
-#sec-webdialer .wd-dial-card.in-call .wd-backspace{ display:none; }
+#sec-webdialer .wd-dial-card.in-call .wd-display{ display:none; }
 #sec-webdialer .wd-backspace{
   flex-shrink:0; width:44px; height:44px; border:none; background:transparent; color:#8a8a86;
   cursor:pointer; border-radius:10px; display:flex; align-items:center; justify-content:center;
@@ -2139,6 +2132,37 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 .wd-cs-btn-hangup svg{ transform:rotate(135deg); }
 #sec-webdialer .wd-cs-btn-lbl{ display:none; }
 #sec-webdialer .wd-cs-meta{ display:none; }
+
+/* Active-call info panel — shows lead, destination number, and outbound caller ID */
+#sec-webdialer .wd-call-info{
+  width:100%; background:rgba(91,160,232,.07); border:1px solid rgba(91,160,232,.20);
+  border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:3px;
+}
+body.light #sec-webdialer .wd-call-info{
+  background:rgba(59,130,246,.06); border-color:rgba(59,130,246,.18);
+}
+#sec-webdialer .wd-ci-to-name{
+  font-size:18px; font-weight:700; color:var(--text); letter-spacing:-.02em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center;
+  margin-bottom:1px;
+}
+#sec-webdialer .wd-ci-to-num{
+  font-size:13px; color:var(--text2); text-align:center; margin-bottom:8px;
+}
+#sec-webdialer .wd-ci-sep{
+  height:1px; background:rgba(91,160,232,.18); margin:4px 0 8px;
+}
+#sec-webdialer .wd-ci-from-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:12px; padding:2px 0;
+}
+#sec-webdialer .wd-ci-from-lbl{
+  color:var(--text3); font-weight:500; flex-shrink:0;
+}
+#sec-webdialer .wd-ci-from-val{
+  color:var(--text2); font-weight:600; text-align:right; font-variant-numeric:tabular-nums;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+}
 
 /* Matched-lead card */
 .wd-lead-head{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
@@ -4463,6 +4487,21 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
               <button type="button" class="wd-backspace" id="wd-backspace" title="Backspace" aria-label="Backspace">
                 <span data-ico="backspace" data-size="18"></span>
               </button>
+            </div>
+          </div>
+
+          <!-- In-call info panel: lead name, number being called, outbound caller ID -->
+          <div class="wd-call-info" id="wd-call-info" style="display:none">
+            <div class="wd-ci-to-name" id="wd-ci-to-name"></div>
+            <div class="wd-ci-to-num" id="wd-ci-to-num"></div>
+            <div class="wd-ci-sep"></div>
+            <div class="wd-ci-from-row">
+              <span class="wd-ci-from-lbl">Your number</span>
+              <span class="wd-ci-from-val" id="wd-ci-from-num"></span>
+            </div>
+            <div class="wd-ci-from-row">
+              <span class="wd-ci-from-lbl">Caller ID name</span>
+              <span class="wd-ci-from-val" id="wd-ci-from-name"></span>
             </div>
           </div>
 
@@ -12158,18 +12197,20 @@ const softphone = (() => {
     _reachedCarrierRinging = false;
 
     // Optimistic UI: show "Calling…" immediately while we mint the token.
-    state.phase       = 'ringing-out';
-    state.leadId      = leadId ? String(leadId) : null;
-    state.leadName    = displayName || 'Unknown';
-    state.phoneFmt    = formatPhone(phoneE164) || phoneE164;
-    state.targetE164  = phoneE164;
-    state.callerId    = '';
-    state.direction   = 'outbound';
-    state.muted        = false;
-    state.durationSec  = 0;
-    state.sw_call_sid  = '';
-    state.callRowId    = null;
-    state.stubMode     = false;
+    state.phase          = 'ringing-out';
+    state.leadId         = leadId ? String(leadId) : null;
+    state.leadName       = displayName || 'Unknown';
+    state.phoneFmt       = formatPhone(phoneE164) || phoneE164;
+    state.targetE164     = phoneE164;
+    state.callerId       = '';
+    state.callerIdNumber = callerIdOverride || '';
+    state.callerIdName   = callerNameOverride || document.getElementById('stg-cnam-name')?.value?.trim() || '';
+    state.direction      = 'outbound';
+    state.muted          = false;
+    state.durationSec    = 0;
+    state.sw_call_sid    = '';
+    state.callRowId      = null;
+    state.stubMode       = false;
     state.stubReason   = '';
     _render();
     _startSpRingback();
@@ -12709,11 +12750,13 @@ const webDialer = (() => {
     const outcomeEl = _el('wd-cs-outcome');
     const stubEl = _el('wd-stub-banner');
     const timerEl = _el('wd-cs-timer');
+    const callInfoEl = _el('wd-call-info');
     const inp = _input();
     if (dialCard) dialCard.classList.toggle('in-call', showCallScreen);
     if (dialView) dialView.style.display = showCallScreen ? 'none' : '';
     if (callControls) callControls.style.display = (showCallScreen && !endedNeedsOutcome) ? '' : 'none';
     if (outcomeEl) outcomeEl.style.display = endedNeedsOutcome ? '' : 'none';
+    if (callInfoEl) callInfoEl.style.display = (showCallScreen && !endedNeedsOutcome) ? '' : 'none';
     if (stubEl) {
       stubEl.style.display = (phase !== 'idle' && sp.stubMode) ? '' : 'none';
       const stubTextEl = _el('wd-stub-banner-text');
@@ -12749,6 +12792,17 @@ const webDialer = (() => {
     const numEl = _el('wd-cs-number');
     if (numEl) { numEl.textContent = sameAsNumber ? '' : (sp.phoneFmt || ''); }
     const avatarEl = _el('wd-cs-avatar'); if (avatarEl) avatarEl.textContent = _initials(displayName);
+
+    // Populate call-info panel
+    const ciNameEl = _el('wd-ci-to-name'); if (ciNameEl) ciNameEl.textContent = displayName;
+    const ciNumEl = _el('wd-ci-to-num'); if (ciNumEl) ciNumEl.textContent = sameAsNumber ? '' : (sp.phoneFmt || '');
+    const ciFromNumEl = _el('wd-ci-from-num');
+    if (ciFromNumEl) {
+      const rawNum = sp.callerIdNumber || _webrtcCallerId || '';
+      ciFromNumEl.textContent = rawNum ? (formatPhone(rawNum) || rawNum) : '—';
+    }
+    const ciFromNameEl = _el('wd-ci-from-name');
+    if (ciFromNameEl) ciFromNameEl.textContent = sp.callerIdName || '—';
 
     if (endedNeedsOutcome) return;
 
