@@ -220,24 +220,52 @@ export async function reportMinutesToStripe(
       "Content-Type": "application/x-www-form-urlencoded",
     };
 
-    if (!agent.stripe_minutes_item_id) {
-      const addParams = new URLSearchParams({
-        "subscription": agent.stripe_subscription_id,
-        "price":        config.stripe_minutes_price_id,
-      });
-      const addRes = await fetch("https://api.stripe.com/v1/subscription_items", {
-        method: "POST",
-        headers: stripeHdrs,
-        body: addParams,
-      });
-      if (!addRes.ok) {
-        console.warn("[dialer] Stripe add minutes item failed:", await addRes.text());
-        return;
+    // Resolve the minutes subscription item, creating it only if one doesn't
+    // already exist on the subscription for this price. We check Stripe directly
+    // (not just the DB) to prevent a race condition where two concurrent calls
+    // ending at the same moment could both read stripe_minutes_item_id as null,
+    // both create an item, and result in the agent being double-billed ($.04/min).
+    let minutesItemId = agent.stripe_minutes_item_id;
+    if (!minutesItemId) {
+      // Check Stripe for an existing item with this price before creating one.
+      const listRes = await fetch(
+        `https://api.stripe.com/v1/subscription_items?subscription=${agent.stripe_subscription_id}&limit=100`,
+        { headers: stripeHdrs },
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const existing = (listData.data || []).find(
+          (item: { price?: { id?: string }; id?: string }) =>
+            item.price?.id === config.stripe_minutes_price_id,
+        );
+        if (existing) {
+          minutesItemId = existing.id;
+          await sb.from("agents")
+            .update({ stripe_minutes_item_id: minutesItemId })
+            .eq("id", agentId);
+        }
       }
-      const newItem = await addRes.json();
-      await sb.from("agents")
-        .update({ stripe_minutes_item_id: newItem.id })
-        .eq("id", agentId);
+
+      if (!minutesItemId) {
+        const addParams = new URLSearchParams({
+          "subscription": agent.stripe_subscription_id,
+          "price":        config.stripe_minutes_price_id,
+        });
+        const addRes = await fetch("https://api.stripe.com/v1/subscription_items", {
+          method: "POST",
+          headers: stripeHdrs,
+          body: addParams,
+        });
+        if (!addRes.ok) {
+          console.warn("[dialer] Stripe add minutes item failed:", await addRes.text());
+          return;
+        }
+        const newItem = await addRes.json();
+        minutesItemId = newItem.id;
+        await sb.from("agents")
+          .update({ stripe_minutes_item_id: minutesItemId })
+          .eq("id", agentId);
+      }
     }
 
     const minutes = Math.max(1, Math.ceil(durationSec / 60));

@@ -80,7 +80,7 @@ serve(async (req) => {
   if (eventType === "call.initiated") {
     const toNorm     = normalizeE164(p.to);
     const dialerNorm = normalizeE164(TELNYX_DIALER_NUM);
-    const isDialerCall = p.direction === "incoming" &&
+    const isDialerCall = (p.direction === "incoming" || p.direction === "inbound") &&
       (!dialerNorm || toNorm === dialerNorm);
 
     console.log("[dialer] call.initiated", JSON.stringify({

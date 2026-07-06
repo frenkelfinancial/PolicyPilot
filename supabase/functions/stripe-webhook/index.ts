@@ -152,7 +152,8 @@ serve(async (req) => {
   }
 
   if (event.type === "checkout.session.completed") {
-    if (obj.payment_status && obj.payment_status !== "paid") {
+    // "no_payment_required" is sent when a 100% coupon is applied — still a valid subscription
+    if (obj.payment_status === "unpaid") {
       return json({ ok: true, skipped: "payment_not_complete" });
     }
   }

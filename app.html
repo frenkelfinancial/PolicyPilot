@@ -16227,7 +16227,7 @@ async function renderPhoneBook() {
   // are caught individually so one error doesn't blank the tab.
   const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes, billingConfigRes] = await Promise.all([
     sb.from('agents')
-      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id, is_admin')
+      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id, is_admin, stripe_subscription_id')
       .eq('id', currentAgent.id).maybeSingle(),
     sb.from('plans')
       .select('id, slug, name, monthly_minutes, monthly_quote_limit, monthly_uw_prompt_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
@@ -16794,6 +16794,39 @@ async function pbConfirmBuy(n, btn) {
   const e164 = n.phone_number;
   const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
   const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
+
+  // Non-dev users must have an active Stripe subscription before we allow a
+  // number purchase — otherwise the number gets provisioned on Telnyx but
+  // never billed. Send them through checkout for their current plan first.
+  if (!_isDev() && !_pbAgent?.stripe_subscription_id) {
+    const planId = _pbAgent?.plan_id;
+    if (!planId) {
+      showToast('You need an active subscription to purchase a number. Please choose a plan first.', '#dc2626');
+      pbCloseBuyModal();
+      pbOpenUpgradeModal();
+      return;
+    }
+    const proceed = window.confirm(
+      `Purchase ${_pbFmtPhone(e164)}?\n\n` +
+      `Your subscription isn't fully set up in Stripe yet. You'll be taken to a quick checkout to complete billing — ` +
+      `your phone number will be added immediately after.\n\nContinue to checkout?`
+    );
+    if (!proceed) return;
+    pbCloseBuyModal();
+    // Store the pending number so it can be purchased after checkout completes.
+    try { sessionStorage.setItem('pp_pending_number', JSON.stringify(n)); } catch(_) {}
+    const { data: { session } } = await sb.auth.getSession();
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ plan_id: planId }),
+    });
+    const result = await resp.json();
+    if (result.url) { window.location.href = result.url; }
+    else { showToast('Could not start checkout: ' + (result.error || 'unknown error'), '#dc2626'); }
+    return;
+  }
+
   const msg = _isDev()
     ? `Purchase ${_pbFmtPhone(e164)}?\n\nDeveloper account — this number will be acquired for free.`
     : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
@@ -19659,6 +19692,36 @@ document.addEventListener('DOMContentLoaded', () => {
   if (_cp.get('checkout') === 'success') {
     history.replaceState(null, '', location.pathname);
     showToast('Payment confirmed — welcome to Producer Stack!', '#10b981');
+    // If a number purchase was pending before the checkout redirect, complete it now.
+    try {
+      const pendingRaw = sessionStorage.getItem('pp_pending_number');
+      if (pendingRaw) {
+        sessionStorage.removeItem('pp_pending_number');
+        const pendingN = JSON.parse(pendingRaw);
+        if (pendingN && pendingN.phone_number) {
+          setTimeout(async () => {
+            showToast(`Completing number purchase for ${_pbFmtPhone(pendingN.phone_number)}…`, '#6b7280');
+            try {
+              const { data, error } = await sb.functions.invoke('telnyx-buy-number', {
+                body: {
+                  e164:          pendingN.phone_number,
+                  friendly_name: pendingN.friendly_name || null,
+                  locality:      pendingN.locality || null,
+                  region:        pendingN.region || null,
+                },
+              });
+              if (error || !data?.ok) {
+                let detail = error?.message || (data && data.error) || 'Unknown error';
+                try { const b = error?.context && await error.context.json(); if (b?.error) detail = b.error; } catch(_){}
+                showToast(`Number purchase failed: ${detail}`, '#dc2626');
+              } else {
+                showToast(`Acquired ${_pbFmtPhone(pendingN.phone_number)}`, '#10b981');
+              }
+            } catch(e) { showToast(`Number purchase failed: ${e.message || e}`, '#dc2626'); }
+          }, 2500); // small delay to let Stripe webhook activate the subscription first
+        }
+      }
+    } catch(_) {}
   } else if (_cp.get('checkout') === 'cancelled') {
     showToast('Checkout cancelled — no charge was made.', '#6b7280');
     history.replaceState({}, '', location.pathname);
