@@ -2712,6 +2712,88 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
   /* Make tap targets at least 44px */
   .nav-item{min-height:44px}
   .btn-p,.btn-s,.lead-act-btn{min-height:40px}
+
+  /* iOS Safari auto-zoom prevention — inputs < 16px font-size cause page zoom on focus */
+  input,select,textarea{font-size:16px !important}
+
+  /* Tabs — horizontally scrollable instead of wrapping to new rows */
+  .tabs{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;gap:3px;padding-bottom:2px}
+  .tab{font-size:11.5px;padding:6px 10px;min-height:36px;white-space:nowrap;flex-shrink:0}
+
+  /* Status segments */
+  .status-seg{font-size:11.5px;padding:5px 10px;min-height:36px;white-space:nowrap;flex-shrink:0}
+
+  /* Summary padding */
+  .sum-v3{padding:12px 12px 20px}
+
+  /* Period row chips */
+  .sum-period-chips{overflow-x:auto;-webkit-overflow-scrolling:touch}
+
+  /* Carrier cards — single column on phones */
+  .g2.carrier-grid,.carrier-grid{grid-template-columns:1fr !important}
+
+  /* Bulk action bar */
+  .bulk-bar{flex-wrap:wrap;gap:8px}
+  .bulk-count{font-size:12px}
+}
+
+/* ── PORTRAIT PHONE (≤480px) — tightest phone sizes ── */
+@media (max-width:480px){
+  /* Topbar */
+  .topbar{padding:8px 12px;gap:8px}
+  .topbar h1,.topbar #pgTitle{font-size:14px}
+
+  /* Content padding */
+  .content{padding:10px 10px}
+
+  /* Buttons — full tap target */
+  .btn-p,.btn-s{min-height:44px;font-size:13px}
+  .lead-act-btn{min-height:44px;min-width:44px}
+  .mob-menu-btn{min-width:40px;min-height:40px}
+
+  /* KPI grid — 2-col on most phones, handled by 767px block; ensure single column on tiny phones */
+  .kpi-grid{grid-template-columns:repeat(2,1fr) !important}
+
+  /* Summary hero goal ring — scale down for narrow screens */
+  .ring-wrap,.goal-ring{width:140px !important;height:140px !important}
+  .goal-num{font-size:24px;line-height:28px}
+  .goal-center{width:110px}
+
+  /* Lead row action buttons spacing */
+  .lead-actions{gap:6px}
+
+  /* Bulk bar — stack actions */
+  .bulk-bar{flex-direction:column;align-items:stretch}
+  .bulk-bar .btn-s{font-size:12px;min-height:40px;text-align:center;justify-content:center}
+
+  /* Auth pricing comparison table — horizontal scroll */
+  .auth-pricing-table{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .apc-features-col{flex:0 0 90px}
+  .apc-feat-row{font-size:10.5px;padding-right:4px}
+  .apc-plan-name{font-size:12.5px}
+  .apc-plan-price{font-size:10.5px}
+  .apc-check-row{font-size:14px}
+
+  /* Signup wizard nav */
+  .swiz-nav{padding:0 10px}
+  .swiz-step-lbl{display:none}
+  .swiz-line{width:20px}
+  .swiz-pc-name{font-size:17px}
+  .swiz-pc-price{font-size:24px}
+
+  /* Plan required overlay card */
+  .pro-card{padding:24px 18px 20px;border-radius:14px}
+  .pro-title{font-size:20px}
+
+  /* Settings carrier cards — single column */
+  .stg-carrier-grid{grid-template-columns:1fr}
+
+  /* Modal — ensure header/body padding is comfortable */
+  .modal-head{padding:14px 14px 10px}
+  .modal-body{padding:10px 14px 14px}
+
+  /* Period row — stack label + chips */
+  .sum-period-row{flex-direction:column;align-items:flex-start;gap:8px}
 }
 
 @media (max-width:400px){
@@ -11953,14 +12035,16 @@ const softphone = (() => {
     try {
       const r = await sb.functions.invoke('telnyx-webrtc-token', {});
       if (r.error) {
+        let reason = 'token_error';
         let detail = r.error.message || 'token invoke failed';
         try {
           if (r.error.context && typeof r.error.context.json === 'function') {
             const b = await r.error.context.clone().json();
             detail = b.detail || b.error || detail;
+            if (b.error) reason = b.error; // use the actual error code so specific handlers fire
           }
         } catch {}
-        return { ok: false, reason: 'token_error', detail };
+        return { ok: false, reason, detail };
       }
       if (!r.data || !r.data.ok) return { ok: false, reason: r.data && r.data.error || 'token_failed', detail: r.data };
       creds = r.data;
@@ -12382,10 +12466,24 @@ const softphone = (() => {
     setTimeout(_bindOnce, 0);
   }
 
+  function resetWebRTC() {
+    if (state.phase !== 'idle' && state.phase !== 'ended') return; // don't disrupt live calls
+    if (_telnyxClient) {
+      try { _telnyxClient.disconnect(); } catch {}
+      _telnyxClient = null;
+    }
+    _telnyxReady   = false;
+    _webrtcCallerId = '';
+    state.stubMode  = false;
+    state.stubReason = '';
+    _render();
+  }
+
   return {
     dial, dialNumber, hangup, toggleMute, setOutcome, close, isAdmin, sendDigit,
     loadAdminFlag: _loadAdminFlag,
     initRealtime:  _initRealtime,
+    resetWebRTC,
     // Re-runs the floating-panel visibility check (idle / on the Web Dialer
     // tab → hidden) without waiting for the next state-driven render —
     // called from nav() so switching tabs mid-call shows/hides it right away.
@@ -16145,7 +16243,7 @@ async function renderPhoneBook() {
   // are caught individually so one error doesn't blank the tab.
   const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes, billingConfigRes] = await Promise.all([
     sb.from('agents')
-      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id, is_admin')
+      .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id, is_admin, stripe_subscription_id')
       .eq('id', currentAgent.id).maybeSingle(),
     sb.from('plans')
       .select('id, slug, name, monthly_minutes, monthly_quote_limit, monthly_uw_prompt_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
@@ -16424,6 +16522,8 @@ async function pbSetNumberAsPrimary(numberId, e164) {
         .eq('id', currentAgent.id);
       if (error) throw error;
     }
+    // Reset the WebRTC client so the next call picks up the new caller ID.
+    if (window.softphone && typeof softphone.resetWebRTC === 'function') softphone.resetWebRTC();
     showToast(`Primary number set to ${_pbFmtPhone(e164)}`, '#10b981');
     await renderPhoneBook();
   } catch (e) {
@@ -16712,6 +16812,75 @@ async function pbConfirmBuy(n, btn) {
   const e164 = n.phone_number;
   const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
   const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
+
+  // Non-dev users must have an active Stripe subscription before we allow a
+  // number purchase — otherwise the number gets provisioned on Telnyx but
+  // never billed. Send them through checkout for their current plan first.
+  if (!_isDev() && !_pbAgent?.stripe_subscription_id) {
+    const planId = _pbAgent?.plan_id;
+    if (!planId) {
+      showToast('You need an active subscription to purchase a number. Please choose a plan first.', '#dc2626');
+      pbCloseBuyModal();
+      pbOpenUpgradeModal();
+      return;
+    }
+    const proceed = window.confirm(
+      `Purchase ${_pbFmtPhone(e164)}?\n\n` +
+      `Phone billing isn't set up yet. A Stripe checkout will pop up for $3/mo per number + $0.02/min usage — ` +
+      `your number will be added immediately after payment.\n\nContinue?`
+    );
+    if (!proceed) return;
+    pbCloseBuyModal();
+    const { data: { session } } = await sb.auth.getSession();
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ mode: 'numbers' }),
+    });
+    const result = await resp.json();
+    if (result.url) {
+      // Store pending number in localStorage (shared with the popup window).
+      try { localStorage.setItem('pp_pending_number_popup', JSON.stringify({ ...n, ts: Date.now() })); } catch(_) {}
+      const popup = window.open(result.url, 'stripe_number_checkout', 'width=620,height=820,scrollbars=yes,resizable=yes');
+      if (!popup) {
+        // Popup blocked — fall back to same-tab redirect.
+        try { sessionStorage.setItem('pp_pending_number', JSON.stringify(n)); } catch(_) {}
+        window.location.href = result.url;
+      } else {
+        const checkClosed = setInterval(() => {
+          if (popup.closed) { clearInterval(checkClosed); renderPhoneBook(); }
+        }, 1000);
+      }
+    } else if (result.already_subscribed) {
+      // Subscription is already set up (stale client data) — skip checkout and buy directly.
+      if (btn) { btn.disabled = true; btn.textContent = 'Buying…'; }
+      try {
+        const { data, error } = await sb.functions.invoke('telnyx-buy-number', {
+          body: { e164, friendly_name: n.friendly_name || null, locality: n.locality || null, region: n.region || null },
+        });
+        if (error) {
+          let detail = error.message || 'Unknown error';
+          try { const b = error.context && await error.context.json(); if (b?.error) detail = b.error; } catch (_) {}
+          throw new Error(detail);
+        }
+        if (!data?.ok) throw new Error((data && data.error) || 'Purchase rejected');
+        showToast(`Acquired ${_pbFmtPhone(e164)}`, '#10b981');
+        if (data.set_as_primary && window.softphone && typeof softphone.resetWebRTC === 'function') softphone.resetWebRTC();
+        await renderPhoneBook();
+      } catch (e) {
+        const rawMsg = e.message || String(e);
+        const friendly = rawMsg.includes('active_subscription_required')
+          ? 'An active subscription is required to purchase a number.'
+          : rawMsg;
+        showToast(`Purchase failed: ${friendly}`, '#dc2626');
+        if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
+      }
+    } else {
+      showToast('Could not start checkout: ' + (result.error || 'unknown error'), '#dc2626');
+    }
+    return;
+  }
+
   const msg = _isDev()
     ? `Purchase ${_pbFmtPhone(e164)}?\n\nDeveloper account — this number will be acquired for free.`
     : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
@@ -16741,6 +16910,10 @@ async function pbConfirmBuy(n, btn) {
     if (!data || !data.ok) throw new Error((data && data.error) || 'Purchase rejected');
     showToast(`Acquired ${_pbFmtPhone(e164)}`, '#10b981');
     pbCloseBuyModal();
+    // If this became the primary number, reset WebRTC so the next call uses it.
+    if (data.set_as_primary && window.softphone && typeof softphone.resetWebRTC === 'function') {
+      softphone.resetWebRTC();
+    }
     await renderPhoneBook();
   } catch (e) {
     console.warn('[phonebook] buy failed', e);
@@ -19577,10 +19750,83 @@ document.addEventListener('DOMContentLoaded', () => {
   if (_cp.get('checkout') === 'success') {
     history.replaceState(null, '', location.pathname);
     showToast('Payment confirmed — welcome to Producer Stack!', '#10b981');
+    // If a number purchase was pending before the checkout redirect, complete it now.
+    try {
+      const pendingRaw = sessionStorage.getItem('pp_pending_number');
+      if (pendingRaw) {
+        sessionStorage.removeItem('pp_pending_number');
+        const pendingN = JSON.parse(pendingRaw);
+        if (pendingN && pendingN.phone_number) {
+          setTimeout(async () => {
+            showToast(`Completing number purchase for ${_pbFmtPhone(pendingN.phone_number)}…`, '#6b7280');
+            try {
+              const { data, error } = await sb.functions.invoke('telnyx-buy-number', {
+                body: {
+                  e164:          pendingN.phone_number,
+                  friendly_name: pendingN.friendly_name || null,
+                  locality:      pendingN.locality || null,
+                  region:        pendingN.region || null,
+                },
+              });
+              if (error || !data?.ok) {
+                let detail = error?.message || (data && data.error) || 'Unknown error';
+                try { const b = error?.context && await error.context.json(); if (b?.error) detail = b.error; } catch(_){}
+                showToast(`Number purchase failed: ${detail}`, '#dc2626');
+              } else {
+                showToast(`Acquired ${_pbFmtPhone(pendingN.phone_number)}`, '#10b981');
+              }
+            } catch(e) { showToast(`Number purchase failed: ${e.message || e}`, '#dc2626'); }
+          }, 2500); // small delay to let Stripe webhook activate the subscription first
+        }
+      }
+    } catch(_) {}
+  } else if (_cp.get('checkout') === 'number_success') {
+    history.replaceState(null, '', location.pathname);
+    showToast('Phone billing confirmed!', '#10b981');
+    try {
+      const pendingRaw = localStorage.getItem('pp_pending_number_popup');
+      if (pendingRaw) {
+        localStorage.removeItem('pp_pending_number_popup');
+        const pendingN = JSON.parse(pendingRaw);
+        if (pendingN && pendingN.phone_number && (Date.now() - (pendingN.ts || 0)) < 30 * 60 * 1000) {
+          setTimeout(async () => {
+            showToast(`Completing number purchase for ${_pbFmtPhone(pendingN.phone_number)}…`, '#6b7280');
+            try {
+              const { data, error } = await sb.functions.invoke('telnyx-buy-number', {
+                body: {
+                  e164:          pendingN.phone_number,
+                  friendly_name: pendingN.friendly_name || null,
+                  locality:      pendingN.locality || null,
+                  region:        pendingN.region || null,
+                },
+              });
+              if (error || !data?.ok) {
+                let detail = error?.message || (data && data.error) || 'Unknown error';
+                try { const b = error?.context && await error.context.json(); if (b?.error) detail = b.error; } catch(_){}
+                showToast(`Number purchase failed: ${detail}`, '#dc2626');
+              } else {
+                showToast(`Acquired ${_pbFmtPhone(pendingN.phone_number)}`, '#10b981');
+                if (window.opener) {
+                  try { window.opener.postMessage({ type: 'pp_number_checkout_done' }, location.origin); } catch(_) {}
+                  window.close();
+                }
+              }
+            } catch(e) { showToast(`Number purchase failed: ${e.message || e}`, '#dc2626'); }
+          }, 2500);
+        }
+      }
+    } catch(_) {}
   } else if (_cp.get('checkout') === 'cancelled') {
     showToast('Checkout cancelled — no charge was made.', '#6b7280');
     history.replaceState({}, '', location.pathname);
   }
+
+  window.addEventListener('message', (event) => {
+    if (event.origin === location.origin && event.data?.type === 'pp_number_checkout_done') {
+      if (window.softphone && typeof softphone.resetWebRTC === 'function') softphone.resetWebRTC();
+      renderPhoneBook();
+    }
+  });
 });
 
 function toggleMobileSidebar() {

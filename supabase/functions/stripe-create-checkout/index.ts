@@ -64,17 +64,89 @@ serve(async (req) => {
 
   const body     = await req.json().catch(() => ({}));
   const planId   = body.plan_id as string | undefined;
+  const mode     = body.mode as string | undefined;
   const areaCode = (body.area_code as string | undefined) || "202";
 
-  if (!planId) return json({ error: "plan_id_required" }, 400);
+  if (!planId && mode !== "numbers") return json({ error: "plan_id_required" }, 400);
 
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId);
+  const DEV_EMAIL = 'jacef8778099@gmail.com';
+
+  // ── Numbers-only checkout ─────────────────────────────────────────────────
+  // Used when an agent has a plan but no Stripe subscription yet (e.g. given
+  // access manually). Creates a subscription for the phone number + usage
+  // products so billing is established before they buy their first number.
+  if (mode === "numbers") {
+    if (user.email === DEV_EMAIL) return json({ ok: true, dev: true });
+
+    const { data: agent } = await sb
+      .from("agents")
+      .select("stripe_customer_id, stripe_subscription_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (agent?.stripe_subscription_id) return json({ ok: true, already_subscribed: true });
+
+    const { data: billingConfig } = await sb
+      .from("billing_config")
+      .select("stripe_numbers_price_id, stripe_minutes_price_id")
+      .eq("id", 1)
+      .maybeSingle();
+
+    if (!billingConfig?.stripe_numbers_price_id) {
+      return json({ error: "numbers_price_not_configured" }, 400);
+    }
+
+    const stripeHdrs = {
+      "Authorization": `Bearer ${STRIPE_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    const sessionParams = new URLSearchParams({
+      "mode":                                              "subscription",
+      "line_items[0][price]":                             billingConfig.stripe_numbers_price_id,
+      "line_items[0][quantity]":                          "1",
+      "success_url":                                      `${APP_URL}/app.html?checkout=number_success&session_id={CHECKOUT_SESSION_ID}`,
+      "cancel_url":                                       `${APP_URL}/app.html?checkout=cancelled`,
+      "metadata[supabase_user_id]":                       user.id,
+      "subscription_data[metadata][supabase_user_id]":    user.id,
+    });
+
+    if (billingConfig.stripe_minutes_price_id) {
+      sessionParams.set("line_items[1][price]", billingConfig.stripe_minutes_price_id);
+      // No quantity — metered usage price
+    }
+
+    if (agent?.stripe_customer_id) {
+      sessionParams.set("customer", agent.stripe_customer_id);
+    } else if (user.email) {
+      sessionParams.set("customer_email", user.email);
+    }
+
+    const sessionRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: stripeHdrs,
+      body: sessionParams,
+    });
+
+    if (!sessionRes.ok) {
+      const errText = await sessionRes.text();
+      let stripeMsg = errText;
+      try { stripeMsg = JSON.parse(errText)?.error?.message || errText; } catch (_) {}
+      console.error("Stripe number checkout error:", stripeMsg);
+      return json({ error: "checkout_session_failed", detail: stripeMsg }, 502);
+    }
+
+    const session = await sessionRes.json();
+    if (!session.url) return json({ error: "checkout_session_no_url" }, 502);
+    return json({ url: session.url });
+  }
+
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId!);
 
   // Developer account bypass — skip Stripe, apply plan directly in DB.
-  const DEV_EMAIL = 'jacef8778099@gmail.com';
   if (user.email === DEV_EMAIL) {
     const { data: devPlan, error: devPlanErr } = await sb
-      .from("plans").select("*").eq(isUuid ? "id" : "slug", planId).eq("active", true).maybeSingle();
+      .from("plans").select("*").eq(isUuid ? "id" : "slug", planId!).eq("active", true).maybeSingle();
     if (devPlanErr || !devPlan) return json({ error: "plan_not_found" }, 404);
     await sb.from("agents").update({
       plan_id:              devPlan.id,
@@ -87,7 +159,7 @@ serve(async (req) => {
   const { data: plan, error: planErr } = await sb
     .from("plans")
     .select("*")
-    .eq(isUuid ? "id" : "slug", planId)
+    .eq(isUuid ? "id" : "slug", planId!)
     .eq("active", true)
     .maybeSingle();
 

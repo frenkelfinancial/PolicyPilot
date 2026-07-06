@@ -12035,14 +12035,16 @@ const softphone = (() => {
     try {
       const r = await sb.functions.invoke('telnyx-webrtc-token', {});
       if (r.error) {
+        let reason = 'token_error';
         let detail = r.error.message || 'token invoke failed';
         try {
           if (r.error.context && typeof r.error.context.json === 'function') {
             const b = await r.error.context.clone().json();
             detail = b.detail || b.error || detail;
+            if (b.error) reason = b.error; // use the actual error code so specific handlers fire
           }
         } catch {}
-        return { ok: false, reason: 'token_error', detail };
+        return { ok: false, reason, detail };
       }
       if (!r.data || !r.data.ok) return { ok: false, reason: r.data && r.data.error || 'token_failed', detail: r.data };
       creds = r.data;
@@ -12464,10 +12466,24 @@ const softphone = (() => {
     setTimeout(_bindOnce, 0);
   }
 
+  function resetWebRTC() {
+    if (state.phase !== 'idle' && state.phase !== 'ended') return; // don't disrupt live calls
+    if (_telnyxClient) {
+      try { _telnyxClient.disconnect(); } catch {}
+      _telnyxClient = null;
+    }
+    _telnyxReady   = false;
+    _webrtcCallerId = '';
+    state.stubMode  = false;
+    state.stubReason = '';
+    _render();
+  }
+
   return {
     dial, dialNumber, hangup, toggleMute, setOutcome, close, isAdmin, sendDigit,
     loadAdminFlag: _loadAdminFlag,
     initRealtime:  _initRealtime,
+    resetWebRTC,
     // Re-runs the floating-panel visibility check (idle / on the Web Dialer
     // tab → hidden) without waiting for the next state-driven render —
     // called from nav() so switching tabs mid-call shows/hides it right away.
@@ -16506,6 +16522,8 @@ async function pbSetNumberAsPrimary(numberId, e164) {
         .eq('id', currentAgent.id);
       if (error) throw error;
     }
+    // Reset the WebRTC client so the next call picks up the new caller ID.
+    if (window.softphone && typeof softphone.resetWebRTC === 'function') softphone.resetWebRTC();
     showToast(`Primary number set to ${_pbFmtPhone(e164)}`, '#10b981');
     await renderPhoneBook();
   } catch (e) {
@@ -16808,22 +16826,58 @@ async function pbConfirmBuy(n, btn) {
     }
     const proceed = window.confirm(
       `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-      `Your subscription isn't fully set up in Stripe yet. You'll be taken to a quick checkout to complete billing — ` +
-      `your phone number will be added immediately after.\n\nContinue to checkout?`
+      `Phone billing isn't set up yet. A Stripe checkout will pop up for $3/mo per number + $0.02/min usage — ` +
+      `your number will be added immediately after payment.\n\nContinue?`
     );
     if (!proceed) return;
     pbCloseBuyModal();
-    // Store the pending number so it can be purchased after checkout completes.
-    try { sessionStorage.setItem('pp_pending_number', JSON.stringify(n)); } catch(_) {}
     const { data: { session } } = await sb.auth.getSession();
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ plan_id: planId }),
+      body: JSON.stringify({ mode: 'numbers' }),
     });
     const result = await resp.json();
-    if (result.url) { window.location.href = result.url; }
-    else { showToast('Could not start checkout: ' + (result.error || 'unknown error'), '#dc2626'); }
+    if (result.url) {
+      // Store pending number in localStorage (shared with the popup window).
+      try { localStorage.setItem('pp_pending_number_popup', JSON.stringify({ ...n, ts: Date.now() })); } catch(_) {}
+      const popup = window.open(result.url, 'stripe_number_checkout', 'width=620,height=820,scrollbars=yes,resizable=yes');
+      if (!popup) {
+        // Popup blocked — fall back to same-tab redirect.
+        try { sessionStorage.setItem('pp_pending_number', JSON.stringify(n)); } catch(_) {}
+        window.location.href = result.url;
+      } else {
+        const checkClosed = setInterval(() => {
+          if (popup.closed) { clearInterval(checkClosed); renderPhoneBook(); }
+        }, 1000);
+      }
+    } else if (result.already_subscribed) {
+      // Subscription is already set up (stale client data) — skip checkout and buy directly.
+      if (btn) { btn.disabled = true; btn.textContent = 'Buying…'; }
+      try {
+        const { data, error } = await sb.functions.invoke('telnyx-buy-number', {
+          body: { e164, friendly_name: n.friendly_name || null, locality: n.locality || null, region: n.region || null },
+        });
+        if (error) {
+          let detail = error.message || 'Unknown error';
+          try { const b = error.context && await error.context.json(); if (b?.error) detail = b.error; } catch (_) {}
+          throw new Error(detail);
+        }
+        if (!data?.ok) throw new Error((data && data.error) || 'Purchase rejected');
+        showToast(`Acquired ${_pbFmtPhone(e164)}`, '#10b981');
+        if (data.set_as_primary && window.softphone && typeof softphone.resetWebRTC === 'function') softphone.resetWebRTC();
+        await renderPhoneBook();
+      } catch (e) {
+        const rawMsg = e.message || String(e);
+        const friendly = rawMsg.includes('active_subscription_required')
+          ? 'An active subscription is required to purchase a number.'
+          : rawMsg;
+        showToast(`Purchase failed: ${friendly}`, '#dc2626');
+        if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
+      }
+    } else {
+      showToast('Could not start checkout: ' + (result.error || 'unknown error'), '#dc2626');
+    }
     return;
   }
 
@@ -16856,6 +16910,10 @@ async function pbConfirmBuy(n, btn) {
     if (!data || !data.ok) throw new Error((data && data.error) || 'Purchase rejected');
     showToast(`Acquired ${_pbFmtPhone(e164)}`, '#10b981');
     pbCloseBuyModal();
+    // If this became the primary number, reset WebRTC so the next call uses it.
+    if (data.set_as_primary && window.softphone && typeof softphone.resetWebRTC === 'function') {
+      softphone.resetWebRTC();
+    }
     await renderPhoneBook();
   } catch (e) {
     console.warn('[phonebook] buy failed', e);
@@ -19722,10 +19780,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
     } catch(_) {}
+  } else if (_cp.get('checkout') === 'number_success') {
+    history.replaceState(null, '', location.pathname);
+    showToast('Phone billing confirmed!', '#10b981');
+    try {
+      const pendingRaw = localStorage.getItem('pp_pending_number_popup');
+      if (pendingRaw) {
+        localStorage.removeItem('pp_pending_number_popup');
+        const pendingN = JSON.parse(pendingRaw);
+        if (pendingN && pendingN.phone_number && (Date.now() - (pendingN.ts || 0)) < 30 * 60 * 1000) {
+          setTimeout(async () => {
+            showToast(`Completing number purchase for ${_pbFmtPhone(pendingN.phone_number)}…`, '#6b7280');
+            try {
+              const { data, error } = await sb.functions.invoke('telnyx-buy-number', {
+                body: {
+                  e164:          pendingN.phone_number,
+                  friendly_name: pendingN.friendly_name || null,
+                  locality:      pendingN.locality || null,
+                  region:        pendingN.region || null,
+                },
+              });
+              if (error || !data?.ok) {
+                let detail = error?.message || (data && data.error) || 'Unknown error';
+                try { const b = error?.context && await error.context.json(); if (b?.error) detail = b.error; } catch(_){}
+                showToast(`Number purchase failed: ${detail}`, '#dc2626');
+              } else {
+                showToast(`Acquired ${_pbFmtPhone(pendingN.phone_number)}`, '#10b981');
+                if (window.opener) {
+                  try { window.opener.postMessage({ type: 'pp_number_checkout_done' }, location.origin); } catch(_) {}
+                  window.close();
+                }
+              }
+            } catch(e) { showToast(`Number purchase failed: ${e.message || e}`, '#dc2626'); }
+          }, 2500);
+        }
+      }
+    } catch(_) {}
   } else if (_cp.get('checkout') === 'cancelled') {
     showToast('Checkout cancelled — no charge was made.', '#6b7280');
     history.replaceState({}, '', location.pathname);
   }
+
+  window.addEventListener('message', (event) => {
+    if (event.origin === location.origin && event.data?.type === 'pp_number_checkout_done') {
+      if (window.softphone && typeof softphone.resetWebRTC === 'function') softphone.resetWebRTC();
+      renderPhoneBook();
+    }
+  });
 });
 
 function toggleMobileSidebar() {

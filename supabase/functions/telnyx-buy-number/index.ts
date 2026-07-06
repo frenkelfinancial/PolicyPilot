@@ -47,6 +47,27 @@ async function syncNumberOnStripe(
     const existingItemId = agent.stripe_numbers_item_id;
 
     if (!existingItemId) {
+      // Check if the numbers item was already created via a numbers checkout session.
+      const listRes = await fetch(
+        `https://api.stripe.com/v1/subscription_items?subscription=${agent.stripe_subscription_id}&limit=20`,
+        { headers: stripeHdrs },
+      );
+      if (listRes.ok) {
+        const listData = await listRes.json();
+        const found = (listData.data || []).find(
+          (item: { price?: { id: string }; id: string }) =>
+            item.price?.id === config.stripe_numbers_price_id,
+        );
+        if (found) {
+          // Item already exists from checkout — record it; quantity already matches.
+          await sb.from("agents")
+            .update({ stripe_numbers_item_id: found.id })
+            .eq("id", agentId);
+          console.log(`[telnyx-buy-number] Recorded existing Stripe number item ${found.id} for agent ${agentId}`);
+          return;
+        }
+      }
+
       // First number purchase — add a new subscription item with quantity 1.
       const addParams = new URLSearchParams({
         "subscription":             agent.stripe_subscription_id,
@@ -177,6 +198,14 @@ serve(async (req) => {
     .maybeSingle();
   const monthlyCostDollars = ((billingConfig?.number_rate_cents ?? 300) / 100).toFixed(2);
 
+  // If this is the agent's first number, auto-set it as primary so they can
+  // call immediately without a manual "Set as Primary" step.
+  const { data: agentRow } = await sb.from("agents")
+    .select("signalwire_caller_id")
+    .eq("id", user.id)
+    .maybeSingle();
+  const isFirstNumber = !agentRow?.signalwire_caller_id;
+
   const { error: insertErr } = await sb.from("phone_numbers").insert({
     agent_id:      user.id,
     e164,
@@ -185,7 +214,7 @@ serve(async (req) => {
     region:        body.region    ?? null,
     sw_phone_sid:  telnyxPhoneSid,
     monthly_cost:  monthlyCostDollars,
-    is_primary:    false,
+    is_primary:    isFirstNumber,
     status:        "active",
     purchased_at:  new Date().toISOString(),
   });
@@ -193,6 +222,13 @@ serve(async (req) => {
   if (insertErr) {
     console.warn("[telnyx-buy-number] DB insert failed:", insertErr.message);
     return json({ ok: false, error: "Purchase succeeded at Telnyx but failed to save to database: " + insertErr.message }, 500);
+  }
+
+  if (isFirstNumber) {
+    await sb.from("agents")
+      .update({ signalwire_caller_id: e164 })
+      .eq("id", user.id);
+    console.log(`[telnyx-buy-number] Auto-set ${e164} as primary caller ID for agent ${user.id}`);
   }
 
   // Sync the phone number quantity to the agent's Stripe subscription.
@@ -203,5 +239,5 @@ serve(async (req) => {
     await syncNumberOnStripe(sb, STRIPE_KEY, user.id);
   }
 
-  return json({ ok: true, e164 });
+  return json({ ok: true, e164, set_as_primary: isFirstNumber });
 });
