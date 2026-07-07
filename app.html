@@ -12109,19 +12109,51 @@ const softphone = (() => {
     _render(); // refresh caller ID strip now that we have the number
 
     return new Promise((resolve) => {
+      // The connect handshake can fail three ways: an explicit telnyx.error,
+      // a socket that opens then closes before registering (bad SIP
+      // credential / SIP Connection not WebRTC-enabled), or a socket that
+      // never becomes ready at all. Only the first fired an event that
+      // resolved this Promise — the other two left the whole call stuck on
+      // "Calling…" forever with no mic and no ringing. Guard every exit with
+      // a single settle() so any of them resolves exactly once.
+      let settled = false;
+      const settle = (result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(connectTimer);
+        resolve(result);
+      };
+
+      const connectTimer = setTimeout(() => {
+        console.warn('[softphone] Telnyx connect timed out — no telnyx.ready within 12s');
+        _telnyxReady = false;
+        settle({ ok: false, reason: 'webrtc_timeout',
+          detail: 'Telnyx WebRTC never became ready. Check the SIP credential and that its SIP Connection has WebRTC/credential auth enabled.' });
+      }, 12000);
+
       const client = new RTC({ login: creds.sip_username, password: creds.sip_password });
 
       client.on('telnyx.ready', () => {
+        console.log('[softphone] Telnyx client ready');
         _telnyxReady = true;
-        resolve({ ok: true });
+        settle({ ok: true });
       });
 
       client.on('telnyx.error', (err) => {
+        console.error('[softphone] Telnyx error', err);
         _telnyxReady = false;
-        resolve({ ok: false, reason: 'webrtc_error', detail: (err && err.message) || String(err) });
+        settle({ ok: false, reason: 'webrtc_error', detail: (err && err.message) || String(err) });
       });
 
-      client.on('telnyx.socket.close', () => { _telnyxReady = false; });
+      client.on('telnyx.socket.close', () => {
+        console.warn('[softphone] Telnyx socket closed');
+        _telnyxReady = false;
+        // Closing before we ever reached ready means auth/registration was
+        // rejected — resolve as a failure instead of waiting on a ready that
+        // will never come. (After ready this is a no-op via the settle guard.)
+        settle({ ok: false, reason: 'webrtc_socket_closed',
+          detail: 'Telnyx WebSocket closed before the client became ready — likely a SIP credential/registration failure.' });
+      });
 
       client.on('telnyx.notification', (n) => _handleTelnyxNotification(n));
 
@@ -17162,8 +17194,8 @@ async function pbConfirmReplace(n, btn) {
   const newE164 = n.phone_number;
   const ok = window.confirm(
     `Replace ${_pbFmtPhone(_pbManageE164)} with ${_pbFmtPhone(newE164)}?\n\n` +
-    `Your old number will be released and the new one activated immediately. ` +
-    `Your monthly charge stays the same. This cannot be undone.`
+    `Your old number will be released immediately. The new number starts billing today ` +
+    `with monthly payments on this date each month. This cannot be undone.`
   );
   if (!ok) return;
 
