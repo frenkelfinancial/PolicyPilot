@@ -1,19 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = new Set([
+  "https://producerstackcrm.com",
+  "https://localhost", // iOS/Android Capacitor (iosScheme/androidScheme: "https")
+]);
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
+function corsHeaders(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const cors = corsHeaders(req.headers.get("origin"));
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  }
+
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
   if (!TELNYX_API_KEY) return json({ error: "telnyx_not_configured" }, 500);

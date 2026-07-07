@@ -1,16 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = new Set([
+  "https://producerstackcrm.com",
+  "https://localhost", // iOS/Android Capacitor (iosScheme/androidScheme: "https")
+]);
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
+function corsHeaders(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
 }
 
 async function telnyxReleaseByE164(apiKey: string, e164: string): Promise<void> {
@@ -33,14 +35,136 @@ async function telnyxReleaseByE164(apiKey: string, e164: string): Promise<void> 
   }
 }
 
+// Cancel the old number's Stripe subscription immediately.
+async function cancelNumberSubscription(stripeKey: string, stripeSubId: string) {
+  try {
+    const res = await fetch(`https://api.stripe.com/v1/subscriptions/${stripeSubId}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${stripeKey}` },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (body?.error?.code !== "resource_missing") {
+        console.warn("[telnyx-replace-number] Stripe subscription cancel failed:", body);
+      }
+    } else {
+      console.log(`[telnyx-replace-number] Cancelled Stripe subscription ${stripeSubId}`);
+    }
+  } catch (e) {
+    console.error("[telnyx-replace-number] Stripe cancel error:", e);
+  }
+}
+
+// Legacy fallback for old numbers that are on the shared quantity item.
+async function decrementStripeNumber(
+  sb: ReturnType<typeof createClient>,
+  stripeKey: string,
+  agentId: string,
+) {
+  try {
+    const agentRes = await sb.from("agents")
+      .select("stripe_subscription_id, stripe_numbers_item_id")
+      .eq("id", agentId)
+      .maybeSingle();
+
+    const agent = agentRes.data;
+    if (!agent?.stripe_subscription_id || !agent?.stripe_numbers_item_id) return;
+
+    const stripeHdrs = {
+      "Authorization": `Bearer ${stripeKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    const itemRes = await fetch(
+      `https://api.stripe.com/v1/subscription_items/${agent.stripe_numbers_item_id}`,
+      { headers: stripeHdrs },
+    );
+    if (!itemRes.ok) return;
+    const item = await itemRes.json();
+    const newQty = Math.max(0, (item.quantity || 1) - 1);
+
+    if (newQty === 0) {
+      await fetch(`https://api.stripe.com/v1/subscription_items/${agent.stripe_numbers_item_id}`, {
+        method: "DELETE",
+        headers: stripeHdrs,
+        body: new URLSearchParams({ "proration_behavior": "create_prorations" }),
+      });
+      await sb.from("agents").update({ stripe_numbers_item_id: null }).eq("id", agentId);
+    } else {
+      await fetch(`https://api.stripe.com/v1/subscription_items/${agent.stripe_numbers_item_id}`, {
+        method: "POST",
+        headers: stripeHdrs,
+        body: new URLSearchParams({ "quantity": String(newQty), "proration_behavior": "create_prorations" }),
+      });
+    }
+  } catch (e) {
+    console.error("[telnyx-replace-number] Legacy Stripe decrement error:", e);
+  }
+}
+
+// Create a new dedicated Stripe subscription for the replacement number.
+// Billing starts today and recurs on this same day each month.
+async function createNumberSubscription(
+  sb: ReturnType<typeof createClient>,
+  stripeKey: string,
+  agentId: string,
+  phoneNumberRowId: string,
+) {
+  try {
+    const [agentRes, configRes] = await Promise.all([
+      sb.from("agents").select("stripe_customer_id").eq("id", agentId).maybeSingle(),
+      sb.from("billing_config").select("stripe_numbers_price_id").eq("id", 1).maybeSingle(),
+    ]);
+
+    const customerId = agentRes.data?.stripe_customer_id;
+    const priceId    = configRes.data?.stripe_numbers_price_id;
+
+    if (!customerId || !priceId) return;
+
+    const subRes = await fetch("https://api.stripe.com/v1/subscriptions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${stripeKey}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        "customer":        customerId,
+        "items[0][price]": priceId,
+      }),
+    });
+
+    if (!subRes.ok) {
+      console.warn("[telnyx-replace-number] Stripe subscription create failed:", await subRes.text());
+      return;
+    }
+
+    const sub = await subRes.json();
+    await sb.from("phone_numbers").update({ stripe_sub_id: sub.id }).eq("id", phoneNumberRowId);
+    console.log(`[telnyx-replace-number] Created Stripe subscription ${sub.id} for replacement number`);
+  } catch (e) {
+    console.error("[telnyx-replace-number] Stripe create error:", e);
+  }
+}
+
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const cors = corsHeaders(req.headers.get("origin"));
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  }
+
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   const SUPABASE_URL   = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const ANON_KEY       = Deno.env.get("SUPABASE_ANON_KEY")!;
   const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
   const TELNYX_CONN_ID = Deno.env.get("TELNYX_CONNECTION_ID");
+  const STRIPE_KEY     = Deno.env.get("STRIPE_SECRET_KEY");
+  const DEV_EMAIL      = "jacef8778099@gmail.com";
 
   if (!TELNYX_API_KEY || !TELNYX_CONN_ID) return json({ error: "telnyx_not_configured" }, 500);
 
@@ -99,8 +223,9 @@ serve(async (req) => {
   const orderData = await orderRes.json();
   const newTelnyxSid = orderData?.data?.phone_numbers?.[0]?.id || orderData?.data?.id || "";
 
-  // Step 2: Insert new number in DB (inherits old number's primary status and cost)
-  const { error: insertErr } = await sb.from("phone_numbers").insert({
+  // Step 2: Insert new number in DB; inherit old number's primary status and cost.
+  // Get back the row ID so we can attach its Stripe subscription to it.
+  const { data: newRow, error: insertErr } = await sb.from("phone_numbers").insert({
     agent_id:      user.id,
     e164:          new_e164,
     friendly_name: new_friendly_name || new_e164,
@@ -111,10 +236,10 @@ serve(async (req) => {
     is_primary:    oldRecord.is_primary,
     status:        "active",
     purchased_at:  new Date().toISOString(),
-  });
+  }).select("id").single();
 
-  if (insertErr) {
-    return json({ ok: false, error: `DB insert failed: ${insertErr.message}` }, 500);
+  if (insertErr || !newRow) {
+    return json({ ok: false, error: `DB insert failed: ${insertErr?.message}` }, 500);
   }
 
   // Step 3: If old was primary, point agents.signalwire_caller_id at new number
@@ -137,7 +262,20 @@ serve(async (req) => {
     .eq("id", old_phone_number_id)
     .eq("agent_id", user.id);
 
-  // No Stripe change — one number removed, one added at same rate: net $0 change.
+  // Step 6: Stripe billing swap. Developer account skips Stripe.
+  if (STRIPE_KEY && user.email !== DEV_EMAIL) {
+    // Cancel the old number's Stripe subscription immediately.
+    if (oldRecord.stripe_sub_id) {
+      await cancelNumberSubscription(STRIPE_KEY, oldRecord.stripe_sub_id);
+    } else {
+      // Legacy: old number was on the shared quantity item — decrement it.
+      await decrementStripeNumber(sb, STRIPE_KEY, user.id);
+    }
+
+    // Create a fresh subscription for the new number.
+    // Billing starts today and recurs on this same day each month.
+    await createNumberSubscription(sb, STRIPE_KEY, user.id, newRow.id);
+  }
 
   return json({ ok: true, new_e164, old_e164: oldRecord.e164 });
 });

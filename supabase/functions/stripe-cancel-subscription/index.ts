@@ -100,28 +100,48 @@ serve(async (req) => {
     }
   }
 
-  // ── 2. Release all phone numbers from Telnyx immediately ─────────────────
+  // ── 2. Release all phone numbers from Telnyx + cancel per-number Stripe subscriptions ──
   const { data: numbers } = await sb.from("phone_numbers")
-    .select("id, e164")
+    .select("id, e164, stripe_sub_id")
     .eq("agent_id", user.id);
 
   const releasable = (numbers || []).filter(n => n.e164 !== TELNYX_DIALER_NUM);
   const releaseErrors: string[] = [];
 
   for (const num of releasable) {
-    if (!isDev && TELNYX_API_KEY) {
-      try {
-        await telnyxReleaseByE164(TELNYX_API_KEY, num.e164);
-      } catch (e) {
-        console.warn(`[stripe-cancel-subscription] Telnyx release failed for ${num.e164}:`, e.message);
-        releaseErrors.push(`${num.e164}: ${e.message}`);
+    if (!isDev) {
+      // Cancel the number's own Stripe subscription immediately.
+      if (STRIPE_KEY && num.stripe_sub_id) {
+        try {
+          const res = await fetch(`https://api.stripe.com/v1/subscriptions/${num.stripe_sub_id}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${STRIPE_KEY}` },
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            if (body?.error?.code !== "resource_missing") {
+              console.warn(`[stripe-cancel-subscription] Sub cancel failed for ${num.e164}:`, body);
+            }
+          }
+        } catch (e) {
+          console.warn(`[stripe-cancel-subscription] Sub cancel error for ${num.e164}:`, e.message);
+        }
+      }
+
+      if (TELNYX_API_KEY) {
+        try {
+          await telnyxReleaseByE164(TELNYX_API_KEY, num.e164);
+        } catch (e) {
+          console.warn(`[stripe-cancel-subscription] Telnyx release failed for ${num.e164}:`, e.message);
+          releaseErrors.push(`${num.e164}: ${e.message}`);
+        }
       }
     }
-    // Delete from DB regardless of Telnyx outcome — subscription is ending.
+    // Delete from DB regardless of outcome — plan subscription is ending.
     await sb.from("phone_numbers").delete().eq("id", num.id).eq("agent_id", user.id);
   }
 
-  // ── 3. Clear caller ID and numbers item on agents row ────────────────────
+  // ── 3. Clear caller ID and legacy numbers item on agents row ─────────────
   await sb.from("agents").update({
     signalwire_caller_id:   null,
     stripe_numbers_item_id: null,

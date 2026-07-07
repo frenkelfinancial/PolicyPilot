@@ -1,18 +1,43 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = new Set([
+  "https://producerstackcrm.com",
+  "https://localhost", // iOS/Android Capacitor (iosScheme/androidScheme: "https")
+]);
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
+function corsHeaders(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
 }
 
+// Cancel this number's dedicated Stripe subscription immediately.
+async function cancelNumberSubscription(stripeKey: string, stripeSubId: string) {
+  try {
+    const res = await fetch(`https://api.stripe.com/v1/subscriptions/${stripeSubId}`, {
+      method: "DELETE",
+      headers: { "Authorization": `Bearer ${stripeKey}` },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      // resource_missing = already cancelled; treat as success
+      if (body?.error?.code !== "resource_missing") {
+        console.warn("[telnyx-release-number] Stripe subscription cancel failed:", body);
+      }
+    } else {
+      console.log(`[telnyx-release-number] Cancelled Stripe subscription ${stripeSubId}`);
+    }
+  } catch (e) {
+    console.error("[telnyx-release-number] Stripe cancel error:", e);
+  }
+}
+
+// Legacy fallback: decrement the shared quantity item for numbers that predate
+// per-number subscriptions (no stripe_sub_id on the phone_numbers row).
 async function decrementStripeNumber(
   sb: ReturnType<typeof createClient>,
   stripeKey: string,
@@ -66,7 +91,7 @@ async function decrementStripeNumber(
         },
       );
     }
-    console.log(`[telnyx-release-number] Stripe qty decremented to ${newQty} for agent ${agentId}`);
+    console.log(`[telnyx-release-number] Legacy Stripe qty decremented to ${newQty} for agent ${agentId}`);
   } catch (e) {
     console.error("[telnyx-release-number] Stripe decrement error:", e);
   }
@@ -80,8 +105,7 @@ async function telnyxReleaseByE164(apiKey: string, e164: string): Promise<void> 
   if (!listRes.ok) throw new Error(`Telnyx list failed: ${await listRes.text()}`);
   const listData = await listRes.json();
   const records = listData.data || [];
-  if (!records.length) throw new Error(`Number ${e164} not found on Telnyx account`);
-
+  if (!records.length) return; // already released — skip silently
   const telnyxId = records[0].id;
   const delRes = await fetch(`https://api.telnyx.com/v2/phone_numbers/${telnyxId}`, {
     method: "DELETE",
@@ -93,7 +117,16 @@ async function telnyxReleaseByE164(apiKey: string, e164: string): Promise<void> 
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const cors = corsHeaders(req.headers.get("origin"));
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  }
+
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   const SUPABASE_URL      = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY       = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -101,7 +134,7 @@ serve(async (req) => {
   const TELNYX_API_KEY    = Deno.env.get("TELNYX_API_KEY");
   const TELNYX_DIALER_NUM = Deno.env.get("TELNYX_DIALER_NUMBER");
   const STRIPE_KEY        = Deno.env.get("STRIPE_SECRET_KEY");
-  const DEV_EMAIL         = 'jacef8778099@gmail.com';
+  const DEV_EMAIL         = "jacef8778099@gmail.com";
 
   if (!TELNYX_API_KEY) return json({ error: "telnyx_not_configured" }, 500);
 
@@ -168,8 +201,16 @@ serve(async (req) => {
     }
   }
 
-  // Developer account skips Stripe billing changes.
-  if (STRIPE_KEY && user.email !== DEV_EMAIL) await decrementStripeNumber(sb, STRIPE_KEY, user.id);
+  // Cancel this number's Stripe billing. Developer account skips Stripe.
+  if (STRIPE_KEY && user.email !== DEV_EMAIL) {
+    if (numRecord.stripe_sub_id) {
+      // Per-number subscription model: cancel just this number's subscription.
+      await cancelNumberSubscription(STRIPE_KEY, numRecord.stripe_sub_id);
+    } else {
+      // Legacy: number was on the shared quantity item — decrement it.
+      await decrementStripeNumber(sb, STRIPE_KEY, user.id);
+    }
+  }
 
   return json({ ok: true, e164 });
 });

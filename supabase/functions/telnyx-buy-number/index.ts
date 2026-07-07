@@ -1,30 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const ALLOWED_ORIGINS = new Set([
+  "https://producerstackcrm.com",
+  "https://localhost", // iOS/Android Capacitor (iosScheme/androidScheme: "https")
+]);
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
+function corsHeaders(origin: string | null) {
+  return {
+    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin",
+  };
 }
 
-// After a number is purchased, add it to the agent's Stripe subscription.
-// If the agent has no subscription yet, or billing config lacks a numbers price,
-// this is a silent no-op (billing will catch up when they subscribe).
-async function syncNumberOnStripe(
+// Create a dedicated Stripe subscription for a single phone number.
+// Each number gets its own subscription so billing is independent:
+// - start date = day of purchase
+// - recurring = same day each month
+// - cancel = only that number is affected
+async function createNumberSubscription(
   sb: ReturnType<typeof createClient>,
   stripeKey: string,
   agentId: string,
+  phoneNumberRowId: string,
 ) {
   try {
     const [agentRes, configRes] = await Promise.all([
       sb.from("agents")
-        .select("stripe_subscription_id, stripe_numbers_item_id")
+        .select("stripe_customer_id")
         .eq("id", agentId)
         .maybeSingle(),
       sb.from("billing_config")
@@ -33,97 +38,49 @@ async function syncNumberOnStripe(
         .maybeSingle(),
     ]);
 
-    const agent  = agentRes.data;
-    const config = configRes.data;
+    const customerId = agentRes.data?.stripe_customer_id;
+    const priceId    = configRes.data?.stripe_numbers_price_id;
 
-    if (!agent?.stripe_subscription_id) return;
-    if (!config?.stripe_numbers_price_id) return;
+    if (!customerId || !priceId) return;
 
     const stripeHdrs = {
       "Authorization": `Bearer ${stripeKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
     };
 
-    const existingItemId = agent.stripe_numbers_item_id;
-
-    if (!existingItemId) {
-      // Check if the numbers item was already created via a numbers checkout session.
-      const listRes = await fetch(
-        `https://api.stripe.com/v1/subscription_items?subscription=${agent.stripe_subscription_id}&limit=20`,
-        { headers: stripeHdrs },
-      );
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const found = (listData.data || []).find(
-          (item: { price?: { id: string }; id: string }) =>
-            item.price?.id === config.stripe_numbers_price_id,
-        );
-        if (found) {
-          // Item already exists from checkout — record it; quantity already matches.
-          await sb.from("agents")
-            .update({ stripe_numbers_item_id: found.id })
-            .eq("id", agentId);
-          console.log(`[telnyx-buy-number] Recorded existing Stripe number item ${found.id} for agent ${agentId}`);
-          return;
-        }
-      }
-
-      // First number purchase — add a new subscription item with quantity 1.
-      const addParams = new URLSearchParams({
-        "subscription":             agent.stripe_subscription_id,
-        "price":                    config.stripe_numbers_price_id,
-        "quantity":                 "1",
-        "proration_behavior":       "create_prorations",
-      });
-      const addRes = await fetch("https://api.stripe.com/v1/subscription_items", {
-        method: "POST",
-        headers: stripeHdrs,
-        body: addParams,
-      });
-      if (!addRes.ok) {
-        console.warn("[telnyx-buy-number] Stripe add number item failed:", await addRes.text());
-        return;
-      }
-      const newItem = await addRes.json();
-      await sb.from("agents")
-        .update({ stripe_numbers_item_id: newItem.id })
-        .eq("id", agentId);
-      console.log(`[telnyx-buy-number] Created Stripe number item ${newItem.id} for agent ${agentId}`);
-      return;
-    }
-
-    // Subsequent purchase — fetch current quantity and increment by 1.
-    const itemRes = await fetch(
-      `https://api.stripe.com/v1/subscription_items/${existingItemId}`,
-      { headers: stripeHdrs },
-    );
-    if (!itemRes.ok) {
-      console.warn("[telnyx-buy-number] Stripe fetch item failed:", await itemRes.text());
-      return;
-    }
-    const item = await itemRes.json();
-    const newQty = (item.quantity || 0) + 1;
-
-    const updateParams = new URLSearchParams({
-      "quantity":           String(newQty),
-      "proration_behavior": "create_prorations",
+    const subRes = await fetch("https://api.stripe.com/v1/subscriptions", {
+      method: "POST",
+      headers: stripeHdrs,
+      body: new URLSearchParams({
+        "customer":        customerId,
+        "items[0][price]": priceId,
+      }),
     });
-    const updateRes = await fetch(
-      `https://api.stripe.com/v1/subscription_items/${existingItemId}`,
-      { method: "POST", headers: stripeHdrs, body: updateParams },
-    );
-    if (!updateRes.ok) {
-      console.warn("[telnyx-buy-number] Stripe update qty failed:", await updateRes.text());
+
+    if (!subRes.ok) {
+      console.warn("[telnyx-buy-number] Stripe subscription create failed:", await subRes.text());
       return;
     }
-    console.log(`[telnyx-buy-number] Updated Stripe number qty to ${newQty} for agent ${agentId}`);
+
+    const sub = await subRes.json();
+    await sb.from("phone_numbers").update({ stripe_sub_id: sub.id }).eq("id", phoneNumberRowId);
+    console.log(`[telnyx-buy-number] Created Stripe subscription ${sub.id} for number row ${phoneNumberRowId}`);
   } catch (e) {
-    console.error("[telnyx-buy-number] Stripe sync error:", e);
+    console.error("[telnyx-buy-number] Stripe subscription create error:", e);
   }
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  const cors = corsHeaders(req.headers.get("origin"));
+
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+  }
+
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   const SUPABASE_URL   = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -131,6 +88,7 @@ serve(async (req) => {
   const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
   const TELNYX_CONN_ID = Deno.env.get("TELNYX_CONNECTION_ID");
   const STRIPE_KEY     = Deno.env.get("STRIPE_SECRET_KEY");
+  const DEV_EMAIL      = "jacef8778099@gmail.com";
 
   if (!TELNYX_API_KEY || !TELNYX_CONN_ID) return json({ error: "telnyx_not_configured" }, 500);
 
@@ -148,8 +106,7 @@ serve(async (req) => {
   // agent ever completes Stripe checkout, so this must be checked here — not
   // just gated client-side — or an authenticated-but-unpaid session can buy
   // numbers for free.
-  const DEV_EMAIL_GATE = 'jacef8778099@gmail.com';
-  if (user.email !== DEV_EMAIL_GATE) {
+  if (user.email !== DEV_EMAIL) {
     const sbCheck = createClient(SUPABASE_URL, SERVICE_KEY);
     const { data: agentCheck } = await sbCheck.from("agents")
       .select("plan_id, is_admin")
@@ -209,7 +166,8 @@ serve(async (req) => {
   const isFirstNumber = !agentRow?.signalwire_caller_id;
   const cnamName: string | null = agentRow?.cnam_name || null;
 
-  const { error: insertErr } = await sb.from("phone_numbers").insert({
+  // Insert and get back the row ID so we can attach the Stripe subscription to it.
+  const { data: insertedRow, error: insertErr } = await sb.from("phone_numbers").insert({
     agent_id:      user.id,
     e164,
     friendly_name: body.friendly_name || e164,
@@ -220,7 +178,7 @@ serve(async (req) => {
     is_primary:    isFirstNumber,
     status:        "active",
     purchased_at:  new Date().toISOString(),
-  });
+  }).select("id").single();
 
   // Best-effort: apply the agent's global CNAM to the new number on Telnyx.
   if (cnamName && telnyxPhoneSid) {
@@ -243,9 +201,9 @@ serve(async (req) => {
     }
   }
 
-  if (insertErr) {
-    console.warn("[telnyx-buy-number] DB insert failed:", insertErr.message);
-    return json({ ok: false, error: "Purchase succeeded at Telnyx but failed to save to database: " + insertErr.message }, 500);
+  if (insertErr || !insertedRow) {
+    console.warn("[telnyx-buy-number] DB insert failed:", insertErr?.message);
+    return json({ ok: false, error: "Purchase succeeded at Telnyx but failed to save to database: " + insertErr?.message }, 500);
   }
 
   if (isFirstNumber) {
@@ -255,12 +213,11 @@ serve(async (req) => {
     console.log(`[telnyx-buy-number] Auto-set ${e164} as primary caller ID for agent ${user.id}`);
   }
 
-  // Sync the phone number quantity to the agent's Stripe subscription.
-  // Best-effort — never fails the buy response.
-  // Developer account skips Stripe billing entirely.
-  const DEV_EMAIL = 'jacef8778099@gmail.com';
+  // Create a dedicated Stripe subscription for this number.
+  // Each number gets its own subscription: billing starts today and recurs on
+  // this day of the month. Developer account skips Stripe billing entirely.
   if (STRIPE_KEY && user.email !== DEV_EMAIL) {
-    await syncNumberOnStripe(sb, STRIPE_KEY, user.id);
+    await createNumberSubscription(sb, STRIPE_KEY, user.id, insertedRow.id);
   }
 
   return json({ ok: true, e164, set_as_primary: isFirstNumber });
