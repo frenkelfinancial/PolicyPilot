@@ -12571,6 +12571,12 @@ const softphone = (() => {
     get state() { return { ...state }; },
     get unavailable() { return false; },   // reserved for future "no creds" hard-disable
     get stub()        { return state.stubMode; },
+    // The agent's Telnyx number (from the token endpoint) lives in the
+    // private _webrtcCallerId inside this closure. The Web Dialer widget
+    // renders in a separate scope and needs it to show the outbound "From"
+    // number, so expose it here — reaching for the bare variable across
+    // scopes threw "ReferenceError: _webrtcCallerId is not defined".
+    get webrtcCallerId() { return _webrtcCallerId; },
   };
 })();
 // Expose for inline onclick handlers and dev-tools probing
@@ -12830,7 +12836,7 @@ const webDialer = (() => {
     const ciNumEl = _el('wd-ci-to-num'); if (ciNumEl) ciNumEl.textContent = sameAsNumber ? '' : (sp.phoneFmt || '');
     const ciFromNumEl = _el('wd-ci-from-num');
     if (ciFromNumEl) {
-      const rawNum = sp.callerIdNumber || _webrtcCallerId || '';
+      const rawNum = sp.callerIdNumber || (window.softphone && window.softphone.webrtcCallerId) || '';
       ciFromNumEl.textContent = rawNum ? (formatPhone(rawNum) || rawNum) : '—';
     }
     const ciFromNameEl = _el('wd-ci-from-name');
