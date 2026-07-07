@@ -4,6 +4,8 @@
   "description": "PolicyPilot life insurance agent dashboard",
   "private": true,
   "scripts": {
+    "check": "node scripts/check-app.mjs app.html",
+    "check:update-baseline": "node scripts/check-app.mjs --update-baseline app.html",
     "prebuild": "node scripts/prebuild.js",
     "build": "npx cap sync",
     "cap:sync": "npm run prebuild && npx cap sync",
@@ -11,12 +13,14 @@
     "cap:ios": "npm run cap:sync && npx cap open ios"
   },
   "dependencies": {
-    "@capacitor/core": "^6.0.0",
     "@capacitor/android": "^6.0.0",
-    "@capacitor/ios": "^6.0.0",
-    "@capacitor/browser": "^6.0.0"
+    "@capacitor/browser": "^6.0.0",
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.0.0"
+    "@capacitor/cli": "^6.0.0",
+    "eslint": "^9.39.4",
+    "globals": "^17.7.0"
   }
 }

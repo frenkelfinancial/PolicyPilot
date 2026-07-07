@@ -1,0 +1,7 @@
+[
+  "app.html|no-undef|'ALL_CONDITIONS' is not defined.",
+  "app.html|no-undef|'draftViewMonth' is not defined.",
+  "app.html|no-undef|'draftViewYear' is not defined.",
+  "app.html|no-undef|'otherVisible' is not defined.",
+  "app.html|no-undef|'selectedConds' is not defined."
+]

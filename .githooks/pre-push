@@ -1,0 +1,28 @@
+#!/bin/sh
+# Pre-push guard: block pushes that introduce JS syntax errors or undefined
+# variables (the class of bug that silently broke the softphone dialer).
+#
+# Activate once per clone:  git config core.hooksPath .githooks
+# Bypass in an emergency:    git push --no-verify
+#
+# Requires Node + `npm install` (ESLint is a devDependency).
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-push: node not found — skipping JS checks." >&2
+  exit 0
+fi
+
+if [ ! -d node_modules/eslint ]; then
+  echo "pre-push: ESLint not installed (run 'npm install') — skipping JS checks." >&2
+  exit 0
+fi
+
+echo "pre-push: checking app.html for new JS errors…"
+node scripts/check-app.mjs app.html
+status=$?
+if [ "$status" -ne 0 ]; then
+  echo "" >&2
+  echo "pre-push: BLOCKED — fix the errors above, or 'git push --no-verify' to override." >&2
+  exit 1
+fi
+exit 0

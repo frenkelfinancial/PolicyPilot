@@ -14,6 +14,78 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Producer Stack">
 <link rel="apple-touch-icon" href="assets/logos/policypilot-logo.jpg">
+<script>
+/* ── Global runtime error banner ──────────────────────────────
+   The whole app is one large inline script with no build step, so
+   a single uncaught JS error (e.g. a variable referenced from the
+   wrong scope — the class of bug that silently broke the softphone
+   dialer) can break a feature with no visible sign. This surfaces
+   any uncaught error or unhandled promise rejection as a red banner
+   showing the reason + file:line, instead of failing invisibly.
+   Defined FIRST so it catches errors from every script that
+   follows. Wrapped so the reporter can never itself break the page. */
+(function () {
+  var shown = {}; // dedupe identical messages, count repeats
+  function esc(s) {
+    return String(s).replace(/[<>&]/g, function (c) {
+      return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c];
+    });
+  }
+  function banner(kind, msg, where) {
+    try {
+      var key = kind + '|' + msg + '|' + where;
+      var host = document.getElementById('__err_banner_host');
+      if (!host) {
+        host = document.createElement('div');
+        host.id = '__err_banner_host';
+        host.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
+          'display:flex;flex-direction:column;gap:1px;pointer-events:none;' +
+          'font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif';
+        (document.body || document.documentElement).appendChild(host);
+      }
+      if (shown[key]) {
+        shown[key].count++;
+        shown[key].badge.textContent = '×' + shown[key].count;
+        return;
+      }
+      var row = document.createElement('div');
+      row.style.cssText = 'pointer-events:auto;background:#b91c1c;color:#fff;' +
+        'padding:10px 14px;display:flex;align-items:flex-start;gap:10px;' +
+        'box-shadow:0 2px 8px rgba(0,0,0,.3);word-break:break-word';
+      var txt = document.createElement('div');
+      txt.style.cssText = 'flex:1;min-width:0';
+      txt.innerHTML = '<strong>⚠️ ' + esc(kind) + '</strong> — ' + esc(msg) +
+        (where ? '<br><span style="opacity:.85;font-size:12px">' + esc(where) + '</span>' : '');
+      var badge = document.createElement('span');
+      badge.style.cssText = 'opacity:.85;font-size:12px;white-space:nowrap;align-self:center';
+      var close = document.createElement('button');
+      close.textContent = '✕';
+      close.setAttribute('aria-label', 'Dismiss');
+      close.style.cssText = 'pointer-events:auto;background:transparent;border:0;color:#fff;' +
+        'font-size:16px;cursor:pointer;line-height:1;padding:0 2px;flex:none';
+      close.onclick = function () { try { host.removeChild(row); delete shown[key]; } catch (e) {} };
+      row.appendChild(txt); row.appendChild(badge); row.appendChild(close);
+      host.appendChild(row);
+      shown[key] = { count: 1, badge: badge };
+    } catch (e) { /* never let the reporter itself break the page */ }
+  }
+  window.addEventListener('error', function (e) {
+    if (!e) return;
+    // Ignore resource-load errors (img/script 404s) — only surface real JS errors.
+    if (e.target && e.target !== window && e.target.tagName) return;
+    var where = e.filename ? (e.filename.split('/').pop() + ':' + e.lineno + ':' + e.colno) : '';
+    banner('Script error', e.message || 'Unknown error', where);
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e && e.reason;
+    var msg = (r && (r.message || (r.toString && r.toString()))) || 'Unhandled promise rejection';
+    var where = (r && r.stack) ? (String(r.stack).split('\n')[1] || '').trim() : '';
+    banner('Unhandled rejection', msg, where);
+  });
+  // Manual reporter for handled-but-notable failures the app wants surfaced.
+  window.__reportError = function (msg, where) { banner('Error', msg, where || ''); };
+})();
+</script>
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 if('serviceWorker' in navigator){
@@ -13440,7 +13512,7 @@ window.addEventListener('message', e => {
     // Power dialer saved a policy — refresh policy tracker if it's visible
     const policy = e.data.policy;
     if (policy) {
-      loadPolicies?.().catch(() => {});
+      renderPolicies?.();
       showToast(`Policy saved for ${policy.name || 'lead'} — check Policy Tracker`, '#10b981');
     }
   }
