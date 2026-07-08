@@ -85,6 +85,29 @@ export async function exchangeCode(opts: {
   return (await res.json()) as TokenResponse;
 }
 
+/**
+ * Mint a fresh access token from a stored refresh token. On `invalid_grant`
+ * (revoked / expired — expected weekly in Google test mode) the caller should
+ * mark the account `reauth_required` and surface the reconnect banner.
+ */
+export async function refreshAccessToken(opts: {
+  refreshToken: string;
+  clientId: string;
+  clientSecret: string;
+}): Promise<TokenResponse> {
+  const res = await fetch(TOKEN_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      refresh_token: opts.refreshToken,
+      client_id: opts.clientId,
+      client_secret: opts.clientSecret,
+      grant_type: "refresh_token",
+    }),
+  });
+  return (await res.json()) as TokenResponse;
+}
+
 export interface GmailProfile {
   emailAddress: string;
   historyId?: string;

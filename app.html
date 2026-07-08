@@ -4945,7 +4945,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 
           <div id="stg-gmail-connected" style="display:none">
             <div class="alert alert-s" style="margin-bottom:12px"><span data-ico="check-circle"></span><div>Connected as <strong id="stg-gmail-email"></strong>. <span id="stg-gmail-lastsync"></span></div></div>
-            <button class="btn btn-s btn-sm" onclick="gmailDisconnect()">Disconnect</button>
+            <div class="flex gap8">
+              <button class="btn btn-p btn-sm" onclick="gmailSyncNow(this)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="arrows-clockwise" data-size="13"></span>Sync now</button>
+              <button class="btn btn-s btn-sm" onclick="gmailDisconnect()">Disconnect</button>
+            </div>
           </div>
         </div>
 
@@ -15372,6 +15375,39 @@ async function gmailDisconnect() {
     gmailLoadStatus();
   } catch (_) {
     showToast('Could not disconnect. Try again.', '#dc2626');
+  }
+}
+
+// Manual trigger for the ingestion sync (scans the last 30 days). The cron
+// job will do this incrementally later; this button is for testing + on-demand.
+async function gmailSyncNow(btn) {
+  const original = btn ? btn.innerHTML : '';
+  try {
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Syncing…'; }
+    const { data, error } = await sb.functions.invoke('gmail-sync', { body: { full_scan_days: 30 } });
+    if (error) { showToast('Sync failed. Try again.', '#dc2626'); return; }
+    if (data && data.reauthRequired) {
+      showToast('Gmail connection expired — please reconnect.', '#dc2626');
+    } else if (data && data.ok) {
+      const parts = [];
+      if (data.pending)      parts.push(`${data.pending} to parse`);
+      if (data.nudges)       parts.push(`${data.nudges} portal nudge${data.nudges === 1 ? '' : 's'}`);
+      if (data.unclassified) parts.push(`${data.unclassified} to review`);
+      const found = data.matched || 0;
+      showToast(
+        found
+          ? `Synced — ${found} carrier email${found === 1 ? '' : 's'}${parts.length ? ' (' + parts.join(', ') + ')' : ''}.`
+          : 'Synced — no new carrier emails found.',
+        '#10b981',
+      );
+    } else {
+      showToast('Sync complete.', '#10b981');
+    }
+    gmailLoadStatus();
+  } catch (_) {
+    showToast('Sync failed. Try again.', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
   }
 }
 
