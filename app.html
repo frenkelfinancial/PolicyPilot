@@ -3488,6 +3488,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
   <div class="nav-sec">
     <div class="nav-lbl">Business</div>
     <div class="nav-item" onclick="nav('tracker')"><span class="ico" data-ico="clipboard-text"></span><span class="nav-lbl-text">Policy Tracker</span></div>
+    <div class="nav-item" onclick="nav('carriermail')"><span class="ico" data-ico="download-simple"></span><span class="nav-lbl-text">Carrier Mail</span></div>
     <div class="nav-item" onclick="nav('bonuses')"><span class="ico" data-ico="trophy"></span><span class="nav-lbl-text">Bonus Tracker</span></div>
   </div>
   <div class="nav-sec">
@@ -4006,6 +4007,14 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     </div>
 
     <!-- ========== BONUS TRACKER ========== -->
+    <div class="section" id="sec-carriermail">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <div class="text-m" style="font-size:13px;color:var(--text2);max-width:640px">Carrier status, payment, and commission emails, pulled from your inbox and deciphered into plain language. Login-only notices show as nudges. Manage the connection in Settings → Integrations.</div>
+        <button class="btn btn-p btn-sm" onclick="cmSyncParse(this)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="arrows-clockwise" data-size="13"></span>Sync &amp; parse</button>
+      </div>
+      <div id="cm-body"></div>
+    </div>
+
     <div class="section" id="sec-bonuses">
       <div class="tabs">
         <button class="tab active" onclick="bTab('ffl',this)">FFL VP Bonus</button>
@@ -15624,10 +15633,140 @@ function gcalRenderList() {
 // ============================================================
 // NAVIGATION — main section switcher
 // ============================================================
+// ============================================================
+// CARRIER MAIL — display surface for the Gmail parsing pipeline
+// Reads portal_nudges / parsed_events / review_queue directly via RLS.
+// ============================================================
+const CM_CARRIER = { transamerica:'Transamerica', mutual_of_omaha:'Mutual of Omaha', americo:'Americo', american_amicable:'American-Amicable', corebridge:'Corebridge', ethos:'Ethos' };
+const CM_EVENT = { submitted:'Submitted', approved:'Approved', declined:'Declined', withdrawn:'Withdrawn', requirement:'Requirement', payment_scheduled:'Payment scheduled', payment_returned:'Payment returned', lapse_pending:'Lapse pending', policy_active:'Policy active', closed:'Closed', commission_snapshot:'Commission snapshot', commission_change:'Commission change', debt_notice:'Debt notice', other:'Update' };
+const CM_COMMISSION_TYPES = new Set(['commission_snapshot','commission_change','debt_notice']);
+
+function cmDate(d){ if(!d) return ''; try { return new Date(d).toLocaleDateString(); } catch(_) { return ''; } }
+
+async function renderCarrierMail() {
+  const body = document.getElementById('cm-body');
+  if (!body) return;
+  body.innerHTML = '<div class="text-m" style="color:var(--text3);padding:24px 4px">Loading carrier mail…</div>';
+
+  let nudges = [], events = [], reviews = [];
+  try {
+    const [n, e, r] = await Promise.all([
+      sb.from('portal_nudges').select('id,carrier,subject,client_hint,received_at').is('dismissed_at', null).order('received_at', { ascending: false }),
+      sb.from('parsed_events').select('id,carrier,event_type,client_name,policy_number_raw,amounts,event_date,details,confidence,matched_policy_id,created_at').order('created_at', { ascending: false }).limit(150),
+      sb.from('review_queue').select('parsed_event_id,reason').eq('status', 'open'),
+    ]);
+    nudges = n.data || []; events = e.data || []; reviews = r.data || [];
+  } catch (err) {
+    body.innerHTML = '<div class="alert alert-w"><span data-ico="warning"></span><div>Could not load carrier mail. ' + escHTML(String(err && err.message || err)) + '</div></div>';
+    mountIcons(body); return;
+  }
+
+  const reviewSet = new Set(reviews.map(x => x.parsed_event_id));
+  const commission = events.filter(ev => CM_COMMISSION_TYPES.has(ev.event_type));
+  const policyEvents = events.filter(ev => !CM_COMMISSION_TYPES.has(ev.event_type));
+
+  if (!nudges.length && !events.length) {
+    body.innerHTML = '<div class="card"><div class="alert alert-i" style="margin:0"><span data-ico="info"></span><div>No carrier mail yet. Connect Gmail in <a href="#" onclick="nav(\'settings\');return false" style="color:var(--text-g);text-decoration:underline">Settings → Integrations</a>, then hit “Sync &amp; parse” above.</div></div></div>';
+    mountIcons(body); return;
+  }
+
+  let html = '';
+
+  if (nudges.length) {
+    html += '<div class="card"><div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="key" data-size="14"></span>Needs your login (' + nudges.length + ')</div>';
+    for (const z of nudges) {
+      const carrier = CM_CARRIER[z.carrier] || z.carrier;
+      const who = z.client_hint ? (' (re: ' + escHTML(z.client_hint) + ')') : '';
+      html += '<div class="alert alert-i" style="margin-bottom:10px;align-items:flex-start">'
+        + '<span data-ico="info"></span>'
+        + '<div style="flex:1">You received an email from <strong>' + escHTML(carrier) + '</strong>' + who + ' that needs your login to view the details.'
+        + '<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + escHTML(z.subject || '') + (z.received_at ? (' · ' + cmDate(z.received_at)) : '') + '</div></div>'
+        + '<button class="btn btn-s btn-sm" style="margin-left:8px" onclick="cmDismissNudge(\'' + z.id + '\',this)">Dismiss</button>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+
+  if (commission.length) {
+    const seen = new Set(); const latest = [];
+    for (const c of commission) { if (seen.has(c.carrier)) continue; seen.add(c.carrier); latest.push(c); }
+    html += '<div class="card" style="margin-top:16px"><div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="currency-dollar" data-size="14"></span>Commission</div>';
+    for (const c of latest) {
+      const a = c.amounts || {}; const bits = [];
+      if (a.commission_balance != null) bits.push('Balance ' + fmt$(Number(a.commission_balance)));
+      if (a.amount != null) bits.push('Amount ' + fmt$(Number(a.amount)));
+      const ct = a.counts || {};
+      if (ct.pending_apps != null) bits.push(ct.pending_apps + ' pending');
+      if (ct.issued_not_paid != null) bits.push(ct.issued_not_paid + ' issued-not-paid');
+      if (ct.lapse_pending != null) bits.push(ct.lapse_pending + ' lapse-pending');
+      html += '<div style="padding:8px 0;border-bottom:1px solid var(--border)">'
+        + '<div style="font-weight:600;font-size:13px">' + escHTML(CM_CARRIER[c.carrier] || c.carrier) + '</div>'
+        + '<div style="font-size:12px;color:var(--text2);margin-top:2px">' + escHTML((c.details && c.details.summary) || '') + '</div>'
+        + (bits.length ? ('<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + bits.map(escHTML).join(' · ') + '</div>') : '')
+        + '</div>';
+    }
+    html += '</div>';
+  }
+
+  if (policyEvents.length) {
+    html += '<div class="card" style="margin-top:16px"><div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="clipboard-text" data-size="14"></span>Policy activity (' + policyEvents.length + ')</div>';
+    for (const ev of policyEvents) {
+      const carrier = CM_CARRIER[ev.carrier] || ev.carrier;
+      const evt = CM_EVENT[ev.event_type] || ev.event_type;
+      const chip = ev.matched_policy_id
+        ? '<span style="background:rgba(16,185,129,.15);color:#10b981;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px">Linked</span>'
+        : (reviewSet.has(ev.id)
+          ? '<span style="background:rgba(245,158,11,.15);color:#f59e0b;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px">Needs review</span>'
+          : '<span style="background:var(--bg3);color:var(--text3);font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px">Parsed</span>');
+      const a = ev.amounts || {}; const amt = [];
+      if (a.face_amount != null) amt.push('Face ' + fmt$(Number(a.face_amount)));
+      if (a.premium != null) amt.push('Prem ' + fmt$(Number(a.premium)));
+      html += '<div style="padding:10px 0;border-bottom:1px solid var(--border)">'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong style="font-size:13px">' + escHTML(ev.client_name || 'Unknown client') + '</strong>' + chip + '<span style="font-size:11.5px;color:var(--text3);margin-left:auto">' + escHTML(carrier) + '</span></div>'
+        + '<div style="font-size:12px;color:var(--text2);margin-top:3px">' + escHTML((ev.details && ev.details.summary) || evt) + '</div>'
+        + '<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + escHTML(evt) + (ev.policy_number_raw ? (' · #' + escHTML(ev.policy_number_raw)) : '') + (amt.length ? (' · ' + amt.map(escHTML).join(' · ')) : '') + (ev.event_date ? (' · ' + cmDate(ev.event_date)) : '') + '</div>'
+        + '</div>';
+    }
+    html += '</div>';
+  }
+
+  body.innerHTML = html;
+  mountIcons(body);
+}
+
+async function cmDismissNudge(id, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const { error } = await sb.from('portal_nudges').update({ dismissed_at: new Date().toISOString() }).eq('id', id);
+    if (error) { showToast('Could not dismiss.', '#dc2626'); if (btn) btn.disabled = false; return; }
+    renderCarrierMail();
+  } catch (_) {
+    showToast('Could not dismiss.', '#dc2626'); if (btn) btn.disabled = false;
+  }
+}
+
+// One button: run the whole pipeline (sync → parse → match) then re-render.
+async function cmSyncParse(btn) {
+  const o = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Working…'; }
+  try {
+    await sb.functions.invoke('gmail-sync', { body: { full_scan_days: 30 } });
+    await sb.functions.invoke('parse-email', { body: {} });
+    await sb.functions.invoke('match-events', { body: {} });
+    showToast('Carrier mail refreshed.', '#10b981');
+  } catch (_) {
+    showToast('Refresh failed — try again.', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = o; }
+    renderCarrierMail();
+  }
+}
+
 const NAV_TITLES = {
   summary:'Summary',
   'api-quoter':'Quote + Underwriting',
   tracker:'Policy Tracker',
+  carriermail:'Carrier Mail',
   bonuses:'Bonus Tracker',
   leads:'Leads',
   calendar:'Calendar',
@@ -15683,7 +15822,7 @@ function nav(id) {
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
   // Highlight active nav item
   const items = document.querySelectorAll('.nav-item');
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, webdialer:7, agency:8, settings:9 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:10 };
   if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
@@ -15698,6 +15837,7 @@ function nav(id) {
   if (id === 'bonuses') updateBonusFromTracker();
   if (id === 'leads')   renderLeads();
   if (id === 'tracker') { populateTrackerCarrierFilter(); const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
+  if (id === 'carriermail') renderCarrierMail();
   if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
   if (id === 'phonebook') renderPhoneBook();
   if (id === 'webdialer') webDialer.render();
@@ -20001,7 +20141,7 @@ async function bootDashboard() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, webdialer:7, agency:8, settings:9 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:10 };
   // Skip plan-gated sections — plan can't be verified before auth resolves.
   // bootDashboard() will navigate to the correct section for the user's tier.
   if (!saved || !(saved in idxMap) || saved === 'summary' || saved === 'bonuses' || saved === 'agency') return;
