@@ -4947,6 +4947,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
             <div class="alert alert-s" style="margin-bottom:12px"><span data-ico="check-circle"></span><div>Connected as <strong id="stg-gmail-email"></strong>. <span id="stg-gmail-lastsync"></span></div></div>
             <div class="flex gap8">
               <button class="btn btn-p btn-sm" onclick="gmailSyncNow(this)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="arrows-clockwise" data-size="13"></span>Sync now</button>
+              <button class="btn btn-p btn-sm" onclick="gmailParseNow(this)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="lightning" data-size="13"></span>Parse queued</button>
               <button class="btn btn-s btn-sm" onclick="gmailDisconnect()">Disconnect</button>
             </div>
           </div>
@@ -15406,6 +15407,40 @@ async function gmailSyncNow(btn) {
     gmailLoadStatus();
   } catch (_) {
     showToast('Sync failed. Try again.', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  }
+}
+
+// Run the Haiku extractor over queued (pending_parse) emails. Processes a
+// capped batch per click; click again to work through a large backlog.
+async function gmailParseNow(btn) {
+  const original = btn ? btn.innerHTML : '';
+  try {
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Parsing…'; }
+    const { data, error } = await sb.functions.invoke('parse-email', { body: {} });
+    if (error) { showToast('Parse failed. Try again.', '#dc2626'); return; }
+    if (data && data.error === 'anthropic_not_configured') {
+      showToast('AI parsing isn’t configured yet — contact your admin.', '#dc2626');
+      return;
+    }
+    if (data && data.ok) {
+      if (data.note === 'nothing pending') {
+        showToast('Nothing queued to parse — hit “Sync now” first.', '#10b981');
+      } else {
+        const bits = [];
+        if (data.parsed) bits.push(`${data.parsed} parsed (${data.events} event${data.events === 1 ? '' : 's'})`);
+        if (data.review) bits.push(`${data.review} to review`);
+        if (data.failed) bits.push(`${data.failed} failed`);
+        if (data.skippedCap) bits.push(`${data.skippedCap} deferred (budget)`);
+        showToast(bits.length ? `Parsed — ${bits.join(', ')}.` : 'Nothing to parse.', '#10b981');
+      }
+    } else {
+      showToast('Parse complete.', '#10b981');
+    }
+    gmailLoadStatus();
+  } catch (_) {
+    showToast('Parse failed. Try again.', '#dc2626');
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = original; }
   }

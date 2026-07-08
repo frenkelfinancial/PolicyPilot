@@ -114,6 +114,47 @@ function anyAttachment(payload: unknown): boolean {
   return false;
 }
 
+function b64urlToText(data: string): string {
+  const b64 = data.replace(/-/g, "+").replace(/_/g, "/");
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+export interface MessageBody {
+  text: string; // text/plain if present
+  html: string; // text/html if present
+  hasPdf: boolean;
+}
+
+// Walk the MIME tree collecting the plain-text and HTML bodies, and note any
+// PDF attachment. Gmail base64url-encodes each part's body.
+function collectParts(payload: unknown, out: MessageBody) {
+  const p = payload as {
+    mimeType?: string;
+    filename?: string;
+    body?: { data?: string; attachmentId?: string };
+    parts?: unknown[];
+  } | undefined;
+  if (!p) return;
+  const mime = p.mimeType ?? "";
+  if (p.filename && /\.pdf$/i.test(p.filename)) out.hasPdf = true;
+  if (mime === "text/plain" && p.body?.data && !p.filename) out.text += b64urlToText(p.body.data);
+  else if (mime === "text/html" && p.body?.data && !p.filename) out.html += b64urlToText(p.body.data);
+  for (const part of p.parts ?? []) collectParts(part, out);
+}
+
+/** Fetch the full message and return its plain-text / HTML bodies for extraction. */
+export async function getMessageBody(accessToken: string, id: string): Promise<MessageBody> {
+  const res = await fetch(`${BASE}/messages/${id}?format=full`, { headers: authHeaders(accessToken) });
+  if (!res.ok) throw new Error(`messages.get(full) ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  const out: MessageBody = { text: "", html: "", hasPdf: false };
+  collectParts(data.payload, out);
+  return out;
+}
+
 /** Fetch just the headers needed to classify (From, Subject, Date) + attachment flag. */
 export async function getMessageMeta(accessToken: string, id: string): Promise<MessageMeta> {
   const url = new URL(`${BASE}/messages/${id}`);
