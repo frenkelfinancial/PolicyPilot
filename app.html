@@ -4921,6 +4921,34 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           </div>
         </div>
 
+        <!-- ── GMAIL CARRIER EMAIL SYNC ── -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            <span data-ico="arrows-clockwise" data-size="14"></span>Gmail — Carrier Email Sync
+          </div>
+          <div class="text-m" style="font-size:12.5px;line-height:1.55;color:var(--text2);margin-bottom:14px">
+            Grants <strong>read-only</strong> access so ProducerStack can pull carrier status, payment, and commission emails into your policy tracker automatically. We never send, modify, or delete mail. During the pilot (Google test mode) you may need to reconnect about once a week.
+          </div>
+
+          <div id="stg-gmail-disconnected">
+            <button class="btn btn-p" onclick="gmailConnect(this)" style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px">
+              <span data-ico="key" data-size="14"></span>Connect Gmail
+            </button>
+          </div>
+
+          <div id="stg-gmail-reauth" style="display:none">
+            <div class="alert alert-w" style="margin-bottom:12px"><span data-ico="warning"></span><div>Your Gmail connection expired. Reconnect to resume syncing.</div></div>
+            <button class="btn btn-p" onclick="gmailConnect(this)" style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px">
+              <span data-ico="arrow-clockwise" data-size="14"></span>Reconnect Gmail
+            </button>
+          </div>
+
+          <div id="stg-gmail-connected" style="display:none">
+            <div class="alert alert-s" style="margin-bottom:12px"><span data-ico="check-circle"></span><div>Connected as <strong id="stg-gmail-email"></strong>. <span id="stg-gmail-lastsync"></span></div></div>
+            <button class="btn btn-s btn-sm" onclick="gmailDisconnect()">Disconnect</button>
+          </div>
+        </div>
+
         <!-- ── LEAD VENDOR WEBHOOKS ── -->
         <div class="card" style="margin-top:16px">
           <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -15268,6 +15296,114 @@ function gcalDisconnect() {
   gcalRenderGrid(); gcalRenderList();
 }
 
+// ── Gmail carrier-email sync ────────────────────────────────────────────────
+// Server-side OAuth (auth-code flow), separate from the Calendar GIS token
+// flow above: background polling needs a refresh token, which only the
+// server-side flow provides. The client secret lives in the edge functions.
+async function gmailConnect(btn) {
+  try {
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showToast('Please sign in first.', '#dc2626'); return; }
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/gmail-oauth-start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
+      body: '{}',
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.url) {
+      const msg = data.error === 'gmail_oauth_not_configured'
+        ? 'Gmail sync isn’t configured yet — contact your admin.'
+        : (data.error || 'Could not start Gmail connection.');
+      showToast(msg, '#dc2626');
+      return;
+    }
+    // Full-page redirect to Google's consent screen; the callback function
+    // bounces the browser back to app.html?gmail=connected.
+    window.location.href = data.url;
+  } catch (e) {
+    showToast('Could not start Gmail connection.', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+  }
+}
+
+async function gmailLoadStatus() {
+  const dEl = document.getElementById('stg-gmail-disconnected');
+  const rEl = document.getElementById('stg-gmail-reauth');
+  const cEl = document.getElementById('stg-gmail-connected');
+  if (!dEl || !rEl || !cEl) return;
+
+  let acct = null;
+  try {
+    const { data } = await sb
+      .from('gmail_accounts')
+      .select('email_address,status,last_synced_at,connected_at')
+      .order('connected_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    acct = data || null;
+  } catch (_) { acct = null; }
+
+  const reauth = !!acct && acct.status === 'reauth_required';
+  const connected = !!acct && !reauth;
+  dEl.style.display = acct ? 'none' : '';
+  rEl.style.display = reauth ? '' : 'none';
+  cEl.style.display = connected ? '' : 'none';
+
+  if (acct) {
+    const emailEl = document.getElementById('stg-gmail-email');
+    if (emailEl) emailEl.textContent = acct.email_address || '';
+    const lastEl = document.getElementById('stg-gmail-lastsync');
+    if (lastEl) {
+      lastEl.textContent = acct.last_synced_at
+        ? `Last synced ${new Date(acct.last_synced_at).toLocaleString()}.`
+        : 'Waiting for first sync.';
+    }
+  }
+}
+
+async function gmailDisconnect() {
+  if (!confirm('Disconnect Gmail? ProducerStack will stop reading your inbox and delete the stored access token.')) return;
+  try {
+    const { error } = await sb.functions.invoke('gmail-disconnect', { body: {} });
+    if (error) { showToast('Could not disconnect. Try again.', '#dc2626'); return; }
+    showToast('Gmail disconnected.', '#10b981');
+    gmailLoadStatus();
+  } catch (_) {
+    showToast('Could not disconnect. Try again.', '#dc2626');
+  }
+}
+
+// Handle the return trip from Google (app.html?gmail=connected|error).
+function _gmailHandleReturn() {
+  const p = new URLSearchParams(location.search);
+  const g = p.get('gmail');
+  if (!g) return;
+  if (g === 'connected') {
+    showToast('Gmail connected — carrier emails will start syncing.', '#10b981');
+  } else {
+    const reason = p.get('reason') || '';
+    const nice = {
+      access_denied: 'Gmail connection was cancelled.',
+      no_refresh_token: 'Google didn’t return a refresh token — try again and choose “Allow”.',
+      expired_state: 'The connection link expired — please try again.',
+      wrong_scope: 'Wrong permissions were granted — please try again.',
+      token_exchange_failed: 'Google rejected the sign-in — please try again.',
+    }[reason] || 'Gmail connection failed. Please try again.';
+    showToast(nice, '#dc2626');
+  }
+  p.delete('gmail'); p.delete('reason');
+  const qs = p.toString();
+  history.replaceState({}, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  gmailLoadStatus();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _gmailHandleReturn);
+} else {
+  _gmailHandleReturn();
+}
+
 async function gcalFetchEvents() {
   if (!gcalToken) return;
   const now = new Date();
@@ -16137,6 +16273,7 @@ function settingsTab(id, el) {
 }
 
 function renderIntegrationsPanels() {
+  gmailLoadStatus();
   const connected = !!gcalToken;
   const dEl = document.getElementById('stg-int-google-disconnected');
   const cEl = document.getElementById('stg-int-google-connected');

@@ -1,0 +1,363 @@
+{
+  "$comment": "ProducerStack carrier-sender-and-type map. Discovered from Jace's Gmail inbox on 2026-07-08. Match order: lowercase From address against from_pattern; if multiple rows match or subject_pattern is set, apply subject regex. No matching row => not a carrier email, ignore. Unknown sender at a known carrier domain => log as 'unclassified' and send to review queue (see fallback_domains).",
+  "email_types": ["underwriting_status", "application_activity", "payment_result", "policy_active", "commission_summary", "commission_change", "portal_notification", "ignore"],
+  "content_types": ["body", "login_link", "pdf"],
+  "routes": ["policy_tracker", "commission_summary", "nudge", "ignore"],
+  "fallback_domains": ["mutualofomaha.com", "transamerica.com", "corebridgefinancial.com", "americo.com", "aatx.com", "americanamicable.com", "american-amicablegroup.ccsend.com", "ethoslife.com", "ethos-agents.com"],
+  "senders": [
+    {
+      "carrier": "mutual_of_omaha",
+      "from_pattern": "%@mutualofomaha.com",
+      "subject_pattern": "^(App Review|Withdrawn|Phone Interview|Approved|Declined)",
+      "email_type": "underwriting_status",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "Personal underwriter addresses (e.g. aubrey.street-mccarthy@mutualofomaha.com) that vary per case; body contains File Number, Insured, Plan, Face Amount, Underwriter. Subject carries file # + insured last name.",
+      "sample_subjects": ["App Review BU6691749, DIDLO", "Withdrawn BU6691749, DIDLO", "Phone Interview Completed BU6691749, DIDLO"]
+    },
+    {
+      "carrier": "mutual_of_omaha",
+      "from_pattern": "do_not_reply_igo_eapp@mutualofomaha.com",
+      "subject_pattern": null,
+      "email_type": "application_activity",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "New e-app submitted confirmation; policy # in subject and body.",
+      "sample_subjects": ["New E-App Submitted Larry  Didlo -Policy # BU6691749"]
+    },
+    {
+      "carrier": "mutual_of_omaha",
+      "from_pattern": "noreply.login@login.mutualofomaha.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "One-time login verification codes.",
+      "sample_subjects": ["One-time verification code"]
+    },
+    {
+      "carrier": "mutual_of_omaha",
+      "from_pattern": "contractsandappointments@mutualofomaha.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "pdf",
+      "route": "ignore",
+      "notes": "Contracting forms (attached PDFs). Not policy/commission data.",
+      "sample_subjects": ["Mutual of Omaha and Affiliates Transfer Request Form"]
+    },
+    {
+      "carrier": "mutual_of_omaha",
+      "from_pattern": "mutualofomaha@secure.mutualofomaha.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Account setup notices.",
+      "sample_subjects": ["Your New Account"]
+    },
+    {
+      "carrier": "mutual_of_omaha",
+      "from_pattern": "mutualofomaha@e.mutualofomaha.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Contracting document notices.",
+      "sample_subjects": ["Contracting Documents"]
+    },
+    {
+      "carrier": "transamerica",
+      "from_pattern": "mocasemanagement@transamerica.com",
+      "subject_pattern": null,
+      "email_type": "underwriting_status",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "Case management: initial/outstanding/additional requirements, approved other-than-applied, closed incomplete. File # in body; POLICY NUMBER IS MASKED in subject/body as xxxxx76911 (last-5 matching required). Occasionally has PDF attachments from human case managers.",
+      "sample_subjects": [
+        "Initial Requirements PROPOSED INSURED: WINGLER, POLICY #: xxxxx76911  (JACE FRENKEL) MLSR201938",
+        "Outstanding Requirements PROPOSED INSURED: WINGLER, POLICY #: xxxxx76911  (JACE FRENKEL) MLSR201938",
+        "Approved Other Than Applied PROPOSED INSURED: WINGLER, POLICY #: xxxxx76911  (JACE FRENKEL) MLSR201938",
+        "TERRY WINGLER, xxxxx76911 (JACE FRENKEL) - MLSR201938"
+      ]
+    },
+    {
+      "carrier": "transamerica",
+      "from_pattern": "newbusinesstlp@transamerica.com",
+      "subject_pattern": null,
+      "email_type": "application_activity",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "Application received confirmations.",
+      "sample_subjects": ["Application Received PROPOSED INSURED: WINGLER, POLICY #: xxxxx76911  (JACE FRENKEL) MLSR201938"]
+    },
+    {
+      "carrier": "transamerica",
+      "from_pattern": "notifications@mylifeinsurance.transamerica.com",
+      "subject_pattern": "(Payment Scheduled|Policy Purchase Is Processing|Incomplete Purchase)",
+      "email_type": "payment_result",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "FE Express payment lifecycle. Some are addressed to the client with agent cc'd — parse the client name from body, not the To header.",
+      "sample_subjects": ["Payment Scheduled", "Your Policy Purchase Is Processing", "Incomplete Purchase"]
+    },
+    {
+      "carrier": "transamerica",
+      "from_pattern": "notifications@mylifeinsurance.transamerica.com",
+      "subject_pattern": "Application Results",
+      "email_type": "underwriting_status",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "FE Express instant-decision outcomes, mostly declines with reason in body. Client name in subject.",
+      "sample_subjects": ["KAREN MCCANDIES Application Results", "SIEGLINDA MERCER Application Results"]
+    },
+    {
+      "carrier": "transamerica",
+      "from_pattern": "notifications@mylifeinsurance.transamerica.com",
+      "subject_pattern": "(Your Policy Documents Are Ready|Your Application Is Ready to Review)",
+      "email_type": "policy_active",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "Policy in-force / documents ready. Often sent to client with agent cc'd.",
+      "sample_subjects": ["Your Policy Documents Are Ready"]
+    },
+    {
+      "carrier": "transamerica",
+      "from_pattern": "tlp-crcontractadmin@transamerica.com",
+      "subject_pattern": null,
+      "email_type": "commission_change",
+      "content_type": "body",
+      "route": "commission_summary",
+      "notes": "Zix 'ZSecure' contracting/commission-level notices — data IS in the body despite the secure branding; commission schedule attached as PDF. Also state appointment confirmations (those can be ignored downstream by event_type).",
+      "sample_subjects": ["ZSecure: JACE FRENKEL - Transmaerica - MsgID: 2722101", "ZSecure: Jace Frenkel-Transamerica - MsgID: 2632762"]
+    },
+    {
+      "carrier": "transamerica",
+      "from_pattern": "transamericacxinsights@transamerica.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Surveys.",
+      "sample_subjects": ["Tell Us - How Was Your Experience"]
+    },
+    {
+      "carrier": "transamerica",
+      "from_pattern": "webhelp@transamerica.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Login codes and portal account notices.",
+      "sample_subjects": ["Here's Your Transamerica Security Validation Code"]
+    },
+    {
+      "carrier": "transamerica",
+      "from_pattern": "awdemailnotification@transamerica.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Auto-replies confirming receipt of emails you sent.",
+      "sample_subjects": ["Email Received"]
+    },
+    {
+      "carrier": "corebridge",
+      "from_pattern": "sigiteam@corebridgefinancial.com",
+      "subject_pattern": null,
+      "email_type": "payment_result",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "SIWL/GIWL new business team: returned payments, reissue instructions, beneficiary processes. Policy #, client, agent # in subject and body. Sometimes attaches forms (PDF).",
+      "sample_subjects": ["SIWL 7260123638 - PATRICIA PEAK / JACE FRENKEL 1MXVH", "SIWL: 7260123638 PATRICIA PEAK - JACE FRENKEL 1MXVH"]
+    },
+    {
+      "carrier": "corebridge",
+      "from_pattern": "svc_ilcc_prod@corebridgefinancial.com",
+      "subject_pattern": null,
+      "email_type": "portal_notification",
+      "content_type": "login_link",
+      "route": "nudge",
+      "notes": "Cisco Secure Message envelope — ZERO data in the email; 'Read Message' link requires login and expires in 30 days. Never fetch the link.",
+      "sample_subjects": ["Your requested Corebridge Financial documents"]
+    },
+    {
+      "carrier": "corebridge",
+      "from_pattern": "donotreply@corebridgefinancial.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Account activation codes.",
+      "sample_subjects": ["Corebridge Financial | Activate/Verify your user account"]
+    },
+    {
+      "carrier": "corebridge",
+      "from_pattern": "customerexperience@feedback.corebridgefinancial.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Surveys.",
+      "sample_subjects": ["Tell me about your latest Corebridge Financial experience"]
+    },
+    {
+      "carrier": "americo",
+      "from_pattern": "noreply@americo.com",
+      "subject_pattern": "^Americo Daily Update",
+      "email_type": "commission_summary",
+      "content_type": "body",
+      "route": "commission_summary",
+      "notes": "Daily digest: commission activity summary, commission balance, AML expiration, pending-app counts, issued-not-paid and lapse-pending COUNTS (counts only — per-policy lapse detail is portal). Full statement is behind portal.americoagent.com. Lapse-pending count > 0 should also raise a policy_tracker flag.",
+      "sample_subjects": ["Americo Daily Update"]
+    },
+    {
+      "carrier": "americo",
+      "from_pattern": "donotreply@americo.com",
+      "subject_pattern": "New Notification Regarding",
+      "email_type": "portal_notification",
+      "content_type": "login_link",
+      "route": "nudge",
+      "notes": "Per-client Agent Portal notification. Body has owner (client) name, date, and a link LABEL (e.g. 'Adverse Decision') — capture both via regex for the nudge text; details require portal login. NOTE: same mailbox localpart as noreply@americo.com differs only by case — matching must be case-insensitive and rely on the subject patterns to separate this row from Daily Update.",
+      "sample_subjects": ["Americo - New Notification Regarding Michael Kjenstad"]
+    },
+    {
+      "carrier": "americo",
+      "from_pattern": "noreply.collections@americo.com",
+      "subject_pattern": null,
+      "email_type": "commission_change",
+      "content_type": "body",
+      "route": "commission_summary",
+      "notes": "Agent debt/chargeback balance notices with dollar amount in body.",
+      "sample_subjects": ["Americo Debt Notification"]
+    },
+    {
+      "carrier": "americo",
+      "from_pattern": "americo.marketing@americo.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Marketing/training.",
+      "sample_subjects": ["Take Your Americo Business to the Next Level"]
+    },
+    {
+      "carrier": "americo",
+      "from_pattern": "lindsay.autry@americo.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Marketing (personal sender).",
+      "sample_subjects": ["New UFirst Rewards Qualification Period"]
+    },
+    {
+      "carrier": "americo",
+      "from_pattern": "andrew.kostus@americo.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Marketing ('Monday Minute').",
+      "sample_subjects": ["Ready to Simplify Your Sales Process?"]
+    },
+    {
+      "carrier": "americo",
+      "from_pattern": "brandon.wilson@americo.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Marketing (personal sender).",
+      "sample_subjects": ["New Americo Merchandise Available Now"]
+    },
+    {
+      "carrier": "american_amicable",
+      "from_pattern": "noreply@aatx.com",
+      "subject_pattern": "^APPLICATION ACTIVITY",
+      "email_type": "application_activity",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "Daily digest of application status changes: SUBMITTED / ISSUED AS APPLIED FOR / ISSUED OTHER THAN APPLIED FOR / DECLINED / WITHDRAWN, each with policy # + client name. One email can contain MULTIPLE policies — parser must return an array of events. Sender arrives as NOREPLY@aatx.com (uppercase) for this type; match case-insensitively and split on subject.",
+      "sample_subjects": ["APPLICATION ACTIVITY"]
+    },
+    {
+      "carrier": "american_amicable",
+      "from_pattern": "noreply@aatx.com",
+      "subject_pattern": "^Returned Payment",
+      "email_type": "payment_result",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "Automatic payment not honored: policy #, client, amount paid to date, return reason in body; agent # + policy # in subject.",
+      "sample_subjects": ["Returned Payment - JACE FRENKEL 1190043, 0113615870"]
+    },
+    {
+      "carrier": "american_amicable",
+      "from_pattern": "marketingassistants@americanamicable.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Agent welcome / admin.",
+      "sample_subjects": ["AGENT WELCOME"]
+    },
+    {
+      "carrier": "american_amicable",
+      "from_pattern": "%@american-amicablegroup.ccsend.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Constant Contact marketing (office hours, holiday closures).",
+      "sample_subjects": ["Reminder: Independence Day Hours"]
+    },
+    {
+      "carrier": "ethos",
+      "from_pattern": "ethosforagent@mail.ethos-agents.com",
+      "subject_pattern": "(complete their insurance application|application is almost done)",
+      "email_type": "application_activity",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "Incomplete-application nudges with client name in subject/body. Ethos is portal-first: no policy-status or commission-statement emails observed. This sender mixes marketing and transactional — subject allowlist required; default is ignore.",
+      "sample_subjects": ["Help Jon Ellison complete their insurance application", "Jon Ellison's application is almost done"]
+    },
+    {
+      "carrier": "ethos",
+      "from_pattern": "ethosforagent@mail.ethos-agents.com",
+      "subject_pattern": "compensation",
+      "email_type": "commission_change",
+      "content_type": "body",
+      "route": "commission_summary",
+      "notes": "Compensation processing notices (e.g. holiday ACH delays). Informational, no per-policy data.",
+      "sample_subjects": ["Ethos Independence Day compensation processing update", "Ethos Juneteenth compensation processing update"]
+    },
+    {
+      "carrier": "ethos",
+      "from_pattern": "ethosforagent@mail.ethos-agents.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "DEFAULT for this sender (lowest match priority): marketing, masterclasses, product promos.",
+      "sample_subjects": ["Join the Ethos masterclass and unlock your potential", "Claim your free agent website!"]
+    },
+    {
+      "carrier": "ethos",
+      "from_pattern": "agents@ethoslife.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Login codes, device-trusted confirmations.",
+      "sample_subjects": ["Your login code is 215382 - Ethos"]
+    }
+  ],
+  "key_findings": [
+    "No carrier currently sends commission statements as PDF attachments. Americo's Daily Update (body digest) is the only recurring commission email. Transamerica attaches commission SCHEDULES (rank changes) as PDF.",
+    "Transamerica masks policy numbers as xxxxx76911 — matching must support last-5-digits lookup.",
+    "American-Amicable uses the same address (noreply@aatx.com, case varies) for two different email types — subject regex is mandatory.",
+    "Ethos mixes marketing and transactional mail on one sender — subject allowlist with ignore-by-default.",
+    "Mutual of Omaha underwriting emails come from PERSONAL underwriter addresses that vary per case — match on domain + subject pattern.",
+    "Some Transamerica FE Express emails are addressed To the client with the agent cc'd — extract client identity from the body, not headers.",
+    "Corebridge secure messages and Americo portal notifications are the two login-link/nudge cases."
+  ]
+}

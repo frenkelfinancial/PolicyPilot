@@ -1,0 +1,8 @@
+# Google redirects the browser here with an auth code and NO Supabase JWT, so
+# platform JWT verification must be OFF. The request is authenticated instead by
+# the encrypted `state` (minted by gmail-oauth-start), which carries the user id
+# and a 10-minute expiry and is sealed with TOKEN_ENC_KEY.
+#
+# If this file isn't picked up automatically, also set it in the Dashboard:
+#   Edge Functions → gmail-oauth-callback → Settings → "Enforce JWT verification" → OFF
+verify_jwt = false

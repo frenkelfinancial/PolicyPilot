@@ -51,3 +51,5 @@ ehthumbs.db
 Desktop.ini
 .vercel
 .env*
+.env.gmail.local
+test/fixtures/*.json
