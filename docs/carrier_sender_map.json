@@ -171,6 +171,16 @@
       "sample_subjects": ["Introducing Our Partnership with Empathy"]
     },
     {
+      "carrier": "transamerica",
+      "from_pattern": "noreply@email.transamerica.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Bulk agent-update notices (product/process updates); no per-client data. Discovered via review queue 2026-07-08.",
+      "sample_subjects": ["Life insurance illustration requirements"]
+    },
+    {
       "carrier": "corebridge",
       "from_pattern": "sigiteam@corebridgefinancial.com",
       "subject_pattern": null,
@@ -299,6 +309,16 @@
       "route": "policy_tracker",
       "notes": "Automatic payment not honored: policy #, client, amount paid to date, return reason in body; agent # + policy # in subject.",
       "sample_subjects": ["Returned Payment - JACE FRENKEL 1190043, 0113615870"]
+    },
+    {
+      "carrier": "american_amicable",
+      "from_pattern": "noreply@aatx.com",
+      "subject_pattern": "^Policyholder Correspondence",
+      "email_type": "policyholder_correspondence",
+      "content_type": "body",
+      "route": "policy_tracker",
+      "notes": "Coded policyholder correspondence in the body, e.g. 'Doc: ABDI2 BK DRFT RTN NSF W/AGT INFO' (bank draft returned, non-sufficient funds). Parser must decipher carrier shorthand into plain status. Covers American Amicable + Occidental Life. Discovered via review queue 2026-07-08.",
+      "sample_subjects": ["Policyholder Correspondence-AMERICAN AMICABLE", "Policyholder Correspondence-OCCIDENTAL LIFE I"]
     },
     {
       "carrier": "american_amicable",
