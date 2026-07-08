@@ -67,11 +67,13 @@ serve(async (req) => {
     n: crypto.randomUUID(),
   });
 
+  // NOTE: deliberately no login_hint — the mailbox being connected is usually a
+  // different account than the ProducerStack login, and prompt=select_account
+  // must be free to show the account chooser.
   const url = buildAuthUrl({
     clientId: CLIENT_ID,
     redirectUri: gmailRedirectUri(SUPABASE_URL),
     state,
-    loginHint: user.email ?? undefined,
   });
 
   return json({ url });

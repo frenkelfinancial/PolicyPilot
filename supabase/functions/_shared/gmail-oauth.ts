@@ -44,7 +44,10 @@ export function buildAuthUrl(opts: {
     response_type: "code",
     scope: GMAIL_SCOPE,
     access_type: "offline", // ask for a refresh token
-    prompt: "consent", // force refresh-token issuance every time (test-mode reconnects)
+    // select_account => always show the account chooser (the mailbox being
+    // connected is intentionally different from the ProducerStack login);
+    // consent => force refresh-token issuance every time (test-mode reconnects).
+    prompt: "select_account consent",
     include_granted_scopes: "false",
     state: opts.state,
   });
