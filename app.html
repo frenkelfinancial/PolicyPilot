@@ -15424,16 +15424,25 @@ async function gmailParseNow(btn) {
       showToast('AI parsing isn’t configured yet — contact your admin.', '#dc2626');
       return;
     }
+    // After extraction, match the new events against existing policies.
+    let match = null;
+    try {
+      const r = await sb.functions.invoke('match-events', { body: {} });
+      match = r && r.data && r.data.ok ? r.data : null;
+    } catch (_) { /* matching is best-effort; parse already succeeded */ }
+
     if (data && data.ok) {
-      if (data.note === 'nothing pending') {
+      if (data.note === 'nothing pending' && !(match && (match.matched || match.ambiguous_match || match.no_policy_match))) {
         showToast('Nothing queued to parse — hit “Sync now” first.', '#10b981');
       } else {
         const bits = [];
         if (data.parsed) bits.push(`${data.parsed} parsed (${data.events} event${data.events === 1 ? '' : 's'})`);
-        if (data.review) bits.push(`${data.review} to review`);
+        if (match && match.matched) bits.push(`${match.matched} auto-matched`);
+        const needsReview = (match ? (match.ambiguous_match + match.no_policy_match + match.low_confidence) : 0) + (data.review || 0);
+        if (needsReview) bits.push(`${needsReview} to review`);
         if (data.failed) bits.push(`${data.failed} failed`);
         if (data.skippedCap) bits.push(`${data.skippedCap} deferred (budget)`);
-        showToast(bits.length ? `Parsed — ${bits.join(', ')}.` : 'Nothing to parse.', '#10b981');
+        showToast(bits.length ? `Parsed — ${bits.join(', ')}.` : 'Nothing new to parse.', '#10b981');
       }
     } else {
       showToast('Parse complete.', '#10b981');
