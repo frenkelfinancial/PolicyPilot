@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<!-- Design reference for PolicyPilot/ProducerStack summary emails.
+     Source: Jace's uploaded Summarytemplate.html (Claude design export), cleaned of
+     browser-extension artifacts. Treat as visual source of truth for layout/colors/feel.
+     NOTE for implementation: conic-gradient rings and CSS grid are NOT email-safe
+     (Gmail strips them) — production templates approximate rings with bars/badges. -->
+<html lang="en"><head><meta charset="utf-8">
+<title>Producer Stack — Monthly Summary (design ref)</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#132644;
+    --navy-2:#0e1d36;
+    --blue:#5b9bd5;
+    --blue-light:#7cb7ec;
+    --ink:#1d2b45;
+    --muted:#6b7890;
+    --line:#e8edf5;
+    --bg:#eef2f8;
+    --card:#ffffff;
+    --grad: linear-gradient(135deg,#7cb7ec 0%,#5b9bd5 100%);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased;}
+  a{color:var(--blue);text-decoration:none;}
+  a:hover{color:var(--navy);}
+  .wrap{width:100%;padding:36px 16px;}
+  .email{max-width:600px;margin:0 auto;background:var(--card);border-radius:20px;overflow:hidden;box-shadow:0 24px 60px -24px rgba(19,38,68,.28),0 4px 12px -6px rgba(19,38,68,.12);}
+
+  /* Header */
+  .head{display:flex;align-items:center;justify-content:space-between;padding:24px 32px;border-bottom:1px solid var(--line);}
+  .head img{height:44px;width:auto;display:block;}
+  .head .period{font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:right;line-height:1.5;}
+  .head .period b{display:block;color:var(--ink);font-size:13px;letter-spacing:.06em;}
+
+  /* Hero */
+  .hero{padding:38px 32px 30px;background:linear-gradient(180deg,#f7fafe 0%,#ffffff 100%);}
+  .hero .tag{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--blue);margin:0 0 12px;}
+  .hero h1{margin:0 0 10px;font-size:27px;line-height:1.2;font-weight:800;letter-spacing:-.02em;color:var(--navy);}
+  .hero p{margin:0;font-size:15px;line-height:1.6;color:var(--muted);max-width:440px;}
+
+  /* Headline stats */
+  .stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1px;background:var(--line);border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+  .stat{background:#fff;padding:22px 20px;}
+  .stat .k{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;}
+  .stat .v{font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--navy);line-height:1;}
+  .stat .d{font-size:12px;font-weight:600;margin-top:8px;display:inline-flex;align-items:center;gap:4px;}
+  .up{color:#1f9d6b;}
+  .down{color:#d16060;}
+
+  /* Section */
+  .section{padding:34px 32px 8px;}
+  .section h2{margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-.01em;color:var(--navy);}
+  .section .sub{margin:0 0 24px;font-size:13px;color:var(--muted);}
+
+  /* Rings */
+  .rings{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  .ring-card{border:1px solid var(--line);border-radius:16px;padding:22px 20px;display:flex;align-items:center;gap:18px;background:#fff;}
+  .ring{position:relative;width:88px;height:88px;flex:0 0 88px;border-radius:50%;}
+  .ring .track{position:absolute;inset:0;border-radius:50%;}
+  .ring .hole{position:absolute;inset:9px;background:#fff;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:inset 0 1px 3px rgba(19,38,68,.06);}
+  .ring .pct{font-size:20px;font-weight:800;color:var(--navy);letter-spacing:-.02em;line-height:1;}
+  .ring .pctlab{font-size:9px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:3px;}
+  .ring-meta .rname{font-size:14px;font-weight:700;color:var(--ink);margin:0 0 6px;}
+  .ring-meta .rval{font-size:13px;color:var(--muted);margin:0;line-height:1.5;}
+  .ring-meta .rval b{color:var(--navy);font-weight:700;}
+
+  /* Breakdown */
+  .breakdown{padding:14px 32px 6px;}
+  .row{display:flex;align-items:center;justify-content:space-between;padding:15px 0;border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row .label{font-size:14px;font-weight:600;color:var(--ink);}
+  .row .label span{display:block;font-size:12px;font-weight:500;color:var(--muted);margin-top:2px;}
+  .row .amt{font-size:15px;font-weight:800;color:var(--navy);letter-spacing:-.01em;}
+
+  /* Bar */
+  .bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:26px;}
+  .bar > i{display:block;height:100%;border-radius:99px;background:var(--grad);}
+
+  /* CTA */
+  .cta{padding:32px;text-align:center;}
+  .btn{display:inline-block;background:var(--navy);color:#fff;font-size:14px;font-weight:700;letter-spacing:.01em;padding:15px 34px;border-radius:12px;box-shadow:0 10px 24px -10px rgba(19,38,68,.6);}
+  .btn:hover{background:var(--navy-2);color:#fff;}
+  .cta .fine{margin:16px 0 0;font-size:12px;color:var(--muted);}
+
+  /* Footer */
+  .foot{padding:26px 32px 30px;background:var(--navy);color:#aebdd6;text-align:center;}
+  .foot .fl{display:flex;gap:20px;justify-content:center;margin:0 0 14px;}
+  .foot .fl a{color:#cdd9ee;font-size:12px;font-weight:600;}
+  .foot .fl a:hover{color:#fff;}
+  .foot p{margin:4px 0;font-size:11px;line-height:1.6;color:#8698b8;}
+  .foot .brand{font-size:12px;font-weight:700;letter-spacing:.08em;color:#e6edf9;text-transform:uppercase;margin-bottom:8px;}
+
+  @media (max-width:520px){
+    .stats{grid-template-columns:1fr 1fr;}
+    .stats .stat:last-child{grid-column:1 / -1;}
+    .rings{grid-template-columns:1fr;}
+    .hero h1{font-size:23px;}
+  }
+</style>
+</head><body>
+  <div class="wrap">
+    <div class="email" style="filter: drop-shadow(rgba(19, 38, 68, 0.28) 0px 24px 60px) drop-shadow(rgba(19, 38, 68, 0.12) 0px 4px 12px) !important; box-shadow: none !important;">
+
+      <!-- Header -->
+      <div class="head">
+        <div style="font-weight:800;font-size:18px;letter-spacing:-.02em;color:var(--navy)">Producer<span style="color:var(--blue)">Stack</span></div><!-- ORIGINAL: producer-stack-logo.png (not included in upload; swap in real logo) -->
+        <div class="period">Monthly Summary<b>March 2026</b></div>
+      </div>
+
+      <!-- Hero -->
+      <div class="hero">
+        <p class="tag">Your performance report</p>
+        <h1>Strong month, Jordan.</h1>
+        <p>You closed out March ahead of pace on premium and just shy of your policy target. Here's how your book of business is tracking.</p>
+      </div>
+
+      <!-- Headline stats -->
+      <div class="stats">
+        <div class="stat">
+          <p class="k">Premium Written</p>
+          <div class="v">$248K</div>
+          <div class="d up">▲ 18% vs Feb</div>
+        </div>
+        <div class="stat">
+          <p class="k">Policies Bound</p>
+          <div class="v">37</div>
+          <div class="d up">▲ 5 vs Feb</div>
+        </div>
+        <div class="stat">
+          <p class="k">Close Rate</p>
+          <div class="v">42%</div>
+          <div class="d down">▼ 3% vs Feb</div>
+        </div>
+      </div>
+
+      <!-- Goal rings -->
+      <div class="section">
+        <h2>Goals to date</h2>
+        <p class="sub">Progress toward your March targets — filling as you close.</p>
+        <div class="rings">
+
+          <div class="ring-card">
+            <div class="ring">
+              <div class="track" style="background:conic-gradient(#5b9bd5 0% 88%, #e8edf5 88% 100%);"></div>
+              <div class="hole"><div class="pct">88%</div><div class="pctlab">Premium</div></div>
+            </div>
+            <div class="ring-meta">
+              <p class="rname">Premium Goal</p>
+              <p class="rval"><b>$248K</b> of $280K<br>$32K to target</p>
+            </div>
+          </div>
+
+          <div class="ring-card">
+            <div class="ring">
+              <div class="track" style="background:conic-gradient(#7cb7ec 0% 74%, #e8edf5 74% 100%);"></div>
+              <div class="hole"><div class="pct">74%</div><div class="pctlab">Policies</div></div>
+            </div>
+            <div class="ring-meta">
+              <p class="rname">Policy Goal</p>
+              <p class="rval"><b>37</b> of 50 bound<br>13 to target</p>
+            </div>
+          </div>
+
+          <div class="ring-card">
+            <div class="ring">
+              <div class="track" style="background:conic-gradient(#1f9d6b 0% 100%, #e8edf5 100% 100%);"></div>
+              <div class="hole"><div class="pct">100%</div><div class="pctlab">Renewals</div></div>
+            </div>
+            <div class="ring-meta">
+              <p class="rname">Renewal Goal</p>
+              <p class="rval"><b>28</b> of 28 kept<br>Goal complete 🎉</p>
+            </div>
+          </div>
+
+          <div class="ring-card">
+            <div class="ring">
+              <div class="track" style="background:conic-gradient(#5b9bd5 0% 61%, #e8edf5 61% 100%);"></div>
+              <div class="hole"><div class="pct">61%</div><div class="pctlab">New leads</div></div>
+            </div>
+            <div class="ring-meta">
+              <p class="rname">Lead Goal</p>
+              <p class="rval"><b>92</b> of 150 worked<br>58 to target</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Breakdown -->
+      <div class="section" style="padding-bottom:0;">
+        <h2>Premium by product line</h2>
+        <p class="sub">Where this month's business came from.</p>
+      </div>
+      <div class="breakdown">
+        <div class="row">
+          <div class="label">Term Life<span>19 policies</span></div>
+          <div class="amt">$112,400</div>
+        </div>
+        <div class="row">
+          <div class="label">Whole Life<span>9 policies</span></div>
+          <div class="amt">$68,200</div>
+        </div>
+        <div class="row">
+          <div class="label">Final Expense<span>6 policies</span></div>
+          <div class="amt">$41,900</div>
+        </div>
+        <div class="row">
+          <div class="label">Annuities<span>3 contracts</span></div>
+          <div class="amt">$25,500</div>
+        </div>
+        <div class="bar"><i style="width:88%"></i></div>
+      </div>
+
+      <!-- CTA -->
+      <div class="cta">
+        <a class="btn" href="#" style="filter: drop-shadow(rgba(19, 38, 68, 0.6) 0px 10px 24px) !important; box-shadow: none !important;">View full dashboard</a>
+        <p class="fine">Detailed reports, pipeline, and renewals waiting in Producer Stack.</p>
+      </div>
+
+      <!-- Footer -->
+      <div class="foot">
+        <div class="brand">Producer Stack</div>
+        <div class="fl">
+          <a href="#">Dashboard</a>
+          <a href="#">Pipeline</a>
+          <a href="#">Settings</a>
+        </div>
+        <p>You're receiving this because monthly summaries are on for your account.</p>
+        <p><a href="#" style="color:#8698b8;text-decoration:underline;">Manage email preferences</a> · <a href="#" style="color:#8698b8;text-decoration:underline;">Unsubscribe</a></p>
+        <p style="margin-top:10px;">© 2026 Producer Stack, Inc.</p>
+      </div>
+
+    </div>
+  </div></body></html>

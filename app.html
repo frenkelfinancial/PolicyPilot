@@ -7674,16 +7674,49 @@ function renderActionHub(){
   if (!root) return;
 
   const events = (typeof getEvents === 'function') ? getEvents() : [];
+  const cmList = (typeof cmUrgent !== 'undefined' && Array.isArray(cmUrgent)) ? cmUrgent : [];
+  const totalActions = events.length + cmList.length;
   const meta = root.querySelector('.ah-hub__meta');
-  if (meta) meta.textContent = events.length === 0
+  if (meta) meta.textContent = totalActions === 0
     ? 'All clear'
-    : (events.length === 1 ? '1 action' : events.length + ' actions');
+    : (totalActions === 1 ? '1 action' : totalActions + ' actions');
 
   const body = root.querySelector('.ah-hub__body');
   if (!body) return;
   body.replaceChildren();   // idempotent re-render
 
-  if (events.length === 0){
+  // Carrier alerts from the email pipeline (returned payments, lapses,
+  // requirements, declines, login nudges, review items).
+  if (cmList.length){
+    const sec = document.createElement('section');
+    sec.className = 'ah-section';
+    sec.setAttribute('data-tone', 'urgent');
+    const head = document.createElement('div');
+    head.className = 'ah-section__head';
+    head.textContent = 'Carrier alerts';
+    const cnt = document.createElement('span');
+    cnt.className = 'ah-section__count';
+    cnt.textContent = String(cmList.length);
+    head.appendChild(cnt);
+    sec.appendChild(head);
+    const ul = document.createElement('ul');
+    ul.className = 'ah-list';
+    ul.setAttribute('role', 'list');
+    for (const it of cmList){
+      const li = document.createElement('li');
+      li.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-top:1px solid var(--border)';
+      li.innerHTML = '<span data-ico="warning" data-size="15" style="color:#f59e0b;margin-top:1px"></span>'
+        + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + escHTML(it.headline) + '</div>'
+        + '<div style="font-size:11.5px;color:var(--text3);margin-top:2px">' + escHTML(it.sub || '') + '</div></div>'
+        + '<a href="' + it.url + '" target="_blank" rel="noopener" class="btn btn-s btn-sm" style="flex-shrink:0">Open</a>';
+      ul.appendChild(li);
+    }
+    sec.appendChild(ul);
+    body.appendChild(sec);
+    mountIcons(sec);
+  }
+
+  if (events.length === 0 && cmList.length === 0){
     const isNewAgent = getActivityCount() === 0;
     body.appendChild(dsEmptyState({
       icon: 'inbox',
@@ -10860,6 +10893,7 @@ function renderSummary() {
   _applyPlanGating();
   renderGreeting();
   if (typeof renderActionHub === 'function') renderActionHub();
+  if (typeof cmRefreshUrgent === 'function') cmRefreshUrgent();
   const _rsTier = _planTier();
   if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderPipelineFunnel === 'function') renderPipelineFunnel();
   if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderIncomeReality === 'function') renderIncomeReality();
@@ -15640,34 +15674,82 @@ function gcalRenderList() {
 const CM_CARRIER = { transamerica:'Transamerica', mutual_of_omaha:'Mutual of Omaha', americo:'Americo', american_amicable:'American-Amicable', corebridge:'Corebridge', ethos:'Ethos' };
 const CM_EVENT = { submitted:'Submitted', approved:'Approved', declined:'Declined', withdrawn:'Withdrawn', requirement:'Requirement', payment_scheduled:'Payment scheduled', payment_returned:'Payment returned', lapse_pending:'Lapse pending', policy_active:'Policy active', closed:'Closed', commission_snapshot:'Commission snapshot', commission_change:'Commission change', debt_notice:'Debt notice', other:'Update' };
 const CM_COMMISSION_TYPES = new Set(['commission_snapshot','commission_change','debt_notice']);
+const CM_URGENT = new Set(['payment_returned','lapse_pending','requirement','declined','withdrawn']);
+let cmUrgent = [];
+let cmAccountEmail = '';
 
 function cmDate(d){ if(!d) return ''; try { return new Date(d).toLocaleDateString(); } catch(_) { return ''; } }
+
+async function cmEnsureAccountEmail(){
+  if (cmAccountEmail) return;
+  try {
+    const { data } = await sb.from('gmail_accounts').select('email_address').order('connected_at', { ascending: false }).limit(1).maybeSingle();
+    if (data && data.email_address) cmAccountEmail = data.email_address;
+  } catch (_) { /* deep-links fall back to the default account */ }
+}
+
+// Deep link that opens the original message in Gmail (uses the connected
+// account so it works even when it isn't the browser's default Google login).
+function cmGmailUrl(id){
+  if (!id) return '#';
+  return cmAccountEmail
+    ? ('https://mail.google.com/mail/?authuser=' + encodeURIComponent(cmAccountEmail) + '#all/' + id)
+    : ('https://mail.google.com/mail/u/0/#all/' + id);
+}
+
+function cmEmailStatus(e){
+  if (e.done_at) return { label:'Done', color:'var(--text3)' };
+  if (e.route === 'nudge') return { label:'Login required', color:'#f59e0b' };
+  if (e.parse_status === 'failed') return { label:'Parse failed', color:'#dc2626' };
+  if (e.parse_status === 'pending_parse') return { label:'Queued', color:'var(--text3)' };
+  const pes = e.parsed_events || [];
+  if (pes.some(p => p.matched_policy_id)) return { label:'Linked', color:'#10b981' };
+  if (e.parse_status === 'review' || pes.some(p => !CM_COMMISSION_TYPES.has(p.event_type) && !p.matched_policy_id)) return { label:'Needs review', color:'#f59e0b' };
+  if (pes.length && pes.every(p => CM_COMMISSION_TYPES.has(p.event_type))) return { label:'Commission', color:'#5ba0e8' };
+  return { label:'Parsed', color:'var(--text2)' };
+}
+
+function cmIsUrgentEmail(e){
+  if (e.done_at) return false;
+  if (e.route === 'nudge') return true;
+  const pes = e.parsed_events || [];
+  if (pes.some(p => CM_URGENT.has(p.event_type))) return true;
+  return e.parse_status === 'review';
+}
 
 async function renderCarrierMail() {
   const body = document.getElementById('cm-body');
   if (!body) return;
   body.innerHTML = '<div class="text-m" style="color:var(--text3);padding:24px 4px">Loading carrier mail…</div>';
 
-  let nudges = [], events = [], reviews = [];
+  let emails = [], nudges = [];
   try {
-    const [n, e, r] = await Promise.all([
+    await cmEnsureAccountEmail();
+    const [em, nud] = await Promise.all([
+      sb.from('email_ingest_log')
+        .select('id,gmail_message_id,carrier,email_type,route,subject,received_at,parse_status,done_at,parsed_events(id,event_type,client_name,policy_number_raw,amounts,event_date,details,matched_policy_id)')
+        .is('deleted_at', null)
+        .order('received_at', { ascending: false })
+        .limit(200),
       sb.from('portal_nudges').select('id,carrier,subject,client_hint,received_at').is('dismissed_at', null).order('received_at', { ascending: false }),
-      sb.from('parsed_events').select('id,carrier,event_type,client_name,policy_number_raw,amounts,event_date,details,confidence,matched_policy_id,created_at').order('created_at', { ascending: false }).limit(150),
-      sb.from('review_queue').select('parsed_event_id,reason').eq('status', 'open'),
     ]);
-    nudges = n.data || []; events = e.data || []; reviews = r.data || [];
+    emails = em.data || []; nudges = nud.data || [];
   } catch (err) {
     body.innerHTML = '<div class="alert alert-w"><span data-ico="warning"></span><div>Could not load carrier mail. ' + escHTML(String(err && err.message || err)) + '</div></div>';
     mountIcons(body); return;
   }
 
-  const reviewSet = new Set(reviews.map(x => x.parsed_event_id));
-  const commission = events.filter(ev => CM_COMMISSION_TYPES.has(ev.event_type));
-  const policyEvents = events.filter(ev => !CM_COMMISSION_TYPES.has(ev.event_type));
-
-  if (!nudges.length && !events.length) {
+  if (!emails.length && !nudges.length) {
     body.innerHTML = '<div class="card"><div class="alert alert-i" style="margin:0"><span data-ico="info"></span><div>No carrier mail yet. Connect Gmail in <a href="#" onclick="nav(\'settings\');return false" style="color:var(--text-g);text-decoration:underline">Settings → Integrations</a>, then hit “Sync &amp; parse” above.</div></div></div>';
     mountIcons(body); return;
+  }
+
+  // Latest commission snapshot per carrier (across all emails).
+  const commissionByCarrier = new Map();
+  for (const e of emails) {
+    for (const p of (e.parsed_events || [])) {
+      if (CM_COMMISSION_TYPES.has(p.event_type) && !commissionByCarrier.has(e.carrier)) commissionByCarrier.set(e.carrier, p);
+    }
   }
 
   let html = '';
@@ -15677,61 +15759,70 @@ async function renderCarrierMail() {
     for (const z of nudges) {
       const carrier = CM_CARRIER[z.carrier] || z.carrier;
       const who = z.client_hint ? (' (re: ' + escHTML(z.client_hint) + ')') : '';
-      html += '<div class="alert alert-i" style="margin-bottom:10px;align-items:flex-start">'
-        + '<span data-ico="info"></span>'
-        + '<div style="flex:1">You received an email from <strong>' + escHTML(carrier) + '</strong>' + who + ' that needs your login to view the details.'
-        + '<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + escHTML(z.subject || '') + (z.received_at ? (' · ' + cmDate(z.received_at)) : '') + '</div></div>'
-        + '<button class="btn btn-s btn-sm" style="margin-left:8px" onclick="cmDismissNudge(\'' + z.id + '\',this)">Dismiss</button>'
-        + '</div>';
+      html += '<div class="alert alert-i" style="margin-bottom:10px;align-items:flex-start"><span data-ico="info"></span><div style="flex:1">You received an email from <strong>' + escHTML(carrier) + '</strong>' + who + ' that needs your login to view the details.<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + escHTML(z.subject || '') + (z.received_at ? (' · ' + cmDate(z.received_at)) : '') + '</div></div><button class="btn btn-s btn-sm" style="margin-left:8px" onclick="cmDismissNudge(\'' + z.id + '\',this)">Dismiss</button></div>';
     }
     html += '</div>';
   }
 
-  if (commission.length) {
-    const seen = new Set(); const latest = [];
-    for (const c of commission) { if (seen.has(c.carrier)) continue; seen.add(c.carrier); latest.push(c); }
+  if (commissionByCarrier.size) {
     html += '<div class="card" style="margin-top:16px"><div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="currency-dollar" data-size="14"></span>Commission</div>';
-    for (const c of latest) {
-      const a = c.amounts || {}; const bits = [];
+    for (const [carrier, p] of commissionByCarrier) {
+      const a = p.amounts || {}; const bits = [];
       if (a.commission_balance != null) bits.push('Balance ' + fmt$(Number(a.commission_balance)));
       if (a.amount != null) bits.push('Amount ' + fmt$(Number(a.amount)));
       const ct = a.counts || {};
       if (ct.pending_apps != null) bits.push(ct.pending_apps + ' pending');
       if (ct.issued_not_paid != null) bits.push(ct.issued_not_paid + ' issued-not-paid');
       if (ct.lapse_pending != null) bits.push(ct.lapse_pending + ' lapse-pending');
-      html += '<div style="padding:8px 0;border-bottom:1px solid var(--border)">'
-        + '<div style="font-weight:600;font-size:13px">' + escHTML(CM_CARRIER[c.carrier] || c.carrier) + '</div>'
-        + '<div style="font-size:12px;color:var(--text2);margin-top:2px">' + escHTML((c.details && c.details.summary) || '') + '</div>'
-        + (bits.length ? ('<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + bits.map(escHTML).join(' · ') + '</div>') : '')
-        + '</div>';
+      html += '<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-weight:600;font-size:13px">' + escHTML(CM_CARRIER[carrier] || carrier) + '</div><div style="font-size:12px;color:var(--text2);margin-top:2px">' + escHTML((p.details && p.details.summary) || '') + '</div>' + (bits.length ? ('<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + bits.map(escHTML).join(' · ') + '</div>') : '') + '</div>';
     }
     html += '</div>';
   }
 
-  if (policyEvents.length) {
-    html += '<div class="card" style="margin-top:16px"><div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="clipboard-text" data-size="14"></span>Policy activity (' + policyEvents.length + ')</div>';
-    for (const ev of policyEvents) {
-      const carrier = CM_CARRIER[ev.carrier] || ev.carrier;
-      const evt = CM_EVENT[ev.event_type] || ev.event_type;
-      const chip = ev.matched_policy_id
-        ? '<span style="background:rgba(16,185,129,.15);color:#10b981;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px">Linked</span>'
-        : (reviewSet.has(ev.id)
-          ? '<span style="background:rgba(245,158,11,.15);color:#f59e0b;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px">Needs review</span>'
-          : '<span style="background:var(--bg3);color:var(--text3);font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:20px">Parsed</span>');
-      const a = ev.amounts || {}; const amt = [];
-      if (a.face_amount != null) amt.push('Face ' + fmt$(Number(a.face_amount)));
-      if (a.premium != null) amt.push('Prem ' + fmt$(Number(a.premium)));
-      html += '<div style="padding:10px 0;border-bottom:1px solid var(--border)">'
-        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong style="font-size:13px">' + escHTML(ev.client_name || 'Unknown client') + '</strong>' + chip + '<span style="font-size:11.5px;color:var(--text3);margin-left:auto">' + escHTML(carrier) + '</span></div>'
-        + '<div style="font-size:12px;color:var(--text2);margin-top:3px">' + escHTML((ev.details && ev.details.summary) || evt) + '</div>'
-        + '<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + escHTML(evt) + (ev.policy_number_raw ? (' · #' + escHTML(ev.policy_number_raw)) : '') + (amt.length ? (' · ' + amt.map(escHTML).join(' · ')) : '') + (ev.event_date ? (' · ' + cmDate(ev.event_date)) : '') + '</div>'
-        + '</div>';
-    }
-    html += '</div>';
+  // Chronological timeline — every carrier email, scrollable, each opens in Gmail.
+  html += '<div class="card" style="margin-top:16px"><div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="clipboard-text" data-size="14"></span>All carrier mail (' + emails.length + ')</div><div style="max-height:62vh;overflow-y:auto;margin-top:4px">';
+  for (const e of emails) {
+    const done = !!e.done_at;
+    const st = cmEmailStatus(e);
+    const carrier = CM_CARRIER[e.carrier] || e.carrier;
+    const pes = e.parsed_events || [];
+    const client = (pes.find(p => p.client_name) || {}).client_name || '';
+    const summaries = pes.map(p => p.details && p.details.summary).filter(Boolean);
+    const nums = pes.map(p => p.policy_number_raw).filter(Boolean);
+    const detail = summaries.length ? summaries.join(' · ') : (e.subject || '');
+    const url = cmGmailUrl(e.gmail_message_id);
+    const chip = '<span style="background:var(--bg3);color:' + st.color + ';font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap">' + escHTML(st.label) + '</span>';
+    html += '<div style="padding:11px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg2)' + (done ? ';opacity:.55' : '') + '">'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong style="font-size:13px' + (done ? ';text-decoration:line-through' : '') + '">' + escHTML(client || carrier) + '</strong>' + chip + '<span style="font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap">' + escHTML(carrier) + ' · ' + cmDate(e.received_at) + '</span></div>'
+      + '<div style="font-size:12px;color:var(--text2);margin-top:4px">' + escHTML(detail) + '</div>'
+      + (nums.length ? ('<div style="font-size:11px;color:var(--text3);margin-top:2px">#' + nums.map(escHTML).join(', #') + '</div>') : '')
+      + '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">'
+      + '<a href="' + url + '" target="_blank" rel="noopener" class="btn btn-s btn-sm" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="arrow-square-out" data-size="12"></span>Open email</a>'
+      + '<button class="btn btn-s btn-sm" onclick="cmToggleDone(\'' + e.id + '\',' + done + ')" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="' + (done ? 'arrow-clockwise' : 'check') + '" data-size="12"></span>' + (done ? 'Undo' : 'Done') + '</button>'
+      + '<button class="btn btn-s btn-sm" title="Remove from dashboard" onclick="cmDeleteEmail(\'' + e.id + '\')" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="trash" data-size="12"></span></button>'
+      + '</div></div>';
   }
+  html += '</div></div>';
 
   body.innerHTML = html;
   mountIcons(body);
+}
+
+async function cmToggleDone(id, isDone) {
+  try {
+    const { error } = await sb.from('email_ingest_log').update({ done_at: isDone ? null : new Date().toISOString() }).eq('id', id);
+    if (error) { showToast('Could not update.', '#dc2626'); return; }
+    renderCarrierMail(); cmRefreshUrgent();
+  } catch (_) { showToast('Could not update.', '#dc2626'); }
+}
+
+async function cmDeleteEmail(id) {
+  if (!confirm('Remove this email from your dashboard? It stays in your Gmail inbox.')) return;
+  try {
+    const { error } = await sb.from('email_ingest_log').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+    if (error) { showToast('Could not remove.', '#dc2626'); return; }
+    renderCarrierMail(); cmRefreshUrgent();
+  } catch (_) { showToast('Could not remove.', '#dc2626'); }
 }
 
 async function cmDismissNudge(id, btn) {
@@ -15739,10 +15830,36 @@ async function cmDismissNudge(id, btn) {
   try {
     const { error } = await sb.from('portal_nudges').update({ dismissed_at: new Date().toISOString() }).eq('id', id);
     if (error) { showToast('Could not dismiss.', '#dc2626'); if (btn) btn.disabled = false; return; }
-    renderCarrierMail();
+    renderCarrierMail(); cmRefreshUrgent();
   } catch (_) {
     showToast('Could not dismiss.', '#dc2626'); if (btn) btn.disabled = false;
   }
+}
+
+// Fetch the not-done, non-deleted urgent items (returned payments, lapse-pending,
+// requirements, declines, login nudges, review items) for the Summary hub.
+async function cmRefreshUrgent() {
+  try {
+    await cmEnsureAccountEmail();
+    const { data } = await sb.from('email_ingest_log')
+      .select('id,gmail_message_id,carrier,route,subject,parse_status,done_at,parsed_events(event_type,client_name,details)')
+      .is('deleted_at', null).is('done_at', null)
+      .order('received_at', { ascending: false }).limit(100);
+    const rows = data || [];
+    cmUrgent = rows.filter(cmIsUrgentEmail).map(e => {
+      const pes = e.parsed_events || [];
+      const up = pes.find(p => CM_URGENT.has(p.event_type));
+      const client = (pes.find(p => p.client_name) || {}).client_name || '';
+      const carrier = CM_CARRIER[e.carrier] || e.carrier;
+      const sumObj = pes.find(p => p.details && p.details.summary);
+      let headline;
+      if (e.route === 'nudge') headline = carrier + ' — log in to view details';
+      else if (up) headline = carrier + ': ' + (CM_EVENT[up.event_type] || up.event_type) + (client ? (' — ' + client) : '');
+      else headline = carrier + ': needs review' + (client ? (' — ' + client) : '');
+      return { id: e.id, url: cmGmailUrl(e.gmail_message_id), headline, sub: (sumObj && sumObj.details.summary) || e.subject || '' };
+    }).slice(0, 8);
+  } catch (_) { cmUrgent = []; }
+  if (typeof renderActionHub === 'function') renderActionHub();
 }
 
 // One button: run the whole pipeline (sync → parse → match) then re-render.
@@ -15758,7 +15875,7 @@ async function cmSyncParse(btn) {
     showToast('Refresh failed — try again.', '#dc2626');
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = o; }
-    renderCarrierMail();
+    renderCarrierMail(); cmRefreshUrgent();
   }
 }
 
