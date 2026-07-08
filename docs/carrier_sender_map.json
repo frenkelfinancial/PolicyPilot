@@ -161,6 +161,16 @@
       "sample_subjects": ["Email Received"]
     },
     {
+      "carrier": "transamerica",
+      "from_pattern": "%@sales.transamerica.com",
+      "subject_pattern": null,
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Sales-rep marketing from personal addresses on the sales subdomain. Discovered via review queue 2026-07-08.",
+      "sample_subjects": ["Introducing Our Partnership with Empathy"]
+    },
+    {
       "carrier": "corebridge",
       "from_pattern": "sigiteam@corebridgefinancial.com",
       "subject_pattern": null,
@@ -289,6 +299,16 @@
       "route": "policy_tracker",
       "notes": "Automatic payment not honored: policy #, client, amount paid to date, return reason in body; agent # + policy # in subject.",
       "sample_subjects": ["Returned Payment - JACE FRENKEL 1190043, 0113615870"]
+    },
+    {
+      "carrier": "american_amicable",
+      "from_pattern": "noreply@aatx.com",
+      "subject_pattern": "(Login Code|Verification Code)",
+      "email_type": "ignore",
+      "content_type": "body",
+      "route": "ignore",
+      "notes": "Agent portal login/verification codes (same address as APPLICATION ACTIVITY / Returned Payment; split on subject). Discovered via review queue 2026-07-08.",
+      "sample_subjects": ["Agent Portal Login Code"]
     },
     {
       "carrier": "american_amicable",

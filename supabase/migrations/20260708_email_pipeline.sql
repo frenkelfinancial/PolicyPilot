@@ -119,6 +119,7 @@ insert into public.carrier_senders
 ('transamerica','transamericacxinsights@transamerica.com',null,'ignore','body','ignore',10,'Surveys.'),
 ('transamerica','webhelp@transamerica.com',null,'ignore','body','ignore',10,'Login codes.'),
 ('transamerica','awdemailnotification@transamerica.com',null,'ignore','body','ignore',10,'Auto-replies.'),
+('transamerica','%@sales.transamerica.com',null,'ignore','body','ignore',10,'Sales-rep marketing (personal addresses on the sales subdomain).'),
 -- COREBRIDGE
 ('corebridge','sigiteam@corebridgefinancial.com',null,'payment_result','body','policy_tracker',10,'SIWL/GIWL new business: returned payments, reissue, beneficiary.'),
 ('corebridge','svc_ilcc_prod@corebridgefinancial.com',null,'portal_notification','login_link','nudge',10,'Cisco Secure Message: NO data in email. Never fetch the link.'),
@@ -135,6 +136,7 @@ insert into public.carrier_senders
 -- AMERICAN-AMICABLE
 ('american_amicable','noreply@aatx.com','^APPLICATION ACTIVITY','application_activity','body','policy_tracker',10,'Daily status digest, multiple policies per email -> parser returns array.'),
 ('american_amicable','noreply@aatx.com','^Returned Payment','payment_result','body','policy_tracker',20,'Payment not honored: policy #, client, amount, reason.'),
+('american_amicable','noreply@aatx.com','(Login Code|Verification Code)','ignore','body','ignore',30,'Agent portal login/verification codes.'),
 ('american_amicable','marketingassistants@americanamicable.com',null,'ignore','body','ignore',10,'Welcome/admin.'),
 ('american_amicable','%@american-amicablegroup.ccsend.com',null,'ignore','body','ignore',10,'Constant Contact marketing.'),
 -- ETHOS

@@ -41,6 +41,7 @@ export const CARRIER_SENDERS: SenderRow[] = [
   { carrier: "transamerica", from_pattern: "transamericacxinsights@transamerica.com", subject_pattern: null, email_type: "ignore", content_type: "body", route: "ignore", priority: 10, notes: "Surveys." },
   { carrier: "transamerica", from_pattern: "webhelp@transamerica.com", subject_pattern: null, email_type: "ignore", content_type: "body", route: "ignore", priority: 10, notes: "Login codes." },
   { carrier: "transamerica", from_pattern: "awdemailnotification@transamerica.com", subject_pattern: null, email_type: "ignore", content_type: "body", route: "ignore", priority: 10, notes: "Auto-replies." },
+  { carrier: "transamerica", from_pattern: "%@sales.transamerica.com", subject_pattern: null, email_type: "ignore", content_type: "body", route: "ignore", priority: 10, notes: "Sales-rep marketing (personal addresses on the sales subdomain)." },
 
   // ============ COREBRIDGE ============
   { carrier: "corebridge", from_pattern: "sigiteam@corebridgefinancial.com", subject_pattern: null, email_type: "payment_result", content_type: "body", route: "policy_tracker", priority: 10, notes: "SIWL/GIWL new business: returned payments, reissue, beneficiary. Policy # + client in subject/body." },
@@ -62,6 +63,7 @@ export const CARRIER_SENDERS: SenderRow[] = [
   // Same address, two types (arrives as NOREPLY@ and noreply@ — match case-insensitively, split on subject).
   { carrier: "american_amicable", from_pattern: "noreply@aatx.com", subject_pattern: "^APPLICATION ACTIVITY", email_type: "application_activity", content_type: "body", route: "policy_tracker", priority: 10, notes: "Daily status digest: SUBMITTED/ISSUED/DECLINED/WITHDRAWN with policy # + client. MULTIPLE policies per email -> parser returns array." },
   { carrier: "american_amicable", from_pattern: "noreply@aatx.com", subject_pattern: "^Returned Payment", email_type: "payment_result", content_type: "body", route: "policy_tracker", priority: 20, notes: "Payment not honored: policy #, client, amount, reason." },
+  { carrier: "american_amicable", from_pattern: "noreply@aatx.com", subject_pattern: "(Login Code|Verification Code)", email_type: "ignore", content_type: "body", route: "ignore", priority: 30, notes: "Agent portal login/verification codes." },
   { carrier: "american_amicable", from_pattern: "marketingassistants@americanamicable.com", subject_pattern: null, email_type: "ignore", content_type: "body", route: "ignore", priority: 10, notes: "Welcome/admin." },
   { carrier: "american_amicable", from_pattern: "%@american-amicablegroup.ccsend.com", subject_pattern: null, email_type: "ignore", content_type: "body", route: "ignore", priority: 10, notes: "Constant Contact marketing." },
 

@@ -25,6 +25,7 @@ const map = JSON.parse(
 const CONCRETE_FROM: Record<string, string> = {
   "%@mutualofomaha.com": "aubrey.street-mccarthy@mutualofomaha.com",
   "%@american-amicablegroup.ccsend.com": "news@american-amicablegroup.ccsend.com",
+  "%@sales.transamerica.com": "xavier.gerken@sales.transamerica.com",
 };
 const fromFor = (pattern: string) => CONCRETE_FROM[pattern] ?? pattern;
 

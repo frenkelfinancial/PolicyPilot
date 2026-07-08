@@ -47,6 +47,7 @@ insert into carrier_senders
 ('transamerica', 'transamericacxinsights@transamerica.com', null, 'ignore', 'body', 'ignore', 10, 'Surveys.'),
 ('transamerica', 'webhelp@transamerica.com', null, 'ignore', 'body', 'ignore', 10, 'Login codes.'),
 ('transamerica', 'awdemailnotification@transamerica.com', null, 'ignore', 'body', 'ignore', 10, 'Auto-replies.'),
+('transamerica', '%@sales.transamerica.com', null, 'ignore', 'body', 'ignore', 10, 'Sales-rep marketing (personal addresses on the sales subdomain).'),
 
 -- ============ COREBRIDGE ============
 ('corebridge', 'sigiteam@corebridgefinancial.com', null,
@@ -81,6 +82,9 @@ insert into carrier_senders
 ('american_amicable', 'noreply@aatx.com', '^Returned Payment',
  'payment_result', 'body', 'policy_tracker', 20,
  'Payment not honored: policy #, client, amount, reason.'),
+('american_amicable', 'noreply@aatx.com', '(Login Code|Verification Code)',
+ 'ignore', 'body', 'ignore', 30,
+ 'Agent portal login/verification codes.'),
 ('american_amicable', 'marketingassistants@americanamicable.com', null, 'ignore', 'body', 'ignore', 10, 'Welcome/admin.'),
 ('american_amicable', '%@american-amicablegroup.ccsend.com', null, 'ignore', 'body', 'ignore', 10, 'Constant Contact marketing.'),
 
