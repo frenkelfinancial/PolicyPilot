@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Producer Stack — CRM for Life Insurance Producers</title>
+<link rel="icon" href="assets/logos/producer-stack-logo.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700;1,900&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #090909;
+  --bg2: #0D0D0C;
+  --card: #131311;
+  --card2: #1A1A18;
+  --border: rgba(255,255,255,.07);
+  --border-h: rgba(255,255,255,.13);
+
+  --amber: #F0A500;
+  --amber-l: #FFD166;
+  --amber-d: #C88800;
+  --amber-glow: rgba(240,165,0,.08);
+
+  --green: #3DBA78;
+  --red: #E05252;
+
+  --text: #F4EFE6;
+  --text2: #8C867A;
+  --text3: #4A4640;
+
+  --display: 'Playfair Display', Georgia, serif;
+  --sans: 'Outfit', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+
+  --nav-h: 62px;
+}
+html { scroll-behavior: smooth; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ── BACKGROUND ──────────────────────────────── */
+.bg-layer { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,.016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.016) 1px, transparent 1px);
+  background-size: 52px 52px;
+}
+.bg-glow {
+  position: absolute;
+  top: -280px; left: 50%; transform: translateX(-50%);
+  width: 1000px; height: 700px;
+  background: radial-gradient(ellipse, rgba(240,165,0,.055) 0%, transparent 65%);
+}
+.bg-glow-2 {
+  position: absolute;
+  bottom: -200px; right: -200px;
+  width: 600px; height: 600px;
+  background: radial-gradient(ellipse, rgba(61,186,120,.025) 0%, transparent 60%);
+}
+.bg-vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 35%, rgba(9,9,9,.75) 100%);
+}
+
+/* ── NAV ─────────────────────────────────────── */
+.nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  height: var(--nav-h);
+  display: flex; align-items: center;
+  border-bottom: 1px solid transparent;
+  transition: background .3s, border-color .35s, backdrop-filter .3s;
+}
+.nav.scrolled {
+  background: rgba(9,9,9,.93);
+  border-bottom-color: var(--border);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.nav-inner {
+  max-width: 1280px; margin: 0 auto;
+  padding: 0 40px; width: 100%;
+  display: flex; align-items: center;
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; flex-shrink: 0; margin-right: auto;
+}
+.nav-logo img { height: 30px; width: auto; }
+.nav-logo-name {
+  font-family: var(--sans); font-size: 13.5px; font-weight: 700;
+  color: var(--text); letter-spacing: .09em; text-transform: uppercase;
+}
+.nav-links {
+  display: flex; align-items: center; gap: 2px;
+  margin: 0 auto;
+}
+.nav-links a {
+  font-size: 11.5px; font-weight: 500; color: var(--text3);
+  text-decoration: none; padding: 5px 14px;
+  letter-spacing: .1em; text-transform: uppercase;
+  transition: color .2s;
+}
+.nav-links a:hover { color: var(--text2); }
+.nav-right { display: flex; align-items: center; gap: 18px; margin-left: auto; }
+.nav-signin {
+  font-size: 11.5px; font-weight: 500; color: var(--text3);
+  text-decoration: none; letter-spacing: .08em; text-transform: uppercase;
+  transition: color .2s;
+}
+.nav-signin:hover { color: var(--text2); }
+.btn-amber {
+  font-family: var(--sans); font-size: 11.5px; font-weight: 700;
+  color: #000; background: var(--amber);
+  border: none; padding: 9px 20px; border-radius: 2px;
+  cursor: pointer; text-decoration: none;
+  letter-spacing: .1em; text-transform: uppercase;
+  transition: background .2s;
+}
+.btn-amber:hover { background: var(--amber-l); }
+
+/* ── HERO ────────────────────────────────────── */
+.hero {
+  position: relative; z-index: 1;
+  max-width: 1280px; margin: 0 auto;
+  padding: calc(var(--nav-h) + 88px) 40px 80px;
+  display: grid; grid-template-columns: 1.05fr 0.95fr;
+  gap: 72px; align-items: center;
+}
+.hero-label {
+  display: inline-flex; align-items: center; gap: 12px;
+  font-family: var(--mono); font-size: 10px; font-weight: 500;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--amber);
+  margin-bottom: 30px;
+}
+.hero-label::before { content: ''; display: block; width: 28px; height: 1px; background: var(--amber); opacity: .5; }
+.hero-label-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--amber);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .35; transform: scale(.65); }
+}
+.hero-h1 {
+  font-family: var(--display);
+  font-size: clamp(48px, 5.4vw, 82px);
+  font-weight: 900; color: var(--text);
+  letter-spacing: -.025em; line-height: 1.0;
+  margin-bottom: 26px;
+}
+.hero-h1 em { font-style: italic; color: var(--amber); }
+.hero-sub {
+  font-size: 15.5px; font-weight: 300; color: var(--text2);
+  line-height: 1.8; max-width: 460px; margin-bottom: 38px;
+}
+.hero-ctas {
+  display: flex; align-items: center; gap: 13px; margin-bottom: 32px;
+}
+.btn-hero {
+  font-family: var(--sans); font-size: 12.5px; font-weight: 700;
+  color: #000; background: var(--amber);
+  border: none; padding: 14px 30px; border-radius: 2px;
+  cursor: pointer; text-decoration: none;
+  letter-spacing: .1em; text-transform: uppercase;
+  transition: background .2s, box-shadow .2s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-hero:hover { background: var(--amber-l); box-shadow: 0 8px 32px rgba(240,165,0,.28); }
+.btn-hero-ghost {
+  font-family: var(--sans); font-size: 12.5px; font-weight: 500;
+  color: var(--text2); background: transparent;
+  border: 1px solid var(--border); padding: 14px 26px; border-radius: 2px;
+  cursor: pointer; text-decoration: none; letter-spacing: .05em;
+  transition: color .2s, border-color .2s;
+}
+.btn-hero-ghost:hover { color: var(--text); border-color: var(--border-h); }
+.hero-proof {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.proof-item {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--text3); letter-spacing: .04em;
+}
+.proof-chk {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: rgba(61,186,120,.1); border: 1px solid rgba(61,186,120,.24);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.proof-chk svg { width: 8px; height: 8px; color: var(--green); }
+.proof-sep { color: var(--text3); opacity: .2; font-size: 10px; }
+
+/* ── TERMINAL PANEL ──────────────────────────── */
+.hero-terminal { position: relative; }
+.terminal-wrap {
+  position: relative;
+}
+.terminal-glow {
+  position: absolute; inset: -40px;
+  background: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(240,165,0,.08) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+.terminal {
+  position: relative; z-index: 1;
+  background: var(--card);
+  border: 1px solid rgba(240,165,0,.22);
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(240,165,0,.04),
+    0 40px 80px -20px rgba(0,0,0,.85),
+    inset 0 1px 0 rgba(255,255,255,.025);
+  transform: perspective(1200px) rotateY(-5deg) rotateX(2deg);
+  transition: transform .7s cubic-bezier(.16,1,.3,1);
+}
+.terminal:hover { transform: perspective(1200px) rotateY(-1deg) rotateX(0deg); }
+.t-header {
+  background: var(--card2); border-bottom: 1px solid var(--border);
+  padding: 11px 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.t-dots { display: flex; gap: 5px; }
+.t-dot { width: 8px; height: 8px; border-radius: 50%; }
+.t-dot.r { background: #C55; } .t-dot.y { background: #C95; } .t-dot.g { background: var(--green); }
+.t-url {
+  flex: 1; text-align: center;
+  font-family: var(--mono); font-size: 9.5px; color: var(--text3); letter-spacing: .04em;
+}
+.t-live {
+  display: flex; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: 9px; color: var(--green); letter-spacing: .06em;
+}
+.t-live-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 6px var(--green); animation: pulse-dot 1.6s ease-in-out infinite;
+}
+.t-body { padding: 18px; display: flex; flex-direction: column; gap: 13px; }
+
+.t-stat-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; }
+.t-stat {
+  background: rgba(255,255,255,.025); border: 1px solid var(--border);
+  border-radius: 2px; padding: 11px 12px;
+}
+.t-stat-l {
+  font-family: var(--mono); font-size: 7.5px; color: var(--text3);
+  letter-spacing: .12em; text-transform: uppercase; margin-bottom: 5px;
+}
+.t-stat-v {
+  font-family: var(--mono); font-size: 21px; font-weight: 500;
+  color: var(--text); letter-spacing: -.03em; line-height: 1;
+}
+.t-stat-v.am { color: var(--amber); }
+.t-stat-d { font-family: var(--mono); font-size: 7.5px; color: var(--green); margin-top: 3px; }
+
+.t-dialer {
+  background: rgba(240,165,0,.05); border: 1px solid rgba(240,165,0,.18);
+  border-radius: 2px; padding: 13px 15px;
+}
+.t-dial-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.t-dial-lbl { font-family: var(--mono); font-size: 8.5px; color: var(--amber); letter-spacing: .14em; text-transform: uppercase; }
+.t-dial-ct { font-family: var(--mono); font-size: 8.5px; color: var(--text3); letter-spacing: .04em; }
+.t-dial-phone {
+  font-family: var(--mono); font-size: 17px; font-weight: 500;
+  color: var(--text); letter-spacing: .04em; margin-bottom: 4px;
+  transition: opacity .25s ease, transform .25s ease;
+}
+.t-dial-meta { font-family: var(--mono); font-size: 8px; color: var(--text3); letter-spacing: .04em; }
+.t-dial-timer { color: var(--amber); }
+.t-btn {
+  margin-top: 9px; width: 100%; padding: 6px;
+  background: var(--amber); border: none; border-radius: 2px;
+  font-family: var(--mono); font-size: 8.5px; font-weight: 500;
+  color: #000; letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
+}
+
+.t-pipe-lbl { font-family: var(--mono); font-size: 8px; color: var(--text3); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 8px; }
+.t-pipe-rows { display: flex; flex-direction: column; gap: 5px; }
+.t-pipe-row { display: flex; align-items: center; gap: 8px; }
+.t-pipe-name { font-family: var(--mono); font-size: 8.5px; color: var(--text3); width: 56px; flex-shrink: 0; }
+.t-pipe-track { flex: 1; height: 3px; background: rgba(255,255,255,.05); border-radius: 2px; overflow: hidden; }
+.t-pipe-fill { height: 100%; border-radius: 2px; }
+.t-pipe-ct { font-family: var(--mono); font-size: 8.5px; color: var(--text3); width: 18px; text-align: right; flex-shrink: 0; }
+
+.t-tbl-h {
+  display: flex; gap: 8px; padding: 5px 8px;
+  font-family: var(--mono); font-size: 7.5px; color: var(--text3);
+  letter-spacing: .1em; text-transform: uppercase;
+  border-bottom: 1px solid var(--border); margin-bottom: 2px;
+}
+.t-tbl-row {
+  display: flex; gap: 8px; padding: 6px 8px; align-items: center;
+  font-family: var(--mono); font-size: 8.5px; color: var(--text2);
+  border-bottom: 1px solid rgba(255,255,255,.02);
+}
+.t-tbl-row:last-child { border: none; }
+.t-tn { flex: 2; color: var(--text); font-weight: 500; }
+.t-tp { flex: 1; }
+.t-ta { flex: 1; }
+.t-badge {
+  padding: 2px 6px; border-radius: 1px;
+  font-size: 7px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase;
+}
+.t-badge.hot { background: rgba(224,82,82,.12); color: var(--red); border: 1px solid rgba(224,82,82,.2); }
+.t-badge.warm { background: rgba(240,165,0,.1); color: var(--amber); border: 1px solid rgba(240,165,0,.2); }
+.t-badge.applied { background: rgba(61,186,120,.1); color: var(--green); border: 1px solid rgba(61,186,120,.2); }
+
+/* ── TICKER ──────────────────────────────────── */
+.ticker {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  overflow: hidden;
+}
+.ticker-mask {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 7%, #000 93%, transparent 100%);
+  display: flex;
+}
+.ticker-track {
+  display: flex; flex-shrink: 0;
+  animation: ticker-scroll 30s linear infinite;
+  white-space: nowrap;
+}
+.ticker-track:hover { animation-play-state: paused; }
+@keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.ticker-item {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 13px 28px; font-family: var(--mono); font-size: 10.5px;
+  color: var(--text3); letter-spacing: .06em;
+  border-right: 1px solid var(--border); flex-shrink: 0;
+}
+.ticker-val { font-size: 13px; font-weight: 500; color: var(--amber); }
+.ticker-item.g .ticker-val { color: var(--green); }
+
+/* ── SECTIONS ────────────────────────────────── */
+.section {
+  position: relative; z-index: 1;
+  max-width: 1280px; margin: 0 auto;
+  padding: 88px 40px;
+}
+.sec-label {
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--mono); font-size: 10px; color: var(--amber);
+  letter-spacing: .16em; text-transform: uppercase; margin-bottom: 20px;
+}
+.sec-label::before { content: ''; display: block; width: 18px; height: 1px; background: var(--amber); }
+.sec-h {
+  font-family: var(--display);
+  font-size: clamp(30px, 3.4vw, 50px); font-weight: 700;
+  color: var(--text); letter-spacing: -.025em; line-height: 1.1; margin-bottom: 14px;
+}
+.sec-h em { font-style: italic; color: var(--amber); }
+.sec-sub {
+  font-size: 14.5px; font-weight: 300; color: var(--text2);
+  max-width: 540px; line-height: 1.8; margin-bottom: 52px;
+}
+.sec-rule { width: 100%; height: 1px; background: var(--border); margin-bottom: 52px; }
+
+/* ── FEATURE GRID ────────────────────────────── */
+.feat-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.feat-card {
+  background: var(--bg); padding: 38px 32px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  transition: background .25s;
+}
+.feat-card:nth-child(3n) { border-right: none; }
+.feat-card:nth-child(4),.feat-card:nth-child(5),.feat-card:nth-child(6) { border-bottom: none; }
+.feat-card:hover { background: var(--card); }
+.feat-card.starred { border-left: 2px solid var(--amber); padding-left: 30px; }
+.feat-num {
+  font-family: var(--mono); font-size: 9.5px; color: var(--text3);
+  letter-spacing: .14em; margin-bottom: 22px;
+}
+.feat-ico {
+  width: 42px; height: 42px;
+  border: 1px solid var(--border); border-radius: 2px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card); margin-bottom: 18px; flex-shrink: 0;
+}
+.feat-ico svg { width: 20px; height: 20px; color: var(--amber); }
+.feat-h {
+  font-family: var(--display); font-size: 20px; font-weight: 700;
+  color: var(--text); letter-spacing: -.02em; line-height: 1.2; margin-bottom: 10px;
+}
+.feat-card.starred .feat-h { color: var(--amber); }
+.feat-p {
+  font-size: 13px; font-weight: 300; color: var(--text2);
+  line-height: 1.75; margin-bottom: 18px;
+}
+.feat-stat {
+  font-family: var(--mono); font-size: 10px; color: var(--amber);
+  letter-spacing: .05em;
+  display: flex; align-items: center; gap: 7px;
+}
+.feat-stat::before { content: ''; display: block; width: 16px; height: 1px; background: var(--amber); opacity: .45; }
+
+/* ── METRICS BAR ─────────────────────────────── */
+.metrics {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+.metrics-inner {
+  max-width: 1280px; margin: 0 auto; padding: 0 40px;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+}
+.metric {
+  padding: 52px 36px;
+  border-right: 1px solid var(--border);
+}
+.metric:last-child { border-right: none; }
+.metric-n {
+  font-family: var(--display); font-size: 54px; font-weight: 900;
+  color: var(--text); letter-spacing: -.04em; line-height: 1; margin-bottom: 10px;
+}
+.metric-n em { color: var(--amber); font-style: normal; }
+.metric-d {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  letter-spacing: .08em; text-transform: uppercase; line-height: 1.6;
+}
+
+/* ── WHAT'S NEW ──────────────────────────────── */
+.new-section {
+  position: relative; z-index: 1;
+  max-width: 1280px; margin: 0 auto; padding: 88px 40px;
+}
+.new-grid {
+  display: grid; grid-template-columns: 1.2fr 1fr;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.new-card {
+  padding: 52px 44px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  transition: background .25s;
+}
+.new-card:last-child { border-right: none; }
+.new-card:hover { background: var(--card); }
+.new-card.amber-left { border-left: 2px solid var(--amber); padding-left: 42px; }
+.new-tag {
+  font-family: var(--mono); font-size: 9px; color: var(--amber);
+  letter-spacing: .18em; text-transform: uppercase; margin-bottom: 18px;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.new-tag::before { content: '//'; opacity: .4; }
+.new-h {
+  font-family: var(--display); font-size: 24px; font-weight: 700;
+  color: var(--text); letter-spacing: -.02em; line-height: 1.2; margin-bottom: 11px;
+}
+.new-p {
+  font-size: 13.5px; font-weight: 300; color: var(--text2);
+  line-height: 1.75; margin-bottom: 22px;
+}
+
+/* Commission table */
+.comm-tbl {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 2px; overflow: hidden; margin-bottom: 14px;
+}
+.comm-row {
+  display: flex; align-items: center; padding: 10px 14px;
+  border-bottom: 1px solid var(--border); gap: 10px;
+  font-family: var(--mono);
+}
+.comm-row:last-child { border-bottom: none; }
+.comm-name { flex: 1; font-size: 10px; color: var(--text2); min-width: 0; }
+.comm-rate {
+  font-size: 10px; color: var(--text3); flex-shrink: 0;
+  background: rgba(255,255,255,.04); padding: 2px 6px; border-radius: 1px;
+}
+.comm-arr { font-size: 9px; color: var(--text3); flex-shrink: 0; }
+.comm-out { font-size: 12.5px; font-weight: 500; color: var(--amber); flex-shrink: 0; }
+.comm-total {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; font-family: var(--mono);
+  background: rgba(240,165,0,.05); border: 1px solid rgba(240,165,0,.15); border-radius: 2px;
+}
+.comm-total-lbl { font-size: 9.5px; color: var(--text3); letter-spacing: .04em; }
+.comm-total-val { font-size: 19px; font-weight: 500; color: var(--amber); letter-spacing: -.02em; }
+
+/* Mobile list */
+.mob-list { display: flex; flex-direction: column; gap: 8px; }
+.mob-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; border: 1px solid var(--border);
+  background: var(--card); border-radius: 2px;
+  font-size: 12.5px; font-weight: 300; color: var(--text2);
+}
+.mob-ico {
+  width: 28px; height: 28px; border-radius: 2px; flex-shrink: 0;
+  background: rgba(240,165,0,.07); border: 1px solid rgba(240,165,0,.15);
+  display: flex; align-items: center; justify-content: center;
+}
+.mob-ico svg { width: 14px; height: 14px; color: var(--amber); }
+
+/* ── EXPLORE GRID ────────────────────────────── */
+.explore-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  border: 1px solid var(--border); overflow: hidden;
+  margin-top: 52px;
+}
+.exp-card {
+  background: var(--bg); padding: 40px 36px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-decoration: none; display: block;
+  transition: background .25s;
+}
+.exp-card:nth-child(2n) { border-right: none; }
+.exp-card:nth-child(3),.exp-card:nth-child(4) { border-bottom: none; }
+.exp-card:hover { background: var(--card); }
+.exp-ico {
+  width: 40px; height: 40px; border-radius: 2px;
+  border: 1px solid var(--border); background: var(--card);
+  display: flex; align-items: center; justify-content: center; margin-bottom: 18px;
+}
+.exp-ico svg { width: 20px; height: 20px; color: var(--amber); }
+.exp-h {
+  font-family: var(--display); font-size: 20px; font-weight: 700;
+  color: var(--text); letter-spacing: -.02em; margin-bottom: 8px;
+}
+.exp-p { font-size: 13px; font-weight: 300; color: var(--text2); line-height: 1.7; margin-bottom: 16px; }
+.exp-link { font-family: var(--mono); font-size: 10px; color: var(--amber); letter-spacing: .1em; text-transform: uppercase; }
+
+/* ── CTA ─────────────────────────────────────── */
+.cta-wrap {
+  position: relative; z-index: 1;
+  padding: 0 40px 88px;
+  max-width: 1280px; margin: 0 auto;
+}
+.cta-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 84px 60px;
+  text-align: center;
+  position: relative; overflow: hidden;
+}
+.cta-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--amber) 30%, var(--amber-l) 50%, var(--amber) 70%, transparent);
+}
+.cta-bg {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 55% 45% at 50% 0%, rgba(240,165,0,.07) 0%, transparent 65%);
+  pointer-events: none;
+}
+.cta-inner { position: relative; z-index: 1; }
+.cta-label {
+  font-family: var(--mono); font-size: 10px; color: var(--amber);
+  letter-spacing: .2em; text-transform: uppercase; margin-bottom: 22px;
+}
+.cta-h {
+  font-family: var(--display);
+  font-size: clamp(30px, 4vw, 58px); font-weight: 900;
+  color: var(--text); letter-spacing: -.03em; line-height: 1.04; margin-bottom: 16px;
+}
+.cta-h em { font-style: italic; color: var(--amber); }
+.cta-p {
+  font-size: 15px; font-weight: 300; color: var(--text2);
+  max-width: 440px; margin: 0 auto 38px; line-height: 1.75;
+}
+.cta-btns { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.btn-cta {
+  font-family: var(--sans); font-size: 12.5px; font-weight: 700;
+  color: #000; background: var(--amber);
+  border: none; padding: 15px 38px; border-radius: 2px;
+  cursor: pointer; text-decoration: none;
+  letter-spacing: .1em; text-transform: uppercase;
+  transition: background .2s, box-shadow .2s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-cta:hover { background: var(--amber-l); box-shadow: 0 12px 40px rgba(240,165,0,.3); }
+.btn-cta-ghost {
+  font-family: var(--sans); font-size: 12.5px; font-weight: 400;
+  color: var(--text2); background: transparent;
+  border: 1px solid var(--border); padding: 15px 30px; border-radius: 2px;
+  cursor: pointer; text-decoration: none; letter-spacing: .04em;
+  transition: color .2s, border-color .2s;
+}
+.btn-cta-ghost:hover { color: var(--text); border-color: var(--border-h); }
+
+/* ── FOOTER ──────────────────────────────────── */
+footer {
+  position: relative; z-index: 1;
+  border-top: 1px solid var(--border);
+  padding: 56px 40px 32px;
+}
+.ft { max-width: 1280px; margin: 0 auto; }
+.ft-top {
+  display: grid; grid-template-columns: 1.8fr 1fr 1fr 1fr;
+  gap: 44px; margin-bottom: 44px;
+}
+.ft-brand-name {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; margin-bottom: 14px;
+  font-family: var(--sans); font-size: 13px; font-weight: 700;
+  color: var(--text); letter-spacing: .09em; text-transform: uppercase;
+}
+.ft-brand-name img { height: 26px; }
+.ft-brand p { font-size: 12.5px; font-weight: 300; color: var(--text3); line-height: 1.7; max-width: 240px; }
+.ft-col h4 {
+  font-family: var(--mono); font-size: 9px; font-weight: 500;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 16px;
+}
+.ft-col a {
+  display: block; font-size: 12.5px; font-weight: 300;
+  color: var(--text3); text-decoration: none; margin-bottom: 9px;
+  transition: color .2s;
+}
+.ft-col a:hover { color: var(--text2); }
+.ft-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-top: 22px; border-top: 1px solid var(--border);
+  gap: 12px; flex-wrap: wrap;
+}
+.ft-copy { font-family: var(--mono); font-size: 10.5px; color: var(--text3); letter-spacing: .04em; }
+.ft-copy a { color: var(--text3); text-decoration: none; }
+.ft-copy a:hover { color: var(--text2); }
+
+/* ── ANIMATIONS ──────────────────────────────── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+.anim { opacity: 0; animation: fadeUp .65s cubic-bezier(.16,1,.3,1) forwards; }
+.d1 { animation-delay: .05s; } .d2 { animation-delay: .13s; } .d3 { animation-delay: .22s; }
+.d4 { animation-delay: .32s; } .d5 { animation-delay: .44s; }
+.reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
+.reveal.in { opacity: 1; transform: none; }
+
+/* ── MOBILE NAV ──────────────────────────────── */
+.hamburger {
+  display: none; flex-direction: column; gap: 4px;
+  cursor: pointer; background: none; border: none; padding: 4px;
+}
+.hamburger span { display: block; width: 20px; height: 1.5px; background: var(--text2); transition: .3s; }
+.mob-menu {
+  display: none; position: fixed; inset: var(--nav-h) 0 0;
+  z-index: 190; background: rgba(9,9,9,.97);
+  backdrop-filter: blur(18px); padding: 32px 40px;
+  flex-direction: column; gap: 2px;
+}
+.mob-menu.open { display: flex; }
+.mob-menu a {
+  font-size: 14.5px; font-weight: 400; color: var(--text2);
+  text-decoration: none; padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: .05em; transition: color .2s;
+}
+.mob-menu a:last-child { border: none; }
+.mob-menu a:hover { color: var(--text); }
+
+/* ── RESPONSIVE ──────────────────────────────── */
+@media (max-width: 1024px) {
+  .hero { gap: 48px; }
+}
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; gap: 48px; padding: calc(var(--nav-h) + 56px) 24px 64px; }
+  .hero-terminal { order: -1; }
+  .terminal { transform: none; }
+  .feat-grid { grid-template-columns: 1fr 1fr; }
+  .feat-card:nth-child(3n) { border-right: 1px solid var(--border); }
+  .feat-card:nth-child(2n) { border-right: none; }
+  .feat-card:nth-child(5),.feat-card:nth-child(6) { border-bottom: none; }
+  .feat-card:nth-child(4) { border-bottom: 1px solid var(--border); }
+  .metrics-inner { grid-template-columns: 1fr 1fr; }
+  .metric:nth-child(2) { border-right: none; }
+  .metric:nth-child(3) { border-top: 1px solid var(--border); }
+  .new-grid { grid-template-columns: 1fr; }
+  .new-card { border-right: none; border-bottom: 1px solid var(--border); }
+  .new-card:last-child { border-bottom: none; }
+  .explore-grid { grid-template-columns: 1fr; }
+  .exp-card:nth-child(2n) { border-right: none; }
+  .exp-card { border-right: none; border-bottom: 1px solid var(--border); }
+  .exp-card:last-child { border-bottom: none; }
+  .ft-top { grid-template-columns: 1fr 1fr; gap: 28px; }
+  .nav-links, .nav-signin { display: none; }
+  .hamburger { display: flex; }
+  .section, .new-section { padding: 56px 24px; }
+  .cta-wrap { padding: 0 24px 56px; }
+  .cta-card { padding: 52px 28px; }
+  footer { padding: 48px 24px 28px; }
+}
+@media (max-width: 600px) {
+  .feat-grid { grid-template-columns: 1fr; }
+  .feat-card { border-right: none; }
+  .feat-card:nth-child(n) { border-right: none; border-bottom: 1px solid var(--border); }
+  .feat-card:last-child { border-bottom: none; }
+  .metrics-inner { grid-template-columns: 1fr; }
+  .metric { border-right: none; border-bottom: 1px solid var(--border); }
+  .metric:last-child { border-bottom: none; }
+  .ft-top { grid-template-columns: 1fr; }
+  .hero-proof { gap: 10px; }
+  .proof-sep { display: none; }
+  .hero-ctas { flex-direction: column; align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND -->
+<div class="bg-layer" aria-hidden="true">
+  <div class="bg-grid"></div>
+  <div class="bg-glow"></div>
+  <div class="bg-glow-2"></div>
+  <div class="bg-vignette"></div>
+</div>
+
+<!-- NAV -->
+<nav class="nav" id="main-nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <img src="assets/logos/producer-stack-logo.png" alt="Producer Stack" onerror="this.style.display='none'">
+      <span class="nav-logo-name">Producer Stack</span>
+    </a>
+    <div class="nav-links">
+      <a href="features.html">Features</a>
+      <a href="how-it-works.html">How It Works</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="support.html">Support</a>
+    </div>
+    <div class="nav-right">
+      <a href="app.html" class="nav-signin">Sign In</a>
+      <a href="app.html?view=signup" class="btn-amber">Start Free &rarr;</a>
+    </div>
+    <button class="hamburger" id="hbg" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
+
+<div class="mob-menu" id="mob-menu">
+  <a href="features.html">Features</a>
+  <a href="how-it-works.html">How It Works</a>
+  <a href="pricing.html">Pricing</a>
+  <a href="support.html">Support</a>
+  <a href="app.html">Sign In</a>
+  <a href="app.html?view=signup" style="color:var(--amber)">Start Free Trial &rarr;</a>
+</div>
+
+<!-- ═══ HERO ══════════════════════════════════════ -->
+<div class="hero">
+  <!-- Left: Headline -->
+  <div>
+    <div class="hero-label anim d1">
+      <div class="hero-label-dot"></div>
+      Built for Life Insurance Producers
+    </div>
+    <h1 class="hero-h1 anim d2">
+      Every Sale.<br>
+      Every Commission.<br>
+      <em>One Platform.</em>
+    </h1>
+    <p class="hero-sub anim d3">Stop juggling five disconnected tools. Producer Stack brings your Power Dialer, lead CRM, live carrier quotes, and production analytics into one seamless system built for closers.</p>
+    <div class="hero-ctas anim d4">
+      <a href="app.html?view=signup" class="btn-hero">
+        Start Free Trial
+        <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a href="app.html" class="btn-hero-ghost">Sign In</a>
+    </div>
+    <div class="hero-proof anim d5">
+      <div class="proof-item">
+        <div class="proof-chk"><svg fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        7-day free trial
+      </div>
+      <span class="proof-sep">&middot;</span>
+      <div class="proof-item">
+        <div class="proof-chk"><svg fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        No charge until day 8
+      </div>
+      <span class="proof-sep">&middot;</span>
+      <div class="proof-item">
+        <div class="proof-chk"><svg fill="none" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        Cancel anytime
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Terminal dashboard -->
+  <div class="hero-terminal anim d3">
+    <div class="terminal-wrap">
+      <div class="terminal-glow"></div>
+      <div class="terminal">
+        <div class="t-header">
+          <div class="t-dots">
+            <div class="t-dot r"></div>
+            <div class="t-dot y"></div>
+            <div class="t-dot g"></div>
+          </div>
+          <div class="t-url">producerstackcrm.com/app</div>
+          <div class="t-live"><div class="t-live-dot"></div>LIVE</div>
+        </div>
+        <div class="t-body">
+          <!-- Stats row -->
+          <div class="t-stat-row">
+            <div class="t-stat">
+              <div class="t-stat-l">Monthly AP</div>
+              <div class="t-stat-v am">$18,420</div>
+              <div class="t-stat-d">&uarr; 34% vs last mo</div>
+            </div>
+            <div class="t-stat">
+              <div class="t-stat-l">Issued</div>
+              <div class="t-stat-v">24</div>
+              <div class="t-stat-d">&uarr; 8 this week</div>
+            </div>
+            <div class="t-stat">
+              <div class="t-stat-l">Leads Dialed</div>
+              <div class="t-stat-v">187</div>
+              <div class="t-stat-d">Dialer active</div>
+            </div>
+          </div>
+          <!-- Dialer -->
+          <div class="t-dialer">
+            <div class="t-dial-top">
+              <div class="t-dial-lbl">&#9889; Power Dialer</div>
+              <div class="t-dial-ct" id="t-ct">Lead 3 of 12</div>
+            </div>
+            <div class="t-dial-phone" id="t-phone">+1 (920) 555-0192</div>
+            <div class="t-dial-meta">Session active &middot; <span class="t-dial-timer" id="t-timer">0:14</span></div>
+            <button class="t-btn">&#9679; End Call / Next Lead</button>
+          </div>
+          <!-- Pipeline -->
+          <div>
+            <div class="t-pipe-lbl">Pipeline</div>
+            <div class="t-pipe-rows">
+              <div class="t-pipe-row">
+                <span class="t-pipe-name">New Lead</span>
+                <div class="t-pipe-track"><div class="t-pipe-fill" style="width:85%;background:var(--amber)"></div></div>
+                <span class="t-pipe-ct">42</span>
+              </div>
+              <div class="t-pipe-row">
+                <span class="t-pipe-name">Contacted</span>
+                <div class="t-pipe-track"><div class="t-pipe-fill" style="width:60%;background:var(--amber);opacity:.6"></div></div>
+                <span class="t-pipe-ct">29</span>
+              </div>
+              <div class="t-pipe-row">
+                <span class="t-pipe-name">Applied</span>
+                <div class="t-pipe-track"><div class="t-pipe-fill" style="width:38%;background:var(--green)"></div></div>
+                <span class="t-pipe-ct">17</span>
+              </div>
+              <div class="t-pipe-row">
+                <span class="t-pipe-name">Issued</span>
+                <div class="t-pipe-track"><div class="t-pipe-fill" style="width:22%;background:var(--green);opacity:.65"></div></div>
+                <span class="t-pipe-ct">9</span>
+              </div>
+            </div>
+          </div>
+          <!-- Leads table -->
+          <div>
+            <div class="t-tbl-h">
+              <span class="t-tn">Name</span>
+              <span class="t-tp">Product</span>
+              <span class="t-ta">AP</span>
+              <span>Status</span>
+            </div>
+            <div class="t-tbl-row"><span class="t-tn">Johnson, Mark</span><span class="t-tp">IUL</span><span class="t-ta">$1,840</span><span class="t-badge hot">Hot</span></div>
+            <div class="t-tbl-row"><span class="t-tn">Williams, Sara</span><span class="t-tp">Term</span><span class="t-ta">$920</span><span class="t-badge applied">Applied</span></div>
+            <div class="t-tbl-row"><span class="t-tn">Rodriguez, Amy</span><span class="t-tp">WL</span><span class="t-ta">$2,400</span><span class="t-badge warm">Warm</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TICKER ════════════════════════════════════ -->
+<div class="ticker">
+  <div class="ticker-mask">
+    <div class="ticker-track">
+      <div class="ticker-item"><span>Calls per dialer session</span><span class="ticker-val">10&times;</span></div>
+      <div class="ticker-item g"><span>Multi-carrier quotes</span><span class="ticker-val">Instant</span></div>
+      <div class="ticker-item"><span>Full production view</span><span class="ticker-val">360&deg;</span></div>
+      <div class="ticker-item g"><span>Tools → one platform</span><span class="ticker-val">5 &rarr; 1</span></div>
+      <div class="ticker-item"><span>Avg monthly commissions tracked</span><span class="ticker-val">$14,830</span></div>
+      <div class="ticker-item g"><span>Ready to dial by</span><span class="ticker-val">Day 1</span></div>
+      <div class="ticker-item"><span>Starting at</span><span class="ticker-val">$89.99/mo</span></div>
+      <div class="ticker-item g"><span>Free trial</span><span class="ticker-val">7 Days</span></div>
+      <!-- duplicate for seamless loop -->
+      <div class="ticker-item"><span>Calls per dialer session</span><span class="ticker-val">10&times;</span></div>
+      <div class="ticker-item g"><span>Multi-carrier quotes</span><span class="ticker-val">Instant</span></div>
+      <div class="ticker-item"><span>Full production view</span><span class="ticker-val">360&deg;</span></div>
+      <div class="ticker-item g"><span>Tools → one platform</span><span class="ticker-val">5 &rarr; 1</span></div>
+      <div class="ticker-item"><span>Avg monthly commissions tracked</span><span class="ticker-val">$14,830</span></div>
+      <div class="ticker-item g"><span>Ready to dial by</span><span class="ticker-val">Day 1</span></div>
+      <div class="ticker-item"><span>Starting at</span><span class="ticker-val">$89.99/mo</span></div>
+      <div class="ticker-item g"><span>Free trial</span><span class="ticker-val">7 Days</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FEATURES ══════════════════════════════════ -->
+<section class="section">
+  <div class="sec-label reveal">Core Platform</div>
+  <h2 class="sec-h reveal">Everything you need to<br><em>close more business.</em></h2>
+  <p class="sec-sub reveal">Built from the ground up for life insurance producers. Every tool, every feature, every detail — purpose-built for the way you actually work.</p>
+  <div class="sec-rule"></div>
+  <div class="feat-grid">
+    <div class="feat-card starred reveal">
+      <div class="feat-num">01</div>
+      <div class="feat-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></div>
+      <h3 class="feat-h">Power Dialer</h3>
+      <p class="feat-p">Auto-advance through your lead list without lifting a finger. Built-in ringback tone, transition beep, and smart local caller ID that matches your prospect's state.</p>
+      <div class="feat-stat">10&times; more calls per session</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-num">02</div>
+      <div class="feat-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></div>
+      <h3 class="feat-h">Lead CRM</h3>
+      <p class="feat-p">Full pipeline visibility from first contact to issued policy. Custom statuses, lead notes, callback scheduling, and disposition tracking — all in one place.</p>
+      <div class="feat-stat">360&deg; view from lead to close</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-num">03</div>
+      <div class="feat-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div>
+      <h3 class="feat-h">Live Rate Quotes</h3>
+      <p class="feat-p">Pull real-time quotes from multiple carriers in seconds. Present the best options to your client without switching tabs or waiting on a rater.</p>
+      <div class="feat-stat">Multi-carrier &middot; Instant &middot; Accurate</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-num">04</div>
+      <div class="feat-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+      <h3 class="feat-h">Commission Tracker</h3>
+      <p class="feat-p">Auto-calculates your estimated commission for every policy issued — factoring in AP, product type, and carrier pay schedule. Know exactly what's hitting your bank.</p>
+      <div class="feat-stat">Auto-calculated &middot; Per-policy breakdown</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-num">05</div>
+      <div class="feat-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>
+      <h3 class="feat-h">KPI Dashboard</h3>
+      <p class="feat-p">Your production metrics at a glance. Track AP, issued count, pipeline health, and activity trends — daily, weekly, monthly. Know exactly where you stand, always.</p>
+      <div class="feat-stat">Real-time &middot; Full production view</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-num">06</div>
+      <div class="feat-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg></div>
+      <h3 class="feat-h">iOS &amp; Android App</h3>
+      <p class="feat-p">The full Producer Stack experience in your pocket. Hand-dial leads, pull live quotes, manage your pipeline, and check commissions — wherever you are in the field.</p>
+      <div class="feat-stat">Full feature parity &middot; Push alerts</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ METRICS ════════════════════════════════════ -->
+<div class="metrics">
+  <div class="metrics-inner">
+    <div class="metric reveal">
+      <div class="metric-n"><em>10</em>&times;</div>
+      <div class="metric-d">More calls per<br>dialer session</div>
+    </div>
+    <div class="metric reveal">
+      <div class="metric-n"><em>Live</em></div>
+      <div class="metric-d">Multi-carrier quotes<br>pulled in seconds</div>
+    </div>
+    <div class="metric reveal">
+      <div class="metric-n">360<em>&deg;</em></div>
+      <div class="metric-d">Production view from<br>lead to commission</div>
+    </div>
+    <div class="metric reveal">
+      <div class="metric-n">5<em>&rarr;1</em></div>
+      <div class="metric-d">Tools replaced<br>by one platform</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ WHAT'S NEW ════════════════════════════════ -->
+<div class="new-section">
+  <div class="sec-label reveal">What's New</div>
+  <h2 class="sec-h reveal">Two new weapons in<br><em>your arsenal.</em></h2>
+  <p class="sec-sub reveal">Commission Tracker and Mobile App — built to give you complete visibility and mobility over your production.</p>
+  <div class="new-grid">
+    <!-- Commission Tracker -->
+    <div class="new-card amber-left reveal">
+      <div class="new-tag">Commission Tracker</div>
+      <h3 class="new-h">Know exactly what's hitting your bank.</h3>
+      <p class="new-p">Automatically calculates your commission for every policy issued — factoring in annual premium, product type, and carrier pay schedule. No more spreadsheet math, no more surprises.</p>
+      <div class="comm-tbl">
+        <div class="comm-row"><span class="comm-name">Williams, Sara &middot; Term &middot; $920 AP</span><span class="comm-rate">85%</span><span class="comm-arr">&rarr;</span><span class="comm-out">$782</span></div>
+        <div class="comm-row"><span class="comm-name">Johnson, Mark &middot; IUL &middot; $1,840 AP</span><span class="comm-rate">75%</span><span class="comm-arr">&rarr;</span><span class="comm-out">$1,380</span></div>
+        <div class="comm-row"><span class="comm-name">Rodriguez, Amy &middot; Whole Life &middot; $2,400 AP</span><span class="comm-rate">90%</span><span class="comm-arr">&rarr;</span><span class="comm-out">$2,160</span></div>
+        <div class="comm-row"><span class="comm-name">Thompson, David &middot; Term &middot; $680 AP</span><span class="comm-rate">85%</span><span class="comm-arr">&rarr;</span><span class="comm-out">$578</span></div>
+      </div>
+      <div class="comm-total">
+        <span class="comm-total-lbl">Estimated monthly bank deposit</span>
+        <span class="comm-total-val">$14,830</span>
+      </div>
+    </div>
+    <!-- Mobile App -->
+    <div class="new-card reveal">
+      <div class="new-tag">iOS &amp; Android</div>
+      <h3 class="new-h">Dial and close from anywhere.</h3>
+      <p class="new-p">The full Producer Stack experience on your phone. Hand-dial leads, pull live carrier quotes, manage your pipeline, and track commissions — wherever you are.</p>
+      <div class="mob-list">
+        <div class="mob-item">
+          <div class="mob-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></div>
+          One-tap hand dialing with lead info on screen
+        </div>
+        <div class="mob-item">
+          <div class="mob-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4"/></svg></div>
+          Swipe to advance leads &amp; log dispositions
+        </div>
+        <div class="mob-item">
+          <div class="mob-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div>
+          Live carrier quotes &amp; commission estimates
+        </div>
+        <div class="mob-item">
+          <div class="mob-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg></div>
+          Push alerts for hot-lead callbacks
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ EXPLORE ════════════════════════════════════ -->
+<section class="section" style="padding-top:0">
+  <div class="sec-label reveal">Explore</div>
+  <h2 class="sec-h reveal">Your next move<br><em>starts here.</em></h2>
+  <div class="explore-grid">
+    <a href="features.html" class="exp-card reveal">
+      <div class="exp-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>
+      <div class="exp-h">Features</div>
+      <div class="exp-p">Power Dialer, Lead CRM, live rate quotes, AI Underwriter, KPI dashboard — purpose-built for life insurance producers.</div>
+      <div class="exp-link">Explore Features &rarr;</div>
+    </a>
+    <a href="how-it-works.html" class="exp-card reveal">
+      <div class="exp-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+      <div class="exp-h">How It Works</div>
+      <div class="exp-p">From import to close in minutes. No IT team, no long onboarding — you can be dialing leads on day one.</div>
+      <div class="exp-link">See How It Works &rarr;</div>
+    </a>
+    <a href="pricing.html" class="exp-card reveal">
+      <div class="exp-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+      <div class="exp-h">Pricing</div>
+      <div class="exp-p">Simple, transparent plans starting at $89.99/mo. No hidden fees, no long-term contracts. Cancel any time.</div>
+      <div class="exp-link">View Plans &rarr;</div>
+    </a>
+    <a href="support.html" class="exp-card reveal">
+      <div class="exp-ico"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></div>
+      <div class="exp-h">Support</div>
+      <div class="exp-p">Real people, real answers. Call or text the team that built Producer Stack — we'll get you set up fast.</div>
+      <div class="exp-link">Contact Support &rarr;</div>
+    </a>
+  </div>
+</section>
+
+<!-- ═══ CTA ════════════════════════════════════════ -->
+<div class="cta-wrap">
+  <div class="cta-card reveal">
+    <div class="cta-bg"></div>
+    <div class="cta-inner">
+      <div class="cta-label">Start Today</div>
+      <h2 class="cta-h">Ready to produce<br>at a <em>higher level?</em></h2>
+      <p class="cta-p">Join producers who've replaced five disconnected tools with one platform built for the way they actually work.</p>
+      <div class="cta-btns">
+        <a href="app.html?view=signup" class="btn-cta">
+          Start Free Trial
+          <svg width="14" height="14" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a href="app.html" class="btn-cta-ghost">Sign In to Existing Account</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FOOTER ════════════════════════════════════ -->
+<footer>
+  <div class="ft">
+    <div class="ft-top">
+      <div class="ft-brand">
+        <a href="/" class="ft-brand-name">
+          <img src="assets/logos/producer-stack-logo.png" alt="" onerror="this.style.display='none'">
+          Producer Stack
+        </a>
+        <p>The all-in-one CRM platform built for life insurance producers. Power Dialer, live rates, and full production analytics.</p>
+      </div>
+      <div class="ft-col">
+        <h4>Product</h4>
+        <a href="features.html">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="app.html?view=signup">Create Account</a>
+        <a href="app.html">Sign In</a>
+      </div>
+      <div class="ft-col">
+        <h4>Features</h4>
+        <a href="features.html">Power Dialer</a>
+        <a href="features.html">Lead CRM</a>
+        <a href="features.html">Rate Quoter</a>
+        <a href="features.html">Commission Tracker</a>
+        <a href="features.html">KPI Dashboard</a>
+        <a href="features.html">Mobile App</a>
+      </div>
+      <div class="ft-col">
+        <h4>Support</h4>
+        <a href="tel:9204227733">920-422-7733</a>
+        <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <div class="ft-copy">&copy; 2026 Producer Stack. All rights reserved.</div>
+      <div class="ft-copy"><a href="#">Privacy</a> &nbsp;&middot;&nbsp; <a href="#">Terms</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Nav scroll
+window.addEventListener('scroll', () => {
+  document.getElementById('main-nav').classList.toggle('scrolled', scrollY > 24);
+}, { passive: true });
+
+// Mobile menu
+document.getElementById('hbg').addEventListener('click', () => {
+  document.getElementById('mob-menu').classList.toggle('open');
+});
+
+// Scroll reveal
+const ro = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); ro.unobserve(e.target); }
+  });
+}, { threshold: .08, rootMargin: '0px 0px -20px 0px' });
+document.querySelectorAll('.reveal').forEach(el => ro.observe(el));
+
+// Live dialer animation
+(function() {
+  const leads = [
+    { phone: '+1 (920) 555-0192', num: 3 },
+    { phone: '+1 (414) 555-0387', num: 4 },
+    { phone: '+1 (262) 555-0841', num: 5 },
+    { phone: '+1 (608) 555-0229', num: 6 },
+  ];
+  let li = 0, secs = 14;
+  const phoneEl = document.getElementById('t-phone');
+  const timerEl = document.getElementById('t-timer');
+  const ctEl    = document.getElementById('t-ct');
+  if (!phoneEl) return;
+  const pad = n => n < 10 ? '0' + n : '' + n;
+  setInterval(() => {
+    secs++;
+    if (timerEl) timerEl.textContent = Math.floor(secs / 60) + ':' + pad(secs % 60);
+    if (secs % 22 === 0) {
+      li = (li + 1) % leads.length;
+      phoneEl.style.opacity = '0';
+      phoneEl.style.transform = 'translateY(-5px)';
+      setTimeout(() => {
+        phoneEl.textContent = leads[li].phone;
+        if (ctEl) ctEl.textContent = 'Lead ' + leads[li].num + ' of 12';
+        phoneEl.style.opacity = '1';
+        phoneEl.style.transform = '';
+        secs = 0;
+      }, 260);
+    }
+  }, 1000);
+})();
+</script>
+</body>
+</html>

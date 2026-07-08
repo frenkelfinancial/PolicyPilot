@@ -36,6 +36,15 @@ coverage/
 supabase/.temp/
 supabase/.branches/
 
+# Capacitor iOS — commit the native project, ignore regenerated / personal bits
+ios/App/Pods/
+ios/App/App/public/
+ios/App/build/
+ios/App/output/
+ios/App/DerivedData/
+**/xcuserdata/
+*.xcuserstate
+
 # OS / misc
 Thumbs.db
 ehthumbs.db
