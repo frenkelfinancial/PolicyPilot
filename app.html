@@ -17480,13 +17480,6 @@ async function pbConfirmAddFunds(amountMills, btn) {
     });
     const result = await resp.json();
 
-    if (result.dev) {
-      showToast(`Added $${(amountMills / 1000).toFixed(2)} (developer account)`, '#10b981');
-      pbCloseAddFundsModal();
-      await renderPhoneBook();
-      return;
-    }
-
     if (result.url) {
       const popup = window.open(result.url, 'stripe_topup_checkout', 'width=620,height=820,scrollbars=yes,resizable=yes');
       pbCloseAddFundsModal();

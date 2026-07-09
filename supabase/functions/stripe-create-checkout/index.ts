@@ -97,18 +97,12 @@ serve(async (req) => {
       return json({ error: "invalid_amount", detail: "amount_mills must be one of the configured top-up presets" }, 400);
     }
 
-    if (user.email === DEV_EMAIL) {
-      // Developer account: credit the wallet directly, no real Stripe payment.
-      const { error: topupErr } = await sb.rpc("wallet_topup", {
-        p_agent:        user.id,
-        p_amount_mills: amountMills,
-        p_ref:          `dev-${Date.now()}`,
-        p_desc:         `Developer top-up — $${(amountMills / 1000).toFixed(2)}`,
-      });
-      if (topupErr) return json({ error: "topup_failed", detail: topupErr.message }, 500);
-      return json({ ok: true, dev: true });
-    }
-
+    // NOTE: deliberately no dev-account bypass here, unlike the plan/number
+    // flows below. Those grant the owner free access to features they
+    // already control the cost of; a wallet top-up mints real spendable
+    // balance out of nothing, which must never happen without money
+    // actually changing hands — including for the dev account. The wallet
+    // is only ever credited by stripe-webhook on a confirmed Stripe event.
     if (!billingConfig?.stripe_topup_product_id) {
       return json({ error: "topup_not_configured" }, 400);
     }
