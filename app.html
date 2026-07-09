@@ -2605,17 +2605,6 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
   font-size:15px; font-weight:700; color:var(--text);
 }
 
-/* Admin billing config card */
-#sec-phonebook .pb-card-billing-config{ margin-bottom:18px; }
-#sec-phonebook .pb-billing-config-grid{
-  display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;
-}
-@media (max-width:600px){ #sec-phonebook .pb-billing-config-grid{ grid-template-columns:1fr; } }
-#sec-phonebook .pb-billing-config-note{
-  margin-top:12px; font-size:11.5px; color:var(--text2); line-height:1.5;
-  padding:10px 12px; border:1px solid var(--border); border-radius:8px;
-  background:rgba(245,158,11,.06);
-}
 
 /* ── Agency tab ─────────────────────────────────────────────────────────── */
 #sec-agency .ag-header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px;flex-wrap:wrap}
@@ -4498,52 +4487,13 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           </div>
           <div class="pb-billing-rate-item">
             <div class="pb-billing-rate-label">Per Minute</div>
-            <div class="pb-billing-rate-value" id="pb-rate-minute">$0.02</div>
+            <div class="pb-billing-rate-value" id="pb-rate-minute">$0.01</div>
             <div class="pb-billing-rate-sub">per call minute (rounded up)</div>
           </div>
         </div>
         <div class="pb-billing-estimate" id="pb-billing-estimate" style="display:none">
           <span>Estimated this month</span>
           <strong id="pb-billing-estimate-val">—</strong>
-        </div>
-      </div>
-
-      <!-- Admin: Billing Config (admin-only, rendered by JS) -->
-      <div class="card pb-card-billing-config" id="pb-card-billing-config" style="display:none">
-        <div class="card-title" style="display:flex;align-items:center;gap:8px">
-          <span data-ico="gear" data-size="13"></span>Billing Config <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:4px">(admin only)</span>
-        </div>
-        <div class="pb-billing-config-grid">
-          <div class="fg">
-            <label>Number Rate (cents/month)</label>
-            <input type="number" id="pb-cfg-number-rate" min="1" step="1" placeholder="300" style="width:100%">
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">e.g. 300 = $3.00/number/month</div>
-          </div>
-          <div class="fg">
-            <label>Minute Rate (cents/minute)</label>
-            <input type="number" id="pb-cfg-minute-rate" min="1" step="1" placeholder="2" style="width:100%">
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">e.g. 2 = $0.02/min</div>
-          </div>
-          <div class="fg">
-            <label>Stripe Numbers Price ID</label>
-            <input type="text" id="pb-cfg-numbers-price" placeholder="price_XXXX" style="width:100%;font-family:monospace;font-size:12px">
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">Recurring $3/unit price from Stripe Dashboard</div>
-          </div>
-          <div class="fg">
-            <label>Stripe Minutes Price ID</label>
-            <input type="text" id="pb-cfg-minutes-price" placeholder="price_XXXX" style="width:100%;font-family:monospace;font-size:12px">
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">Metered $0.02/unit price from Stripe Dashboard</div>
-          </div>
-        </div>
-        <div class="pb-billing-config-note">
-          <strong>Setup:</strong> In Stripe Dashboard create two products:<br>
-          1. <strong>Phone Number</strong> → Recurring, $3.00/unit/month (not metered) → copy Price ID above.<br>
-          2. <strong>Call Minutes</strong> → Recurring, $0.02/unit/month, <em>metered</em> (aggregate: sum) → copy Price ID above.<br>
-          Changes take effect on the next purchase/call. Existing Stripe items are not retroactively updated.
-        </div>
-        <div id="pb-cfg-msg" style="font-size:12px;min-height:16px;margin-top:8px"></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:12px">
-          <button class="btn btn-p btn-sm" onclick="pbSaveBillingConfig()">Save Billing Config</button>
         </div>
       </div>
 
@@ -17479,60 +17429,6 @@ function pbRenderBillingCard(usedMinThisMonth) {
         ' (' + numberCount + ' number' + (numberCount !== 1 ? 's' : '') +
         ' + ' + usedMinThisMonth + ' min)';
     }
-  }
-
-  // Admin-only billing config card
-  const isAdmin = _pbAgent && _pbAgent.is_admin;
-  const configCard = document.getElementById('pb-card-billing-config');
-  if (configCard) configCard.style.display = isAdmin ? '' : 'none';
-
-  if (isAdmin) {
-    const numRateInput  = document.getElementById('pb-cfg-number-rate');
-    const minRateInput  = document.getElementById('pb-cfg-minute-rate');
-    const numsPriceInput = document.getElementById('pb-cfg-numbers-price');
-    const minsPriceInput = document.getElementById('pb-cfg-minutes-price');
-    if (numRateInput  && !numRateInput.value)  numRateInput.value  = String(numRateCents);
-    if (minRateInput  && !minRateInput.value)  minRateInput.value  = String(minRateCents);
-    if (numsPriceInput && !numsPriceInput.value) numsPriceInput.value = cfg.stripe_numbers_price_id || '';
-    if (minsPriceInput && !minsPriceInput.value) minsPriceInput.value = cfg.stripe_minutes_price_id || '';
-  }
-}
-
-async function pbSaveBillingConfig() {
-  const msg = document.getElementById('pb-cfg-msg');
-  const btn = document.querySelector('[onclick="pbSaveBillingConfig()"]');
-  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Saving…'; }
-  if (btn) btn.disabled = true;
-
-  try {
-    const body = {};
-    const numRate  = parseInt(document.getElementById('pb-cfg-number-rate')?.value || '', 10);
-    const minRate  = parseInt(document.getElementById('pb-cfg-minute-rate')?.value || '', 10);
-    const numsPrice = (document.getElementById('pb-cfg-numbers-price')?.value || '').trim();
-    const minsPrice = (document.getElementById('pb-cfg-minutes-price')?.value || '').trim();
-
-    if (!isNaN(numRate)  && numRate > 0)  body.number_rate_cents = numRate;
-    if (!isNaN(minRate)  && minRate > 0)  body.minute_rate_cents = minRate;
-    body.stripe_numbers_price_id = numsPrice;
-    body.stripe_minutes_price_id = minsPrice;
-
-    const { data, error } = await sb.functions.invoke('stripe-billing-config', {
-      method: 'PUT',
-      body,
-    });
-    if (error) {
-      let detail = error.message;
-      try { const b = error.context && await error.context.json(); if (b?.error) detail = b.error; } catch(_){}
-      throw new Error(detail);
-    }
-    if (data?.config) _pbBillingConfig = data.config;
-    pbRenderBillingCard(0); // re-render rates display
-    if (msg) { msg.style.color = '#10b981'; msg.textContent = 'Saved successfully.'; }
-    setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
-  } catch(e) {
-    if (msg) { msg.style.color = '#dc2626'; msg.textContent = 'Save failed: ' + (e.message || e); }
-  } finally {
-    if (btn) btn.disabled = false;
   }
 }
 
