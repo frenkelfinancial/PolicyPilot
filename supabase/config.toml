@@ -29,3 +29,27 @@ verify_jwt = false
 
 [functions.wallet-low-balance-notify]
 verify_jwt = false
+
+# Phase 2 (messaging): same rationale as above. messaging-delivery-webhook
+# and messaging-inbound-webhook are called by Telnyx (Ed25519-signed, not a
+# Supabase JWT); messaging-email-inbound-webhook is called by Resend
+# (Svix-signed); messaging-timeout-sweep and a2p-status-poll are pg_cron
+# jobs authenticated with WALLET_CRON_SECRET, same as the two wallet cron
+# functions above. messaging-send-sms/mms/email and a2p-register are called
+# by the authenticated browser client with the user's real session JWT, so
+# they correctly use the platform default (verify_jwt = true) and are NOT
+# listed here.
+[functions.messaging-delivery-webhook]
+verify_jwt = false
+
+[functions.messaging-inbound-webhook]
+verify_jwt = false
+
+[functions.messaging-email-inbound-webhook]
+verify_jwt = false
+
+[functions.messaging-timeout-sweep]
+verify_jwt = false
+
+[functions.a2p-status-poll]
+verify_jwt = false

@@ -1,18 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const ALLOWED_ORIGINS = new Set([
-  "https://producerstackcrm.com",
-  "https://localhost", // iOS/Android Capacitor (iosScheme/androidScheme: "https")
-]);
-
-function corsHeaders(origin: string | null) {
-  return {
-    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
+import { corsHeaders } from "../_shared/cors.ts";
 
 serve(async (req) => {
   const cors = corsHeaders(req.headers.get("origin"));

@@ -46,7 +46,7 @@
   <a class="back" href="index.html">&larr; Back to Producer Stack</a>
 
   <h1>Privacy Policy</h1>
-  <div class="updated">Effective date: July 3, 2026</div>
+  <div class="updated">Effective date: July 8, 2026</div>
 
   <p>This Privacy Policy describes how <strong>Frenkel Financial LLC</strong>, a Wisconsin limited liability
   company, doing business as <strong>Producer Stack</strong> ("Producer Stack," "we," "us," or "our"), collects,
@@ -99,6 +99,27 @@
   settings) is stored locally on your device. Clearing your browser/app storage may permanently delete this
   information unless it has also been saved to our servers.</p>
 
+  <p><strong>g. Gmail Integration Data (Optional).</strong> If you choose to connect your Gmail account, you
+  grant the App <strong>read-only</strong> access to your Gmail messages (Google OAuth scope
+  <code>gmail.readonly</code>) for one purpose: identifying emails sent to you by the insurance carriers you
+  work with and extracting policy status, underwriting, payment, and commission information into your own CRM
+  records. We filter messages by carrier sender address and process only matching carrier emails; personal and
+  non-carrier mail is never stored, analyzed, or transmitted to any third party. From matching carrier emails we
+  store the extracted data fields (e.g., policy number, client name, status, amounts), limited message metadata
+  (sender, subject, date), and a trimmed text excerpt — not your full mailbox. OAuth tokens are stored encrypted
+  (AES-256-GCM) with decryption keys held outside the database, are never exposed to your browser, and are
+  deleted — along with associated ingested email data — when you disconnect Gmail or close your account. You can
+  disconnect at any time in Settings or revoke access at
+  <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</p>
+
+  <div class="callout"><p><strong>Google API Limited Use disclosure.</strong> Producer Stack's use and transfer
+  of information received from Google APIs adheres to the
+  <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data
+  Policy</a>, including the Limited Use requirements. Gmail data is used only to provide the carrier-email
+  features described above, is never used for advertising, is never sold, and is never used to train
+  generalized AI or machine-learning models. Human access to Gmail data is limited to cases where you grant
+  explicit permission (e.g., support), where necessary for security purposes, or where required by law.</p></div>
+
   <h2>2. How We Use Information</h2>
   <ul>
     <li>To provide, operate, and maintain the App</li>
@@ -128,6 +149,9 @@
     and provisioning phone numbers</li>
     <li><strong>DeepSeek</strong> — AI-assisted parsing of health information you submit, used solely to generate
     underwriting-condition estimates within the App</li>
+    <li><strong>Anthropic</strong> — AI-assisted extraction of structured data (policy status, payment, and
+    commission details) from carrier emails you have authorized us to read via the optional Gmail integration.
+    Anthropic does not use data submitted through its API to train its models by default</li>
     <li><strong>Stripe</strong> — subscription billing and payment processing</li>
     <li><strong>Insurance carrier portals &amp; quoting tools (e.g., ITK)</strong> — third-party quoting and
     product data accessed from within the App</li>
@@ -163,7 +187,9 @@
   <p>We retain account information for as long as your account remains active. Client Data is retained until you
   delete it or close your account, after which it will be deleted or de-identified within a commercially
   reasonable time, except where retention is required by law. Call recordings, where applicable, are retained for
-  the period specified by your subscription plan.</p>
+  the period specified by your subscription plan. Gmail integration data (OAuth tokens, ingested carrier-email
+  records, and extracted fields) is deleted when you disconnect your Gmail account or close your Producer Stack
+  account, except where retention is required by law.</p>
 
   <h2>8. Your Rights &amp; Choices</h2>
   <p>You can review, update, or correct most account information directly within the App's Settings. Depending

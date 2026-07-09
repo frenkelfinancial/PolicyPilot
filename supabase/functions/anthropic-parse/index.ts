@@ -1,3 +1,5 @@
+import { corsHeaders } from "../_shared/cors.ts";
+
 // ============================================================
 // supabase/functions/anthropic-parse/index.ts
 //
@@ -24,20 +26,6 @@ const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const MODEL = "deepseek-chat";
 const MAX_TOKENS = 500;
 const MAX_INPUT_LEN = 4000;
-
-const ALLOWED_ORIGINS = new Set([
-  "https://producerstackcrm.com",
-  "https://localhost", // iOS/Android app (Capacitor, androidScheme/iosScheme: "https")
-]);
-
-function corsHeaders(origin: string | null) {
-  return {
-    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
 
 const SYSTEM_PROMPT = `You are a life insurance underwriting specialist helping insurance agents get a general estimate of carrier approval likelihood. Be LENIENT and realistic — insurers often approve clients with conditions at modified or graded levels that agents might expect to be declined. Many carriers have flexible underwriting and approve conditions that seem severe.
 

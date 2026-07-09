@@ -29,16 +29,7 @@ import { classifyMessage } from "../_shared/email/classifier.ts";
 import { CARRIER_SENDERS } from "../_shared/email/carrier-senders.ts";
 import type { SenderRow } from "../_shared/email/types.ts";
 import { getMessageMeta, listHistory, listMessageIds } from "../_shared/gmail-api.ts";
-
-const ALLOWED_ORIGINS = new Set(["https://producerstackcrm.com", "https://localhost"]);
-function corsHeaders(origin: string | null) {
-  return {
-    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
+import { corsHeaders } from "../_shared/cors.ts";
 
 // Distinct sender domains from the map -> a tight Gmail `from:(...)` filter so a
 // date scan only lists carrier mail instead of the whole inbox.

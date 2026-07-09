@@ -5,6 +5,6 @@
   "framework": null,
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/", "destination": "/index-github-latest.html" }
+    { "source": "/", "destination": "/index.html" }
   ]
 }

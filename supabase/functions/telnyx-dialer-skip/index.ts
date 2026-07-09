@@ -6,18 +6,7 @@ import {
   reportMinutesToWallet,
   dialNextLead,
 } from "../_shared/dialer-next-lead.ts";
-
-const CORS = {
-  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
-}
+import { corsHeaders } from "../_shared/cors.ts";
 
 // Advances the Power Dialer to the next lead.
 //
@@ -31,6 +20,13 @@ function json(body: unknown, status = 200) {
 //      session. dialNextLead is passed current_call_row_id=null so it doesn't
 //      try to close a row that's already closed.
 serve(async (req) => {
+  const CORS = corsHeaders(req.headers.get("origin"));
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
+  }
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")!;

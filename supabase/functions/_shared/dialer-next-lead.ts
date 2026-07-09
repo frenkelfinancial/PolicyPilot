@@ -1,4 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { toE164 } from "./phone.ts";
+
+// Re-exported so existing importers of toE164 from this module keep working
+// unchanged — the canonical implementation now lives in _shared/phone.ts
+// (shared with the messaging compliance gate and inbound webhooks).
+export { toE164 };
 
 export type DialerSession = {
   id: string;
@@ -16,16 +22,6 @@ export type DialerSession = {
   caller_id_numbers: string[] | null;
   current_caller_id: string | null;
 };
-
-export function toE164(raw: string | undefined | null): string {
-  if (!raw) return "";
-  const d = String(raw).replace(/[^\d]/g, "");
-  if (!d) return "";
-  if (String(raw).trim().startsWith("+")) return "+" + d;
-  if (d.length === 10) return `+1${d}`;
-  if (d.length === 11 && d[0] === "1") return `+${d}`;
-  return "";
-}
 
 // US area code → state abbreviation (all active NANP codes as of 2025)
 const AC_STATE: Record<string, string> = {

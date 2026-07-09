@@ -6142,7 +6142,13 @@ async function wizSubmit() {
     bootDashboard();
   } catch(e) {
     _wizPaymentPending = false;
-    _wizErr(3, e.message || 'Payment setup failed. Please try again.');
+    // "Failed to fetch" = request blocked before reaching stripe-create-checkout
+    // (CORS rejection, ad-blocker, or no connection); show something actionable
+    // instead of the raw TypeError. See docs/audit-2026-07-09-calling-and-topup.md.
+    const _msg = (e && /failed to fetch/i.test(e.message || ''))
+      ? "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com."
+      : (e.message || 'Payment setup failed. Please try again.');
+    _wizErr(3, _msg);
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Create Account &amp; Continue to Payment';
@@ -6556,7 +6562,13 @@ async function planRequiredSubscribe() {
     showToast(`${currentPlanName} plan activated!`, '#10b981');
   } catch(e) {
     const msgEl = document.getElementById('pro-msg');
-    if (msgEl) { msgEl.textContent = e.message || 'Checkout failed. Please try again.'; msgEl.className = 'auth-msg show err'; }
+    // "Failed to fetch" = request blocked before reaching stripe-create-checkout
+    // (CORS rejection, ad-blocker, or no connection); show something actionable
+    // instead of the raw TypeError. See docs/audit-2026-07-09-calling-and-topup.md.
+    const _msg = (e && /failed to fetch/i.test(e.message || ''))
+      ? "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com."
+      : (e.message || 'Checkout failed. Please try again.');
+    if (msgEl) { msgEl.textContent = _msg; msgEl.className = 'auth-msg show err'; }
     if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
   }
 }
@@ -12264,6 +12276,15 @@ const softphone = (() => {
     try {
       const r = await sb.functions.invoke('telnyx-webrtc-token', {});
       if (r.error) {
+        // A FunctionsFetchError means the request never reached the edge
+        // function at all — CORS rejection (origin not in the function's
+        // allowlist), an ad-blocker/firewall blocking *.supabase.co, or no
+        // network. There is no response body to parse, so without this
+        // check it was mislabeled as a generic "token_error".
+        if (r.error.name === 'FunctionsFetchError') {
+          return { ok: false, reason: 'network',
+            detail: "Couldn't reach the calling server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com." };
+        }
         let reason = 'token_error';
         let detail = r.error.message || 'token invoke failed';
         try {
@@ -17496,7 +17517,13 @@ async function pbConfirmAddFunds(amountMills, btn) {
     throw new Error(result.error || 'Could not start checkout');
   } catch (e) {
     console.warn('[wallet] add funds failed', e);
-    if (status) status.textContent = `Failed: ${e.message || e}`;
+    // "Failed to fetch" is a network-level failure — the request never
+    // reached the checkout function (CORS rejection, ad-blocker, or no
+    // connection). Show something actionable instead of the raw TypeError.
+    const msg = (e && /failed to fetch/i.test(e.message || ''))
+      ? "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com."
+      : (e.message || e);
+    if (status) status.textContent = `Failed: ${msg}`;
   } finally {
     if (grid) grid.querySelectorAll('.pb-addfunds-opt').forEach(b => b.disabled = false);
   }
@@ -17963,7 +17990,13 @@ async function pbApplyPlanChange() {
     await renderPhoneBook();
   } catch (e) {
     console.warn('[phonebook] plan switch failed', e);
-    showToast(`Switch failed: ${e.message || e}`, '#dc2626');
+    // "Failed to fetch" = request blocked before reaching stripe-create-checkout
+    // (CORS rejection, ad-blocker, or no connection); show something actionable
+    // instead of the raw TypeError. See docs/audit-2026-07-09-calling-and-topup.md.
+    const _msg = (e && /failed to fetch/i.test(e.message || ''))
+      ? "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com."
+      : (e.message || e);
+    showToast(`Switch failed: ${_msg}`, '#dc2626');
     if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
   }
 }

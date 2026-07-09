@@ -26,16 +26,7 @@ import { refreshAccessToken } from "../_shared/gmail-oauth.ts";
 import { getMessageBody } from "../_shared/gmail-api.ts";
 import { trimForExtraction } from "../_shared/email/cleaner.ts";
 import { extractFields } from "../_shared/anthropic.ts";
-
-const ALLOWED_ORIGINS = new Set(["https://producerstackcrm.com", "https://localhost"]);
-function corsHeaders(origin: string | null) {
-  return {
-    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
+import { corsHeaders } from "../_shared/cors.ts";
 
 const ROWS_PER_RUN = 12; // per-invocation cap
 const CONFIDENCE_MIN = 0.5; // below this -> review instead of parsed

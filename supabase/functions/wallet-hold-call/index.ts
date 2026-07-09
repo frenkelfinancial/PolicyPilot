@@ -1,19 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const ALLOWED_ORIGINS = new Set([
-  "https://producerstackcrm.com",
-  "https://localhost", // iOS/Android Capacitor (iosScheme/androidScheme: "https")
-]);
-
-function corsHeaders(origin: string | null) {
-  return {
-    "Access-Control-Allow-Origin": origin && ALLOWED_ORIGINS.has(origin) ? origin : "https://producerstackcrm.com",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Vary": "Origin",
-  };
-}
+import { corsHeaders } from "../_shared/cors.ts";
 
 // Universal spend gate for the WebRTC softphone: the Telnyx Call Control
 // webhook is never wired to this call path (see telnyx-report-call-minutes'

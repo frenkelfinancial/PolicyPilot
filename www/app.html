@@ -14,6 +14,78 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Producer Stack">
 <link rel="apple-touch-icon" href="assets/logos/policypilot-logo.jpg">
+<script>
+/* ── Global runtime error banner ──────────────────────────────
+   The whole app is one large inline script with no build step, so
+   a single uncaught JS error (e.g. a variable referenced from the
+   wrong scope — the class of bug that silently broke the softphone
+   dialer) can break a feature with no visible sign. This surfaces
+   any uncaught error or unhandled promise rejection as a red banner
+   showing the reason + file:line, instead of failing invisibly.
+   Defined FIRST so it catches errors from every script that
+   follows. Wrapped so the reporter can never itself break the page. */
+(function () {
+  var shown = {}; // dedupe identical messages, count repeats
+  function esc(s) {
+    return String(s).replace(/[<>&]/g, function (c) {
+      return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c];
+    });
+  }
+  function banner(kind, msg, where) {
+    try {
+      var key = kind + '|' + msg + '|' + where;
+      var host = document.getElementById('__err_banner_host');
+      if (!host) {
+        host = document.createElement('div');
+        host.id = '__err_banner_host';
+        host.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;' +
+          'display:flex;flex-direction:column;gap:1px;pointer-events:none;' +
+          'font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif';
+        (document.body || document.documentElement).appendChild(host);
+      }
+      if (shown[key]) {
+        shown[key].count++;
+        shown[key].badge.textContent = '×' + shown[key].count;
+        return;
+      }
+      var row = document.createElement('div');
+      row.style.cssText = 'pointer-events:auto;background:#b91c1c;color:#fff;' +
+        'padding:10px 14px;display:flex;align-items:flex-start;gap:10px;' +
+        'box-shadow:0 2px 8px rgba(0,0,0,.3);word-break:break-word';
+      var txt = document.createElement('div');
+      txt.style.cssText = 'flex:1;min-width:0';
+      txt.innerHTML = '<strong>⚠️ ' + esc(kind) + '</strong> — ' + esc(msg) +
+        (where ? '<br><span style="opacity:.85;font-size:12px">' + esc(where) + '</span>' : '');
+      var badge = document.createElement('span');
+      badge.style.cssText = 'opacity:.85;font-size:12px;white-space:nowrap;align-self:center';
+      var close = document.createElement('button');
+      close.textContent = '✕';
+      close.setAttribute('aria-label', 'Dismiss');
+      close.style.cssText = 'pointer-events:auto;background:transparent;border:0;color:#fff;' +
+        'font-size:16px;cursor:pointer;line-height:1;padding:0 2px;flex:none';
+      close.onclick = function () { try { host.removeChild(row); delete shown[key]; } catch (e) {} };
+      row.appendChild(txt); row.appendChild(badge); row.appendChild(close);
+      host.appendChild(row);
+      shown[key] = { count: 1, badge: badge };
+    } catch (e) { /* never let the reporter itself break the page */ }
+  }
+  window.addEventListener('error', function (e) {
+    if (!e) return;
+    // Ignore resource-load errors (img/script 404s) — only surface real JS errors.
+    if (e.target && e.target !== window && e.target.tagName) return;
+    var where = e.filename ? (e.filename.split('/').pop() + ':' + e.lineno + ':' + e.colno) : '';
+    banner('Script error', e.message || 'Unknown error', where);
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e && e.reason;
+    var msg = (r && (r.message || (r.toString && r.toString()))) || 'Unhandled promise rejection';
+    var where = (r && r.stack) ? (String(r.stack).split('\n')[1] || '').trim() : '';
+    banner('Unhandled rejection', msg, where);
+  });
+  // Manual reporter for handled-but-notable failures the app wants surfaced.
+  window.__reportError = function (msg, where) { banner('Error', msg, where || ''); };
+})();
+</script>
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 if('serviceWorker' in navigator){
@@ -2040,14 +2112,7 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 /* In-call: the display stops acting like an editable field — box and
    backspace disappear, the number becomes plain centered text under the
    timer (edits during a call go to DTMF via the keypad, not this field). */
-#sec-webdialer .wd-dial-card.in-call .wd-display{
-  background:transparent; border:none; height:auto; padding:0; justify-content:center;
-}
-#sec-webdialer .wd-dial-card.in-call .wd-number-prefix{ display:none; }
-#sec-webdialer .wd-dial-card.in-call .wd-number-input{
-  flex:none; text-align:center; font-size:30px; font-weight:600; letter-spacing:.3px; cursor:default;
-}
-#sec-webdialer .wd-dial-card.in-call .wd-backspace{ display:none; }
+#sec-webdialer .wd-dial-card.in-call .wd-display{ display:none; }
 #sec-webdialer .wd-backspace{
   flex-shrink:0; width:44px; height:44px; border:none; background:transparent; color:#8a8a86;
   cursor:pointer; border-radius:10px; display:flex; align-items:center; justify-content:center;
@@ -2139,6 +2204,37 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 .wd-cs-btn-hangup svg{ transform:rotate(135deg); }
 #sec-webdialer .wd-cs-btn-lbl{ display:none; }
 #sec-webdialer .wd-cs-meta{ display:none; }
+
+/* Active-call info panel — shows lead, destination number, and outbound caller ID */
+#sec-webdialer .wd-call-info{
+  width:100%; background:rgba(91,160,232,.07); border:1px solid rgba(91,160,232,.20);
+  border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:3px;
+}
+body.light #sec-webdialer .wd-call-info{
+  background:rgba(59,130,246,.06); border-color:rgba(59,130,246,.18);
+}
+#sec-webdialer .wd-ci-to-name{
+  font-size:18px; font-weight:700; color:var(--text); letter-spacing:-.02em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center;
+  margin-bottom:1px;
+}
+#sec-webdialer .wd-ci-to-num{
+  font-size:13px; color:var(--text2); text-align:center; margin-bottom:8px;
+}
+#sec-webdialer .wd-ci-sep{
+  height:1px; background:rgba(91,160,232,.18); margin:4px 0 8px;
+}
+#sec-webdialer .wd-ci-from-row{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:12px; padding:2px 0;
+}
+#sec-webdialer .wd-ci-from-lbl{
+  color:var(--text3); font-weight:500; flex-shrink:0;
+}
+#sec-webdialer .wd-ci-from-val{
+  color:var(--text2); font-weight:600; text-align:right; font-variant-numeric:tabular-nums;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+}
 
 /* Matched-lead card */
 .wd-lead-head{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
@@ -2446,6 +2542,37 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 body.light .btn-danger{ background:#fef2f2; color:#c53030; border-color:rgba(220,38,38,.28); }
 body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5); }
 
+/* ── Wallet Balance card ──────────────────────────────────────────────── */
+#sec-phonebook .pb-card-wallet{ margin-bottom:18px; }
+#sec-phonebook .pb-wallet-balance-row{
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  margin-top:12px; flex-wrap:wrap;
+}
+#sec-phonebook .pb-wallet-balance{
+  font-size:32px; font-weight:700; color:var(--text);
+  font-variant-numeric:tabular-nums; letter-spacing:-.02em;
+}
+#sec-phonebook .pb-wallet-zero-note{
+  margin-top:12px; padding:10px 12px;
+  border:1px solid rgba(220,38,38,.35); border-radius:8px;
+  background:rgba(220,38,38,.06); font-size:12.5px; color:#dc2626; font-weight:600;
+}
+#sec-phonebook .pb-wallet-note{
+  margin-top:10px; font-size:11.5px; color:var(--text3);
+}
+.pb-addfunds-grid{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:4px;
+}
+@media (max-width:480px){ .pb-addfunds-grid{ grid-template-columns:1fr 1fr; } }
+.pb-addfunds-opt{
+  padding:16px 10px; border:1px solid var(--border); border-radius:10px;
+  background:rgba(255,255,255,.03); text-align:center; cursor:pointer;
+  font-size:18px; font-weight:700; color:var(--text);
+  transition:border-color .15s, background .15s;
+}
+.pb-addfunds-opt:hover{ border-color:var(--accent); background:rgba(59,130,246,.08); }
+.pb-addfunds-opt:disabled{ opacity:.5; cursor:not-allowed; }
+
 /* ── Billing Rates card ───────────────────────────────────────────────── */
 #sec-phonebook .pb-card-billing{ margin-bottom:18px; }
 #sec-phonebook .pb-billing-rate-grid{
@@ -2478,17 +2605,6 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
   font-size:15px; font-weight:700; color:var(--text);
 }
 
-/* Admin billing config card */
-#sec-phonebook .pb-card-billing-config{ margin-bottom:18px; }
-#sec-phonebook .pb-billing-config-grid{
-  display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;
-}
-@media (max-width:600px){ #sec-phonebook .pb-billing-config-grid{ grid-template-columns:1fr; } }
-#sec-phonebook .pb-billing-config-note{
-  margin-top:12px; font-size:11.5px; color:var(--text2); line-height:1.5;
-  padding:10px 12px; border:1px solid var(--border); border-radius:8px;
-  background:rgba(245,158,11,.06);
-}
 
 /* ── Agency tab ─────────────────────────────────────────────────────────── */
 #sec-agency .ag-header{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px;flex-wrap:wrap}
@@ -3392,6 +3508,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
   <div class="nav-sec">
     <div class="nav-lbl">Business</div>
     <div class="nav-item" onclick="nav('tracker')"><span class="ico" data-ico="clipboard-text"></span><span class="nav-lbl-text">Policy Tracker</span></div>
+    <div class="nav-item" onclick="nav('carriermail')"><span class="ico" data-ico="download-simple"></span><span class="nav-lbl-text">Carrier Mail</span></div>
     <div class="nav-item" onclick="nav('bonuses')"><span class="ico" data-ico="trophy"></span><span class="nav-lbl-text">Bonus Tracker</span></div>
   </div>
   <div class="nav-sec">
@@ -3910,6 +4027,14 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     </div>
 
     <!-- ========== BONUS TRACKER ========== -->
+    <div class="section" id="sec-carriermail">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <div class="text-m" style="font-size:13px;color:var(--text2);max-width:640px">Carrier status, payment, and commission emails, pulled from your inbox and deciphered into plain language. Login-only notices show as nudges. Manage the connection in Settings → Integrations.</div>
+        <button class="btn btn-p btn-sm" onclick="cmSyncParse(this)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="arrows-clockwise" data-size="13"></span>Sync &amp; parse</button>
+      </div>
+      <div id="cm-body"></div>
+    </div>
+
     <div class="section" id="sec-bonuses">
       <div class="tabs">
         <button class="tab active" onclick="bTab('ffl',this)">FFL VP Bonus</button>
@@ -4332,6 +4457,23 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </div>
       </div>
 
+      <!-- Wallet Balance -->
+      <div class="card pb-card-wallet">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px">
+          <span data-ico="credit-card" data-size="13"></span>Wallet Balance
+        </div>
+        <div class="pb-wallet-balance-row">
+          <div class="pb-wallet-balance" id="pb-wallet-balance">$0.00</div>
+          <button class="btn btn-p btn-sm" id="pb-addfunds-btn" onclick="pbOpenAddFundsModal()">
+            <span data-ico="plus" data-size="13" style="margin-right:6px"></span>Add funds
+          </button>
+        </div>
+        <div class="pb-wallet-zero-note" id="pb-wallet-zero-note" style="display:none">
+          Add funds to start calling or buying numbers.
+        </div>
+        <div class="pb-wallet-note">Every debit is itemized down to the unit rate — no mystery deductions. Balance and credits never expire.</div>
+      </div>
+
       <!-- Billing Rates -->
       <div class="card pb-card-billing">
         <div class="card-title" style="display:flex;align-items:center;gap:8px">
@@ -4345,52 +4487,13 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           </div>
           <div class="pb-billing-rate-item">
             <div class="pb-billing-rate-label">Per Minute</div>
-            <div class="pb-billing-rate-value" id="pb-rate-minute">$0.02</div>
+            <div class="pb-billing-rate-value" id="pb-rate-minute">$0.01</div>
             <div class="pb-billing-rate-sub">per call minute (rounded up)</div>
           </div>
         </div>
         <div class="pb-billing-estimate" id="pb-billing-estimate" style="display:none">
           <span>Estimated this month</span>
           <strong id="pb-billing-estimate-val">—</strong>
-        </div>
-      </div>
-
-      <!-- Admin: Billing Config (admin-only, rendered by JS) -->
-      <div class="card pb-card-billing-config" id="pb-card-billing-config" style="display:none">
-        <div class="card-title" style="display:flex;align-items:center;gap:8px">
-          <span data-ico="gear" data-size="13"></span>Billing Config <span style="font-size:11px;font-weight:400;color:var(--text3);margin-left:4px">(admin only)</span>
-        </div>
-        <div class="pb-billing-config-grid">
-          <div class="fg">
-            <label>Number Rate (cents/month)</label>
-            <input type="number" id="pb-cfg-number-rate" min="1" step="1" placeholder="300" style="width:100%">
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">e.g. 300 = $3.00/number/month</div>
-          </div>
-          <div class="fg">
-            <label>Minute Rate (cents/minute)</label>
-            <input type="number" id="pb-cfg-minute-rate" min="1" step="1" placeholder="2" style="width:100%">
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">e.g. 2 = $0.02/min</div>
-          </div>
-          <div class="fg">
-            <label>Stripe Numbers Price ID</label>
-            <input type="text" id="pb-cfg-numbers-price" placeholder="price_XXXX" style="width:100%;font-family:monospace;font-size:12px">
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">Recurring $3/unit price from Stripe Dashboard</div>
-          </div>
-          <div class="fg">
-            <label>Stripe Minutes Price ID</label>
-            <input type="text" id="pb-cfg-minutes-price" placeholder="price_XXXX" style="width:100%;font-family:monospace;font-size:12px">
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">Metered $0.02/unit price from Stripe Dashboard</div>
-          </div>
-        </div>
-        <div class="pb-billing-config-note">
-          <strong>Setup:</strong> In Stripe Dashboard create two products:<br>
-          1. <strong>Phone Number</strong> → Recurring, $3.00/unit/month (not metered) → copy Price ID above.<br>
-          2. <strong>Call Minutes</strong> → Recurring, $0.02/unit/month, <em>metered</em> (aggregate: sum) → copy Price ID above.<br>
-          Changes take effect on the next purchase/call. Existing Stripe items are not retroactively updated.
-        </div>
-        <div id="pb-cfg-msg" style="font-size:12px;min-height:16px;margin-top:8px"></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:12px">
-          <button class="btn btn-p btn-sm" onclick="pbSaveBillingConfig()">Save Billing Config</button>
         </div>
       </div>
 
@@ -4463,6 +4566,21 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
               <button type="button" class="wd-backspace" id="wd-backspace" title="Backspace" aria-label="Backspace">
                 <span data-ico="backspace" data-size="18"></span>
               </button>
+            </div>
+          </div>
+
+          <!-- In-call info panel: lead name, number being called, outbound caller ID -->
+          <div class="wd-call-info" id="wd-call-info" style="display:none">
+            <div class="wd-ci-to-name" id="wd-ci-to-name"></div>
+            <div class="wd-ci-to-num" id="wd-ci-to-num"></div>
+            <div class="wd-ci-sep"></div>
+            <div class="wd-ci-from-row">
+              <span class="wd-ci-from-lbl">Your number</span>
+              <span class="wd-ci-from-val" id="wd-ci-from-num"></span>
+            </div>
+            <div class="wd-ci-from-row">
+              <span class="wd-ci-from-lbl">Caller ID name</span>
+              <span class="wd-ci-from-val" id="wd-ci-from-name"></span>
             </div>
           </div>
 
@@ -4810,6 +4928,38 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           </div>
         </div>
 
+        <!-- ── GMAIL CARRIER EMAIL SYNC ── -->
+        <div class="card" style="margin-top:16px">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            <span data-ico="arrows-clockwise" data-size="14"></span>Gmail — Carrier Email Sync
+          </div>
+          <div class="text-m" style="font-size:12.5px;line-height:1.55;color:var(--text2);margin-bottom:14px">
+            Grants <strong>read-only</strong> access so ProducerStack can pull carrier status, payment, and commission emails into your policy tracker automatically. We never send, modify, or delete mail. During the pilot (Google test mode) you may need to reconnect about once a week.
+          </div>
+
+          <div id="stg-gmail-disconnected">
+            <button class="btn btn-p" onclick="gmailConnect(this)" style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px">
+              <span data-ico="key" data-size="14"></span>Connect Gmail
+            </button>
+          </div>
+
+          <div id="stg-gmail-reauth" style="display:none">
+            <div class="alert alert-w" style="margin-bottom:12px"><span data-ico="warning"></span><div>Your Gmail connection expired. Reconnect to resume syncing.</div></div>
+            <button class="btn btn-p" onclick="gmailConnect(this)" style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px">
+              <span data-ico="arrow-clockwise" data-size="14"></span>Reconnect Gmail
+            </button>
+          </div>
+
+          <div id="stg-gmail-connected" style="display:none">
+            <div class="alert alert-s" style="margin-bottom:12px"><span data-ico="check-circle"></span><div>Connected as <strong id="stg-gmail-email"></strong>. <span id="stg-gmail-lastsync"></span></div></div>
+            <div class="flex gap8">
+              <button class="btn btn-p btn-sm" onclick="gmailSyncNow(this)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="arrows-clockwise" data-size="13"></span>Sync now</button>
+              <button class="btn btn-p btn-sm" onclick="gmailParseNow(this)" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="lightning" data-size="13"></span>Parse queued</button>
+              <button class="btn btn-s btn-sm" onclick="gmailDisconnect()">Disconnect</button>
+            </div>
+          </div>
+        </div>
+
         <!-- ── LEAD VENDOR WEBHOOKS ── -->
         <div class="card" style="margin-top:16px">
           <div class="card-title" style="display:flex;align-items:center;justify-content:space-between">
@@ -4851,6 +5001,43 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 
   </div><!-- /content -->
 </div><!-- /main -->
+
+<!-- WALLET — LOW BALANCE NUDGE -->
+<div class="overlay" id="lowBalanceModal" onclick="if(event.target===this)dismissLowBalanceModal()">
+  <div class="modal pb-modal" style="max-width:420px">
+    <div class="mhdr">
+      <div class="mtitle">Your balance is too low</div>
+      <button class="mclose" onclick="dismissLowBalanceModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div class="alert alert-w" style="margin-bottom:14px">
+      <span data-ico="warning"></span>
+      <div>Calls, texts, and phone number renewals all draw from your wallet balance. Add funds now to keep them running without interruption.</div>
+    </div>
+    <div style="font-size:14px;color:var(--text2);margin-bottom:16px">Current balance: <strong id="lowbal-amount" style="color:var(--text)">$0.00</strong></div>
+    <div class="flex gap8" style="justify-content:flex-end">
+      <button class="btn btn-s btn-sm" onclick="dismissLowBalanceModal()">Not now</button>
+      <button class="btn btn-p btn-sm" onclick="lowBalanceTopUpNow()">Top up now</button>
+    </div>
+  </div>
+</div>
+
+<!-- WALLET — ADD FUNDS MODAL -->
+<div class="overlay" id="pbAddFundsModal">
+  <div class="modal pb-modal">
+    <div class="mhdr">
+      <div class="mtitle">Add funds</div>
+      <button class="mclose" onclick="pbCloseAddFundsModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div class="alert alert-i" style="margin-bottom:14px">
+      <span data-ico="info"></span>
+      <div>Your balance is a real dollar amount, not abstract credits. It never expires and every debit is itemized.</div>
+    </div>
+    <div class="pb-addfunds-grid" id="pb-addfunds-grid">
+      <div class="pb-empty">Loading…</div>
+    </div>
+    <div id="pb-addfunds-status" style="font-size:12px;min-height:16px;margin-top:10px"></div>
+  </div>
+</div>
 
 <!-- PHONE BOOK — BUY NUMBER MODAL -->
 <div class="overlay" id="pbBuyModal">
@@ -5955,7 +6142,13 @@ async function wizSubmit() {
     bootDashboard();
   } catch(e) {
     _wizPaymentPending = false;
-    _wizErr(3, e.message || 'Payment setup failed. Please try again.');
+    // "Failed to fetch" = request blocked before reaching stripe-create-checkout
+    // (CORS rejection, ad-blocker, or no connection); show something actionable
+    // instead of the raw TypeError. See docs/audit-2026-07-09-calling-and-topup.md.
+    const _msg = (e && /failed to fetch/i.test(e.message || ''))
+      ? "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com."
+      : (e.message || 'Payment setup failed. Please try again.');
+    _wizErr(3, _msg);
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Create Account &amp; Continue to Payment';
@@ -6369,7 +6562,13 @@ async function planRequiredSubscribe() {
     showToast(`${currentPlanName} plan activated!`, '#10b981');
   } catch(e) {
     const msgEl = document.getElementById('pro-msg');
-    if (msgEl) { msgEl.textContent = e.message || 'Checkout failed. Please try again.'; msgEl.className = 'auth-msg show err'; }
+    // "Failed to fetch" = request blocked before reaching stripe-create-checkout
+    // (CORS rejection, ad-blocker, or no connection); show something actionable
+    // instead of the raw TypeError. See docs/audit-2026-07-09-calling-and-topup.md.
+    const _msg = (e && /failed to fetch/i.test(e.message || ''))
+      ? "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com."
+      : (e.message || 'Checkout failed. Please try again.');
+    if (msgEl) { msgEl.textContent = _msg; msgEl.className = 'auth-msg show err'; }
     if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
   }
 }
@@ -7522,16 +7721,49 @@ function renderActionHub(){
   if (!root) return;
 
   const events = (typeof getEvents === 'function') ? getEvents() : [];
+  const cmList = (typeof cmUrgent !== 'undefined' && Array.isArray(cmUrgent)) ? cmUrgent : [];
+  const totalActions = events.length + cmList.length;
   const meta = root.querySelector('.ah-hub__meta');
-  if (meta) meta.textContent = events.length === 0
+  if (meta) meta.textContent = totalActions === 0
     ? 'All clear'
-    : (events.length === 1 ? '1 action' : events.length + ' actions');
+    : (totalActions === 1 ? '1 action' : totalActions + ' actions');
 
   const body = root.querySelector('.ah-hub__body');
   if (!body) return;
   body.replaceChildren();   // idempotent re-render
 
-  if (events.length === 0){
+  // Carrier alerts from the email pipeline (returned payments, lapses,
+  // requirements, declines, login nudges, review items).
+  if (cmList.length){
+    const sec = document.createElement('section');
+    sec.className = 'ah-section';
+    sec.setAttribute('data-tone', 'urgent');
+    const head = document.createElement('div');
+    head.className = 'ah-section__head';
+    head.textContent = 'Carrier alerts';
+    const cnt = document.createElement('span');
+    cnt.className = 'ah-section__count';
+    cnt.textContent = String(cmList.length);
+    head.appendChild(cnt);
+    sec.appendChild(head);
+    const ul = document.createElement('ul');
+    ul.className = 'ah-list';
+    ul.setAttribute('role', 'list');
+    for (const it of cmList){
+      const li = document.createElement('li');
+      li.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-top:1px solid var(--border)';
+      li.innerHTML = '<span data-ico="warning" data-size="15" style="color:#f59e0b;margin-top:1px"></span>'
+        + '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">' + escHTML(it.headline) + '</div>'
+        + '<div style="font-size:11.5px;color:var(--text3);margin-top:2px">' + escHTML(it.sub || '') + '</div></div>'
+        + '<a href="' + it.url + '" target="_blank" rel="noopener" class="btn btn-s btn-sm" style="flex-shrink:0">Open</a>';
+      ul.appendChild(li);
+    }
+    sec.appendChild(ul);
+    body.appendChild(sec);
+    mountIcons(sec);
+  }
+
+  if (events.length === 0 && cmList.length === 0){
     const isNewAgent = getActivityCount() === 0;
     body.appendChild(dsEmptyState({
       icon: 'inbox',
@@ -10708,6 +10940,7 @@ function renderSummary() {
   _applyPlanGating();
   renderGreeting();
   if (typeof renderActionHub === 'function') renderActionHub();
+  if (typeof cmRefreshUrgent === 'function') cmRefreshUrgent();
   const _rsTier = _planTier();
   if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderPipelineFunnel === 'function') renderPipelineFunnel();
   if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderIncomeReality === 'function') renderIncomeReality();
@@ -11991,9 +12224,10 @@ const softphone = (() => {
       if (state.callRowId) {
         // telnyx-report-call-minutes closes the row server-side (computing
         // duration from answered_at, same as the Power Dialer flow) and
-        // reports the elapsed minutes to Stripe metered billing — the
+        // reconciles the wallet_hold placed before this call was dialed
+        // (settling the real minutes, refunding any unused portion) — the
         // WebRTC softphone has no Call Control webhook wired to it, so
-        // nothing else ever bills these calls at $0.02/min.
+        // nothing else ever bills or reconciles these calls.
         sb.functions.invoke('telnyx-report-call-minutes', { body: { call_row_id: state.callRowId } })
           .catch((e) => console.warn('[softphone] minute billing report failed', e));
       }
@@ -12042,6 +12276,15 @@ const softphone = (() => {
     try {
       const r = await sb.functions.invoke('telnyx-webrtc-token', {});
       if (r.error) {
+        // A FunctionsFetchError means the request never reached the edge
+        // function at all — CORS rejection (origin not in the function's
+        // allowlist), an ad-blocker/firewall blocking *.supabase.co, or no
+        // network. There is no response body to parse, so without this
+        // check it was mislabeled as a generic "token_error".
+        if (r.error.name === 'FunctionsFetchError') {
+          return { ok: false, reason: 'network',
+            detail: "Couldn't reach the calling server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com." };
+        }
         let reason = 'token_error';
         let detail = r.error.message || 'token invoke failed';
         try {
@@ -12070,19 +12313,51 @@ const softphone = (() => {
     _render(); // refresh caller ID strip now that we have the number
 
     return new Promise((resolve) => {
+      // The connect handshake can fail three ways: an explicit telnyx.error,
+      // a socket that opens then closes before registering (bad SIP
+      // credential / SIP Connection not WebRTC-enabled), or a socket that
+      // never becomes ready at all. Only the first fired an event that
+      // resolved this Promise — the other two left the whole call stuck on
+      // "Calling…" forever with no mic and no ringing. Guard every exit with
+      // a single settle() so any of them resolves exactly once.
+      let settled = false;
+      const settle = (result) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(connectTimer);
+        resolve(result);
+      };
+
+      const connectTimer = setTimeout(() => {
+        console.warn('[softphone] Telnyx connect timed out — no telnyx.ready within 12s');
+        _telnyxReady = false;
+        settle({ ok: false, reason: 'webrtc_timeout',
+          detail: 'Telnyx WebRTC never became ready. Check the SIP credential and that its SIP Connection has WebRTC/credential auth enabled.' });
+      }, 12000);
+
       const client = new RTC({ login: creds.sip_username, password: creds.sip_password });
 
       client.on('telnyx.ready', () => {
+        console.log('[softphone] Telnyx client ready');
         _telnyxReady = true;
-        resolve({ ok: true });
+        settle({ ok: true });
       });
 
       client.on('telnyx.error', (err) => {
+        console.error('[softphone] Telnyx error', err);
         _telnyxReady = false;
-        resolve({ ok: false, reason: 'webrtc_error', detail: (err && err.message) || String(err) });
+        settle({ ok: false, reason: 'webrtc_error', detail: (err && err.message) || String(err) });
       });
 
-      client.on('telnyx.socket.close', () => { _telnyxReady = false; });
+      client.on('telnyx.socket.close', () => {
+        console.warn('[softphone] Telnyx socket closed');
+        _telnyxReady = false;
+        // Closing before we ever reached ready means auth/registration was
+        // rejected — resolve as a failure instead of waiting on a ready that
+        // will never come. (After ready this is a no-op via the settle guard.)
+        settle({ ok: false, reason: 'webrtc_socket_closed',
+          detail: 'Telnyx WebSocket closed before the client became ready — likely a SIP credential/registration failure.' });
+      });
 
       client.on('telnyx.notification', (n) => _handleTelnyxNotification(n));
 
@@ -12119,6 +12394,33 @@ const softphone = (() => {
       if (callRow) state.callRowId = callRow.id;
     } catch (e) {
       console.warn('[softphone] calls row insert failed', e);
+    }
+
+    // Universal spend gate: no Telnyx Call Control webhook is wired to the
+    // WebRTC path (see telnyx-report-call-minutes), so this is the only
+    // server-authoritative checkpoint before EACH individual dial — not
+    // just session start. Reserves min_call_start_mills as a hold that
+    // hangup later reconciles via wallet_settle_call.
+    try {
+      const { data: holdRes, error: holdErr } = await sb.functions.invoke('wallet-hold-call', {
+        body: { call_row_id: state.callRowId },
+      });
+      if (holdErr) {
+        let reason = 'insufficient_balance';
+        try {
+          const b = holdErr.context && await holdErr.context.json();
+          if (b && b.error) reason = b.error;
+        } catch (_) {}
+        if (state.callRowId) sb.from('calls').delete().eq('id', state.callRowId).then(() => {});
+        return { ok: false, reason, detail: 'Insufficient wallet balance — top up to continue.' };
+      }
+      state.walletHoldId = holdRes && holdRes.hold_id || null;
+      if (state.walletHoldId && state.callRowId) {
+        sb.from('calls').update({ wallet_hold_id: state.walletHoldId }).eq('id', state.callRowId).then(() => {});
+      }
+    } catch (e) {
+      if (state.callRowId) sb.from('calls').delete().eq('id', state.callRowId).then(() => {});
+      return { ok: false, reason: 'insufficient_balance', detail: (e && e.message) || String(e) };
     }
 
     try {
@@ -12158,18 +12460,21 @@ const softphone = (() => {
     _reachedCarrierRinging = false;
 
     // Optimistic UI: show "Calling…" immediately while we mint the token.
-    state.phase       = 'ringing-out';
-    state.leadId      = leadId ? String(leadId) : null;
-    state.leadName    = displayName || 'Unknown';
-    state.phoneFmt    = formatPhone(phoneE164) || phoneE164;
-    state.targetE164  = phoneE164;
-    state.callerId    = '';
-    state.direction   = 'outbound';
-    state.muted        = false;
-    state.durationSec  = 0;
-    state.sw_call_sid  = '';
-    state.callRowId    = null;
-    state.stubMode     = false;
+    state.phase          = 'ringing-out';
+    state.leadId         = leadId ? String(leadId) : null;
+    state.leadName       = displayName || 'Unknown';
+    state.phoneFmt       = formatPhone(phoneE164) || phoneE164;
+    state.targetE164     = phoneE164;
+    state.callerId       = '';
+    state.callerIdNumber = callerIdOverride || '';
+    state.callerIdName   = callerNameOverride || document.getElementById('stg-cnam-name')?.value?.trim() || '';
+    state.direction      = 'outbound';
+    state.muted          = false;
+    state.durationSec    = 0;
+    state.sw_call_sid    = '';
+    state.callRowId      = null;
+    state.walletHoldId   = null;
+    state.stubMode       = false;
     state.stubReason   = '';
     _render();
     _startSpRingback();
@@ -12193,6 +12498,16 @@ const softphone = (() => {
     if (result.reason === 'no_caller_id') {
       showToast('No phone number assigned to your account yet. Buy or assign one in the Phone Book tab.', '#dc2626');
       close();
+      return;
+    }
+    if (result.reason === 'insufficient_balance') {
+      // Must NOT fall through to stub mode — that would let the agent
+      // "complete" a call that was never actually placed. This is the
+      // universal spend gate: a $0/underfunded wallet cannot call.
+      showToast('Insufficient wallet balance — top up to continue.', '#dc2626');
+      close();
+      nav('phonebook');
+      setTimeout(() => { if (typeof pbOpenAddFundsModal === 'function') pbOpenAddFundsModal(); }, 150);
       return;
     }
 
@@ -12498,6 +12813,12 @@ const softphone = (() => {
     get state() { return { ...state }; },
     get unavailable() { return false; },   // reserved for future "no creds" hard-disable
     get stub()        { return state.stubMode; },
+    // The agent's Telnyx number (from the token endpoint) lives in the
+    // private _webrtcCallerId inside this closure. The Web Dialer widget
+    // renders in a separate scope and needs it to show the outbound "From"
+    // number, so expose it here — reaching for the bare variable across
+    // scopes threw "ReferenceError: _webrtcCallerId is not defined".
+    get webrtcCallerId() { return _webrtcCallerId; },
   };
 })();
 // Expose for inline onclick handlers and dev-tools probing
@@ -12709,11 +13030,13 @@ const webDialer = (() => {
     const outcomeEl = _el('wd-cs-outcome');
     const stubEl = _el('wd-stub-banner');
     const timerEl = _el('wd-cs-timer');
+    const callInfoEl = _el('wd-call-info');
     const inp = _input();
     if (dialCard) dialCard.classList.toggle('in-call', showCallScreen);
     if (dialView) dialView.style.display = showCallScreen ? 'none' : '';
     if (callControls) callControls.style.display = (showCallScreen && !endedNeedsOutcome) ? '' : 'none';
     if (outcomeEl) outcomeEl.style.display = endedNeedsOutcome ? '' : 'none';
+    if (callInfoEl) callInfoEl.style.display = (showCallScreen && !endedNeedsOutcome) ? '' : 'none';
     if (stubEl) {
       stubEl.style.display = (phase !== 'idle' && sp.stubMode) ? '' : 'none';
       const stubTextEl = _el('wd-stub-banner-text');
@@ -12749,6 +13072,17 @@ const webDialer = (() => {
     const numEl = _el('wd-cs-number');
     if (numEl) { numEl.textContent = sameAsNumber ? '' : (sp.phoneFmt || ''); }
     const avatarEl = _el('wd-cs-avatar'); if (avatarEl) avatarEl.textContent = _initials(displayName);
+
+    // Populate call-info panel
+    const ciNameEl = _el('wd-ci-to-name'); if (ciNameEl) ciNameEl.textContent = displayName;
+    const ciNumEl = _el('wd-ci-to-num'); if (ciNumEl) ciNumEl.textContent = sameAsNumber ? '' : (sp.phoneFmt || '');
+    const ciFromNumEl = _el('wd-ci-from-num');
+    if (ciFromNumEl) {
+      const rawNum = sp.callerIdNumber || (window.softphone && window.softphone.webrtcCallerId) || '';
+      ciFromNumEl.textContent = rawNum ? (formatPhone(rawNum) || rawNum) : '—';
+    }
+    const ciFromNameEl = _el('wd-ci-from-name');
+    if (ciFromNameEl) ciFromNameEl.textContent = sp.callerIdName || '—';
 
     if (endedNeedsOutcome) return;
 
@@ -13348,7 +13682,7 @@ window.addEventListener('message', e => {
     // Power dialer saved a policy — refresh policy tracker if it's visible
     const policy = e.data.policy;
     if (policy) {
-      loadPolicies?.().catch(() => {});
+      renderPolicies?.();
       showToast(`Policy saved for ${policy.name || 'lead'} — check Policy Tracker`, '#10b981');
     }
   }
@@ -13374,7 +13708,12 @@ async function startPowerDialerSession() {
   btn.disabled = false; btn.textContent = 'Start Session';
 
   if (r.error) {
-    showToast('Failed to start session: ' + (await _pdInvokeErrorDetail(r.error)), '#dc2626');
+    const detail = await _pdInvokeErrorDetail(r.error);
+    showToast('Failed to start session: ' + detail, '#dc2626');
+    if (String(detail).toLowerCase().includes('insufficient wallet balance')) {
+      nav('phonebook');
+      setTimeout(() => { if (typeof pbOpenAddFundsModal === 'function') pbOpenAddFundsModal(); }, 150);
+    }
     return;
   }
 
@@ -15104,6 +15443,190 @@ function gcalDisconnect() {
   gcalRenderGrid(); gcalRenderList();
 }
 
+// ── Gmail carrier-email sync ────────────────────────────────────────────────
+// Server-side OAuth (auth-code flow), separate from the Calendar GIS token
+// flow above: background polling needs a refresh token, which only the
+// server-side flow provides. The client secret lives in the edge functions.
+async function gmailConnect(btn) {
+  try {
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.7'; }
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showToast('Please sign in first.', '#dc2626'); return; }
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/gmail-oauth-start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
+      body: '{}',
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok || !data.url) {
+      const msg = data.error === 'gmail_oauth_not_configured'
+        ? 'Gmail sync isn’t configured yet — contact your admin.'
+        : (data.error || 'Could not start Gmail connection.');
+      showToast(msg, '#dc2626');
+      return;
+    }
+    // Full-page redirect to Google's consent screen; the callback function
+    // bounces the browser back to app.html?gmail=connected.
+    window.location.href = data.url;
+  } catch (e) {
+    showToast('Could not start Gmail connection.', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+  }
+}
+
+async function gmailLoadStatus() {
+  const dEl = document.getElementById('stg-gmail-disconnected');
+  const rEl = document.getElementById('stg-gmail-reauth');
+  const cEl = document.getElementById('stg-gmail-connected');
+  if (!dEl || !rEl || !cEl) return;
+
+  let acct = null;
+  try {
+    const { data } = await sb
+      .from('gmail_accounts')
+      .select('email_address,status,last_synced_at,connected_at')
+      .order('connected_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    acct = data || null;
+  } catch (_) { acct = null; }
+
+  const reauth = !!acct && acct.status === 'reauth_required';
+  const connected = !!acct && !reauth;
+  dEl.style.display = acct ? 'none' : '';
+  rEl.style.display = reauth ? '' : 'none';
+  cEl.style.display = connected ? '' : 'none';
+
+  if (acct) {
+    const emailEl = document.getElementById('stg-gmail-email');
+    if (emailEl) emailEl.textContent = acct.email_address || '';
+    const lastEl = document.getElementById('stg-gmail-lastsync');
+    if (lastEl) {
+      lastEl.textContent = acct.last_synced_at
+        ? `Last synced ${new Date(acct.last_synced_at).toLocaleString()}.`
+        : 'Waiting for first sync.';
+    }
+  }
+}
+
+async function gmailDisconnect() {
+  if (!confirm('Disconnect Gmail? ProducerStack will stop reading your inbox and delete the stored access token.')) return;
+  try {
+    const { error } = await sb.functions.invoke('gmail-disconnect', { body: {} });
+    if (error) { showToast('Could not disconnect. Try again.', '#dc2626'); return; }
+    showToast('Gmail disconnected.', '#10b981');
+    gmailLoadStatus();
+  } catch (_) {
+    showToast('Could not disconnect. Try again.', '#dc2626');
+  }
+}
+
+// Manual trigger for the ingestion sync (scans the last 30 days). The cron
+// job will do this incrementally later; this button is for testing + on-demand.
+async function gmailSyncNow(btn) {
+  const original = btn ? btn.innerHTML : '';
+  try {
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Syncing…'; }
+    const { data, error } = await sb.functions.invoke('gmail-sync', { body: { full_scan_days: 30 } });
+    if (error) { showToast('Sync failed. Try again.', '#dc2626'); return; }
+    if (data && data.reauthRequired) {
+      showToast('Gmail connection expired — please reconnect.', '#dc2626');
+    } else if (data && data.ok) {
+      const parts = [];
+      if (data.pending)      parts.push(`${data.pending} to parse`);
+      if (data.nudges)       parts.push(`${data.nudges} portal nudge${data.nudges === 1 ? '' : 's'}`);
+      if (data.unclassified) parts.push(`${data.unclassified} to review`);
+      const found = data.matched || 0;
+      showToast(
+        found
+          ? `Synced — ${found} carrier email${found === 1 ? '' : 's'}${parts.length ? ' (' + parts.join(', ') + ')' : ''}.`
+          : 'Synced — no new carrier emails found.',
+        '#10b981',
+      );
+    } else {
+      showToast('Sync complete.', '#10b981');
+    }
+    gmailLoadStatus();
+  } catch (_) {
+    showToast('Sync failed. Try again.', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  }
+}
+
+// Run the Haiku extractor over queued (pending_parse) emails. Processes a
+// capped batch per click; click again to work through a large backlog.
+async function gmailParseNow(btn) {
+  const original = btn ? btn.innerHTML : '';
+  try {
+    if (btn) { btn.disabled = true; btn.innerHTML = 'Parsing…'; }
+    const { data, error } = await sb.functions.invoke('parse-email', { body: {} });
+    if (error) { showToast('Parse failed. Try again.', '#dc2626'); return; }
+    if (data && data.error === 'anthropic_not_configured') {
+      showToast('AI parsing isn’t configured yet — contact your admin.', '#dc2626');
+      return;
+    }
+    // After extraction, match the new events against existing policies.
+    let match = null;
+    try {
+      const r = await sb.functions.invoke('match-events', { body: {} });
+      match = r && r.data && r.data.ok ? r.data : null;
+    } catch (_) { /* matching is best-effort; parse already succeeded */ }
+
+    if (data && data.ok) {
+      if (data.note === 'nothing pending' && !(match && (match.matched || match.ambiguous_match || match.no_policy_match))) {
+        showToast('Nothing queued to parse — hit “Sync now” first.', '#10b981');
+      } else {
+        const bits = [];
+        if (data.parsed) bits.push(`${data.parsed} parsed (${data.events} event${data.events === 1 ? '' : 's'})`);
+        if (match && match.matched) bits.push(`${match.matched} auto-matched`);
+        const needsReview = (match ? (match.ambiguous_match + match.no_policy_match + match.low_confidence) : 0) + (data.review || 0);
+        if (needsReview) bits.push(`${needsReview} to review`);
+        if (data.failed) bits.push(`${data.failed} failed`);
+        if (data.skippedCap) bits.push(`${data.skippedCap} deferred (budget)`);
+        showToast(bits.length ? `Parsed — ${bits.join(', ')}.` : 'Nothing new to parse.', '#10b981');
+      }
+    } else {
+      showToast('Parse complete.', '#10b981');
+    }
+    gmailLoadStatus();
+  } catch (_) {
+    showToast('Parse failed. Try again.', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  }
+}
+
+// Handle the return trip from Google (app.html?gmail=connected|error).
+function _gmailHandleReturn() {
+  const p = new URLSearchParams(location.search);
+  const g = p.get('gmail');
+  if (!g) return;
+  if (g === 'connected') {
+    showToast('Gmail connected — carrier emails will start syncing.', '#10b981');
+  } else {
+    const reason = p.get('reason') || '';
+    const nice = {
+      access_denied: 'Gmail connection was cancelled.',
+      no_refresh_token: 'Google didn’t return a refresh token — try again and choose “Allow”.',
+      expired_state: 'The connection link expired — please try again.',
+      wrong_scope: 'Wrong permissions were granted — please try again.',
+      token_exchange_failed: 'Google rejected the sign-in — please try again.',
+    }[reason] || 'Gmail connection failed. Please try again.';
+    showToast(nice, '#dc2626');
+  }
+  p.delete('gmail'); p.delete('reason');
+  const qs = p.toString();
+  history.replaceState({}, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  gmailLoadStatus();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _gmailHandleReturn);
+} else {
+  _gmailHandleReturn();
+}
+
 async function gcalFetchEvents() {
   if (!gcalToken) return;
   const now = new Date();
@@ -15244,10 +15767,223 @@ function gcalRenderList() {
 // ============================================================
 // NAVIGATION — main section switcher
 // ============================================================
+// ============================================================
+// CARRIER MAIL — display surface for the Gmail parsing pipeline
+// Reads portal_nudges / parsed_events / review_queue directly via RLS.
+// ============================================================
+const CM_CARRIER = { transamerica:'Transamerica', mutual_of_omaha:'Mutual of Omaha', americo:'Americo', american_amicable:'American-Amicable', corebridge:'Corebridge', ethos:'Ethos' };
+const CM_EVENT = { submitted:'Submitted', approved:'Approved', declined:'Declined', withdrawn:'Withdrawn', requirement:'Requirement', payment_scheduled:'Payment scheduled', payment_returned:'Payment returned', lapse_pending:'Lapse pending', policy_active:'Policy active', closed:'Closed', commission_snapshot:'Commission snapshot', commission_change:'Commission change', debt_notice:'Debt notice', other:'Update' };
+const CM_COMMISSION_TYPES = new Set(['commission_snapshot','commission_change','debt_notice']);
+const CM_URGENT = new Set(['payment_returned','lapse_pending','requirement','declined','withdrawn']);
+let cmUrgent = [];
+let cmAccountEmail = '';
+
+function cmDate(d){ if(!d) return ''; try { return new Date(d).toLocaleDateString(); } catch(_) { return ''; } }
+
+async function cmEnsureAccountEmail(){
+  if (cmAccountEmail) return;
+  try {
+    const { data } = await sb.from('gmail_accounts').select('email_address').order('connected_at', { ascending: false }).limit(1).maybeSingle();
+    if (data && data.email_address) cmAccountEmail = data.email_address;
+  } catch (_) { /* deep-links fall back to the default account */ }
+}
+
+// Deep link that opens the original message in Gmail (uses the connected
+// account so it works even when it isn't the browser's default Google login).
+function cmGmailUrl(id){
+  if (!id) return '#';
+  return cmAccountEmail
+    ? ('https://mail.google.com/mail/?authuser=' + encodeURIComponent(cmAccountEmail) + '#all/' + id)
+    : ('https://mail.google.com/mail/u/0/#all/' + id);
+}
+
+function cmEmailStatus(e){
+  if (e.done_at) return { label:'Done', color:'var(--text3)' };
+  if (e.route === 'nudge') return { label:'Login required', color:'#f59e0b' };
+  if (e.parse_status === 'failed') return { label:'Parse failed', color:'#dc2626' };
+  if (e.parse_status === 'pending_parse') return { label:'Queued', color:'var(--text3)' };
+  const pes = e.parsed_events || [];
+  if (pes.some(p => p.matched_policy_id)) return { label:'Linked', color:'#10b981' };
+  if (e.parse_status === 'review' || pes.some(p => !CM_COMMISSION_TYPES.has(p.event_type) && !p.matched_policy_id)) return { label:'Needs review', color:'#f59e0b' };
+  if (pes.length && pes.every(p => CM_COMMISSION_TYPES.has(p.event_type))) return { label:'Commission', color:'#5ba0e8' };
+  return { label:'Parsed', color:'var(--text2)' };
+}
+
+function cmIsUrgentEmail(e){
+  if (e.done_at) return false;
+  if (e.route === 'nudge') return true;
+  const pes = e.parsed_events || [];
+  if (pes.some(p => CM_URGENT.has(p.event_type))) return true;
+  return e.parse_status === 'review';
+}
+
+async function renderCarrierMail() {
+  const body = document.getElementById('cm-body');
+  if (!body) return;
+  body.innerHTML = '<div class="text-m" style="color:var(--text3);padding:24px 4px">Loading carrier mail…</div>';
+
+  let emails = [], nudges = [];
+  try {
+    await cmEnsureAccountEmail();
+    const [em, nud] = await Promise.all([
+      sb.from('email_ingest_log')
+        .select('id,gmail_message_id,carrier,email_type,route,subject,received_at,parse_status,done_at,parsed_events(id,event_type,client_name,policy_number_raw,amounts,event_date,details,matched_policy_id)')
+        .is('deleted_at', null)
+        .order('received_at', { ascending: false })
+        .limit(200),
+      sb.from('portal_nudges').select('id,carrier,subject,client_hint,received_at').is('dismissed_at', null).order('received_at', { ascending: false }),
+    ]);
+    emails = em.data || []; nudges = nud.data || [];
+  } catch (err) {
+    body.innerHTML = '<div class="alert alert-w"><span data-ico="warning"></span><div>Could not load carrier mail. ' + escHTML(String(err && err.message || err)) + '</div></div>';
+    mountIcons(body); return;
+  }
+
+  if (!emails.length && !nudges.length) {
+    body.innerHTML = '<div class="card"><div class="alert alert-i" style="margin:0"><span data-ico="info"></span><div>No carrier mail yet. Connect Gmail in <a href="#" onclick="nav(\'settings\');return false" style="color:var(--text-g);text-decoration:underline">Settings → Integrations</a>, then hit “Sync &amp; parse” above.</div></div></div>';
+    mountIcons(body); return;
+  }
+
+  // Latest commission snapshot per carrier (across all emails).
+  const commissionByCarrier = new Map();
+  for (const e of emails) {
+    for (const p of (e.parsed_events || [])) {
+      if (CM_COMMISSION_TYPES.has(p.event_type) && !commissionByCarrier.has(e.carrier)) commissionByCarrier.set(e.carrier, p);
+    }
+  }
+
+  let html = '';
+
+  if (nudges.length) {
+    html += '<div class="card"><div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="key" data-size="14"></span>Needs your login (' + nudges.length + ')</div>';
+    for (const z of nudges) {
+      const carrier = CM_CARRIER[z.carrier] || z.carrier;
+      const who = z.client_hint ? (' (re: ' + escHTML(z.client_hint) + ')') : '';
+      html += '<div class="alert alert-i" style="margin-bottom:10px;align-items:flex-start"><span data-ico="info"></span><div style="flex:1">You received an email from <strong>' + escHTML(carrier) + '</strong>' + who + ' that needs your login to view the details.<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + escHTML(z.subject || '') + (z.received_at ? (' · ' + cmDate(z.received_at)) : '') + '</div></div><button class="btn btn-s btn-sm" style="margin-left:8px" onclick="cmDismissNudge(\'' + z.id + '\',this)">Dismiss</button></div>';
+    }
+    html += '</div>';
+  }
+
+  if (commissionByCarrier.size) {
+    html += '<div class="card" style="margin-top:16px"><div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="currency-dollar" data-size="14"></span>Commission</div>';
+    for (const [carrier, p] of commissionByCarrier) {
+      const a = p.amounts || {}; const bits = [];
+      if (a.commission_balance != null) bits.push('Balance ' + fmt$(Number(a.commission_balance)));
+      if (a.amount != null) bits.push('Amount ' + fmt$(Number(a.amount)));
+      const ct = a.counts || {};
+      if (ct.pending_apps != null) bits.push(ct.pending_apps + ' pending');
+      if (ct.issued_not_paid != null) bits.push(ct.issued_not_paid + ' issued-not-paid');
+      if (ct.lapse_pending != null) bits.push(ct.lapse_pending + ' lapse-pending');
+      html += '<div style="padding:8px 0;border-bottom:1px solid var(--border)"><div style="font-weight:600;font-size:13px">' + escHTML(CM_CARRIER[carrier] || carrier) + '</div><div style="font-size:12px;color:var(--text2);margin-top:2px">' + escHTML((p.details && p.details.summary) || '') + '</div>' + (bits.length ? ('<div style="font-size:11.5px;color:var(--text3);margin-top:3px">' + bits.map(escHTML).join(' · ') + '</div>') : '') + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // Chronological timeline — every carrier email, scrollable, each opens in Gmail.
+  html += '<div class="card" style="margin-top:16px"><div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="clipboard-text" data-size="14"></span>All carrier mail (' + emails.length + ')</div><div style="max-height:62vh;overflow-y:auto;margin-top:4px">';
+  for (const e of emails) {
+    const done = !!e.done_at;
+    const st = cmEmailStatus(e);
+    const carrier = CM_CARRIER[e.carrier] || e.carrier;
+    const pes = e.parsed_events || [];
+    const client = (pes.find(p => p.client_name) || {}).client_name || '';
+    const summaries = pes.map(p => p.details && p.details.summary).filter(Boolean);
+    const nums = pes.map(p => p.policy_number_raw).filter(Boolean);
+    const detail = summaries.length ? summaries.join(' · ') : (e.subject || '');
+    const url = cmGmailUrl(e.gmail_message_id);
+    const chip = '<span style="background:var(--bg3);color:' + st.color + ';font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap">' + escHTML(st.label) + '</span>';
+    html += '<div style="padding:11px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--bg2)' + (done ? ';opacity:.55' : '') + '">'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong style="font-size:13px' + (done ? ';text-decoration:line-through' : '') + '">' + escHTML(client || carrier) + '</strong>' + chip + '<span style="font-size:11px;color:var(--text3);margin-left:auto;white-space:nowrap">' + escHTML(carrier) + ' · ' + cmDate(e.received_at) + '</span></div>'
+      + '<div style="font-size:12px;color:var(--text2);margin-top:4px">' + escHTML(detail) + '</div>'
+      + (nums.length ? ('<div style="font-size:11px;color:var(--text3);margin-top:2px">#' + nums.map(escHTML).join(', #') + '</div>') : '')
+      + '<div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">'
+      + '<a href="' + url + '" target="_blank" rel="noopener" class="btn btn-s btn-sm" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="arrow-square-out" data-size="12"></span>Open email</a>'
+      + '<button class="btn btn-s btn-sm" onclick="cmToggleDone(\'' + e.id + '\',' + done + ')" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="' + (done ? 'arrow-clockwise' : 'check') + '" data-size="12"></span>' + (done ? 'Undo' : 'Done') + '</button>'
+      + '<button class="btn btn-s btn-sm" title="Remove from dashboard" onclick="cmDeleteEmail(\'' + e.id + '\')" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="trash" data-size="12"></span></button>'
+      + '</div></div>';
+  }
+  html += '</div></div>';
+
+  body.innerHTML = html;
+  mountIcons(body);
+}
+
+async function cmToggleDone(id, isDone) {
+  try {
+    const { error } = await sb.from('email_ingest_log').update({ done_at: isDone ? null : new Date().toISOString() }).eq('id', id);
+    if (error) { showToast('Could not update.', '#dc2626'); return; }
+    renderCarrierMail(); cmRefreshUrgent();
+  } catch (_) { showToast('Could not update.', '#dc2626'); }
+}
+
+async function cmDeleteEmail(id) {
+  if (!confirm('Remove this email from your dashboard? It stays in your Gmail inbox.')) return;
+  try {
+    const { error } = await sb.from('email_ingest_log').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+    if (error) { showToast('Could not remove.', '#dc2626'); return; }
+    renderCarrierMail(); cmRefreshUrgent();
+  } catch (_) { showToast('Could not remove.', '#dc2626'); }
+}
+
+async function cmDismissNudge(id, btn) {
+  if (btn) btn.disabled = true;
+  try {
+    const { error } = await sb.from('portal_nudges').update({ dismissed_at: new Date().toISOString() }).eq('id', id);
+    if (error) { showToast('Could not dismiss.', '#dc2626'); if (btn) btn.disabled = false; return; }
+    renderCarrierMail(); cmRefreshUrgent();
+  } catch (_) {
+    showToast('Could not dismiss.', '#dc2626'); if (btn) btn.disabled = false;
+  }
+}
+
+// Fetch the not-done, non-deleted urgent items (returned payments, lapse-pending,
+// requirements, declines, login nudges, review items) for the Summary hub.
+async function cmRefreshUrgent() {
+  try {
+    await cmEnsureAccountEmail();
+    const { data } = await sb.from('email_ingest_log')
+      .select('id,gmail_message_id,carrier,route,subject,parse_status,done_at,parsed_events(event_type,client_name,details)')
+      .is('deleted_at', null).is('done_at', null)
+      .order('received_at', { ascending: false }).limit(100);
+    const rows = data || [];
+    cmUrgent = rows.filter(cmIsUrgentEmail).map(e => {
+      const pes = e.parsed_events || [];
+      const up = pes.find(p => CM_URGENT.has(p.event_type));
+      const client = (pes.find(p => p.client_name) || {}).client_name || '';
+      const carrier = CM_CARRIER[e.carrier] || e.carrier;
+      const sumObj = pes.find(p => p.details && p.details.summary);
+      let headline;
+      if (e.route === 'nudge') headline = carrier + ' — log in to view details';
+      else if (up) headline = carrier + ': ' + (CM_EVENT[up.event_type] || up.event_type) + (client ? (' — ' + client) : '');
+      else headline = carrier + ': needs review' + (client ? (' — ' + client) : '');
+      return { id: e.id, url: cmGmailUrl(e.gmail_message_id), headline, sub: (sumObj && sumObj.details.summary) || e.subject || '' };
+    }).slice(0, 8);
+  } catch (_) { cmUrgent = []; }
+  if (typeof renderActionHub === 'function') renderActionHub();
+}
+
+// One button: run the whole pipeline (sync → parse → match) then re-render.
+async function cmSyncParse(btn) {
+  const o = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Working…'; }
+  try {
+    await sb.functions.invoke('gmail-sync', { body: { full_scan_days: 30 } });
+    await sb.functions.invoke('parse-email', { body: {} });
+    await sb.functions.invoke('match-events', { body: {} });
+    showToast('Carrier mail refreshed.', '#10b981');
+  } catch (_) {
+    showToast('Refresh failed — try again.', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = o; }
+    renderCarrierMail(); cmRefreshUrgent();
+  }
+}
+
 const NAV_TITLES = {
   summary:'Summary',
   'api-quoter':'Quote + Underwriting',
   tracker:'Policy Tracker',
+  carriermail:'Carrier Mail',
   bonuses:'Bonus Tracker',
   leads:'Leads',
   calendar:'Calendar',
@@ -15303,7 +16039,7 @@ function nav(id) {
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
   // Highlight active nav item
   const items = document.querySelectorAll('.nav-item');
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, webdialer:7, agency:8, settings:9 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:10 };
   if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
@@ -15318,6 +16054,7 @@ function nav(id) {
   if (id === 'bonuses') updateBonusFromTracker();
   if (id === 'leads')   renderLeads();
   if (id === 'tracker') { populateTrackerCarrierFilter(); const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
+  if (id === 'carriermail') renderCarrierMail();
   if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
   if (id === 'phonebook') renderPhoneBook();
   if (id === 'webdialer') webDialer.render();
@@ -15973,6 +16710,7 @@ function settingsTab(id, el) {
 }
 
 function renderIntegrationsPanels() {
+  gmailLoadStatus();
   const connected = !!gcalToken;
   const dEl = document.getElementById('stg-int-google-disconnected');
   const cEl = document.getElementById('stg-int-google-connected');
@@ -16148,6 +16886,7 @@ let _pbCallFilter     = 'all';
 let _pbRealtimeCh     = null;
 let _pbBuyResults     = [];
 let _pbSelectedPlanId = null;
+let _pbWallet         = null;   // wallet_accounts row for this agent ({ balance_mills })
 
 // Returns true if the signed-in user is the developer account.
 // Developer accounts bypass Stripe for plans and numbers.
@@ -16246,9 +16985,9 @@ async function renderPhoneBook() {
   // month-since-the-1st; quotes are trailing-30-days. Keep both.
   const quoteWindowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  // 7 parallel reads. None of them depends on another; failures
+  // 8 parallel reads. None of them depends on another; failures
   // are caught individually so one error doesn't blank the tab.
-  const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes, billingConfigRes] = await Promise.all([
+  const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes, billingConfigRes, walletRes] = await Promise.all([
     sb.from('agents')
       .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id, is_admin, stripe_subscription_id')
       .eq('id', currentAgent.id).maybeSingle(),
@@ -16274,8 +17013,12 @@ async function renderPhoneBook() {
       .eq('agent_id', currentAgent.id)
       .gte('created_at', quoteWindowStart.toISOString()),
     sb.from('billing_config')
-      .select('number_rate_cents, minute_rate_cents, stripe_numbers_price_id, stripe_minutes_price_id')
+      .select('number_rate_cents, minute_rate_cents, stripe_numbers_price_id, stripe_minutes_price_id, call_minute_mills, number_local_mills, number_tollfree_mills, topup_presets_mills')
       .eq('id', 1)
+      .maybeSingle(),
+    sb.from('wallet_accounts')
+      .select('balance_mills')
+      .eq('agent_id', currentAgent.id)
       .maybeSingle(),
   ]);
 
@@ -16286,11 +17029,13 @@ async function renderPhoneBook() {
   if (monthCallsRes.error)    console.warn('[phonebook] minute usage fetch failed', monthCallsRes.error);
   if (quoteUsageRes.error)    console.warn('[phonebook] quote usage fetch failed', quoteUsageRes.error);
   if (billingConfigRes.error) console.warn('[phonebook] billing config fetch failed', billingConfigRes.error);
+  if (walletRes.error)        console.warn('[phonebook] wallet fetch failed', walletRes.error);
 
   _pbAgent          = agentRes.data || {};
   _pbPlans          = (plansRes.data || []).filter(p => p.name !== 'Starter' && p.name !== 'Scale');
   _pbNumbers        = numbersRes.data || [];
   _pbNumbersError   = numbersRes.error || null;
+  _pbWallet         = walletRes.data || { balance_mills: 0 };
   _pbCalls          = callsRes.data || [];
   _pbBillingConfig  = billingConfigRes.data || { number_rate_cents: 300, minute_rate_cents: 2 };
 
@@ -16304,6 +17049,7 @@ async function renderPhoneBook() {
   pbRenderNumbersList(_pbNumbers);
   pbRenderCalls();
   pbRenderBillingCard(usedMin);
+  pbRenderWalletCard();
 
   // Subscribe to live call updates so a dial from the Leads tab
   // shows up here within ~1s. Tear down any previous channel first
@@ -16618,11 +17364,67 @@ document.addEventListener('click', (e) => {
   pbRenderCalls();
 });
 
+// ── Wallet Balance card ────────────────────────────────────────
+// Balance is a real dollar amount (mills / 1000), never an abstract
+// "credits" figure — billing transparency principle #1.
+function pbRenderWalletCard() {
+  const balMills = (_pbWallet && _pbWallet.balance_mills) || 0;
+  const balEl  = document.getElementById('pb-wallet-balance');
+  if (balEl) balEl.textContent = '$' + (balMills / 1000).toFixed(2);
+
+  const zeroNote = document.getElementById('pb-wallet-zero-note');
+  if (zeroNote) zeroNote.style.display = balMills <= 0 ? '' : 'none';
+}
+
+// ── Low balance nudge ──────────────────────────────────────────
+// In-memory only (no localStorage/sessionStorage) — dismissing hides it
+// for the rest of THIS load, but it reappears on the next full page
+// load/refresh as long as the balance is still under threshold. The
+// server RPCs are the real spend gate; this is purely an awareness layer.
+let _lowBalanceDismissed = false;
+
+async function pbCheckLowBalanceNudge() {
+  if (!currentAgent || !currentAgent.id || _lowBalanceDismissed) return;
+  try {
+    const [{ data: wallet }, { data: cfg }] = await Promise.all([
+      sb.from('wallet_accounts').select('balance_mills').eq('agent_id', currentAgent.id).maybeSingle(),
+      sb.from('billing_config').select('low_balance_threshold_mills').eq('id', 1).maybeSingle(),
+    ]);
+    const balMills       = (wallet && wallet.balance_mills) || 0;
+    const thresholdMills = (cfg && cfg.low_balance_threshold_mills) || 5000;
+    if (balMills < thresholdMills) showLowBalanceModal(balMills);
+  } catch (e) {
+    console.warn('[wallet] low balance nudge check failed', e);
+  }
+}
+
+function showLowBalanceModal(balMills) {
+  const m = document.getElementById('lowBalanceModal');
+  if (!m) return;
+  const amtEl = document.getElementById('lowbal-amount');
+  if (amtEl) amtEl.textContent = '$' + (balMills / 1000).toFixed(2);
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+}
+function dismissLowBalanceModal() {
+  _lowBalanceDismissed = true;
+  const m = document.getElementById('lowBalanceModal');
+  if (m) m.classList.remove('open');
+}
+function lowBalanceTopUpNow() {
+  dismissLowBalanceModal();
+  nav('phonebook');
+  setTimeout(() => { if (typeof pbOpenAddFundsModal === 'function') pbOpenAddFundsModal(); }, 150);
+}
+
 // ── Billing Rates card ───────────────────────────────────────
 function pbRenderBillingCard(usedMinThisMonth) {
-  const cfg = _pbBillingConfig || { number_rate_cents: 300, minute_rate_cents: 2 };
-  const numRateCents = cfg.number_rate_cents || 300;
-  const minRateCents = cfg.minute_rate_cents || 2;
+  const cfg = _pbBillingConfig || { number_local_mills: 3000, call_minute_mills: 10 };
+  // Mills are the source of truth for what's actually charged (wallet_debit
+  // reads these same columns) — cents columns (number_rate_cents/minute_rate_cents)
+  // are the old Stripe-era config and are no longer what's billed.
+  const numRateCents = (cfg.number_local_mills != null ? cfg.number_local_mills : 3000) / 10;
+  const minRateCents = (cfg.call_minute_mills != null ? cfg.call_minute_mills : 10) / 10;
 
   const numRateEl = document.getElementById('pb-rate-number');
   const minRateEl = document.getElementById('pb-rate-minute');
@@ -16649,59 +17451,81 @@ function pbRenderBillingCard(usedMinThisMonth) {
         ' + ' + usedMinThisMonth + ' min)';
     }
   }
-
-  // Admin-only billing config card
-  const isAdmin = _pbAgent && _pbAgent.is_admin;
-  const configCard = document.getElementById('pb-card-billing-config');
-  if (configCard) configCard.style.display = isAdmin ? '' : 'none';
-
-  if (isAdmin) {
-    const numRateInput  = document.getElementById('pb-cfg-number-rate');
-    const minRateInput  = document.getElementById('pb-cfg-minute-rate');
-    const numsPriceInput = document.getElementById('pb-cfg-numbers-price');
-    const minsPriceInput = document.getElementById('pb-cfg-minutes-price');
-    if (numRateInput  && !numRateInput.value)  numRateInput.value  = String(numRateCents);
-    if (minRateInput  && !minRateInput.value)  minRateInput.value  = String(minRateCents);
-    if (numsPriceInput && !numsPriceInput.value) numsPriceInput.value = cfg.stripe_numbers_price_id || '';
-    if (minsPriceInput && !minsPriceInput.value) minsPriceInput.value = cfg.stripe_minutes_price_id || '';
-  }
 }
 
-async function pbSaveBillingConfig() {
-  const msg = document.getElementById('pb-cfg-msg');
-  const btn = document.querySelector('[onclick="pbSaveBillingConfig()"]');
-  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Saving…'; }
-  if (btn) btn.disabled = true;
+// ── Add Funds modal ─────────────────────────────────────────
+// Presets come from billing_config.topup_presets_mills (single source of
+// truth shared with stripe-create-checkout's server-side validation) —
+// never hardcoded dollar amounts.
+function pbOpenAddFundsModal() {
+  const m = document.getElementById('pbAddFundsModal');
+  if (!m) return;
+  const grid   = document.getElementById('pb-addfunds-grid');
+  const status = document.getElementById('pb-addfunds-status');
+  if (status) status.textContent = '';
+
+  const presets = (_pbBillingConfig && Array.isArray(_pbBillingConfig.topup_presets_mills))
+    ? _pbBillingConfig.topup_presets_mills
+    : [5000, 10000, 25000, 50000, 100000];
+
+  if (grid) {
+    grid.innerHTML = presets.map(mills => `
+      <button type="button" class="pb-addfunds-opt" data-mills="${mills}">$${(mills / 1000).toFixed(0)}</button>
+    `).join('');
+    grid.querySelectorAll('.pb-addfunds-opt').forEach(btn => {
+      btn.addEventListener('click', () => pbConfirmAddFunds(parseInt(btn.dataset.mills, 10), btn));
+    });
+  }
+
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+}
+function pbCloseAddFundsModal() {
+  const m = document.getElementById('pbAddFundsModal');
+  if (m) m.classList.remove('open');
+}
+
+async function pbConfirmAddFunds(amountMills, btn) {
+  const status = document.getElementById('pb-addfunds-status');
+  const grid   = document.getElementById('pb-addfunds-grid');
+  if (grid) grid.querySelectorAll('.pb-addfunds-opt').forEach(b => b.disabled = true);
+  if (status) status.textContent = 'Starting checkout…';
 
   try {
-    const body = {};
-    const numRate  = parseInt(document.getElementById('pb-cfg-number-rate')?.value || '', 10);
-    const minRate  = parseInt(document.getElementById('pb-cfg-minute-rate')?.value || '', 10);
-    const numsPrice = (document.getElementById('pb-cfg-numbers-price')?.value || '').trim();
-    const minsPrice = (document.getElementById('pb-cfg-minutes-price')?.value || '').trim();
-
-    if (!isNaN(numRate)  && numRate > 0)  body.number_rate_cents = numRate;
-    if (!isNaN(minRate)  && minRate > 0)  body.minute_rate_cents = minRate;
-    body.stripe_numbers_price_id = numsPrice;
-    body.stripe_minutes_price_id = minsPrice;
-
-    const { data, error } = await sb.functions.invoke('stripe-billing-config', {
-      method: 'PUT',
-      body,
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Not signed in');
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ mode: 'topup', amount_mills: amountMills }),
     });
-    if (error) {
-      let detail = error.message;
-      try { const b = error.context && await error.context.json(); if (b?.error) detail = b.error; } catch(_){}
-      throw new Error(detail);
+    const result = await resp.json();
+
+    if (result.url) {
+      const popup = window.open(result.url, 'stripe_topup_checkout', 'width=620,height=820,scrollbars=yes,resizable=yes');
+      pbCloseAddFundsModal();
+      if (!popup) {
+        window.location.href = result.url;
+      } else {
+        const checkClosed = setInterval(() => {
+          if (popup.closed) { clearInterval(checkClosed); renderPhoneBook(); }
+        }, 1000);
+      }
+      return;
     }
-    if (data?.config) _pbBillingConfig = data.config;
-    pbRenderBillingCard(0); // re-render rates display
-    if (msg) { msg.style.color = '#10b981'; msg.textContent = 'Saved successfully.'; }
-    setTimeout(() => { if (msg) msg.textContent = ''; }, 3000);
-  } catch(e) {
-    if (msg) { msg.style.color = '#dc2626'; msg.textContent = 'Save failed: ' + (e.message || e); }
+
+    throw new Error(result.error || 'Could not start checkout');
+  } catch (e) {
+    console.warn('[wallet] add funds failed', e);
+    // "Failed to fetch" is a network-level failure — the request never
+    // reached the checkout function (CORS rejection, ad-blocker, or no
+    // connection). Show something actionable instead of the raw TypeError.
+    const msg = (e && /failed to fetch/i.test(e.message || ''))
+      ? "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com."
+      : (e.message || e);
+    if (status) status.textContent = `Failed: ${msg}`;
   } finally {
-    if (btn) btn.disabled = false;
+    if (grid) grid.querySelectorAll('.pb-addfunds-opt').forEach(b => b.disabled = false);
   }
 }
 
@@ -16721,10 +17545,10 @@ function pbOpenBuyModal() {
   if (status) status.style.display = 'none';
   if (wrap) wrap.style.display = 'none';
   if (desc) {
-    const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
+    const numRateMills = (_pbBillingConfig && _pbBillingConfig.number_local_mills) || 3000;
     desc.innerHTML = _isDev()
-      ? 'Search US Local numbers by 3-digit area code. <strong style="color:#10b981">Developer account — numbers are purchased for free with no Stripe charge.</strong>'
-      : `Search US Local numbers by 3-digit area code. Each number is billed at <strong id="pb-buy-modal-rate">$${(numRateCents/100).toFixed(2)}/month</strong> and added to your monthly Stripe charge immediately.`;
+      ? 'Search US Local numbers by 3-digit area code. <strong style="color:#10b981">Developer account — numbers are acquired for free with no wallet charge.</strong>'
+      : `Search US Local numbers by 3-digit area code. Each number debits <strong id="pb-buy-modal-rate">$${(numRateMills/1000).toFixed(2)}/30 days</strong> from your wallet balance immediately.`;
   }
   m.classList.add('open');
   if (typeof mountIcons === 'function') mountIcons(m);
@@ -16776,11 +17600,11 @@ async function pbSearchNumbers() {
       wrap.style.display = 'none';
       return;
     }
-    const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
-    const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
+    const numRateMills = (_pbBillingConfig && _pbBillingConfig.number_local_mills) || 3000;
+    const numRateStr = '$' + (numRateMills / 1000).toFixed(2) + '/30 days';
     const hint = _isDev()
       ? 'Developer account — numbers are free.'
-      : `Each number billed at ${numRateStr}.`;
+      : `Each number debits ${numRateStr} from your wallet.`;
     status.textContent = `${list.length} numbers available for ${area}. ${hint}`;
     wrap.style.display = '';
     tbody.innerHTML = list.map((n, i) => {
@@ -16817,82 +17641,25 @@ async function pbSearchNumbers() {
 
 async function pbConfirmBuy(n, btn) {
   const e164 = n.phone_number;
-  const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
-  const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
+  const numRateMills = (_pbBillingConfig && _pbBillingConfig.number_local_mills) || 3000;
+  const numRateStr = '$' + (numRateMills / 1000).toFixed(2) + '/30 days';
 
-  // Non-dev users must have an active Stripe subscription before we allow a
-  // number purchase — otherwise the number gets provisioned on Telnyx but
-  // never billed. Send them through checkout for their current plan first.
-  if (!_isDev() && !_pbAgent?.stripe_subscription_id) {
-    const planId = _pbAgent?.plan_id;
-    if (!planId) {
-      showToast('You need an active subscription to purchase a number. Please choose a plan first.', '#dc2626');
-      pbCloseBuyModal();
-      pbOpenUpgradeModal();
-      return;
-    }
-    const proceed = window.confirm(
-      `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-      `Phone billing isn't set up yet. A Stripe checkout will pop up for $3/mo per number + $0.02/min usage — ` +
-      `your number will be added immediately after payment.\n\nContinue?`
-    );
-    if (!proceed) return;
+  // Numbers are now paid for out of the prepaid wallet, not a Stripe
+  // subscription. Mirror the server's balance check client-side so the
+  // agent gets a clear "add funds" prompt instead of a confusing 402 —
+  // the wallet_debit RPC inside telnyx-buy-number is the real enforcement.
+  const balMills = (_pbWallet && _pbWallet.balance_mills) || 0;
+  if (!_isDev() && balMills < numRateMills) {
+    showToast(`Add funds to buy a number — this costs ${numRateStr}, your balance is $${(balMills / 1000).toFixed(2)}.`, '#dc2626');
     pbCloseBuyModal();
-    const { data: { session } } = await sb.auth.getSession();
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ mode: 'numbers' }),
-    });
-    const result = await resp.json();
-    if (result.url) {
-      // Store pending number in storage (shared with the popup window).
-      try { localStorage.setItem('pp_pending_number_popup', JSON.stringify({ ...n, ts: Date.now() })); } catch(_) {}
-      const popup = window.open(result.url, 'stripe_number_checkout', 'width=620,height=820,scrollbars=yes,resizable=yes');
-      if (!popup) {
-        // Popup blocked — fall back to same-tab redirect.
-        try { sessionStorage.setItem('pp_pending_number', JSON.stringify(n)); } catch(_) {}
-        window.location.href = result.url;
-      } else {
-        const checkClosed = setInterval(() => {
-          if (popup.closed) { clearInterval(checkClosed); renderPhoneBook(); }
-        }, 1000);
-      }
-    } else if (result.already_subscribed) {
-      // Subscription is already set up (stale client data) — skip checkout and buy directly.
-      if (btn) { btn.disabled = true; btn.textContent = 'Buying…'; }
-      try {
-        const { data, error } = await sb.functions.invoke('telnyx-buy-number', {
-          body: { e164, friendly_name: n.friendly_name || null, locality: n.locality || null, region: n.region || null },
-        });
-        if (error) {
-          let detail = error.message || 'Unknown error';
-          try { const b = error.context && await error.context.json(); if (b?.error) detail = b.error; } catch (_) {}
-          throw new Error(detail);
-        }
-        if (!data?.ok) throw new Error((data && data.error) || 'Purchase rejected');
-        showToast(`Acquired ${_pbFmtPhone(e164)}`, '#10b981');
-        if (data.set_as_primary && window.softphone && typeof softphone.resetWebRTC === 'function') softphone.resetWebRTC();
-        await renderPhoneBook();
-      } catch (e) {
-        const rawMsg = e.message || String(e);
-        const friendly = rawMsg.includes('active_subscription_required')
-          ? 'An active subscription is required to purchase a number.'
-          : rawMsg;
-        showToast(`Purchase failed: ${friendly}`, '#dc2626');
-        if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
-      }
-    } else {
-      showToast('Could not start checkout: ' + (result.error || 'unknown error'), '#dc2626');
-    }
+    pbOpenAddFundsModal();
     return;
   }
 
   const msg = _isDev()
     ? `Purchase ${_pbFmtPhone(e164)}?\n\nDeveloper account — this number will be acquired for free.`
     : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-      `It will add ${numRateStr} to your monthly Stripe charge starting today (prorated). ` +
-      `Telnyx's own per-number fee also applies.`;
+      `This debits ${numRateStr} from your wallet balance immediately.`;
   const ok = window.confirm(msg);
   if (!ok) return;
 
@@ -16925,8 +17692,8 @@ async function pbConfirmBuy(n, btn) {
   } catch (e) {
     console.warn('[phonebook] buy failed', e);
     const rawMsg = e.message || String(e);
-    const friendly = rawMsg.includes('active_subscription_required')
-      ? 'An active subscription is required to purchase a number.'
+    const friendly = rawMsg.includes('insufficient_balance')
+      ? 'Insufficient wallet balance. Add funds and try again.'
       : rawMsg;
     showToast(`Purchase failed: ${friendly}`, '#dc2626');
     if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
@@ -17108,8 +17875,8 @@ async function pbConfirmReplace(n, btn) {
   const newE164 = n.phone_number;
   const ok = window.confirm(
     `Replace ${_pbFmtPhone(_pbManageE164)} with ${_pbFmtPhone(newE164)}?\n\n` +
-    `Your old number will be released and the new one activated immediately. ` +
-    `Your monthly charge stays the same. This cannot be undone.`
+    `Your old number will be released immediately. The new number starts billing today ` +
+    `with monthly payments on this date each month. This cannot be undone.`
   );
   if (!ok) return;
 
@@ -17223,7 +17990,13 @@ async function pbApplyPlanChange() {
     await renderPhoneBook();
   } catch (e) {
     console.warn('[phonebook] plan switch failed', e);
-    showToast(`Switch failed: ${e.message || e}`, '#dc2626');
+    // "Failed to fetch" = request blocked before reaching stripe-create-checkout
+    // (CORS rejection, ad-blocker, or no connection); show something actionable
+    // instead of the raw TypeError. See docs/audit-2026-07-09-calling-and-topup.md.
+    const _msg = (e && /failed to fetch/i.test(e.message || ''))
+      ? "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com."
+      : (e.message || e);
+    showToast(`Switch failed: ${_msg}`, '#dc2626');
     if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; }
   }
 }
@@ -19607,10 +20380,21 @@ async function bootDashboard() {
     const _rt = _planTier();
     const _gated = (saved === 'bonuses' && _rt !== 'pro' && _rt !== 'leader') || (saved === 'agency' && _rt !== 'leader');
     if (saved && valid[saved] && saved !== 'summary' && !_gated) nav(saved);
+    // An explicit ?tab= param (e.g. from the low-balance email's "Add
+    // funds" link) always wins over the cached last-active section.
+    const tabParam = new URLSearchParams(location.search).get('tab');
+    if (tabParam && valid[tabParam]) nav(tabParam);
   } catch (e) {}
   if (typeof dsInitPlayground === 'function') dsInitPlayground();
   // Phase 7: wire drag-to-reorder once DOM is settled.
   _wireReorder();
+
+  // Low-balance nudge — runs once per full load, after plan/dashboard
+  // access is confirmed. The server RPCs remain the real spend gate;
+  // this is just the awareness layer.
+  if (currentPlanName || currentAgentIsAdmin) {
+    pbCheckLowBalanceNudge();
+  }
 }
 
 
@@ -19620,7 +20404,7 @@ async function bootDashboard() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, bonuses:3, leads:4, calendar:5, phonebook:6, webdialer:7, agency:8, settings:9 };
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:10 };
   // Skip plan-gated sections — plan can't be verified before auth resolves.
   // bootDashboard() will navigate to the correct section for the user's tier.
   if (!saved || !(saved in idxMap) || saved === 'summary' || saved === 'bonuses' || saved === 'agency') return;

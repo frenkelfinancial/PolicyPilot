@@ -1,3 +1,5 @@
+import { corsHeaders } from "../_shared/cors.ts";
+
 // ============================================================
 // supabase/functions/uw-chat/index.ts
 //
@@ -34,12 +36,6 @@ const MODEL = "deepseek-chat";
 const MAX_TOKENS = 900;
 const MAX_TURNS = 40;
 const MAX_MSG_LEN = 4000;
-
-const CORS = {
-  "Access-Control-Allow-Origin": "https://producerstackcrm.com",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
 
 // Canonical condition vocabulary — must stay in sync with UW_CLASS in app.html
 // and the list in anthropic-parse/index.ts.
@@ -108,14 +104,15 @@ OUTPUT FORMAT — respond with a single JSON object and nothing else:
 The "conditions" array MUST use EXACT names from this allowed list (omit anything not detected; empty array if none):
 ${CONDITIONS.map((c) => `- ${c}`).join("\n")}`;
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS, "Content-Type": "application/json" },
-  });
-}
-
 Deno.serve(async (req) => {
+  const CORS = corsHeaders(req.headers.get("origin"));
+  function json(body: unknown, status = 200) {
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
