@@ -72,6 +72,23 @@ serve(async (req) => {
     }, 400);
   }
 
+  // Universal spend gate: a wallet under the configured minimum can't even
+  // establish a softphone session. This only covers session start — each
+  // individual dial within an already-connected session is separately
+  // gated by wallet-hold-call (see _webrtcDial in app.html).
+  const [{ data: wallet }, { data: billingConfig }] = await Promise.all([
+    sb.from("wallet_accounts").select("balance_mills").eq("agent_id", user.id).maybeSingle(),
+    sb.from("billing_config").select("min_call_start_mills").eq("id", 1).maybeSingle(),
+  ]);
+  const minStartMills = billingConfig?.min_call_start_mills ?? 30;
+  const balanceMills  = wallet?.balance_mills ?? 0;
+  if (balanceMills < minStartMills) {
+    return json({
+      error:  "insufficient_balance",
+      detail: "Insufficient wallet balance — top up to continue.",
+    }, 402);
+  }
+
   return json({
     ok:           true,
     sip_username: SIP_USERNAME,

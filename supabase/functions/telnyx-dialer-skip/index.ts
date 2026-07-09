@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   DialerSession,
   closeCallRowById,
-  reportMinutesToStripe,
+  reportMinutesToWallet,
   dialNextLead,
 } from "../_shared/dialer-next-lead.ts";
 
@@ -38,7 +38,6 @@ serve(async (req) => {
   const ANON_KEY        = Deno.env.get("SUPABASE_ANON_KEY")!;
   const TELNYX_API_KEY  = Deno.env.get("TELNYX_API_KEY");
   const TELNYX_CONN_ID  = Deno.env.get("TELNYX_CONNECTION_ID")!;
-  const STRIPE_KEY      = Deno.env.get("STRIPE_SECRET_KEY");
 
   if (!TELNYX_API_KEY) {
     return json({ error: "telnyx_not_configured", detail: "TELNYX_API_KEY secret is missing." }, 500);
@@ -87,8 +86,8 @@ serve(async (req) => {
 
   // Step 2: Close the current call row for billing.
   const closed = await closeCallRowById(sb, prevCallRowId);
-  if (closed && STRIPE_KEY) {
-    await reportMinutesToStripe(sb, STRIPE_KEY, closed.agentId, closed.durationSec);
+  if (closed) {
+    await reportMinutesToWallet(sb, closed.agentId, closed.durationSec, closed.id, closed.walletHoldId);
   }
 
   // Step 3: Hang up the current lead leg if active.
@@ -146,7 +145,7 @@ serve(async (req) => {
     } catch { /* best effort */ }
   }
 
-  await dialNextLead(sb, telnyxHeaders, TELNYX_CONN_ID, webhookUrl, sessionForDial, STRIPE_KEY);
+  await dialNextLead(sb, telnyxHeaders, TELNYX_CONN_ID, webhookUrl, sessionForDial);
 
   return json({ ok: true });
 });

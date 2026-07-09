@@ -2542,6 +2542,37 @@ body.light #sec-webdialer .wd-call-info{
 body.light .btn-danger{ background:#fef2f2; color:#c53030; border-color:rgba(220,38,38,.28); }
 body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5); }
 
+/* ── Wallet Balance card ──────────────────────────────────────────────── */
+#sec-phonebook .pb-card-wallet{ margin-bottom:18px; }
+#sec-phonebook .pb-wallet-balance-row{
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  margin-top:12px; flex-wrap:wrap;
+}
+#sec-phonebook .pb-wallet-balance{
+  font-size:32px; font-weight:700; color:var(--text);
+  font-variant-numeric:tabular-nums; letter-spacing:-.02em;
+}
+#sec-phonebook .pb-wallet-zero-note{
+  margin-top:12px; padding:10px 12px;
+  border:1px solid rgba(220,38,38,.35); border-radius:8px;
+  background:rgba(220,38,38,.06); font-size:12.5px; color:#dc2626; font-weight:600;
+}
+#sec-phonebook .pb-wallet-note{
+  margin-top:10px; font-size:11.5px; color:var(--text3);
+}
+.pb-addfunds-grid{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:4px;
+}
+@media (max-width:480px){ .pb-addfunds-grid{ grid-template-columns:1fr 1fr; } }
+.pb-addfunds-opt{
+  padding:16px 10px; border:1px solid var(--border); border-radius:10px;
+  background:rgba(255,255,255,.03); text-align:center; cursor:pointer;
+  font-size:18px; font-weight:700; color:var(--text);
+  transition:border-color .15s, background .15s;
+}
+.pb-addfunds-opt:hover{ border-color:var(--accent); background:rgba(59,130,246,.08); }
+.pb-addfunds-opt:disabled{ opacity:.5; cursor:not-allowed; }
+
 /* ── Billing Rates card ───────────────────────────────────────────────── */
 #sec-phonebook .pb-card-billing{ margin-bottom:18px; }
 #sec-phonebook .pb-billing-rate-grid{
@@ -4437,6 +4468,23 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </div>
       </div>
 
+      <!-- Wallet Balance -->
+      <div class="card pb-card-wallet">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px">
+          <span data-ico="credit-card" data-size="13"></span>Wallet Balance
+        </div>
+        <div class="pb-wallet-balance-row">
+          <div class="pb-wallet-balance" id="pb-wallet-balance">$0.00</div>
+          <button class="btn btn-p btn-sm" id="pb-addfunds-btn" onclick="pbOpenAddFundsModal()">
+            <span data-ico="plus" data-size="13" style="margin-right:6px"></span>Add funds
+          </button>
+        </div>
+        <div class="pb-wallet-zero-note" id="pb-wallet-zero-note" style="display:none">
+          Add funds to start calling or buying numbers.
+        </div>
+        <div class="pb-wallet-note">Every debit is itemized down to the unit rate — no mystery deductions. Balance and credits never expire.</div>
+      </div>
+
       <!-- Billing Rates -->
       <div class="card pb-card-billing">
         <div class="card-title" style="display:flex;align-items:center;gap:8px">
@@ -5003,6 +5051,43 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 
   </div><!-- /content -->
 </div><!-- /main -->
+
+<!-- WALLET — LOW BALANCE NUDGE -->
+<div class="overlay" id="lowBalanceModal" onclick="if(event.target===this)dismissLowBalanceModal()">
+  <div class="modal pb-modal" style="max-width:420px">
+    <div class="mhdr">
+      <div class="mtitle">Your balance is too low</div>
+      <button class="mclose" onclick="dismissLowBalanceModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div class="alert alert-w" style="margin-bottom:14px">
+      <span data-ico="warning"></span>
+      <div>Calls, texts, and phone number renewals all draw from your wallet balance. Add funds now to keep them running without interruption.</div>
+    </div>
+    <div style="font-size:14px;color:var(--text2);margin-bottom:16px">Current balance: <strong id="lowbal-amount" style="color:var(--text)">$0.00</strong></div>
+    <div class="flex gap8" style="justify-content:flex-end">
+      <button class="btn btn-s btn-sm" onclick="dismissLowBalanceModal()">Not now</button>
+      <button class="btn btn-p btn-sm" onclick="lowBalanceTopUpNow()">Top up now</button>
+    </div>
+  </div>
+</div>
+
+<!-- WALLET — ADD FUNDS MODAL -->
+<div class="overlay" id="pbAddFundsModal">
+  <div class="modal pb-modal">
+    <div class="mhdr">
+      <div class="mtitle">Add funds</div>
+      <button class="mclose" onclick="pbCloseAddFundsModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div class="alert alert-i" style="margin-bottom:14px">
+      <span data-ico="info"></span>
+      <div>Your balance is a real dollar amount, not abstract credits. It never expires and every debit is itemized.</div>
+    </div>
+    <div class="pb-addfunds-grid" id="pb-addfunds-grid">
+      <div class="pb-empty">Loading…</div>
+    </div>
+    <div id="pb-addfunds-status" style="font-size:12px;min-height:16px;margin-top:10px"></div>
+  </div>
+</div>
 
 <!-- PHONE BOOK — BUY NUMBER MODAL -->
 <div class="overlay" id="pbBuyModal">
@@ -12177,9 +12262,10 @@ const softphone = (() => {
       if (state.callRowId) {
         // telnyx-report-call-minutes closes the row server-side (computing
         // duration from answered_at, same as the Power Dialer flow) and
-        // reports the elapsed minutes to Stripe metered billing — the
+        // reconciles the wallet_hold placed before this call was dialed
+        // (settling the real minutes, refunding any unused portion) — the
         // WebRTC softphone has no Call Control webhook wired to it, so
-        // nothing else ever bills these calls at $0.02/min.
+        // nothing else ever bills or reconciles these calls.
         sb.functions.invoke('telnyx-report-call-minutes', { body: { call_row_id: state.callRowId } })
           .catch((e) => console.warn('[softphone] minute billing report failed', e));
       }
@@ -12339,6 +12425,33 @@ const softphone = (() => {
       console.warn('[softphone] calls row insert failed', e);
     }
 
+    // Universal spend gate: no Telnyx Call Control webhook is wired to the
+    // WebRTC path (see telnyx-report-call-minutes), so this is the only
+    // server-authoritative checkpoint before EACH individual dial — not
+    // just session start. Reserves min_call_start_mills as a hold that
+    // hangup later reconciles via wallet_settle_call.
+    try {
+      const { data: holdRes, error: holdErr } = await sb.functions.invoke('wallet-hold-call', {
+        body: { call_row_id: state.callRowId },
+      });
+      if (holdErr) {
+        let reason = 'insufficient_balance';
+        try {
+          const b = holdErr.context && await holdErr.context.json();
+          if (b && b.error) reason = b.error;
+        } catch (_) {}
+        if (state.callRowId) sb.from('calls').delete().eq('id', state.callRowId).then(() => {});
+        return { ok: false, reason, detail: 'Insufficient wallet balance — top up to continue.' };
+      }
+      state.walletHoldId = holdRes && holdRes.hold_id || null;
+      if (state.walletHoldId && state.callRowId) {
+        sb.from('calls').update({ wallet_hold_id: state.walletHoldId }).eq('id', state.callRowId).then(() => {});
+      }
+    } catch (e) {
+      if (state.callRowId) sb.from('calls').delete().eq('id', state.callRowId).then(() => {});
+      return { ok: false, reason: 'insufficient_balance', detail: (e && e.message) || String(e) };
+    }
+
     try {
       _activeCall = _telnyxClient.newCall({
         destinationNumber: phoneE164,
@@ -12389,6 +12502,7 @@ const softphone = (() => {
     state.durationSec    = 0;
     state.sw_call_sid    = '';
     state.callRowId      = null;
+    state.walletHoldId   = null;
     state.stubMode       = false;
     state.stubReason   = '';
     _render();
@@ -12413,6 +12527,16 @@ const softphone = (() => {
     if (result.reason === 'no_caller_id') {
       showToast('No phone number assigned to your account yet. Buy or assign one in the Phone Book tab.', '#dc2626');
       close();
+      return;
+    }
+    if (result.reason === 'insufficient_balance') {
+      // Must NOT fall through to stub mode — that would let the agent
+      // "complete" a call that was never actually placed. This is the
+      // universal spend gate: a $0/underfunded wallet cannot call.
+      showToast('Insufficient wallet balance — top up to continue.', '#dc2626');
+      close();
+      nav('phonebook');
+      setTimeout(() => { if (typeof pbOpenAddFundsModal === 'function') pbOpenAddFundsModal(); }, 150);
       return;
     }
 
@@ -13613,7 +13737,12 @@ async function startPowerDialerSession() {
   btn.disabled = false; btn.textContent = 'Start Session';
 
   if (r.error) {
-    showToast('Failed to start session: ' + (await _pdInvokeErrorDetail(r.error)), '#dc2626');
+    const detail = await _pdInvokeErrorDetail(r.error);
+    showToast('Failed to start session: ' + detail, '#dc2626');
+    if (String(detail).toLowerCase().includes('insufficient wallet balance')) {
+      nav('phonebook');
+      setTimeout(() => { if (typeof pbOpenAddFundsModal === 'function') pbOpenAddFundsModal(); }, 150);
+    }
     return;
   }
 
@@ -16786,6 +16915,7 @@ let _pbCallFilter     = 'all';
 let _pbRealtimeCh     = null;
 let _pbBuyResults     = [];
 let _pbSelectedPlanId = null;
+let _pbWallet         = null;   // wallet_accounts row for this agent ({ balance_mills })
 
 // Returns true if the signed-in user is the developer account.
 // Developer accounts bypass Stripe for plans and numbers.
@@ -16884,9 +17014,9 @@ async function renderPhoneBook() {
   // month-since-the-1st; quotes are trailing-30-days. Keep both.
   const quoteWindowStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
-  // 7 parallel reads. None of them depends on another; failures
+  // 8 parallel reads. None of them depends on another; failures
   // are caught individually so one error doesn't blank the tab.
-  const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes, billingConfigRes] = await Promise.all([
+  const [agentRes, plansRes, numbersRes, callsRes, monthCallsRes, quoteUsageRes, billingConfigRes, walletRes] = await Promise.all([
     sb.from('agents')
       .select('id, agent_phone, signalwire_caller_id, monthly_minute_limit, monthly_quote_limit, plan_id, is_admin, stripe_subscription_id')
       .eq('id', currentAgent.id).maybeSingle(),
@@ -16912,8 +17042,12 @@ async function renderPhoneBook() {
       .eq('agent_id', currentAgent.id)
       .gte('created_at', quoteWindowStart.toISOString()),
     sb.from('billing_config')
-      .select('number_rate_cents, minute_rate_cents, stripe_numbers_price_id, stripe_minutes_price_id')
+      .select('number_rate_cents, minute_rate_cents, stripe_numbers_price_id, stripe_minutes_price_id, call_minute_mills, number_local_mills, number_tollfree_mills, topup_presets_mills')
       .eq('id', 1)
+      .maybeSingle(),
+    sb.from('wallet_accounts')
+      .select('balance_mills')
+      .eq('agent_id', currentAgent.id)
       .maybeSingle(),
   ]);
 
@@ -16924,11 +17058,13 @@ async function renderPhoneBook() {
   if (monthCallsRes.error)    console.warn('[phonebook] minute usage fetch failed', monthCallsRes.error);
   if (quoteUsageRes.error)    console.warn('[phonebook] quote usage fetch failed', quoteUsageRes.error);
   if (billingConfigRes.error) console.warn('[phonebook] billing config fetch failed', billingConfigRes.error);
+  if (walletRes.error)        console.warn('[phonebook] wallet fetch failed', walletRes.error);
 
   _pbAgent          = agentRes.data || {};
   _pbPlans          = (plansRes.data || []).filter(p => p.name !== 'Starter' && p.name !== 'Scale');
   _pbNumbers        = numbersRes.data || [];
   _pbNumbersError   = numbersRes.error || null;
+  _pbWallet         = walletRes.data || { balance_mills: 0 };
   _pbCalls          = callsRes.data || [];
   _pbBillingConfig  = billingConfigRes.data || { number_rate_cents: 300, minute_rate_cents: 2 };
 
@@ -16942,6 +17078,7 @@ async function renderPhoneBook() {
   pbRenderNumbersList(_pbNumbers);
   pbRenderCalls();
   pbRenderBillingCard(usedMin);
+  pbRenderWalletCard();
 
   // Subscribe to live call updates so a dial from the Leads tab
   // shows up here within ~1s. Tear down any previous channel first
@@ -17256,11 +17393,67 @@ document.addEventListener('click', (e) => {
   pbRenderCalls();
 });
 
+// ── Wallet Balance card ────────────────────────────────────────
+// Balance is a real dollar amount (mills / 1000), never an abstract
+// "credits" figure — billing transparency principle #1.
+function pbRenderWalletCard() {
+  const balMills = (_pbWallet && _pbWallet.balance_mills) || 0;
+  const balEl  = document.getElementById('pb-wallet-balance');
+  if (balEl) balEl.textContent = '$' + (balMills / 1000).toFixed(2);
+
+  const zeroNote = document.getElementById('pb-wallet-zero-note');
+  if (zeroNote) zeroNote.style.display = balMills <= 0 ? '' : 'none';
+}
+
+// ── Low balance nudge ──────────────────────────────────────────
+// In-memory only (no localStorage/sessionStorage) — dismissing hides it
+// for the rest of THIS load, but it reappears on the next full page
+// load/refresh as long as the balance is still under threshold. The
+// server RPCs are the real spend gate; this is purely an awareness layer.
+let _lowBalanceDismissed = false;
+
+async function pbCheckLowBalanceNudge() {
+  if (!currentAgent || !currentAgent.id || _lowBalanceDismissed) return;
+  try {
+    const [{ data: wallet }, { data: cfg }] = await Promise.all([
+      sb.from('wallet_accounts').select('balance_mills').eq('agent_id', currentAgent.id).maybeSingle(),
+      sb.from('billing_config').select('low_balance_threshold_mills').eq('id', 1).maybeSingle(),
+    ]);
+    const balMills       = (wallet && wallet.balance_mills) || 0;
+    const thresholdMills = (cfg && cfg.low_balance_threshold_mills) || 5000;
+    if (balMills < thresholdMills) showLowBalanceModal(balMills);
+  } catch (e) {
+    console.warn('[wallet] low balance nudge check failed', e);
+  }
+}
+
+function showLowBalanceModal(balMills) {
+  const m = document.getElementById('lowBalanceModal');
+  if (!m) return;
+  const amtEl = document.getElementById('lowbal-amount');
+  if (amtEl) amtEl.textContent = '$' + (balMills / 1000).toFixed(2);
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+}
+function dismissLowBalanceModal() {
+  _lowBalanceDismissed = true;
+  const m = document.getElementById('lowBalanceModal');
+  if (m) m.classList.remove('open');
+}
+function lowBalanceTopUpNow() {
+  dismissLowBalanceModal();
+  nav('phonebook');
+  setTimeout(() => { if (typeof pbOpenAddFundsModal === 'function') pbOpenAddFundsModal(); }, 150);
+}
+
 // ── Billing Rates card ───────────────────────────────────────
 function pbRenderBillingCard(usedMinThisMonth) {
-  const cfg = _pbBillingConfig || { number_rate_cents: 300, minute_rate_cents: 2 };
-  const numRateCents = cfg.number_rate_cents || 300;
-  const minRateCents = cfg.minute_rate_cents || 2;
+  const cfg = _pbBillingConfig || { number_local_mills: 3000, call_minute_mills: 10 };
+  // Mills are the source of truth for what's actually charged (wallet_debit
+  // reads these same columns) — cents columns (number_rate_cents/minute_rate_cents)
+  // are the old Stripe-era config and are no longer what's billed.
+  const numRateCents = (cfg.number_local_mills != null ? cfg.number_local_mills : 3000) / 10;
+  const minRateCents = (cfg.call_minute_mills != null ? cfg.call_minute_mills : 10) / 10;
 
   const numRateEl = document.getElementById('pb-rate-number');
   const minRateEl = document.getElementById('pb-rate-minute');
@@ -17343,6 +17536,83 @@ async function pbSaveBillingConfig() {
   }
 }
 
+// ── Add Funds modal ─────────────────────────────────────────
+// Presets come from billing_config.topup_presets_mills (single source of
+// truth shared with stripe-create-checkout's server-side validation) —
+// never hardcoded dollar amounts.
+function pbOpenAddFundsModal() {
+  const m = document.getElementById('pbAddFundsModal');
+  if (!m) return;
+  const grid   = document.getElementById('pb-addfunds-grid');
+  const status = document.getElementById('pb-addfunds-status');
+  if (status) status.textContent = '';
+
+  const presets = (_pbBillingConfig && Array.isArray(_pbBillingConfig.topup_presets_mills))
+    ? _pbBillingConfig.topup_presets_mills
+    : [5000, 10000, 25000, 50000, 100000];
+
+  if (grid) {
+    grid.innerHTML = presets.map(mills => `
+      <button type="button" class="pb-addfunds-opt" data-mills="${mills}">$${(mills / 1000).toFixed(0)}</button>
+    `).join('');
+    grid.querySelectorAll('.pb-addfunds-opt').forEach(btn => {
+      btn.addEventListener('click', () => pbConfirmAddFunds(parseInt(btn.dataset.mills, 10), btn));
+    });
+  }
+
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+}
+function pbCloseAddFundsModal() {
+  const m = document.getElementById('pbAddFundsModal');
+  if (m) m.classList.remove('open');
+}
+
+async function pbConfirmAddFunds(amountMills, btn) {
+  const status = document.getElementById('pb-addfunds-status');
+  const grid   = document.getElementById('pb-addfunds-grid');
+  if (grid) grid.querySelectorAll('.pb-addfunds-opt').forEach(b => b.disabled = true);
+  if (status) status.textContent = 'Starting checkout…';
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) throw new Error('Not signed in');
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ mode: 'topup', amount_mills: amountMills }),
+    });
+    const result = await resp.json();
+
+    if (result.dev) {
+      showToast(`Added $${(amountMills / 1000).toFixed(2)} (developer account)`, '#10b981');
+      pbCloseAddFundsModal();
+      await renderPhoneBook();
+      return;
+    }
+
+    if (result.url) {
+      const popup = window.open(result.url, 'stripe_topup_checkout', 'width=620,height=820,scrollbars=yes,resizable=yes');
+      pbCloseAddFundsModal();
+      if (!popup) {
+        window.location.href = result.url;
+      } else {
+        const checkClosed = setInterval(() => {
+          if (popup.closed) { clearInterval(checkClosed); renderPhoneBook(); }
+        }, 1000);
+      }
+      return;
+    }
+
+    throw new Error(result.error || 'Could not start checkout');
+  } catch (e) {
+    console.warn('[wallet] add funds failed', e);
+    if (status) status.textContent = `Failed: ${e.message || e}`;
+  } finally {
+    if (grid) grid.querySelectorAll('.pb-addfunds-opt').forEach(b => b.disabled = false);
+  }
+}
+
 // ── Buy Number modal ────────────────────────────────────────
 // No plan includes free numbers — every number always adds the
 // per-number add-on charge to the agent's Stripe subscription.
@@ -17359,10 +17629,10 @@ function pbOpenBuyModal() {
   if (status) status.style.display = 'none';
   if (wrap) wrap.style.display = 'none';
   if (desc) {
-    const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
+    const numRateMills = (_pbBillingConfig && _pbBillingConfig.number_local_mills) || 3000;
     desc.innerHTML = _isDev()
-      ? 'Search US Local numbers by 3-digit area code. <strong style="color:#10b981">Developer account — numbers are purchased for free with no Stripe charge.</strong>'
-      : `Search US Local numbers by 3-digit area code. Each number is billed at <strong id="pb-buy-modal-rate">$${(numRateCents/100).toFixed(2)}/month</strong> and added to your monthly Stripe charge immediately.`;
+      ? 'Search US Local numbers by 3-digit area code. <strong style="color:#10b981">Developer account — numbers are acquired for free with no wallet charge.</strong>'
+      : `Search US Local numbers by 3-digit area code. Each number debits <strong id="pb-buy-modal-rate">$${(numRateMills/1000).toFixed(2)}/30 days</strong> from your wallet balance immediately.`;
   }
   m.classList.add('open');
   if (typeof mountIcons === 'function') mountIcons(m);
@@ -17414,11 +17684,11 @@ async function pbSearchNumbers() {
       wrap.style.display = 'none';
       return;
     }
-    const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
-    const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
+    const numRateMills = (_pbBillingConfig && _pbBillingConfig.number_local_mills) || 3000;
+    const numRateStr = '$' + (numRateMills / 1000).toFixed(2) + '/30 days';
     const hint = _isDev()
       ? 'Developer account — numbers are free.'
-      : `Each number billed at ${numRateStr}.`;
+      : `Each number debits ${numRateStr} from your wallet.`;
     status.textContent = `${list.length} numbers available for ${area}. ${hint}`;
     wrap.style.display = '';
     tbody.innerHTML = list.map((n, i) => {
@@ -17455,82 +17725,25 @@ async function pbSearchNumbers() {
 
 async function pbConfirmBuy(n, btn) {
   const e164 = n.phone_number;
-  const numRateCents = (_pbBillingConfig && _pbBillingConfig.number_rate_cents) || 300;
-  const numRateStr = '$' + (numRateCents / 100).toFixed(2) + '/mo';
+  const numRateMills = (_pbBillingConfig && _pbBillingConfig.number_local_mills) || 3000;
+  const numRateStr = '$' + (numRateMills / 1000).toFixed(2) + '/30 days';
 
-  // Non-dev users must have an active Stripe subscription before we allow a
-  // number purchase — otherwise the number gets provisioned on Telnyx but
-  // never billed. Send them through checkout for their current plan first.
-  if (!_isDev() && !_pbAgent?.stripe_subscription_id) {
-    const planId = _pbAgent?.plan_id;
-    if (!planId) {
-      showToast('You need an active subscription to purchase a number. Please choose a plan first.', '#dc2626');
-      pbCloseBuyModal();
-      pbOpenUpgradeModal();
-      return;
-    }
-    const proceed = window.confirm(
-      `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-      `Phone billing isn't set up yet. A Stripe checkout will pop up for $3/mo per number + $0.02/min usage — ` +
-      `your number will be added immediately after payment.\n\nContinue?`
-    );
-    if (!proceed) return;
+  // Numbers are now paid for out of the prepaid wallet, not a Stripe
+  // subscription. Mirror the server's balance check client-side so the
+  // agent gets a clear "add funds" prompt instead of a confusing 402 —
+  // the wallet_debit RPC inside telnyx-buy-number is the real enforcement.
+  const balMills = (_pbWallet && _pbWallet.balance_mills) || 0;
+  if (!_isDev() && balMills < numRateMills) {
+    showToast(`Add funds to buy a number — this costs ${numRateStr}, your balance is $${(balMills / 1000).toFixed(2)}.`, '#dc2626');
     pbCloseBuyModal();
-    const { data: { session } } = await sb.auth.getSession();
-    const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ mode: 'numbers' }),
-    });
-    const result = await resp.json();
-    if (result.url) {
-      // Store pending number in storage (shared with the popup window).
-      try { localStorage.setItem('pp_pending_number_popup', JSON.stringify({ ...n, ts: Date.now() })); } catch(_) {}
-      const popup = window.open(result.url, 'stripe_number_checkout', 'width=620,height=820,scrollbars=yes,resizable=yes');
-      if (!popup) {
-        // Popup blocked — fall back to same-tab redirect.
-        try { sessionStorage.setItem('pp_pending_number', JSON.stringify(n)); } catch(_) {}
-        window.location.href = result.url;
-      } else {
-        const checkClosed = setInterval(() => {
-          if (popup.closed) { clearInterval(checkClosed); renderPhoneBook(); }
-        }, 1000);
-      }
-    } else if (result.already_subscribed) {
-      // Subscription is already set up (stale client data) — skip checkout and buy directly.
-      if (btn) { btn.disabled = true; btn.textContent = 'Buying…'; }
-      try {
-        const { data, error } = await sb.functions.invoke('telnyx-buy-number', {
-          body: { e164, friendly_name: n.friendly_name || null, locality: n.locality || null, region: n.region || null },
-        });
-        if (error) {
-          let detail = error.message || 'Unknown error';
-          try { const b = error.context && await error.context.json(); if (b?.error) detail = b.error; } catch (_) {}
-          throw new Error(detail);
-        }
-        if (!data?.ok) throw new Error((data && data.error) || 'Purchase rejected');
-        showToast(`Acquired ${_pbFmtPhone(e164)}`, '#10b981');
-        if (data.set_as_primary && window.softphone && typeof softphone.resetWebRTC === 'function') softphone.resetWebRTC();
-        await renderPhoneBook();
-      } catch (e) {
-        const rawMsg = e.message || String(e);
-        const friendly = rawMsg.includes('active_subscription_required')
-          ? 'An active subscription is required to purchase a number.'
-          : rawMsg;
-        showToast(`Purchase failed: ${friendly}`, '#dc2626');
-        if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
-      }
-    } else {
-      showToast('Could not start checkout: ' + (result.error || 'unknown error'), '#dc2626');
-    }
+    pbOpenAddFundsModal();
     return;
   }
 
   const msg = _isDev()
     ? `Purchase ${_pbFmtPhone(e164)}?\n\nDeveloper account — this number will be acquired for free.`
     : `Purchase ${_pbFmtPhone(e164)}?\n\n` +
-      `It will add ${numRateStr} to your monthly Stripe charge starting today (prorated). ` +
-      `Telnyx's own per-number fee also applies.`;
+      `This debits ${numRateStr} from your wallet balance immediately.`;
   const ok = window.confirm(msg);
   if (!ok) return;
 
@@ -17563,8 +17776,8 @@ async function pbConfirmBuy(n, btn) {
   } catch (e) {
     console.warn('[phonebook] buy failed', e);
     const rawMsg = e.message || String(e);
-    const friendly = rawMsg.includes('active_subscription_required')
-      ? 'An active subscription is required to purchase a number.'
+    const friendly = rawMsg.includes('insufficient_balance')
+      ? 'Insufficient wallet balance. Add funds and try again.'
       : rawMsg;
     showToast(`Purchase failed: ${friendly}`, '#dc2626');
     if (btn) { btn.disabled = false; btn.textContent = 'Buy'; }
@@ -20245,10 +20458,21 @@ async function bootDashboard() {
     const _rt = _planTier();
     const _gated = (saved === 'bonuses' && _rt !== 'pro' && _rt !== 'leader') || (saved === 'agency' && _rt !== 'leader');
     if (saved && valid[saved] && saved !== 'summary' && !_gated) nav(saved);
+    // An explicit ?tab= param (e.g. from the low-balance email's "Add
+    // funds" link) always wins over the cached last-active section.
+    const tabParam = new URLSearchParams(location.search).get('tab');
+    if (tabParam && valid[tabParam]) nav(tabParam);
   } catch (e) {}
   if (typeof dsInitPlayground === 'function') dsInitPlayground();
   // Phase 7: wire drag-to-reorder once DOM is settled.
   _wireReorder();
+
+  // Low-balance nudge — runs once per full load, after plan/dashboard
+  // access is confirmed. The server RPCs remain the real spend gate;
+  // this is just the awareness layer.
+  if (currentPlanName || currentAgentIsAdmin) {
+    pbCheckLowBalanceNudge();
+  }
 }
 
 

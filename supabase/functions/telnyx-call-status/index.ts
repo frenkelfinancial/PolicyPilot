@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   DialerSession,
   closeCallRowById,
-  reportMinutesToStripe,
+  reportMinutesToWallet,
   speakAndHangup,
   dialNextLead,
 } from "../_shared/dialer-next-lead.ts";
@@ -52,7 +52,6 @@ serve(async (req) => {
   const TELNYX_API_KEY    = Deno.env.get("TELNYX_API_KEY")!;
   const TELNYX_CONN_ID    = Deno.env.get("TELNYX_CONNECTION_ID")!;
   const TELNYX_DIALER_NUM = Deno.env.get("TELNYX_DIALER_NUMBER");
-  const STRIPE_KEY        = Deno.env.get("STRIPE_SECRET_KEY");
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
@@ -285,7 +284,7 @@ serve(async (req) => {
       ...(session as DialerSession),
       conference_id:          conferenceId,
       agent_call_control_id:  callControlId,
-    }, STRIPE_KEY);
+    });
 
   } else if (eventType === "call.hangup") {
     const callRowId = ctx.call_row_id;
@@ -294,7 +293,7 @@ serve(async (req) => {
     const findAndClose = async (filter: Record<string, string>) => {
       const query = Object.entries(filter).reduce(
         (q, [k, v]) => q.eq(k, v),
-        sb.from("calls").select("id, status, answered_at, agent_id")
+        sb.from("calls").select("id, status, answered_at, agent_id, wallet_hold_id")
       );
       const { data: row } = await query.maybeSingle();
       if (!row || row.status === "completed") return null;
@@ -309,18 +308,23 @@ serve(async (req) => {
         duration_sec: durationSec,
       }).eq("id", row.id);
 
-      return { agentId: row.agent_id as string, durationSec };
+      return {
+        id:           row.id as string,
+        agentId:      row.agent_id as string,
+        durationSec,
+        walletHoldId: (row.wallet_hold_id as string | null) ?? null,
+      };
     };
 
-    let closed: { agentId: string; durationSec: number } | null = null;
+    let closed: { id: string; agentId: string; durationSec: number; walletHoldId: string | null } | null = null;
     if (callRowId) {
       closed = await findAndClose({ id: callRowId });
     } else if (callControlId) {
       closed = await findAndClose({ sw_call_sid: callControlId });
     }
 
-    if (closed && STRIPE_KEY) {
-      await reportMinutesToStripe(sb, STRIPE_KEY, closed.agentId, closed.durationSec);
+    if (closed) {
+      await reportMinutesToWallet(sb, closed.agentId, closed.durationSec, closed.id, closed.walletHoldId);
     }
 
     // Power Dialer: handle leg hangups.
@@ -378,8 +382,8 @@ serve(async (req) => {
 
           if (dialerSession.current_call_control_id) {
             const dialerClosed = await closeCallRowById(sb, dialerSession.current_call_row_id);
-            if (dialerClosed && STRIPE_KEY) {
-              await reportMinutesToStripe(sb, STRIPE_KEY, dialerClosed.agentId, dialerClosed.durationSec);
+            if (dialerClosed) {
+              await reportMinutesToWallet(sb, dialerClosed.agentId, dialerClosed.durationSec, dialerClosed.id, dialerClosed.walletHoldId);
             }
             try {
               await fetch(`https://api.telnyx.com/v2/calls/${dialerSession.current_call_control_id}/actions/hangup`, {

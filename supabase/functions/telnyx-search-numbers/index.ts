@@ -29,20 +29,30 @@ serve(async (req) => {
   const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
   if (!TELNYX_API_KEY) return json({ error: "telnyx_not_configured" }, 500);
 
-  let body: { area_code?: string; limit?: number };
+  let body: { area_code?: string; limit?: number; number_type?: string };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
-  const areaCode = (body.area_code || "").replace(/\D/g, "").slice(0, 3);
-  if (!/^\d{3}$/.test(areaCode)) return json({ error: "invalid_area_code" }, 400);
-
+  const numberType = body.number_type === "tollfree" ? "tollfree" : "local";
   const limit = Math.min(body.limit || 20, 20);
 
   const params = new URLSearchParams({
-    "filter[national_destination_code]": areaCode,
-    "filter[phone_number_type]":         "local",
-    "filter[country_code]":              "US",
-    "filter[limit]":                     String(limit),
+    "filter[phone_number_type]": numberType === "tollfree" ? "toll_free" : "local",
+    "filter[country_code]":     "US",
+    "filter[limit]":            String(limit),
   });
+
+  // Local numbers are searched by 3-digit area code. Toll-free numbers
+  // aren't tied to a geographic area code, but Telnyx still accepts the
+  // toll-free prefix (800/888/877/866/855/844/833) as national_destination_code
+  // if the agent wants to narrow their search; otherwise search all toll-free.
+  if (numberType === "local") {
+    const areaCode = (body.area_code || "").replace(/\D/g, "").slice(0, 3);
+    if (!/^\d{3}$/.test(areaCode)) return json({ error: "invalid_area_code" }, 400);
+    params.set("filter[national_destination_code]", areaCode);
+  } else if (body.area_code) {
+    const prefix = (body.area_code || "").replace(/\D/g, "").slice(0, 3);
+    if (/^\d{3}$/.test(prefix)) params.set("filter[national_destination_code]", prefix);
+  }
 
   const res = await fetch(`https://api.telnyx.com/v2/available_phone_numbers?${params}`, {
     headers: { "Authorization": `Bearer ${TELNYX_API_KEY}` },

@@ -190,111 +190,91 @@ export function selectCallerId(
   return best[callIndex % best.length].num;
 }
 
-export async function reportMinutesToStripe(
+// DEPRECATED (wallet migration): calls used to report elapsed minutes to
+// Stripe metered billing here (creating/reusing a per-agent subscription
+// item, then posting a `call_minutes` meter event). That path is replaced
+// by reportMinutesToWallet below, which debits the prepaid wallet
+// directly instead of accumulating Stripe usage records. agents.stripe_
+// minutes_item_id is left in place (unread) so Cowork can unwind any live
+// metered subscription items before they next bill.
+
+// Resolves the wallet cost of a completed call at billing_config.
+// call_minute_mills per minute (Math.ceil-rounded, 1 min minimum for
+// answered calls — unchanged from the old Stripe rounding; 0 for calls
+// that never connected). Best-effort: a failure is logged, not thrown, so
+// it never blocks call teardown. Idempotency is guaranteed by
+// closeCallRowById's caller — this is only ever invoked once per call row
+// because closeCallRowById no-ops on an already-completed row.
+//
+// If holdLedgerId is set (the universal spend gate placed a wallet_hold
+// before this call was dialed — see wallet-hold-call and dialNextLead),
+// reconciles that hold via wallet_settle_call: refunds the unused portion
+// for a short/unanswered call, or charges the extra (clamped, logging any
+// uncollectible shortfall) for a call that ran past the held estimate.
+// Falls back to a plain wallet_debit for call rows that predate the spend
+// gate and never got a hold.
+export async function reportMinutesToWallet(
   sb: ReturnType<typeof createClient>,
-  stripeKey: string,
   agentId: string,
   durationSec: number,
+  callRowId: string,
+  holdLedgerId?: string | null,
 ) {
-  if (!agentId || durationSec <= 0) return;
+  if (!agentId || !callRowId) return;
   try {
-    const [agentRes, configRes] = await Promise.all([
-      sb.from("agents")
-        .select("stripe_subscription_id, stripe_customer_id, stripe_minutes_item_id")
-        .eq("id", agentId)
-        .maybeSingle(),
-      sb.from("billing_config")
-        .select("stripe_minutes_price_id")
-        .eq("id", 1)
-        .maybeSingle(),
-    ]);
+    const { data: config } = await sb.from("billing_config")
+      .select("call_minute_mills")
+      .eq("id", 1)
+      .maybeSingle();
+    const rateMills = config?.call_minute_mills ?? 10;
 
-    const agent  = agentRes.data;
-    const config = configRes.data;
+    const minutes = durationSec > 0 ? Math.max(1, Math.ceil(durationSec / 60)) : 0;
+    const amountMills = minutes * rateMills;
+    const desc = minutes > 0
+      ? `Outbound call — ${minutes} min @ $${(rateMills / 1000).toFixed(3)}/min`
+      : "Outbound call — not answered, no charge";
 
-    if (!agent?.stripe_subscription_id || !agent?.stripe_customer_id) return;
-    if (!config?.stripe_minutes_price_id) return;
-
-    const stripeHdrs = {
-      "Authorization": `Bearer ${stripeKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    };
-
-    // Resolve the minutes subscription item, creating it only if one doesn't
-    // already exist on the subscription for this price. We check Stripe directly
-    // (not just the DB) to prevent a race condition where two concurrent calls
-    // ending at the same moment could both read stripe_minutes_item_id as null,
-    // both create an item, and result in the agent being double-billed ($.04/min).
-    let minutesItemId = agent.stripe_minutes_item_id;
-    if (!minutesItemId) {
-      // Check Stripe for an existing item with this price before creating one.
-      const listRes = await fetch(
-        `https://api.stripe.com/v1/subscription_items?subscription=${agent.stripe_subscription_id}&limit=100`,
-        { headers: stripeHdrs },
-      );
-      if (listRes.ok) {
-        const listData = await listRes.json();
-        const existing = (listData.data || []).find(
-          (item: { price?: { id?: string }; id?: string }) =>
-            item.price?.id === config.stripe_minutes_price_id,
-        );
-        if (existing) {
-          minutesItemId = existing.id;
-          await sb.from("agents")
-            .update({ stripe_minutes_item_id: minutesItemId })
-            .eq("id", agentId);
-        }
+    if (holdLedgerId) {
+      const { error } = await sb.rpc("wallet_settle_call", {
+        p_hold_ledger_id:      holdLedgerId,
+        p_actual_amount_mills: amountMills,
+        p_units:               minutes || null,
+        p_ref_type:            "call",
+        p_ref_id:              callRowId,
+        p_desc:                desc,
+      });
+      if (error) {
+        console.warn("[dialer] wallet settle_call failed:", error.message, error.details || "");
       }
-
-      if (!minutesItemId) {
-        const addParams = new URLSearchParams({
-          "subscription": agent.stripe_subscription_id,
-          "price":        config.stripe_minutes_price_id,
-        });
-        const addRes = await fetch("https://api.stripe.com/v1/subscription_items", {
-          method: "POST",
-          headers: stripeHdrs,
-          body: addParams,
-        });
-        if (!addRes.ok) {
-          console.warn("[dialer] Stripe add minutes item failed:", await addRes.text());
-          return;
-        }
-        const newItem = await addRes.json();
-        minutesItemId = newItem.id;
-        await sb.from("agents")
-          .update({ stripe_minutes_item_id: minutesItemId })
-          .eq("id", agentId);
-      }
+      return;
     }
 
-    const minutes = Math.max(1, Math.ceil(durationSec / 60));
-    const eventParams = new URLSearchParams({
-      "event_name":                  "call_minutes",
-      "payload[stripe_customer_id]": agent.stripe_customer_id,
-      "payload[value]":              String(minutes),
-      "timestamp":                   String(Math.floor(Date.now() / 1000)),
+    if (amountMills <= 0) return; // no hold and nothing to charge (unanswered, pre-gate row)
+
+    const { error } = await sb.rpc("wallet_debit", {
+      p_agent:       agentId,
+      p_category:    "call",
+      p_units:       minutes,
+      p_amount_mills: amountMills,
+      p_ref_type:    "call",
+      p_ref_id:      callRowId,
+      p_desc:        desc,
     });
-    const eventRes = await fetch("https://api.stripe.com/v1/billing/meter_events", {
-      method: "POST",
-      headers: stripeHdrs,
-      body: eventParams,
-    });
-    if (!eventRes.ok) {
-      console.warn("[dialer] Stripe meter event failed:", await eventRes.text());
+    if (error) {
+      console.warn("[dialer] wallet debit failed:", error.message, error.details || "");
     }
   } catch (e) {
-    console.error("[dialer] Stripe minutes report error:", e);
+    console.error("[dialer] wallet debit error:", e);
   }
 }
 
 export async function closeCallRowById(
   sb: ReturnType<typeof createClient>,
   callRowId: string | null | undefined,
-): Promise<{ agentId: string; durationSec: number } | null> {
+): Promise<{ id: string; agentId: string; durationSec: number; walletHoldId: string | null } | null> {
   if (!callRowId) return null;
   const { data: row } = await sb.from("calls")
-    .select("id, status, answered_at, agent_id")
+    .select("id, status, answered_at, agent_id, wallet_hold_id")
     .eq("id", callRowId)
     .maybeSingle();
   if (!row || row.status === "completed") return null;
@@ -309,7 +289,12 @@ export async function closeCallRowById(
     duration_sec: durationSec,
   }).eq("id", row.id);
 
-  return { agentId: row.agent_id as string, durationSec };
+  return {
+    id:           row.id as string,
+    agentId:      row.agent_id as string,
+    durationSec,
+    walletHoldId: (row.wallet_hold_id as string | null) ?? null,
+  };
 }
 
 export async function speakAndHangup(
@@ -351,7 +336,6 @@ export async function dialNextLead(
   TELNYX_CONN_ID: string,
   webhookUrl: string,
   session: DialerSession,
-  stripeKey: string | undefined,
 ) {
   // Resolve the agent's fallback caller ID (primary number on agent row).
   const { data: agent } = await sb.from("agents")
@@ -418,6 +402,46 @@ export async function dialNextLead(
       lead_index:    nextIndex,
     }));
 
+    // Universal spend gate — checked before EVERY dial, not just session
+    // start (telnyx-dialer-create-session gates start; this is the actual
+    // per-dial choke point every subsequent lead passes through). Reserves
+    // billing_config.min_call_start_mills as a hold that reportMinutesToWallet
+    // reconciles via wallet_settle_call once this call ends.
+    const { data: billingConfig } = await sb.from("billing_config")
+      .select("min_call_start_mills")
+      .eq("id", 1)
+      .maybeSingle();
+    const minStartMills = billingConfig?.min_call_start_mills ?? 30;
+
+    const { data: holdId, error: holdErr } = await sb.rpc("wallet_hold", {
+      p_agent:        session.agent_id,
+      p_category:     "call",
+      p_units:        null,
+      p_amount_mills: minStartMills,
+      p_ref_type:     "call",
+      p_ref_id:       null,
+      p_desc:         `Call start hold — $${(minStartMills / 1000).toFixed(2)} reserved`,
+    });
+
+    if (holdErr) {
+      // Insufficient wallet balance — do not place the call. End the
+      // session and tell the agent why, rather than silently stalling.
+      await sb.from("dialer_sessions").update({
+        status:                  "cancelled",
+        ended_at:                new Date().toISOString(),
+        current_call_control_id: null,
+        current_call_row_id:     null,
+      }).eq("id", session.id);
+      if (session.agent_call_control_id) {
+        await speakAndHangup(
+          telnyxHeaders,
+          session.agent_call_control_id,
+          "Your wallet balance is too low to continue dialing. Please add funds and start a new session. Goodbye.",
+        );
+      }
+      return;
+    }
+
     const callRes = await fetch("https://api.telnyx.com/v2/calls", {
       method: "POST",
       headers: telnyxHeaders,
@@ -432,7 +456,11 @@ export async function dialNextLead(
     });
 
     if (!callRes.ok) {
-      // Telnyx rejected the number (e.g., invalid/fake number).
+      // Telnyx rejected the number (e.g., invalid/fake number). Release the
+      // hold — nothing was actually dialed, so nothing should be reserved.
+      await sb.rpc("wallet_void", { p_ledger_id: holdId }).then(
+        (r) => { if (r.error) console.warn("[dialer] wallet_void failed:", r.error.message); },
+      );
       // Stall at this lead so the agent sees it in the UI and can manually mark + skip.
       // Previously this silently looped to the next lead, causing leads to disappear.
       await sb.from("dialer_sessions").update({
@@ -447,7 +475,11 @@ export async function dialNextLead(
     const callData = await callRes.json();
     const leadCallControlId: string = callData?.data?.call_control_id || "";
     if (!leadCallControlId) {
-      // Telnyx accepted the call but returned no control ID — treat same as rejection.
+      // Telnyx accepted the call but returned no control ID — treat same as
+      // rejection above, including releasing the hold.
+      await sb.rpc("wallet_void", { p_ledger_id: holdId }).then(
+        (r) => { if (r.error) console.warn("[dialer] wallet_void failed:", r.error.message); },
+      );
       await sb.from("dialer_sessions").update({
         current_index:           nextIndex,
         status:                  "dialing",
@@ -480,19 +512,20 @@ export async function dialNextLead(
     // which is the case when called from telnyx-dialer-skip since it already
     // closed the row before calling us).
     const closed = await closeCallRowById(sb, session.current_call_row_id);
-    if (closed && stripeKey) {
-      await reportMinutesToStripe(sb, stripeKey, closed.agentId, closed.durationSec);
+    if (closed) {
+      await reportMinutesToWallet(sb, closed.agentId, closed.durationSec, closed.id, closed.walletHoldId);
     }
 
     const { data: callRow } = await sb.from("calls").insert({
-      agent_id:    session.agent_id,
-      lead_id:     leadRow?.id || null,
-      direction:   "outbound",
-      phone_from:  callerIdE164,
-      phone_to:    leadPhone,
-      started_at:  new Date().toISOString(),
-      status:      "initiated",
-      sw_call_sid: leadCallControlId,
+      agent_id:       session.agent_id,
+      lead_id:        leadRow?.id || null,
+      direction:      "outbound",
+      phone_from:     callerIdE164,
+      phone_to:       leadPhone,
+      started_at:     new Date().toISOString(),
+      status:         "initiated",
+      sw_call_sid:    leadCallControlId,
+      wallet_hold_id: holdId,
     }).select("id").single();
 
     await sb.from("dialer_sessions").update({

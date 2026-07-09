@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { closeCallRowById, reportMinutesToStripe } from "../_shared/dialer-next-lead.ts";
+import { closeCallRowById, reportMinutesToWallet } from "../_shared/dialer-next-lead.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "https://producerstackcrm.com",
@@ -20,9 +20,9 @@ function json(body: unknown, status = 200) {
 //
 // Closes and bills the active call row explicitly (same as telnyx-dialer-skip)
 // rather than relying solely on the call.hangup webhook firing for the legs
-// hung up below — belt-and-suspenders so ending a session always reports its
-// last in-progress call's minutes to Stripe even if the webhook is delayed
-// or dropped.
+// hung up below — belt-and-suspenders so ending a session always debits the
+// wallet for its last in-progress call's minutes even if the webhook is
+// delayed or dropped.
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -30,7 +30,6 @@ serve(async (req) => {
   const SERVICE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const ANON_KEY       = Deno.env.get("SUPABASE_ANON_KEY")!;
   const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
-  const STRIPE_KEY     = Deno.env.get("STRIPE_SECRET_KEY");
 
   if (!TELNYX_API_KEY) {
     return json({ error: "telnyx_not_configured", detail: "TELNYX_API_KEY secret is missing from Supabase." }, 500);
@@ -76,8 +75,8 @@ serve(async (req) => {
   // if the webhook still fires afterward it'll find the row already
   // 'completed' and no-op.
   const closed = await closeCallRowById(sb, session.current_call_row_id);
-  if (closed && STRIPE_KEY) {
-    await reportMinutesToStripe(sb, STRIPE_KEY, closed.agentId, closed.durationSec);
+  if (closed) {
+    await reportMinutesToWallet(sb, closed.agentId, closed.durationSec, closed.id, closed.walletHoldId);
   }
 
   const telnyxHeaders = {

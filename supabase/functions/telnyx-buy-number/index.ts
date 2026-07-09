@@ -15,59 +15,27 @@ function corsHeaders(origin: string | null) {
   };
 }
 
-// Create a dedicated Stripe subscription for a single phone number.
-// Each number gets its own subscription so billing is independent:
-// - start date = day of purchase
-// - recurring = same day each month
-// - cancel = only that number is affected
-async function createNumberSubscription(
-  sb: ReturnType<typeof createClient>,
-  stripeKey: string,
-  agentId: string,
-  phoneNumberRowId: string,
-) {
-  try {
-    const [agentRes, configRes] = await Promise.all([
-      sb.from("agents")
-        .select("stripe_customer_id")
-        .eq("id", agentId)
-        .maybeSingle(),
-      sb.from("billing_config")
-        .select("stripe_numbers_price_id")
-        .eq("id", 1)
-        .maybeSingle(),
-    ]);
+// DEPRECATED (wallet migration): numbers used to get their own dedicated
+// Stripe subscription here (createNumberSubscription), billed monthly and
+// tracked via phone_numbers.stripe_sub_id. That's replaced below by a
+// one-time wallet_debit for the first 30 days at purchase time, then
+// ongoing 30-day renewals via the wallet-renew-numbers cron function.
+// stripe_sub_id is left on the table (unused for new purchases) so
+// Cowork can cancel any live subscriptions from existing rows.
 
-    const customerId = agentRes.data?.stripe_customer_id;
-    const priceId    = configRes.data?.stripe_numbers_price_id;
-
-    if (!customerId || !priceId) return;
-
-    const stripeHdrs = {
-      "Authorization": `Bearer ${stripeKey}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    };
-
-    const subRes = await fetch("https://api.stripe.com/v1/subscriptions", {
-      method: "POST",
-      headers: stripeHdrs,
-      body: new URLSearchParams({
-        "customer":        customerId,
-        "items[0][price]": priceId,
-      }),
-    });
-
-    if (!subRes.ok) {
-      console.warn("[telnyx-buy-number] Stripe subscription create failed:", await subRes.text());
-      return;
-    }
-
-    const sub = await subRes.json();
-    await sb.from("phone_numbers").update({ stripe_sub_id: sub.id }).eq("id", phoneNumberRowId);
-    console.log(`[telnyx-buy-number] Created Stripe subscription ${sub.id} for number row ${phoneNumberRowId}`);
-  } catch (e) {
-    console.error("[telnyx-buy-number] Stripe subscription create error:", e);
-  }
+async function telnyxReleaseByE164(apiKey: string, e164: string): Promise<void> {
+  const params = new URLSearchParams({ "filter[phone_number]": e164 });
+  const listRes = await fetch(`https://api.telnyx.com/v2/phone_numbers?${params}`, {
+    headers: { "Authorization": `Bearer ${apiKey}` },
+  });
+  if (!listRes.ok) return;
+  const listData = await listRes.json();
+  const record = (listData.data || [])[0];
+  if (!record) return;
+  await fetch(`https://api.telnyx.com/v2/phone_numbers/${record.id}`, {
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${apiKey}` },
+  }).catch(() => {});
 }
 
 serve(async (req) => {
@@ -87,7 +55,6 @@ serve(async (req) => {
   const ANON_KEY       = Deno.env.get("SUPABASE_ANON_KEY")!;
   const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
   const TELNYX_CONN_ID = Deno.env.get("TELNYX_CONNECTION_ID");
-  const STRIPE_KEY     = Deno.env.get("STRIPE_SECRET_KEY");
   const DEV_EMAIL      = "jacef8778099@gmail.com";
 
   if (!TELNYX_API_KEY || !TELNYX_CONN_ID) return json({ error: "telnyx_not_configured" }, 500);
@@ -101,28 +68,49 @@ serve(async (req) => {
   const { data: { user } } = await sbAuth.auth.getUser();
   if (!user) return json({ error: "unauthorized" }, 401);
 
-  // Require an active paid plan (or admin) before allowing a purchase.
-  // Numbers are billed to us immediately by Telnyx regardless of whether the
-  // agent ever completes Stripe checkout, so this must be checked here — not
-  // just gated client-side — or an authenticated-but-unpaid session can buy
-  // numbers for free.
-  if (user.email !== DEV_EMAIL) {
-    const sbCheck = createClient(SUPABASE_URL, SERVICE_KEY);
-    const { data: agentCheck } = await sbCheck.from("agents")
-      .select("plan_id, is_admin")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (!agentCheck?.is_admin && !agentCheck?.plan_id) {
-      return json({ error: "active_subscription_required" }, 402);
-    }
-  }
-
-  let body: { e164?: string; friendly_name?: string | null; locality?: string | null; region?: string | null };
+  let body: {
+    e164?: string;
+    friendly_name?: string | null;
+    locality?: string | null;
+    region?: string | null;
+    number_type?: string;
+  };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
   const e164 = body.e164;
   if (!e164 || !/^\+1\d{10}$/.test(e164)) {
     return json({ error: "invalid_number", detail: "Must be a US E.164 number like +14155551234" }, 400);
+  }
+  const numberType = body.number_type === "tollfree" ? "tollfree" : "local";
+
+  const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+  const isDev = user.email === DEV_EMAIL;
+
+  const { data: billingConfig } = await sb.from("billing_config")
+    .select("number_local_mills, number_tollfree_mills")
+    .eq("id", 1)
+    .maybeSingle();
+  const rateMills = numberType === "tollfree"
+    ? (billingConfig?.number_tollfree_mills ?? 10000)
+    : (billingConfig?.number_local_mills ?? 3000);
+
+  // Numbers are billed to us immediately by Telnyx, so the wallet balance
+  // must be checked here — not just gated client-side — before we ever
+  // call Telnyx, or an authenticated session with $0 balance could
+  // provision a number we can't recoup the cost of.
+  if (!isDev) {
+    const { data: wallet } = await sb.from("wallet_accounts")
+      .select("balance_mills")
+      .eq("agent_id", user.id)
+      .maybeSingle();
+    const balance = wallet?.balance_mills ?? 0;
+    if (balance < rateMills) {
+      return json({
+        error:           "insufficient_balance",
+        shortfall_mills: rateMills - balance,
+        rate_mills:      rateMills,
+      }, 402);
+    }
   }
 
   // Purchase the number from Telnyx and assign it to the connection
@@ -147,15 +135,6 @@ serve(async (req) => {
   // phone_numbers[0].id is the phone number resource ID; data.id is the order ID
   const telnyxPhoneSid: string = orderData?.data?.phone_numbers?.[0]?.id || orderData?.data?.id || "";
 
-  const sb = createClient(SUPABASE_URL, SERVICE_KEY);
-
-  // Get current billing config to store the correct rate on the phone_numbers row
-  const { data: billingConfig } = await sb.from("billing_config")
-    .select("number_rate_cents")
-    .eq("id", 1)
-    .maybeSingle();
-  const monthlyCostDollars = ((billingConfig?.number_rate_cents ?? 300) / 100).toFixed(2);
-
   // If this is the agent's first number, auto-set it as primary so they can
   // call immediately without a manual "Set as Primary" step.
   // Also read the agent's global CNAM setting to auto-apply to the new number.
@@ -166,7 +145,6 @@ serve(async (req) => {
   const isFirstNumber = !agentRow?.signalwire_caller_id;
   const cnamName: string | null = agentRow?.cnam_name || null;
 
-  // Insert and get back the row ID so we can attach the Stripe subscription to it.
   const { data: insertedRow, error: insertErr } = await sb.from("phone_numbers").insert({
     agent_id:      user.id,
     e164,
@@ -174,11 +152,45 @@ serve(async (req) => {
     locality:      body.locality  ?? null,
     region:        body.region    ?? null,
     sw_phone_sid:  telnyxPhoneSid,
-    monthly_cost:  monthlyCostDollars,
+    monthly_cost:  (rateMills / 1000).toFixed(2),
+    number_type:   numberType,
+    next_renewal_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     is_primary:    isFirstNumber,
     status:        "active",
     purchased_at:  new Date().toISOString(),
   }).select("id").single();
+
+  if (insertErr || !insertedRow) {
+    console.warn("[telnyx-buy-number] DB insert failed:", insertErr?.message);
+    return json({ ok: false, error: "Purchase succeeded at Telnyx but failed to save to database: " + insertErr?.message }, 500);
+  }
+
+  // Debit the wallet for the first 30 days now that the number is on our
+  // books. Developer account bypasses wallet billing entirely.
+  if (!isDev) {
+    const desc = numberType === "tollfree"
+      ? `Toll-free number ${e164} — first 30 days @ $${(rateMills / 1000).toFixed(2)}`
+      : `Local number ${e164} — first 30 days @ $${(rateMills / 1000).toFixed(2)}`;
+    const { error: debitErr } = await sb.rpc("wallet_debit", {
+      p_agent:        user.id,
+      p_category:     numberType === "tollfree" ? "number_tollfree" : "number_local",
+      p_units:        null,
+      p_amount_mills: rateMills,
+      p_ref_type:     "phone_number",
+      p_ref_id:       insertedRow.id,
+      p_desc:         desc,
+    });
+
+    if (debitErr) {
+      // Rare race: balance dropped between the pre-check above and now
+      // (e.g. a concurrent purchase). Never leave an unpaid number active —
+      // unwind the DB row and release it back to Telnyx.
+      console.warn("[telnyx-buy-number] wallet debit failed post-purchase, rolling back:", debitErr.message);
+      await sb.from("phone_numbers").delete().eq("id", insertedRow.id);
+      await telnyxReleaseByE164(TELNYX_API_KEY, e164);
+      return json({ error: "insufficient_balance", detail: debitErr.message }, 402);
+    }
+  }
 
   // Best-effort: apply the agent's global CNAM to the new number on Telnyx.
   if (cnamName && telnyxPhoneSid) {
@@ -201,23 +213,11 @@ serve(async (req) => {
     }
   }
 
-  if (insertErr || !insertedRow) {
-    console.warn("[telnyx-buy-number] DB insert failed:", insertErr?.message);
-    return json({ ok: false, error: "Purchase succeeded at Telnyx but failed to save to database: " + insertErr?.message }, 500);
-  }
-
   if (isFirstNumber) {
     await sb.from("agents")
       .update({ signalwire_caller_id: e164 })
       .eq("id", user.id);
     console.log(`[telnyx-buy-number] Auto-set ${e164} as primary caller ID for agent ${user.id}`);
-  }
-
-  // Create a dedicated Stripe subscription for this number.
-  // Each number gets its own subscription: billing starts today and recurs on
-  // this day of the month. Developer account skips Stripe billing entirely.
-  if (STRIPE_KEY && user.email !== DEV_EMAIL) {
-    await createNumberSubscription(sb, STRIPE_KEY, user.id, insertedRow.id);
   }
 
   return json({ ok: true, e164, set_as_primary: isFirstNumber });

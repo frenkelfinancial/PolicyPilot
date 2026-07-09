@@ -47,6 +47,22 @@ serve(async (req) => {
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
+  // Universal spend gate: an underfunded wallet can't even start a power
+  // dialer session. Each individual dial within the session is separately
+  // gated (and held) inside dialNextLead.
+  const [{ data: wallet }, { data: billingConfig }] = await Promise.all([
+    sb.from("wallet_accounts").select("balance_mills").eq("agent_id", user.id).maybeSingle(),
+    sb.from("billing_config").select("min_call_start_mills").eq("id", 1).maybeSingle(),
+  ]);
+  const minStartMills = billingConfig?.min_call_start_mills ?? 30;
+  const balanceMills  = wallet?.balance_mills ?? 0;
+  if (balanceMills < minStartMills) {
+    return json({
+      error:  "insufficient_balance",
+      detail: "Insufficient wallet balance — top up to continue.",
+    }, 402);
+  }
+
   let body: {
     lead_ids?:          unknown;
     caller_id_mode?:    unknown;

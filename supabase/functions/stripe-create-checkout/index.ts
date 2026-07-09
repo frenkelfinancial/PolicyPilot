@@ -67,9 +67,105 @@ serve(async (req) => {
   const mode     = body.mode as string | undefined;
   const areaCode = (body.area_code as string | undefined) || "202";
 
-  if (!planId && mode !== "numbers") return json({ error: "plan_id_required" }, 400);
+  if (!planId && mode !== "numbers" && mode !== "topup") return json({ error: "plan_id_required" }, 400);
 
   const DEV_EMAIL = 'jacef8778099@gmail.com';
+
+  // ── Wallet top-up checkout ────────────────────────────────────────────────
+  // One-time payment (NOT a subscription) that credits public.wallet_accounts
+  // via stripe-webhook once Stripe confirms the charge. Amounts are never
+  // hardcoded here — only the allow-list of presets (in mills) configured in
+  // billing_config.topup_presets_mills may be purchased. That same row is
+  // what the app.html "Add funds" buttons read, so there's one place to
+  // change the preset amounts, not two.
+  if (mode === "topup") {
+    const amountMills = Number(body.amount_mills);
+    if (!Number.isFinite(amountMills) || amountMills <= 0) {
+      return json({ error: "invalid_amount" }, 400);
+    }
+
+    const { data: billingConfig } = await sb
+      .from("billing_config")
+      .select("stripe_topup_product_id, topup_presets_mills")
+      .eq("id", 1)
+      .maybeSingle();
+
+    const presets: number[] = Array.isArray(billingConfig?.topup_presets_mills)
+      ? billingConfig.topup_presets_mills
+      : [5000, 10000, 25000, 50000, 100000];
+    if (!presets.includes(amountMills)) {
+      return json({ error: "invalid_amount", detail: "amount_mills must be one of the configured top-up presets" }, 400);
+    }
+
+    if (user.email === DEV_EMAIL) {
+      // Developer account: credit the wallet directly, no real Stripe payment.
+      const { error: topupErr } = await sb.rpc("wallet_topup", {
+        p_agent:        user.id,
+        p_amount_mills: amountMills,
+        p_ref:          `dev-${Date.now()}`,
+        p_desc:         `Developer top-up — $${(amountMills / 1000).toFixed(2)}`,
+      });
+      if (topupErr) return json({ error: "topup_failed", detail: topupErr.message }, 500);
+      return json({ ok: true, dev: true });
+    }
+
+    if (!billingConfig?.stripe_topup_product_id) {
+      return json({ error: "topup_not_configured" }, 400);
+    }
+
+    const { data: agent } = await sb
+      .from("agents")
+      .select("stripe_customer_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const stripeHdrs = {
+      "Authorization": `Bearer ${STRIPE_KEY}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    };
+
+    // Stripe unit_amount is in cents; mills are thousandths of a dollar, so
+    // cents = mills / 10 (presets are always round-dollar mills, so this is exact).
+    const cents = Math.round(amountMills / 10);
+
+    const sessionParams = new URLSearchParams({
+      "mode":                                             "payment",
+      "line_items[0][price_data][currency]":              "usd",
+      "line_items[0][price_data][product]":               billingConfig.stripe_topup_product_id,
+      "line_items[0][price_data][unit_amount]":           String(cents),
+      "line_items[0][quantity]":                          "1",
+      "success_url":                                      `${APP_URL}/app.html?checkout=topup_success&session_id={CHECKOUT_SESSION_ID}`,
+      "cancel_url":                                       `${APP_URL}/app.html?checkout=cancelled`,
+      "metadata[supabase_user_id]":                       user.id,
+      "metadata[amount_mills]":                           String(amountMills),
+      "payment_intent_data[metadata][supabase_user_id]":  user.id,
+      "payment_intent_data[metadata][amount_mills]":      String(amountMills),
+    });
+
+    if (agent?.stripe_customer_id) {
+      sessionParams.set("customer", agent.stripe_customer_id);
+    } else if (user.email) {
+      sessionParams.set("customer_email", user.email);
+    }
+
+    const sessionRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+      method: "POST",
+      headers: stripeHdrs,
+      body: sessionParams,
+    });
+
+    if (!sessionRes.ok) {
+      const errText = await sessionRes.text();
+      let stripeMsg = errText;
+      try { stripeMsg = JSON.parse(errText)?.error?.message || errText; } catch (_) {}
+      console.error("Stripe topup checkout error:", stripeMsg);
+      return json({ error: "checkout_session_failed", detail: stripeMsg }, 502);
+    }
+
+    const session = await sessionRes.json();
+    if (!session.url) return json({ error: "checkout_session_no_url" }, 502);
+    return json({ url: session.url });
+  }
 
   // ── Numbers-only checkout ─────────────────────────────────────────────────
   // Used when an agent has a plan but no Stripe subscription yet (e.g. given

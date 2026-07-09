@@ -87,18 +87,46 @@ serve(async (req) => {
     return json({ error: "minute_cap_exceeded", minutesUsed, minutesCap }, 422);
   }
 
+  // Universal spend gate: this call is placed entirely server-side, so the
+  // hold happens before Telnyx is ever called — the cleanest of the three
+  // calling paths (softphone, power dialer, this agent-bridge flow) to
+  // enforce against. Settlement at hangup already flows through
+  // telnyx-call-status's call.hangup handler -> reportMinutesToWallet.
+  const { data: billingConfig } = await sb.from("billing_config")
+    .select("min_call_start_mills")
+    .eq("id", 1)
+    .maybeSingle();
+  const minStartMills = billingConfig?.min_call_start_mills ?? 30;
+
+  const { data: holdId, error: holdErr } = await sb.rpc("wallet_hold", {
+    p_agent:        user.id,
+    p_category:     "call",
+    p_units:        null,
+    p_amount_mills: minStartMills,
+    p_ref_type:     "call",
+    p_ref_id:       null,
+    p_desc:         `Call start hold — $${(minStartMills / 1000).toFixed(2)} reserved`,
+  });
+  if (holdErr) {
+    return json({ error: "insufficient_balance", detail: "Insufficient wallet balance — top up to continue." }, 402);
+  }
+
   // Insert a placeholder calls row first so we have the UUID for client_state
   const { data: callRow, error: insertErr } = await sb.from("calls").insert({
-    agent_id:   user.id,
-    lead_id:    leadRow?.id || null,
-    direction:  "outbound",
-    phone_from: callerIdE164,
-    phone_to:   leadPhone,
-    started_at: new Date().toISOString(),
-    status:     "initiated",
+    agent_id:       user.id,
+    lead_id:        leadRow?.id || null,
+    direction:      "outbound",
+    phone_from:     callerIdE164,
+    phone_to:       leadPhone,
+    started_at:     new Date().toISOString(),
+    status:         "initiated",
+    wallet_hold_id: holdId,
   }).select("id").single();
 
   if (insertErr || !callRow) {
+    await sb.rpc("wallet_void", { p_ledger_id: holdId }).then(
+      (r) => { if (r.error) console.warn("[telnyx-bridge] wallet_void failed:", r.error.message); },
+    );
     return json({ error: "db_insert_failed", detail: insertErr?.message }, 500);
   }
 
@@ -133,6 +161,9 @@ serve(async (req) => {
 
   if (!telnyxRes.ok) {
     const errText = await telnyxRes.text();
+    await sb.rpc("wallet_void", { p_ledger_id: holdId }).then(
+      (r) => { if (r.error) console.warn("[telnyx-bridge] wallet_void failed:", r.error.message); },
+    );
     await sb.from("calls").delete().eq("id", callRow.id);
     return json({ error: "telnyx_unreachable", detail: errText }, 502);
   }

@@ -54,6 +54,48 @@ serve(async (req) => {
   const event = JSON.parse(payload);
   const sb    = createClient(SUPABASE_URL, SERVICE_KEY);
 
+  // ── Wallet top-up (one-time payment, not a subscription) ─────────────────
+  // Stripe fires both payment_intent.succeeded AND checkout.session.completed
+  // for the same Checkout Session payment — wallet_credit_topup is keyed on
+  // the PaymentIntent id so handling both here can never double-credit.
+  if (event.type === "payment_intent.succeeded") {
+    const pi         = event.data.object;
+    const metadata    = (pi.metadata || {}) as Record<string, string>;
+    const userId      = metadata.supabase_user_id;
+    const amountMills = metadata.amount_mills ? parseInt(metadata.amount_mills, 10) : null;
+
+    if (userId && amountMills) {
+      const { error } = await sb.rpc("wallet_credit_topup", {
+        p_agent:          userId,
+        p_amount_mills:   amountMills,
+        p_payment_intent: pi.id,
+        p_desc:           `Wallet top-up — $${(amountMills / 1000).toFixed(2)}`,
+      });
+      if (error) console.error("[stripe-webhook] wallet_credit_topup failed:", error.message);
+      return json({ ok: true });
+    }
+    return json({ ok: true, ignored: true });
+  }
+
+  if (event.type === "checkout.session.completed" && event.data.object.mode === "payment") {
+    const session     = event.data.object;
+    const metadata     = (session.metadata || {}) as Record<string, string>;
+    const userId       = metadata.supabase_user_id;
+    const amountMills  = metadata.amount_mills ? parseInt(metadata.amount_mills, 10) : null;
+    const paymentIntentId = session.payment_intent as string | undefined;
+
+    if (userId && amountMills && paymentIntentId) {
+      const { error } = await sb.rpc("wallet_credit_topup", {
+        p_agent:          userId,
+        p_amount_mills:   amountMills,
+        p_payment_intent: paymentIntentId,
+        p_desc:           `Wallet top-up — $${(amountMills / 1000).toFixed(2)}`,
+      });
+      if (error) console.error("[stripe-webhook] wallet_credit_topup failed:", error.message);
+    }
+    return json({ ok: true });
+  }
+
   // ── Plan change / cancellation ────────────────────────────────────────────
   if (event.type === "customer.subscription.updated") {
     const sub        = event.data.object;

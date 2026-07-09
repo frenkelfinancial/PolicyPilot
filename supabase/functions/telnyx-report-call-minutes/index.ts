@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { closeCallRowById, reportMinutesToStripe } from "../_shared/dialer-next-lead.ts";
+import { closeCallRowById, reportMinutesToWallet } from "../_shared/dialer-next-lead.ts";
 
 const ALLOWED_ORIGINS = new Set([
   "https://producerstackcrm.com",
@@ -17,14 +17,14 @@ function corsHeaders(origin: string | null) {
 }
 
 // Closes out a `calls` row from the WebRTC softphone (app.html's
-// _webrtcDial/_handleTelnyxNotification) and reports the elapsed minutes
-// to Stripe's metered billing, at $0.02/min (billing_config.minute_rate_cents).
+// _webrtcDial/_handleTelnyxNotification) and debits the agent's wallet
+// for the elapsed minutes, at billing_config.call_minute_mills/min.
 //
 // This is the WebRTC-flow counterpart to the billing that already happens
 // for the Power Dialer via telnyx-call-status's call.hangup handler and
 // telnyx-dialer-skip — the softphone has no Telnyx Call Control webhook
 // wired to it, so nothing server-side ever closed its calls rows or
-// reported usage to Stripe until this endpoint existed.
+// debited the wallet until this endpoint existed.
 //
 // closeCallRowById is idempotent (no-ops once status is already
 // 'completed'), so it's safe to call even if the client fires this more
@@ -45,7 +45,6 @@ serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const ANON_KEY     = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const STRIPE_KEY   = Deno.env.get("STRIPE_SECRET_KEY");
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "unauthorized" }, 401);
@@ -73,8 +72,8 @@ serve(async (req) => {
   if (!row || row.agent_id !== user.id) return json({ error: "not_found" }, 404);
 
   const closed = await closeCallRowById(sb, callRowId);
-  if (closed && STRIPE_KEY) {
-    await reportMinutesToStripe(sb, STRIPE_KEY, closed.agentId, closed.durationSec);
+  if (closed) {
+    await reportMinutesToWallet(sb, closed.agentId, closed.durationSec, closed.id, closed.walletHoldId);
   }
 
   return json({ ok: true, billed: !!closed });

@@ -1,4 +1,4 @@
-const CACHE = 'policypilot-v1';
+const CACHE = 'policypilot-v2';
 const PRECACHE = [
   '/index.html',
   '/manifest.json',
