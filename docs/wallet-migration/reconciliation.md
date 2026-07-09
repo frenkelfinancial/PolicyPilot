@@ -4,6 +4,45 @@ Live actions taken against project `cweiaibjigjwspmshcrj`, in order, with
 explicit "go" obtained before each gated step. See `pre-migration-state.md`
 for the snapshot taken beforehand.
 
+## Incident (2026-07-09): free wallet credit + open RPC grants
+
+User reported clicking the $5 "Add funds" preset credited their wallet
+instantly with no Stripe Checkout, no card, no PaymentIntent. Root causes:
+
+1. `stripe-create-checkout`'s topup mode had a `user.email === DEV_EMAIL`
+   branch that called `wallet_topup` directly — the same dev-bypass
+   pattern used elsewhere in the codebase for free numbers/plans, ported
+   in without recognizing that minting spendable balance is categorically
+   different from waiving a cost the business already controls. Removed
+   entirely (`data/sql` unaffected — this was app code, not schema).
+2. **Separately, and more severely**: every `wallet_*` RPC was directly
+   executable by `anon` and `authenticated` on the live database. The
+   original `revoke all on function ... from public` in 016/017 only
+   stripped the `PUBLIC` pseudo-role's grant — it did nothing to
+   Supabase's default direct grant of new functions to `anon`/
+   `authenticated`. This meant anyone with the public anon key (embedded
+   client-side, inherently public) could have called `wallet_topup` for
+   any `agent_id` with any amount, no authentication match required.
+   Fixed live via explicit `revoke execute ... from anon, authenticated`
+   on all seven wallet RPCs, captured in `data/sql/018_wallet_rpc_lockdown.sql`.
+   Verified via `has_function_privilege(...)` before and after: only
+   `service_role` can execute any wallet RPC now.
+
+**Reversal**: found exactly one fake ledger row — agent
+`f1c78a79-95f9-47c0-b279-29d6fb96c419` (the dev account), `+5000` mills
+via `wallet_topup`, `ref_type='stripe_payment_intent'`,
+`ref_id='dev-1783575224800'` (never a real Stripe ID). `wallet_topups`
+had zero rows for this agent (the dev path never wrote to that table),
+confirmed project-wide zero `succeeded` rows in `wallet_topups` at all.
+Balance manually corrected to $0.00 via a direct SQL transaction —
+decremented `wallet_accounts.balance_mills` by 5000 and inserted an
+`adjustment` ledger row (append-only: the original fake `topup` row was
+left in place as a historical record, not deleted, with the correction
+as a separate linked row) — rather than a new RPC, since no
+"manual correction" RPC exists and this was a one-off.
+
+Redeployed `stripe-create-checkout`, `app.html` (Vercel + GitHub Pages).
+
 ## 1. Schema applied
 
 - `data/sql/016_wallet_foundation.sql` — applied via `supabase db query --linked -f`. No errors.
