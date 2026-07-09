@@ -4,6 +4,57 @@ Live actions taken against project `cweiaibjigjwspmshcrj`, in order, with
 explicit "go" obtained before each gated step. See `pre-migration-state.md`
 for the snapshot taken beforehand.
 
+## Incident (2026-07-09, later same day): charge succeeded, credit didn't
+
+User made two real, live $5.00 top-up payments (after the free-topup-bypass
+fix below) and Stripe charged the card both times, but the wallet balance
+stayed $0.00.
+
+**Root cause**: `stripe-webhook` — along with `telnyx-call-status`,
+`wallet-renew-numbers`, and `wallet-low-balance-notify` — was rejecting
+every request at Supabase's platform gateway with
+`401 UNAUTHORIZED_NO_AUTH_HEADER`, before any of our own code (signature
+verification, RPC calls, anything) ever ran. Confirmed directly by probing
+the live endpoint. The earlier "go live" batch deploy in this same session
+redeployed all four without the `--no-verify-jwt` flag, silently resetting
+them to Supabase's default `verify_jwt = true`. None of their real callers
+(Stripe's `Stripe-Signature` header, Telnyx's unauthenticated webhook POST,
+pg_cron's `WALLET_CRON_SECRET` bearer token) are a Supabase-signed JWT, so
+100% of deliveries from all four were silently failing at the gateway.
+Confirmed via Stripe's Events API that both PaymentIntents had
+`pending_webhooks: 1` — Stripe had never received a 2xx from us.
+
+This was a substantially bigger blast radius than the reported bug alone:
+`telnyx-call-status` handles every Telnyx call-lifecycle webhook (answer,
+bridge, hangup) for both the power dialer and the agent-bridge flow, so
+live call handling was silently broken for the same window. Checked
+`cron.job_run_details`: `wallet-renew-numbers` had run 6 times hourly, all
+failing the same way — but caused no actual harm, since all 4 live phone
+numbers still had `next_renewal_at` ~30 days out (nothing was due).
+
+**Fixed**: redeployed all four with `--no-verify-jwt`. Verified each is now
+reachable past the gateway (`stripe-webhook` → 400 `invalid_signature` for
+a fake payload, i.e. reaching real signature verification;
+`telnyx-call-status` → 200; both cron functions → 401 from their own
+internal secret check, not the gateway). Added `supabase/config.toml`
+declaring `verify_jwt = false` for exactly these four functions so a
+future `supabase functions deploy <name>` — even without remembering the
+flag — can't silently regress this again; proved it by redeploying
+`stripe-webhook` with no flag at all and confirming it still returned 400
+`invalid_signature`, not 401.
+
+**Reconciled the two real payments**: rather than wait for Stripe's
+automatic retry, called `wallet_credit_topup` directly for both confirmed
+PaymentIntents (`pi_3TrApj14emSc8rog19gX6Zqx`, `pi_3TrArj14emSc8rog1CWmQzy2`,
+$5.00 each, both `livemode: true`, metadata confirmed correct via Stripe's
+API) — same RPC the webhook itself calls, keyed on the PaymentIntent id, so
+it's exactly as idempotent as a real webhook delivery would have been.
+Balance landed at exactly $10.00. Proved idempotency by calling it a third
+time for one of the same PaymentIntent ids afterward — balance stayed
+$10.00, `wallet_topups` still shows exactly one `succeeded` row per PI. If
+Stripe's automatic retry (or a manual dashboard resend) ever redelivers
+either event now that the endpoint works, it will correctly no-op.
+
 ## Incident (2026-07-09): free wallet credit + open RPC grants
 
 User reported clicking the $5 "Add funds" preset credited their wallet

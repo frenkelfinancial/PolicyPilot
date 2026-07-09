@@ -1,0 +1,31 @@
+# Per-function deploy settings. Without this file, `supabase functions
+# deploy <name>` silently resets every function to the platform default
+# (verify_jwt = true) unless --no-verify-jwt is passed by hand on every
+# single deploy — which is exactly how stripe-webhook, telnyx-call-status,
+# and both wallet cron functions went dark for ~5 hours on 2026-07-09: a
+# batch redeploy omitted the flag, the Supabase gateway started rejecting
+# every request from Stripe/Telnyx/pg_cron with 401 UNAUTHORIZED_NO_AUTH_HEADER
+# before our own code ever ran, and nothing in the deploy output said so.
+#
+# These four functions are called by something that is NOT a Supabase-
+# signed JWT (Stripe's Stripe-Signature header, Telnyx's unauthenticated
+# webhook POST, or pg_cron's custom WALLET_CRON_SECRET bearer token) — the
+# platform gate must be off, and each function does its own internal auth
+# check instead (Stripe signature verification, or a WALLET_CRON_SECRET /
+# service-role comparison). Every other function in this project is called
+# by the authenticated browser client with the user's real session JWT, so
+# the platform default (verify_jwt = true) is correct and desired there —
+# do not add functions here unless their caller genuinely cannot supply a
+# Supabase JWT.
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.telnyx-call-status]
+verify_jwt = false
+
+[functions.wallet-renew-numbers]
+verify_jwt = false
+
+[functions.wallet-low-balance-notify]
+verify_jwt = false
