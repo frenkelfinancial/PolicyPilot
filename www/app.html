@@ -12117,6 +12117,9 @@ const softphone = (() => {
     try {
       const ctx = _spAudioCtx;
       if (!ctx || ctx.state !== 'running') {
+        if (ctx && ctx.state === 'suspended') {
+          ctx.resume().catch((e) => console.warn('[softphone] ringback ctx resume() blocked', e));
+        }
         _spRingTimer = setTimeout(_spDoRingback, 500);
         return;
       }
@@ -12150,6 +12153,35 @@ const softphone = (() => {
   function _stopSpRingback() {
     _spRingActive = false;
     if (_spRingTimer) { clearTimeout(_spRingTimer); _spRingTimer = null; }
+  }
+
+  // Must run synchronously inside the click handler's call stack, before any
+  // `await` — WebKit/Safari (and iOS Capacitor's WKWebView) only allow
+  // AudioContext.resume() and <audio>.play() to unlock future autoplay if
+  // they're invoked as part of the original user gesture. _startCall() used
+  // to await navigator.mediaDevices.getUserMedia() first, which pushed both
+  // the ringback context resume and the remote-audio element priming past
+  // that gesture window — resulting in total silence (no ringback, no
+  // remote party audio) with every failure swallowed silently.
+  function _unlockCallAudio() {
+    try {
+      _ensureSpAudioCtx();
+      if (_spAudioCtx.state === 'suspended') {
+        _spAudioCtx.resume().catch((e) => console.warn('[softphone] audio ctx resume() blocked', e));
+      }
+    } catch (e) { console.warn('[softphone] audio ctx unlock failed', e); }
+    try {
+      if (!_remoteAudioEl) {
+        _remoteAudioEl = new Audio();
+        _remoteAudioEl.autoplay = true;
+      }
+      // Priming play()/pause() on this exact element inside the gesture
+      // "blesses" it so a later srcObject assignment + play() (once the
+      // call goes active, well outside any gesture) is still allowed.
+      const primePromise = _remoteAudioEl.play();
+      if (primePromise && typeof primePromise.catch === 'function') primePromise.catch(() => {});
+      _remoteAudioEl.pause();
+    } catch (e) { console.warn('[softphone] remote audio element unlock failed', e); }
   }
 
   // ── Telnyx WebRTC softphone ───────────────────────────────
@@ -12198,7 +12230,7 @@ const softphone = (() => {
             _remoteAudioEl.autoplay = true;
           }
           _remoteAudioEl.srcObject = stream;
-          _remoteAudioEl.play().catch(() => {});
+          _remoteAudioEl.play().catch((e) => console.warn('[softphone] remote audio play() blocked', e));
         }
       } catch(e) {}
       if (state.phase !== 'connected') {
@@ -12443,6 +12475,10 @@ const softphone = (() => {
   // the actual WebRTC dial, and error-to-toast mapping. leadId is
   // null for ad hoc Web Dialer calls (no lead to attach the row to).
   async function _startCall({ leadId, displayName, phoneE164, callerIdOverride, callerNameOverride }) {
+    // Unlock ringback + remote-call audio synchronously, before the first
+    // `await` below — see _unlockCallAudio() for why the ordering matters.
+    _unlockCallAudio();
+
     // The Telnyx WebRTC SDK needs a live microphone track to build the
     // call's peer connection before it can send the outbound INVITE. If
     // mic access is blocked/denied, the SDK fails the call internally
