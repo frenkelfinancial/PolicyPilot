@@ -1539,15 +1539,17 @@ async function markOutcome(leadId, status) {
     if (!lead.call_history) lead.call_history = [];
     lead.call_history.push(entry);
     if (noteMap[String(leadId)]) lead.notes = noteMap[String(leadId)];
-    const upsertPromise = sb.from('leads').upsert(
+    // Promise.resolve() wraps the Supabase builder (a thenable WITHOUT a
+    // .catch method in this UMD build — calling .catch on it directly throws
+    // a TypeError that killed markOutcome mid-advance and left _isSkipping
+    // stuck true, deadening every button until the popup was reopened).
+    const upsertPromise = Promise.resolve(sb.from('leads').upsert(
       { agent_id: agentUser.id, client_id: String(leadId), data: { ...lead } },
       { onConflict: 'agent_id,client_id' }
-    );
-    if (isAutoAdvance) {
-      // Fire-and-forget — advancement must not wait on this round-trip.
-      upsertPromise.catch(e => console.warn('[markOutcome]', e));
-    } else {
-      await upsertPromise.catch(e => console.warn('[markOutcome]', e));
+    )).catch(e => console.warn('[markOutcome]', e));
+    if (!isAutoAdvance) {
+      // Fire-and-forget on auto-advance — advancement must not wait on this round-trip.
+      await upsertPromise;
     }
   }
 
@@ -1562,11 +1564,11 @@ async function markOutcome(leadId, status) {
 async function pdDeleteLead(leadId) {
   if (!confirm('Delete this lead permanently? This cannot be undone.')) return;
   if (agentUser) {
-    await sb.from('leads')
+    await Promise.resolve(sb.from('leads')
       .delete()
       .eq('agent_id', agentUser.id)
       .eq('client_id', String(leadId))
-      .catch(e => console.warn('[pdDeleteLead]', e));
+    ).catch(e => console.warn('[pdDeleteLead]', e));
   }
   leadsData = leadsData.filter(l => String(l.id) !== String(leadId));
   pdSkipLead();
@@ -1612,10 +1614,10 @@ function autoSaveNotes(ta) {
     const lead = leadsData.find(l => String(l.id) === String(leadId));
     if (lead && agentUser) {
       lead.notes = ta.value;
-      await sb.from('leads').upsert(
+      await Promise.resolve(sb.from('leads').upsert(
         { agent_id: agentUser.id, client_id: String(leadId), data: { ...lead } },
         { onConflict: 'agent_id,client_id' }
-      ).catch(e => console.warn('[notes]', e));
+      )).catch(e => console.warn('[notes]', e));
     }
   }, 900);
 }
