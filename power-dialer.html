@@ -610,6 +610,13 @@ html,body{
   cursor:pointer;transition:all .15s;
 }
 .btn-skip:hover{background:var(--raised);color:var(--text);border-color:var(--border3)}
+.btn-hangup{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.35);color:#f87171;margin-right:10px}
+.btn-hangup:hover{background:rgba(239,68,68,.20);color:#fca5a5;border-color:rgba(239,68,68,.5)}
+.btn-hangup-redial{background:rgba(245,158,11,.10);border-color:rgba(245,158,11,.35);color:#fbbf24;margin-left:10px}
+.btn-hangup-redial:hover{background:rgba(245,158,11,.20);color:#fcd34d;border-color:rgba(245,158,11,.5)}
+.btn-hangup:disabled,.btn-hangup-redial:disabled{opacity:.35;cursor:not-allowed}
+.btn-hangup:disabled:hover{background:rgba(239,68,68,.10);color:#f87171;border-color:rgba(239,68,68,.35)}
+.btn-hangup-redial:disabled:hover{background:rgba(245,158,11,.10);color:#fbbf24;border-color:rgba(245,158,11,.35)}
 .spacer{flex:1}
 .btn-end-footer{
   padding:8px 20px;background:var(--red-bg);border:1px solid var(--red-brd);
@@ -1035,7 +1042,9 @@ html,body{
     <div id="footer-bar">
       <button class="btn-skip" onclick="pdSkipLead()">Skip Lead →</button>
       <div class="spacer"></div>
+      <button id="btn-hangup" class="btn-skip btn-hangup" onclick="pdHangup()" title="Hang up this call — stay on this lead">⏹ Hang Up</button>
       <button id="btn-dial-center" class="btn-dial-center dc-idle" onclick="pdDial()">▶&thinsp;Dial</button>
+      <button id="btn-hangup-redial" class="btn-skip btn-hangup-redial" onclick="pdHangupRedial()" title="Hang up and immediately dial this lead again">↻ Hang Up &amp; Redial</button>
       <div class="spacer"></div>
       <button class="btn-end-footer" onclick="pdEnd()">End Dialing</button>
     </div>
@@ -1995,6 +2004,18 @@ function canRedial() {
 }
 
 function updateDialBtn() {
+  // Hang Up: only meaningful while a call is genuinely live.
+  const hangBtn = document.getElementById('btn-hangup');
+  if (hangBtn) {
+    hangBtn.disabled = _isSkipping || !session?.current_call_control_id ||
+      !(currentState === 'dialing' || currentState === 'connected');
+  }
+  // Hang Up & Redial: works on a live call (double-dial) or after one ended.
+  const hrBtn = document.getElementById('btn-hangup-redial');
+  if (hrBtn) {
+    hrBtn.disabled = _isSkipping || (session?.current_index ?? -1) < 0 ||
+      !['dialing','connected'].includes(currentState);
+  }
   const btn = document.getElementById('btn-dial-center');
   if (!btn) return;
   // Paused, or idle with no live call: always show ▶ Dial so the agent can
@@ -2055,6 +2076,52 @@ async function pdDial() {
     _isPaused = true;
     if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
     updateDialBtn();
+  }
+}
+
+// Hang Up — tear down the live call but STAY on this lead (no advance).
+// After the server clears the call, render()'s "Call Ended" branch shows
+// "mark outcome or re-dial" and enables Dial, exactly like a natural hangup.
+async function pdHangup() {
+  if (_isSkipping || !sessionId) return;
+  if (!session?.current_call_control_id ||
+      !(currentState === 'dialing' || currentState === 'connected')) return;
+  _lockSkip();
+  stopRingback();
+  _ringbackCallId = null;
+  const bannerText = document.getElementById('banner-text');
+  if (bannerText) bannerText.textContent = 'Hanging up…';
+  const safetyTimer = setTimeout(() => { if (_isSkipping) _unlockSkip(); }, 15000);
+  await pdSkip('hangup');
+  clearTimeout(safetyTimer);
+  _unlockSkip();
+}
+
+// Hang Up & Redial — tear down the live call (if any) and immediately dial
+// this SAME lead again. Useful for double-dialing: many leads answer the
+// second consecutive call from the same number.
+async function pdHangupRedial() {
+  if (_isSkipping || !sessionId) return;
+  if ((session?.current_index ?? -1) < 0) return;
+  _lockSkip();
+  stopRingback();
+  _ringbackCallId = null;
+  playTransitionBeep();
+  _previewManualDial = true; // intentional dial — render() must not auto-pause it
+  if (_isPaused) {
+    _isPaused = false;
+    const pauseBtn = document.getElementById('btn-pause');
+    if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
+  }
+  const bannerText = document.getElementById('banner-text');
+  if (bannerText) bannerText.textContent = 'Hanging up & re-dialing…';
+  const safetyTimer = setTimeout(() => { if (_isSkipping) _unlockSkip(); }, 15000);
+  const ok = await pdSkip('redial');
+  clearTimeout(safetyTimer);
+  _unlockSkip();
+  if (!ok) {
+    const bt = document.getElementById('banner-text');
+    if (bt) bt.textContent = 'Re-dial failed — try again';
   }
 }
 
