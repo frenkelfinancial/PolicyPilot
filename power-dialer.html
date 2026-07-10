@@ -1851,16 +1851,40 @@ function render(s) {
 }
 
 // ─── Realtime ─────────────────────────────
+// render() is wrapped in try/catch everywhere it's fed a row: one bad state
+// must never kill the update stream (a single uncaught exception here is how
+// the UI froze at "Starting session…" while the phone kept dialing).
+function safeRender(row) {
+  if (!row) return;
+  try { render(row); } catch (e) { console.error('[render]', e); }
+}
+
+// Re-fetch the session row directly and render it — self-heals a UI that
+// missed a Realtime event (throttled popup, dropped websocket, etc.).
+async function resyncSession() {
+  if (!sessionId) return;
+  try {
+    const { data } = await sb.from('dialer_sessions').select('*').eq('id', sessionId).maybeSingle();
+    if (data) safeRender(data);
+  } catch (e) { console.warn('[resync]', e); }
+}
+
+let _pollTimer = null;
 function subscribe(id) {
   unsubscribe();
   rtChannel = sb.channel('pd-tab-' + id)
     .on('postgres_changes',
       { event:'UPDATE', schema:'public', table:'dialer_sessions', filter:'id=eq.'+id },
-      ({ new: row }) => render(row))
+      ({ new: row }) => safeRender(row))
     .subscribe();
+  // Polling safety net: Realtime is the fast path, but popup windows get
+  // throttled and websockets drop silently. A 5s poll guarantees the UI can
+  // never be more than a few seconds out of sync with the server.
+  _pollTimer = setInterval(resyncSession, 5000);
 }
 function unsubscribe() {
   if (rtChannel) { sb.removeChannel(rtChannel); rtChannel = null; }
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
 }
 
 // ─── Session actions ──────────────────────
@@ -1921,7 +1945,7 @@ async function pdStartSession() {
 async function pdSkip(mode) {
   if (!sessionId) return false;
   try {
-    const { error } = await sb.functions.invoke('telnyx-dialer-skip', {
+    const { data, error } = await sb.functions.invoke('telnyx-dialer-skip', {
       body: { session_id: sessionId, mode: mode || 'advance', expected_index: session?.current_index ?? null }
     });
     if (error) {
@@ -1930,8 +1954,11 @@ async function pdSkip(mode) {
       if (bannerText) bannerText.textContent = `Skip failed: ${error.message || 'unknown error'} — try again`;
       return false;
     }
-    // A noop:true response means the server already advanced/hung up from a
-    // prior overlapping request — treat it as success, not an error.
+    // A noop:true response means the server was at a different index than the
+    // UI believed — either an overlapping request already advanced, or this
+    // window missed a Realtime event and is stale. Either way: resync from
+    // the DB so the UI snaps back to the server's truth, then treat as success.
+    if (data?.noop) await resyncSession();
     return true;
   } catch (e) {
     console.error('skip', e);

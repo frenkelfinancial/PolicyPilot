@@ -13680,12 +13680,10 @@ async function openPowerDialerModal() {
     ts: Date.now()
   }));
 
-  // Open the dedicated Power Dialer window
-  const popup = window.open(
-    'power-dialer.html',
-    'ProducerStackDialer',
-    'width=1300,height=820,toolbar=0,menubar=0,scrollbars=0,resizable=1,location=0'
-  );
+  // Open the dedicated Power Dialer as a regular TAB (no features string).
+  // Detached popup windows get aggressively throttled by Chrome (timers,
+  // websockets), which caused missed Realtime updates and a frozen dialer UI.
+  const popup = window.open('power-dialer.html', 'ProducerStackDialer');
 
   if (!popup) {
     // Popup blocked — fall back to the in-page modal
@@ -13708,7 +13706,7 @@ async function openPreviewDialer() {
   const leadIds = [...selectedLeadIds];
   const leadsForDialer = leads.filter(l => leadIds.includes(String(l.id)));
   localStorage.setItem('pd_launch', JSON.stringify({ leadIds, leadsData: leadsForDialer, ts: Date.now(), mode: 'preview' }));
-  const popup = window.open('power-dialer.html','ProducerStackDialer','width=1300,height=820,toolbar=0,menubar=0,scrollbars=0,resizable=1,location=0');
+  const popup = window.open('power-dialer.html','ProducerStackDialer'); // regular tab — see openPowerDialerModal
   if (!popup) showToast('Enable pop-ups for this site to use the Power Dialer', '#f59e0b');
 }
 
