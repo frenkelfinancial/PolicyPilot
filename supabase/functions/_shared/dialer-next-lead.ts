@@ -21,6 +21,10 @@ export type DialerSession = {
   caller_id_fixed: string | null;
   caller_id_numbers: string[] | null;
   current_caller_id: string | null;
+  // Human-readable reason the most recent lead was skipped without ever
+  // being dialed (missing phone, missing lead row, no caller ID). Cleared
+  // back to null on the next successful dial. Added in 20260709e migration.
+  last_skip_reason?: string | null;
 };
 
 // US area code → state abbreviation (all active NANP codes as of 2025)
@@ -372,7 +376,16 @@ export async function dialNextLead(
     const rawPhone: string = (leadRow?.data as { phone?: string } | undefined)?.phone || "";
     const leadPhone: string = toE164(rawPhone) || rawPhone;
     if (!leadPhone) {
-      await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
+      // No lead ever disappears without a visible trace — surfaced by the
+      // frontend as a toast/banner via dialer_sessions.last_skip_reason.
+      const reason = leadRow
+        ? `Lead ${nextIndex + 1}: no phone on file`
+        : `Lead ${nextIndex + 1}: lead not found`;
+      console.warn(`[dialer] session ${session.id} skipped index ${nextIndex}: ${reason}`);
+      await sb.from("dialer_sessions").update({
+        current_index:    nextIndex,
+        last_skip_reason: reason,
+      }).eq("id", session.id);
       continue;
     }
 
@@ -387,7 +400,12 @@ export async function dialNextLead(
     );
 
     if (!callerIdE164) {
-      await sb.from("dialer_sessions").update({ current_index: nextIndex }).eq("id", session.id);
+      const reason = `Lead ${nextIndex + 1}: no caller ID available`;
+      console.warn(`[dialer] session ${session.id} skipped index ${nextIndex}: ${reason}`);
+      await sb.from("dialer_sessions").update({
+        current_index:    nextIndex,
+        last_skip_reason: reason,
+      }).eq("id", session.id);
       continue;
     }
 
@@ -530,6 +548,7 @@ export async function dialNextLead(
       current_call_control_id: leadCallControlId,
       current_call_row_id:     callRow?.id || null,
       current_caller_id:       callerIdE164,
+      last_skip_reason:        null,
     }).eq("id", session.id);
 
     return;

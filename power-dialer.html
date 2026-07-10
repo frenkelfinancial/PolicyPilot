@@ -765,6 +765,18 @@ html,body{
 }
 .sub-cid-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--text3)}
 .sub-cid-num{font-size:11.5px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;letter-spacing:.03em}
+
+/* ── Skip-reason toast ── */
+#pd-toast{
+  position:fixed;top:70px;right:18px;z-index:5000;
+  max-width:340px;padding:11px 15px;border-radius:10px;
+  background:var(--amber-bg);border:1px solid var(--amber-brd);color:var(--amber);
+  font-size:12.5px;font-weight:600;line-height:1.5;
+  box-shadow:0 12px 30px rgba(0,0,0,.35);
+  opacity:0;transform:translateY(-8px);pointer-events:none;
+  transition:opacity .2s ease,transform .2s ease;
+}
+#pd-toast.show{opacity:1;transform:translateY(0)}
 </style>
 </head>
 <body>
@@ -824,6 +836,8 @@ html,body{
   </div>
 
 </header>
+
+<div id="pd-toast"></div>
 
 <!-- ══════════════════════ SHELL ══════════════════════ -->
 <div id="shell">
@@ -1194,6 +1208,7 @@ let _previewManualDial  = false;   // true when agent explicitly clicked Dial
 let callerNumbers       = [];      // phone_numbers rows loaded at init
 let callerIdMode        = 'smart_local'; // 'smart_local' | 'fixed'
 let _lastCountedCallId  = null;    // tracks which call_control_id was last counted to avoid double-counting
+let _lastShownSkipReason = null;   // tracks dialer_sessions.last_skip_reason already toasted, to avoid repeats
 
 // ─── Utils ────────────────────────────────
 function fmtP(raw) {
@@ -1460,23 +1475,33 @@ function renderOutcomeArea(leadId) {
   const wrap = document.getElementById('outcome-area');
   if (!wrap || !leadId) return;
   const cur = outcomeMap[String(leadId)] || null;
+  const disabledAttr = _isSkipping ? 'disabled' : '';
   const buttons = Object.entries(STATUS_CFG)
     .filter(([k]) => k !== 'new')
     .map(([key, cfg]) => {
       const picked = cur === key ? ' picked' : '';
-      return `<button class="outcome-btn${picked}" onclick="markOutcome('${leadId}','${key}')">${cfg.label}</button>`;
+      return `<button class="outcome-btn${picked}" ${disabledAttr} onclick="markOutcome('${leadId}','${key}')">${cfg.label}</button>`;
     }).join('');
-  const deleteBtn = `<button class="outcome-btn outcome-delete" onclick="pdDeleteLead('${leadId}')">Delete Lead</button>`;
+  const deleteBtn = `<button class="outcome-btn outcome-delete" ${disabledAttr} onclick="pdDeleteLead('${leadId}')">Delete Lead</button>`;
   wrap.innerHTML = `<div class="outcome-grid">${buttons}${deleteBtn}</div>`;
 }
 
 async function markOutcome(leadId, status) {
+  if (_isSkipping) return; // an advance is already in flight — ignore stray clicks
+
   // Sold: open sold modal instead of immediately marking
   if (status === 'sold') {
     const lead = leadsData.find(l => String(l.id) === String(leadId));
     pdOpenSold(lead || { id: leadId });
     return;
   }
+
+  const AUTO_ADVANCE = new Set(['no_answer','not_interested','social_obj','banking_obj']);
+  const isAutoAdvance = AUTO_ADVANCE.has(status);
+
+  // Lock immediately, before any awaits, so a rapid double-click can never
+  // fire a second advance for this lead (was: "skips every other lead").
+  if (isAutoAdvance) _lockSkip();
 
   const prev = outcomeMap[String(leadId)];
   outcomeMap[String(leadId)] = status;
@@ -1514,16 +1539,22 @@ async function markOutcome(leadId, status) {
     if (!lead.call_history) lead.call_history = [];
     lead.call_history.push(entry);
     if (noteMap[String(leadId)]) lead.notes = noteMap[String(leadId)];
-    await sb.from('leads').upsert(
+    const upsertPromise = sb.from('leads').upsert(
       { agent_id: agentUser.id, client_id: String(leadId), data: { ...lead } },
       { onConflict: 'agent_id,client_id' }
-    ).catch(e => console.warn('[markOutcome]', e));
+    );
+    if (isAutoAdvance) {
+      // Fire-and-forget — advancement must not wait on this round-trip.
+      upsertPromise.catch(e => console.warn('[markOutcome]', e));
+    } else {
+      await upsertPromise.catch(e => console.warn('[markOutcome]', e));
+    }
   }
 
-  // Auto-advance: identical to clicking "Skip Lead →"
-  const AUTO_ADVANCE = new Set(['no_answer','not_interested','social_obj','banking_obj']);
-  if (AUTO_ADVANCE.has(status)) {
-    await pdSkipLead();
+  // Auto-advance: identical to clicking "Skip Lead →", but the lock above
+  // already fired synchronously so this can't race with a second click.
+  if (isAutoAdvance) {
+    await _doSkipLead();
   }
 }
 
@@ -1538,7 +1569,7 @@ async function pdDeleteLead(leadId) {
       .catch(e => console.warn('[pdDeleteLead]', e));
   }
   leadsData = leadsData.filter(l => String(l.id) !== String(leadId));
-  pdSkip();
+  pdSkipLead();
 }
 
 // ─── Call history ─────────────────────────
@@ -1646,6 +1677,14 @@ function render(s) {
   const prevIdx   = session?.current_index;
   session = s;
   currentState = s.status;
+
+  // Surface leads that were silently skipped without ever being dialed
+  // (missing phone, missing lead row, no caller ID) — no lead vanishes
+  // without a visible trace.
+  if (s.last_skip_reason && s.last_skip_reason !== _lastShownSkipReason) {
+    _lastShownSkipReason = s.last_skip_reason;
+    showSkipToast(s.last_skip_reason);
+  }
 
   // Count each call exactly once when it has a live call_control_id — tracked by ID to
   // survive transitional backend states where the index changes before the ID appears.
@@ -1877,16 +1916,20 @@ async function pdStartSession() {
   }
 }
 
-async function pdSkip() {
+async function pdSkip(mode) {
   if (!sessionId) return false;
   try {
-    const { error } = await sb.functions.invoke('telnyx-dialer-skip', { body: { session_id: sessionId } });
+    const { error } = await sb.functions.invoke('telnyx-dialer-skip', {
+      body: { session_id: sessionId, mode: mode || 'advance', expected_index: session?.current_index ?? null }
+    });
     if (error) {
       console.error('skip', error);
       const bannerText = document.getElementById('banner-text');
       if (bannerText) bannerText.textContent = `Skip failed: ${error.message || 'unknown error'} — try again`;
       return false;
     }
+    // A noop:true response means the server already advanced/hung up from a
+    // prior overlapping request — treat it as success, not an error.
     return true;
   } catch (e) {
     console.error('skip', e);
@@ -1896,11 +1939,21 @@ async function pdSkip() {
   }
 }
 
+// True when there is currently no live call for the session's current lead
+// (call ended naturally, or was torn down by an explicit Pause) — the state
+// in which the Dial button should offer a re-dial regardless of the
+// separate "explicitly paused" toggle.
+function canRedial() {
+  return !!session && currentState === 'dialing' && !session.current_call_control_id &&
+    (session.current_index ?? -1) >= 0 && !_isSkipping;
+}
+
 function updateDialBtn() {
   const btn = document.getElementById('btn-dial-center');
   if (!btn) return;
-  // When paused (preview or power mode), always show ▶ Dial so agent can re-dial
-  if (_isPaused) {
+  // Paused, or idle with no live call: always show ▶ Dial so the agent can
+  // re-dial — but never while a skip/advance is already in flight.
+  if (!_isSkipping && (_isPaused || canRedial())) {
     btn.className = 'btn-dial-center dc-idle';
     btn.innerHTML = '▶&thinsp;Dial';
     btn.disabled = false;
@@ -1922,26 +1975,40 @@ function updateDialBtn() {
 }
 
 async function pdDial() {
-  if (!sessionId) return;
-  // Allow dial when explicitly paused (call ended / auto-paused) even if currentState is still 'dialing'.
-  // Block only when an active call is genuinely ringing or connected.
-  if (!_isPaused && (currentState === 'dialing' || currentState === 'connected')) return;
-  // If paused because the call couldn't be placed (no call_control_id), there's
-  // nothing to resume — the backend stalled. Show a hint and stay paused.
-  if (_isPaused && currentState === 'dialing' && session && !session.current_call_control_id) {
-    const bt = document.getElementById('banner-text');
-    if (bt) bt.textContent = 'Call failed — mark outcome or skip this lead';
-    return;
-  }
-  _isPaused = false;
+  if (!sessionId || _isSkipping) return; // an advance is already in flight
+  // Allow dial when paused, or idle with no live call. Block only when a
+  // call is genuinely ringing or connected.
+  if (!_isPaused && !canRedial()) return;
+
   _previewManualDial = true; // tell render() this dial is intentional — don't auto-pause
   const pauseBtn = document.getElementById('btn-pause');
-  if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
-  updateDialBtn();
-  // If the backend call is already active, restart ringback so it plays immediately
-  if (currentState === 'dialing' && session?.current_call_control_id) {
+
+  if (session?.current_call_control_id) {
+    // Backend call is already live (preview mode's auto-dial was locally
+    // intercepted before ringback played) — just resume local playback,
+    // no backend action needed.
+    _isPaused = false;
+    if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
+    updateDialBtn();
     _ringbackCallId = session.current_call_control_id;
     startRingback();
+    return;
+  }
+
+  if ((session?.current_index ?? -1) < 0) return; // nothing dialed yet — nothing to re-dial
+
+  // No live call — issue a real re-dial of the current lead.
+  _isPaused = false;
+  if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
+  updateDialBtn();
+  const bannerText = document.getElementById('banner-text');
+  if (bannerText) bannerText.textContent = 'Re-dialing…';
+
+  const ok = await pdSkip('redial');
+  if (!ok) {
+    _isPaused = true;
+    if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
+    updateDialBtn();
   }
 }
 
@@ -1952,15 +2019,42 @@ async function pdPauseAfterAdvance() {
   updateDialBtn();
 }
 
-async function pdSkipLead() {
-  if (_isSkipping) return; // prevent double-skip during transition
-  stopRingback();
-  _ringbackCallId = null;
-  _isSkipping = true;
+let _isPaused  = false;
+let _isSkipping = false; // true while a skip is in-flight; suppresses the "call ended" auto-pause
 
-  // Immediate visual feedback — don't make the user wait 2s in silence
+// Locks the outcome/skip UI at the start of an advance so a rapid second
+// click can never fire a second telnyx-dialer-skip call (was: "skips every
+// other lead"). Paired with _unlockSkip().
+function _lockSkip() {
+  _isSkipping = true;
   const skipBtn = document.querySelector('.btn-skip');
   if (skipBtn) skipBtn.disabled = true;
+  renderOutcomeArea(currentLeadId());
+  updateDialBtn();
+}
+
+function _unlockSkip() {
+  _isSkipping = false;
+  const skipBtn = document.querySelector('.btn-skip');
+  if (skipBtn) skipBtn.disabled = false;
+  renderOutcomeArea(currentLeadId());
+  updateDialBtn();
+}
+
+async function pdSkipLead() {
+  if (_isSkipping) return; // prevent double-skip during transition
+  _lockSkip();
+  await _doSkipLead();
+}
+
+// The actual advance — assumes the caller has already acquired the skip
+// lock via _lockSkip() (either pdSkipLead() itself, or markOutcome() for
+// auto-advance outcomes, which locks synchronously before its own awaits).
+async function _doSkipLead() {
+  stopRingback();
+  _ringbackCallId = null;
+
+  // Immediate visual feedback — don't make the user wait in silence
   const bannerText = document.getElementById('banner-text');
   if (bannerText) bannerText.textContent = 'Moving to next lead…';
 
@@ -1972,27 +2066,20 @@ async function pdSkipLead() {
     if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
     updateDialBtn();
   }
-  // Safety: clear _isSkipping after 8s regardless (handles slow/failed backend response)
-  setTimeout(() => {
-    if (_isSkipping) {
-      _isSkipping = false;
-      const btn = document.querySelector('.btn-skip');
-      if (btn) btn.disabled = false;
-      updateDialBtn();
-    }
-  }, 8000);
-  const ok = await pdSkip();
+  // Safety: clear the skip lock after 15s regardless (handles cold-started
+  // edge function invocations, which can exceed the old 8s window).
+  const safetyTimer = setTimeout(() => {
+    if (_isSkipping) _unlockSkip();
+  }, 15000);
+
+  const ok = await pdSkip('advance');
+  clearTimeout(safetyTimer);
   if (!ok) {
-    // Skip failed — restore state immediately rather than waiting for the 8s safety timeout
-    _isSkipping = false;
-    const btn = document.querySelector('.btn-skip');
-    if (btn) btn.disabled = false;
+    // Skip failed — restore state immediately rather than waiting for the safety timeout
+    _unlockSkip();
     return;
   }
-  // Successful skip: clear the flag now. Both Realtime updates (pre-clear and new call)
-  // fire during edge function execution, so they arrived while _isSkipping was true
-  // and may have skipped auto-pause if the next lead couldn't be dialed. Re-evaluate here.
-  _isSkipping = false;
+  _unlockSkip();
   if (session && session.status === 'dialing' && !session.current_call_control_id && (session.current_index ?? -1) >= 0) {
     // Backend stalled — next lead's call failed. Enter paused state so the
     // agent can mark an outcome and skip rather than being left in a broken "Loading…" limbo.
@@ -2002,17 +2089,15 @@ async function pdSkipLead() {
     updateDialBtn();
     const bt = document.getElementById('banner-text');
     if (bt) bt.textContent = 'Call failed — mark outcome or skip lead';
-    const skipBtn = document.querySelector('.btn-skip');
-    if (skipBtn) { skipBtn.disabled = false; skipBtn.textContent = 'Skip Lead →'; }
   }
   if (dialMode === 'preview') await pdPauseAfterAdvance();
 }
 
-let _isPaused  = false;
-let _isSkipping = false; // true while a skip is in-flight; suppresses the "call ended" auto-pause
 async function pdTogglePause() {
   if (!_isPaused) {
-    // Pause: hang up current call then freeze queue
+    // Pause: tear down the current call (hangup only, no advance — this was
+    // RC2: pause used to call pdSkip(), which both hung up AND dialed the
+    // next lead). The queue stays frozen on the current lead.
     stopRingback();
     _ringbackCallId = null;
     playTransitionBeep();
@@ -2020,12 +2105,18 @@ async function pdTogglePause() {
     const btn = document.getElementById('btn-pause');
     if (btn) { btn.textContent = '▶ Resume'; btn.classList.add('paused'); }
     updateDialBtn();
-    // Hang up the active call by skipping it
     if (currentState === 'dialing' || currentState === 'connected') {
-      await pdSkip();
+      await pdSkip('hangup');
     }
   } else {
-    await pdDial();
+    // Resume: clear the pause flag only — do NOT place a call. The agent
+    // must explicitly choose Dial (re-dial), an outcome, or Skip. No live
+    // call exists at this point, so canRedial() keeps the Dial button
+    // enabled and functional for that follow-up click.
+    _isPaused = false;
+    const btn = document.getElementById('btn-pause');
+    if (btn) { btn.textContent = '⏸ Pause'; btn.classList.remove('paused'); }
+    updateDialBtn();
   }
 }
 
@@ -2341,6 +2432,17 @@ async function pdSubmitSold() {
     alert('Error saving policy. Please try again.');
     if (saveBtn) { saveBtn.textContent = 'Save Policy & Mark Sold'; saveBtn.disabled = false; }
   }
+}
+
+// ─── Skip-reason toast ─────────────────────
+let _skipToastTimer = null;
+function showSkipToast(reason) {
+  const el = document.getElementById('pd-toast');
+  if (!el) return;
+  el.textContent = `⚠ Skipped without dialing — ${reason}`;
+  el.classList.add('show');
+  clearTimeout(_skipToastTimer);
+  _skipToastTimer = setTimeout(() => el.classList.remove('show'), 6000);
 }
 
 // ─── Call status badge ────────────────────

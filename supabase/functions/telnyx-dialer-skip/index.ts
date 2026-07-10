@@ -8,17 +8,30 @@ import {
 } from "../_shared/dialer-next-lead.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
-// Advances the Power Dialer to the next lead.
+// Advances, re-dials, or tears down the Power Dialer's current call.
 //
-// Steps:
+// body: { session_id, mode?: 'advance' | 'redial' | 'hangup', expected_index?: number }
+//   - mode defaults to 'advance' so an old cached frontend that never sends
+//     `mode` behaves exactly as it did before this endpoint grew modes.
+//   - expected_index, when provided, guards against double-invocation: if the
+//     session has already moved past that index (e.g. a duplicate click that
+//     fired while the first request was still in flight), this call returns
+//     a harmless no-op instead of advancing or hanging up a second time.
+//
+// Steps (advance/redial):
 //   1. Pre-clear current_call_control_id in the DB so that if Telnyx fires
 //      a call.hangup event for the leg we're about to hang up, the webhook
 //      handler won't try to process it (it won't find a matching session row).
 //   2. Close the current call row for billing (idempotent).
 //   3. Hang up the current lead leg if one is active.
-//   4. Call dialNextLead() to place the call to the next lead and update the
-//      session. dialNextLead is passed current_call_row_id=null so it doesn't
-//      try to close a row that's already closed.
+//   4. advance: call dialNextLead() to place the call to the NEXT lead.
+//      redial:  call dialNextLead() to re-place the call to the SAME lead
+//               (current_index is rewound by one before the call, since
+//               dialNextLead always starts from current_index + 1 — this
+//               reuses the exact same dial/hold logic instead of duplicating it).
+//      hangup:  teardown only (steps 1-3), no dial — used by Pause. The
+//               session is left exactly as it would be after a lead hangs up
+//               naturally: status 'dialing', both call ids null.
 serve(async (req) => {
   const CORS = corsHeaders(req.headers.get("origin"));
   function json(body: unknown, status = 200) {
@@ -50,11 +63,15 @@ serve(async (req) => {
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  let body: { session_id?: unknown };
+  let body: { session_id?: unknown; mode?: unknown; expected_index?: unknown };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
   const sessionId = typeof body.session_id === "string" ? body.session_id : "";
   if (!sessionId) return json({ error: "missing_session_id" }, 400);
+
+  const mode: "advance" | "redial" | "hangup" =
+    body.mode === "redial" ? "redial" : body.mode === "hangup" ? "hangup" : "advance";
+  const expectedIndex = typeof body.expected_index === "number" ? body.expected_index : null;
 
   const { data: session } = await sb.from("dialer_sessions")
     .select("*")
@@ -67,14 +84,25 @@ serve(async (req) => {
     return json({ error: "session_not_active" }, 409);
   }
 
+  // Idempotency guard: a stale/duplicate request targeting an index we've
+  // already moved past (double-click, slow-network retry, cold-start retry)
+  // is a harmless no-op rather than a second advance/hangup.
+  if (expectedIndex !== null && session.current_index !== expectedIndex) {
+    return json({ ok: true, noop: true, current_index: session.current_index });
+  }
+
   const prevCallControlId = session.current_call_control_id as string | null;
   const prevCallRowId     = session.current_call_row_id as string | null;
 
-  // Step 1: Pre-clear the active call from the session.
-  // This prevents the call.hangup webhook from treating this as a natural
-  // hangup — it won't find a matching current_call_control_id.
+  // Step 1: Pre-clear the active call from the session, and drop status back
+  // to 'dialing' (matching what a natural lead-leg hangup already does in
+  // telnyx-call-status). Without this, tearing down a *connected* call via
+  // mode 'hangup' would leave status='connected' with no call ids — the
+  // frontend's idle/re-dial detection only exists for status='dialing', so
+  // the agent would be stuck looking at a stale "Connected" banner.
   if (prevCallControlId || prevCallRowId) {
     await sb.from("dialer_sessions").update({
+      status:                  "dialing",
       current_call_control_id: null,
       current_call_row_id:     null,
     }).eq("id", sessionId);
@@ -100,14 +128,25 @@ serve(async (req) => {
     } catch { /* best effort */ }
   }
 
-  // Step 4: Advance to the next lead.
-  // Pass the session with cleared call IDs so dialNextLead won't try to
-  // close a row we already closed above.
+  // mode: 'hangup' — teardown only, no dial. Used by Pause: the session is
+  // left exactly as it would be after a lead hangs up naturally (status
+  // 'dialing', both call ids null), so the frontend's existing "call ended"
+  // idle UI applies without any special-casing.
+  if (mode === "hangup") {
+    return json({ ok: true });
+  }
+
+  // Step 4: Place the next call — the SAME lead for 'redial' (current_index
+  // rewound by one, since dialNextLead always starts from current_index + 1),
+  // the NEXT lead for 'advance'. Pass the session with cleared call IDs so
+  // dialNextLead won't try to close a row we already closed above.
   const webhookUrl = `${SUPABASE_URL}/functions/v1/telnyx-call-status`;
   const sessionForDial: DialerSession = {
     ...(session as DialerSession),
     current_call_control_id: null,
     current_call_row_id:     null,
+    current_index:
+      mode === "redial" ? (session.current_index as number) - 1 : (session.current_index as number),
   };
 
   const telnyxHeaders = {
