@@ -108,11 +108,17 @@ serve(async (req) => {
     }).eq("id", sessionId);
   }
 
-  // Steps 2 + 3 in parallel — billing close/settle (DB + RPC) and the Telnyx
-  // hangup are independent of each other, and running them sequentially added
-  // a full round-trip of dead air to every skip. Internal ordering that
-  // matters (closeCallRowById BEFORE reportMinutesToWallet) is preserved
-  // inside the first branch.
+  // Steps 2 + 3 in parallel — billing close/settle (DB + RPC), the Telnyx
+  // hangup, and stopping the agent-leg ringback are independent of each
+  // other, and running them sequentially added a full round-trip of dead air
+  // to every skip. Internal ordering that matters (closeCallRowById BEFORE
+  // reportMinutesToWallet) is preserved inside the first branch.
+  //
+  // The ringback playback_stop is REQUIRED here (not just in the beep block
+  // below): mode 'hangup' returns early and never reaches the beep block, so
+  // without this a Pause during a ringing call left the infinite-loop
+  // ringback playing on the agent's phone forever.
+  const agentLegId = (session as DialerSession).agent_call_control_id;
   await Promise.all([
     (async () => {
       const closed = await closeCallRowById(sb, prevCallRowId);
@@ -124,6 +130,19 @@ serve(async (req) => {
       if (!prevCallControlId) return;
       try {
         await fetch(`https://api.telnyx.com/v2/calls/${prevCallControlId}/actions/hangup`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${TELNYX_API_KEY}`,
+            "Content-Type":  "application/json",
+          },
+          body: JSON.stringify({ command_id: crypto.randomUUID() }),
+        });
+      } catch { /* best effort */ }
+    })(),
+    (async () => {
+      if (!agentLegId) return;
+      try {
+        await fetch(`https://api.telnyx.com/v2/calls/${agentLegId}/actions/playback_stop`, {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${TELNYX_API_KEY}`,

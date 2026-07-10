@@ -1208,6 +1208,7 @@ let _previewManualDial  = false;   // true when agent explicitly clicked Dial
 let callerNumbers       = [];      // phone_numbers rows loaded at init
 let callerIdMode        = 'smart_local'; // 'smart_local' | 'fixed'
 let _lastCountedCallId  = null;    // tracks which call_control_id was last counted to avoid double-counting
+let _renderedLeadFormId = null;    // which lead the form panel currently shows (survives render crashes)
 let _lastShownSkipReason = null;   // tracks dialer_sessions.last_skip_reason already toasted, to avoid repeats
 
 // ─── Utils ────────────────────────────────
@@ -1786,7 +1787,12 @@ function render(s) {
       document.getElementById('banner-text').textContent = `Connected — ${lead ? lName(lead) : ''}`;
     }
 
-    if ((s.current_index !== prevIdx || prevState === 'pending') && (s.current_index ?? -1) >= 0) {
+    // Track WHICH lead the form currently shows rather than comparing against
+    // the previous index — if a render crashed after setting session/currentState
+    // but before reaching this point, an index comparison would consider the
+    // lead "already rendered" and leave the panel blank forever.
+    if ((s.current_index ?? -1) >= 0 && leadId != null && String(leadId) !== _renderedLeadFormId) {
+      _renderedLeadFormId = String(leadId);
       renderLeadForm(lead);
       const ta = document.getElementById('notes-ta');
       if (ta) ta.value = noteMap[String(leadId)] || (lead?.notes || '');
@@ -1795,7 +1801,9 @@ function render(s) {
 
     renderOutcomeArea(leadId);
     // Show Disconnected badge when call has ended but agent hasn't skipped yet
-    const badgeStatus = (s.status === 'dialing' && !s.current_call_control_id) ? 'disconnected' : s.status;
+    const badgeStatus = (s.status === 'dialing' && !s.current_call_control_id)
+      ? (_isPaused ? 'paused' : 'disconnected')
+      : s.status;
     updateCallBadge(badgeStatus);
     updateDialBtn();
     renderNextLead(s);
@@ -1856,7 +1864,16 @@ function render(s) {
 // the UI froze at "Starting session…" while the phone kept dialing).
 function safeRender(row) {
   if (!row) return;
-  try { render(row); } catch (e) { console.error('[render]', e); }
+  // CRITICAL: Supabase Realtime UPDATE payloads OMIT large unchanged (TOASTed)
+  // columns — on sessions with 100+ leads, lead_ids exceeds the TOAST threshold
+  // and vanishes from every subsequent event. Rendering such a row crashed
+  // currentLeadId() (undefined.lead_ids[i]), which blanked the lead panel and,
+  // before render was crash-proofed, froze the whole dialer. Never render a
+  // Realtime row raw: merge it over the last known session state, and fall
+  // back to the launch lead list for lead_ids (it never changes mid-session).
+  const merged = session ? { ...session, ...row } : row;
+  if (!merged.lead_ids) merged.lead_ids = leadsData.map(l => String(l.id));
+  try { render(merged); } catch (e) { console.error('[render]', e); }
 }
 
 // Re-fetch the session row directly and render it — self-heals a UI that
@@ -2479,8 +2496,9 @@ function updateCallBadge(status) {
   const el = document.getElementById('lead-call-badge');
   if (!el) return;
   const map = {
-    dialing:   ['csb-ringing',      'Ringing'],
-    connected:  ['csb-connected',    'Connected'],
+    dialing:      ['csb-ringing',      'Ringing'],
+    connected:    ['csb-connected',    'Connected'],
+    paused:       ['csb-disconnected', 'Paused'],
   };
   const [cls, label] = map[status] || ['csb-disconnected', 'Disconnected'];
   el.className = `call-status-badge ${cls}`;
