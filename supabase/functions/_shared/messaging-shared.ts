@@ -22,6 +22,21 @@ export type ComplianceResult =
 const PHONE_CHANNELS = new Set<MessagingChannel>(["sms", "mms"]);
 
 /**
+ * TCPA marketing SMS/MMS requires EXPRESS WRITTEN consent specifically —
+ * oral/implied ("express") is not enough — unless the operator has
+ * explicitly relaxed that (billing_config.sms_require_written_consent =
+ * false). Pulled out of runComplianceGate as a pure function so the CSV
+ * import path's "never auto-write express_written" guardrail can be
+ * tested directly against the exact rule the gate enforces, without a
+ * database. Email has no such requirement (any consent_type <> 'none'
+ * passes it, checked separately in the gate).
+ */
+export function isConsentTypeAcceptable(consentType: string, requireWritten: boolean): boolean {
+  const acceptableTypes = requireWritten ? ["express_written"] : ["express_written", "express"];
+  return acceptableTypes.includes(consentType);
+}
+
+/**
  * Runs every compliance check required before a billable send. Charges
  * nothing itself — the caller (messaging-send-*) must not call wallet_hold
  * unless this returns ok:true. On ok:true, `normalizedAddress` is the
@@ -111,8 +126,7 @@ export async function runComplianceGate(
       .eq("id", 1)
       .maybeSingle();
     const requireWritten = billingConfig?.sms_require_written_consent ?? true;
-    const acceptableTypes = requireWritten ? ["express_written"] : ["express_written", "express"];
-    if (!acceptableTypes.includes(consent.consent_type)) {
+    if (!isConsentTypeAcceptable(consent.consent_type, requireWritten)) {
       return {
         ok: false,
         reason: "no_consent",

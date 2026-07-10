@@ -1,16 +1,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { runComplianceGate, bodyPreview } from "../_shared/messaging-shared.ts";
-import { smsAmountMills } from "../_shared/segments.ts";
+import { runComplianceGate } from "../_shared/messaging-shared.ts";
+import { sendMessageCore } from "../_shared/messaging-send-core.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 // Authorize-then-capture SMS send: compliance gate (A2P approved, consent,
-// not on DNC, within TCPA quiet hours) -> wallet_hold for the segment cost
-// -> Telnyx send -> messages row. NEVER settled here — messaging-delivery-
+// not on DNC, within TCPA quiet hours) -> shared send core (wallet_hold ->
+// Telnyx send -> messages row). NEVER settled here — messaging-delivery-
 // webhook resolves the hold on the carrier's DLR (delivered -> settle,
 // failed/undelivered -> void, net $0). See 016_wallet_foundation.sql for
 // the wallet_hold/settle/void RPCs and 019_messaging_compliance.sql for
 // the messages/consent_records/dnc_list/a2p_registrations schema.
+//
+// The billing/never-charge core (messages row -> wallet_hold -> Telnyx
+// send -> settle/void) lives in _shared/messaging-send-core.ts, shared
+// with messaging-send-mms and messaging-broadcast-run so all three
+// produce identical billing behavior.
 serve(async (req) => {
   const cors = corsHeaders(req.headers.get("origin"));
 
@@ -66,96 +71,19 @@ serve(async (req) => {
   const fromNumber = agent?.signalwire_caller_id;
   if (!fromNumber) return json({ error: "sender_not_configured", detail: "No outbound caller ID configured for this agent." }, 400);
 
-  // --- Cost + hold. ---
-  const { data: billingConfig } = await sb.from("billing_config")
-    .select("sms_segment_mills")
-    .eq("id", 1)
-    .maybeSingle();
-  const segmentMills = billingConfig?.sms_segment_mills ?? 10;
-  const { segments, amountMills } = smsAmountMills(text, segmentMills);
+  const result = await sendMessageCore(
+    { agentId: user.id, channel: "sms", to, fromNumber, text, consentId: gate.consentId },
+    { sb, supabaseUrl: SUPABASE_URL, telnyxApiKey: TELNYX_API_KEY, telnyxMessagingProfileId: TELNYX_MSG_PROFILE_ID },
+  );
 
-  // --- Insert the messages row first (no hold yet) so the ledger's
-  //     ref_id can point at a real row from the moment the hold exists. ---
-  const { data: messageRow, error: insertErr } = await sb.from("messages").insert({
-    agent_id:            user.id,
-    channel:             "sms",
-    to_address:          to,
-    from_number:         fromNumber,
-    body_preview:        bodyPreview(text),
-    segments,
-    status:              "queued",
-    consent_id:          gate.consentId,
-  }).select("id").single();
-
-  if (insertErr || !messageRow) {
-    return json({ error: "db_insert_failed", detail: insertErr?.message }, 500);
-  }
-
-  const { data: holdLedgerId, error: holdErr } = await sb.rpc("wallet_hold", {
-    p_agent:        user.id,
-    p_category:     "sms",
-    p_units:        segments,
-    p_amount_mills: amountMills,
-    p_ref_type:     "message",
-    p_ref_id:       messageRow.id,
-    p_desc:         `SMS to ${to} — ${segments} segment${segments === 1 ? "" : "s"} @ $${(segmentMills / 1000).toFixed(3)}`,
-  });
-
-  if (holdErr) {
-    const reason = holdErr.message?.includes("insufficient_balance") ? "insufficient_balance" : "hold_failed";
-    await sb.from("messages").update({ status: "failed", failed_reason: reason }).eq("id", messageRow.id);
-    if (reason === "insufficient_balance") {
-      return json({ error: "insufficient_balance", detail: "Insufficient wallet balance — top up to send this message." }, 402);
-    }
-    return json({ error: "hold_failed", detail: holdErr.message }, 500);
-  }
-
-  await sb.from("messages").update({ hold_ledger_id: holdLedgerId }).eq("id", messageRow.id);
-
-  // --- Send via Telnyx. Any failure here voids the hold immediately —
-  //     never-charge-undelivered applies to provider rejection too, not
-  //     just carrier DLRs. ---
-  const webhookUrl = `${SUPABASE_URL}/functions/v1/messaging-delivery-webhook`;
-  const telnyxRes = await fetch("https://api.telnyx.com/v2/messages", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${TELNYX_API_KEY}`,
-      "Content-Type":  "application/json",
-    },
-    body: JSON.stringify({
-      from: fromNumber,
-      to,
-      text,
-      ...(TELNYX_MSG_PROFILE_ID ? { messaging_profile_id: TELNYX_MSG_PROFILE_ID } : {}),
-      webhook_url: webhookUrl,
-      webhook_failover_url: webhookUrl,
-    }),
-  });
-
-  if (!telnyxRes.ok) {
-    const errText = await telnyxRes.text();
-    await sb.rpc("wallet_void", { p_ledger_id: holdLedgerId });
-    await sb.from("messages").update({
-      status: "failed",
-      failed_reason: `telnyx_rejected: ${telnyxRes.status} ${errText}`,
-    }).eq("id", messageRow.id);
-    return json({ error: "send_failed", detail: errText }, 502);
-  }
-
-  const telnyxData = await telnyxRes.json();
-  const providerMessageId = telnyxData?.data?.id ?? null;
-
-  await sb.from("messages").update({
-    status: "sent",
-    provider_message_id: providerMessageId,
-  }).eq("id", messageRow.id);
+  if (!result.ok) return json({ error: result.error, detail: result.detail }, result.httpStatus);
 
   return json({
     ok: true,
-    message_id: messageRow.id,
-    provider_message_id: providerMessageId,
-    hold_id: holdLedgerId,
-    segments,
-    amount_mills: amountMills,
+    message_id: result.messageId,
+    provider_message_id: result.providerMessageId,
+    hold_id: result.holdLedgerId,
+    segments: result.segments,
+    amount_mills: result.amountMills,
   });
 });

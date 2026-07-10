@@ -1,3 +1,11 @@
+> **Scope note (2026-07-09, PROMPT_07):** Phase 2 outbound messaging is
+> re-scoped to mass SMS/MMS TEXTING first; outbound email
+> (`messaging-send-email`, Resend) is deferred behind
+> `billing_config.email_enabled=false` — see `docs/PHASE2_S2_COWORK_CHECKLIST.md`.
+> That deferral does **not** touch this document — inbound carrier email
+> *parsing* (Gmail ingest of policy/commission emails, described below) is
+> a separate, unaffected feature and continues per this plan.
+
 # ProducerStack — Carrier Email Parsing: Build Plan
 
 Stack: static frontend on GitHub Pages (`app.html`, Capacitor wrapper for mobile — NO Next.js, NO Vercel deployment; `vercel.json` is leftover, do not delete) · Supabase (Postgres/Auth/Edge Functions — all backend logic lives in Edge Functions like the existing `stripe-*`/`telnyx-*` functions) · Claude API (Haiku, model `claude-haiku-4-5`)

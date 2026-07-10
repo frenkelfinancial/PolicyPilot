@@ -62,6 +62,18 @@ serve(async (req) => {
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
+  // --- Phase 2 re-scope (PROMPT_07): email is built but deferred. This
+  //     kill switch is checked before the compliance gate/wallet so a
+  //     disabled agent never gets as far as a hold — see
+  //     billing_config.email_enabled in 020_texting_broadcasts.sql. ---
+  const { data: billingConfigGate } = await sb.from("billing_config")
+    .select("email_enabled")
+    .eq("id", 1)
+    .maybeSingle();
+  if (!billingConfigGate?.email_enabled) {
+    return json({ error: "email_disabled", detail: "Outbound email is not enabled yet — mass texting is the current Phase 2 channel." }, 503);
+  }
+
   // --- Compliance gate: charge nothing on any failure here. Normalizes
   //     toRaw (trim + lowercase) internally — `to` below is always that
   //     canonical form, agreeing with consent_records/dnc_list on what

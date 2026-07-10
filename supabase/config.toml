@@ -53,3 +53,15 @@ verify_jwt = false
 
 [functions.a2p-status-poll]
 verify_jwt = false
+
+# Phase 2 re-scope (PROMPT_07 §4): messaging-broadcast-run is invoked two
+# ways, neither of which supplies a Supabase user JWT — a pg_cron sweep
+# (no body, drains every queued/sending broadcast) and a self-invoked
+# fetch from messaging-broadcast-create for small lists. Both authenticate
+# with the same WALLET_CRON_SECRET bearer token the function checks
+# internally. messaging-broadcast-create, messaging-recipients-import, and
+# a2p-assign-number ARE called by the authenticated browser client (they
+# call sbAuth.auth.getUser()), so they correctly use the platform default
+# and are NOT listed here.
+[functions.messaging-broadcast-run]
+verify_jwt = false

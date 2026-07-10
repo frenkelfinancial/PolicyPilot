@@ -177,3 +177,29 @@ export async function getCampaignStatus(apiKey: string, campaignId: string): Pro
   const raw = data?.data?.campaignStatus;
   return { status: normalizeStatus(raw), raw };
 }
+
+export interface AssignNumberResult {
+  ok: boolean;
+  error?: string;
+}
+
+// TODO(verify before go-live): number->campaign assignment. This build
+// could not confirm Telnyx's exact endpoint/field names for attaching an
+// owned number to a 10DLC campaign (candidates seen in the wild: POST
+// /v2/10dlc/phoneNumberCampaign, POST /v2/phone_numbers/{id}/messaging,
+// or a bulk PUT to the campaign's phoneNumbers list — none confirmed
+// against current docs). Fails closed with ok:false rather than guessing
+// a shape that could silently no-op against the real API. Caller
+// (a2p-assign-number) surfaces this as `not_implemented` and leaves
+// phone_numbers.a2p_campaign_id to be set manually via SQL until this is
+// filled in — see that function's header comment for the interim path.
+export async function assignNumberToCampaign(
+  _apiKey: string,
+  _campaignId: string,
+  _e164: string,
+): Promise<AssignNumberResult> {
+  return {
+    ok: false,
+    error: "assignNumberToCampaign is a TODO stub — Telnyx's number->campaign assignment endpoint/fields are unconfirmed. See the adapter file header.",
+  };
+}

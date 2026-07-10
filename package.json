@@ -7,7 +7,7 @@
     "check": "node scripts/check-app.mjs app.html",
     "check:update-baseline": "node scripts/check-app.mjs --update-baseline app.html",
     "test:email": "node --test \"supabase/functions/_shared/email/*.test.ts\"",
-    "test:messaging": "node --test \"supabase/functions/_shared/segments.test.ts\" \"supabase/functions/_shared/tcpa.test.ts\" \"supabase/functions/_shared/phone.test.ts\"",
+    "test:messaging": "node --test \"supabase/functions/_shared/segments.test.ts\" \"supabase/functions/_shared/tcpa.test.ts\" \"supabase/functions/_shared/phone.test.ts\" \"supabase/functions/_shared/messaging-shared.test.ts\" \"supabase/functions/_shared/messaging-send-core.test.ts\" \"supabase/functions/_shared/broadcast-gate.test.ts\" \"supabase/functions/_shared/broadcast-pacing.test.ts\" \"supabase/functions/_shared/csv.test.ts\" \"supabase/functions/_shared/leads.test.ts\"",
     "prebuild": "node scripts/prebuild.js",
     "build": "npx cap sync",
     "cap:sync": "npm run prebuild && npx cap sync",
