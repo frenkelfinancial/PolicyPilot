@@ -108,25 +108,32 @@ serve(async (req) => {
     }).eq("id", sessionId);
   }
 
-  // Step 2: Close the current call row for billing.
-  const closed = await closeCallRowById(sb, prevCallRowId);
-  if (closed) {
-    await reportMinutesToWallet(sb, closed.agentId, closed.durationSec, closed.id, closed.walletHoldId);
-  }
-
-  // Step 3: Hang up the current lead leg if active.
-  if (prevCallControlId) {
-    try {
-      await fetch(`https://api.telnyx.com/v2/calls/${prevCallControlId}/actions/hangup`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${TELNYX_API_KEY}`,
-          "Content-Type":  "application/json",
-        },
-        body: JSON.stringify({ command_id: crypto.randomUUID() }),
-      });
-    } catch { /* best effort */ }
-  }
+  // Steps 2 + 3 in parallel — billing close/settle (DB + RPC) and the Telnyx
+  // hangup are independent of each other, and running them sequentially added
+  // a full round-trip of dead air to every skip. Internal ordering that
+  // matters (closeCallRowById BEFORE reportMinutesToWallet) is preserved
+  // inside the first branch.
+  await Promise.all([
+    (async () => {
+      const closed = await closeCallRowById(sb, prevCallRowId);
+      if (closed) {
+        await reportMinutesToWallet(sb, closed.agentId, closed.durationSec, closed.id, closed.walletHoldId);
+      }
+    })(),
+    (async () => {
+      if (!prevCallControlId) return;
+      try {
+        await fetch(`https://api.telnyx.com/v2/calls/${prevCallControlId}/actions/hangup`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${TELNYX_API_KEY}`,
+            "Content-Type":  "application/json",
+          },
+          body: JSON.stringify({ command_id: crypto.randomUUID() }),
+        });
+      } catch { /* best effort */ }
+    })(),
+  ]);
 
   // mode: 'hangup' — teardown only, no dial. Used by Pause: the session is
   // left exactly as it would be after a lead hangs up naturally (status
@@ -175,8 +182,11 @@ serve(async (req) => {
           command_id: crypto.randomUUID(),
         }),
       });
-      // Brief pause so the beep plays before the next call starts dialing
-      await new Promise((r) => setTimeout(r, 700));
+      // Brief pause so the beep starts before the next call begins dialing.
+      // Kept short: placing the next call takes its own ~1s+ before the far
+      // end rings, which gives the beep plenty of room to finish — the old
+      // 700ms here was pure added dead air on every skip.
+      await new Promise((r) => setTimeout(r, 250));
     } catch { /* best effort */ }
   }
 

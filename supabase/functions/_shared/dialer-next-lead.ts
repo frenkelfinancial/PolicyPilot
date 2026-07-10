@@ -337,12 +337,22 @@ export async function dialNextLead(
   webhookUrl: string,
   session: DialerSession,
 ) {
-  // Resolve the agent's fallback caller ID (primary number on agent row).
-  const { data: agent } = await sb.from("agents")
-    .select("signalwire_caller_id")
-    .eq("id", session.agent_id)
-    .maybeSingle();
+  // Resolve the agent's fallback caller ID and the billing config in one
+  // parallel round-trip (billing_config is constant for the whole session —
+  // it used to be re-fetched inside the loop on every single dial, adding
+  // avoidable latency to each skip/advance).
+  const [{ data: agent }, { data: billingConfig }] = await Promise.all([
+    sb.from("agents")
+      .select("signalwire_caller_id")
+      .eq("id", session.agent_id)
+      .maybeSingle(),
+    sb.from("billing_config")
+      .select("min_call_start_mills")
+      .eq("id", 1)
+      .maybeSingle(),
+  ]);
   const fallbackCallerId: string = agent?.signalwire_caller_id || "";
+  const minStartMills = billingConfig?.min_call_start_mills ?? 30;
 
   let nextIndex = session.current_index;
 
@@ -421,12 +431,6 @@ export async function dialNextLead(
     // per-dial choke point every subsequent lead passes through). Reserves
     // billing_config.min_call_start_mills as a hold that reportMinutesToWallet
     // reconciles via wallet_settle_call once this call ends.
-    const { data: billingConfig } = await sb.from("billing_config")
-      .select("min_call_start_mills")
-      .eq("id", 1)
-      .maybeSingle();
-    const minStartMills = billingConfig?.min_call_start_mills ?? 30;
-
     const { data: holdId, error: holdErr } = await sb.rpc("wallet_hold", {
       p_agent:        session.agent_id,
       p_category:     "call",
@@ -503,7 +507,12 @@ export async function dialNextLead(
       return;
     }
 
-    // Play US ringback tone on the agent's bridge so they hear ringing on their phone
+    // Play US ringback tone on the agent's bridge so they hear ringing on their
+    // phone. loop MUST be "infinity" (or an integer >= 1): Telnyx rejects
+    // loop: 0 with a 422, which is why agents heard silence while leads rang —
+    // the error was invisible because this call is fire-and-forget. The
+    // playback is stopped by telnyx-call-status when the lead answers or the
+    // leg hangs up, so an infinite loop never outlives the ring.
     if (session.agent_call_control_id) {
       const ringbackUrl = Deno.env.get("RINGBACK_AUDIO_URL") || "";
       if (ringbackUrl) {
@@ -514,11 +523,13 @@ export async function dialNextLead(
             headers: telnyxHeaders,
             body: JSON.stringify({
               audio_url:  ringbackUrl,
-              loop:       0,
+              loop:       "infinity",
               command_id: crypto.randomUUID(),
             }),
           },
-        ).catch(() => {});
+        ).then(async (r) => {
+          if (!r.ok) console.warn("[dialer] ringback playback_start failed:", r.status, await r.text().catch(() => ""));
+        }).catch(() => {});
       }
     }
 
