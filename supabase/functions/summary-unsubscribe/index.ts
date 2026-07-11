@@ -82,6 +82,6 @@ Deno.serve(async (req) => {
   }
   return page(
     "You're unsubscribed",
-    "You'll no longer receive account-summary emails. You can turn them back on any time from the Summary tab in Producer Stack.",
+    "You'll no longer receive account-summary emails. You can turn them back on any time from the Summary tab in ProducerStack.",
   );
 });

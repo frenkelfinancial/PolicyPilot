@@ -19,7 +19,7 @@ export interface RenderOpts {
   dashboardUrl: string;
   unsubscribeUrl: string;   // token-based one-click URL, unique per agent
   prefsUrl: string;         // dashboard Settings/Summary tab
-  brandName?: string;       // default "Producer Stack"
+  brandName?: string;       // default "ProducerStack"
 }
 
 // ---- palette (from design ref) ----------------------------------------------
@@ -91,7 +91,7 @@ function grade(goalPct: number): { letter: string; line: string } {
 // ---- main --------------------------------------------------------------------
 
 export function buildSummaryEmail(data: SummaryData, opts: RenderOpts): { subject: string; html: string; text: string } {
-  const brand = opts.brandName || "Producer Stack";
+  const brand = opts.brandName || "ProducerStack";
   const m = data.current;
   const isEmpty = m.policies === 0 && m.dials === 0 && m.ap === 0;
   const priorLabel = data.kind === "monthly"
