@@ -19,7 +19,7 @@ export interface RenderOpts {
   dashboardUrl: string;
   unsubscribeUrl: string;   // token-based one-click URL, unique per agent
   prefsUrl: string;         // dashboard Settings/Summary tab
-  brandName?: string;       // default "PolicyPilot"
+  brandName?: string;       // default "Producer Stack"
 }
 
 // ---- palette (from design ref) ----------------------------------------------
@@ -91,7 +91,7 @@ function grade(goalPct: number): { letter: string; line: string } {
 // ---- main --------------------------------------------------------------------
 
 export function buildSummaryEmail(data: SummaryData, opts: RenderOpts): { subject: string; html: string; text: string } {
-  const brand = opts.brandName || "PolicyPilot";
+  const brand = opts.brandName || "Producer Stack";
   const m = data.current;
   const isEmpty = m.policies === 0 && m.dials === 0 && m.ap === 0;
   const priorLabel = data.kind === "monthly"
@@ -114,7 +114,7 @@ export function buildSummaryEmail(data: SummaryData, opts: RenderOpts): { subjec
   <!-- Header -->
   <tr><td style="padding:24px 32px;border-bottom:1px solid ${C.line}">
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"><tr>
-      <td style="font-size:18px;font-weight:800;letter-spacing:-.02em;color:${C.navy}">Policy<span style="color:${C.blue}">Pilot</span></td>
+      <td style="font-size:18px;font-weight:800;letter-spacing:-.02em;color:${C.navy}">Producer<span style="color:${C.blue}">Stack</span></td>
       <td align="right" style="font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};line-height:1.5">${data.kind === "monthly" ? "Monthly Summary" : "Mid-Month Check-In"}<b style="display:block;color:${C.ink};font-size:13px;letter-spacing:.06em">${data.kind === "monthly" ? `${data.monthName} ${data.year}` : data.periodLabel}</b></td>
     </tr></table>
   </td></tr>

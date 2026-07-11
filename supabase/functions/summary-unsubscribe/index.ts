@@ -53,7 +53,7 @@ function page(title: string, body: string, status = 200): Response {
     `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title></head>
 <body style="margin:0;background:#eef2f8;font-family:-apple-system,'Segoe UI',sans-serif;color:#1d2b45">
 <div style="max-width:440px;margin:80px auto;background:#fff;border-radius:16px;padding:40px 36px;text-align:center;box-shadow:0 12px 40px -16px rgba(19,38,68,.25)">
-<div style="font-size:18px;font-weight:800;color:#132644;margin-bottom:14px">Policy<span style="color:#5b9bd5">Pilot</span></div>
+<div style="font-size:18px;font-weight:800;color:#132644;margin-bottom:14px">Producer<span style="color:#5b9bd5">Stack</span></div>
 <h1 style="font-size:20px;margin:0 0 10px;color:#132644">${title}</h1>
 <p style="font-size:14px;line-height:1.6;color:#6b7890;margin:0">${body}</p>
 </div></body></html>`,
@@ -82,6 +82,6 @@ Deno.serve(async (req) => {
   }
   return page(
     "You're unsubscribed",
-    "You'll no longer receive account-summary emails. You can turn them back on any time from the Summary tab in PolicyPilot.",
+    "You'll no longer receive account-summary emails. You can turn them back on any time from the Summary tab in Producer Stack.",
   );
 });
