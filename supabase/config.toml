@@ -65,3 +65,12 @@ verify_jwt = false
 # and are NOT listed here.
 [functions.messaging-broadcast-run]
 verify_jwt = false
+
+# summary-unsubscribe: one-click unsubscribe link clicked by email recipients
+# who are not logged in (no Supabase JWT available) — same rationale as the
+# webhook functions above. monthly-summary is NOT listed here: it's invoked
+# by pg_cron passing the service-role key as the Bearer token, which IS a
+# valid Supabase-signed JWT, so the platform default (verify_jwt = true) is
+# correct and desired for it.
+[functions.summary-unsubscribe]
+verify_jwt = false

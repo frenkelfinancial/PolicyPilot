@@ -3558,6 +3558,24 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <!-- ========== SUMMARY (v3 modern bold) ========== -->
     <div class="section active sum-v3" id="sec-summary">
 
+      <!-- SUMMARY EMAIL TOGGLE (1st + 15th account-statement emails) -->
+      <div class="card" id="summary-email-pref" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">Scheduled Summary Emails</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Account statements on the 1st &amp; 15th</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="summary-email-saved" style="font-size:11px;color:var(--text3);opacity:0;transition:opacity .3s"></span>
+          <div class="theme-toggle" onclick="toggleSummaryEmails()" title="Toggle scheduled summary emails" style="cursor:pointer">
+            <span class="toggle-label" id="summary-email-lbl-off">Off</span>
+            <div class="toggle-track" id="summary-email-track">
+              <div class="toggle-thumb"></div>
+            </div>
+            <span class="toggle-label" id="summary-email-lbl-on">On</span>
+          </div>
+        </div>
+      </div>
+
       <!-- ACTION HUB (Phase 1.2 — urgent/today/opportunity) -->
       <div class="card ah-hub" id="action-hub">
         <div class="ah-hub__head">
@@ -10938,6 +10956,7 @@ function guardedOpenPreviewDialer() {
 function renderSummary() {
   if (!document.getElementById('sec-summary')) return;
   _applyPlanGating();
+  if (typeof initSummaryEmailToggle === 'function') initSummaryEmailToggle();
   renderGreeting();
   if (typeof renderActionHub === 'function') renderActionHub();
   if (typeof cmRefreshUrgent === 'function') cmRefreshUrgent();
@@ -20246,6 +20265,43 @@ function updateBonusFromTracker() {
   if(amamAP>0) document.getElementById('amam-monthly').value = amamAP;
   // Bonus inputs are now seeded — refresh Summary so the projected-bonus card reflects them.
   if (typeof renderSummary === 'function') renderSummary();
+}
+
+// ============================================================
+// SUMMARY EMAIL TOGGLE — scheduled 1st/15th account-statement emails
+// ============================================================
+let _summaryEmailAgentId = null;
+
+async function initSummaryEmailToggle() {
+  if (!currentAgent || _summaryEmailAgentId === currentAgent.id) return;
+  _summaryEmailAgentId = currentAgent.id;
+  const { data, error } = await sb.from('agents')
+    .select('summary_emails_enabled').eq('id', currentAgent.id).maybeSingle();
+  if (error) { _summaryEmailAgentId = null; return; }
+  const on = data?.summary_emails_enabled !== false; // default true
+  const track = document.getElementById('summary-email-track');
+  if (track) track.classList.toggle('on', on);
+}
+
+async function toggleSummaryEmails() {
+  const track = document.getElementById('summary-email-track');
+  const saved = document.getElementById('summary-email-saved');
+  if (!track || !currentAgent) return;
+  const wasOn = track.classList.contains('on');
+  const next = !wasOn;
+  track.classList.toggle('on', next); // optimistic
+  if (saved) { saved.textContent = 'Saving…'; saved.style.opacity = '1'; }
+  const { error } = await sb.from('agents')
+    .update({ summary_emails_enabled: next }).eq('id', currentAgent.id);
+  if (error) {
+    track.classList.toggle('on', wasOn); // revert
+    if (saved) saved.textContent = 'Could not save — try again';
+    return;
+  }
+  if (saved) {
+    saved.textContent = 'Saved';
+    setTimeout(() => { saved.style.opacity = '0'; }, 1500);
+  }
 }
 
 // ============================================================

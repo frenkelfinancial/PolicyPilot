@@ -18,9 +18,13 @@
 //     plan_id ARE included. stripe_subscription_id is NOT checked.
 //
 // Required secrets:
-//   RESEND_API_KEY        — NEW Resend account API key
-//   DIGEST_FROM           — e.g. "PolicyPilot <REPLACE_ME@reports.frenkelfinancial.com>"
-//                           (single config value; change any time, no code edits)
+//   RESEND_API_KEY        — Resend account API key (shared with weekly-digest
+//                           and wallet-low-balance-notify — same account)
+//   SUMMARY_FROM          — e.g. "ProducerStack <reports@reports.frenkelfinancial.com>"
+//                           (deliberately separate from DIGEST_FROM, which
+//                           weekly-digest + wallet-low-balance-notify use —
+//                           summaries get their own From identity so they
+//                           read distinctly from wallet/low-balance warnings)
 //   DASHBOARD_URL         — e.g. "https://yourapp.com/app.html"
 //   SUMMARY_UNSUB_SECRET  — random 32+ char string for unsubscribe HMAC tokens
 //   SUMMARY_UNSUB_URL     — public URL of the summary-unsubscribe function
@@ -38,7 +42,7 @@ import { buildSummaryEmail } from "./email.ts";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const resendKey   = Deno.env.get("RESEND_API_KEY") ?? "";
-const fromAddr    = Deno.env.get("DIGEST_FROM") ?? "";
+const fromAddr    = Deno.env.get("SUMMARY_FROM") ?? "";
 const dashboard   = Deno.env.get("DASHBOARD_URL") ?? "https://example.com/app.html";
 const unsubSecret = Deno.env.get("SUMMARY_UNSUB_SECRET") ?? "";
 const unsubBase   = Deno.env.get("SUMMARY_UNSUB_URL") ?? "";
@@ -92,7 +96,7 @@ Deno.serve(async (req) => {
     return json({ error: "RESEND_API_KEY not configured" }, 500);
   }
   if (!fromAddr && !dryRun) {
-    return json({ error: "DIGEST_FROM not configured" }, 500);
+    return json({ error: "SUMMARY_FROM not configured" }, 500);
   }
   if (!unsubSecret) {
     return json({ error: "SUMMARY_UNSUB_SECRET not configured" }, 500);
