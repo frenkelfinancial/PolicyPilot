@@ -197,8 +197,15 @@ html,body{
   position:absolute;inset:0;
   display:none;align-items:center;justify-content:center;
   background:var(--bg);z-index:100;
+  /* Scroll when the card is taller than the viewport — otherwise a centered
+     card gets clipped top+bottom by #shell's overflow:hidden and the Start
+     button becomes unreachable on short screens. */
+  overflow-y:auto;padding:24px 16px;
 }
 .fsscreen.show{display:flex}
+/* margin:auto (not align/justify center alone) so an overflowing card pins to
+   the scrollable edge instead of being clipped. */
+.fsscreen > *{margin:auto}
 
 /* Spinner */
 .spinner{
@@ -214,7 +221,7 @@ html,body{
   border:1px solid rgba(99,102,241,.18);
   border-radius:24px;
   padding:52px 52px 44px;
-  width:500px;
+  width:100%;max-width:500px;
   box-shadow:0 40px 100px rgba(0,0,0,.65),0 0 0 1px rgba(59,130,246,.1),0 0 80px rgba(37,99,235,.1);
   text-align:center;
   position:relative;
@@ -303,7 +310,7 @@ html,body{
 /* ── Pending card ── */
 .pending-card{
   background:var(--card);border:1px solid var(--border2);border-radius:20px;
-  padding:48px 56px;width:480px;text-align:center;
+  padding:48px 56px;width:100%;max-width:480px;text-align:center;
   box-shadow:0 20px 60px rgba(0,0,0,.5);
 }
 .ring-wrap{width:90px;height:90px;position:relative;margin:0 auto 28px;display:flex;align-items:center;justify-content:center}
@@ -356,7 +363,7 @@ html,body{
 /* ── Auth/error card ── */
 .auth-card{
   background:var(--card);border:1px solid var(--red-brd);
-  border-radius:20px;padding:44px 48px;width:400px;text-align:center;
+  border-radius:20px;padding:44px 48px;width:100%;max-width:400px;text-align:center;
   box-shadow:0 20px 60px rgba(0,0,0,.5);
 }
 
@@ -628,7 +635,7 @@ html,body{
 /* ───────────────────── COMPLETED SCREEN ───────────────────── */
 .completed-card{
   background:var(--card);border:1px solid var(--border2);border-radius:20px;
-  padding:48px 52px;width:500px;text-align:center;
+  padding:48px 52px;width:100%;max-width:500px;text-align:center;
   box-shadow:0 20px 60px rgba(0,0,0,.5);
 }
 .check-ring{
@@ -1214,6 +1221,7 @@ let activeTab    = 'outcome';
 let currentState = null;
 let dialMode            = 'power'; // 'power' | 'preview'
 let _previewManualDial  = false;   // true when agent explicitly clicked Dial
+let _leadHadCall        = false;   // true once the CURRENT lead has had a call placed (reset on index change)
 let callerNumbers       = [];      // phone_numbers rows loaded at init
 let callerIdMode        = 'smart_local'; // 'smart_local' | 'fixed'
 let _lastCountedCallId  = null;    // tracks which call_control_id was last counted to avoid double-counting
@@ -1690,6 +1698,11 @@ function render(s) {
   session = s;
   currentState = s.status;
 
+  // Track whether the CURRENT lead has had a call placed — distinguishes
+  // preview mode's "parked, not yet dialed" state from "call ended".
+  if (prevIdx !== s.current_index) _leadHadCall = false;
+  if (s.current_call_control_id) _leadHadCall = true;
+
   // Surface leads that were silently skipped without ever being dialed
   // (missing phone, missing lead row, no caller ID) — no lead vanishes
   // without a visible trace.
@@ -1704,7 +1717,11 @@ function render(s) {
     _lastCountedCallId = s.current_call_control_id;
     stats.calls++;
     if (dialMode === 'preview' && !_previewManualDial) {
-      // Auto-dial intercepted — pause immediately so agent must click Dial
+      // Safety net: the backend auto-dialed in preview mode (stale edge
+      // function build that predates 'advance_nodial'). Tear the call down
+      // for real — the lead's phone is already ringing — and pause so the
+      // agent must click Dial.
+      pdSkip('hangup');
       pdPauseAfterAdvance();
     } else {
       _previewManualDial = false; // consume the flag
@@ -1760,9 +1777,16 @@ function render(s) {
           setHdrPill('st-dialing', 'Connecting…');
           document.getElementById('banner-text').textContent = 'Starting session…';
         } else {
-          // Call ended naturally — lead hung up or call dropped before agent acted.
-          setHdrPill('st-dialing', 'Call Ended');
-          document.getElementById('banner-text').textContent = `Call ended — mark outcome or re-dial`;
+          if (dialMode === 'preview' && !_leadHadCall) {
+            // Preview mode: parked on this lead, nothing dialed yet — the
+            // agent reviews the info and explicitly clicks Dial.
+            setHdrPill('st-dialing', 'Preview');
+            document.getElementById('banner-text').textContent = 'Preview — review this lead, then press ▶ Dial to call';
+          } else {
+            // Call ended naturally — lead hung up or call dropped before agent acted.
+            setHdrPill('st-dialing', 'Call Ended');
+            document.getElementById('banner-text').textContent = `Call ended — mark outcome or re-dial`;
+          }
           // Hold the UI in a paused state so the agent must explicitly mark an
           // outcome or click Dial before the next call goes out.
           if (!_isPaused) {
@@ -1931,6 +1955,7 @@ async function pdStartSession() {
         caller_id_fixed:     callerIdMode === 'fixed' ? fixedNumber : null,
         caller_id_numbers:   allNumbers,
         skip_invalid_phones: false,
+        dial_mode:           dialMode, // 'preview' = backend advances without auto-dialing
       }
     });
   } catch (e) {
@@ -2185,7 +2210,9 @@ async function _doSkipLead() {
     if (_isSkipping) _unlockSkip();
   }, 15000);
 
-  const ok = await pdSkip('advance');
+  // Preview mode advances WITHOUT dialing (backend parks on the next lead,
+  // agent clicks Dial manually); power mode advances and auto-dials.
+  const ok = await pdSkip(dialMode === 'preview' ? 'advance_nodial' : 'advance');
   clearTimeout(safetyTimer);
   if (!ok) {
     // Skip failed — restore state immediately rather than waiting for the safety timeout
@@ -2193,7 +2220,7 @@ async function _doSkipLead() {
     return;
   }
   _unlockSkip();
-  if (session && session.status === 'dialing' && !session.current_call_control_id && (session.current_index ?? -1) >= 0) {
+  if (dialMode !== 'preview' && session && session.status === 'dialing' && !session.current_call_control_id && (session.current_index ?? -1) >= 0) {
     // Backend stalled — next lead's call failed. Enter paused state so the
     // agent can mark an outcome and skip rather than being left in a broken "Loading…" limbo.
     _isPaused = true;
@@ -2834,23 +2861,4 @@ window.addEventListener('message', e => {
       const prev = outcomeMap[leadId];
       outcomeMap[leadId] = 'sold';
       if (prev === 'appointment') stats.appts = Math.max(0, stats.appts - 1);
-      const entry = { ts: Date.now(), outcome: 'sold' };
-      if (!callLog[leadId]) callLog[leadId] = [];
-      callLog[leadId].push(entry);
-      updateProgress(session);
-      renderOutcomeArea(leadId);
-      renderCallHistory(leadId);
-    }
-    setTimeout(() => pdSkip(), 800);
-  }
-});
-
-window.addEventListener('beforeunload', () => {
-  stopCallTimer();
-  stopRingback();
-  if (sessTimerH) clearInterval(sessTimerH);
-  unsubscribe();
-});
-</script>
-</body>
-</html>
+      const entry 
