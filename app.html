@@ -635,6 +635,19 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .alert-i{background:var(--ds-color-info-bg);border:1px solid var(--ds-color-info-bg);color:var(--ds-color-info)}
 .alert-s{background:var(--ds-color-success-bg);border:1px solid var(--ds-color-success-bg);color:var(--ds-color-success)}
 .alert-w{background:var(--ds-color-warning-bg);border:1px solid var(--ds-color-warning-bg);color:var(--ds-color-warning)}
+/* support-widget */
+.sf-sub-copy{font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:16px}
+.sf-type-row{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.sf-type-btn{flex:1;min-width:90px;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:border-color .14s,color .14s,background .14s}
+.sf-type-btn:hover{color:var(--text);border-color:var(--border2)}
+.sf-type-btn.active{border-color:var(--accent);color:var(--accent-2);background:var(--ds-color-info-bg)}
+.sf-counter{font-size:11px;color:var(--text3);text-align:right;margin-top:2px}
+.sf-context-note{font-size:11px;color:var(--text3);margin:4px 0 14px}
+.sf-error{font-size:12px;color:var(--ds-color-danger);margin-bottom:10px}
+.sf-thankyou{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:24px 8px;color:var(--ds-color-success)}
+.sf-thankyou-title{font-size:15px;font-weight:600;color:var(--text)}
+.sf-thankyou-sub{font-size:12.5px;color:var(--text2)}
+/* /support-widget */
 .empty{text-align:center;padding:44px 24px;color:var(--text3)}
 .empty .ico{font-size:34px;margin-bottom:11px}
 .empty p{font-size:13.5px}
@@ -3524,6 +3537,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <div class="nav-item" onclick="nav('agency')"><span class="ico" data-ico="buildings"></span><span class="nav-lbl-text">Agency</span></div>
   </div>
   <div class="sidebar-bot">
+    <!-- support-widget --><div class="nav-item" onclick="openSupportModal()"><span class="ico" data-ico="chat-dots"></span><span class="nav-lbl-text">Support</span></div><!-- /support-widget -->
     <div class="nav-item" onclick="nav('settings')"><span class="ico" data-ico="gear"></span><span class="nav-lbl-text">Settings</span></div>
     <button class="signout-btn" onclick="authSignOut()" title="Sign out">
       <span class="so-ico" data-ico="sign-out" data-size="16"></span>
@@ -4972,6 +4986,48 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <div id="pb-addfunds-status" style="font-size:12px;min-height:16px;margin-top:10px"></div>
   </div>
 </div>
+
+<!-- support-widget -->
+<div class="overlay" id="supportTicketModal" onclick="if(event.target===this)closeSupportModal()">
+  <div class="modal pb-modal" style="max-width:480px">
+    <div class="mhdr">
+      <div class="mtitle">Support &amp; Feedback</div>
+      <button class="mclose" onclick="closeSupportModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div id="sf-form-wrap">
+      <div class="sf-sub-copy">Found a bug? Want a feature? Think something sucks? Tell us — we highly encourage constructive criticism. It's how we make Producer Stack the best CRM for producers.</div>
+      <div class="sf-type-row" id="sf-type-row">
+        <button type="button" class="sf-type-btn" data-type="bug" onclick="sfSetType('bug',this)">🐞 Bug</button>
+        <button type="button" class="sf-type-btn" data-type="feature" onclick="sfSetType('feature',this)">💡 Feature</button>
+        <button type="button" class="sf-type-btn active" data-type="feedback" onclick="sfSetType('feedback',this)">📣 Feedback</button>
+        <button type="button" class="sf-type-btn" data-type="question" onclick="sfSetType('question',this)">❓ Question</button>
+      </div>
+      <div class="fg">
+        <label>Subject</label>
+        <input type="text" id="sf-subject" maxlength="200" placeholder="Short summary" autocomplete="off">
+      </div>
+      <div class="fg">
+        <label>Message</label>
+        <textarea id="sf-message" maxlength="5000" rows="6" placeholder="The more detail, the better." oninput="sfUpdateCounter()"></textarea>
+        <div class="sf-counter" id="sf-counter">0 / 5000</div>
+      </div>
+      <div class="sf-context-note">We'll include your current page &amp; browser info to help us debug.</div>
+      <div class="sf-error" id="sf-error" style="display:none"></div>
+      <div class="flex gap8" style="justify-content:flex-end;margin-top:6px">
+        <button class="btn btn-s btn-sm" onclick="closeSupportModal()">Cancel</button>
+        <button class="btn btn-p btn-sm" id="sf-submit-btn" onclick="submitSupportTicket()">Send</button>
+      </div>
+    </div>
+    <div id="sf-thankyou-wrap" style="display:none">
+      <div class="sf-thankyou">
+        <span data-ico="check-circle" data-size="28"></span>
+        <div class="sf-thankyou-title">Thanks — feedback received!</div>
+        <div class="sf-thankyou-sub" id="sf-ticket-id-line"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- /support-widget -->
 
 <!-- PHONE BOOK — BUY NUMBER MODAL -->
 <div class="overlay" id="pbBuyModal">
@@ -17359,7 +17415,9 @@ function nav(id) {
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
   // Highlight active nav item
   const items = document.querySelectorAll('.nav-item');
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:10 };
+  // settings:11 (not 10) — the support-widget nav-item sits between agency and
+  // settings in the DOM (sidebar-bot), shifting settings' positional index by one.
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:11 };
   if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
@@ -18791,6 +18849,104 @@ function pbCloseAddFundsModal() {
   const m = document.getElementById('pbAddFundsModal');
   if (m) m.classList.remove('open');
 }
+
+// support-widget
+let sfType = 'feedback';
+
+function openSupportModal() {
+  const m = document.getElementById('supportTicketModal');
+  if (!m) return;
+  document.getElementById('sf-form-wrap').style.display = '';
+  document.getElementById('sf-thankyou-wrap').style.display = 'none';
+  const errEl = document.getElementById('sf-error');
+  errEl.style.display = 'none';
+  errEl.textContent = '';
+  document.getElementById('sf-subject').value = '';
+  document.getElementById('sf-message').value = '';
+  sfType = 'feedback';
+  document.querySelectorAll('#sf-type-row .sf-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === sfType));
+  sfUpdateCounter();
+  const submitBtn = document.getElementById('sf-submit-btn');
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Send';
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+}
+function closeSupportModal() {
+  const m = document.getElementById('supportTicketModal');
+  if (m) m.classList.remove('open');
+}
+function sfSetType(type, btn) {
+  sfType = type;
+  document.querySelectorAll('#sf-type-row .sf-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function sfUpdateCounter() {
+  const ta = document.getElementById('sf-message');
+  const counter = document.getElementById('sf-counter');
+  if (ta && counter) counter.textContent = `${ta.value.length} / 5000`;
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const m = document.getElementById('supportTicketModal');
+  if (m && m.classList.contains('open')) closeSupportModal();
+});
+async function sfInvokeErrorDetail(error) {
+  try {
+    if (error?.context && typeof error.context.json === 'function') {
+      const body = await error.context.clone().json();
+      if (body?.error) return body.error;
+    }
+  } catch (_e) { /* not JSON */ }
+  return error?.message || 'Something went wrong — please try again.';
+}
+async function submitSupportTicket() {
+  const subject = document.getElementById('sf-subject').value.trim();
+  const message = document.getElementById('sf-message').value.trim();
+  const errEl = document.getElementById('sf-error');
+  errEl.style.display = 'none';
+
+  if (!subject) { errEl.textContent = 'Subject is required.'; errEl.style.display = ''; return; }
+  if (!message) { errEl.textContent = 'Message is required.'; errEl.style.display = ''; return; }
+
+  const btn = document.getElementById('sf-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const activeSec = document.querySelector('.section.active');
+  const view = activeSec ? activeSec.id.replace('sec-', '') : null;
+
+  try {
+    const { data, error } = await sb.functions.invoke('support-ticket', {
+      body: {
+        type: sfType,
+        subject,
+        message,
+        context: {
+          view,
+          url: location.href,
+          user_agent: navigator.userAgent,
+          viewport: `${innerWidth}x${innerHeight}`,
+          app_version: null
+        }
+      }
+    });
+    if (error) throw error;
+    if (!data || !data.ok) throw new Error((data && data.error) || 'Could not save your ticket.');
+
+    document.getElementById('sf-form-wrap').style.display = 'none';
+    document.getElementById('sf-ticket-id-line').textContent = `Ticket #${data.ticket_id} — we read every one of these.`;
+    document.getElementById('sf-thankyou-wrap').style.display = '';
+    showToast('Thanks — feedback received!', '#10b981');
+    setTimeout(closeSupportModal, 3500);
+  } catch (e) {
+    errEl.textContent = await sfInvokeErrorDetail(e);
+    errEl.style.display = '';
+    btn.disabled = false;
+    btn.textContent = 'Send';
+  }
+}
+// /support-widget
 
 async function pbConfirmAddFunds(amountMills, btn) {
   const status = document.getElementById('pb-addfunds-status');
@@ -21747,7 +21903,8 @@ async function bootDashboard() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:10 };
+  // settings:11 — see matching comment in nav() above.
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:11 };
   // Skip plan-gated sections — plan can't be verified before auth resolves.
   // bootDashboard() will navigate to the correct section for the user's tier.
   if (!saved || !(saved in idxMap) || saved === 'summary' || saved === 'bonuses' || saved === 'agency') return;
