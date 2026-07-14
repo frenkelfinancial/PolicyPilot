@@ -19363,7 +19363,11 @@ async function pbConfirmReplace(n, btn) {
       throw new Error(detail);
     }
     if (!data || !data.ok) throw new Error((data && data.error) || 'Replace rejected');
-    showToast(`Replaced with ${_pbFmtPhone(newE164)}`, '#10b981');
+    if (data.old_released === false) {
+      showToast(`Replaced with ${_pbFmtPhone(newE164)}, but the old number couldn't be released automatically — contact support so it stops billing.`, '#f59e0b');
+    } else {
+      showToast(`Replaced with ${_pbFmtPhone(newE164)}`, '#10b981');
+    }
     pbCloseReplaceModal();
     await renderPhoneBook();
   } catch (e) {

@@ -2861,4 +2861,23 @@ window.addEventListener('message', e => {
       const prev = outcomeMap[leadId];
       outcomeMap[leadId] = 'sold';
       if (prev === 'appointment') stats.appts = Math.max(0, stats.appts - 1);
-      const entry 
+      const entry = { ts: Date.now(), outcome: 'sold' };
+      if (!callLog[leadId]) callLog[leadId] = [];
+      callLog[leadId].push(entry);
+      updateProgress(session);
+      renderOutcomeArea(leadId);
+      renderCallHistory(leadId);
+    }
+    setTimeout(() => pdSkip(), 800);
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  stopCallTimer();
+  stopRingback();
+  if (sessTimerH) clearInterval(sessTimerH);
+  unsubscribe();
+});
+</script>
+</body>
+</html>

@@ -5,12 +5,13 @@ import {
   closeCallRowById,
   reportMinutesToWallet,
   dialNextLead,
+  advanceToNextLeadNoDial,
 } from "../_shared/dialer-next-lead.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 // Advances, re-dials, or tears down the Power Dialer's current call.
 //
-// body: { session_id, mode?: 'advance' | 'redial' | 'hangup', expected_index?: number }
+// body: { session_id, mode?: 'advance' | 'advance_nodial' | 'redial' | 'hangup', expected_index?: number }
 //   - mode defaults to 'advance' so an old cached frontend that never sends
 //     `mode` behaves exactly as it did before this endpoint grew modes.
 //   - expected_index, when provided, guards against double-invocation: if the
@@ -32,6 +33,10 @@ import { corsHeaders } from "../_shared/cors.ts";
 //      hangup:  teardown only (steps 1-3), no dial — used by Pause. The
 //               session is left exactly as it would be after a lead hangs up
 //               naturally: status 'dialing', both call ids null.
+//      advance_nodial: teardown, then advance current_index to the next
+//               dialable lead WITHOUT placing a call — used by preview mode.
+//               The agent reviews the lead in the UI and clicks Dial, which
+//               arrives here as mode 'redial'.
 serve(async (req) => {
   const CORS = corsHeaders(req.headers.get("origin"));
   function json(body: unknown, status = 200) {
@@ -69,8 +74,11 @@ serve(async (req) => {
   const sessionId = typeof body.session_id === "string" ? body.session_id : "";
   if (!sessionId) return json({ error: "missing_session_id" }, 400);
 
-  const mode: "advance" | "redial" | "hangup" =
-    body.mode === "redial" ? "redial" : body.mode === "hangup" ? "hangup" : "advance";
+  const mode: "advance" | "advance_nodial" | "redial" | "hangup" =
+    body.mode === "redial" ? "redial"
+    : body.mode === "hangup" ? "hangup"
+    : body.mode === "advance_nodial" ? "advance_nodial"
+    : "advance";
   const expectedIndex = typeof body.expected_index === "number" ? body.expected_index : null;
 
   const { data: session } = await sb.from("dialer_sessions")
@@ -159,6 +167,21 @@ serve(async (req) => {
   // 'dialing', both call ids null), so the frontend's existing "call ended"
   // idle UI applies without any special-casing.
   if (mode === "hangup") {
+    return json({ ok: true });
+  }
+
+  // mode: 'advance_nodial' — preview mode's advance. Teardown is done (above);
+  // move to the next dialable lead WITHOUT placing a call. The agent reviews
+  // the lead and clicks Dial (mode 'redial') when ready.
+  if (mode === "advance_nodial") {
+    await advanceToNextLeadNoDial(sb, {
+      "Authorization": `Bearer ${TELNYX_API_KEY}`,
+      "Content-Type":  "application/json",
+    }, {
+      ...(session as DialerSession),
+      current_call_control_id: null,
+      current_call_row_id:     null,
+    });
     return json({ ok: true });
   }
 

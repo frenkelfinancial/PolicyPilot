@@ -25,6 +25,9 @@ export type DialerSession = {
   // being dialed (missing phone, missing lead row, no caller ID). Cleared
   // back to null on the next successful dial. Added in 20260709e migration.
   last_skip_reason?: string | null;
+  // 'power' = auto-dial each next lead; 'preview' = advance without dialing,
+  // agent explicitly clicks Dial per lead. Added in 021_preview_dial_mode.
+  dial_mode?: "power" | "preview" | null;
 };
 
 // US area code → state abbreviation (all active NANP codes as of 2025)
@@ -324,6 +327,77 @@ export async function speakAndHangup(
       body: JSON.stringify({ command_id: crypto.randomUUID() }),
     });
   } catch { /* best effort */ }
+}
+
+// Preview mode's advance: move current_index forward to the next DIALABLE
+// lead WITHOUT placing a call. The session is left in the same shape as a
+// natural lead-leg hangup (status 'dialing', both call ids null), so the
+// frontend's existing idle/re-dial UI applies: the agent reviews the lead,
+// then clicks Dial, which issues a 'redial' of this same index.
+//
+// Mirrors dialNextLead's skip semantics for leads that could never be dialed
+// (missing lead row, no phone on file) — those advance past with a visible
+// last_skip_reason. Caller-ID/wallet checks are deferred to actual dial time.
+// Marks the session 'completed' (and says goodbye) once the list is exhausted.
+export async function advanceToNextLeadNoDial(
+  sb: ReturnType<typeof createClient>,
+  telnyxHeaders: Record<string, string>,
+  session: DialerSession,
+) {
+  let nextIndex = session.current_index;
+
+  while (true) {
+    nextIndex += 1;
+
+    if (nextIndex >= session.lead_ids.length) {
+      await sb.from("dialer_sessions").update({
+        status:        "completed",
+        current_index: nextIndex,
+        ended_at:      new Date().toISOString(),
+      }).eq("id", session.id);
+
+      if (session.agent_call_control_id) {
+        await speakAndHangup(
+          telnyxHeaders,
+          session.agent_call_control_id,
+          "You've reached the end of your dialing list. Goodbye.",
+        );
+      }
+      return;
+    }
+
+    const clientId = session.lead_ids[nextIndex];
+    const { data: leadRow } = await sb.from("leads")
+      .select("id, data")
+      .eq("agent_id", session.agent_id)
+      .eq("client_id", clientId)
+      .maybeSingle();
+
+    const rawPhone: string = (leadRow?.data as { phone?: string } | undefined)?.phone || "";
+    const leadPhone: string = toE164(rawPhone) || rawPhone;
+    if (!leadPhone) {
+      const reason = leadRow
+        ? `Lead ${nextIndex + 1}: no phone on file`
+        : `Lead ${nextIndex + 1}: lead not found`;
+      console.warn(`[dialer] session ${session.id} skipped index ${nextIndex}: ${reason}`);
+      await sb.from("dialer_sessions").update({
+        current_index:    nextIndex,
+        last_skip_reason: reason,
+      }).eq("id", session.id);
+      continue;
+    }
+
+    // Park on this lead — no call placed. The agent dials it explicitly.
+    await sb.from("dialer_sessions").update({
+      current_index:           nextIndex,
+      status:                  "dialing",
+      current_call_control_id: null,
+      current_call_row_id:     null,
+      last_skip_reason:        null,
+    }).eq("id", session.id);
+
+    return;
+  }
 }
 
 // Dial the next lead in session.lead_ids, joining it to the existing

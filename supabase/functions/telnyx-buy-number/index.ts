@@ -10,6 +10,25 @@ import { corsHeaders } from "../_shared/cors.ts";
 // stripe_sub_id is left on the table (unused for new purchases) so
 // Cowork can cancel any live subscriptions from existing rows.
 
+// Telnyx error 10027: a number must appear in a *recent* availability search
+// on the same API key before it can be ordered, and search results expire
+// after a few minutes. The user's original search from the number picker can
+// go stale by the time they click Buy, so re-search the exact number
+// immediately before ordering — this re-primes Telnyx's cache and confirms
+// the number wasn't bought by someone else in the meantime.
+async function telnyxConfirmAvailable(apiKey: string, e164: string): Promise<boolean> {
+  const params = new URLSearchParams({
+    "filter[phone_number][starts_with]": e164,
+    "filter[limit]": "1",
+  });
+  const res = await fetch(`https://api.telnyx.com/v2/available_phone_numbers?${params}`, {
+    headers: { "Authorization": `Bearer ${apiKey}` },
+  });
+  if (!res.ok) return false;
+  const data = await res.json();
+  return (data.data || []).some((n: { phone_number: string }) => n.phone_number === e164);
+}
+
 async function telnyxReleaseByE164(apiKey: string, e164: string): Promise<void> {
   const params = new URLSearchParams({ "filter[phone_number]": e164 });
   const listRes = await fetch(`https://api.telnyx.com/v2/phone_numbers?${params}`, {
@@ -98,6 +117,16 @@ serve(async (req) => {
         rate_mills:      rateMills,
       }, 402);
     }
+  }
+
+  // Re-search the exact number so Telnyx will accept the order (error 10027
+  // otherwise) and verify it's still available.
+  const available = await telnyxConfirmAvailable(TELNYX_API_KEY, e164);
+  if (!available) {
+    return json({
+      ok: false,
+      error: `${e164} is no longer available — it may have just been purchased by someone else. Please search again and pick a different number.`,
+    }, 409);
   }
 
   // Purchase the number from Telnyx and assign it to the connection

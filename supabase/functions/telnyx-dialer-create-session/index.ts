@@ -64,6 +64,7 @@ serve(async (req) => {
     caller_id_mode?:    unknown;
     caller_id_fixed?:   unknown;
     caller_id_numbers?: unknown;
+    dial_mode?:         unknown;
   };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
@@ -78,6 +79,10 @@ serve(async (req) => {
     ? (body.caller_id_mode as "fixed" | "smart_local")
     : "fixed";
   const callerIdFixed   = typeof body.caller_id_fixed === "string" ? body.caller_id_fixed : null;
+
+  // Dial mode: 'preview' advances through leads WITHOUT auto-dialing (agent
+  // clicks Dial manually per lead); anything else defaults to 'power'.
+  const dialMode: "power" | "preview" = body.dial_mode === "preview" ? "preview" : "power";
 
   // Strip the dialer host number from the caller ID pool — it cannot be used
   // as an outbound caller ID because Telnyx needs it free for the inbound call.
@@ -163,6 +168,7 @@ serve(async (req) => {
     caller_id_mode:    callerIdMode,
     caller_id_fixed:   callerIdFixed,
     caller_id_numbers: callerIdNumbers.length > 0 ? callerIdNumbers : null,
+    dial_mode:         dialMode,
   }).select("id").single();
 
   if (insertErr || !session) {

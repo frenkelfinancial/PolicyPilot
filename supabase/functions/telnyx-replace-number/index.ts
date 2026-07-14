@@ -2,6 +2,25 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
+// Telnyx error 10027: a number must appear in a *recent* availability search
+// on the same API key before it can be ordered, and search results expire
+// after a few minutes. The user's original search from the number picker can
+// go stale by the time they click Select, so re-search the exact number
+// immediately before ordering — this re-primes Telnyx's cache and confirms
+// the number wasn't bought by someone else in the meantime.
+async function telnyxConfirmAvailable(apiKey: string, e164: string): Promise<boolean> {
+  const params = new URLSearchParams({
+    "filter[phone_number][starts_with]": e164,
+    "filter[limit]": "1",
+  });
+  const res = await fetch(`https://api.telnyx.com/v2/available_phone_numbers?${params}`, {
+    headers: { "Authorization": `Bearer ${apiKey}` },
+  });
+  if (!res.ok) return false;
+  const data = await res.json();
+  return (data.data || []).some((n: { phone_number: string }) => n.phone_number === e164);
+}
+
 async function telnyxReleaseByE164(apiKey: string, e164: string): Promise<void> {
   const params = new URLSearchParams({ "filter[phone_number]": e164 });
   const listRes = await fetch(`https://api.telnyx.com/v2/phone_numbers?${params}`, {
@@ -10,7 +29,9 @@ async function telnyxReleaseByE164(apiKey: string, e164: string): Promise<void> 
   if (!listRes.ok) throw new Error(`Telnyx list failed: ${await listRes.text()}`);
   const listData = await listRes.json();
   const records = listData.data || [];
-  if (!records.length) throw new Error(`Number ${e164} not found on Telnyx account`);
+  // Not on the account = already released (e.g. a retry after a partial
+  // success). Treat as done rather than failing the whole release.
+  if (!records.length) return;
 
   const telnyxId = records[0].id;
   const delRes = await fetch(`https://api.telnyx.com/v2/phone_numbers/${telnyxId}`, {
@@ -20,6 +41,22 @@ async function telnyxReleaseByE164(apiKey: string, e164: string): Promise<void> 
   if (!delRes.ok && delRes.status !== 404) {
     throw new Error(`Telnyx release failed: ${await delRes.text()}`);
   }
+}
+
+// Releasing the old number is what stops Telnyx billing for it, so don't
+// give up on the first transient error — retry a few times before reporting
+// failure to the caller.
+async function telnyxReleaseWithRetry(apiKey: string, e164: string, attempts = 3): Promise<boolean> {
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      await telnyxReleaseByE164(apiKey, e164);
+      return true;
+    } catch (e) {
+      console.warn(`[telnyx-replace-number] release attempt ${i}/${attempts} for ${e164} failed: ${e.message}`);
+      if (i < attempts) await new Promise((r) => setTimeout(r, 1000 * i));
+    }
+  }
+  return false;
 }
 
 // DEPRECATED (wallet migration): replacing a number used to cancel the old
@@ -84,6 +121,16 @@ serve(async (req) => {
 
   if (fetchErr || !oldRecord) return json({ error: "old_number_not_found" }, 404);
 
+  // Step 0: Re-search the exact number so Telnyx will accept the order
+  // (error 10027 otherwise) and verify it's still available.
+  const available = await telnyxConfirmAvailable(TELNYX_API_KEY, new_e164);
+  if (!available) {
+    return json({
+      ok: false,
+      error: `${new_e164} is no longer available — it may have just been purchased by someone else. Please search again and pick a different number.`,
+    }, 409);
+  }
+
   // Step 1: Buy new number from Telnyx
   const orderRes = await fetch("https://api.telnyx.com/v2/number_orders", {
     method: "POST",
@@ -135,11 +182,12 @@ serve(async (req) => {
       .eq("id", user.id);
   }
 
-  // Step 4: Release old number from Telnyx (best-effort — new number already secured)
-  try {
-    await telnyxReleaseByE164(TELNYX_API_KEY, oldRecord.e164);
-  } catch (e) {
-    console.warn(`[telnyx-replace-number] Old number Telnyx release failed (continuing): ${e.message}`);
+  // Step 4: Release old number from Telnyx so it stops billing. Retried;
+  // if it still fails we continue (new number is already secured) but flag
+  // it in the response and logs so it can be released manually.
+  const oldReleased = await telnyxReleaseWithRetry(TELNYX_API_KEY, oldRecord.e164);
+  if (!oldReleased) {
+    console.error(`[telnyx-replace-number] ORPHANED NUMBER: ${oldRecord.e164} could not be released from Telnyx after replace by agent ${user.id} — release it manually in the Telnyx portal to stop billing.`);
   }
 
   // Step 5: Delete old number from DB
@@ -148,5 +196,5 @@ serve(async (req) => {
     .eq("id", old_phone_number_id)
     .eq("agent_id", user.id);
 
-  return json({ ok: true, new_e164, old_e164: oldRecord.e164 });
+  return json({ ok: true, new_e164, old_e164: oldRecord.e164, old_released: oldReleased });
 });

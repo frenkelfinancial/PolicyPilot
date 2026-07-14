@@ -6,6 +6,7 @@ import {
   reportMinutesToWallet,
   speakAndHangup,
   dialNextLead,
+  advanceToNextLeadNoDial,
 } from "../_shared/dialer-next-lead.ts";
 
 // Telnyx Call Control webhook — receives call lifecycle events for both
@@ -280,11 +281,21 @@ serve(async (req) => {
       started_at:             new Date().toISOString(),
     }).eq("id", session.id);
 
-    await dialNextLead(sb, telnyxHeaders, TELNYX_CONN_ID, webhookUrl, {
-      ...(session as DialerSession),
-      conference_id:          conferenceId,
-      agent_call_control_id:  callControlId,
-    });
+    if ((session as DialerSession).dial_mode === "preview") {
+      // Preview mode: park on the first lead WITHOUT dialing it — the agent
+      // reviews the lead in the UI and clicks Dial when ready.
+      await advanceToNextLeadNoDial(sb, telnyxHeaders, {
+        ...(session as DialerSession),
+        conference_id:          conferenceId,
+        agent_call_control_id:  callControlId,
+      });
+    } else {
+      await dialNextLead(sb, telnyxHeaders, TELNYX_CONN_ID, webhookUrl, {
+        ...(session as DialerSession),
+        conference_id:          conferenceId,
+        agent_call_control_id:  callControlId,
+      });
+    }
 
   } else if (eventType === "call.hangup") {
     const callRowId = ctx.call_row_id;
