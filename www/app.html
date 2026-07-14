@@ -635,6 +635,19 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .alert-i{background:var(--ds-color-info-bg);border:1px solid var(--ds-color-info-bg);color:var(--ds-color-info)}
 .alert-s{background:var(--ds-color-success-bg);border:1px solid var(--ds-color-success-bg);color:var(--ds-color-success)}
 .alert-w{background:var(--ds-color-warning-bg);border:1px solid var(--ds-color-warning-bg);color:var(--ds-color-warning)}
+/* support-widget */
+.sf-sub-copy{font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:16px}
+.sf-type-row{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.sf-type-btn{flex:1;min-width:90px;padding:8px 6px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-family:var(--sans);font-size:12px;font-weight:500;cursor:pointer;transition:border-color .14s,color .14s,background .14s}
+.sf-type-btn:hover{color:var(--text);border-color:var(--border2)}
+.sf-type-btn.active{border-color:var(--accent);color:var(--accent-2);background:var(--ds-color-info-bg)}
+.sf-counter{font-size:11px;color:var(--text3);text-align:right;margin-top:2px}
+.sf-context-note{font-size:11px;color:var(--text3);margin:4px 0 14px}
+.sf-error{font-size:12px;color:var(--ds-color-danger);margin-bottom:10px}
+.sf-thankyou{display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;padding:24px 8px;color:var(--ds-color-success)}
+.sf-thankyou-title{font-size:15px;font-weight:600;color:var(--text)}
+.sf-thankyou-sub{font-size:12.5px;color:var(--text2)}
+/* /support-widget */
 .empty{text-align:center;padding:44px 24px;color:var(--text3)}
 .empty .ico{font-size:34px;margin-bottom:11px}
 .empty p{font-size:13.5px}
@@ -3524,6 +3537,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <div class="nav-item" onclick="nav('agency')"><span class="ico" data-ico="buildings"></span><span class="nav-lbl-text">Agency</span></div>
   </div>
   <div class="sidebar-bot">
+    <!-- support-widget --><div class="nav-item" onclick="openSupportModal()"><span class="ico" data-ico="chat-dots"></span><span class="nav-lbl-text">Support</span></div><!-- /support-widget -->
     <div class="nav-item" onclick="nav('settings')"><span class="ico" data-ico="gear"></span><span class="nav-lbl-text">Settings</span></div>
     <button class="signout-btn" onclick="authSignOut()" title="Sign out">
       <span class="so-ico" data-ico="sign-out" data-size="16"></span>
@@ -3557,6 +3571,24 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 
     <!-- ========== SUMMARY (v3 modern bold) ========== -->
     <div class="section active sum-v3" id="sec-summary">
+
+      <!-- SUMMARY EMAIL TOGGLE (1st + 15th account-statement emails) -->
+      <div class="card" id="summary-email-pref" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">Scheduled Summary Emails</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Account statements on the 1st &amp; 15th</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span id="summary-email-saved" style="font-size:11px;color:var(--text3);opacity:0;transition:opacity .3s"></span>
+          <div class="theme-toggle" onclick="toggleSummaryEmails()" title="Toggle scheduled summary emails" style="cursor:pointer">
+            <span class="toggle-label" id="summary-email-lbl-off">Off</span>
+            <div class="toggle-track" id="summary-email-track">
+              <div class="toggle-thumb"></div>
+            </div>
+            <span class="toggle-label" id="summary-email-lbl-on">On</span>
+          </div>
+        </div>
+      </div>
 
       <!-- ACTION HUB (Phase 1.2 — urgent/today/opportunity) -->
       <div class="card ah-hub" id="action-hub">
@@ -3663,6 +3695,8 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <div class="bti-card__body"></div>
         <div class="bti-recommend" style="display:none"></div>
       </div>
+
+      <div id="bonus-upcoming-compact"></div>
 
       <div class="sum-mid-row">
         <div class="card status-card">
@@ -4036,14 +4070,30 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     </div>
 
     <div class="section" id="sec-bonuses">
+      <div id="bonus-upcoming-widget"></div>
+
       <div class="tabs">
-        <button class="tab active" onclick="bTab('ffl',this)">FFL VP Bonus</button>
-        <button class="tab" onclick="bTab('americo',this)">Americo UFirst</button>
-        <button class="tab" onclick="bTab('amam',this)">Am-Amicable Bonus Bucks</button>
+        <button class="tab active" onclick="bTab('carriers',this)">Carrier Bonuses</button>
+        <button class="tab" onclick="bTab('mycarriers',this)">My Carriers</button>
+        <button class="tab" onclick="bTab('ffl',this)">FFL VP Bonus</button>
+      </div>
+
+      <!-- CARRIER BONUSES — data-driven; see CARRIER_BONUSES / data/carrier_bonuses.json -->
+      <div id="bt-carriers">
+        <div id="bonus-cards-root"></div>
+      </div>
+
+      <!-- MY CARRIERS -->
+      <div id="bt-mycarriers" style="display:none">
+        <div class="card">
+          <div class="card-title">My Carriers</div>
+          <div class="alert alert-i"><span data-ico="info"></span><div>Only checked carriers appear in your Bonus Tracker, progress bars, and Summary nudges.</div></div>
+          <div id="bonus-carrier-checklist" class="g3 mt12"></div>
+        </div>
       </div>
 
       <!-- FFL -->
-      <div id="bt-ffl">
+      <div id="bt-ffl" style="display:none">
         <div class="g4 mt4">
           <div class="stat"><div class="stat-lbl">Your Monthly AP</div><div class="stat-val text-b" id="ffl-ap-disp">$0</div><div class="stat-sub">From policy tracker</div></div>
           <div class="stat"><div class="stat-lbl">Bonus Pool (4.5%)</div><div class="stat-val text-y" id="ffl-pool">—</div><div class="stat-sub">Corp pool estimate</div></div>
@@ -4117,108 +4167,6 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </div>
       </div>
 
-      <!-- AMERICO UFIRST -->
-      <div id="bt-americo" style="display:none">
-        <div class="card">
-          <div class="card-title">Americo UFirst Rewards® — Dec 1, 2025 – May 29, 2026</div>
-          <div class="alert alert-w"><span data-ico="calendar-blank"></span><div>Qualification period: Dec 1, 2025 – May 29, 2026. Applications must be paid by May 29, 2026. Final measurement: June 15, 2026. Payout by June 30, 2026.</div></div>
-          <div class="frow mt12">
-            <div class="fg"><label>Qualified Life Production Credits ($)</label><input type="number" id="am-cred" placeholder="0" oninput="calcAmerico()"></div>
-            <div class="fg"><label>6-Month Persistency (%)</label><input type="number" id="am-p6" placeholder="85" step="0.1" oninput="calcAmerico()"></div>
-            <div class="fg"><label>12-Month Persistency (%)</label><input type="number" id="am-p12" placeholder="75" step="0.1" oninput="calcAmerico()"></div>
-            <div class="fg"><label>Premium Applied Ratio (%)</label><input type="number" id="am-par" placeholder="80" step="0.1" oninput="calcAmerico()"></div>
-          </div>
-          <div class="mt16">
-            <div class="flex jb aic" style="margin-bottom:8px">
-              <div style="font-size:13px;font-weight:600">Production to $55,000 Goal</div>
-              <div class="mono text-g" id="am-cred-disp">$0 / $55,000</div>
-            </div>
-            <div class="pbar-wrap"><div class="pbar pb-g" id="am-prog" style="width:0%"></div></div>
-          </div>
-          <div class="mt16">
-            <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px">Milestone Progress</div>
-            <div class="ms-track">
-              <div class="ms-line"></div>
-              <div class="ms-fill" id="am-ms-fill" style="width:0%"></div>
-              <div class="milestones" id="am-milestones"></div>
-            </div>
-          </div>
-          <div class="card mt12" style="background:rgba(16,185,129,.04);border-color:rgba(16,185,129,.2)" id="am-result">
-            <div class="flex jb aic">
-              <div><div class="text-m" style="font-size:10.5px">BONUS RATE</div><div style="font-size:30px;font-weight:400;" class="mono" id="am-rate">—</div></div>
-              <div style="text-align:right"><div class="text-m" style="font-size:10.5px">ESTIMATED BONUS</div><div style="font-size:30px;font-weight:400;" class="mono text-g" id="am-bonus">—</div></div>
-            </div>
-            <div class="divider" style="margin:11px 0"></div>
-            <div class="g3">
-              <div><div class="text-m" style="font-size:11px">6-Mo Persistency (need 84%)</div><div class="mono mt4" id="am-q1" style="font-size:13px">—</div></div>
-              <div><div class="text-m" style="font-size:11px">12-Mo Persistency (need 72%)</div><div class="mono mt4" id="am-q2" style="font-size:13px">—</div></div>
-              <div><div class="text-m" style="font-size:11px">Applied Ratio (need 77%)</div><div class="mono mt4" id="am-q3" style="font-size:13px">—</div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- AMAM BONUS BUCKS -->
-      <div id="bt-amam" style="display:none">
-        <div class="card">
-          <div class="card-title">American-Amicable — Bonus Bucks Monthly Recognition</div>
-          <div class="alert alert-s"><span data-ico="trophy"></span><div>Earn monthly Bonus Bucks by hitting paid annualized life premium thresholds. Awards are not cumulative. Must be active and in good standing. Must meet placement and persistency requirements.</div></div>
-
-          <div class="frow mt12">
-            <div class="fg" style="max-width:280px">
-              <label>Monthly Paid Annualized Life Premium ($)</label>
-              <input type="number" id="amam-monthly" placeholder="0" oninput="calcAmAm()">
-            </div>
-          </div>
-
-          <div class="mt20">
-            <div style="font-size:13px;font-weight:600;margin-bottom:14px">Award Tiers</div>
-            <div class="g3" id="amam-tiers">
-              <!-- Silver -->
-              <div class="carrier-card" id="amam-silver">
-                <div class="ch"><div class="cname" style="font-size:15px;font-family:var(--display)"><span class="award-silver">Silver Award</span></div><div class="badge" id="amam-s-badge" style="background:rgba(192,192,192,.12);color:#c8d8e4;border:1px solid rgba(192,192,192,.25)">—</div></div>
-                <div class="rrow"><div class="rlbl">Premium Range</div><div class="rval">$7,500 – $9,999/mo</div></div>
-                <div class="rrow"><div class="rlbl">Bonus Bucks Award</div><div class="rval g">$50 Check</div></div>
-              </div>
-              <!-- Gold -->
-              <div class="carrier-card" id="amam-gold">
-                <div class="ch"><div class="cname" style="font-size:15px;font-family:var(--display)"><span class="award-gold">Gold Award</span></div><div class="badge" id="amam-g-badge" style="background:rgba(245,158,11,.12);color:var(--ds-color-warning);border:1px solid rgba(245,158,11,.25)">—</div></div>
-                <div class="rrow"><div class="rlbl">Premium Range</div><div class="rval">$10,000 – $19,999/mo</div></div>
-                <div class="rrow"><div class="rlbl">Bonus Bucks Award</div><div class="rval g">$75 Check</div></div>
-              </div>
-              <!-- Platinum -->
-              <div class="carrier-card" id="amam-plat">
-                <div class="ch"><div class="cname" style="font-size:15px;font-family:var(--display)"><span class="award-plat">Platinum Award</span></div><div class="badge" id="amam-p-badge" style="background:rgba(139,92,246,.12);color:var(--ds-color-momentum);border:1px solid rgba(139,92,246,.25)">—</div></div>
-                <div class="rrow"><div class="rlbl">Premium Range</div><div class="rval">$20,000+/mo</div></div>
-                <div class="rrow"><div class="rlbl">Bonus Bucks Award</div><div class="rval g">$100 Check</div></div>
-              </div>
-            </div>
-
-            <div class="mt20">
-              <div style="font-size:13px;font-weight:600;margin-bottom:10px">Monthly Progress Toward Tiers</div>
-              <div class="mt8">
-                <div class="flex jb aic" style="margin-bottom:5px"><span style="font-size:12px;color:var(--text3)">Progress to Silver ($7,500)</span><span class="mono text-g" id="amam-prog-s-lbl">$0</span></div>
-                <div class="pbar-wrap"><div class="pbar pb-s" id="amam-prog-s" style="width:0%"></div></div>
-              </div>
-              <div class="mt12">
-                <div class="flex jb aic" style="margin-bottom:5px"><span style="font-size:12px;color:var(--text3)">Progress to Gold ($10,000)</span><span class="mono text-y" id="amam-prog-g-lbl">$0</span></div>
-                <div class="pbar-wrap"><div class="pbar pb-y" id="amam-prog-g" style="width:0%"></div></div>
-              </div>
-              <div class="mt12">
-                <div class="flex jb aic" style="margin-bottom:5px"><span style="font-size:12px;color:var(--text3)">Progress to Platinum ($20,000)</span><span class="mono" style="color:var(--ds-color-momentum)" id="amam-prog-p-lbl">$0</span></div>
-                <div class="pbar-wrap" style="background:rgba(139,92,246,.12)"><div class="pbar" id="amam-prog-p" style="background:#7c3aed;width:0%"></div></div>
-              </div>
-            </div>
-
-            <div class="card mt16" id="amam-award-display" style="background:rgba(16,185,129,.05);border-color:rgba(16,185,129,.2);display:none">
-              <div class="flex jb aic">
-                <div><div class="text-m" style="font-size:10.5px">CURRENT AWARD</div><div style="font-size:22px;font-weight:700;margin-top:4px" id="amam-award-name">—</div></div>
-                <div style="text-align:right"><div class="text-m" style="font-size:10.5px">BONUS BUCKS CHECK</div><div style="font-size:32px;font-weight:400;" class="mono text-g" id="amam-award-amt">—</div></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ========== LEADS ========== -->
@@ -5038,6 +4986,48 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <div id="pb-addfunds-status" style="font-size:12px;min-height:16px;margin-top:10px"></div>
   </div>
 </div>
+
+<!-- support-widget -->
+<div class="overlay" id="supportTicketModal" onclick="if(event.target===this)closeSupportModal()">
+  <div class="modal pb-modal" style="max-width:480px">
+    <div class="mhdr">
+      <div class="mtitle">Support &amp; Feedback</div>
+      <button class="mclose" onclick="closeSupportModal()" data-ico="x" data-size="14"></button>
+    </div>
+    <div id="sf-form-wrap">
+      <div class="sf-sub-copy">Found a bug? Want a feature? Think something sucks? Tell us — we highly encourage constructive criticism. It's how we make Producer Stack the best CRM for producers.</div>
+      <div class="sf-type-row" id="sf-type-row">
+        <button type="button" class="sf-type-btn" data-type="bug" onclick="sfSetType('bug',this)">🐞 Bug</button>
+        <button type="button" class="sf-type-btn" data-type="feature" onclick="sfSetType('feature',this)">💡 Feature</button>
+        <button type="button" class="sf-type-btn active" data-type="feedback" onclick="sfSetType('feedback',this)">📣 Feedback</button>
+        <button type="button" class="sf-type-btn" data-type="question" onclick="sfSetType('question',this)">❓ Question</button>
+      </div>
+      <div class="fg">
+        <label>Subject</label>
+        <input type="text" id="sf-subject" maxlength="200" placeholder="Short summary" autocomplete="off">
+      </div>
+      <div class="fg">
+        <label>Message</label>
+        <textarea id="sf-message" maxlength="5000" rows="6" placeholder="The more detail, the better." oninput="sfUpdateCounter()"></textarea>
+        <div class="sf-counter" id="sf-counter">0 / 5000</div>
+      </div>
+      <div class="sf-context-note">We'll include your current page &amp; browser info to help us debug.</div>
+      <div class="sf-error" id="sf-error" style="display:none"></div>
+      <div class="flex gap8" style="justify-content:flex-end;margin-top:6px">
+        <button class="btn btn-s btn-sm" onclick="closeSupportModal()">Cancel</button>
+        <button class="btn btn-p btn-sm" id="sf-submit-btn" onclick="submitSupportTicket()">Send</button>
+      </div>
+    </div>
+    <div id="sf-thankyou-wrap" style="display:none">
+      <div class="sf-thankyou">
+        <span data-ico="check-circle" data-size="28"></span>
+        <div class="sf-thankyou-title">Thanks — feedback received!</div>
+        <div class="sf-thankyou-sub" id="sf-ticket-id-line"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- /support-widget -->
 
 <!-- PHONE BOOK — BUY NUMBER MODAL -->
 <div class="overlay" id="pbBuyModal">
@@ -7113,6 +7103,1011 @@ const COMP = {
   'uhl_wl':              [60,65,70,75,80,85,90,95,100,105,110,115,120,120],
 };
 
+// ============================================================
+// CARRIER_BONUSES — mirror of data/carrier_bonuses.json.
+// Keep both in sync (same convention as COMP / data/compensation-table.json
+// above). Each carrier here additionally carries a hand-authored `window`
+// config (added only in this const, not the JSON) describing its
+// qualification-period cadence for the bonus-tracker period engine:
+//   { type: 'monthly' }                       — resets on the 1st
+//   { type: 'quarterly' }                     — calendar quarter (Jan-Mar, ...)
+//   { type: 'annual' }                        — calendar year
+//   { type: 'fixed', start, end }             — explicit date range; past `end`
+//                                                the program shows "period ended"
+//   null                                      — no computable numeric window
+//                                                (portal-only, empty tiers, basis
+//                                                the progress engine can't total,
+//                                                or a lapsed/discontinued program)
+// Corebridge's tiers are quarterly and change every quarter — replace the
+// `corebridge` entry's tiers[] wholesale each quarter, nothing else.
+// ============================================================
+const CARRIER_BONUSES = {
+  "as_of": "2026-07-11",
+  "contracted_carriers": [
+    "americo",
+    "mutual_of_omaha",
+    "transamerica",
+    "ethos",
+    "corebridge",
+    "american_amicable"
+  ],
+  "carriers": [
+    {
+      "id": "americo",
+      "carrier": "Americo",
+      "program": "UFirst Rewards",
+      "sponsor": "carrier",
+      "bonus_type": "cash_percent",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 55000,
+          "threshold_label": ">= $55,000 qualified life production credits in period",
+          "payout": "10% of paid first-year AP"
+        },
+        {
+          "threshold": 55000,
+          "threshold_label": ">= $55,000 credits AND 12-mo persistency >= 80%",
+          "payout": "12% of paid first-year AP"
+        }
+      ],
+      "period": "2025-12-01 to 2026-05-29 (paid by 2026-05-29; premium applied through 2026-06-15; bonus paid by 2026-06-30)",
+      "requirements": "6-mo persistency >= 84%; 12-mo persistency >= 72%; premium applied ratio >= 77%; no controlled business; annuities/call centers excluded",
+      "source": "https://eisapp.com/resources/documents/contest_flyers/Americo_UFirstRewards_2026_Incentive.pdf",
+      "source_date": "12/2025 (form 25-140-2)",
+      "confidence": "high",
+      "status": "period_ended_2026-05-29",
+      "notes": "Current qualification window closed 5/29/26. Next-period flyer not yet public as of 7/10/26 — check tools.americoagent.com.",
+      "window": {
+        "type": "fixed",
+        "start": "2025-12-01",
+        "end": "2026-05-29"
+      }
+    },
+    {
+      "id": "american_amicable",
+      "carrier": "American Amicable (also Occidental Life, Pioneer American, Pioneer Security, IA American)",
+      "program": "Bonus Bucks (Monthly Sales Recognition)",
+      "sponsor": "carrier",
+      "bonus_type": "cash_flat",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 7500,
+          "threshold_label": "$7,500-$9,999 paid annualized life premium in one month",
+          "payout": "$50 (Silver)"
+        },
+        {
+          "threshold": 10000,
+          "threshold_label": "$10,000-$19,999 in one month",
+          "payout": "$75 (Gold)"
+        },
+        {
+          "threshold": 20000,
+          "threshold_label": "$20,000+ in one month",
+          "payout": "$100 (Platinum)"
+        }
+      ],
+      "period": "monthly, ongoing",
+      "requirements": "active and in good standing; placement and persistency requirements; awards not cumulative",
+      "source": "https://eisapp.com/resources/documents/contest_flyers/AmericanAmicable_Bonus_Bucks_Announcement1704216105.pdf",
+      "source_date": "flyer posted ~01/2024, program evergreen",
+      "confidence": "medium-high",
+      "status": "last_documented",
+      "notes": "Applies across the whole Am-Am family incl. Occidental and Pioneer American.",
+      "window": {
+        "type": "monthly"
+      }
+    },
+    {
+      "id": "mutual_of_omaha",
+      "carrier": "Mutual of Omaha (United of Omaha) — Living Promise",
+      "program": "4 Quarters Club Cash Bonus",
+      "sponsor": "carrier (brokerage channel)",
+      "bonus_type": "cash_percent",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 25000,
+          "threshold_label": ">= $25,000 qualifying ANBP net-issued per calendar quarter",
+          "payout": "10% of quarter ANBP"
+        },
+        {
+          "threshold": 25000,
+          "threshold_label": "same AND 3-mo persistency > 95%",
+          "payout": "12% of quarter ANBP"
+        }
+      ],
+      "period": "calendar quarters (Q1-Q4)",
+      "requirements": "placement >= 70%; 3-mo persistency >= 91%; appointed >= 4 months and >= 10 policies in past 3 years; no controlled business/internal replacements; Living Promise, Term Life Express, IUL Express, Guaranteed ADvantage, Critical Advantage all credit 1:1",
+      "source": "https://eisapp.com/resources/documents/contest_flyers/MOO_4QuartersClub_2025.pdf",
+      "source_date": "2025 flyer (form 634387)",
+      "confidence": "medium",
+      "status": "last_documented",
+      "notes": "2026 flyer not public — verify current terms on producer.mutualofomaha.com. Separate: Mutual Sales Leaders trip at 250,000 annual production credits.",
+      "window": {
+        "type": "quarterly"
+      }
+    },
+    {
+      "id": "transamerica",
+      "carrier": "Transamerica (FE Express / Solutions)",
+      "program": "Brokerage Convention (trip only — no public cash AP bonus)",
+      "sponsor": "carrier",
+      "bonus_type": "trip",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 100000,
+          "threshold_label": "$100,000 first-year paid AP + 5 paid cases in calendar year",
+          "payout": "Convention trip (2026: Montage Los Cabos, Apr 12-16)"
+        }
+      ],
+      "period": "calendar year (CY2025 production for 2026 trip)",
+      "requirements": "paid premium only; term/WL/IUL credit; annuities excluded; brokerage channel",
+      "source": "https://lovettfinancial.net/wp-content/uploads/Transamerica_2026_Brokerage_Convention_Flyer.pdf",
+      "source_date": "12/2024 (doc 4030466)",
+      "confidence": "medium-high",
+      "status": "last_documented",
+      "notes": "No public cash production bonus exists for Transamerica FE; New Horizons lists no incentives for this carrier.",
+      "window": {
+        "type": "annual"
+      }
+    },
+    {
+      "id": "ethos",
+      "carrier": "Ethos",
+      "program": "Ethos Rewards (portal-only)",
+      "sponsor": "carrier/platform",
+      "bonus_type": "portal_only",
+      "basis": "unknown",
+      "tiers": [],
+      "period": "bonuses paid monthly per Ethos FAQ; schedules vary year to year",
+      "requirements": "unknown — published only to appointed agents at agents.ethoslife.com/rewards",
+      "source": "https://www.ethos.com/agents/faq/compensation/",
+      "source_date": "current 2026",
+      "confidence": "low",
+      "status": "portal_only",
+      "notes": "Program confirmed to exist; no public tiers. Do not display projected amounts.",
+      "window": null
+    },
+    {
+      "id": "corebridge",
+      "carrier": "Corebridge Financial / AIG (SimpliNow Legacy SIWL)",
+      "program": "Quarterly SIWL Agent Bonus (Q3 2026 edition)",
+      "sponsor": "carrier",
+      "bonus_type": "per_policy",
+      "basis": "policy_count",
+      "tiers": [
+        {
+          "threshold": 10,
+          "threshold_label": "10 paid SIWL policies in Q3 2026",
+          "payout": "$500 (first tier)"
+        },
+        {
+          "threshold": 25,
+          "threshold_label": "25 paid SIWL policies in Q3 2026",
+          "payout": "up to $10,000 cumulative (intermediate tiers in rules PDF)"
+        }
+      ],
+      "period": "2026-07-01 to 2026-09-30 (renews quarterly; Q1 2026 tiers were 5/15/20/25 policies -> $500/$1.5k/$2k/$3k, max $7,000)",
+      "requirements": "policy-count based, NOT AP; net of not-takens/chargebacks/lapses; no self/family business; call centers excluded; splits credited fractionally; paid within 35 days of month-end; auto-enrolled",
+      "source": "https://cloud.life.corebridgefinancial.com/bonusprogram",
+      "source_date": "REV0626 (June 2026)",
+      "confidence": "high",
+      "status": "active_2026",
+      "notes": "SIWL (SimpliNow Legacy/Legacy Max) only — NO bonus on GIWL. Tier amounts change each quarter.",
+      "window": {
+        "type": "quarterly"
+      }
+    },
+    {
+      "id": "aetna_accendo",
+      "carrier": "Aetna Senior Supplemental / CVS Accendo (Protection Series)",
+      "program": "Quarterly Cash Bonus Rewards",
+      "sponsor": "carrier",
+      "bonus_type": "per_policy",
+      "basis": "policy_count",
+      "tiers": [
+        {
+          "threshold": 5,
+          "threshold_label": ">= 5 signed e-apps per month (program minimum)",
+          "payout": "per-policy cash, historically up to $125/policy; table varies by quarter"
+        }
+      ],
+      "period": "recurring quarterly; last public detail = Q4 2025 (apps 10/1-12/31/25)",
+      "requirements": "80% persistency; policy in force 90 days; min $15/mo EFT; no self/family business; prorated by split",
+      "source": "https://srbenefit.com/aetna-2025-bonus-program/",
+      "source_date": "2025-11-13",
+      "confidence": "medium",
+      "status": "last_documented",
+      "notes": "Q3 2026 flyer is portal-only (AetnaSeniorProducts.com). FE inclusion in kickers varies by quarter.",
+      "window": {
+        "type": "quarterly"
+      }
+    },
+    {
+      "id": "aflac",
+      "carrier": "Aflac (Final Expense)",
+      "program": "Q4 2025 OEP bundle bonus + FE Leaders' Conference (both expired)",
+      "sponsor": "carrier",
+      "bonus_type": "portal_only",
+      "basis": "mixed",
+      "tiers": [],
+      "period": "both qualification windows ended 2025-12-31",
+      "requirements": "expired programs: $50/FE policy bundled w/ Med Supp (Oct-Dec 2025); top-25 FE trip at >= $25,000 issued FE AP (Jul-Dec 2025)",
+      "source": "https://pipac.com/wp-content/uploads/2025/10/CT-25-02847-Tier-One-Final-Expense-Convention-Approved-Flyer-and-Rules.pdf",
+      "source_date": "2025-10",
+      "confidence": "medium",
+      "status": "expired",
+      "notes": "No public 2026 FE successor found; current PIPAC Aflac incentive is Med Supp only.",
+      "window": null
+    },
+    {
+      "id": "american_home_life",
+      "carrier": "American Home Life (GuideStar)",
+      "program": "2026 Presidential Bonus (quarterly) + President's Club (annual trip)",
+      "sponsor": "carrier",
+      "bonus_type": "cash_percent",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 15000,
+          "threshold_label": "$15,000-$17,499 AP credit/quarter",
+          "payout": "5%"
+        },
+        {
+          "threshold": 17500,
+          "threshold_label": "$17,500-$19,999",
+          "payout": "6%"
+        },
+        {
+          "threshold": 20000,
+          "threshold_label": "$20,000-$22,499",
+          "payout": "7%"
+        },
+        {
+          "threshold": 22500,
+          "threshold_label": "$22,500-$24,999",
+          "payout": "8%"
+        },
+        {
+          "threshold": 25000,
+          "threshold_label": "$25,000-$27,499",
+          "payout": "9%"
+        },
+        {
+          "threshold": 27500,
+          "threshold_label": "$27,500+",
+          "payout": "10%"
+        }
+      ],
+      "period": "calendar quarters 2026 (documented: Q2 2026); President's Club Jan 1-Dec 31 2026: $50k/$55k/$60k/$65k AP + 18 lives -> Amelia Island trip + $500/$1,000/$1,500/$2,000 cash",
+      "requirements": "2026 business >= 85% persistency; 2025 business >= 70%; GuideStar FE counts 100%; Patriot Series EXCLUDED; no self/family business",
+      "source": "https://pipac.com/wp-content/uploads/2026/04/Q2-AHL.pdf",
+      "source_date": "2026-04 (Q2 flyer); President's Club flyer 2026-07",
+      "confidence": "high",
+      "status": "active_2026",
+      "notes": "Best-documented AP-tier cash bonus of the non-contracted set.",
+      "window": {
+        "type": "quarterly"
+      }
+    },
+    {
+      "id": "baltimore_life",
+      "carrier": "Baltimore Life",
+      "program": "2026 Convention — Dublin (trip)",
+      "sponsor": "carrier",
+      "bonus_type": "trip",
+      "basis": "production_credits",
+      "tiers": [],
+      "period": "trip Jul 9-14 2026; qualification window per flyer 7986-0625",
+      "requirements": "thresholds in image-based flyer, not text-extractable",
+      "source": "https://lifeprofessionals.com/trips-and-incentives/",
+      "source_date": "06/2025",
+      "confidence": "low",
+      "status": "portal_only",
+      "notes": "No public cash AP tiers; bonus schedules released to appointed agents only.",
+      "window": null
+    },
+    {
+      "id": "bankers_fidelity",
+      "carrier": "Bankers Fidelity (Atlantic American)",
+      "program": "App2Reward",
+      "sponsor": "carrier",
+      "bonus_type": "per_policy",
+      "basis": "policy_count",
+      "tiers": [
+        {
+          "threshold": 5,
+          "threshold_label": "5 credits minimum to redeem; 1 credit per issued+paid case",
+          "payout": "cash reward credits (e.g. $50/policy on some ancillary products)"
+        }
+      ],
+      "period": "ongoing",
+      "requirements": "issued and paid business; marketed for ancillary products — FE (Vantage Secure) inclusion unverified",
+      "source": "https://bankersfidelity.com/agent",
+      "source_date": "current 2026 (last detailed flyer 05/2021)",
+      "confidence": "low",
+      "status": "portal_only",
+      "notes": "Verify FE eligibility and current amounts at agent.bflic.com.",
+      "window": null
+    },
+    {
+      "id": "better_life",
+      "carrier": "BetterLife",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.betterlifeins.com/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": "No public agent AP bonus or convention.",
+      "window": null
+    },
+    {
+      "id": "catholic_financial",
+      "carrier": "Catholic Financial Life",
+      "program": "career-advisor production bonus + Leaders Conference (internal)",
+      "sponsor": "carrier (career channel)",
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.catholicfinanciallife.org/cfl/careers/advisor",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": "Fraternal, mostly captive; no public tiers.",
+      "window": null
+    },
+    {
+      "id": "christian_fidelity",
+      "carrier": "Christian Fidelity (Oxford Life)",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://christianfidelity.com/agent",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": "See Oxford Life entry — Oxford's producer incentive program may apply via the Oxford family.",
+      "window": null
+    },
+    {
+      "id": "cica_life",
+      "carrier": "CICA Life (Superior Choice)",
+      "program": "2027 Convention — Stockholm (trip)",
+      "sponsor": "carrier",
+      "bonus_type": "trip",
+      "basis": "annualized_premium",
+      "tiers": [],
+      "period": "presumed CY2026 production for 2027 trip",
+      "requirements": "thresholds in image-based flyer",
+      "source": "https://lifeprofessionals.com/trips-and-incentives/",
+      "source_date": "2026",
+      "confidence": "low",
+      "status": "portal_only",
+      "notes": "No public cash AP bonus; headline comp is 120% FYC + 50% advances.",
+      "window": null
+    },
+    {
+      "id": "cincinnati_equitable",
+      "carrier": "Cincinnati Equitable",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://fexcontracting.com/cincinnati-equitable-life/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": null,
+      "window": null
+    },
+    {
+      "id": "combined_chubb",
+      "carrier": "Combined Insurance (Chubb) — FE Life",
+      "program": "discretionary sales contests (undisclosed)",
+      "sponsor": "carrier",
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.chubb.com/us-en/agents-brokers/producer-compensation.html",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": "Chubb discloses contests exist at its discretion; no FE-specific program published.",
+      "window": null
+    },
+    {
+      "id": "elco_mutual",
+      "carrier": "Elco Mutual (Silver Eagle)",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.newhorizonsmktg.com/annuities/elco-mutual-life-annuity",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": "IMO page lists 'No incentives from this carrier'.",
+      "window": null
+    },
+    {
+      "id": "family_benefit_trinity",
+      "carrier": "Trinity Life / Family Benefit Life",
+      "program": "Monthly Lead Credit Bonus + President's Club trip",
+      "sponsor": "carrier",
+      "bonus_type": "lead_credit",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 5000,
+          "threshold_label": ">= $5,000 net issued AP in a calendar month",
+          "payout": "5% of AP as lead-purchase credit (any vendor), no cap"
+        }
+      ],
+      "period": "monthly, ongoing; President's Club trip qualification Jan 1-Dec 31 2026 (Dublin/K Club, June 2027; threshold not public)",
+      "requirements": "persistency > 80%; life products only",
+      "source": "https://fexcontracting.com/trinity-life-family-benefit-life/",
+      "source_date": "lead-credit flyer 07/2019, still cited; trip flyer ~03/2026",
+      "confidence": "medium",
+      "status": "last_documented",
+      "notes": "Long-running program; re-verify current terms.",
+      "window": {
+        "type": "monthly"
+      }
+    },
+    {
+      "id": "fidelity_life",
+      "carrier": "Fidelity Life (RAPIDecision GI)",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "checked eisapp, IMO sites, fidelitylife.com",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": null,
+      "window": null
+    },
+    {
+      "id": "first_guaranty",
+      "carrier": "First Guaranty",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://eldercarebroker.com/sell-final-expense",
+      "source_date": "checked 2026-07-10",
+      "confidence": "low",
+      "status": "none_found",
+      "notes": "Small regional carrier (AR/LA/MS/MO/OK/TN/TX).",
+      "window": null
+    },
+    {
+      "id": "foresters",
+      "carrier": "Foresters Financial (PlanRight / BrightFuture)",
+      "program": "Fund Your Dreams Incentive 2026",
+      "sponsor": "carrier",
+      "bonus_type": "cash_percent",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 25000,
+          "threshold_label": ">= 25,000 points/quarter (1 pt = $1 net paid commissionable AP; PlanRight 100%, BrightFuture 50%)",
+          "payout": "12% cash (higher tiers exist, shown in ezbiz tracker)"
+        }
+      ],
+      "period": "quarterly 2026 (points reset each quarter; paid within 30 days of quarter end)",
+      "requirements": "min 6 apps/quarter; personal production only; placement >= 60%; persistency 90%@3mo / 85%@6mo / 80%@9mo / 75%@13mo; NY excluded; no controlled business",
+      "source": "https://ezbiz.foresters.com/foresters-cash-incentive-qualifications",
+      "source_date": "02/2026 (form 506938), effective 2026-01-01",
+      "confidence": "high",
+      "status": "active_2026",
+      "notes": "BrightFuture AP counts only 50% toward points.",
+      "window": {
+        "type": "quarterly"
+      }
+    },
+    {
+      "id": "gerber",
+      "carrier": "Gerber Life (Western & Southern)",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.newhorizonsmktg.com/final-expense/gerber-life",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium-high",
+      "status": "portal_only",
+      "notes": "IMOs say bonus incentives become visible after appointment; nothing public.",
+      "window": null
+    },
+    {
+      "id": "gpm_life",
+      "carrier": "GPM Life",
+      "program": "Capitol Club (Quick Start / PERSONA Rewards / Preferred Agent Bonus)",
+      "sponsor": "carrier",
+      "bonus_type": "cash_flat",
+      "basis": "net_production_amount",
+      "tiers": [
+        {
+          "threshold": 6000,
+          "threshold_label": "Quick Start: $6,000 NPA in first 6 months",
+          "payout": "$200 prepaid Visa"
+        },
+        {
+          "threshold": 30000,
+          "threshold_label": "$30,000 NPA/yr",
+          "payout": "$650-$1,000 (Silver/Gold/Platinum)"
+        },
+        {
+          "threshold": 50000,
+          "threshold_label": "$50,000 NPA/yr",
+          "payout": "$1,100-$1,750"
+        },
+        {
+          "threshold": 100000,
+          "threshold_label": "$100,000 NPA/yr",
+          "payout": "$3,750-$5,250"
+        },
+        {
+          "threshold": 300000,
+          "threshold_label": "$300,000+ NPA/yr",
+          "payout": "$15,250-$24,000 + 4-8% of excess over $300k"
+        }
+      ],
+      "period": "calendar year (Preferred Agent); monthly (PERSONA: $15 per $1,000 life NPA)",
+      "requirements": "Platinum 85% 13-mo persistency + 80% placement; Gold 80%/75%; Silver 75%/75%",
+      "source": "http://www.gpmlifecommission.com/incentives/pdf/CapitalClub.pdf",
+      "source_date": "11/2015 (still hosted by carrier)",
+      "confidence": "medium",
+      "status": "last_documented",
+      "notes": "Document is old — verify amounts on GPM Agent Access before relying on them.",
+      "window": null
+    },
+    {
+      "id": "gtl",
+      "carrier": "Guarantee Trust Life (GTL)",
+      "program": "episodic per-app promos (no permanent program)",
+      "sponsor": "carrier via IMOs",
+      "bonus_type": "portal_only",
+      "basis": "policy_count",
+      "tiers": [],
+      "period": "promo-specific windows; historic example $20/app (2023)",
+      "requirements": "good standing; per-promo minimums",
+      "source": "https://pfsinsurance.com/agent-incentives/gtl-061223",
+      "source_date": "2023-2024 flyers",
+      "confidence": "low",
+      "status": "possibly_outdated",
+      "notes": "2026 life-side promo, if any, is portal-only (eapp.gtlic.com); current public GTL bonuses are Medicare-side.",
+      "window": null
+    },
+    {
+      "id": "illinois_mutual",
+      "carrier": "Illinois Mutual (Path Protector Plus)",
+      "program": "Life Bonus Program (annual)",
+      "sponsor": "carrier",
+      "bonus_type": "cash_percent",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 0,
+          "threshold_label": "all life plans (except Child Guard) with 13-mo persistency >= 78%",
+          "payout": "5% of AP (unverified/older figure)"
+        }
+      ],
+      "period": "annual",
+      "requirements": "13-mo persistency >= 78%",
+      "source": "https://www.illinoismutual.com/agent-resources",
+      "source_date": "checked 2026-07-10 (tier figure from older forum post)",
+      "confidence": "low",
+      "status": "portal_only",
+      "notes": "Program exists; current 2026 rules are in Agent Forum portal.",
+      "window": {
+        "type": "annual"
+      }
+    },
+    {
+      "id": "kskj",
+      "carrier": "KSKJ Life",
+      "program": "top-producer awards / incentive trips (no published tiers)",
+      "sponsor": "carrier",
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://kskjlife.com/agent/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "low",
+      "status": "none_found",
+      "notes": "PRODUCT FLAG: KSKJ FE replaced by 'Precision Plan' effective 2026-04-08.",
+      "window": null
+    },
+    {
+      "id": "lafayette_life",
+      "carrier": "Lafayette Life (Western & Southern)",
+      "program": "Leaders Conference / Joint Chiefs trips",
+      "sponsor": "carrier",
+      "bonus_type": "trip",
+      "basis": "production",
+      "tiers": [],
+      "period": "2026 trips: Boston Jul 7-10; Ireland Jul 11-15 (CY2025 qualification)",
+      "requirements": "not public",
+      "source": "https://evervest.com/agent-trips-incentives/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "low",
+      "status": "portal_only",
+      "notes": "No public cash AP bonus.",
+      "window": null
+    },
+    {
+      "id": "lcba",
+      "carrier": "LCBA (Loyal Christian Benefit Association)",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.lcbalife.org/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": null,
+      "window": null
+    },
+    {
+      "id": "liberty_bankers",
+      "carrier": "Liberty Bankers Life (LBIG)",
+      "program": "Agent Quality & Production Bonus + 2026 Incentive Trip",
+      "sponsor": "carrier",
+      "bonus_type": "per_policy",
+      "basis": "policy_count",
+      "tiers": [
+        {
+          "threshold": 10,
+          "threshold_label": ">= 10 net issued policies/month at Gold or Platinum status",
+          "payout": "$30 per net issued policy"
+        }
+      ],
+      "period": "monthly, ongoing; trip: CY2025 credits (200,000; Ordinary Life = 2.0 credits/$1 AP, i.e. ~$100k life AP) -> Kaua'i Hawaii Jun 8-13 2026",
+      "requirements": "Gold >= 70% persistency; Platinum 75%@13mo + 60%@25mo + >= $3,000 AP/quarter; trip: >= 5 policies placed prior quarter, no debit balance, 65% projected 13-mo persistency",
+      "source": "https://www.carevalue.com/blog/liberty-bankers-agent-quality-and-production-bonus-program",
+      "source_date": "trip flyer 01/2025; cash bonus article undated",
+      "confidence": "medium-high",
+      "status": "last_documented",
+      "notes": "Re-verify monthly cash bonus terms in MyLBL portal.",
+      "window": {
+        "type": "monthly"
+      }
+    },
+    {
+      "id": "lifeshield",
+      "carrier": "LifeShield National",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.psmbrokerage.com/blog/lifeshield-enrich-your-life-agent-incentive",
+      "source_date": "last program seen 06/2023",
+      "confidence": "low",
+      "status": "possibly_outdated",
+      "notes": "Current incentives portal-only (agentportal.lifeshieldnational.com).",
+      "window": null
+    },
+    {
+      "id": "lincoln_heritage",
+      "carrier": "Lincoln Heritage",
+      "program": "agency-level incentives + annual contest trip (captive)",
+      "sponsor": "carrier / agency directors",
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.lhlic.com/become-an-agent/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "portal_only",
+      "notes": "Cash bonuses/free leads/trips exist but vary by agency director; no published schedule.",
+      "window": null
+    },
+    {
+      "id": "mountain_life",
+      "carrier": "Mountain Life",
+      "program": "Agent Contest 2026 (MYGA annuity only — not FE)",
+      "sponsor": "carrier",
+      "bonus_type": "cash_flat",
+      "basis": "issued_premium",
+      "tiers": [
+        {
+          "threshold": 0,
+          "threshold_label": "first issued MYGA app",
+          "payout": "$50"
+        },
+        {
+          "threshold": 100000,
+          "threshold_label": "per $100,000 issued MYGA premium",
+          "payout": "1 drawing entry (Cancun trip for 2)"
+        }
+      ],
+      "period": "apps 2026-03-25 to 2026-07-31, issued by 2026-08-31",
+      "requirements": "active appointment; chargebacks netted; splits prorated",
+      "source": "https://www.mountainlife.com/agent-contest-2026/",
+      "source_date": "2026-04-01",
+      "confidence": "high",
+      "status": "active_2026",
+      "notes": "No bonus found on their FE (Senior Life I/II) products.",
+      "window": null
+    },
+    {
+      "id": "newbridge",
+      "carrier": "NewBridge (Continental General / Afficiency)",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.newbridgelife.com/",
+      "source_date": "checked 2026-07-10 (product launched 10/2025)",
+      "confidence": "high",
+      "status": "none_found",
+      "notes": "Markets 'highly competitive commissions' + next-day pay; no AP bonus tiers.",
+      "window": null
+    },
+    {
+      "id": "oxford_life",
+      "carrier": "Oxford Life",
+      "program": "Producer Incentive Program (points) + IMO 5% lead credit",
+      "sponsor": "carrier (points); FexContracting (lead credit)",
+      "bonus_type": "cash_percent",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 60000,
+          "threshold_label": ">= 60,000 points/yr (FE premium 100%, Med Supp 10%, annuity 5%)",
+          "payout": "points redeemable ~3-4% of qualifying premium as leads/travel/cash, up to $10,000/yr"
+        },
+        {
+          "threshold": 3000,
+          "threshold_label": "IMO program: >= $3,000 issued+paid AP/month",
+          "payout": "5% of sales as lead credit (use within 60 days)"
+        }
+      ],
+      "period": "carrier program: calendar year; IMO credit: monthly",
+      "requirements": "6-app minimum; good standing; no debit balance; no production pooling",
+      "source": "https://www.psmbrokerage.com/hubfs/docs/oxford-life/Producer_Incentive_Program_Brochure.pdf",
+      "source_date": "brochure Rev. 1-2016 (structure dated); IMO page current",
+      "confidence": "medium",
+      "status": "last_documented",
+      "notes": "2016 brochure — verify 2026 point values on Oxford agent portal. Lead credit is FexContracting-specific; your IMO terms may differ.",
+      "window": null
+    },
+    {
+      "id": "pekin",
+      "carrier": "Pekin Life",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://eisapp.com/resources/documents/contest_flyers/Pekin-Pick-Your-Paradise-Incentive-Trip-2019-2020.pdf",
+      "source_date": "last public program 2019-2020",
+      "confidence": "medium",
+      "status": "possibly_outdated",
+      "notes": null,
+      "window": null
+    },
+    {
+      "id": "polish_falcons",
+      "carrier": "Polish Falcons of America",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://fexcontracting.com/polish-falcons-of-america/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": "Flat 115% FYC + 4.5% renewals; no bonus tiers.",
+      "window": null
+    },
+    {
+      "id": "royal_arcanum",
+      "carrier": "Royal Arcanum",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.benavest.com/royal-arcanum-commissions-life/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "portal_only",
+      "notes": "Bonus schedules released only after appointment.",
+      "window": null
+    },
+    {
+      "id": "royal_neighbors",
+      "carrier": "Royal Neighbors of America",
+      "program": "Agent Sales Trip (2026: Montage Deer Valley, Jun 7-10)",
+      "sponsor": "carrier",
+      "bonus_type": "trip",
+      "basis": "weighted_premium",
+      "tiers": [
+        {
+          "threshold": 60000,
+          "threshold_label": "60,000 weighted production in CY2025 (Jet Term/Jet WL = 150% of AP; SIWL/GDB/GI = 100%; SPWL = 15% of SP); top 30 qualify",
+          "payout": "incentive trip"
+        }
+      ],
+      "period": "CY2025 qualification (2026 trip); 2026-qualifying successor not yet public",
+      "requirements": "min 12 issued life apps; >= 5,000 credits Oct-Dec; NTEL < 28%; 13-mo persistency > 70%; activation > 70%",
+      "source": "http://www.stephens-matthews.com/i/royal/2025IncentiveFlyer.pdf",
+      "source_date": "Rev. 1-2025 (form 229PC-1)",
+      "confidence": "high (2025 program)",
+      "status": "last_documented",
+      "notes": "Check agent.royalneighbors.org for the 2026-qualifying version.",
+      "window": null
+    },
+    {
+      "id": "sbli",
+      "carrier": "SBLI (Living Legacy)",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.insurance-forums.com/community/threads/sbli-bites-the-dust.116849/",
+      "source_date": "12/2025-03/2026",
+      "confidence": "high",
+      "status": "discontinued",
+      "notes": "Living Legacy withdrawn effective 2026-03-09; annualized commissions ended 2025-12-18. Remove from active tracker.",
+      "window": null
+    },
+    {
+      "id": "securico",
+      "carrier": "Securico Life",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://www.securicodirect1.com/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": "Value prop is high street contracts (up to 140%), not bonuses.",
+      "window": null
+    },
+    {
+      "id": "security_national",
+      "carrier": "Security National Life (Loyalty Plan)",
+      "program": "Marketing/Lead Credit Bonus",
+      "sponsor": "carrier",
+      "bonus_type": "lead_credit",
+      "basis": "annualized_premium",
+      "tiers": [
+        {
+          "threshold": 1500,
+          "threshold_label": "issue-paid AP above $1,500 in a month",
+          "payout": "10% of total issue-paid AP as lead/marketing credit (agent matches dollar-for-dollar; credits roll over)"
+        }
+      ],
+      "period": "monthly, ongoing",
+      "requirements": "issue-paid business only; approved lead vendors (DM/telemarketing/Facebook)",
+      "source": "https://davidduford.com/security-national-final-expense-review/",
+      "source_date": "IMO pages undated; SNL agent page updated 01/2026 (password-protected)",
+      "confidence": "medium",
+      "status": "last_documented",
+      "notes": "SNL also runs contests/bonuses through the year — portal-only.",
+      "window": {
+        "type": "monthly"
+      }
+    },
+    {
+      "id": "senior_life",
+      "carrier": "Senior Life Insurance Company",
+      "program": "promotion levels + contests (captive-style)",
+      "sponsor": "carrier",
+      "bonus_type": "portal_only",
+      "basis": "monthly_issued_business",
+      "tiers": [],
+      "period": "rolling monthly ($5,000/mo to $2,000,000/mo agency levels raise commission up to ~150%+ FYC)",
+      "requirements": "not published",
+      "source": "https://seniorlifeagents.com/promotion-guidelines/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "portal_only",
+      "notes": "Levels raise commission %, not flat cash bonuses.",
+      "window": null
+    },
+    {
+      "id": "standard_life",
+      "carrier": "Standard Life & Casualty",
+      "program": null,
+      "sponsor": null,
+      "bonus_type": "none_public",
+      "basis": null,
+      "tiers": [],
+      "period": null,
+      "requirements": null,
+      "source": "https://saversmarketing.com/carrier/standard-life-and-casualty/",
+      "source_date": "checked 2026-07-10",
+      "confidence": "medium",
+      "status": "none_found",
+      "notes": null,
+      "window": null
+    },
+    {
+      "id": "uhl",
+      "carrier": "United Home Life (UHL)",
+      "program": "Winner's Circle Incentive Trip",
+      "sponsor": "carrier",
+      "bonus_type": "trip",
+      "basis": "production",
+      "tiers": [],
+      "period": "CY2026 qualification -> Riviera Maya (Etereo/Auberge) Apr 28-May 2 2027",
+      "requirements": "thresholds portal-only (member-restricted brochure)",
+      "source": "https://www.fmiagent.com/news/united-home-life/2027-winners-circle-incentive-trip-riviera-maya/",
+      "source_date": "2026-02-16",
+      "confidence": "medium",
+      "status": "active_2026",
+      "notes": "No public cash AP-tier bonus.",
+      "window": null
+    }
+  ]
+};
+
 function getCommPct(product, contractLevel, cut = false) {
   const tbl = COMP[product];
   if (!tbl) return contractLevel;
@@ -8529,139 +9524,115 @@ function renderPersistencyHealth(){
 }
 
 // ============================================================
-// BONUS TIER INTELLIGENCE — added 2026-05-12 (Phase 6)
+// BONUS TIER INTELLIGENCE — added 2026-05-12 (Phase 6); rewired 2026-07-11
+// to the data-driven CARRIER_BONUSES engine (Feature 6).
 // ============================================================
-/** Build a per-carrier ladder description from existing bonus calculators. */
-function bonusTierIntel(){
-  const today = new Date();
-  const pols = window.policies || [];
 
-  // Americo
-  const am = (typeof AMERICO_WINDOW === 'object' && typeof AM_MS !== 'undefined')
-    ? (() => {
-        const start = new Date(AMERICO_WINDOW.start + 'T00:00:00');
-        const end   = new Date(AMERICO_WINDOW.end   + 'T23:59:59');
-        const ap = pols.filter(p => p.carrier === 'Americo' && _inRange(p, start, end))
-                       .reduce((s,p) => s + (Number(p.ap) || 0), 0);
-        const tiers = AM_MS.map(m => ({ label: m.label || '$' + (m.threshold || m.ap || 0).toLocaleString(),
-                                        threshold: m.threshold || m.ap || 0,
-                                        payout: m.payout || m.bonus || 0 }));
-        const sorted = tiers.sort((a,b) => a.threshold - b.threshold);
-        const cur = sorted.filter(t => ap >= t.threshold).pop();
-        const next = sorted.find(t => ap < t.threshold);
-        return { carrier:'Americo UFirst', current: ap, tiers: sorted, cur, next, window: { start, end } };
-      })()
-    : null;
-
-  // Am-Am (uses the existing `amAmWindow` + `calcAmAm` shape)
-  const amam = (typeof amAmWindow === 'function')
-    ? (() => {
-        const win = amAmWindow(today);
-        const start = new Date(win.start + 'T00:00:00');
-        const end   = new Date(win.end   + 'T23:59:59');
-        const ap = pols.filter(p => (p.carrier || '').includes('Amicable') && _inRange(p, start, end))
-                       .reduce((s,p) => s + (Number(p.ap) || 0), 0);
-        // Thresholds match the Bonus Tracker section's Silver/Gold/Platinum
-        // progress bars (ap/7500, /10000, /20000) — keep these in sync.
-        const tiers = [
-          { label:'Silver',   threshold: 7500,  payout: 500 },
-          { label:'Gold',     threshold: 10000, payout: 1500 },
-          { label:'Platinum', threshold: 20000, payout: 4000 },
-        ];
-        const cur = tiers.filter(t => ap >= t.threshold).pop();
-        const next = tiers.find(t => ap < t.threshold);
-        return { carrier:'Am-Am Bonus Bucks', current: ap, tiers, cur, next, window:{ start, end } };
-      })()
-    : null;
-
-  // FFL VP (contract-level)
-  const vp = (typeof getContract === 'function')
-    ? (() => {
-        const level = Number(getContract()) || 100;
-        const tiers = [
-          { label:'Standard', threshold: 100, payout: 0 },
-          { label:'Senior',   threshold: 120, payout: 0 },
-          { label:'VP',       threshold: 145, payout: 0 },
-        ];
-        const cur = tiers.filter(t => level >= t.threshold).pop();
-        const next = tiers.find(t => level < t.threshold);
-        return { carrier:'FFL VP Track', current: level, tiers, cur, next, isContract: true };
-      })()
-    : null;
-
-  return [am, amam, vp].filter(Boolean);
+// Ranks not-yet-reached carrier-bonus tiers by "best return": smallest
+// gap-to-dollar ratio (gap$ / unlockValue$), tie-broken by smallest absolute
+// gap. Trips are excluded from the $ ranking but surfaced separately when
+// >90% of the way there. If every candidate is <40% of the way to its next
+// tier, the ranking flips to "closest by %" and callers should render it as
+// a pace target rather than an urgency nudge.
+function computeBonusNudgeCandidates(snaps) {
+  const candidates = [];
+  const closeTrips = [];
+  for (const s of snaps) {
+    const st = s.state;
+    if (!st) continue;
+    if (st.kind === 'trip') {
+      if (!st.reached && st.pctToGoal > 0.9) closeTrips.push({ bonus: s.bonus, pct: st.pctToGoal });
+      continue;
+    }
+    let gap, unlockValue, thresholdForPct;
+    if (st.kind === 'cliff' || st.kind === 'leadCliff') {
+      if (st.reached) continue;
+      gap = st.gap; unlockValue = st.unlockValue; thresholdForPct = st.threshold;
+    } else {
+      if (!st.next) continue;
+      gap = st.gap; unlockValue = st.unlockValue; thresholdForPct = st.next.threshold;
+    }
+    if (!(gap > 0) || !(unlockValue > 0)) continue;
+    candidates.push({
+      bonus: s.bonus, gap, unlockValue, ratio: gap / unlockValue,
+      pct: thresholdForPct > 0 ? Math.min(1, s.progress / thresholdForPct) : 0,
+      isCount: s.bonus.basis === 'policy_count',
+    });
+  }
+  candidates.sort((a, b) => a.ratio - b.ratio || a.gap - b.gap);
+  const paceMode = candidates.length > 0 && candidates.every(c => c.pct < 0.4);
+  if (paceMode) candidates.sort((a, b) => b.pct - a.pct); // closest-by-% leads in pace mode
+  return { candidates, closeTrips, paceMode };
 }
 
-/** Pick the carrier whose next-tier upgrade has the highest payout-per-AP ratio. */
-function recommendBestPush(ladders){
-  let best = null;
-  for (const L of ladders){
-    if (!L || !L.next || L.isContract) continue;            // skip contract-level (not AP-driven)
-    const gapAp     = L.next.threshold - L.current;
-    const gapPayout = (L.next.payout || 0) - (L.cur ? L.cur.payout : 0);
-    if (gapAp <= 0 || gapPayout <= 0) continue;
-    const ratio = gapPayout / gapAp;
-    if (!best || ratio > best.ratio) best = { ladder: L, gapAp, gapPayout, ratio };
+function bonusNudgeSentence(c, paceMode) {
+  const b = c.bonus;
+  const name = b.carrier.split(' (')[0];
+  const unlockText = '$' + Math.round(c.unlockValue).toLocaleString();
+  if (paceMode) {
+    return 'Pace target: ' + name + (b.program ? ' ‘' + b.program + '’' : '') +
+      ' — you’re ' + Math.round(c.pct * 100) + '% of the way to the next tier (est. ' + unlockText + ').';
   }
-  return best;
+  if (c.isCount) {
+    const n = Math.ceil(c.gap);
+    return n + ' more ' + name + ' ' + (n === 1 ? 'policy' : 'policies') + ' unlock' + (n === 1 ? 's' : '') + ' est. ' + unlockText + '.';
+  }
+  const gapText = '$' + Math.round(c.gap).toLocaleString();
+  return 'You’re only ' + gapText + ' away from ' + name + (b.program ? '’s ' + b.program : '’s next bonus tier') +
+    ' — crossing that line unlocks est. ' + unlockText + '. Consider writing your next policy with them.';
 }
 
 function renderBonusTierIntel(){
   const root = document.querySelector('.bti-card');
   if (!root) return;
-  const ladders = bonusTierIntel();
   const body = root.querySelector('.bti-card__body');
+  const recEl = root.querySelector('.bti-recommend');
   if (!body) return;
   body.replaceChildren();
 
-  for (const L of ladders){
+  const today = new Date();
+  const allSnaps = computeBonusSnapshots(today).filter(s => s.computable && !s.closed && s.state);
+  const ladderSnaps = allSnaps.filter(s => s.state.kind !== 'trip');
+
+  for (const s of ladderSnaps) {
+    const b = s.bonus, st = s.state;
+    const isCount = b.basis === 'policy_count';
+    const maxT = st.maxT;
     const row = document.createElement('div'); row.className = 'bti-ladder';
     const left = document.createElement('div');
-    const name = document.createElement('div'); name.className = 'bti-ladder__name'; name.textContent = L.carrier;
-    const sub  = document.createElement('div'); sub.className  = 'bti-ladder__sub';
-    const ladderKey = 'bti-' + (L.carrier || '').replace(/\s+/g,'').toLowerCase();
-    if (L.isContract) _kpi(ladderKey, sub, L.current, v => Math.round(v) + '% today');
-    else              _kpi(ladderKey, sub, L.current, v => '$' + Math.round(v).toLocaleString() + ' today');
+    const name = document.createElement('div'); name.className = 'bti-ladder__name';
+    name.textContent = b.carrier.split(' (')[0];
+    const sub = document.createElement('div'); sub.className = 'bti-ladder__sub';
+    sub.textContent = isCount
+      ? Math.round(s.progress) + ' polic' + (Math.round(s.progress) === 1 ? 'y' : 'ies') + ' today'
+      : '$' + Math.round(s.progress).toLocaleString() + ' today';
     left.appendChild(name); left.appendChild(sub);
 
     const bar = document.createElement('div'); bar.className = 'bti-bar';
     const fill = document.createElement('div'); fill.className = 'bti-bar__fill';
-    const maxT = Math.max(...L.tiers.map(t => t.threshold));
-    const fillPct = Math.min(100, (L.current / maxT) * 100);
-    fill.style.width = fillPct + '%';
+    fill.style.width = (maxT > 0 ? Math.min(100, (s.progress / maxT) * 100) : 0) + '%';
     bar.appendChild(fill);
-    for (const t of L.tiers){
+    const tierList = st.tiers || [{ threshold: st.threshold }];
+    for (const t of tierList) {
       const m = document.createElement('div'); m.className = 'bti-tier';
-      m.setAttribute('data-state', L.current >= t.threshold ? 'reached' : 'ahead');
-      m.style.left = Math.min(100, (t.threshold / maxT) * 100) + '%';
+      const reached = s.progress >= t.threshold;
+      m.setAttribute('data-state', reached ? 'reached' : 'ahead');
+      m.style.left = (maxT > 0 ? Math.min(100, (t.threshold / maxT) * 100) : 0) + '%';
       const ml = document.createElement('span'); ml.className = 'bti-tier__lbl';
-      ml.textContent = t.label;
+      ml.textContent = isCount ? (t.threshold + ' pol.') : fmtK(t.threshold);
       m.appendChild(ml);
       bar.appendChild(m);
     }
 
     const cta = document.createElement('div'); cta.className = 'bti-cta';
-    if (L.next){
-      const gap = L.next.threshold - L.current;
-      if (L.isContract){
-        // static template strings — no user data interpolated, safe
-        const reach = document.createTextNode('Reach ');
-        const strong = document.createElement('strong'); strong.textContent = L.next.label;
-        const at = document.createTextNode(' at ' + L.next.threshold + '%');
-        cta.appendChild(reach); cta.appendChild(strong); cta.appendChild(at);
-      } else if (L.next.payout > (L.cur ? L.cur.payout : 0)){
-        const gapPayoutVal = (L.next.payout || 0) - (L.cur ? L.cur.payout : 0);
-        const s1 = document.createElement('strong'); s1.textContent = '$' + gap.toLocaleString();
-        const t1 = document.createTextNode(' more → ');
-        const s2 = document.createElement('strong'); s2.textContent = L.next.label;
-        const t2 = document.createTextNode(' → +');
-        const s3 = document.createElement('strong'); s3.textContent = '$' + gapPayoutVal.toLocaleString();
-        cta.appendChild(s1); cta.appendChild(t1); cta.appendChild(s2); cta.appendChild(t2); cta.appendChild(s3);
-      } else {
-        const s1 = document.createElement('strong'); s1.textContent = '$' + gap.toLocaleString();
-        const t1 = document.createTextNode(' to reach ');
-        const s2 = document.createElement('strong'); s2.textContent = L.next.label;
-        cta.appendChild(s1); cta.appendChild(t1); cta.appendChild(s2);
+    if (st.gap > 0) {
+      const gapText = isCount ? Math.ceil(st.gap) + ' more policies' : '$' + Math.round(st.gap).toLocaleString() + ' more';
+      const s1 = document.createElement('strong'); s1.textContent = gapText;
+      cta.appendChild(s1);
+      if (st.unlockValue != null && st.unlockValue > 0) {
+        cta.appendChild(document.createTextNode(' → unlocks +'));
+        const s2 = document.createElement('strong'); s2.textContent = '$' + Math.round(st.unlockValue).toLocaleString();
+        cta.appendChild(s2);
       }
     } else {
       const s1 = document.createElement('strong'); s1.textContent = 'Top tier reached';
@@ -8672,21 +9643,68 @@ function renderBonusTierIntel(){
     body.appendChild(row);
   }
 
-  // Recommendation
-  const rec = recommendBestPush(ladders);
-  const recEl = root.querySelector('.bti-recommend');
-  if (recEl){
-    if (rec){
+  // FFL VP ladder — contract-level, not a carrier bonus (excluded from
+  // CARRIER_BONUSES on purpose), kept alongside the carrier-bonus ladders.
+  if (typeof getContract === 'function') {
+    const level = Number(getContract()) || 100;
+    const tiers = [ {label:'Standard', threshold:100}, {label:'Senior', threshold:120}, {label:'VP', threshold:145} ];
+    const next = tiers.find(t => level < t.threshold);
+    const maxT = 145;
+    const row = document.createElement('div'); row.className = 'bti-ladder';
+    const left = document.createElement('div');
+    const name = document.createElement('div'); name.className = 'bti-ladder__name'; name.textContent = 'FFL VP Track';
+    const sub = document.createElement('div'); sub.className = 'bti-ladder__sub'; sub.textContent = Math.round(level) + '% today';
+    left.appendChild(name); left.appendChild(sub);
+    const bar = document.createElement('div'); bar.className = 'bti-bar';
+    const fill = document.createElement('div'); fill.className = 'bti-bar__fill';
+    fill.style.width = Math.min(100, (level / maxT) * 100) + '%';
+    bar.appendChild(fill);
+    for (const t of tiers) {
+      const m = document.createElement('div'); m.className = 'bti-tier';
+      m.setAttribute('data-state', level >= t.threshold ? 'reached' : 'ahead');
+      m.style.left = Math.min(100, (t.threshold / maxT) * 100) + '%';
+      const ml = document.createElement('span'); ml.className = 'bti-tier__lbl'; ml.textContent = t.label;
+      m.appendChild(ml);
+      bar.appendChild(m);
+    }
+    const cta = document.createElement('div'); cta.className = 'bti-cta';
+    if (next) {
+      cta.appendChild(document.createTextNode('Reach '));
+      const s1 = document.createElement('strong'); s1.textContent = next.label; cta.appendChild(s1);
+      cta.appendChild(document.createTextNode(' at ' + next.threshold + '%'));
+    } else {
+      const s1 = document.createElement('strong'); s1.textContent = 'VP eligible'; cta.appendChild(s1);
+    }
+    row.appendChild(left); row.appendChild(bar); row.appendChild(cta);
+    body.appendChild(row);
+  }
+
+  // Recommendation — Feature 6: best-return nudge + 2-3 secondary lines.
+  if (recEl) {
+    const { candidates, closeTrips, paceMode } = computeBonusNudgeCandidates(allSnaps);
+    recEl.replaceChildren();
+    if (candidates.length) {
       recEl.style.display = 'block';
-      recEl.replaceChildren();
-      const t1 = document.createTextNode('Best bang for buck: push ');
-      const s1 = document.createElement('strong'); s1.textContent = '$' + rec.gapAp.toLocaleString();
-      const t2 = document.createTextNode(' into ');
-      const s2 = document.createElement('strong'); s2.textContent = rec.ladder.carrier;
-      const t3 = document.createTextNode(' → unlocks +');
-      const s3 = document.createElement('strong'); s3.textContent = '$' + rec.gapPayout.toLocaleString();
-      recEl.appendChild(t1); recEl.appendChild(s1); recEl.appendChild(t2);
-      recEl.appendChild(s2); recEl.appendChild(t3); recEl.appendChild(s3);
+      const primary = document.createElement('div');
+      primary.textContent = bonusNudgeSentence(candidates[0], paceMode);
+      recEl.appendChild(primary);
+      for (const c of candidates.slice(1, 4)) {
+        const line = document.createElement('div'); line.className = 'note mt4';
+        line.textContent = bonusNudgeSentence(c, paceMode);
+        recEl.appendChild(line);
+      }
+      for (const t of closeTrips) {
+        const line = document.createElement('div'); line.className = 'note mt4';
+        line.textContent = t.bonus.carrier.split(' (')[0] + ' trip: ' + Math.round(t.pct * 100) + '% of the way there.';
+        recEl.appendChild(line);
+      }
+    } else if (closeTrips.length) {
+      recEl.style.display = 'block';
+      closeTrips.forEach((t, i) => {
+        const line = document.createElement('div'); if (i) line.className = 'note mt4';
+        line.textContent = t.bonus.carrier.split(' (')[0] + ' trip: ' + Math.round(t.pct * 100) + '% of the way there.';
+        recEl.appendChild(line);
+      });
     } else {
       recEl.style.display = 'none';
     }
@@ -9966,112 +10984,449 @@ function calcFFL() {
 }
 
 // ============================================================
-// BONUS — AMERICO
+// BONUS TRACKER — data-driven engine (carrier bonus programs)
+// Source of truth: data/carrier_bonuses.json -> CARRIER_BONUSES const above.
+// Generic engine — works for any carrier in CARRIER_BONUSES, not just the
+// contracted six. Never invent tier numbers not present in CARRIER_BONUSES;
+// every displayed dollar amount is a "est." pulled straight from a tier's
+// `payout` text. Bonuses are subject to carrier persistency/quality
+// requirements — verify on the carrier portal before relying on a number.
 // ============================================================
-const AM_MS = [
-  {label:'$20K', val:20000, bonus:null},
-  {label:'$35K', val:35000, bonus:null},
-  {label:'$55K', val:55000, bonus:'10%'},
-  {label:'$75K', val:75000, bonus:'10%+'},
-  {label:'$100K', val:100000, bonus:'12%'},
-];
 
-function buildAmMilestones() {
-  const c = document.getElementById('am-milestones');
-  c.innerHTML = '';
-  AM_MS.forEach((m,i) => {
-    const d = document.createElement('div');
-    d.className = 'ms';
-    d.innerHTML = `<div class="ms-dot" id="am-dot-${i}"></div><div class="ms-lbl">${m.label}</div><div class="ms-bonus">${m.bonus||'—'}</div>`;
-    c.appendChild(d);
-  });
-}
+// ---- carrier ID mapping: policy.carrier text -> CARRIER_BONUSES id ----
+// Keys are exact `carrier` values used in CARRIER_PRODUCTS above.
+const BONUS_CARRIER_ID = {
+  'Americo':            'americo',
+  'American-Amicable':  'american_amicable',
+  'Mutual of Omaha':    'mutual_of_omaha',
+  'Transamerica':       'transamerica',
+  'Ethos':               'ethos',
+  'Corebridge':          'corebridge',
+  'Aetna / Accendo':     'aetna_accendo',
+  'Aflac':               'aflac',
+  'American Home Life':  'american_home_life',
+  'Baltimore Life':      'baltimore_life',
+  'Elco Mutual':         'elco_mutual',
+  'United Home Life':    'uhl',
+  'SBLI':                'sbli',
+  'Foresters':           'foresters',
+};
 
-function projectAmerico() {
-  const cred = parseFloat(document.getElementById('am-cred').value)||0;
-  const p6 = parseFloat(document.getElementById('am-p6').value)||0;
-  const p12 = parseFloat(document.getElementById('am-p12').value)||0;
-  const par = parseFloat(document.getElementById('am-par').value)||0;
-  const q1=p6>=84, q2=p12>=72, q3=par>=77;
-  const qualified = cred>=55000 && q1 && q2 && q3;
-  const higher = qualified && p12>=80;
-  const rate = higher?0.12:qualified?0.10:0;
-  const bonus = +(cred*rate).toFixed(2);
-  return { cred, p6, p12, par, q1, q2, q3, qualified, higher, rate, bonus };
-}
-
-function calcAmerico() {
-  const r = projectAmerico();
-
-  document.getElementById('am-cred-disp').textContent = fmt$(r.cred) + ' / $55,000';
-  document.getElementById('am-prog').style.width = Math.min(r.cred/55000*100,100)+'%';
-  document.getElementById('am-ms-fill').style.width = Math.min(r.cred/AM_MS[AM_MS.length-1].val*100,100)+'%';
-
-  AM_MS.forEach((m,i) => {
-    const dot = document.getElementById('am-dot-'+i);
-    if (!dot) return;
-    if (r.cred >= m.val) dot.className = 'ms-dot reached';
-    else if (r.cred >= (AM_MS[i-1]?.val||0)) dot.className = 'ms-dot current';
-    else dot.className = 'ms-dot';
-  });
-
-  const set = (id,txt,ok) => { const el=document.getElementById(id); el.textContent=txt; el.style.color=ok?'#34d399':'#f87171'; };
-  if(r.p6) set('am-q1', r.p6+'% '+(r.q1?'Met':'Need 84%'), r.q1);
-  if(r.p12) set('am-q2', r.p12+'% '+(r.q2?'Met':'Need 72%'), r.q2);
-  if(r.par) set('am-q3', r.par+'% '+(r.q3?'Met':'Need 77%'), r.q3);
-
-  const rEl = document.getElementById('am-rate');
-  const bEl = document.getElementById('am-bonus');
-  if (!r.cred) { rEl.textContent='—'; rEl.style.color='var(--text3)'; bEl.textContent='—'; }
-  else if (!r.qualified) { rEl.textContent='Not qualified'; rEl.style.color='#f87171'; bEl.textContent='$0'; }
-  else { rEl.textContent=(r.rate*100)+'%'; rEl.style.color='#34d399'; bEl.textContent=fmt$(r.bonus); }
-}
-
-// ============================================================
-// BONUS — AMERICAN-AMICABLE BONUS BUCKS
-// ============================================================
-function projectAmAm() {
-  const ap = parseFloat(document.getElementById('amam-monthly').value)||0;
-  let awardName = '', awardAmt = 0;
-  if (ap >= 20000)      { awardName = 'Platinum Award'; awardAmt = 100; }
-  else if (ap >= 10000) { awardName = 'Gold Award';     awardAmt = 75;  }
-  else if (ap >= 7500)  { awardName = 'Silver Award';   awardAmt = 50;  }
-  return { ap, awardName, awardAmt };
-}
-
-function calcAmAm() {
-  const r = projectAmAm();
-  const ap = r.ap;
-
-  const sP = Math.min(ap/7500*100,100);
-  const gP = Math.min(ap/10000*100,100);
-  const pP = Math.min(ap/20000*100,100);
-
-  document.getElementById('amam-prog-s').style.width = sP+'%';
-  document.getElementById('amam-prog-g').style.width = gP+'%';
-  document.getElementById('amam-prog-p').style.width = pP+'%';
-  document.getElementById('amam-prog-s-lbl').textContent = fmt$(Math.min(ap,7500))+' / $7,500';
-  document.getElementById('amam-prog-g-lbl').textContent = fmt$(Math.min(ap,10000))+' / $10,000';
-  document.getElementById('amam-prog-p-lbl').textContent = fmt$(Math.min(ap,20000))+' / $20,000';
-
-  const sBadge = document.getElementById('amam-s-badge');
-  const gBadge = document.getElementById('amam-g-badge');
-  const pBadge = document.getElementById('amam-p-badge');
-  sBadge.textContent = gBadge.textContent = pBadge.textContent = '—';
-  sBadge.classList.remove('b-ok'); gBadge.classList.remove('b-ok'); pBadge.classList.remove('b-ok');
-
-  if (r.awardName === 'Platinum Award')   { pBadge.textContent = 'Qualified'; pBadge.className = 'badge b-ok'; }
-  else if (r.awardName === 'Gold Award')  { gBadge.textContent = 'Qualified'; gBadge.className = 'badge b-ok'; }
-  else if (r.awardName === 'Silver Award'){ sBadge.textContent = 'Qualified'; sBadge.className = 'badge b-ok'; }
-
-  const display = document.getElementById('amam-award-display');
-  if (r.awardName) {
-    display.style.display = 'block';
-    document.getElementById('amam-award-name').textContent = r.awardName;
-    document.getElementById('amam-award-amt').textContent = '$'+r.awardAmt+' Check';
-  } else {
-    display.style.display = 'none';
+// Resolves a policy to a CARRIER_BONUSES id, or null if the carrier has no
+// known bonus program. Corebridge counts SimpliNow Legacy SIWL only — GIWL
+// policies are excluded.
+function bonusCarrierIdForPolicy(p) {
+  const id = BONUS_CARRIER_ID[p.carrier];
+  if (!id) return null;
+  if (id === 'corebridge') {
+    const resolved = getActiveCommKey(p.carrier, p.product, p.cls);
+    if (resolved && resolved.key === 'core_giwl') return null;
   }
+  return id;
+}
+
+function findBonus(id) {
+  return CARRIER_BONUSES.carriers.find(c => c.id === id) || null;
+}
+
+const NO_BONUS_STATUSES = new Set(['none_found', 'discontinued', 'expired']);
+const BONUS_DEFAULT_CARRIERS = ['americo', 'mutual_of_omaha', 'transamerica', 'ethos', 'corebridge', 'american_amicable'];
+
+// ---- "My Carriers" selection (Feature 1) ----
+function getBonusMyCarriers() {
+  try {
+    const raw = localStorage.getItem(k('bonus_my_carriers'));
+    if (raw == null) return BONUS_DEFAULT_CARRIERS.slice();
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : BONUS_DEFAULT_CARRIERS.slice();
+  } catch (e) { return BONUS_DEFAULT_CARRIERS.slice(); }
+}
+
+function setBonusMyCarriers(ids) {
+  try { localStorage.setItem(k('bonus_my_carriers'), JSON.stringify(ids)); } catch (e) {}
+}
+
+function toggleBonusCarrier(id) {
+  const cur = getBonusMyCarriers();
+  const idx = cur.indexOf(id);
+  if (idx === -1) cur.push(id); else cur.splice(idx, 1);
+  setBonusMyCarriers(cur);
+  renderMyCarriersChecklist();
+  renderBonusCards();
+  renderUpcomingBonuses();
+  if (typeof renderBonusTierIntel === 'function') renderBonusTierIntel();
+}
+
+function bonusStatusBadge(status) {
+  if (status === 'active_2026') return { label: 'Verified 2026', color: '#34d399' };
+  if (status && status.indexOf('period_ended') === 0) return { label: 'Period ended', color: 'var(--text3)' };
+  return { label: 'Unverified — check portal', color: '#f59e0b' };
+}
+
+// ---- period engine (Feature 2) ----
+function currentWindow(bonus, today) {
+  const w = bonus && bonus.window;
+  if (!w) return null;
+  const t = today || new Date();
+  if (w.type === 'monthly') {
+    const y = t.getFullYear(), m = t.getMonth();
+    const start = new Date(y, m, 1), end = new Date(y, m + 1, 1);
+    return { start, end, label: start.toLocaleString('en-US', { month: 'long', year: 'numeric' }) };
+  }
+  if (w.type === 'quarterly') {
+    const y = t.getFullYear(), q = Math.floor(t.getMonth() / 3);
+    const start = new Date(y, q * 3, 1), end = new Date(y, q * 3 + 3, 1);
+    return { start, end, label: 'Q' + (q + 1) + ' ' + y };
+  }
+  if (w.type === 'annual') {
+    const y = t.getFullYear();
+    return { start: new Date(y, 0, 1), end: new Date(y + 1, 0, 1), label: 'CY' + y };
+  }
+  if (w.type === 'fixed') {
+    const start = new Date(w.start + 'T00:00:00');
+    const endDay = new Date(w.end + 'T23:59:59');
+    if (t > endDay) return null; // qualification window closed
+    return { start, end: new Date(endDay.getTime() + 1), label: w.start + ' to ' + w.end };
+  }
+  return null;
+}
+
+// ---- progress computation (Feature 3) ----
+const BONUS_AP_STATUSES = new Set(['issued', 'paid']);
+
+function _bonusPolicyDate(p) {
+  const raw = p.draft || p.issueDate;
+  if (!raw) return null;
+  const d = new Date(raw.length === 10 ? raw + 'T00:00:00' : raw);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function bonusProgress(bonus, win, pols) {
+  const matches = (pols || []).filter(p => {
+    if (bonusCarrierIdForPolicy(p) !== bonus.id) return false;
+    const d = _bonusPolicyDate(p);
+    return d && d >= win.start && d < win.end;
+  });
+  if (bonus.basis === 'policy_count') return matches.filter(p => p.status === 'paid').length;
+  return matches.filter(p => BONUS_AP_STATUSES.has(p.status)).reduce((s, p) => s + (Number(p.ap) || 0), 0);
+}
+
+// ---- payout parsing: extracts the number already written in tier.payout ----
+// Never invents a number — returns 'uncertain' when the text is a range
+// ("up to $10,000", "$650-$1,000") rather than a single fixed figure.
+function parseTierPayout(payoutText) {
+  if (!payoutText) return null;
+  const text = String(payoutText);
+  const isRange = /\bup to\b/i.test(text) || /\$[\d,]+\s*-\s*\$?[\d,]+/.test(text);
+  const pctMatch = text.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (pctMatch && !isRange) return { kind: 'percent', value: parseFloat(pctMatch[1]) / 100 };
+  const flatMatch = text.match(/\$([\d,]+(?:\.\d+)?)/);
+  if (flatMatch && !isRange) return { kind: 'flat', value: parseFloat(flatMatch[1].replace(/,/g, '')) };
+  return { kind: 'uncertain', raw: text };
+}
+
+// ---- tier/payout engine (Feature 3) ----
+// Reproduces four payout shapes exactly:
+//  - cliff percent (Americo/MoO/Foresters): reached -> pct x whole-window AP
+//  - banded flat, not cumulative (Am-Am): highest band reached wins outright
+//  - cumulative ladder (Corebridge): same "highest band wins" shape — each
+//    tier's payout text is already the cumulative total at that rung
+//  - banded percent (American Home Life): band pct x whole-window AP
+function bonusPayoutState(bonus, progress) {
+  const tiers = bonus.tiers || [];
+  if (!tiers.length) return null;
+
+  if (bonus.bonus_type === 'trip') {
+    const t = tiers[0];
+    const reached = progress >= t.threshold;
+    return {
+      kind: 'trip', label: t.payout, reached, threshold: t.threshold,
+      gap: Math.max(0, t.threshold - progress),
+      pctToGoal: t.threshold > 0 ? Math.min(1, progress / t.threshold) : 0,
+    };
+  }
+
+  if (bonus.bonus_type === 'cash_percent' || bonus.bonus_type === 'lead_credit') {
+    const uniqueThresholds = Array.from(new Set(tiers.map(t => t.threshold)));
+    if (uniqueThresholds.length === 1) {
+      // Cliff: one dollar threshold, possibly multiple conditional rates
+      // (e.g. MoO's 10%/12%-with-persistency). Base (lowest) rate is primary;
+      // any others show as a secondary note, per spec — not modeled numerically.
+      const base = tiers[0];
+      const parsed = parseTierPayout(base.payout);
+      const rate = parsed && parsed.kind === 'percent' ? parsed.value : null;
+      const reached = progress >= base.threshold;
+      const earned = reached && rate != null ? +(progress * rate).toFixed(2) : 0;
+      return {
+        kind: bonus.bonus_type === 'lead_credit' ? 'leadCliff' : 'cliff',
+        reached, earned, rate, threshold: base.threshold, maxT: base.threshold,
+        gap: Math.max(0, base.threshold - progress),
+        unlockValue: rate != null ? +(rate * base.threshold).toFixed(2) : null,
+        secondaryNote: tiers.length > 1 ? tiers.slice(1).map(t => t.payout).join(' · ') : null,
+      };
+    }
+    // Banded percent: highest threshold met wins; payout = band% x total progress.
+    const sorted = tiers.slice().sort((a, b) => a.threshold - b.threshold);
+    const current = sorted.filter(t => progress >= t.threshold).pop() || null;
+    const next = sorted.find(t => progress < t.threshold) || null;
+    const curParsed = current ? parseTierPayout(current.payout) : null;
+    const nextParsed = next ? parseTierPayout(next.payout) : null;
+    const earned = curParsed && curParsed.kind === 'percent' ? +(progress * curParsed.value).toFixed(2) : 0;
+    const nextValueAtThreshold = nextParsed && nextParsed.kind === 'percent' && next
+      ? +(next.threshold * nextParsed.value).toFixed(2) : null;
+    return {
+      kind: 'banded', tiers: sorted, current, next, earned,
+      gap: next ? Math.max(0, next.threshold - progress) : 0,
+      unlockValue: nextValueAtThreshold != null ? +(nextValueAtThreshold - earned).toFixed(2) : null,
+      maxT: sorted[sorted.length - 1].threshold,
+    };
+  }
+
+  if (bonus.bonus_type === 'cash_flat' || bonus.bonus_type === 'per_policy') {
+    // Banded, not cumulative: highest tier reached wins outright. (Each
+    // tier's payout figure is already the cumulative total for that rung —
+    // see the corebridge notes field.)
+    const sorted = tiers.slice().sort((a, b) => a.threshold - b.threshold);
+    const current = sorted.filter(t => progress >= t.threshold).pop() || null;
+    const next = sorted.find(t => progress < t.threshold) || null;
+    const curParsed = current ? parseTierPayout(current.payout) : null;
+    const nextParsed = next ? parseTierPayout(next.payout) : null;
+    const earned = curParsed && curParsed.kind === 'flat' ? curParsed.value : 0;
+    const nextValue = nextParsed && nextParsed.kind === 'flat' ? nextParsed.value : null;
+    return {
+      kind: 'banded', tiers: sorted, current, next, earned,
+      earnedUncertain: !!(current && (!curParsed || curParsed.kind !== 'flat')),
+      nextUncertain: !!(next && (!nextParsed || nextParsed.kind !== 'flat')),
+      gap: next ? Math.max(0, next.threshold - progress) : 0,
+      unlockValue: nextValue != null ? +(nextValue - earned).toFixed(2) : null,
+      maxT: sorted[sorted.length - 1].threshold,
+    };
+  }
+
+  return null; // portal_only / none_public / unmodeled basis — handled upstream
+}
+
+function bonusPayoutTiming(bonus) {
+  const w = bonus.window;
+  if (!w) return 'per program schedule';
+  if (w.type === 'monthly') return 'typically paid the following month';
+  if (w.type === 'quarterly') return 'typically paid ~30–45 days after quarter end';
+  if (w.type === 'annual') return 'typically paid after year end';
+  return 'paid per the program schedule';
+}
+
+// A carrier is numerically computable (bar / nudge eligible) only when its
+// basis is one the progress engine can total, it has real tiers, and it
+// isn't a dead/expired program.
+function bonusIsComputable(bonus) {
+  return !!bonus && (bonus.basis === 'annualized_premium' || bonus.basis === 'policy_count')
+    && Array.isArray(bonus.tiers) && bonus.tiers.length > 0
+    && !NO_BONUS_STATUSES.has(bonus.status);
+}
+
+// Per-selected-carrier snapshot shared by the cards, the Upcoming widget,
+// and the Summary nudge — computed once per render.
+function computeBonusSnapshots(today) {
+  const pols = window.policies || [];
+  const selected = getBonusMyCarriers();
+  return selected.map(id => findBonus(id)).filter(Boolean).map(bonus => {
+    const computable = bonusIsComputable(bonus);
+    const win = computable ? currentWindow(bonus, today) : null;
+    const closed = computable && bonus.window && bonus.window.type === 'fixed' && win === null;
+    const progress = win ? bonusProgress(bonus, win, pols) : 0;
+    const state = win ? bonusPayoutState(bonus, progress) : null;
+    return { bonus, badge: bonusStatusBadge(bonus.status), computable, win, closed, progress, state };
+  });
+}
+
+// ============================================================
+// FEATURE 1 — My Carriers checklist (Bonuses tab)
+// ============================================================
+function renderMyCarriersChecklist() {
+  const root = document.getElementById('bonus-carrier-checklist');
+  if (!root) return;
+  const selected = new Set(getBonusMyCarriers());
+  const sorted = CARRIER_BONUSES.carriers.slice().sort((a, b) => a.carrier.localeCompare(b.carrier));
+  root.innerHTML = sorted.map(b => {
+    const on = selected.has(b.id);
+    const border = on ? '1px solid #34d399' : '1px solid var(--border)';
+    const bg = on ? 'rgba(16,185,129,.06)' : 'transparent';
+    return '<div style="cursor:pointer;padding:10px 12px;border:' + border + ';background:' + bg + ';border-radius:10px" ' +
+      'onclick="toggleBonusCarrier(\'' + b.id + '\')">' +
+      '<div class="flex jb aic">' +
+        '<span style="font-size:12.5px">' + escapeHTML(b.carrier.split(' (')[0]) + '</span>' +
+        '<span style="color:#34d399;opacity:' + (on ? '1' : '0') + '">&#10003;</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+// ============================================================
+// FEATURE 4 — Bonuses tab progress cards
+// ============================================================
+function renderBonusCards() {
+  const root = document.getElementById('bonus-cards-root');
+  if (!root) return;
+  const snaps = computeBonusSnapshots(new Date());
+  if (!snaps.length) {
+    root.innerHTML = '<div class="card"><div class="text-m" style="font-size:12.5px">No carriers selected — pick your carriers under the "My Carriers" tab.</div></div>';
+    return;
+  }
+  root.innerHTML = snaps.map(bonusCardHTML).join('');
+}
+
+function bonusCardHTML(s) {
+  const b = s.bonus, badge = s.badge;
+  const badgeHTML = '<span class="badge" style="background:transparent;border:1px solid ' + badge.color + ';color:' + badge.color + '">' + escapeHTML(badge.label) + '</span>';
+  const header =
+    '<div class="flex jb aic" style="margin-bottom:8px;gap:10px">' +
+      '<div><div style="font-size:15px;font-weight:600">' + escapeHTML(b.carrier.split(' (')[0]) + '</div>' +
+      '<div class="text-m" style="font-size:12px">' + escapeHTML(b.program || '') + '</div></div>' +
+      badgeHTML +
+    '</div>';
+
+  let body;
+  if (!s.computable) {
+    body = '<div class="alert alert-i" style="margin-top:8px"><span data-ico="info"></span><div>' +
+      (b.bonus_type === 'portal_only' || (b.tiers || []).length === 0
+        ? 'Program exists — tiers are on the carrier portal.'
+        : 'No active bonus program.') +
+      '</div></div>';
+  } else if (s.closed) {
+    const endLabel = new Date(b.window.end + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
+    body = '<div class="alert alert-w" style="margin-top:8px"><span data-ico="calendar-blank"></span><div>Qualification period ended ' + escapeHTML(endLabel) + ' — watch for the next program.</div></div>';
+  } else {
+    body = bonusCardProgressHTML(s);
+  }
+
+  const footer =
+    '<div class="note mt8" style="font-size:10.5px">' +
+      (b.requirements ? escapeHTML(b.requirements) + ' &middot; ' : '') +
+      (b.source ? '<a href="' + escapeHTML(b.source) + '" target="_blank" rel="noopener" style="color:var(--text-g)">Source</a>' : '') +
+      (b.source_date ? ' (' + escapeHTML(b.source_date) + ')' : '') +
+    '</div>';
+
+  return '<div class="card mt12">' + header + body + footer + '</div>';
+}
+
+function bonusCardProgressHTML(s) {
+  const b = s.bonus, state = s.state, progress = s.progress;
+  if (!state) return '<div class="text-m mt8" style="font-size:12px">No tier data.</div>';
+  const daysLeft = s.win ? Math.max(0, Math.ceil((s.win.end - new Date()) / 86400000)) : null;
+  const isCount = b.basis === 'policy_count';
+  const progLabel = isCount ? Math.round(progress) + ' polic' + (Math.round(progress) === 1 ? 'y' : 'ies') : fmtK(progress);
+  const daysLine = daysLeft != null ? '<div class="note mt4">' + daysLeft + ' day' + (daysLeft === 1 ? '' : 's') + ' left in window</div>' : '';
+
+  if (state.kind === 'trip') {
+    const pct = Math.round(state.pctToGoal * 100);
+    return (
+      '<div class="mt8"><div class="flex jb aic" style="margin-bottom:5px">' +
+      '<span style="font-size:12px;color:var(--text3)">Progress to trip threshold</span>' +
+      '<span class="mono" style="font-size:12px">' + progLabel + ' / ' + fmtK(state.threshold) + '</span></div>' +
+      '<div class="pbar-wrap"><div class="pbar pb-g" style="width:' + Math.min(100, pct) + '%"></div></div>' +
+      '<div class="note mt8">' + (state.reached ? '&check; Unlocked — ' : '') + escapeHTML(state.label) + '</div>' +
+      daysLine + '</div>'
+    );
+  }
+
+  if (state.kind === 'cliff' || state.kind === 'leadCliff') {
+    const pct = state.maxT > 0 ? Math.min(100, (progress / state.maxT) * 100) : 0;
+    const label = state.kind === 'leadCliff' ? 'lead credit' : 'cash';
+    return (
+      '<div class="mt8"><div class="flex jb aic" style="margin-bottom:5px">' +
+      '<span style="font-size:12px;color:var(--text3)">' + progLabel + ' of ' + fmtK(state.maxT) + '</span>' +
+      '<span class="mono text-g" style="font-size:12px">' + Math.round(pct) + '%</span></div>' +
+      '<div class="pbar-wrap"><div class="pbar ' + (state.reached ? 'pb-g' : 'pb-y') + '" style="width:' + pct + '%"></div></div>' +
+      '<div class="mt8" style="font-size:12.5px">' +
+      (state.reached
+        ? '<span style="color:#34d399">&check; Unlocked — est. ' + fmt$(state.earned) + ' ' + label + '</span>'
+        : (state.rate != null
+            ? fmt$(state.gap) + ' more to unlock est. ' + fmt$(state.unlockValue) + ' ' + label
+            : fmt$(state.gap) + ' more to reach the next tier')) +
+      '</div>' +
+      (state.secondaryNote ? '<div class="note mt4">Also: ' + escapeHTML(state.secondaryNote) + '</div>' : '') +
+      daysLine + '</div>'
+    );
+  }
+
+  // banded
+  const maxT = state.maxT;
+  const pct = maxT > 0 ? Math.min(100, (progress / maxT) * 100) : 0;
+  const curEarnedLabel = state.current
+    ? (state.earnedUncertain ? escapeHTML(state.current.payout) : 'est. ' + fmt$(state.earned))
+    : '$0';
+  const nextLine = state.next
+    ? (progLabel + ' → ' + (b.basis === 'policy_count' ? state.next.threshold + ' policies' : fmtK(state.next.threshold)) + ' unlocks ' +
+       (state.nextUncertain || state.unlockValue == null ? escapeHTML(state.next.payout) : 'est. +' + fmt$(state.unlockValue)))
+    : 'Top tier reached';
+  return (
+    '<div class="mt8">' +
+    (state.tiers || []).map(t => {
+      const reached = progress >= t.threshold;
+      return '<div class="flex jb aic" style="margin:4px 0;font-size:11.5px;gap:8px">' +
+        '<span style="color:' + (reached ? '#34d399' : 'var(--text3)') + '">' + (reached ? '&check; ' : '') + escapeHTML(t.threshold_label) + '</span>' +
+        '<span class="mono" style="color:' + (reached ? '#34d399' : 'var(--text3)') + ';white-space:nowrap">' + escapeHTML(t.payout) + '</span></div>';
+    }).join('') +
+    '<div class="pbar-wrap mt8"><div class="pbar ' + (state.current ? 'pb-g' : 'pb-y') + '" style="width:' + pct + '%"></div></div>' +
+    '<div class="mt8" style="font-size:12.5px">Current tier: <strong>' + curEarnedLabel + '</strong></div>' +
+    '<div class="note mt4">' + nextLine + '</div>' +
+    daysLine +
+    '</div>'
+  );
+}
+
+// ============================================================
+// FEATURE 5 — Upcoming bonuses tracker (Bonuses tab + Summary compact)
+// ============================================================
+function computeUpcomingBonuses(today) {
+  const snaps = computeBonusSnapshots(today);
+  const items = [];
+  for (const s of snaps) {
+    if (!s.computable || s.closed || !s.state) continue;
+    const b = s.bonus, st = s.state;
+    if (st.kind === 'trip') {
+      if (st.reached) items.push({ bonus: b, amount: null, label: st.label, timing: bonusPayoutTiming(b) });
+      continue;
+    }
+    if ((st.kind === 'cliff' || st.kind === 'leadCliff') && st.reached && st.earned > 0) {
+      items.push({ bonus: b, amount: st.earned, label: st.kind === 'leadCliff' ? 'lead credit' : 'cash', timing: bonusPayoutTiming(b) });
+    }
+    if (st.kind === 'banded' && st.current && !st.earnedUncertain && st.earned > 0) {
+      items.push({ bonus: b, amount: st.earned, label: 'cash', timing: bonusPayoutTiming(b) });
+    }
+  }
+  return items;
+}
+
+function renderUpcomingBonuses() {
+  const items = computeUpcomingBonuses(new Date());
+  const total = items.reduce((s, i) => s + (i.amount || 0), 0);
+  const full = document.getElementById('bonus-upcoming-widget');
+  const compact = document.getElementById('bonus-upcoming-compact');
+  if (full) full.innerHTML = upcomingBonusesHTML(items, total, false);
+  if (compact) compact.innerHTML = upcomingBonusesHTML(items, total, true);
+}
+
+function upcomingBonusesHTML(items, total, compact) {
+  if (!items.length) {
+    return compact ? '' : '<div class="card"><div class="text-m" style="font-size:12.5px">No bonuses reached yet this period — keep writing!</div></div>';
+  }
+  const rows = items.map(i =>
+    '<div class="flex jb aic" style="margin:4px 0;font-size:12px;gap:8px">' +
+      '<span>' + escapeHTML(i.bonus.carrier.split(' (')[0]) + ' — ' + escapeHTML(i.bonus.program || '') +
+      '<span class="note" style="display:block">' + escapeHTML(i.timing) + '</span></span>' +
+      '<span class="mono text-g" style="white-space:nowrap">' + (i.amount != null ? 'est. ' + fmt$(i.amount) : escapeHTML(i.label)) + '</span>' +
+    '</div>'
+  ).join('');
+  const head = '<div class="flex jb aic" style="margin-bottom:8px">' +
+    '<div style="font-size:13px;font-weight:600">Upcoming bonuses ' +
+    '<span class="badge" style="background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.25);margin-left:6px">' + items.length + '</span></div>' +
+    '</div>';
+  const sum = total > 0
+    ? '<div class="divider" style="margin:8px 0"></div><div class="flex jb aic"><span class="text-m" style="font-size:12px">Total est. incoming</span><span class="mono text-g" style="font-size:15px">' + fmt$(total) + '</span></div>'
+    : '';
+  return '<div class="card' + (compact ? '' : ' mt12') + '">' + head + rows + sum +
+    '<div class="note mt8">Estimates only — bonuses are subject to carrier persistency/quality requirements. Verify on the carrier portal.</div></div>';
 }
 
 // ============================================================
@@ -10578,21 +11933,6 @@ const AMAM_MILESTONES = [
 ];
 
 // ---- Pace & forecast helpers ----
-// REFRESH: when the next UFirst contest window is announced (current cycle ends 2026-05-29).
-const AMERICO_WINDOW = { start: '2025-12-01', end: '2026-05-29' };
-
-function amAmWindow(today) {
-  const t = today || new Date();
-  const y = t.getFullYear();
-  const m = t.getMonth();
-  const pad = n => String(n).padStart(2, '0');
-  const lastDay = new Date(y, m + 1, 0).getDate();
-  return {
-    start: `${y}-${pad(m + 1)}-01`,
-    end:   `${y}-${pad(m + 1)}-${pad(lastDay)}`,
-  };
-}
-
 function pacePosition(current, win, today) {
   const t = today || new Date();
   const start = new Date(win.start + 'T00:00:00');
@@ -10938,6 +12278,7 @@ function guardedOpenPreviewDialer() {
 function renderSummary() {
   if (!document.getElementById('sec-summary')) return;
   _applyPlanGating();
+  if (typeof initSummaryEmailToggle === 'function') initSummaryEmailToggle();
   renderGreeting();
   if (typeof renderActionHub === 'function') renderActionHub();
   if (typeof cmRefreshUrgent === 'function') cmRefreshUrgent();
@@ -11004,6 +12345,7 @@ function renderSummary() {
 
   // --- Bonus Tier Intelligence (Phase 6 — replaces three renderPaceRow calls) ---
   renderBonusTierIntel();
+  renderUpcomingBonuses();
 
   // --- Phase 7: streak-diff celebration ---
   const streak = (typeof streakStats === 'function') ? streakStats().current : 0;
@@ -13680,12 +15022,10 @@ async function openPowerDialerModal() {
     ts: Date.now()
   }));
 
-  // Open the dedicated Power Dialer window
-  const popup = window.open(
-    'power-dialer.html',
-    'ProducerStackDialer',
-    'width=1300,height=820,toolbar=0,menubar=0,scrollbars=0,resizable=1,location=0'
-  );
+  // Open the dedicated Power Dialer as a regular TAB (no features string).
+  // Detached popup windows get aggressively throttled by Chrome (timers,
+  // websockets), which caused missed Realtime updates and a frozen dialer UI.
+  const popup = window.open('power-dialer.html', 'ProducerStackDialer');
 
   if (!popup) {
     // Popup blocked — fall back to the in-page modal
@@ -13708,7 +15048,7 @@ async function openPreviewDialer() {
   const leadIds = [...selectedLeadIds];
   const leadsForDialer = leads.filter(l => leadIds.includes(String(l.id)));
   localStorage.setItem('pd_launch', JSON.stringify({ leadIds, leadsData: leadsForDialer, ts: Date.now(), mode: 'preview' }));
-  const popup = window.open('power-dialer.html','ProducerStackDialer','width=1300,height=820,toolbar=0,menubar=0,scrollbars=0,resizable=1,location=0');
+  const popup = window.open('power-dialer.html','ProducerStackDialer'); // regular tab — see openPowerDialerModal
   if (!popup) showToast('Enable pop-ups for this site to use the Power Dialer', '#f59e0b');
 }
 
@@ -16075,7 +17415,9 @@ function nav(id) {
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
   // Highlight active nav item
   const items = document.querySelectorAll('.nav-item');
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:10 };
+  // settings:11 (not 10) — the support-widget nav-item sits between agency and
+  // settings in the DOM (sidebar-bot), shifting settings' positional index by one.
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:11 };
   if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
@@ -16717,23 +18059,10 @@ function updateCommTotalPreview(prefix) {
   disp.textContent = (ap > 0 && commPct > 0) ? fmt$(+(ap * commPct / 100 * 0.75).toFixed(2)) : '—';
 }
 
-function filterBonusTabs() {
-  const contracted = getContractedCarriers();
-  // If nothing contracted yet, show everything (fresh user)
-  const hasAmerico = contracted.length === 0 || contracted.includes('americo');
-  const hasAmam    = contracted.length === 0 || contracted.includes('aamicable');
-
-  const tabBtns = document.querySelectorAll('#sec-bonuses > .tabs .tab');
-  // tab 0 = FFL VP (always visible), tab 1 = Americo, tab 2 = AmAm
-  if (tabBtns[1]) tabBtns[1].style.display = hasAmerico ? '' : 'none';
-  if (tabBtns[2]) tabBtns[2].style.display = hasAmam    ? '' : 'none';
-
-  // If the currently-active tab got hidden, fall back to FFL
-  const activeBtn = document.querySelector('#sec-bonuses > .tabs .tab.active');
-  if (activeBtn && activeBtn.style.display === 'none' && tabBtns[0]) {
-    bTab('ffl', tabBtns[0]);
-  }
-}
+// Carrier Bonuses / My Carriers / FFL VP Bonus tabs are always visible now —
+// which carriers actually show cards is controlled by the My Carriers
+// checklist (see renderMyCarriersChecklist), not tab visibility.
+function filterBonusTabs() {}
 
 function settingsTab(id, el) {
   el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -17521,6 +18850,104 @@ function pbCloseAddFundsModal() {
   if (m) m.classList.remove('open');
 }
 
+// support-widget
+let sfType = 'feedback';
+
+function openSupportModal() {
+  const m = document.getElementById('supportTicketModal');
+  if (!m) return;
+  document.getElementById('sf-form-wrap').style.display = '';
+  document.getElementById('sf-thankyou-wrap').style.display = 'none';
+  const errEl = document.getElementById('sf-error');
+  errEl.style.display = 'none';
+  errEl.textContent = '';
+  document.getElementById('sf-subject').value = '';
+  document.getElementById('sf-message').value = '';
+  sfType = 'feedback';
+  document.querySelectorAll('#sf-type-row .sf-type-btn').forEach(b => b.classList.toggle('active', b.dataset.type === sfType));
+  sfUpdateCounter();
+  const submitBtn = document.getElementById('sf-submit-btn');
+  submitBtn.disabled = false;
+  submitBtn.textContent = 'Send';
+  m.classList.add('open');
+  if (typeof mountIcons === 'function') mountIcons(m);
+}
+function closeSupportModal() {
+  const m = document.getElementById('supportTicketModal');
+  if (m) m.classList.remove('open');
+}
+function sfSetType(type, btn) {
+  sfType = type;
+  document.querySelectorAll('#sf-type-row .sf-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function sfUpdateCounter() {
+  const ta = document.getElementById('sf-message');
+  const counter = document.getElementById('sf-counter');
+  if (ta && counter) counter.textContent = `${ta.value.length} / 5000`;
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const m = document.getElementById('supportTicketModal');
+  if (m && m.classList.contains('open')) closeSupportModal();
+});
+async function sfInvokeErrorDetail(error) {
+  try {
+    if (error?.context && typeof error.context.json === 'function') {
+      const body = await error.context.clone().json();
+      if (body?.error) return body.error;
+    }
+  } catch (_e) { /* not JSON */ }
+  return error?.message || 'Something went wrong — please try again.';
+}
+async function submitSupportTicket() {
+  const subject = document.getElementById('sf-subject').value.trim();
+  const message = document.getElementById('sf-message').value.trim();
+  const errEl = document.getElementById('sf-error');
+  errEl.style.display = 'none';
+
+  if (!subject) { errEl.textContent = 'Subject is required.'; errEl.style.display = ''; return; }
+  if (!message) { errEl.textContent = 'Message is required.'; errEl.style.display = ''; return; }
+
+  const btn = document.getElementById('sf-submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+
+  const activeSec = document.querySelector('.section.active');
+  const view = activeSec ? activeSec.id.replace('sec-', '') : null;
+
+  try {
+    const { data, error } = await sb.functions.invoke('support-ticket', {
+      body: {
+        type: sfType,
+        subject,
+        message,
+        context: {
+          view,
+          url: location.href,
+          user_agent: navigator.userAgent,
+          viewport: `${innerWidth}x${innerHeight}`,
+          app_version: null
+        }
+      }
+    });
+    if (error) throw error;
+    if (!data || !data.ok) throw new Error((data && data.error) || 'Could not save your ticket.');
+
+    document.getElementById('sf-form-wrap').style.display = 'none';
+    document.getElementById('sf-ticket-id-line').textContent = `Ticket #${data.ticket_id} — we read every one of these.`;
+    document.getElementById('sf-thankyou-wrap').style.display = '';
+    showToast('Thanks — feedback received!', '#10b981');
+    setTimeout(closeSupportModal, 3500);
+  } catch (e) {
+    errEl.textContent = await sfInvokeErrorDetail(e);
+    errEl.style.display = '';
+    btn.disabled = false;
+    btn.textContent = 'Send';
+  }
+}
+// /support-widget
+
 async function pbConfirmAddFunds(amountMills, btn) {
   const status = document.getElementById('pb-addfunds-status');
   const grid   = document.getElementById('pb-addfunds-grid');
@@ -17936,7 +19363,11 @@ async function pbConfirmReplace(n, btn) {
       throw new Error(detail);
     }
     if (!data || !data.ok) throw new Error((data && data.error) || 'Replace rejected');
-    showToast(`Replaced with ${_pbFmtPhone(newE164)}`, '#10b981');
+    if (data.old_released === false) {
+      showToast(`Replaced with ${_pbFmtPhone(newE164)}, but the old number couldn't be released automatically — contact support so it stops billing.`, '#f59e0b');
+    } else {
+      showToast(`Replaced with ${_pbFmtPhone(newE164)}`, '#10b981');
+    }
     pbCloseReplaceModal();
     await renderPhoneBook();
   } catch (e) {
@@ -20234,20 +21665,56 @@ async function fetchItkOverlay(product, body) {
 function bTab(id, el) {
   document.querySelectorAll('#sec-bonuses .tabs .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  ['ffl','americo','amam'].forEach(k=>{ document.getElementById('bt-'+k).style.display=k===id?'block':'none'; });
+  ['ffl','carriers','mycarriers'].forEach(k=>{ document.getElementById('bt-'+k).style.display=k===id?'block':'none'; });
+  if (id === 'carriers') renderBonusCards();
+  if (id === 'mycarriers') renderMyCarriersChecklist();
 }
 
 function updateBonusFromTracker() {
-  filterBonusTabs();
   const totAP = policies.reduce((s,p)=>s+(p.ap||0),0);
   document.getElementById('ffl-ap-disp').textContent = fmt$(totAP);
   if(totAP>0 && !document.getElementById('ffl-ap').value) document.getElementById('ffl-ap').value = totAP;
-  const amAP = policies.filter(p=>p.carrier==='Americo').reduce((s,p)=>s+(p.ap||0),0);
-  if(amAP>0) document.getElementById('am-cred').value = amAP;
-  const amamAP = policies.filter(p=>p.carrier.includes('Amicable')).reduce((s,p)=>s+(p.ap||0),0);
-  if(amamAP>0) document.getElementById('amam-monthly').value = amamAP;
+  renderBonusCards();
+  renderUpcomingBonuses();
   // Bonus inputs are now seeded — refresh Summary so the projected-bonus card reflects them.
   if (typeof renderSummary === 'function') renderSummary();
+}
+
+// ============================================================
+// SUMMARY EMAIL TOGGLE — scheduled 1st/15th account-statement emails
+// ============================================================
+let _summaryEmailAgentId = null;
+
+async function initSummaryEmailToggle() {
+  if (!currentAgent || _summaryEmailAgentId === currentAgent.id) return;
+  _summaryEmailAgentId = currentAgent.id;
+  const { data, error } = await sb.from('agents')
+    .select('summary_emails_enabled').eq('id', currentAgent.id).maybeSingle();
+  if (error) { _summaryEmailAgentId = null; return; }
+  const on = data?.summary_emails_enabled !== false; // default true
+  const track = document.getElementById('summary-email-track');
+  if (track) track.classList.toggle('on', on);
+}
+
+async function toggleSummaryEmails() {
+  const track = document.getElementById('summary-email-track');
+  const saved = document.getElementById('summary-email-saved');
+  if (!track || !currentAgent) return;
+  const wasOn = track.classList.contains('on');
+  const next = !wasOn;
+  track.classList.toggle('on', next); // optimistic
+  if (saved) { saved.textContent = 'Saving…'; saved.style.opacity = '1'; }
+  const { error } = await sb.from('agents')
+    .update({ summary_emails_enabled: next }).eq('id', currentAgent.id);
+  if (error) {
+    track.classList.toggle('on', wasOn); // revert
+    if (saved) saved.textContent = 'Could not save — try again';
+    return;
+  }
+  if (saved) {
+    saved.textContent = 'Saved';
+    setTimeout(() => { saved.style.opacity = '0'; }, 1500);
+  }
 }
 
 // ============================================================
@@ -20303,9 +21770,9 @@ async function bootDashboard() {
   setIncomeGoalValue(getMonthlyGoal());
   applyTheme();
   buildConditions();
-  buildAmMilestones();
   renderPolicies();
-  updateBonusFromTracker();   // seed bonus inputs + render Summary on first paint
+  renderMyCarriersChecklist();
+  updateBonusFromTracker();   // seed bonus inputs + render bonus cards + Summary on first paint
   filteredLeads = [...leads];
   selectedLeadIds = new Set();
   draftViewYear = new Date().getFullYear();
@@ -20440,7 +21907,8 @@ async function bootDashboard() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:10 };
+  // settings:11 — see matching comment in nav() above.
+  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:11 };
   // Skip plan-gated sections — plan can't be verified before auth resolves.
   // bootDashboard() will navigate to the correct section for the user's tier.
   if (!saved || !(saved in idxMap) || saved === 'summary' || saved === 'bonuses' || saved === 'agency') return;
