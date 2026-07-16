@@ -2196,6 +2196,17 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 .wd-hist-chip.fail    { background:rgba(220,38,38,.15);   color:#f87171; }
 .wd-hist-chip.neutral { background:rgba(148,163,184,.15); color:#94a3b8; }
 .wd-history-empty{ padding:10px 0; font-size:12.5px; color:var(--text3); }
+/* Outcomes / Call Log view switch in the card header */
+.wd-hist-toggle{ margin-left:auto; display:flex; gap:2px; background:var(--bg3); border:1px solid var(--border); border-radius:8px; padding:2px; }
+.wd-hist-mode{
+  border:none; background:transparent; color:var(--text3); font-size:10.5px; font-weight:600;
+  padding:2px 8px; border-radius:6px; cursor:pointer; font-family:inherit; letter-spacing:.01em;
+}
+.wd-hist-mode.active{ background:var(--bg); color:var(--text); box-shadow:0 1px 2px rgba(0,0,0,.18); }
+/* Call Log rows — start/end event markers */
+.wd-log-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:1px; }
+.wd-log-dot.start{ background:#34d399; }
+.wd-log-dot.end{ background:#f87171; }
 
 /* In-call action — hangup + mute, same footprint as the idle call button so
    the keypad never has to reflow when a call connects. */
@@ -4640,6 +4651,14 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <div class="card wd-history-card">
           <div class="card-title" style="display:flex;align-items:center;gap:8px">
             <span data-ico="clock" data-size="13"></span>Call History
+            <!-- Outcomes = one row per call with its status/outcome chip.
+                 Call Log = raw start/end events straight from the Telnyx
+                 webhook timestamps (calls.started_at / ended_at) — no
+                 outcome marking involved. -->
+            <div class="wd-hist-toggle" id="wd-hist-toggle">
+              <button type="button" class="wd-hist-mode active" data-histmode="outcomes">Outcomes</button>
+              <button type="button" class="wd-hist-mode" data-histmode="log">Call Log</button>
+            </div>
           </div>
           <div class="wd-history-list" id="wd-history-list">
             <div class="wd-history-empty">Loading…</div>
@@ -14428,8 +14447,11 @@ const webDialer = (() => {
 
     // Call just ended — the `calls` row is finalized server-side a moment
     // after this, so wait a beat before pulling fresh history.
+    // Call just started — the row is inserted at dial time, so a short
+    // delay is enough for the "Call started" log entry to show up.
     const inCallForHistory = (phase !== 'idle' && phase !== 'ended');
     if (_wasInCall && !inCallForHistory) setTimeout(_loadCallHistory, 1500);
+    else if (!_wasInCall && inCallForHistory) setTimeout(_loadCallHistory, 800);
     _wasInCall = inCallForHistory;
 
     if (!showCallScreen) {
@@ -14533,8 +14555,46 @@ const webDialer = (() => {
   }
 
   // ── Call History — compact recent-calls list in the right column ──
+  // 'outcomes' = one row per call with its status chip (current behavior).
+  // 'log' = raw event timeline built purely from the webhook-written
+  // timestamps: a "Call started" entry from calls.started_at and a
+  // "Call ended" entry from calls.ended_at. Redials produce a fresh
+  // "Call started" entry because every dial inserts a new calls row.
+  // In-memory only (matches the low-balance-nudge convention).
+  let _histMode = 'outcomes';
+
   function _histOtherPartyNumber(r) {
     return r.direction === 'inbound' ? r.phone_from : r.phone_to;
+  }
+  // "3:42 PM on Wed, Jul 16" — the log view always spells out time + day.
+  function _fmtLogWhen(iso) {
+    const d = new Date(iso);
+    if (!iso || isNaN(d.getTime())) return '—';
+    const t   = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    const day = d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    return `${t} on ${day}`;
+  }
+  function _fmtLogRow(ev) {
+    const label = ev.kind === 'start' ? 'Call started' : 'Call ended';
+    return `
+      <div class="wd-history-row">
+        <div class="wd-history-main">
+          <span class="wd-history-num"><span class="wd-log-dot ${ev.kind}"></span>${label} · ${escapeHTML(_pbFmtPhone(ev.num))}</span>
+          <span class="wd-history-time">at ${escapeHTML(_fmtLogWhen(ev.at))}</span>
+        </div>
+      </div>`;
+  }
+  // Expand call rows into start/end events, newest first. A live call
+  // (no ended_at yet) contributes only its "Call started" entry.
+  function _histLogEvents(rows) {
+    const evs = [];
+    for (const r of rows) {
+      const num = _histOtherPartyNumber(r);
+      if (r.started_at) evs.push({ kind: 'start', at: r.started_at, num });
+      if (r.ended_at)   evs.push({ kind: 'end',   at: r.ended_at,   num });
+    }
+    evs.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    return evs.slice(0, 16);
   }
   function _fmtHistRow(r) {
     const chipCls = _PB_STATUS_CHIP[r.status] || 'neutral';
@@ -14560,15 +14620,19 @@ const webDialer = (() => {
     }
     try {
       const { data, error } = await sb.from('calls')
-        .select('id, direction, phone_from, phone_to, started_at, duration_sec, status')
+        .select('id, direction, phone_from, phone_to, started_at, ended_at, duration_sec, status')
         .eq('agent_id', currentAgent.id)
         .order('started_at', { ascending: false })
-        .limit(8);
+        .limit(_histMode === 'log' ? 10 : 8);
       if (error) throw error;
       const rows = data || [];
-      list.innerHTML = rows.length
-        ? rows.map(_fmtHistRow).join('')
-        : '<div class="wd-history-empty">No calls yet — dial a number to get started.</div>';
+      if (!rows.length) {
+        list.innerHTML = '<div class="wd-history-empty">No calls yet — dial a number to get started.</div>';
+      } else if (_histMode === 'log') {
+        list.innerHTML = _histLogEvents(rows).map(_fmtLogRow).join('');
+      } else {
+        list.innerHTML = rows.map(_fmtHistRow).join('');
+      }
     } catch (e) {
       console.warn('[webdialer] call history load failed', e);
       list.innerHTML = '<div class="wd-history-empty">Couldn\'t load call history.</div>';
@@ -14586,6 +14650,15 @@ const webDialer = (() => {
     const csHangup = _el('wd-cs-hangup'); if (csHangup) csHangup.addEventListener('click', () => { if (window.softphone) softphone.hangup(); });
     document.querySelectorAll('#wd-cs-outcome .wd-out-btn').forEach(btn => {
       btn.addEventListener('click', () => { if (window.softphone) softphone.setOutcome(btn.dataset.outcome); });
+    });
+    document.querySelectorAll('#wd-hist-toggle .wd-hist-mode').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.histmode === _histMode) return;
+        _histMode = btn.dataset.histmode;
+        document.querySelectorAll('#wd-hist-toggle .wd-hist-mode').forEach(b =>
+          b.classList.toggle('active', b.dataset.histmode === _histMode));
+        _loadCallHistory();
+      });
     });
     const addLeadBtn = _el('wd-add-lead-btn'); if (addLeadBtn) addLeadBtn.addEventListener('click', _addAsLead);
     const quoteBtn = _el('wd-quote-btn'); if (quoteBtn) quoteBtn.addEventListener('click', _openQuote);
