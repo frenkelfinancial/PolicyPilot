@@ -1362,12 +1362,67 @@ function renderLeadForm(lead) {
     ? `Located in ${locStr}`
     : 'Location unknown';
 
-  const dv = (v,html) => {
-    if (html) return `<div class="d-val">${html}</div>`;
-    return v
-      ? `<div class="d-val">${esc(v)}</div>`
-      : `<div class="d-val empty">—</div>`;
+  // A detail cell. `full` spans both columns; `html` lets us pass a link etc.
+  const cell = (label, val, { full = false, html = null } = {}) => {
+    const inner = html
+      ? `<div class="d-val">${html}</div>`
+      : (val != null && val !== ''
+          ? `<div class="d-val">${esc(val)}</div>`
+          : `<div class="d-val empty">—</div>`);
+    return `<div class="detail-item${full ? ' full' : ''}"><div class="d-lbl">${esc(label)}</div>${inner}</div>`;
   };
+
+  // ── Known fields, in a sensible order. These are rendered first. ──
+  const cells = [];
+  cells.push(cell('Date of Birth', lead.dob ? fmtDOB(lead.dob) : ''));
+  cells.push(`<div class="detail-item"><div class="d-lbl">Local Time</div><div class="d-val" id="lead-local-time">${lt || '—'}</div></div>`);
+  cells.push(cell('State', (lead.state || '').toUpperCase()));
+  cells.push(cell('Zip Code', lead.zip));
+  cells.push(cell('Email', null, { full: true, html: emailLink }));
+  if (lead.source)          cells.push(cell('Lead Source', lead.source, { full: true }));
+  if (lead.coverage_wanted) cells.push(cell('Coverage Wanted', lead.coverage_wanted, { full: true }));
+  if (lead.address) {
+    cells.push(cell('Address', lead.address, { full: true }));
+    cells.push(cell('City', lead.city));
+  }
+
+  // ── Any other standard/scalar fields on the lead not already shown above. ──
+  // Human-readable labels for known internal field keys.
+  const KNOWN_LABELS = {
+    military_branch:'Military Branch', military_status:'Military Status',
+    gender:'Gender', age:'Age', beneficiary:'Beneficiary',
+    marital_status:'Marital Status', income:'Income', occupation:'Occupation',
+    height:'Height', weight:'Weight', tobacco:'Tobacco', smoker:'Smoker',
+    health:'Health', sale_amount:'Sale Amount', commission:'Commission',
+    quote:'Quote', county:'County', country:'Country',
+  };
+  // Keys already rendered above, in the hero, elsewhere, or internal-only — skip.
+  const SKIP = new Set([
+    'id','name','first_name','last_name','phone','status',
+    'dob','state','zip','email','source','coverage_wanted','address','city',
+    'importedat','importeddate','notes','call_count','last_called','last_call',
+    'customfields','custom_fields','lead_id','user_id','created_at','updated_at',
+    'local_time','sort_order','_dialed','position',
+  ]);
+  Object.entries(lead)
+    .filter(([k, v]) =>
+      !SKIP.has(k.toLowerCase()) &&
+      v != null && v !== '' &&
+      typeof v !== 'object')          // arrays/objects handled separately
+    .forEach(([k, v]) => {
+      const label = KNOWN_LABELS[k] || k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      cells.push(cell(label, String(v), { full: true }));
+    });
+
+  // ── Custom fields — array of { label, value } on customFields / custom_fields. ──
+  const customFields = (lead.customFields || lead.custom_fields || [])
+    .filter(cf => cf && (cf.label || cf.value));
+  const customHTML = customFields.length
+    ? `<div class="section-label">Custom Fields</div>
+       <div class="detail-grid">
+         ${customFields.map(cf => cell(cf.label || 'Field', cf.value, { full: true })).join('')}
+       </div>`
+    : '';
 
   el.innerHTML = `
     <div class="lead-hero">
@@ -1390,46 +1445,9 @@ function renderLeadForm(lead) {
 
     <div class="section-label">Lead Details</div>
     <div class="detail-grid">
-      <div class="detail-item">
-        <div class="d-lbl">Date of Birth</div>
-        ${dv(lead.dob ? fmtDOB(lead.dob) : '')}
-      </div>
-      <div class="detail-item">
-        <div class="d-lbl">Local Time</div>
-        <div class="d-val" id="lead-local-time">${lt || '—'}</div>
-      </div>
-      <div class="detail-item">
-        <div class="d-lbl">State</div>
-        ${dv((lead.state || '').toUpperCase())}
-      </div>
-      <div class="detail-item">
-        <div class="d-lbl">Zip Code</div>
-        ${dv(lead.zip)}
-      </div>
-      <div class="detail-item full">
-        <div class="d-lbl">Email</div>
-        ${emailLink ? `<div class="d-val">${emailLink}</div>` : '<div class="d-val empty">—</div>'}
-      </div>
-      ${lead.source ? `
-      <div class="detail-item full">
-        <div class="d-lbl">Lead Source</div>
-        ${dv(lead.source)}
-      </div>` : ''}
-      ${lead.coverage_wanted ? `
-      <div class="detail-item full">
-        <div class="d-lbl">Coverage Wanted</div>
-        ${dv(lead.coverage_wanted)}
-      </div>` : ''}
-      ${lead.address ? `
-      <div class="detail-item full">
-        <div class="d-lbl">Address</div>
-        ${dv(lead.address)}
-      </div>
-      <div class="detail-item">
-        <div class="d-lbl">City</div>
-        ${dv(lead.city)}
-      </div>` : ''}
+      ${cells.join('')}
     </div>
+    ${customHTML}
   `;
 
   startLocalTimeTimer(lead);
