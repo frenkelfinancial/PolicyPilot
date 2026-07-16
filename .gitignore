@@ -3,6 +3,12 @@
 .env.*
 !.env.example
 
+# Telnyx number reputation — local-only business/legal files (keep out of the repo)
+# The template (scripts/telnyx-enterprise.template.json) IS committed; the filled
+# copy carries the legal name / EIN, and the LOA PDFs are signed legal documents.
+scripts/telnyx-enterprise.json
+telnyx-loa*.pdf
+
 # Dependencies
 node_modules/
 

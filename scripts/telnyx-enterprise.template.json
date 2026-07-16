@@ -1,0 +1,38 @@
+{
+  "legal_name": "YOUR REGISTERED LEGAL BUSINESS NAME",
+  "doing_business_as": "PolicyPilot",
+  "organization_type": "commercial",
+  "organization_legal_type": "llc",
+  "country_code": "US",
+  "website": "https://YOUR-DOMAIN.com",
+  "fein": "XX-XXXXXXX",
+  "industry": "insurance",
+  "number_of_employees": "1-10",
+  "organization_contact": {
+    "first_name": "Jace",
+    "last_name": "YOUR-LAST-NAME",
+    "email": "jacef8778099@gmail.com",
+    "job_title": "Owner",
+    "phone": "+1XXXXXXXXXX"
+  },
+  "billing_contact": {
+    "first_name": "Jace",
+    "last_name": "YOUR-LAST-NAME",
+    "email": "jacef8778099@gmail.com",
+    "phone_number": "+1XXXXXXXXXX"
+  },
+  "organization_physical_address": {
+    "country": "US",
+    "administrative_area": "XX",
+    "city": "YOUR CITY",
+    "postal_code": "XXXXX",
+    "street_address": "YOUR STREET ADDRESS"
+  },
+  "billing_address": {
+    "country": "US",
+    "administrative_area": "XX",
+    "city": "YOUR CITY",
+    "postal_code": "XXXXX",
+    "street_address": "YOUR STREET ADDRESS"
+  }
+}
