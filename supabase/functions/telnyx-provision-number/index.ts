@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { registerNumberBestEffort } from "../_shared/telnyx-reputation.ts";
 
 // Service-role endpoint: auto-searches and purchases a Telnyx local number for
 // a given user, then sets it as their caller ID. Called by stripe-webhook on
@@ -131,6 +132,9 @@ serve(async (req) => {
     console.error("[telnyx-provision-number] agents update failed:", updateErr.message);
     return json({ error: "agents_update_failed", detail: updateErr.message }, 500);
   }
+
+  // Best-effort spam-reputation registration; never blocks provisioning.
+  await registerNumberBestEffort(sb, TELNYX_API_KEY, chosen, "local");
 
   console.log(`[telnyx-provision-number] Provisioned ${chosen} for user ${user_id}`);
   return json({ ok: true, e164: chosen, order_id: orderId });

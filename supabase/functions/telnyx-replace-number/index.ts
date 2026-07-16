@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { registerNumberBestEffort } from "../_shared/telnyx-reputation.ts";
 
 // Telnyx error 10027: a number must appear in a *recent* availability search
 // on the same API key before it can be ordered, and search results expire
@@ -174,6 +175,12 @@ serve(async (req) => {
   if (insertErr || !newRow) {
     return json({ ok: false, error: `DB insert failed: ${insertErr?.message}` }, 500);
   }
+
+  // Best-effort spam-reputation registration of the replacement number.
+  // (The old number's association dies with it when released; a replaced
+  // number is usually replaced BECAUSE it got flagged, so registering the
+  // fresh one immediately matters most here.)
+  await registerNumberBestEffort(sb, TELNYX_API_KEY, new_e164, oldRecord.number_type || "local");
 
   // Step 3: If old was primary, point agents.signalwire_caller_id at new number
   if (oldRecord.is_primary) {

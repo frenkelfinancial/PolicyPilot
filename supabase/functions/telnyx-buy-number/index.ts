@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
+import { registerNumberBestEffort } from "../_shared/telnyx-reputation.ts";
 
 // DEPRECATED (wallet migration): numbers used to get their own dedicated
 // Stripe subscription here (createNumberSubscription), billed monthly and
@@ -228,6 +229,11 @@ serve(async (req) => {
       console.warn("[telnyx-buy-number] CNAM set error:", e);
     }
   }
+
+  // Best-effort: register the new number for spam-reputation monitoring
+  // (Telnyx registers it across the carrier analytics feed). Never blocks
+  // the purchase; the reputation-monitor cron backfills anything missed.
+  await registerNumberBestEffort(sb, TELNYX_API_KEY, e164, numberType);
 
   if (isFirstNumber) {
     await sb.from("agents")
