@@ -2971,8 +2971,19 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
      ============================================================ -->
 <style id="ledger-fonts">@import url('https://fonts.googleapis.com/css2?family=Spline+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap');</style>
 <style id="ledger-summary-styles">
-.ledger{font-family:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0F1D3D;background:#F5F3F0;-webkit-font-smoothing:antialiased;margin:-26px;padding:20px 24px 32px;min-height:calc(100vh - 52px);font-size:13px;line-height:1.45}
+.ledger{font-family:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0F1D3D;background:#F5F3F0;-webkit-font-smoothing:antialiased;margin:-26px;padding:0;min-height:calc(100vh - 52px);font-size:13px;line-height:1.45}
 .ledger *{box-sizing:border-box}
+/* Fluid shell: fixed 1440 design canvas, centered, fluid below; canvas fills the sides on wide screens. */
+.ledger .lg-wrap{max-width:1440px;margin:0 auto;padding:20px 24px 32px;min-width:0}
+.ledger .lg-topbar{margin:-20px -24px 16px}
+/* Auto-fit card rows — reflow instead of squishing. --lg-min = sensible column floor, --lg-gap = gap. */
+.ledger .lg-af{display:grid;gap:var(--lg-gap,16px);grid-template-columns:repeat(auto-fit,minmax(min(var(--lg-min,220px),100%),1fr))}
+.ledger .lg-af>*{min-width:0}
+/* Bonus ladder row: keep the bar column widest, collapse to a stack on narrow screens. */
+.ledger .lg-ladder{display:grid;grid-template-columns:minmax(150px,1.1fr) minmax(180px,4fr) minmax(150px,1.2fr);gap:20px;align-items:center}
+/* Tables: horizontal scroll on their own wrapper rather than breaking the page. */
+.ledger .lg-tscroll{overflow-x:auto}
+.ledger .lg-tmin{min-width:var(--lg-tmin,640px)}
 .ledger .lgm{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace}
 .ledger .lg-chip{transition:border-color .14s ease}
 .ledger .lg-chip:hover{border-color:#B8CCEE}
@@ -2985,9 +2996,8 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger .lg-click{cursor:pointer}
 @keyframes lg-pulse{0%,100%{opacity:.5}50%{opacity:1}}
 .ledger .lg-skel{animation:lg-pulse 1.4s ease-in-out infinite}
-@media(max-width:1024px){.ledger{margin:-14px -12px;padding:14px}}
-@media(max-width:960px){.ledger .lg-grid{grid-template-columns:1fr !important}}
-@media(max-width:640px){.ledger{margin:-10px;padding:10px}}
+@media(max-width:1024px){.ledger{margin:-14px -12px}.ledger .lg-wrap{padding:14px}.ledger .lg-topbar{margin:-14px -14px 14px}}
+@media(max-width:640px){.ledger{margin:-10px}.ledger .lg-wrap{padding:10px}.ledger .lg-topbar{margin:-10px -10px 12px}.ledger .lg-ladder{grid-template-columns:1fr;gap:8px}}
 </style>
 </head>
 <body>
@@ -12368,8 +12378,10 @@ function renderSummary(){
   const todayLabel = now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
 
   let H = '';
-  // Topbar strip
-  H += '<div style="height:50px;background:#FFFFFF;border-bottom:1px solid #E4E0DA;display:flex;align-items:center;gap:12px;padding:0 24px;box-sizing:border-box;margin:-20px -24px 16px">'+
+  // Fluid canvas wrapper: centers the whole page at the 1440 design canvas, fluid below.
+  H += '<div class="lg-wrap">';
+  // Topbar strip (bleeds to the wrapper edges via .lg-topbar)
+  H += '<div class="lg-topbar" style="height:50px;background:#FFFFFF;border-bottom:1px solid #E4E0DA;display:flex;align-items:center;gap:12px;padding:0 24px;box-sizing:border-box">'+
     '<div style="font-weight:600;font-size:15px;color:#0F1D3D">Summary</div>'+
     '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">'+
       '<span style="font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F;background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:2px 8px">'+tierLabel+'</span>'+
@@ -12377,7 +12389,7 @@ function renderSummary(){
       '<div style="width:26px;height:26px;background:#0F1D3D;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10.5px;color:#FFFFFF">'+_initials+'</div>'+
     '</div></div>';
 
-  H += '<div style="display:flex;flex-direction:column;gap:16px;max-width:1392px">';
+  H += '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">';
 
   // Period toggle
   const chip = (p,label)=>{ const on=period===p; return '<button class="lg-chip lg-click" onclick="setLedgerPeriod(\''+p+'\')" style="padding:6px 10px;font-weight:500;font-size:12.5px;background:#FFFFFF;border:1px solid '+(on?'#B8CCEE':'#E4E0DA')+';color:'+(on?'#3A73C9':'#3B372F')+';border-radius:6px;cursor:pointer">'+label+'</button>'; };
@@ -12386,7 +12398,7 @@ function renderSummary(){
 
   // KPI row
   const kpiCard = (label,val,sub,color)=> _lgCard(_lgStat(label,val,sub,color), '13px 16px');
-  H += '<div class="lg-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">'+
+  H += '<div class="lg-af" style="--lg-min:190px;--lg-gap:14px">'+
     kpiCard('Policies written', kPolicies, 'submitted this period')+
     kpiCard('Total AP submitted', kAP, 'annualized premium')+
     kpiCard('Est. commission', kComm, 'AP &times; comm% &times; 75% advance')+
@@ -12399,7 +12411,7 @@ function renderSummary(){
   const ratioBig = callStats ? (ratio? ratio+':1' : '&mdash;') : '';
   const ratioSub = callStats ? (ratio? '1 sale per '+ratio+' dials' : (salesN? 'no dials yet' : 'no sales yet this period')) : 'loading&hellip;';
   const callGrid =
-    '<div class="lg-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">'+
+    '<div class="lg-af" style="--lg-min:128px;--lg-gap:14px">'+
       _lgStat('Total dials', callVal(String(dNum)), 'dialer + logged calls')+
       _lgStat('Call time', callVal(tSec?_lgDur(tSec):'0m'), 'total talk time')+
       _lgStat('Contacts', callVal(String(cNum)), contactRate)+
@@ -12410,8 +12422,8 @@ function renderSummary(){
   const goalDash = (goalPct*351.86).toFixed(1)+' 351.86';
   const goalRing =
     '<div style="display:flex;align-items:center;gap:16px">'+
-      '<div style="position:relative;width:112px;height:112px;flex-shrink:0">'+
-        '<svg width="112" height="112" viewBox="0 0 128 128">'+
+      '<div style="position:relative;width:112px;max-width:100%;aspect-ratio:1/1;flex-shrink:0">'+
+        '<svg viewBox="0 0 128 128" style="width:100%;height:100%;display:block">'+
           '<circle cx="64" cy="64" r="56" fill="none" stroke="#F0EDE7" stroke-width="10"></circle>'+
           '<circle cx="64" cy="64" r="56" fill="none" stroke="#3A73C9" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+goalDash+'" transform="rotate(-90 64 64)"></circle>'+
         '</svg>'+
@@ -12426,7 +12438,7 @@ function renderSummary(){
       '</div>'+
     '</div>';
   const goalCard = _lgCard(_lgHead('Monthly AP goal','', 'Calendar month')+goalRing);
-  H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.8fr 1fr;gap:16px">'+callCard+goalCard+'</div>';
+  H += '<div class="lg-af" style="--lg-min:300px">'+callCard+goalCard+'</div>';
 
   // Status breakdown + Top carriers
   let statusBody;
@@ -12455,7 +12467,7 @@ function renderSummary(){
       '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:34px;text-align:right">'+(kAPn?Math.round(e[1]/kAPn*100)+'%':'')+'</span></div>').join('');
   } else { topBody = _lgEmpty('No carrier production this period.'); }
   const topCard = _lgCard(_lgHead('Top carriers by AP','', periodTag)+topBody);
-  H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.8fr 1fr;gap:16px">'+statusCard+topCard+'</div>';
+  H += '<div class="lg-af" style="--lg-min:300px">'+statusCard+topCard+'</div>';
 
   // ================= PRO + LEADER =================
   if(tier==='pro' || tier==='leader'){
@@ -12466,7 +12478,7 @@ function renderSummary(){
     const renewal = (typeof renewalProjection12mo==='function') ? (renewalProjection12mo(pols)[11]||0) : inForce*0.05;
     const irNet = (nc.net<0?'&minus;':'')+_lg$(Math.abs(nc.net));
     H += _lgCard(_lgHead('Income reality','earned &minus; exposed, plus what the book pays as-earned','Book-wide')+
-      '<div class="lg-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">'+
+      '<div class="lg-af" style="--lg-min:180px;--lg-gap:14px">'+
         _lgStat('Net commission', irNet, 'est. '+_lg$(nc.earned)+' earned &minus; '+_lg$(nc.exposed)+' exposed', nc.net<0?'#B3261E':'#0F1D3D')+
         _lgStat('Chargeback exposure', _lg$(nc.exposed), cb.atRiskPolicies.length+' policies in the 9-mo window', '#B3261E')+
         _lgStat('12-mo renewal projection', 'est. '+_lg$(renewal), 'est. 5% as-earned on in-force AP')+
@@ -12515,7 +12527,7 @@ function renderSummary(){
       '</div>';
     } else { radarBody = _lgEmpty('No conversion deadlines in the next 90 days.'); }
     const radarCard = _lgCard(_lgHead('Term conversion radar','','Book-wide')+radarBody);
-    H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.7fr .85fr .85fr;gap:16px">'+edCard+dialCard+radarCard+'</div>';
+    H += '<div class="lg-af" style="--lg-min:240px">'+edCard+dialCard+radarCard+'</div>';
 
     // ---- Pipeline funnel (period) ----
     const placed = counts.issued+counts.paid;
@@ -12547,8 +12559,8 @@ function renderSummary(){
       const legend=dEnt.map((e,i)=>'<div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:2px;background:'+DCOLORS[i%6]+';flex-shrink:0"></span>'+
         '<span style="font-weight:400;font-size:11.5px;color:#3B372F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_lgEsc(e[0])+'</span>'+
         '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:11px;color:#0F1D3D">'+_lg$(e[1])+'</span></div>').join('');
-      mixBody='<div style="display:flex;align-items:center;gap:14px"><div style="position:relative;width:116px;height:116px;flex-shrink:0">'+
-        '<svg width="116" height="116" viewBox="0 0 120 120">'+segs+'</svg>'+
+      mixBody='<div style="display:flex;align-items:center;gap:14px"><div style="position:relative;width:116px;max-width:100%;aspect-ratio:1/1;flex-shrink:0">'+
+        '<svg viewBox="0 0 120 120" style="width:100%;height:100%;display:block">'+segs+'</svg>'+
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">'+
           '<span class="lgm" style="font-weight:600;font-size:13px;color:#0F1D3D;white-space:nowrap">'+_lgKk(kAPn)+'</span>'+
           '<span style="font-weight:400;font-size:9px;color:#948C7F">total AP</span></div></div>'+
@@ -12561,8 +12573,8 @@ function renderSummary(){
     const p25=(typeof persistency25mo==='function')?persistency25mo(pols):{rate:null,cohort:0};
     const ring=(p)=>{ const dash=(p.rate==null?0:p.rate*RC).toFixed(1)+' '+RC.toFixed(1); const lbl=p.rate==null?'&mdash;':Math.round(p.rate*100)+'%'; const sub=p.rate==null?'no cohort yet':'cohort of '+p.cohort; return {dash,lbl,sub}; };
     const r13=ring(p13), r25=ring(p25);
-    const ringHtml=(r,label)=>'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="position:relative;width:84px;height:84px">'+
-      '<svg width="84" height="84" viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="none" stroke="#F0EDE7" stroke-width="8"></circle>'+
+    const ringHtml=(r,label)=>'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="position:relative;width:84px;max-width:100%;aspect-ratio:1/1">'+
+      '<svg viewBox="0 0 96 96" style="width:100%;height:100%;display:block"><circle cx="48" cy="48" r="40" fill="none" stroke="#F0EDE7" stroke-width="8"></circle>'+
       '<circle cx="48" cy="48" r="40" fill="none" stroke="#3A73C9" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+r.dash+'" transform="rotate(-90 48 48)"></circle></svg>'+
       '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center" class="lgm"><span style="font-weight:600;font-size:15px;color:#0F1D3D">'+r.lbl+'</span></div></div>'+
       '<div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F">'+label+'</div>'+
@@ -12588,7 +12600,7 @@ function renderSummary(){
       ? '<div style="margin-top:10px;background:#FBEBDD;color:#A34E0C;font-weight:500;font-size:11.5px;padding:7px 10px;border-radius:6px">'+concText+'</div>'
       : '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">'+concText+'</div>';
     const prodCard=_lgCard(_lgHead('Product mix','','Book-wide')+'<div style="display:flex;flex-direction:column;gap:8px">'+mixRows+'</div>'+concLine);
-    H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:16px">'+mixCard+persistCard+prodCard+'</div>';
+    H += '<div class="lg-af" style="--lg-min:260px">'+mixCard+persistCard+prodCard+'</div>';
 
     // ---- Activity momentum (period) ----
     const appts=Math.round(cNum*0.3);
@@ -12602,7 +12614,7 @@ function renderSummary(){
     const ach=(typeof evaluateAchievements==='function')?evaluateAchievements():[];
     const achHtml=ach.map(a=>{ const on=!!a._earned; return '<span style="font-weight:600;font-size:11px;color:'+(on?'#1B7A43':'#B0A99C')+';background:'+(on?'#E4F2E9':'#FAF8F5')+';border:1px solid '+(on?'#CBE4D4':'#E4E0DA')+';padding:2px 8px;border-radius:6px">'+_lgEsc(a.label)+'</span>'; }).join('');
     H += _lgCard(_lgHead('Activity momentum','', periodTag)+
-      '<div class="lg-grid" style="display:grid;grid-template-columns:1.5fr 1fr 1.2fr;gap:24px">'+
+      '<div class="lg-af" style="--lg-min:200px;--lg-gap:24px">'+
         '<div style="display:flex;flex-direction:column;gap:7px">'+amRows+'</div>'+
         '<div style="border-left:1px solid #F0EDE7;padding-left:24px">'+_lgLbl('Current streak')+
           '<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+sstat.current+' <span style="font-weight:400;font-size:12px;color:#948C7F">days</span></div>'+
@@ -12647,7 +12659,7 @@ function renderSummary(){
         mid='<div style="position:relative;height:22px;display:flex;align-items:center"><div style="position:relative;width:100%;height:8px;background:#F0EDE7;border-radius:3px">'+
           '<div style="width:'+l.fillPct+'%;height:8px;background:#5B94E8;border-radius:3px"></div>'+ticks+'</div></div>';
       }
-      return '<div class="lg-grid" style="display:grid;grid-template-columns:220px 1fr 250px;gap:20px;align-items:center;padding:11px 0;border-top:1px solid #F0EDE7">'+
+      return '<div class="lg-ladder" style="padding:11px 0;border-top:1px solid #F0EDE7">'+
         '<div><div style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(l.carrier)+'</div>'+
           '<div style="font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(l.program)+(l.program?' &middot; ':'')+l.windowLabel+'</div></div>'+
         mid+
@@ -12676,7 +12688,7 @@ function renderSummary(){
 
     H += _lgCard(_lgHead('Bonus tier intelligence','all payouts are estimates &mdash; verify on the carrier portal','Program windows')+
       '<div style="display:flex;flex-direction:column">'+laddersHtml+'</div>'+
-      '<div class="lg-grid" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:12px">'+
+      '<div class="lg-af" style="--lg-min:260px;margin-top:12px">'+
         '<div style="background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:10px 12px">'+_lgLbl('Nearest tiers')+'<div style="margin-top:6px">'+nearestHtml+'</div></div>'+
         '<div style="background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:10px 12px">'+_lgLbl('Upcoming bonuses')+'<div style="margin-top:6px">'+upcomingHtml+'</div></div>'+
       '</div>');
@@ -12688,10 +12700,10 @@ function renderSummary(){
     periodSold.forEach(p=>{ const s=p.leadSource||null; if(!s)return; const cur=salesBySrc.get(s)||{sales:0,ap:0,comm:0}; cur.sales++; cur.ap+=Number(p.ap)||0; cur.comm+=_lgAdvComm(p); salesBySrc.set(s,cur); });
     const srcKeys=[...new Set([...leadsBySrc.keys(),...salesBySrc.keys()])];
     const roiRows=srcKeys.map(s=>{ const leadsC=leadsBySrc.get(s)||0; const sm=salesBySrc.get(s)||{sales:0,ap:0,comm:0}; return {source:s,leads:leadsC,sales:sm.sales,ap:sm.ap,comm:sm.comm,conv:(leadsC>0&&sm.sales>0)?Math.min(100,sm.sales/leadsC*100).toFixed(1)+'%':'&mdash;'}; }).sort((a,b)=>b.ap-a.ap);
-    const roiHead='<div class="lg-grid" style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Source</span><span style="text-align:right">Leads</span><span style="text-align:right">Sales</span><span style="text-align:right">Conv</span><span style="text-align:right">Total AP</span><span style="text-align:right">Est. comm</span></div>';
+    const roiHead='<div style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Source</span><span style="text-align:right">Leads</span><span style="text-align:right">Sales</span><span style="text-align:right">Conv</span><span style="text-align:right">Total AP</span><span style="text-align:right">Est. comm</span></div>';
     let roiBody;
     if(roiRows.length){
-      roiBody=roiRows.map(r=>'<div class="lg-grid lg-rowh" style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+      roiBody=roiRows.map(r=>'<div class="lg-rowh" style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
         '<span style="font-weight:500">'+_lgEsc(r.source)+'</span>'+
         '<span class="lgm" style="text-align:right">'+r.leads+'</span>'+
         '<span class="lgm" style="text-align:right">'+r.sales+'</span>'+
@@ -12699,23 +12711,23 @@ function renderSummary(){
         '<span class="lgm" style="text-align:right;font-weight:600">'+(r.ap?_lg$(r.ap):'&mdash;')+'</span>'+
         '<span class="lgm" style="text-align:right;color:#6B6459">'+(r.comm?'est. '+_lg$(r.comm):'&mdash;')+'</span></div>').join('');
     } else { roiBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:#948C7F">No leads in this period yet.</div>'; }
-    const roiCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Lead-source ROI','', periodTag)+'</div>'+roiHead+roiBody+'</div>';
+    const roiCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Lead-source ROI','', periodTag)+'</div><div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:600px">'+roiHead+roiBody+'</div></div></div>';
 
     const cyMap=new Map(); const Dd=86400000;
     pols.forEach(p=>{ if(!p.issueDate)return; const sub=_lgSubDate(p); if(!sub)return; const si=(new Date(p.issueDate)-new Date(sub+'T00:00:00'))/Dd; const car=p.carrier||'&mdash;'; const e=cyMap.get(car)||{si:[],ip:[]}; if(isFinite(si)&&si>=0) e.si.push(si); if(p.payDate){ const ip=(new Date(p.payDate)-new Date(p.issueDate))/Dd; if(isFinite(ip)&&ip>=0) e.ip.push(ip);} cyMap.set(car,e); });
     const avg=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
     let cyRows=[...cyMap.entries()].filter(e=>e[1].si.length>=3).map(([car,e])=>({carrier:car,si:avg(e.si),ip:avg(e.ip)})).sort((a,b)=>b.si-a.si);
     cyRows=cyRows.map((c,i)=>({carrier:c.carrier,si:Math.round(c.si)+'d',ip:c.ip!=null?Math.round(c.ip)+'d':'&mdash;',slow:i===0&&cyRows.length>1}));
-    const cyHead='<div class="lg-grid" style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Carrier</span><span style="text-align:right">Sub &rarr; issued</span><span style="text-align:right">Issued &rarr; paid</span></div>';
+    const cyHead='<div style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Carrier</span><span style="text-align:right">Sub &rarr; issued</span><span style="text-align:right">Issued &rarr; paid</span></div>';
     let cyBody;
     if(cyRows.length){
-      cyBody=cyRows.map(c=>'<div class="lg-grid lg-rowh" style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+      cyBody=cyRows.map(c=>'<div class="lg-rowh" style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
         '<span style="font-weight:500;display:flex;align-items:center;gap:6px">'+_lgEsc(c.carrier)+(c.slow?'<span style="font-weight:600;font-size:10.5px;color:#A34E0C;background:#FBEBDD;padding:1px 6px;border-radius:6px">slowest</span>':'')+'</span>'+
         '<span class="lgm" style="text-align:right">'+c.si+'</span>'+
         '<span class="lgm" style="text-align:right;color:#6B6459">'+c.ip+'</span></div>').join('');
     } else { cyBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:#948C7F">Not enough issued policies to measure yet.</div>'; }
-    const cyCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Cycle time','','Book-wide')+'</div>'+cyHead+cyBody+'</div>';
-    H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.7fr 1fr;gap:16px">'+roiCard+cyCard+'</div>';
+    const cyCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Cycle time','','Book-wide')+'</div><div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:340px">'+cyHead+cyBody+'</div></div></div>';
+    H += '<div class="lg-af" style="--lg-min:300px">'+roiCard+cyCard+'</div>';
 
     // ---- Free-look watchlist (book-wide) ----
     const watch=(typeof freeLookWatch==='function')?freeLookWatch(pols):[];
@@ -12768,7 +12780,7 @@ function renderSummary(){
         '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C">'+periodTag+'</span></div>';
 
       // Team vs You strip
-      H += _lgCard('<div class="lg-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">'+
+      H += _lgCard('<div class="lg-af" style="--lg-min:190px;--lg-gap:14px">'+
         '<div>'+_lgLbl('AP &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+_lg$(you.ap)+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team avg <span class="lgm">'+_lg$(tot.ap/n)+'</span></span></div></div>'+
         '<div>'+_lgLbl('Dials &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+you.dials+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team avg <span class="lgm">'+Math.round(tot.dials/n)+'</span></span></div></div>'+
         '<div>'+_lgLbl('Call-to-close &mdash; you vs team')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+youRatio+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team-wide <span class="lgm">'+teamRatio+'</span></span></div></div>'+
@@ -12782,23 +12794,24 @@ function renderSummary(){
       const th=(c,lbl,align)=>'<span class="lg-th" onclick="ledgerSortTeam(\''+c+'\')"'+(align?' style="text-align:'+align+'"':'')+'>'+lbl+ar(c)+'</span>';
       const gcols='grid-template-columns:1.7fr 1fr .7fr .9fr 1fr 1fr';
       let tbl='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">'+
-        '<div class="lg-grid" style="display:grid;'+gcols+';align-items:center;height:34px;background:#FAF8F5;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F">'+
+        '<div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:660px">'+
+        '<div style="display:grid;'+gcols+';align-items:center;height:34px;background:#FAF8F5;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F">'+
           th('name','Agent')+th('ap','AP (period)','right')+th('sales','Sales','right')+th('dials','Total dials','right')+th('time','Call time','right')+th('ratio','Call-to-close','right')+'</div>';
-      tbl+=sorted.map(t=>'<div class="lg-grid lg-rowh" style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+      tbl+=sorted.map(t=>'<div class="lg-rowh" style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
         '<span style="font-weight:500;display:flex;align-items:center;gap:8px">'+_lgEsc(t.name)+(t.you?'<span style="font-weight:600;font-size:10.5px;color:#2A5599;background:#E7EFFB;padding:1px 6px;border-radius:6px">You</span>':'')+'</span>'+
         '<span class="lgm" style="text-align:right;font-weight:600">'+_lg$(t.ap)+'</span>'+
         '<span class="lgm" style="text-align:right">'+t.sales+'</span>'+
         '<span class="lgm" style="text-align:right">'+t.dials+'</span>'+
         '<span class="lgm" style="text-align:right;color:#6B6459">'+_lgDur(t.time)+'</span>'+
         '<span class="lgm" style="text-align:right;color:#6B6459">'+(t.ratio?t.ratio+':1':'&mdash;')+'</span></div>').join('');
-      tbl+='<div class="lg-grid" style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #E4E0DA;background:#FAF8F5;font-weight:600;font-size:13px;color:#0F1D3D">'+
+      tbl+='<div style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #E4E0DA;background:#FAF8F5;font-weight:600;font-size:13px;color:#0F1D3D">'+
         '<span>Team total</span>'+
         '<span class="lgm" style="text-align:right">'+_lg$(tot.ap)+'</span>'+
         '<span class="lgm" style="text-align:right">'+tot.sales+'</span>'+
         '<span class="lgm" style="text-align:right">'+tot.dials+'</span>'+
         '<span class="lgm" style="text-align:right">'+_lgDur(tot.time)+'</span>'+
         '<span class="lgm" style="text-align:right">'+teamRatio+'</span></div>';
-      tbl+='</div>';
+      tbl+='</div></div></div>';
       H += tbl;
       H += '<div style="font-weight:400;font-size:10.5px;color:#B0A99C;margin-top:-6px">Downline rows show production and calling totals only &mdash; no client names, policy details, or commission amounts.</div>';
     }
@@ -12832,7 +12845,7 @@ function renderSummary(){
         '<div style="font-weight:400;font-size:12.5px;color:#3B372F;text-align:center;max-width:280px">'+desc+'</div>'+
         '<button class="lg-btn lg-click" onclick="lgUpgrade(\''+tier2+'\')" style="background:#3A73C9;color:#FFFFFF;border:none;border-radius:6px;font-weight:600;font-size:12.5px;padding:7px 12px;cursor:pointer">'+btn+'</button>'+
       '</div></div>';
-    H += '<div class="lg-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'+
+    H += '<div class="lg-af" style="--lg-min:460px">'+
       proTeasers.map(t=>teaserCard(t[0],t[1],'Pro','Upgrade to Pro','pro')).join('')+'</div>';
   }
 
@@ -12856,6 +12869,7 @@ function renderSummary(){
   H += '<div style="font-weight:400;font-size:10.5px;color:#B0A99C;padding-bottom:8px">All metrics derive from your entered policies, leads, and dialer activity. Estimates marked &ldquo;est.&rdquo; are subject to carrier persistency and quality requirements.</div>';
 
   H += '</div>'; // content column
+  H += '</div>'; // .lg-wrap
   root.innerHTML = H;
 }
 
