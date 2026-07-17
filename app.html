@@ -10436,7 +10436,7 @@ const LOCAL_TO_ITK_TERM = {
 // ============================================================
 // Hydrated from namespaced storage in bootDashboard() once auth resolves.
 let policies = [];
-let ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'' };
+let ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'', subStart:'', subEnd:'' };
 let ptSort = '';
 let ptPage = 1;                       // Policy Tracker current page (Ledger pagination)
 
@@ -10825,6 +10825,16 @@ const PT_STATUS_LABELS = {pending:'Pending',approved:'Sub/Approved',issued:'Issu
 // Submitted date: explicit field, else derived from the id timestamp.
 function _ptGetSub(p){ return p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : ''); }
 
+// Submission date used for PERIOD bucketing — mirrors the Summary's _lgSubDate
+// exactly (dateSubmitted -> draft -> id timestamp) so a period drill-in counts
+// the same policies the Summary segment counts. Distinct from _ptGetSub (which
+// has no draft fallback) on purpose: this one must match the Summary.
+function _ptSubForRange(p){ return (p && (p.dateSubmitted || p.draft || (p.id ? new Date(+p.id).toISOString().slice(0,10) : ''))) || ''; }
+
+// Local-calendar 'YYYY-MM-DD' for a Date (matches summaryPeriodRange's local
+// midnight boundaries; string compare then equals _lgInRange's date compare).
+function _ptFmtLocalDate(d){ if(!d) return ''; const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+
 // Pure: given all policies + filter/sort/page, return totals, the current
 // page's row HTML, and the pager HTML. Totals span ALL policies; the table
 // reflects the filtered + sorted + paginated slice.
@@ -10850,6 +10860,15 @@ function _ptComputeView(all, filter, sort, page){
     if (filter.carrier && p.carrier !== filter.carrier) return false;
     if (filter.submitted && _ptGetSub(p) !== filter.submitted) return false;
     if (filter.draft && (p.draft||'') !== filter.draft) return false;
+    // Period range (Date Submitted) carried from a Summary drill-in. Mirrors
+    // _lgInRange: [subStart, subEnd) on the _lgSubDate-equivalent bucket date;
+    // ISO 'YYYY-MM-DD' string compare == the Summary's local-midnight compare.
+    if (filter.subStart || filter.subEnd) {
+      const sd = _ptSubForRange(p);
+      if (!sd) return false;                                  // no date -> out of range
+      if (filter.subStart && sd < filter.subStart) return false;
+      if (filter.subEnd && sd >= filter.subEnd) return false; // end exclusive
+    }
     // status may be a single value ('paid') or a '+'-joined set
     // ('lapsed+chargeback') so the Summary "Lapse / CB" segment can drill into
     // both statuses at once; a single value degrades to a 1-element match.
@@ -11010,7 +11029,7 @@ function applyTrackerFilters() {
 function resetTrackerFilters() {
   ['ptf-client','ptf-submitted','ptf-draft'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['ptf-carrier','ptf-status','ptf-sort'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
-  ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'' };
+  ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'', subStart:'', subEnd:'' };
   ptSort = '';
   ptPage = 1;
   renderPolicies();
@@ -11718,10 +11737,13 @@ function _renderCarrierDonut(pols) {
 
 // Drill from a Summary widget into another section. For the Policy Tracker,
 // opts.status pre-sets the status filter (clearing the other tracker filters
-// for a clean focused view) and resets pagination to page 1.
+// for a clean focused view) and resets pagination to page 1. opts.period
+// (daily/weekly/monthly) additionally applies the Summary's active period as a
+// Date Submitted range using the SAME bucketing rule the segment count uses, so
+// the tracker's filtered count exactly equals the clicked segment's count.
 // Summary buckets map 1:1 by name to #ptf-status values
-// (pending/approved/issued/paid/lapsed); the Summary "Lapse / CB" bucket keys
-// to 'lapsed' (the tracker's separate 'chargeback' option has no Summary segment).
+// (pending/approved/issued/paid); the merged "Lapse / CB" bucket drills with
+// 'lapsed+chargeback'.
 function summaryDrillTo(target, opts) {
   if (!target) return;
   opts = opts || {};
@@ -11733,10 +11755,23 @@ function summaryDrillTo(target, opts) {
     ['ptf-carrier','ptf-sort'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
     const statusSel = document.getElementById('ptf-status');
     if (statusSel) statusSel.value = opts.status;
+    // Carry the active Summary period into a Date Submitted range so the
+    // tracker's count matches the segment (same range + same bucket date rule).
+    let subStart = '', subEnd = '';
+    if (opts.period && typeof summaryPeriodRange === 'function') {
+      try {
+        const r = summaryPeriodRange(opts.period, new Date());
+        subStart = _ptFmtLocalDate(r.start);
+        subEnd   = _ptFmtLocalDate(r.end);   // exclusive, matches _lgInRange
+      } catch (e) { /* unknown period -> no range */ }
+    }
+    // Set the range BEFORE applyTrackerFilters (which mutates the control-backed
+    // fields but preserves subStart/subEnd), so a single render carries it.
+    ptFilter.subStart = subStart; ptFilter.subEnd = subEnd;
     if (typeof applyTrackerFilters === 'function') {
       applyTrackerFilters();   // reads controls -> ptFilter, sets ptPage=1, renders
     } else {
-      ptFilter = { client:'', carrier:'', submitted:'', draft:'', status: opts.status };
+      ptFilter = { client:'', carrier:'', submitted:'', draft:'', status: opts.status, subStart, subEnd };
       ptSort = ''; ptPage = 1;
       if (typeof renderPolicies === 'function') renderPolicies();
     }
@@ -12656,7 +12691,8 @@ function renderSummary(){
       const pct = totalC? Math.round(counts[s]/totalC*100)+'%' : '0%';
       // The 'lapsed' bucket folds in chargeback, so it drills into both.
       const drill = s==='lapsed' ? 'lapsed+chargeback' : s;
-      return '<div class="lg-click" title="Show '+pill[s][0].replace(/&mdash;/g,'-')+' in Policy Tracker" onclick="summaryDrillTo&&summaryDrillTo(\'tracker\',{status:\''+drill+'\'})" style="display:flex;align-items:center;gap:6px">'+
+      // Carry the active period so the tracker's Date Submitted range matches this count.
+      return '<div class="lg-click" title="Show '+pill[s][0].replace(/&mdash;/g,'-')+' in Policy Tracker" onclick="summaryDrillTo&&summaryDrillTo(\'tracker\',{status:\''+drill+'\',period:\''+period+'\'})" style="display:flex;align-items:center;gap:6px">'+
         '<span style="font-weight:600;font-size:11px;color:'+pill[s][1]+';background:'+pill[s][2]+';padding:2px 8px;border-radius:6px">'+pill[s][0]+'</span>'+
         '<span class="lgm" style="font-weight:600;font-size:12px;color:#3B372F">'+counts[s]+'</span>'+
         '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+pct+'</span></div>';
