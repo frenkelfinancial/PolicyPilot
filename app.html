@@ -11712,10 +11712,31 @@ function _renderCarrierDonut(pols) {
   });
 }
 
+// Drill from a Summary widget into another section. For the Policy Tracker,
+// opts.status pre-sets the status filter (clearing the other tracker filters
+// for a clean focused view) and resets pagination to page 1.
+// Summary buckets map 1:1 by name to #ptf-status values
+// (pending/approved/issued/paid/lapsed); the Summary "Lapse / CB" bucket keys
+// to 'lapsed' (the tracker's separate 'chargeback' option has no Summary segment).
 function summaryDrillTo(target, opts) {
   if (!target) return;
-  // opts is reserved for future filter wiring (pp_tracker_filter, etc).
+  opts = opts || {};
   nav(target);
+  if (target === 'tracker' && opts.status) {
+    // Clear the other filter controls so the drill-in shows all policies of
+    // the clicked status, then let applyTrackerFilters() sync state + page 1.
+    ['ptf-client','ptf-submitted','ptf-draft'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['ptf-carrier','ptf-sort'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
+    const statusSel = document.getElementById('ptf-status');
+    if (statusSel) statusSel.value = opts.status;
+    if (typeof applyTrackerFilters === 'function') {
+      applyTrackerFilters();   // reads controls -> ptFilter, sets ptPage=1, renders
+    } else {
+      ptFilter = { client:'', carrier:'', submitted:'', draft:'', status: opts.status };
+      ptSort = ''; ptPage = 1;
+      if (typeof renderPolicies === 'function') renderPolicies();
+    }
+  }
 }
 
 // ---- v3 helpers: goal, milestones ----
@@ -12629,7 +12650,7 @@ function renderSummary(){
     const segs = SL.filter(s=>counts[s]>0).map(s=>'<div title="'+pill[s][0].replace(/&mdash;/g,'-')+': '+counts[s]+'" style="width:'+(counts[s]/totalC*100).toFixed(2)+'%;background:'+barColor[s]+'"></div>').join('');
     const pills = SL.map(s=>{
       const pct = totalC? Math.round(counts[s]/totalC*100)+'%' : '0%';
-      return '<div class="lg-click" title="Open in Policy Tracker" onclick="summaryDrillTo&&summaryDrillTo(\'tracker\')" style="display:flex;align-items:center;gap:6px">'+
+      return '<div class="lg-click" title="Show '+pill[s][0].replace(/&mdash;/g,'-')+' in Policy Tracker" onclick="summaryDrillTo&&summaryDrillTo(\'tracker\',{status:\''+s+'\'})" style="display:flex;align-items:center;gap:6px">'+
         '<span style="font-weight:600;font-size:11px;color:'+pill[s][1]+';background:'+pill[s][2]+';padding:2px 8px;border-radius:6px">'+pill[s][0]+'</span>'+
         '<span class="lgm" style="font-weight:600;font-size:12px;color:#3B372F">'+counts[s]+'</span>'+
         '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+pct+'</span></div>';
