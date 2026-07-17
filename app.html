@@ -2998,6 +2998,89 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger .lg-skel{animation:lg-pulse 1.4s ease-in-out infinite}
 @media(max-width:1024px){.ledger{margin:-14px -12px}.ledger .lg-wrap{padding:14px}.ledger .lg-topbar{margin:-14px -14px 14px}}
 @media(max-width:640px){.ledger{margin:-10px}.ledger .lg-wrap{padding:10px}.ledger .lg-topbar{margin:-10px -10px 12px}.ledger .lg-ladder{grid-template-columns:1fr;gap:8px}}
+/* ============================================================
+   LEDGER POLICY TRACKER styles (scoped to .ledger) — 2026-07-16
+   List view (KPI strip, filters, grid table, status pills,
+   pagination) + calendar restyle. Same tokens as the Summary.
+   ============================================================ */
+/* KPI strip */
+.ledger .pt-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-left:-1px}
+.ledger .pt-kpi{padding:13px 16px;border-left:1px solid #F0EDE7}
+.ledger .pt-kpi-l{font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F}
+.ledger .pt-kpi-v{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;font-size:22px;font-weight:600;color:#0F1D3D;margin-top:2px;white-space:nowrap}
+/* View tabs (chips) */
+.ledger .tracker-tabs{display:flex;gap:8px;background:transparent;padding:0;border-radius:0;width:auto;margin:0}
+.ledger .tracker-tab{padding:6px 12px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;background:#FFFFFF;border:1px solid #E4E0DA;color:#3B372F;box-shadow:none;font-family:'Spline Sans',sans-serif;transition:border-color .14s,color .14s}
+.ledger .tracker-tab:hover:not(.active){border-color:#B8CCEE}
+.ledger .tracker-tab.active{background:#FFFFFF;border-color:#B8CCEE;color:#3A73C9;box-shadow:none}
+/* Filters */
+.ledger .pt-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.ledger .pt-field{display:flex;flex-direction:column;min-width:0}
+.ledger .pt-field label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#948C7F;margin-bottom:6px}
+.ledger .pt-input{width:100%;height:32px;padding:0 10px;border:1px solid #E4E0DA;border-radius:6px;font-size:12.5px;font-family:'Spline Sans',sans-serif;color:#0F1D3D;background:#FFFFFF;outline:none;transition:border-color .14s}
+.ledger .pt-input:focus{border-color:#B8CCEE}
+.ledger .pt-input::placeholder{color:#B0A99C}
+.ledger input.pt-input[type=date]{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:12px;color:#3B372F;padding:0 8px}
+.ledger select.pt-input{cursor:pointer;padding-right:8px}
+/* Buttons */
+.ledger .pt-btn{height:32px;border-radius:6px;padding:0 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Spline Sans',sans-serif;white-space:nowrap;transition:background .14s,border-color .14s}
+.ledger .pt-btn-primary{background:#3A73C9;color:#FFFFFF;border:none}
+.ledger .pt-btn-primary:hover{background:#2A5599}
+.ledger .pt-btn-ghost{background:#FFFFFF;border:1px solid #E4E0DA;color:#3B372F;font-weight:500}
+.ledger .pt-btn-ghost:hover{background:#FAF8F5}
+/* Grid table */
+.ledger .pt-tmin{min-width:1124px}
+.ledger .pt-grid{display:grid;grid-template-columns:minmax(108px,1.4fr) minmax(92px,1fr) minmax(66px,.75fr) minmax(78px,.8fr) minmax(84px,.8fr) minmax(88px,.8fr) minmax(88px,.8fr) minmax(92px,.85fr) minmax(108px,.9fr) minmax(116px,1fr) 92px;column-gap:8px;align-items:center;padding:0 16px}
+.ledger .pt-thead{min-height:34px;padding-top:5px;padding-bottom:5px;background:#FAF8F5;border-bottom:1px solid #E4E0DA;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#948C7F}
+.ledger .pt-th{cursor:pointer;user-select:none;transition:color .14s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ledger .pt-th:hover{color:#3A73C9}
+.ledger .pt-item{border-bottom:1px solid #F0EDE7}
+.ledger .pt-row{min-height:38px;background:#FFFFFF;transition:background .1s ease}
+.ledger .pt-row:hover{background:#FAF8F5}
+.ledger .pt-row.pt-cb,.ledger .pt-row.pt-cb:hover{background:#FCF1F0}
+.ledger .pt-ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* Status pill (native <select> styled as a Ledger pill) */
+.ledger .pt-status{appearance:none;-webkit-appearance:none;-moz-appearance:none;border:none;outline:none;cursor:pointer;font-family:'Spline Sans',sans-serif;font-size:11px;font-weight:600;border-radius:6px;padding:3px 22px 3px 9px;max-width:100%;background-repeat:no-repeat;background-position:right 7px center;background-size:9px 6px;transition:filter .14s}
+.ledger .pt-status:hover{filter:brightness(.97)}
+.ledger .pt-status option{font-weight:500;color:#0F1D3D;background:#FFFFFF}
+.ledger .pt-status--pending{background-color:#F6EDD8;color:#8A6116;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A6116' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--approved{background-color:#E7EFFB;color:#2A5599;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%232A5599' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--issued{background-color:#E7EFFB;color:#2A5599;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%232A5599' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--paid{background-color:#E4F2E9;color:#1B7A43;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%231B7A43' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--lapsed{background-color:#FBEBDD;color:#A34E0C;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A34E0C' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--chargeback{background-color:#FAE8E7;color:#B3261E;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23B3261E' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+/* Row action icons */
+.ledger .pt-acts{display:flex;gap:4px;justify-content:flex-end}
+.ledger .pt-act{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:6px;cursor:pointer;color:#948C7F;transition:background .14s,color .14s}
+.ledger .pt-act:hover{background:#F0EDE7;color:#0F1D3D}
+.ledger .pt-act.active{color:#3A73C9}
+.ledger .pt-act-del:hover{background:#FAE8E7;color:#B3261E}
+.ledger .pt-act-edit:hover{background:#E7EFFB;color:#3A73C9}
+/* Client-notes panel */
+.ledger .pt-notes{background:#FAF8F5;border-top:1px solid #F0EDE7;padding:12px 16px}
+.ledger .pt-notes-ta{width:100%;min-height:72px;padding:8px 10px;border:1px solid #E4E0DA;border-radius:6px;font-size:12.5px;color:#0F1D3D;background:#FFFFFF;outline:none;resize:vertical;line-height:1.45;font-family:'Spline Sans',sans-serif}
+.ledger .pt-notes-ta:focus{border-color:#B8CCEE}
+/* Pagination */
+.ledger .pt-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid #E4E0DA;background:#FFFFFF}
+.ledger .pt-pginfo{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:11px;color:#948C7F}
+.ledger .pt-pgnav{display:flex;align-items:center;gap:6px}
+.ledger .pt-pgchip{height:28px;min-width:28px;padding:0 8px;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:12px;font-weight:600;color:#3B372F;cursor:pointer;transition:background .14s,border-color .14s}
+.ledger .pt-pgchip:hover:not(:disabled){background:#FAF8F5}
+.ledger .pt-pgchip.active{border-color:#B8CCEE;color:#3A73C9}
+.ledger .pt-pgbtn{height:28px;padding:0 10px;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;font-size:12px;font-weight:500;color:#3B372F;cursor:pointer;transition:background .14s}
+.ledger .pt-pgbtn:hover:not(:disabled){background:#FAF8F5}
+.ledger .pt-pgbtn:disabled{color:#B0A99C;cursor:default}
+/* Empty state */
+.ledger .pt-empty{padding:34px 16px;text-align:center;font-size:12.5px;color:#948C7F;display:flex;flex-direction:column;align-items:center;gap:10px}
+.ledger .pt-empty svg{color:#B0A99C}
+/* Calendar (Ledger token overrides — tracker calendar only) */
+.ledger .cal-cell{border-right:1px solid #F0EDE7;border-bottom:1px solid #F0EDE7;background:#FFFFFF}
+.ledger .cal-cell.other-month{background:#FAF8F5;opacity:.6}
+.ledger .cal-cell.today{background:#E7EFFB;border-color:#B8CCEE}
+.ledger .cal-day-num{color:#948C7F}
+.ledger .cal-cell.today .cal-day-num{color:#3A73C9}
+.ledger .tc-event{border-radius:6px}
+@media(max-width:900px){.ledger .pt-status{padding-right:20px}}
 </style>
 </head>
 <body>
@@ -3841,121 +3924,148 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 
     <!-- ========== POLICY TRACKER ========== -->
     <div class="section" id="sec-tracker">
-      <div class="flex jb aic" style="margin-bottom:18px">
-        <div><div style="font-size:15px;font-weight:600">Policy Tracker</div><div class="text-m mt4" style="font-size:12px">Track all submitted policies, commissions & pay dates</div></div>
-        <button class="btn btn-p" onclick="openAddPolicy()">+ Add Policy</button>
-      </div>
-      <div class="running mt4" id="running-totals">
-        <div><div class="rt-lbl">Total Submitted AP</div><div class="rt-val" id="total-ap">$0</div></div>
-        <div><div class="rt-lbl">Est. Adv. Commission</div><div class="rt-val text-g" id="total-comm">$0</div></div>
-        <div><div class="rt-lbl">Policies</div><div class="rt-val" id="total-cnt">0</div></div>
-        <div><div class="rt-lbl">Issued / Active</div><div class="rt-val" id="total-issued">0</div></div>
-        <div><div class="rt-lbl">Monthly Americo AP</div><div class="rt-val" id="am-ap">$0</div></div>
-        <div><div class="rt-lbl">Monthly AmAm AP</div><div class="rt-val" id="amam-ap">$0</div></div>
-      </div>
-      <!-- Sub-tabs -->
-      <div class="tracker-tabs">
-        <button class="tracker-tab active" id="pt-tab-list" onclick="trackerTabSwitch('list',this)">List View</button>
-        <button class="tracker-tab" id="pt-tab-cal" onclick="trackerTabSwitch('cal',this)">Calendar View</button>
-      </div>
+      <div class="ledger">
+        <div class="lg-wrap">
+          <!-- Header -->
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+            <div>
+              <div style="font-size:15px;font-weight:600;color:#0F1D3D">Policy Tracker</div>
+              <div style="font-size:12px;color:#948C7F;margin-top:2px">Track all submitted policies, commissions &amp; pay dates</div>
+            </div>
+            <button class="pt-btn pt-btn-primary" onclick="openAddPolicy()">+ Add Policy</button>
+          </div>
 
-      <!-- LIST VIEW panel -->
-      <div id="pt-view-list">
-        <!-- Filter + Sort bar -->
-        <div id="pt-filter-bar" class="frow" style="margin-bottom:14px;align-items:flex-end">
-          <div class="fg" style="min-width:160px">
-            <label for="ptf-client">Client Name</label>
-            <input type="text" id="ptf-client" placeholder="Search client…" oninput="applyTrackerFilters()">
+          <!-- KPI strip -->
+          <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin-bottom:16px">
+            <div class="pt-kpis">
+              <div class="pt-kpi"><div class="pt-kpi-l">Total Submitted AP</div><div class="pt-kpi-v" id="total-ap">$0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Est. Adv. Commission</div><div class="pt-kpi-v" id="total-comm" style="color:#1B7A43">$0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Policies</div><div class="pt-kpi-v" id="total-cnt">0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Issued / Active</div><div class="pt-kpi-v" id="total-issued">0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Monthly Americo AP</div><div class="pt-kpi-v" id="am-ap">$0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Monthly AmAm AP</div><div class="pt-kpi-v" id="amam-ap">$0</div></div>
+            </div>
           </div>
-          <div class="fg" style="min-width:150px">
-            <label for="ptf-carrier">Carrier</label>
-            <select id="ptf-carrier" onchange="applyTrackerFilters()">
-              <option value="">All Carriers</option>
-            </select>
-          </div>
-          <div class="fg" style="min-width:140px">
-            <label for="ptf-submitted">Date Submitted</label>
-            <input type="date" id="ptf-submitted" onchange="applyTrackerFilters()">
-          </div>
-          <div class="fg" style="min-width:140px">
-            <label for="ptf-draft">Draft Date</label>
-            <input type="date" id="ptf-draft" onchange="applyTrackerFilters()">
-          </div>
-          <div class="fg" style="min-width:140px">
-            <label for="ptf-status">Status</label>
-            <select id="ptf-status" onchange="applyTrackerFilters()">
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Sub/Approved</option>
-              <option value="issued">Issued</option>
-              <option value="paid">Paid</option>
-              <option value="lapsed">Lapsed</option>
-              <option value="chargeback">Charge Back</option>
-            </select>
-          </div>
-          <div class="fg" style="min-width:200px">
-            <label for="ptf-sort">Sort By</label>
-            <select id="ptf-sort" onchange="applyTrackerFilters()">
-              <option value="">Default (newest first)</option>
-              <option value="status">Status</option>
-              <option value="carrier">Carrier A–Z</option>
-              <option value="client-az">Client A–Z</option>
-              <option value="draft-asc">Draft Date (Soonest → Latest)</option>
-              <option value="draft-desc">Draft Date (Latest → Soonest)</option>
-              <option value="sub-asc">Date Submitted (Soonest → Latest)</option>
-              <option value="sub-desc">Date Submitted (Latest → Soonest)</option>
-            </select>
-          </div>
-          <div style="padding-bottom:2px;flex-shrink:0">
-            <button class="btn btn-s" onclick="resetTrackerFilters()" style="white-space:nowrap">Clear Filters</button>
-          </div>
-        </div>
-        <div class="card">
-          <div class="empty" id="pol-empty"><div class="ico" data-ico="clipboard-text" data-size="32"></div><p>No policies yet. Click "+ Add Policy" to start.</p></div>
-          <div style="overflow-x:auto">
-            <table class="ptbl" id="pol-table" style="display:none">
-              <thead><tr>
-                <th>Client</th><th>Carrier</th><th>Product</th><th>Monthly</th><th>Ann. Premium</th>
-                <th>Date Submitted</th><th>Draft Date</th><th>Est. Adv. Commission</th><th>Class</th><th>Status</th><th></th>
-              </tr></thead>
-              <tbody id="pol-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
 
-      <!-- CALENDAR VIEW panel -->
-      <div id="pt-view-cal" style="display:none">
-        <div class="flex aic gap12" style="margin-bottom:14px">
-          <button class="btn btn-s btn-sm" onclick="trackerCalNavMonth(-1)">← Prev</button>
-          <div style="font-size:15px;font-weight:600;min-width:160px;text-align:center" id="tc-month-label"></div>
-          <button class="btn btn-s btn-sm" onclick="trackerCalNavMonth(1)">Next →</button>
-          <div style="margin-left:auto;font-size:12px;color:var(--text3)">Commission deposits typically 7–10 days after draft</div>
-        </div>
-        <div class="running" style="margin-bottom:16px">
-          <div><div class="rt-lbl">Drafting This Month</div><div class="rt-val" id="tc-count-mo">0</div></div>
-          <div><div class="rt-lbl">Monthly Premium</div><div class="rt-val" id="tc-ap-mo">$0</div></div>
-          <div><div class="rt-lbl">Est. Adv. Commission</div><div class="rt-val text-g" id="tc-comm-mo">$0</div></div>
-          <div><div class="rt-lbl">Next 30 Days</div><div class="rt-val" id="tc-next30">0 policies</div></div>
-        </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:var(--text3)">
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-warning-bg);border:1px solid var(--ds-color-warning);display:inline-block"></span>Pending</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-momentum-bg);border:1px solid var(--ds-color-momentum);display:inline-block"></span>Sub/Approved</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-success-bg);border:1px solid var(--ds-color-success);display:inline-block"></span>Issued</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-info-bg);border:1px solid var(--ds-color-info);display:inline-block"></span>Paid</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-danger-bg);border:1px solid var(--ds-color-danger);display:inline-block"></span>Lapsed / Charge Back</span>
-        </div>
-        <div class="card" style="padding:0;overflow:hidden">
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg3);border-bottom:1px solid var(--border)">
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Sun</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Mon</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Tue</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Wed</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Thu</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Fri</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Sat</div>
+          <!-- View tabs -->
+          <div class="tracker-tabs" style="margin-bottom:16px">
+            <button class="tracker-tab active" id="pt-tab-list" onclick="trackerTabSwitch('list',this)">List View</button>
+            <button class="tracker-tab" id="pt-tab-cal" onclick="trackerTabSwitch('cal',this)">Calendar View</button>
           </div>
-          <div id="tc-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr)"></div>
+
+          <!-- LIST VIEW panel -->
+          <div id="pt-view-list">
+            <!-- Filter + Sort bar -->
+            <div class="pt-filters" id="pt-filter-bar" style="margin-bottom:14px">
+              <div class="pt-field" style="flex:1.5 1 170px">
+                <label for="ptf-client">Client Name</label>
+                <input type="text" id="ptf-client" class="pt-input" placeholder="Search client…" oninput="applyTrackerFilters()">
+              </div>
+              <div class="pt-field" style="flex:1 1 140px">
+                <label for="ptf-carrier">Carrier</label>
+                <select id="ptf-carrier" class="pt-input" onchange="applyTrackerFilters()">
+                  <option value="">All Carriers</option>
+                </select>
+              </div>
+              <div class="pt-field" style="flex:1 1 140px">
+                <label for="ptf-submitted">Date Submitted</label>
+                <input type="date" id="ptf-submitted" class="pt-input" onchange="applyTrackerFilters()">
+              </div>
+              <div class="pt-field" style="flex:1 1 140px">
+                <label for="ptf-draft">Draft Date</label>
+                <input type="date" id="ptf-draft" class="pt-input" onchange="applyTrackerFilters()">
+              </div>
+              <div class="pt-field" style="flex:1 1 140px">
+                <label for="ptf-status">Status</label>
+                <select id="ptf-status" class="pt-input" onchange="applyTrackerFilters()">
+                  <option value="">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Sub/Approved</option>
+                  <option value="issued">Issued</option>
+                  <option value="paid">Paid</option>
+                  <option value="lapsed">Lapsed</option>
+                  <option value="chargeback">Charge Back</option>
+                </select>
+              </div>
+              <div class="pt-field" style="flex:1.2 1 180px">
+                <label for="ptf-sort">Sort By</label>
+                <select id="ptf-sort" class="pt-input" onchange="applyTrackerFilters()">
+                  <option value="">Default (newest first)</option>
+                  <option value="status">Status</option>
+                  <option value="carrier">Carrier A–Z</option>
+                  <option value="client-az">Client A–Z</option>
+                  <option value="draft-asc">Draft Date (Soonest → Latest)</option>
+                  <option value="draft-desc">Draft Date (Latest → Soonest)</option>
+                  <option value="sub-asc">Date Submitted (Soonest → Latest)</option>
+                  <option value="sub-desc">Date Submitted (Latest → Soonest)</option>
+                </select>
+              </div>
+              <div style="flex:0 0 auto">
+                <button class="pt-btn pt-btn-ghost" onclick="resetTrackerFilters()">Clear Filters</button>
+              </div>
+            </div>
+
+            <!-- Ledger table card -->
+            <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">
+              <div class="lg-tscroll">
+                <div class="pt-tmin">
+                  <div class="pt-grid pt-thead">
+                    <div class="pt-th" onclick="ptHeaderSort('client')" title="Sort by client">Client</div>
+                    <div class="pt-th" onclick="ptHeaderSort('carrier')" title="Sort by carrier">Carrier</div>
+                    <div>Product</div>
+                    <div>Monthly</div>
+                    <div>Ann. Premium</div>
+                    <div class="pt-th" onclick="ptHeaderSort('submitted')" title="Sort by date submitted">Date Submitted</div>
+                    <div class="pt-th" onclick="ptHeaderSort('draft')" title="Sort by draft date">Draft Date</div>
+                    <div>Est. Adv. Commission</div>
+                    <div>Class</div>
+                    <div class="pt-th" onclick="ptHeaderSort('status')" title="Sort by status">Status</div>
+                    <div></div>
+                  </div>
+                  <div id="pol-tbody"></div>
+                </div>
+              </div>
+              <div class="pt-empty" id="pol-empty" style="display:none"></div>
+              <div id="pt-pager"></div>
+            </div>
+          </div>
+
+          <!-- CALENDAR VIEW panel -->
+          <div id="pt-view-cal" style="display:none">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+              <button class="pt-btn pt-btn-ghost" onclick="trackerCalNavMonth(-1)">← Prev</button>
+              <div style="font-size:14px;font-weight:600;min-width:150px;text-align:center;color:#0F1D3D" id="tc-month-label"></div>
+              <button class="pt-btn pt-btn-ghost" onclick="trackerCalNavMonth(1)">Next →</button>
+              <div style="margin-left:auto;font-size:11.5px;color:#948C7F">Commission deposits typically 7–10 days after draft</div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin-bottom:16px">
+              <div class="pt-kpis">
+                <div class="pt-kpi"><div class="pt-kpi-l">Drafting This Month</div><div class="pt-kpi-v" id="tc-count-mo">0</div></div>
+                <div class="pt-kpi"><div class="pt-kpi-l">Monthly Premium</div><div class="pt-kpi-v" id="tc-ap-mo">$0</div></div>
+                <div class="pt-kpi"><div class="pt-kpi-l">Est. Adv. Commission</div><div class="pt-kpi-v" id="tc-comm-mo" style="color:#1B7A43">$0</div></div>
+                <div class="pt-kpi"><div class="pt-kpi-l">Next 30 Days</div><div class="pt-kpi-v" id="tc-next30">0 policies</div></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:#948C7F">
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#C9971F;display:inline-block"></span>Pending</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#5B94E8;display:inline-block"></span>Sub/Approved</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#98A1AE;display:inline-block"></span>Issued</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#2E9E5B;display:inline-block"></span>Paid</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#D2483F;display:inline-block"></span>Lapsed / Charge Back</span>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);background:#FAF8F5;border-bottom:1px solid #E4E0DA">
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Sun</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Mon</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Tue</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Wed</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Thu</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Fri</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Sat</div>
+              </div>
+              <div id="tc-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr)"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -10327,6 +10437,7 @@ const LOCAL_TO_ITK_TERM = {
 let policies = [];
 let ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'' };
 let ptSort = '';
+let ptPage = 1;                       // Policy Tracker current page (Ledger pagination)
 
 function calcModalAP() {
   const monthly = parseFloat(document.getElementById('p-monthly').value) || 0;
@@ -10647,7 +10758,7 @@ function toggleClientInfo(id) {
   const btn = document.getElementById(`info-btn-${id}`);
   if (!row) return;
   const opening = row.style.display === 'none';
-  row.style.display = opening ? 'table-row' : 'none';
+  row.style.display = opening ? '' : 'none';   // notes panel is a block <div> in the Ledger layout
   if (btn) btn.classList.toggle('active', opening);
   if (opening) {
     const p = policies.find(x => x.id === id);
@@ -10670,12 +10781,16 @@ async function saveClientNotes(id) {
 }
 
 async function updatePolicyStatus(id, newStatus, selectEl) {
-  const sMap = {pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l',chargeback:'sp-cb'};
   const policy = policies.find(p => p.id === id);
   if (!policy) return;
   policy.status = newStatus;
   localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
-  if (selectEl) selectEl.className = 'status-sel ' + (sMap[newStatus] || 'sp-p');
+  // Recolor the Ledger status pill in place and re-tint the row (chargeback bg).
+  if (selectEl) {
+    selectEl.className = 'pt-status pt-status--' + newStatus;
+    const rowEl = selectEl.closest('.pt-row');
+    if (rowEl) rowEl.classList.toggle('pt-cb', newStatus === 'chargeback');
+  }
   const { error } = await sbUpsertPolicy(policy);
   if (error) { showToast('Status update failed: ' + error.message, '#f87171'); return; }
   updateBonusFromTracker();
@@ -10696,119 +10811,185 @@ function autoSetPaidOnDraftDate() {
   if (changed) localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
 }
 
-function renderPolicies() {
-  autoSetPaidOnDraftDate();
-  const tbody = document.getElementById('pol-tbody');
-  const tbl = document.getElementById('pol-table');
-  const empty = document.getElementById('pol-empty');
+// ============================================================
+// POLICY TRACKER — Ledger list view (pure view builder + render)
+// __PT_PURE_START__  (harness-extractable: the block between the PURE
+// markers depends only on fmt$, escHTML, getProductDisplayLabel,
+// getPlanDisplayLabel and icon; no DOM/global-state access.)
+// ============================================================
+const PT_PAGE_SIZE = 15;
+const PT_STATUS_ORDER = ['pending','approved','issued','paid','lapsed','chargeback'];
+const PT_STATUS_LABELS = {pending:'Pending',approved:'Sub/Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed',chargeback:'Charge Back'};
 
-  const sMap = {pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l',chargeback:'sp-cb'};
-  const statusOrder = ['pending','approved','issued','paid','lapsed','chargeback'];
+// Submitted date: explicit field, else derived from the id timestamp.
+function _ptGetSub(p){ return p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : ''); }
 
-  // Compute totals from ALL policies (unaffected by filters)
+// Pure: given all policies + filter/sort/page, return totals, the current
+// page's row HTML, and the pager HTML. Totals span ALL policies; the table
+// reflects the filtered + sorted + paginated slice.
+function _ptComputeView(all, filter, sort, page){
+  all = Array.isArray(all) ? all : [];
+  filter = filter || {};
+  const cmpDate = (a,b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : (a < b ? -1 : a > b ? 1 : 0);
+
   let totAP=0, totAdv=0, issued=0, amAP=0, amamAP=0;
-  policies.forEach(p => {
-    const monthly = p.monthly || +(p.ap / 12).toFixed(2);
+  all.forEach(p => {
+    const monthly = p.monthly || +(((p.ap||0)) / 12).toFixed(2);
     const ap = p.ap || +(monthly * 12).toFixed(2);
     const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
     totAP += ap||0;
     totAdv += advComm||0;
-    if(['issued','paid','approved'].includes(p.status)) issued++;
-    if(p.carrier==='Americo') amAP += ap||0;
-    if((p.carrier||'').includes('Amicable')) amamAP += ap||0;
+    if (['issued','paid','approved'].includes(p.status)) issued++;
+    if (p.carrier === 'Americo') amAP += ap||0;
+    if ((p.carrier||'').includes('Amicable')) amamAP += ap||0;
   });
 
-  // Apply filters
-  const cmpDate = (a, b) => { if(!a&&!b) return 0; if(!a) return 1; if(!b) return -1; return a<b?-1:a>b?1:0; };
-  const getSub = p => p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : '');
-  let display = policies.filter(p => {
-    if (ptFilter.client && !(p.client||'').toLowerCase().includes(ptFilter.client)) return false;
-    if (ptFilter.carrier && p.carrier !== ptFilter.carrier) return false;
-    if (ptFilter.submitted && getSub(p) !== ptFilter.submitted) return false;
-    if (ptFilter.draft && (p.draft||'') !== ptFilter.draft) return false;
-    if (ptFilter.status && p.status !== ptFilter.status) return false;
+  let display = all.filter(p => {
+    if (filter.client && !(p.client||'').toLowerCase().includes(filter.client)) return false;
+    if (filter.carrier && p.carrier !== filter.carrier) return false;
+    if (filter.submitted && _ptGetSub(p) !== filter.submitted) return false;
+    if (filter.draft && (p.draft||'') !== filter.draft) return false;
+    if (filter.status && p.status !== filter.status) return false;
     return true;
   });
 
-  // Apply sort
-  switch (ptSort) {
-    case 'status':    display.sort((a,b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)); break;
+  switch (sort) {
+    case 'status':    display.sort((a,b) => PT_STATUS_ORDER.indexOf(a.status) - PT_STATUS_ORDER.indexOf(b.status)); break;
     case 'carrier':   display.sort((a,b) => (a.carrier||'').localeCompare(b.carrier||'')); break;
     case 'client-az': display.sort((a,b) => (a.client||'').localeCompare(b.client||'')); break;
     case 'draft-asc': display.sort((a,b) => cmpDate(a.draft, b.draft)); break;
     case 'draft-desc':display.sort((a,b) => cmpDate(b.draft, a.draft)); break;
-    case 'sub-asc':   display.sort((a,b) => cmpDate(getSub(a), getSub(b))); break;
-    case 'sub-desc':  display.sort((a,b) => cmpDate(getSub(b), getSub(a))); break;
+    case 'sub-asc':   display.sort((a,b) => cmpDate(_ptGetSub(a), _ptGetSub(b))); break;
+    case 'sub-desc':  display.sort((a,b) => cmpDate(_ptGetSub(b), _ptGetSub(a))); break;
   }
 
-  // Show/hide table vs empty state
-  if (!policies.length) {
-    tbl.style.display='none'; empty.style.display='block';
-    empty.innerHTML = '<div class="ico" data-ico="clipboard-text" data-size="32"></div><p>No policies yet. Click &quot;+ Add Policy&quot; to start.</p>';
-    mountIcons(empty);
-  } else if (!display.length) {
-    tbl.style.display='none'; empty.style.display='block';
-    empty.innerHTML = '<div class="ico" data-ico="funnel" data-size="32"></div><p>No policies match your filters.</p>';
-    mountIcons(empty);
+  const total = display.length;
+  const totalPages = Math.max(1, Math.ceil(total / PT_PAGE_SIZE));
+  const cur = Math.min(Math.max(1, page || 1), totalPages);
+  const start = (cur - 1) * PT_PAGE_SIZE;
+  const slice = display.slice(start, start + PT_PAGE_SIZE);
+
+  return {
+    totals: { totAP, totAdv, cnt: all.length, issued, amAP, amamAP },
+    total, totalPages, cur, start,
+    hasAny: all.length > 0,
+    matched: total,
+    rowsHTML: slice.map(_ptRowHTML).join(''),
+    pagerHTML: _ptPagerHTML(total, cur, totalPages, start)
+  };
+}
+
+function _ptRowHTML(p){
+  const monthly = p.monthly || +(((p.ap||0)) / 12).toFixed(2);
+  const ap = p.ap || +(monthly * 12).toFixed(2);
+  const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
+  const st = PT_STATUS_ORDER.includes(p.status) ? p.status : 'pending';
+  const cb = st === 'chargeback' ? ' pt-cb' : '';
+  const sub = _ptGetSub(p) || '—';
+  const draft = escHTML(p.draft) || '—';
+  const opts = PT_STATUS_ORDER.map(kk =>
+    '<option value="'+kk+'"'+(st===kk?' selected':'')+'>'+PT_STATUS_LABELS[kk]+'</option>').join('');
+  return ''+
+  '<div class="pt-item">'+
+    '<div class="pt-grid pt-row'+cb+'">'+
+      '<div class="pt-ell" style="font-size:13px;font-weight:500;color:#0F1D3D">'+escHTML(p.client)+'</div>'+
+      '<div class="pt-ell" style="font-size:13px;color:#3B372F">'+escHTML(p.carrier)+'</div>'+
+      '<div class="pt-ell" style="font-size:12.5px;color:#3B372F">'+escHTML(getProductDisplayLabel(p.product))+'</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:#0F1D3D;white-space:nowrap">'+fmt$(monthly)+'/mo</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:#3B372F;white-space:nowrap">'+fmt$(ap)+'/yr</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:#6B6459;white-space:nowrap">'+escHTML(sub)+'</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:#6B6459;white-space:nowrap">'+draft+'</div>'+
+      '<div style="white-space:nowrap"><span class="lgm" style="font-size:12.5px;font-weight:500;color:#1B7A43">'+fmt$(advComm)+'</span></div>'+
+      '<div class="pt-ell" style="font-size:12px;color:#3B372F">'+escHTML(getPlanDisplayLabel(p.cls))+'</div>'+
+      '<div style="min-width:0"><select class="pt-status pt-status--'+st+'" onchange="updatePolicyStatus('+p.id+',this.value,this)" title="Change status">'+opts+'</select></div>'+
+      '<div class="pt-acts">'+
+        '<button class="pt-act" id="info-btn-'+p.id+'" onclick="toggleClientInfo('+p.id+')" title="View/Edit client info">'+icon('user',{size:18})+'</button>'+
+        '<button class="pt-act pt-act-del" onclick="deletePolicy('+p.id+')" title="Delete policy">'+icon('trash',{size:18})+'</button>'+
+        '<button class="pt-act pt-act-edit" onclick="openEditPolicy('+p.id+')" title="Edit policy details">'+icon('pencil',{size:18})+'</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="notes-row-'+p.id+'" class="pt-notes" style="display:none">'+
+      '<div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#948C7F;margin-bottom:8px">Client Info — '+escHTML(p.client)+'</div>'+
+      '<textarea id="notes-ta-'+p.id+'" class="pt-notes-ta" placeholder="Enter client details: DOB, SSN, address, beneficiaries, health notes, contact info...">'+escHTML(p.clientNotes ?? p.notes ?? '')+'</textarea>'+
+      '<div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">'+
+        '<button class="pt-btn pt-btn-ghost" onclick="toggleClientInfo('+p.id+')">Close</button>'+
+        '<button class="pt-btn pt-btn-primary" onclick="saveClientNotes('+p.id+')">Save</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+
+function _ptPagerHTML(total, cur, totalPages, start){
+  if (totalPages <= 1) return '';
+  const from = total === 0 ? 0 : start + 1;
+  const to = Math.min(start + PT_PAGE_SIZE, total);
+  let chips = '';
+  for (let i = 1; i <= totalPages; i++) {
+    chips += '<button class="pt-pgchip'+(i===cur?' active':'')+'" onclick="ptGoToPage('+i+')">'+i+'</button>';
+  }
+  return '<div class="pt-pager">'+
+    '<div class="pt-pginfo">Showing '+from+'–'+to+' of '+total+'</div>'+
+    '<div class="pt-pgnav">'+
+      '<button class="pt-pgbtn" onclick="ptPrevPage()"'+(cur<=1?' disabled':'')+'>Prev</button>'+
+      chips+
+      '<button class="pt-pgbtn" onclick="ptNextPage()"'+(cur>=totalPages?' disabled':'')+'>Next</button>'+
+    '</div>'+
+  '</div>';
+}
+// __PT_PURE_END__
+
+function renderPolicies() {
+  autoSetPaidOnDraftDate();
+  const tbody = document.getElementById('pol-tbody');
+  const empty = document.getElementById('pol-empty');
+  const pager = document.getElementById('pt-pager');
+  if (!tbody) return;
+
+  const view = _ptComputeView(policies, ptFilter, ptSort, ptPage);
+  ptPage = view.cur;   // clamp (deletes / filter changes may drop the last page)
+
+  if (!view.hasAny) {
+    tbody.innerHTML = '';
+    if (empty) { empty.style.display = 'flex'; empty.innerHTML = icon('clipboard-text',{size:32}) + '<p style="margin:0">No policies yet. Click “+ Add Policy” to start.</p>'; }
+  } else if (view.matched === 0) {
+    tbody.innerHTML = '';
+    if (empty) { empty.style.display = 'flex'; empty.innerHTML = icon('funnel',{size:32}) + '<p style="margin:0">No policies match your filters.</p>'; }
   } else {
-    tbl.style.display='table'; empty.style.display='none';
+    if (empty) empty.style.display = 'none';
+    tbody.innerHTML = view.rowsHTML;
   }
+  if (pager) pager.innerHTML = view.pagerHTML;
 
-  tbody.innerHTML = '';
-  display.forEach(p => {
-    const monthly = p.monthly || +(p.ap / 12).toFixed(2);
-    const ap = p.ap || +(monthly * 12).toFixed(2);
-    const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="color:var(--text);font-weight:500">${escHTML(p.client)}</td>
-      <td>${escHTML(p.carrier)}</td><td style="font-size:12px">${escHTML(getProductDisplayLabel(p.product))}</td>
-      <td class="mono text-b">${fmt$(monthly)}/mo</td>
-      <td class="mono">${fmt$(ap)}/yr</td>
-      <td class="mono">${getSub(p)||'—'}</td>
-      <td class="mono">${escHTML(p.draft)||'—'}</td>
-      <td class="mono text-g">${fmt$(advComm)} <span style="font-size:10px;color:var(--text3)">(${(p.commPct||0).toFixed(1)}%×75%)</span></td>
-      <td style="font-size:11px;color:var(--text3)">${escHTML(getPlanDisplayLabel(p.cls))}</td>
-      <td><select class="status-sel ${sMap[p.status]||'sp-p'}" onchange="updatePolicyStatus(${p.id},this.value,this)" title="Change status">
-        <option value="pending" ${p.status==='pending'?'selected':''}>Pending</option>
-        <option value="approved" ${p.status==='approved'?'selected':''}>Sub/Approved</option>
-        <option value="issued" ${p.status==='issued'?'selected':''}>Issued</option>
-        <option value="paid" ${p.status==='paid'?'selected':''}>Paid</option>
-        <option value="lapsed" ${p.status==='lapsed'?'selected':''}>Lapsed</option>
-        <option value="chargeback" ${p.status==='chargeback'?'selected':''}>Charge Back</option>
-      </select></td>
-      <td style="white-space:nowrap">
-        <button class="info-btn" id="info-btn-${p.id}" onclick="toggleClientInfo(${p.id})" title="View/Edit client info">${icon('user',{size:14})}</button>
-        <button class="del-btn" onclick="deletePolicy(${p.id})" title="Delete policy">${icon('trash',{size:14})}</button>
-        <button class="info-btn" onclick="openEditPolicy(${p.id})" title="Edit policy details" style="color:var(--ds-color-info)">${icon('pencil',{size:14})}</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-    const notesRow = document.createElement('tr');
-    notesRow.id = `notes-row-${p.id}`;
-    notesRow.style.display = 'none';
-    notesRow.innerHTML = `
-      <td colspan="11" style="padding:0">
-        <div class="client-notes-panel">
-          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Client Info — ${escHTML(p.client)}</div>
-          <textarea id="notes-ta-${p.id}" class="client-notes-ta" placeholder="Enter client details: DOB, SSN, address, beneficiaries, health notes, contact info...">${escHTML(p.clientNotes ?? p.notes ?? '')}</textarea>
-          <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
-            <button class="btn btn-s btn-sm" onclick="toggleClientInfo(${p.id})">Close</button>
-            <button class="btn btn-p btn-sm" onclick="saveClientNotes(${p.id})">Save</button>
-          </div>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(notesRow);
-  });
-
-  document.getElementById('total-ap').textContent = fmt$(totAP);
-  document.getElementById('total-comm').textContent = fmt$(totAdv);
-  document.getElementById('total-cnt').textContent = policies.length;
-  document.getElementById('total-issued').textContent = issued;
-  document.getElementById('am-ap').textContent = fmt$(amAP);
-  document.getElementById('amam-ap').textContent = fmt$(amamAP);
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('total-ap', fmt$(view.totals.totAP));
+  set('total-comm', fmt$(view.totals.totAdv));
+  set('total-cnt', view.totals.cnt);
+  set('total-issued', view.totals.issued);
+  set('am-ap', fmt$(view.totals.amAP));
+  set('amam-ap', fmt$(view.totals.amamAP));
   if (typeof renderIncomeReality === 'function') renderIncomeReality();
+}
+
+// Pagination controls (clamping happens in renderPolicies via view.cur).
+function ptGoToPage(n){ ptPage = n; renderPolicies(); }
+function ptPrevPage(){ ptPage = Math.max(1, ptPage - 1); renderPolicies(); }
+function ptNextPage(){ ptPage = ptPage + 1; renderPolicies(); }
+
+// Clickable column headers — toggle asc/desc where the sort dropdown offers
+// both, sync the Sort By <select>, and reset to page 1.
+function ptHeaderSort(key){
+  let next;
+  if (key === 'submitted')   next = (ptSort === 'sub-asc')   ? 'sub-desc'   : 'sub-asc';
+  else if (key === 'draft')  next = (ptSort === 'draft-asc') ? 'draft-desc' : 'draft-asc';
+  else if (key === 'client') next = 'client-az';
+  else if (key === 'carrier')next = 'carrier';
+  else if (key === 'status') next = 'status';
+  else return;
+  ptSort = next;
+  const sel = document.getElementById('ptf-sort');
+  if (sel) sel.value = next;
+  ptPage = 1;
+  renderPolicies();
 }
 
 function applyTrackerFilters() {
@@ -10818,6 +10999,7 @@ function applyTrackerFilters() {
   ptFilter.draft     =  document.getElementById('ptf-draft')?.value     || '';
   ptFilter.status    =  document.getElementById('ptf-status')?.value    || '';
   ptSort             =  document.getElementById('ptf-sort')?.value      || '';
+  ptPage = 1;   // filter/sort change resets to the first page
   renderPolicies();
 }
 
@@ -10826,6 +11008,7 @@ function resetTrackerFilters() {
   ['ptf-carrier','ptf-status','ptf-sort'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
   ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'' };
   ptSort = '';
+  ptPage = 1;
   renderPolicies();
 }
 
@@ -17234,14 +17417,14 @@ function renderTrackerCalendar() {
   const daysInMonth = new Date(yr, mo+1, 0).getDate();
   const daysInPrev  = new Date(yr, mo, 0).getDate();
 
-  // status → { bg, border, color } using CSS variables resolved at runtime
+  // status → { bg, border, color } — Ledger status palette (matches list pills + legend)
   const statusStyle = {
-    pending:    { bg:'var(--ds-color-warning-bg)',   border:'var(--ds-color-warning)',   color:'var(--ds-color-warning)'   },
-    approved:   { bg:'var(--ds-color-momentum-bg)',  border:'var(--ds-color-momentum)',  color:'var(--ds-color-momentum)'  },
-    issued:     { bg:'var(--ds-color-success-bg)',   border:'var(--ds-color-success)',   color:'var(--ds-color-success)'   },
-    paid:       { bg:'var(--ds-color-info-bg)',      border:'var(--ds-color-info)',      color:'var(--ds-color-info)'      },
-    lapsed:     { bg:'var(--ds-color-danger-bg)',    border:'var(--ds-color-danger)',    color:'var(--ds-color-danger)'    },
-    chargeback: { bg:'var(--ds-color-danger-bg)',    border:'var(--ds-color-danger)',    color:'var(--ds-color-danger)'    },
+    pending:    { bg:'#F6EDD8', border:'#C9971F', color:'#8A6116' },
+    approved:   { bg:'#E7EFFB', border:'#5B94E8', color:'#2A5599' },
+    issued:     { bg:'#EEF1F6', border:'#98A1AE', color:'#5A6473' },
+    paid:       { bg:'#E4F2E9', border:'#2E9E5B', color:'#1B7A43' },
+    lapsed:     { bg:'#FBEBDD', border:'#D97B2A', color:'#A34E0C' },
+    chargeback: { bg:'#FAE8E7', border:'#D2483F', color:'#B3261E' },
   };
   const sLbl = {pending:'Pending',approved:'Sub/Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed',chargeback:'Charge Back'};
 
@@ -17291,12 +17474,12 @@ function renderTrackerCalendar() {
         ev.innerHTML =
           `<div class="tc-event-name" style="color:${ss.color}">${escHTML(p.client)}</div>` +
           `<div class="tc-event-carrier" style="color:${ss.color}">${escHTML(p.carrier)}</div>` +
-          `<div class="tc-event-meta"><span>${fmt$(ap)}/yr</span><span style="color:var(--ds-color-success)">${fmt$(advComm)} adv</span></div>`;
+          `<div class="tc-event-meta"><span>${fmt$(ap)}/yr</span><span style="color:#1B7A43">${fmt$(advComm)} adv</span></div>`;
         cell.appendChild(ev);
       });
       if (dayPolicies.length > 3) {
         const more = document.createElement('div');
-        more.style.cssText = 'font-size:10px;color:var(--text3);padding:2px 4px';
+        more.style.cssText = 'font-size:10px;color:#948C7F;padding:2px 4px';
         more.textContent = `+${dayPolicies.length - 3} more`;
         cell.appendChild(more);
       }
