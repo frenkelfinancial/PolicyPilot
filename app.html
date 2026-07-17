@@ -2973,8 +2973,8 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 <style id="ledger-summary-styles">
 .ledger{font-family:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0F1D3D;background:#F5F3F0;-webkit-font-smoothing:antialiased;margin:-26px;padding:0;min-height:calc(100vh - 52px);font-size:13px;line-height:1.45}
 .ledger *{box-sizing:border-box}
-/* Fluid shell: fixed 1440 design canvas, centered, fluid below; canvas fills the sides on wide screens. */
-.ledger .lg-wrap{max-width:1440px;margin:0 auto;padding:20px 24px 32px;min-width:0}
+/* Fluid shell: stretch to fill the space beside the sidebar at every width (no max-width cap, no auto margins). */
+.ledger .lg-wrap{width:100%;padding:20px 24px 32px;min-width:0}
 .ledger .lg-topbar{margin:-20px -24px 16px}
 /* Auto-fit card rows — reflow instead of squishing. --lg-min = sensible column floor, --lg-gap = gap. */
 .ledger .lg-af{display:grid;gap:var(--lg-gap,16px);grid-template-columns:repeat(auto-fit,minmax(min(var(--lg-min,220px),100%),1fr))}
