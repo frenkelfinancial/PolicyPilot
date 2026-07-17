@@ -20,17 +20,20 @@ CREATE TABLE IF NOT EXISTS public.agency_invites (
 ALTER TABLE public.agency_invites ENABLE ROW LEVEL SECURITY;
 
 -- 2. RLS: leaders manage their own invites
+DROP POLICY IF EXISTS "leaders manage their invites" ON public.agency_invites;
 CREATE POLICY "leaders manage their invites"
   ON public.agency_invites FOR ALL TO authenticated
   USING  (leader_id = auth.uid())
   WITH CHECK (leader_id = auth.uid());
 
 -- 3. RLS: invitees can see invites sent to their email
+DROP POLICY IF EXISTS "invitees see their invites" ON public.agency_invites;
 CREATE POLICY "invitees see their invites"
   ON public.agency_invites FOR SELECT TO authenticated
   USING (invitee_email = auth.email());
 
 -- 4. RLS: invitees can update status of their invites (accept / decline)
+DROP POLICY IF EXISTS "invitees respond to invites" ON public.agency_invites;
 CREATE POLICY "invitees respond to invites"
   ON public.agency_invites FOR UPDATE TO authenticated
   USING  (invitee_email = auth.email())
