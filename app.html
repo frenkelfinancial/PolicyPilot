@@ -5525,6 +5525,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <label style="display:flex;align-items:center;gap:6px">Issue Date <span style="font-size:10px;color:var(--text3);font-weight:400">(carrier-issued; defaults to Draft Date)</span></label>
         <input type="date" id="p-issueDate">
       </div>
+      <div class="fg" style="flex:1">
+        <label style="display:flex;align-items:center;gap:6px">Policy # <span style="font-size:10px;color:var(--text3);font-weight:400">(optional; links carrier emails to this policy)</span></label>
+        <input type="text" id="p-policyNum" placeholder="BU6691749">
+      </div>
     </div>
     <div class="mt16"><button class="btn btn-g w-full" onclick="addPolicy()">Save Policy</button></div>
   </div>
@@ -5606,6 +5610,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
       <div class="fg" style="flex:1">
         <label style="display:flex;align-items:center;gap:6px">Issue Date <span style="font-size:10px;color:var(--text3);font-weight:400">(carrier-issued)</span></label>
         <input type="date" id="ep-issueDate">
+      </div>
+      <div class="fg" style="flex:1">
+        <label style="display:flex;align-items:center;gap:6px">Policy # <span style="font-size:10px;color:var(--text3);font-weight:400">(links carrier emails to this policy)</span></label>
+        <input type="text" id="ep-policyNum" placeholder="BU6691749">
       </div>
     </div>
     <div class="mt16"><button class="btn btn-g w-full" onclick="saveEditPolicy()">Save Changes</button></div>
@@ -10639,9 +10647,12 @@ async function addPolicy() {
   const termYrEl = document.getElementById('p-term-years');
   const termYears = (termYrEl && document.getElementById('p-term-year-fg')?.style.display !== 'none') ? parseInt(termYrEl.value) || null : null;
 
+  const policyNumber = (document.getElementById('p-policyNum')?.value || '').trim();
+
   const policy = { id:Date.now(), client, carrier, product, cls, monthly, ap, cov, dateSubmitted, draft, status, advComm, payDate, commPct };
   if (issueDate) policy.issueDate = issueDate;
   if (termYears) policy.termYears = termYears;
+  if (policyNumber) policy.policyNumber = policyNumber;
 
   const { error } = await sbUpsertPolicy(policy);
   if (error) { alert('Save failed: ' + error.message); return; }
@@ -10651,7 +10662,7 @@ async function addPolicy() {
   renderPolicies();
   updateBonusFromTracker();
 
-  ['p-client','p-monthly','p-ap','p-cov','p-dateSubmitted','p-issueDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['p-client','p-monthly','p-ap','p-cov','p-dateSubmitted','p-issueDate','p-policyNum'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   // Phase 7: celebration moment on app submit.
   dashboardMomentApp(policy);
 }
@@ -10703,6 +10714,8 @@ function openEditPolicy(id) {
   const statusSel = document.getElementById('ep-status');
   if (statusSel) statusSel.value = p.status || 'pending';
   document.getElementById('ep-issueDate').value = p.issueDate || '';
+  const polNumEl = document.getElementById('ep-policyNum');
+  if (polNumEl) polNumEl.value = p.policyNumber || '';
   updateCommPctPreview('ep');
   document.getElementById('editPolModal').classList.add('open');
 }
@@ -10740,9 +10753,11 @@ async function saveEditPolicy() {
   const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
   let payDate = p.payDate || '';
   if (draft) { const d = new Date(draft); d.setDate(d.getDate() + 10); payDate = d.toISOString().split('T')[0]; }
+  const policyNumber = (document.getElementById('ep-policyNum')?.value || '').trim();
   const updated = { ...p, client, carrier, product, cls, monthly, ap, cov, dateSubmitted, draft, status, advComm, payDate, commPct };
   if (issueDate) updated.issueDate = issueDate; else delete updated.issueDate;
   if (termYears) updated.termYears = termYears; else delete updated.termYears;
+  if (policyNumber) updated.policyNumber = policyNumber; else delete updated.policyNumber;
   const { error } = await sbUpsertPolicy(updated);
   if (error) { alert('Save failed: ' + error.message); return; }
   const idx = policies.findIndex(pol => pol.id === id);
@@ -17990,6 +18005,7 @@ function cmEmailStatus(e){
   if (e.parse_status === 'failed') return { label:'Parse failed', color:'#dc2626' };
   if (e.parse_status === 'pending_parse') return { label:'Queued', color:'var(--text3)' };
   const pes = e.parsed_events || [];
+  if (pes.some(p => p.applied)) return { label:'Updated tracker', color:'#10b981' };
   if (pes.some(p => p.matched_policy_id)) return { label:'Linked', color:'#10b981' };
   if (e.parse_status === 'review' || pes.some(p => !CM_COMMISSION_TYPES.has(p.event_type) && !p.matched_policy_id)) return { label:'Needs review', color:'#f59e0b' };
   if (pes.length && pes.every(p => CM_COMMISSION_TYPES.has(p.event_type))) return { label:'Commission', color:'#5ba0e8' };
@@ -18014,7 +18030,7 @@ async function renderCarrierMail() {
     await cmEnsureAccountEmail();
     const [em, nud] = await Promise.all([
       sb.from('email_ingest_log')
-        .select('id,gmail_message_id,carrier,email_type,route,subject,received_at,parse_status,done_at,parsed_events(id,event_type,client_name,policy_number_raw,amounts,event_date,details,matched_policy_id)')
+        .select('id,gmail_message_id,carrier,email_type,route,subject,received_at,parse_status,done_at,parsed_events(id,event_type,client_name,policy_number_raw,amounts,event_date,details,matched_policy_id,applied)')
         .is('deleted_at', null)
         .order('received_at', { ascending: false })
         .limit(200),
@@ -18149,15 +18165,31 @@ async function cmRefreshUrgent() {
   if (typeof renderActionHub === 'function') renderActionHub();
 }
 
-// One button: run the whole pipeline (sync → parse → match) then re-render.
+// One button: run the whole pipeline (sync → parse → match+apply) then
+// re-render. The same pipeline also runs unattended twice a day (9 AM / 5 PM
+// Central) via the email-pipeline cron — this button is the on-demand version.
 async function cmSyncParse(btn) {
   const o = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = 'Working…'; }
   try {
     await sb.functions.invoke('gmail-sync', { body: { full_scan_days: 30 } });
     await sb.functions.invoke('parse-email', { body: {} });
-    await sb.functions.invoke('match-events', { body: {} });
-    showToast('Carrier mail refreshed.', '#10b981');
+    const { data: matchRes } = await sb.functions.invoke('match-events', { body: {} });
+    const changed = Number(matchRes && matchRes.status_changed) || 0;
+    // match-events may have written statuses back to policies — re-pull so the
+    // tracker (and local cache) reflect the auto-applied changes immediately.
+    if ((Number(matchRes && matchRes.applied) || 0) > 0) {
+      const remote = await sbPullPolicies();
+      if (remote !== null) {
+        policies = remote;
+        localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
+        renderPolicies();
+        updateBonusFromTracker();
+      }
+    }
+    showToast(changed > 0
+      ? ('Carrier mail refreshed — ' + changed + (changed === 1 ? ' policy status' : ' policy statuses') + ' auto-updated.')
+      : 'Carrier mail refreshed.', '#10b981');
   } catch (_) {
     showToast('Refresh failed — try again.', '#dc2626');
   } finally {
