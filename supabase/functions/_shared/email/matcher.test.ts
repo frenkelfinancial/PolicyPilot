@@ -78,9 +78,36 @@ test("masked last-5 with multiple hits -> ambiguous review", () => {
   assert.equal(r.status === "review" && r.candidateIds.length, 2);
 });
 
-test("name+carrier candidate is surfaced for confirmation, never auto-applied", () => {
+test("unique strong name+carrier match auto-attaches at high confidence", () => {
   const policies = [{ id: "p1", carrierKey: "transamerica", name: "Terry Wingler", policyNumber: null }];
   const r = matchEvent(ev({ clientName: "WINGLER, TERRY", policyNumber: null }), policies);
+  assert.equal(r.status, "matched");
+  assert.equal(r.status === "matched" && r.method, "name_carrier");
+  assert.equal(r.status === "matched" && r.policyId, "p1");
+});
+
+test("strong name match but low parse confidence -> review, not auto-apply", () => {
+  const policies = [{ id: "p1", carrierKey: "transamerica", name: "Terry Wingler", policyNumber: null }];
+  const r = matchEvent(ev({ clientName: "WINGLER, TERRY", policyNumber: null, confidence: 0.7 }), policies);
+  assert.equal(r.status, "review");
+  assert.equal(r.status === "review" && r.reason, "ambiguous_match");
+  assert.deepEqual(r.status === "review" && r.candidateIds, ["p1"]);
+});
+
+test("two strong name matches -> ambiguous review, never auto-applied", () => {
+  const policies = [
+    { id: "p1", carrierKey: "transamerica", name: "Terry Wingler", policyNumber: null },
+    { id: "p2", carrierKey: "transamerica", name: "Terry Wingler", policyNumber: null },
+  ];
+  const r = matchEvent(ev({ clientName: "Terry Wingler", policyNumber: null }), policies);
+  assert.equal(r.status, "review");
+  assert.equal(r.status === "review" && r.reason, "ambiguous_match");
+  assert.equal(r.status === "review" && r.candidateIds.length, 2);
+});
+
+test("fuzzy (non-strong) name candidate is surfaced for confirmation, never auto-applied", () => {
+  const policies = [{ id: "p1", carrierKey: "transamerica", name: "John A. Smith Jr.", policyNumber: null }];
+  const r = matchEvent(ev({ clientName: "John Smith", policyNumber: null }), policies);
   assert.equal(r.status, "review");
   assert.equal(r.status === "review" && r.reason, "ambiguous_match");
   assert.deepEqual(r.status === "review" && r.candidateIds, ["p1"]);

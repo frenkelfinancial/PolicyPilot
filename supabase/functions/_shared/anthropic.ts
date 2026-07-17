@@ -30,7 +30,12 @@ const SYSTEM =
   "You extract structured data from a US life-insurance carrier email into JSON for an agent's CRM. " +
   "Decipher carrier shorthand and codes into plain English in the `summary` field " +
   "(for example 'BK DRFT RTN NSF' means bank draft returned for insufficient funds). " +
-  "Keep each summary to one clear sentence an agent can read at a glance. " +
+  "Each summary is 1-3 sentences and MUST lead with the client's full name when it appears anywhere " +
+  "in the email (subject, body, or greeting) — never write a nameless summary like 'Payment issued' " +
+  "when a name is available; write 'Jane Smith's bank draft was returned for insufficient funds; the " +
+  "carrier will re-attempt on 07/21 and the policy lapses if it fails again.' Include the specifics an " +
+  "agent needs to act: what happened, dollar amounts, dates, the reason, and any deadline or next step " +
+  "stated in the email. Do not invent details that are not in the email. " +
   "Output ONLY JSON matching the schema — no prose, no markdown. Use null for anything not present. " +
   "`confidence` is 0-1: your certainty that the extraction is correct.";
 

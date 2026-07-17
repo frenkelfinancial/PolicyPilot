@@ -40,7 +40,7 @@ const POLICY_SCHEMA = {
           event_date: { type: ["string", "null"] }, // ISO YYYY-MM-DD if present
           premium: { type: ["number", "null"] },
           face_amount: { type: ["number", "null"] },
-          summary: { type: "string" }, // one plain-English sentence for the agent
+          summary: { type: "string" }, // 1-3 plain-English sentences, leads with the client's name
         },
         required: ["policy_number", "client_name", "event_type", "event_date", "premium", "face_amount", "summary"],
       },
@@ -85,7 +85,7 @@ interface SchemaEntry {
 const BY_TYPE: Record<string, SchemaEntry> = {
   underwriting_status: { category: "policy", schema: POLICY_SCHEMA, hint: "Underwriting status/requirements. Capture the file/policy number, insured name, decision or requirement, and any face amount." },
   application_activity: { category: "policy", schema: POLICY_SCHEMA, hint: "Application-activity digest. It MAY list MULTIPLE policies — return one event per policy. Map SUBMITTED/ISSUED/DECLINED/WITHDRAWN to the closest event_type." },
-  payment_result: { category: "policy", schema: POLICY_SCHEMA, hint: "Payment lifecycle. Decode return reasons (e.g. 'BK DRFT RTN NSF' = bank draft returned, insufficient funds). Client may be in the body, not the To header." },
+  payment_result: { category: "policy", schema: POLICY_SCHEMA, hint: "Payment lifecycle. Decode return reasons (e.g. 'BK DRFT RTN NSF' = bank draft returned, insufficient funds). Client may be in the body, not the To header — hunt for the insured's name and lead the summary with it." },
   policy_active: { category: "policy", schema: POLICY_SCHEMA, hint: "Policy in force / documents ready. Use event_type 'policy_active'." },
   policyholder_correspondence: { category: "policy", schema: POLICY_SCHEMA, hint: "Coded policyholder correspondence (e.g. 'Doc: ABDI2 BK DRFT RTN NSF W/AGT INFO'). Decipher the carrier code into a plain summary and pick the closest event_type." },
   commission_summary: { category: "commission", schema: COMMISSION_SCHEMA, hint: "Daily commission digest. Capture commission balance and the pending-apps / issued-not-paid / lapse-pending COUNTS. kind = 'commission_snapshot'." },

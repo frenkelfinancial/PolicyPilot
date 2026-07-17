@@ -74,3 +74,14 @@ verify_jwt = false
 # correct and desired for it.
 [functions.summary-unsubscribe]
 verify_jwt = false
+
+# email-pipeline: the autonomous carrier-mail orchestrator, invoked only by
+# pg_cron twice daily (see supabase/schedule_email_pipeline.sql) with a
+# dedicated EMAIL_PIPELINE_CRON_SECRET bearer token — not a Supabase JWT — so
+# the platform gate must be off and the function checks the secret internally,
+# same as the wallet/messaging cron functions above. The in-app "Sync & parse"
+# button does NOT call this function; it invokes gmail-sync / parse-email /
+# match-events directly with the user's session JWT, and those keep the
+# platform default (verify_jwt = true).
+[functions.email-pipeline]
+verify_jwt = false
