@@ -3011,7 +3011,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
      ============================================================ -->
 <style id="ledger-fonts">@import url('https://fonts.googleapis.com/css2?family=Spline+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap');</style>
 <style id="ledger-summary-styles">
-.ledger{font-family:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0F1D3D;background:#F5F3F0;-webkit-font-smoothing:antialiased;margin:-26px;padding:0;min-height:calc(100vh - 52px);font-size:13px;line-height:1.45}
+.ledger{font-family:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:var(--lg-text1);background:var(--lg-canvas);-webkit-font-smoothing:antialiased;margin:-26px;padding:0;min-height:calc(100vh - 52px);font-size:13px;line-height:1.45}
 .ledger *{box-sizing:border-box}
 /* Fluid shell: stretch to fill the space beside the sidebar at every width (no max-width cap, no auto margins). */
 .ledger .lg-wrap{width:100%;padding:20px 24px 32px;min-width:0}
@@ -3026,13 +3026,13 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger .lg-tmin{min-width:var(--lg-tmin,640px)}
 .ledger .lgm{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace}
 .ledger .lg-chip{transition:border-color .14s ease}
-.ledger .lg-chip:hover{border-color:#B8CCEE}
+.ledger .lg-chip:hover{border-color:var(--lg-blue-border)}
 .ledger .lg-btn{transition:background .14s ease}
-.ledger .lg-btn:hover{background:#2A5599 !important}
+.ledger .lg-btn:hover{background:var(--lg-blue-deep) !important}
 .ledger .lg-rowh{transition:background .1s ease}
-.ledger .lg-rowh:hover{background:#FAF8F5}
+.ledger .lg-rowh:hover{background:var(--lg-inner)}
 .ledger .lg-th{cursor:pointer;user-select:none}
-.ledger .lg-th:hover{color:#3A73C9}
+.ledger .lg-th:hover{color:var(--lg-blue)}
 .ledger .lg-click{cursor:pointer}
 @keyframes lg-pulse{0%,100%{opacity:.5}50%{opacity:1}}
 .ledger .lg-skel{animation:lg-pulse 1.4s ease-in-out infinite}
@@ -3045,80 +3045,80 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
    ============================================================ */
 /* KPI strip */
 .ledger .pt-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-left:-1px}
-.ledger .pt-kpi{padding:13px 16px;border-left:1px solid #F0EDE7}
-.ledger .pt-kpi-l{font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F}
-.ledger .pt-kpi-v{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;font-size:22px;font-weight:600;color:#0F1D3D;margin-top:2px;white-space:nowrap}
+.ledger .pt-kpi{padding:13px 16px;border-left:1px solid var(--lg-divider)}
+.ledger .pt-kpi-l{font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-caption)}
+.ledger .pt-kpi-v{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;font-size:22px;font-weight:600;color:var(--lg-text1);margin-top:2px;white-space:nowrap}
 /* View tabs (chips) */
 .ledger .tracker-tabs{display:flex;gap:8px;background:transparent;padding:0;border-radius:0;width:auto;margin:0}
-.ledger .tracker-tab{padding:6px 12px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;background:#FFFFFF;border:1px solid #E4E0DA;color:#3B372F;box-shadow:none;font-family:'Spline Sans',sans-serif;transition:border-color .14s,color .14s}
-.ledger .tracker-tab:hover:not(.active){border-color:#B8CCEE}
-.ledger .tracker-tab.active{background:#FFFFFF;border-color:#B8CCEE;color:#3A73C9;box-shadow:none}
+.ledger .tracker-tab{padding:6px 12px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2);box-shadow:none;font-family:'Spline Sans',sans-serif;transition:border-color .14s,color .14s}
+.ledger .tracker-tab:hover:not(.active){border-color:var(--lg-blue-border)}
+.ledger .tracker-tab.active{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue);box-shadow:none}
 /* Filters */
 .ledger .pt-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
 .ledger .pt-field{display:flex;flex-direction:column;min-width:0}
-.ledger .pt-field label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#948C7F;margin-bottom:6px}
-.ledger .pt-input{width:100%;height:32px;padding:0 10px;border:1px solid #E4E0DA;border-radius:6px;font-size:12.5px;font-family:'Spline Sans',sans-serif;color:#0F1D3D;background:#FFFFFF;outline:none;transition:border-color .14s}
-.ledger .pt-input:focus{border-color:#B8CCEE}
-.ledger .pt-input::placeholder{color:#B0A99C}
-.ledger input.pt-input[type=date]{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:12px;color:#3B372F;padding:0 8px}
+.ledger .pt-field label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--lg-caption);margin-bottom:6px}
+.ledger .pt-input{width:100%;height:32px;padding:0 10px;border:1px solid var(--lg-border);border-radius:6px;font-size:12.5px;font-family:'Spline Sans',sans-serif;color:var(--lg-text1);background:var(--lg-card);outline:none;transition:border-color .14s}
+.ledger .pt-input:focus{border-color:var(--lg-blue-border)}
+.ledger .pt-input::placeholder{color:var(--lg-faint)}
+.ledger input.pt-input[type=date]{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:12px;color:var(--lg-text2);padding:0 8px}
 .ledger select.pt-input{cursor:pointer;padding-right:8px}
 /* Buttons */
 .ledger .pt-btn{height:32px;border-radius:6px;padding:0 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Spline Sans',sans-serif;white-space:nowrap;transition:background .14s,border-color .14s}
-.ledger .pt-btn-primary{background:#3A73C9;color:#FFFFFF;border:none}
-.ledger .pt-btn-primary:hover{background:#2A5599}
-.ledger .pt-btn-ghost{background:#FFFFFF;border:1px solid #E4E0DA;color:#3B372F;font-weight:500}
-.ledger .pt-btn-ghost:hover{background:#FAF8F5}
+.ledger .pt-btn-primary{background:var(--lg-blue);color:#FFFFFF;border:none}
+.ledger .pt-btn-primary:hover{background:var(--lg-blue-deep)}
+.ledger .pt-btn-ghost{background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2);font-weight:500}
+.ledger .pt-btn-ghost:hover{background:var(--lg-inner)}
 /* Grid table */
 .ledger .pt-tmin{min-width:1228px}
 .ledger .pt-grid{display:grid;grid-template-columns:minmax(108px,1.4fr) minmax(96px,.95fr) minmax(92px,1fr) minmax(66px,.75fr) minmax(78px,.8fr) minmax(84px,.8fr) minmax(88px,.8fr) minmax(88px,.8fr) minmax(92px,.85fr) minmax(108px,.9fr) minmax(116px,1fr) 92px;column-gap:8px;align-items:center;padding:0 16px}
-.ledger .pt-thead{min-height:34px;padding-top:5px;padding-bottom:5px;background:#FAF8F5;border-bottom:1px solid #E4E0DA;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#948C7F}
+.ledger .pt-thead{min-height:34px;padding-top:5px;padding-bottom:5px;background:var(--lg-inner);border-bottom:1px solid var(--lg-border);font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--lg-caption)}
 .ledger .pt-th{cursor:pointer;user-select:none;transition:color .14s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ledger .pt-th:hover{color:#3A73C9}
-.ledger .pt-item{border-bottom:1px solid #F0EDE7}
-.ledger .pt-row{min-height:38px;background:#FFFFFF;transition:background .1s ease}
-.ledger .pt-row:hover{background:#FAF8F5}
-.ledger .pt-row.pt-cb,.ledger .pt-row.pt-cb:hover{background:#FCF1F0}
+.ledger .pt-th:hover{color:var(--lg-blue)}
+.ledger .pt-item{border-bottom:1px solid var(--lg-divider)}
+.ledger .pt-row{min-height:38px;background:var(--lg-card);transition:background .1s ease}
+.ledger .pt-row:hover{background:var(--lg-inner)}
+.ledger .pt-row.pt-cb,.ledger .pt-row.pt-cb:hover{background:var(--lg-red-soft)}
 .ledger .pt-ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 /* Status pill (native <select> styled as a Ledger pill) */
 .ledger .pt-status{appearance:none;-webkit-appearance:none;-moz-appearance:none;border:none;outline:none;cursor:pointer;font-family:'Spline Sans',sans-serif;font-size:11px;font-weight:600;border-radius:6px;padding:3px 22px 3px 9px;max-width:100%;background-repeat:no-repeat;background-position:right 7px center;background-size:9px 6px;transition:filter .14s}
 .ledger .pt-status:hover{filter:brightness(.97)}
-.ledger .pt-status option{font-weight:500;color:#0F1D3D;background:#FFFFFF}
-.ledger .pt-status--pending{background-color:#F6EDD8;color:#8A6116;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A6116' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
-.ledger .pt-status--approved{background-color:#E7EFFB;color:#2A5599;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%232A5599' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
-.ledger .pt-status--issued{background-color:#E7EFFB;color:#2A5599;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%232A5599' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
-.ledger .pt-status--paid{background-color:#E4F2E9;color:#1B7A43;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%231B7A43' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
-.ledger .pt-status--lapsed{background-color:#FBEBDD;color:#A34E0C;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A34E0C' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
-.ledger .pt-status--chargeback{background-color:#FAE8E7;color:#B3261E;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23B3261E' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status option{font-weight:500;color:var(--lg-text1);background:var(--lg-card)}
+.ledger .pt-status--pending{background-color:var(--lg-pill-new-bg);color:var(--lg-pill-new-fg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A6116' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--approved{background-color:var(--lg-blue-soft);color:var(--lg-blue-deep);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%232A5599' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--issued{background-color:var(--lg-blue-soft);color:var(--lg-blue-deep);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%232A5599' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--paid{background-color:var(--lg-green-soft);color:var(--lg-green);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%231B7A43' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--lapsed{background-color:var(--lg-pill-noans-bg);color:var(--lg-pill-noans-fg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A34E0C' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--chargeback{background-color:var(--lg-red-soft);color:var(--lg-red);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23B3261E' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
 /* Row action icons */
 .ledger .pt-acts{display:flex;gap:4px;justify-content:flex-end}
-.ledger .pt-act{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:6px;cursor:pointer;color:#948C7F;transition:background .14s,color .14s}
-.ledger .pt-act:hover{background:#F0EDE7;color:#0F1D3D}
-.ledger .pt-act.active{color:#3A73C9}
-.ledger .pt-act-del:hover{background:#FAE8E7;color:#B3261E}
-.ledger .pt-act-edit:hover{background:#E7EFFB;color:#3A73C9}
+.ledger .pt-act{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:6px;cursor:pointer;color:var(--lg-caption);transition:background .14s,color .14s}
+.ledger .pt-act:hover{background:var(--lg-divider);color:var(--lg-text1)}
+.ledger .pt-act.active{color:var(--lg-blue)}
+.ledger .pt-act-del:hover{background:var(--lg-red-soft);color:var(--lg-red)}
+.ledger .pt-act-edit:hover{background:var(--lg-blue-soft);color:var(--lg-blue)}
 /* Client-notes panel */
-.ledger .pt-notes{background:#FAF8F5;border-top:1px solid #F0EDE7;padding:12px 16px}
-.ledger .pt-notes-ta{width:100%;min-height:72px;padding:8px 10px;border:1px solid #E4E0DA;border-radius:6px;font-size:12.5px;color:#0F1D3D;background:#FFFFFF;outline:none;resize:vertical;line-height:1.45;font-family:'Spline Sans',sans-serif}
-.ledger .pt-notes-ta:focus{border-color:#B8CCEE}
+.ledger .pt-notes{background:var(--lg-inner);border-top:1px solid var(--lg-divider);padding:12px 16px}
+.ledger .pt-notes-ta{width:100%;min-height:72px;padding:8px 10px;border:1px solid var(--lg-border);border-radius:6px;font-size:12.5px;color:var(--lg-text1);background:var(--lg-card);outline:none;resize:vertical;line-height:1.45;font-family:'Spline Sans',sans-serif}
+.ledger .pt-notes-ta:focus{border-color:var(--lg-blue-border)}
 /* Pagination */
-.ledger .pt-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid #E4E0DA;background:#FFFFFF}
-.ledger .pt-pginfo{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:11px;color:#948C7F}
+.ledger .pt-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid var(--lg-border);background:var(--lg-card)}
+.ledger .pt-pginfo{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:11px;color:var(--lg-caption)}
 .ledger .pt-pgnav{display:flex;align-items:center;gap:6px}
-.ledger .pt-pgchip{height:28px;min-width:28px;padding:0 8px;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:12px;font-weight:600;color:#3B372F;cursor:pointer;transition:background .14s,border-color .14s}
-.ledger .pt-pgchip:hover:not(:disabled){background:#FAF8F5}
-.ledger .pt-pgchip.active{border-color:#B8CCEE;color:#3A73C9}
-.ledger .pt-pgbtn{height:28px;padding:0 10px;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;font-size:12px;font-weight:500;color:#3B372F;cursor:pointer;transition:background .14s}
-.ledger .pt-pgbtn:hover:not(:disabled){background:#FAF8F5}
-.ledger .pt-pgbtn:disabled{color:#B0A99C;cursor:default}
+.ledger .pt-pgchip{height:28px;min-width:28px;padding:0 8px;background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:12px;font-weight:600;color:var(--lg-text2);cursor:pointer;transition:background .14s,border-color .14s}
+.ledger .pt-pgchip:hover:not(:disabled){background:var(--lg-inner)}
+.ledger .pt-pgchip.active{border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger .pt-pgbtn{height:28px;padding:0 10px;background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;font-size:12px;font-weight:500;color:var(--lg-text2);cursor:pointer;transition:background .14s}
+.ledger .pt-pgbtn:hover:not(:disabled){background:var(--lg-inner)}
+.ledger .pt-pgbtn:disabled{color:var(--lg-faint);cursor:default}
 /* Empty state */
-.ledger .pt-empty{padding:34px 16px;text-align:center;font-size:12.5px;color:#948C7F;display:flex;flex-direction:column;align-items:center;gap:10px}
-.ledger .pt-empty svg{color:#B0A99C}
+.ledger .pt-empty{padding:34px 16px;text-align:center;font-size:12.5px;color:var(--lg-caption);display:flex;flex-direction:column;align-items:center;gap:10px}
+.ledger .pt-empty svg{color:var(--lg-faint)}
 /* Calendar (Ledger token overrides — tracker calendar only) */
-.ledger .cal-cell{border-right:1px solid #F0EDE7;border-bottom:1px solid #F0EDE7;background:#FFFFFF}
-.ledger .cal-cell.other-month{background:#FAF8F5;opacity:.6}
-.ledger .cal-cell.today{background:#E7EFFB;border-color:#B8CCEE}
-.ledger .cal-day-num{color:#948C7F}
-.ledger .cal-cell.today .cal-day-num{color:#3A73C9}
+.ledger .cal-cell{border-right:1px solid var(--lg-divider);border-bottom:1px solid var(--lg-divider);background:var(--lg-card)}
+.ledger .cal-cell.other-month{background:var(--lg-inner);opacity:.6}
+.ledger .cal-cell.today{background:var(--lg-blue-soft);border-color:var(--lg-blue-border)}
+.ledger .cal-day-num{color:var(--lg-caption)}
+.ledger .cal-cell.today .cal-day-num{color:var(--lg-blue)}
 .ledger .tc-event{border-radius:6px}
 @media(max-width:900px){.ledger .pt-status{padding-right:20px}}
 </style>
@@ -4129,17 +4129,17 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <!-- Header -->
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
             <div>
-              <div style="font-size:15px;font-weight:600;color:#0F1D3D">Policy Tracker</div>
-              <div style="font-size:12px;color:#948C7F;margin-top:2px">Track all submitted policies, commissions &amp; pay dates</div>
+              <div style="font-size:15px;font-weight:600;color:var(--lg-text1)">Policy Tracker</div>
+              <div style="font-size:12px;color:var(--lg-caption);margin-top:2px">Track all submitted policies, commissions &amp; pay dates</div>
             </div>
             <button class="pt-btn pt-btn-primary" onclick="openAddPolicy()">+ Add Policy</button>
           </div>
 
           <!-- KPI strip -->
-          <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin-bottom:16px">
+          <div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin-bottom:16px">
             <div class="pt-kpis">
               <div class="pt-kpi"><div class="pt-kpi-l">Total Submitted AP</div><div class="pt-kpi-v" id="total-ap">$0</div></div>
-              <div class="pt-kpi"><div class="pt-kpi-l">Est. Adv. Commission</div><div class="pt-kpi-v" id="total-comm" style="color:#1B7A43">$0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Est. Adv. Commission</div><div class="pt-kpi-v" id="total-comm" style="color:var(--lg-green)">$0</div></div>
               <div class="pt-kpi"><div class="pt-kpi-l">Policies</div><div class="pt-kpi-v" id="total-cnt">0</div></div>
               <div class="pt-kpi"><div class="pt-kpi-l">Issued / Active</div><div class="pt-kpi-v" id="total-issued">0</div></div>
               <div class="pt-kpi"><div class="pt-kpi-l">Monthly Americo AP</div><div class="pt-kpi-v" id="am-ap">$0</div></div>
@@ -4207,7 +4207,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
             </div>
 
             <!-- Ledger table card -->
-            <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">
+            <div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">
               <div class="lg-tscroll">
                 <div class="pt-tmin">
                   <div class="pt-grid pt-thead">
@@ -4236,34 +4236,34 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <div id="pt-view-cal" style="display:none">
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
               <button class="pt-btn pt-btn-ghost" onclick="trackerCalNavMonth(-1)">← Prev</button>
-              <div style="font-size:14px;font-weight:600;min-width:150px;text-align:center;color:#0F1D3D" id="tc-month-label"></div>
+              <div style="font-size:14px;font-weight:600;min-width:150px;text-align:center;color:var(--lg-text1)" id="tc-month-label"></div>
               <button class="pt-btn pt-btn-ghost" onclick="trackerCalNavMonth(1)">Next →</button>
-              <div style="margin-left:auto;font-size:11.5px;color:#948C7F">Commission deposits typically 7–10 days after draft</div>
+              <div style="margin-left:auto;font-size:11.5px;color:var(--lg-caption)">Commission deposits typically 7–10 days after draft</div>
             </div>
-            <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin-bottom:16px">
+            <div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin-bottom:16px">
               <div class="pt-kpis">
                 <div class="pt-kpi"><div class="pt-kpi-l">Drafting This Month</div><div class="pt-kpi-v" id="tc-count-mo">0</div></div>
                 <div class="pt-kpi"><div class="pt-kpi-l">Monthly Premium</div><div class="pt-kpi-v" id="tc-ap-mo">$0</div></div>
-                <div class="pt-kpi"><div class="pt-kpi-l">Est. Adv. Commission</div><div class="pt-kpi-v" id="tc-comm-mo" style="color:#1B7A43">$0</div></div>
+                <div class="pt-kpi"><div class="pt-kpi-l">Est. Adv. Commission</div><div class="pt-kpi-v" id="tc-comm-mo" style="color:var(--lg-green)">$0</div></div>
                 <div class="pt-kpi"><div class="pt-kpi-l">Next 30 Days</div><div class="pt-kpi-v" id="tc-next30">0 policies</div></div>
               </div>
             </div>
-            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:#948C7F">
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:var(--lg-caption)">
               <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#C9971F;display:inline-block"></span>Pending</span>
-              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#5B94E8;display:inline-block"></span>Sub/Approved</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:var(--lg-blue-mark);display:inline-block"></span>Sub/Approved</span>
               <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#98A1AE;display:inline-block"></span>Issued</span>
               <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#2E9E5B;display:inline-block"></span>Paid</span>
               <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#D2483F;display:inline-block"></span>Lapsed / Charge Back</span>
             </div>
-            <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">
-              <div style="display:grid;grid-template-columns:repeat(7,1fr);background:#FAF8F5;border-bottom:1px solid #E4E0DA">
-                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Sun</div>
-                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Mon</div>
-                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Tue</div>
-                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Wed</div>
-                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Thu</div>
-                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Fri</div>
-                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Sat</div>
+            <div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--lg-inner);border-bottom:1px solid var(--lg-border)">
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:var(--lg-caption);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Sun</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:var(--lg-caption);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Mon</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:var(--lg-caption);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Tue</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:var(--lg-caption);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Wed</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:var(--lg-caption);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Thu</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:var(--lg-caption);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Fri</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:var(--lg-caption);font-weight:600;letter-spacing:.06em;text-transform:uppercase">Sat</div>
               </div>
               <div id="tc-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr)"></div>
             </div>
@@ -11138,16 +11138,16 @@ function _ptRowHTML(p){
   return ''+
   '<div class="pt-item">'+
     '<div class="pt-grid pt-row'+cb+'">'+
-      '<div class="pt-ell" style="font-size:13px;font-weight:500;color:#0F1D3D">'+escHTML(p.client)+'</div>'+
-      '<div class="pt-ell lgm" style="font-size:12px;color:#6B6459">'+(p.policyNumber ? escHTML(p.policyNumber) : '—')+'</div>'+
-      '<div class="pt-ell" style="font-size:13px;color:#3B372F">'+escHTML(p.carrier)+'</div>'+
-      '<div class="pt-ell" style="font-size:12.5px;color:#3B372F">'+escHTML(getProductDisplayLabel(p.product))+'</div>'+
-      '<div class="lgm" style="font-size:12.5px;color:#0F1D3D;white-space:nowrap">'+fmt$(monthly)+'/mo</div>'+
-      '<div class="lgm" style="font-size:12.5px;color:#3B372F;white-space:nowrap">'+fmt$(ap)+'/yr</div>'+
-      '<div class="lgm" style="font-size:12.5px;color:#6B6459;white-space:nowrap">'+escHTML(sub)+'</div>'+
-      '<div class="lgm" style="font-size:12.5px;color:#6B6459;white-space:nowrap">'+draft+'</div>'+
-      '<div style="white-space:nowrap"><span class="lgm" style="font-size:12.5px;font-weight:500;color:#1B7A43">'+fmt$(advComm)+'</span></div>'+
-      '<div class="pt-ell" style="font-size:12px;color:#3B372F">'+escHTML(getPlanDisplayLabel(p.cls))+'</div>'+
+      '<div class="pt-ell" style="font-size:13px;font-weight:500;color:var(--lg-text1)">'+escHTML(p.client)+'</div>'+
+      '<div class="pt-ell lgm" style="font-size:12px;color:var(--lg-text3)">'+(p.policyNumber ? escHTML(p.policyNumber) : '—')+'</div>'+
+      '<div class="pt-ell" style="font-size:13px;color:var(--lg-text2)">'+escHTML(p.carrier)+'</div>'+
+      '<div class="pt-ell" style="font-size:12.5px;color:var(--lg-text2)">'+escHTML(getProductDisplayLabel(p.product))+'</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:var(--lg-text1);white-space:nowrap">'+fmt$(monthly)+'/mo</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:var(--lg-text2);white-space:nowrap">'+fmt$(ap)+'/yr</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:var(--lg-text3);white-space:nowrap">'+escHTML(sub)+'</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:var(--lg-text3);white-space:nowrap">'+draft+'</div>'+
+      '<div style="white-space:nowrap"><span class="lgm" style="font-size:12.5px;font-weight:500;color:var(--lg-green)">'+fmt$(advComm)+'</span></div>'+
+      '<div class="pt-ell" style="font-size:12px;color:var(--lg-text2)">'+escHTML(getPlanDisplayLabel(p.cls))+'</div>'+
       '<div style="min-width:0"><select class="pt-status pt-status--'+st+'" onchange="updatePolicyStatus('+p.id+',this.value,this)" title="Change status">'+opts+'</select></div>'+
       '<div class="pt-acts">'+
         '<button class="pt-act" id="info-btn-'+p.id+'" onclick="toggleClientInfo('+p.id+')" title="View/Edit client info">'+icon('user',{size:18})+'</button>'+
@@ -11156,7 +11156,7 @@ function _ptRowHTML(p){
       '</div>'+
     '</div>'+
     '<div id="notes-row-'+p.id+'" class="pt-notes" style="display:none">'+
-      '<div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#948C7F;margin-bottom:8px">Client Info — '+escHTML(p.client)+'</div>'+
+      '<div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--lg-caption);margin-bottom:8px">Client Info — '+escHTML(p.client)+'</div>'+
       '<textarea id="notes-ta-'+p.id+'" class="pt-notes-ta" placeholder="Enter client details: DOB, SSN, address, beneficiaries, health notes, contact info...">'+escHTML(p.clientNotes ?? p.notes ?? '')+'</textarea>'+
       '<div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">'+
         '<button class="pt-btn pt-btn-ghost" onclick="toggleClientInfo('+p.id+')">Close</button>'+
@@ -12757,22 +12757,22 @@ async function _lgFetchTeam(range, period){
 }
 
 // ---- shared widget builders ----
-function _lgCard(inner, pad){ return '<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:'+(pad||'14px 16px')+'">'+inner+'</div>'; }
+function _lgCard(inner, pad){ return '<div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:'+(pad||'14px 16px')+'">'+inner+'</div>'; }
 function _lgHead(title, mid, tag){
   return '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">'+
-    '<div style="font-weight:600;font-size:13px;color:#0F1D3D">'+title+'</div>'+
-    (mid?'<span style="font-weight:400;font-size:11.5px;color:#948C7F">'+mid+'</span>':'')+
-    (tag?'<span style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C;margin-left:auto;white-space:nowrap;padding-left:8px">'+tag+'</span>':'')+
+    '<div style="font-weight:600;font-size:13px;color:var(--lg-text1)">'+title+'</div>'+
+    (mid?'<span style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">'+mid+'</span>':'')+
+    (tag?'<span style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-faint);margin-left:auto;white-space:nowrap;padding-left:8px">'+tag+'</span>':'')+
   '</div>';
 }
-function _lgLbl(t){ return '<div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F">'+t+'</div>'; }
+function _lgLbl(t){ return '<div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-caption)">'+t+'</div>'; }
 function _lgStat(label, value, sub, color){
   return '<div>'+_lgLbl(label)+
-    '<div class="lgm" style="font-weight:600;font-size:22px;color:'+(color||'#0F1D3D')+';margin-top:6px;white-space:nowrap">'+value+'</div>'+
-    '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:2px">'+sub+'</div></div>';
+    '<div class="lgm" style="font-weight:600;font-size:22px;color:'+(color||'var(--lg-text1)')+';margin-top:6px;white-space:nowrap">'+value+'</div>'+
+    '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption);margin-top:2px">'+sub+'</div></div>';
 }
-function _lgSkel(w){ return '<div class="lg-skel" style="height:20px;width:'+(w||'62%')+';background:#ECE9E3;border-radius:6px;margin-top:6px"></div>'; }
-function _lgEmpty(t){ return '<div style="font-weight:400;font-size:12px;color:#948C7F;padding:10px 0">'+t+'</div>'; }
+function _lgSkel(w){ return '<div class="lg-skel" style="height:20px;width:'+(w||'62%')+';background:var(--lg-divider);border-radius:6px;margin-top:6px"></div>'; }
+function _lgEmpty(t){ return '<div style="font-weight:400;font-size:12px;color:var(--lg-caption);padding:10px 0">'+t+'</div>'; }
 
 // ============================================================
 // renderSummary — tier switch, composes shared widgets
@@ -12820,7 +12820,7 @@ function renderSummary(){
   // ---- status counts (chargeback folds into lapsed) ----
   const SL = ['pending','approved','issued','paid','lapsed'];
   const barColor = {pending:'#C9971F',approved:'#98A1AE',issued:'#5B94E8',paid:'#2E9E5B',lapsed:'#D97B2A'};
-  const pill = {pending:['Pending UW','#8A6116','#F6EDD8'],approved:['Approved','#5A6472','#ECEEF1'],issued:['Issued &mdash; Not Paid','#2A5599','#E7EFFB'],paid:['Active','#1B7A43','#E4F2E9'],lapsed:['Lapse / CB','#A34E0C','#FBEBDD']};
+  const pill = {pending:['Pending UW','var(--lg-pill-new-fg)','var(--lg-pill-new-bg)'],approved:['Approved','var(--lg-pill-ni-fg)','var(--lg-pill-ni-bg)'],issued:['Issued &mdash; Not Paid','var(--lg-blue-deep)','var(--lg-blue-soft)'],paid:['Active','var(--lg-green)','var(--lg-green-soft)'],lapsed:['Lapse / CB','var(--lg-pill-noans-fg)','var(--lg-pill-noans-bg)']};
   const counts = {pending:0,approved:0,issued:0,paid:0,lapsed:0};
   periodPols.forEach(p=>{ const s=p.status==='chargeback'?'lapsed':p.status; if(counts[s]!=null) counts[s]++; });
   const totalC = periodPols.length;
@@ -12848,20 +12848,20 @@ function renderSummary(){
   // Fluid canvas wrapper: centers the whole page at the 1440 design canvas, fluid below.
   H += '<div class="lg-wrap">';
   // Topbar strip (bleeds to the wrapper edges via .lg-topbar)
-  H += '<div class="lg-topbar" style="height:50px;background:#FFFFFF;border-bottom:1px solid #E4E0DA;display:flex;align-items:center;gap:12px;padding:0 24px;box-sizing:border-box">'+
-    '<div style="font-weight:600;font-size:15px;color:#0F1D3D">Summary</div>'+
+  H += '<div class="lg-topbar" style="height:50px;background:var(--lg-card);border-bottom:1px solid var(--lg-border);display:flex;align-items:center;gap:12px;padding:0 24px;box-sizing:border-box">'+
+    '<div style="font-weight:600;font-size:15px;color:var(--lg-text1)">Summary</div>'+
     '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">'+
-      '<span style="font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F;background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:2px 8px">'+tierLabel+'</span>'+
-      '<span class="lgm" style="font-weight:400;font-size:11.5px;color:#948C7F">'+todayLabel+'</span>'+
-      '<div style="width:26px;height:26px;background:#0F1D3D;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10.5px;color:#FFFFFF">'+_initials+'</div>'+
+      '<span style="font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-caption);background:var(--lg-inner);border:1px solid var(--lg-border);border-radius:6px;padding:2px 8px">'+tierLabel+'</span>'+
+      '<span class="lgm" style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">'+todayLabel+'</span>'+
+      '<div style="width:26px;height:26px;background:var(--lg-text1);border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10.5px;color:#FFFFFF">'+_initials+'</div>'+
     '</div></div>';
 
   H += '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">';
 
   // Period toggle
-  const chip = (p,label)=>{ const on=period===p; return '<button class="lg-chip lg-click" onclick="setLedgerPeriod(\''+p+'\')" style="padding:6px 10px;font-weight:500;font-size:12.5px;background:#FFFFFF;border:1px solid '+(on?'#B8CCEE':'#E4E0DA')+';color:'+(on?'#3A73C9':'#3B372F')+';border-radius:6px;cursor:pointer">'+label+'</button>'; };
+  const chip = (p,label)=>{ const on=period===p; return '<button class="lg-chip lg-click" onclick="setLedgerPeriod(\''+p+'\')" style="padding:6px 10px;font-weight:500;font-size:12.5px;background:var(--lg-card);border:1px solid '+(on?'var(--lg-blue-border)':'var(--lg-border)')+';color:'+(on?'var(--lg-blue)':'var(--lg-text2)')+';border-radius:6px;cursor:pointer">'+label+'</button>'; };
   H += '<div style="display:flex;align-items:center;gap:8px">'+chip('daily','Daily')+chip('weekly','Weekly')+chip('monthly','Monthly')+
-    '<span class="lgm" style="margin-left:auto;font-weight:400;font-size:11.5px;color:#948C7F">'+periodCaption+'</span></div>';
+    '<span class="lgm" style="margin-left:auto;font-weight:400;font-size:11.5px;color:var(--lg-caption)">'+periodCaption+'</span></div>';
 
   // KPI row
   const kpiCard = (label,val,sub,color)=> _lgCard(_lgStat(label,val,sub,color), '13px 16px');
@@ -12891,17 +12891,17 @@ function renderSummary(){
     '<div style="display:flex;align-items:center;gap:16px">'+
       '<div style="position:relative;width:112px;max-width:100%;aspect-ratio:1/1;flex-shrink:0">'+
         '<svg viewBox="0 0 128 128" style="width:100%;height:100%;display:block">'+
-          '<circle cx="64" cy="64" r="56" fill="none" stroke="#F0EDE7" stroke-width="10"></circle>'+
-          '<circle cx="64" cy="64" r="56" fill="none" stroke="#3A73C9" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+goalDash+'" transform="rotate(-90 64 64)"></circle>'+
+          '<circle cx="64" cy="64" r="56" fill="none" stroke="var(--lg-divider)" stroke-width="10"></circle>'+
+          '<circle cx="64" cy="64" r="56" fill="none" stroke="var(--lg-blue)" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+goalDash+'" transform="rotate(-90 64 64)"></circle>'+
         '</svg>'+
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">'+
-          '<span class="lgm" style="font-weight:600;font-size:18px;color:#0F1D3D">'+Math.round(goalPct*100)+'%</span>'+
-          '<span style="font-weight:400;font-size:9.5px;color:#948C7F">of goal</span></div>'+
+          '<span class="lgm" style="font-weight:600;font-size:18px;color:var(--lg-text1)">'+Math.round(goalPct*100)+'%</span>'+
+          '<span style="font-weight:400;font-size:9.5px;color:var(--lg-caption)">of goal</span></div>'+
       '</div>'+
       '<div style="display:flex;flex-direction:column;gap:6px;min-width:0">'+
-        '<div class="lgm" style="font-weight:600;font-size:15px;color:#0F1D3D">'+_lg$(monthAP)+'</div>'+
-        '<div style="font-weight:400;font-size:11.5px;color:#948C7F">of '+_lg$(goal)+' goal</div>'+
-        '<div style="font-weight:400;font-size:11.5px;color:#3B372F">'+goalDays+' days left &middot; <span class="lgm">'+goalNeed+'</span>/day to hit it</div>'+
+        '<div class="lgm" style="font-weight:600;font-size:15px;color:var(--lg-text1)">'+_lg$(monthAP)+'</div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">of '+_lg$(goal)+' goal</div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:var(--lg-text2)">'+goalDays+' days left &middot; <span class="lgm">'+goalNeed+'</span>/day to hit it</div>'+
       '</div>'+
     '</div>';
   const goalCard = _lgCard(_lgHead('Monthly AP goal','', 'Calendar month')+goalRing);
@@ -12918,10 +12918,10 @@ function renderSummary(){
       // Carry the active period so the tracker's Date Submitted range matches this count.
       return '<div class="lg-click" title="Show '+pill[s][0].replace(/&mdash;/g,'-')+' in Policy Tracker" onclick="summaryDrillTo&&summaryDrillTo(\'tracker\',{status:\''+drill+'\',period:\''+period+'\'})" style="display:flex;align-items:center;gap:6px">'+
         '<span style="font-weight:600;font-size:11px;color:'+pill[s][1]+';background:'+pill[s][2]+';padding:2px 8px;border-radius:6px">'+pill[s][0]+'</span>'+
-        '<span class="lgm" style="font-weight:600;font-size:12px;color:#3B372F">'+counts[s]+'</span>'+
-        '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+pct+'</span></div>';
+        '<span class="lgm" style="font-weight:600;font-size:12px;color:var(--lg-text2)">'+counts[s]+'</span>'+
+        '<span class="lgm" style="font-weight:400;font-size:10.5px;color:var(--lg-faint)">'+pct+'</span></div>';
     }).join('');
-    statusBody = '<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:#F0EDE7">'+segs+'</div>'+
+    statusBody = '<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:var(--lg-divider)">'+segs+'</div>'+
       '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+pills+'</div>';
   } else {
     statusBody = _lgEmpty('No policies this period yet.');
@@ -12930,11 +12930,11 @@ function renderSummary(){
 
   let topBody;
   if(carEntries.length){
-    topBody = carEntries.slice(0,3).map((e,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0EDE7">'+
-      '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:12px">'+(i+1)+'</span>'+
-      '<span style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(e[0])+'</span>'+
-      '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:12px;color:#0F1D3D">'+_lg$(e[1])+'</span>'+
-      '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:34px;text-align:right">'+(kAPn?Math.round(e[1]/kAPn*100)+'%':'')+'</span></div>').join('');
+    topBody = carEntries.slice(0,3).map((e,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--lg-divider)">'+
+      '<span class="lgm" style="font-weight:400;font-size:10.5px;color:var(--lg-faint);width:12px">'+(i+1)+'</span>'+
+      '<span style="font-weight:500;font-size:12.5px;color:var(--lg-text1)">'+_lgEsc(e[0])+'</span>'+
+      '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:12px;color:var(--lg-text1)">'+_lg$(e[1])+'</span>'+
+      '<span class="lgm" style="font-weight:400;font-size:10.5px;color:var(--lg-faint);width:34px;text-align:right">'+(kAPn?Math.round(e[1]/kAPn*100)+'%':'')+'</span></div>').join('');
   } else { topBody = _lgEmpty('No carrier production this period.'); }
   const topCard = _lgCard(_lgHead('Top carriers by AP','', periodTag)+topBody);
   H += '<div class="lg-af" style="--lg-min:300px">'+statusCard+topCard+'</div>';
@@ -12967,11 +12967,11 @@ function renderSummary(){
     if(edTotal>0){
       const bars = buckets.map((v,i)=>{ const h=v>0?Math.max(4,Math.round(v/edMax*84)):0; const amt=v>0?(v>=1000?'$'+(v/1000).toFixed(1)+'k':'$'+Math.round(v)):''; const col=i===0?'#3A73C9':'#5B94E8';
         return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0">'+
-          '<span class="lgm" style="font-weight:400;font-size:10px;color:#6B6459">'+amt+'</span>'+
+          '<span class="lgm" style="font-weight:400;font-size:10px;color:var(--lg-text3)">'+amt+'</span>'+
           '<div style="width:100%;height:'+h+'px;background:'+col+';border-radius:3px 3px 0 0"></div>'+
-          '<span class="lgm" style="font-weight:400;font-size:10px;color:#948C7F">'+MON[(now.getMonth()+i)%12]+'</span></div>'; }).join('');
+          '<span class="lgm" style="font-weight:400;font-size:10px;color:var(--lg-caption)">'+MON[(now.getMonth()+i)%12]+'</span></div>'; }).join('');
       edBody = '<div style="display:flex;align-items:flex-end;gap:8px;height:128px">'+bars+'</div>'+
-        '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">est. <span class="lgm" style="font-weight:600;color:#B3261E">'+_lg$(edTotal)+'</span> still at risk across '+atRisk.length+' lapsed policies</div>';
+        '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption);margin-top:10px;border-top:1px solid var(--lg-divider);padding-top:8px">est. <span class="lgm" style="font-weight:600;color:var(--lg-red)">'+_lg$(edTotal)+'</span> still at risk across '+atRisk.length+' lapsed policies</div>';
     } else { edBody = _lgEmpty('No at-risk advances &mdash; nothing in the 9-month window.'); }
     const edCard = _lgCard(_lgHead('Chargeback earn-down','at-risk advance clearing month by month','Book-wide')+edBody);
 
@@ -12980,9 +12980,9 @@ function renderSummary(){
     const perContact = callStats ? (cNum>0&&kCommN>0?'est. $'+(kCommN/cNum).toFixed(2):'&mdash;') : _lgSkel('60%');
     const dialCard = _lgCard(_lgHead('Dial efficiency','', periodTag)+
       '<div style="display:flex;flex-direction:column;gap:12px">'+
-        '<div>'+_lgLbl('Est. $ per dial')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+perDial+'</div></div>'+
-        '<div>'+_lgLbl('Est. $ per contact')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+perContact+'</div></div>'+
-        '<div style="font-weight:400;font-size:11.5px;color:#948C7F;border-top:1px solid #F0EDE7;padding-top:8px">period est. commission &divide; dials / contacts</div>'+
+        '<div>'+_lgLbl('Est. $ per dial')+'<div class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1);margin-top:4px;white-space:nowrap">'+perDial+'</div></div>'+
+        '<div>'+_lgLbl('Est. $ per contact')+'<div class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1);margin-top:4px;white-space:nowrap">'+perContact+'</div></div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption);border-top:1px solid var(--lg-divider);padding-top:8px">period est. commission &divide; dials / contacts</div>'+
       '</div>');
 
     // ---- Term conversion radar (book-wide) ----
@@ -12991,9 +12991,9 @@ function renderSummary(){
     let radarBody;
     if(radarPols.length){
       radarBody = '<div style="display:flex;flex-direction:column;gap:12px">'+
-        '<div>'+_lgLbl('Deadlines within 90 days')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+radarPols.length+' <span style="font-weight:400;font-size:12px;color:#948C7F">policies</span></div></div>'+
-        '<div>'+_lgLbl('Convertible AP')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+_lg$(radarAP)+'</div></div>'+
-        '<div style="font-weight:400;font-size:11.5px;color:#948C7F;border-top:1px solid #F0EDE7;padding-top:8px">term policies with a conversion deadline coming up</div>'+
+        '<div>'+_lgLbl('Deadlines within 90 days')+'<div class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1);margin-top:4px;white-space:nowrap">'+radarPols.length+' <span style="font-weight:400;font-size:12px;color:var(--lg-caption)">policies</span></div></div>'+
+        '<div>'+_lgLbl('Convertible AP')+'<div class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1);margin-top:4px;white-space:nowrap">'+_lg$(radarAP)+'</div></div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption);border-top:1px solid var(--lg-divider);padding-top:8px">term policies with a conversion deadline coming up</div>'+
       '</div>';
     } else { radarBody = _lgEmpty('No conversion deadlines in the next 90 days.'); }
     const radarCard = _lgCard(_lgHead('Term conversion radar','','Book-wide')+radarBody);
@@ -13006,34 +13006,34 @@ function renderSummary(){
     if(totalC>0){
       const fCounts=[totalC,counts.pending,counts.approved,counts.issued,counts.paid];
       const fLabels=['Submitted','In UW','Approved','Issued','Paid'];
-      const FBG=['#F0EDE7','#EDE9E1','#E7E2D8','#DFD9CD','#D6CFC0'];
+      const FBG=['var(--lg-inner)','var(--lg-divider)','var(--lg-border)','var(--lg-border-strong)','var(--lg-border-strong)'];
       const fMax=Math.max(...fCounts,1);
       funnelBody='<div style="display:flex;gap:4px">'+fLabels.map((lbl,i)=>'<div style="flex-grow:'+(0.6+fCounts[i]/fMax*2.4).toFixed(2)+';flex-basis:0;min-width:52px;background:'+FBG[i]+';border-radius:6px;padding:9px 12px">'+
-        '<div style="font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F">'+lbl+'</div>'+
-        '<div class="lgm" style="font-weight:600;font-size:15px;color:#0F1D3D;margin-top:2px">'+fCounts[i]+'</div></div>').join('')+'</div>';
+        '<div style="font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-caption)">'+lbl+'</div>'+
+        '<div class="lgm" style="font-weight:600;font-size:15px;color:var(--lg-text1);margin-top:2px">'+fCounts[i]+'</div></div>').join('')+'</div>';
     } else { funnelBody=_lgEmpty('Nothing submitted this period yet.'); }
     H += _lgCard(
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
-        '<div style="font-weight:600;font-size:13px;color:#0F1D3D">Pipeline funnel</div>'+
-        '<span style="font-weight:600;font-size:11px;color:#1B7A43;background:#E4F2E9;padding:2px 8px;border-radius:6px">Placement '+placement+'</span>'+
-        '<span style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C;margin-left:auto;white-space:nowrap;padding-left:8px">'+periodTag+'</span>'+
+        '<div style="font-weight:600;font-size:13px;color:var(--lg-text1)">Pipeline funnel</div>'+
+        '<span style="font-weight:600;font-size:11px;color:var(--lg-green);background:var(--lg-green-soft);padding:2px 8px;border-radius:6px">Placement '+placement+'</span>'+
+        '<span style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-faint);margin-left:auto;white-space:nowrap;padding-left:8px">'+periodTag+'</span>'+
       '</div>'+funnelBody);
 
     // ---- Carrier mix donut + Persistency + Product mix ----
-    const DCOLORS=['#3A73C9','#5B94E8','#A9C4EE','#C7C1B6','#D8D3CA','#ECEEF1'];
+    const DCOLORS=['var(--lg-blue)','var(--lg-blue-mark)','var(--lg-blue-border)','var(--lg-caption)','var(--lg-border-strong)','var(--lg-faint)'];
     const Cdon=2*Math.PI*46;
     let mixBody;
     if(kAPn>0 && carEntries.length){
       const dEnt=carEntries.slice(0,5); const other=carEntries.slice(5).reduce((s,e)=>s+e[1],0); if(other>0) dEnt.push(['Other',other]);
       let cum=0; const segs=dEnt.map((e,i)=>{ const frac=kAPn?e[1]/kAPn:0; const seg='<circle cx="60" cy="60" r="46" fill="none" stroke="'+DCOLORS[i%6]+'" stroke-width="14" stroke-dasharray="'+(frac*Cdon).toFixed(2)+' '+(Cdon-frac*Cdon).toFixed(2)+'" stroke-dashoffset="'+(-cum*Cdon).toFixed(2)+'" transform="rotate(-90 60 60)"></circle>'; cum+=frac; return seg; }).join('');
       const legend=dEnt.map((e,i)=>'<div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:2px;background:'+DCOLORS[i%6]+';flex-shrink:0"></span>'+
-        '<span style="font-weight:400;font-size:11.5px;color:#3B372F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_lgEsc(e[0])+'</span>'+
-        '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:11px;color:#0F1D3D">'+_lg$(e[1])+'</span></div>').join('');
+        '<span style="font-weight:400;font-size:11.5px;color:var(--lg-text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_lgEsc(e[0])+'</span>'+
+        '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:11px;color:var(--lg-text1)">'+_lg$(e[1])+'</span></div>').join('');
       mixBody='<div style="display:flex;align-items:center;gap:14px"><div style="position:relative;width:116px;max-width:100%;aspect-ratio:1/1;flex-shrink:0">'+
         '<svg viewBox="0 0 120 120" style="width:100%;height:100%;display:block">'+segs+'</svg>'+
         '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">'+
-          '<span class="lgm" style="font-weight:600;font-size:13px;color:#0F1D3D;white-space:nowrap">'+_lgKk(kAPn)+'</span>'+
-          '<span style="font-weight:400;font-size:9px;color:#948C7F">total AP</span></div></div>'+
+          '<span class="lgm" style="font-weight:600;font-size:13px;color:var(--lg-text1);white-space:nowrap">'+_lgKk(kAPn)+'</span>'+
+          '<span style="font-weight:400;font-size:9px;color:var(--lg-caption)">total AP</span></div></div>'+
         '<div style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1">'+legend+'</div></div>';
     } else { mixBody=_lgEmpty('No carrier data for this period.'); }
     const mixCard=_lgCard(_lgHead('Carrier mix','', periodTag)+mixBody);
@@ -13044,14 +13044,14 @@ function renderSummary(){
     const ring=(p)=>{ const dash=(p.rate==null?0:p.rate*RC).toFixed(1)+' '+RC.toFixed(1); const lbl=p.rate==null?'&mdash;':Math.round(p.rate*100)+'%'; const sub=p.rate==null?'no cohort yet':'cohort of '+p.cohort; return {dash,lbl,sub}; };
     const r13=ring(p13), r25=ring(p25);
     const ringHtml=(r,label)=>'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="position:relative;width:84px;max-width:100%;aspect-ratio:1/1">'+
-      '<svg viewBox="0 0 96 96" style="width:100%;height:100%;display:block"><circle cx="48" cy="48" r="40" fill="none" stroke="#F0EDE7" stroke-width="8"></circle>'+
-      '<circle cx="48" cy="48" r="40" fill="none" stroke="#3A73C9" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+r.dash+'" transform="rotate(-90 48 48)"></circle></svg>'+
-      '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center" class="lgm"><span style="font-weight:600;font-size:15px;color:#0F1D3D">'+r.lbl+'</span></div></div>'+
-      '<div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F">'+label+'</div>'+
-      '<div class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+r.sub+'</div></div>';
+      '<svg viewBox="0 0 96 96" style="width:100%;height:100%;display:block"><circle cx="48" cy="48" r="40" fill="none" stroke="var(--lg-divider)" stroke-width="8"></circle>'+
+      '<circle cx="48" cy="48" r="40" fill="none" stroke="var(--lg-blue)" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+r.dash+'" transform="rotate(-90 48 48)"></circle></svg>'+
+      '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center" class="lgm"><span style="font-weight:600;font-size:15px;color:var(--lg-text1)">'+r.lbl+'</span></div></div>'+
+      '<div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-caption)">'+label+'</div>'+
+      '<div class="lgm" style="font-weight:400;font-size:10.5px;color:var(--lg-faint)">'+r.sub+'</div></div>';
     const persistCard=_lgCard(_lgHead('Persistency health','','Book-wide')+
       '<div style="display:flex;gap:18px;justify-content:center">'+ringHtml(r13,'13-month')+ringHtml(r25,'25-month')+'</div>'+
-      '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">benchmarks: 85% at 13 mo &middot; 75% at 25 mo</div>');
+      '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption);margin-top:10px;border-top:1px solid var(--lg-divider);padding-top:8px">benchmarks: 85% at 13 mo &middot; 75% at 25 mo</div>');
 
     const mix=(typeof productMix==='function')?productMix(pols):{groups:new Map(),total:0};
     const mixEnt=[...mix.groups.entries()].sort((a,b)=>b[1]-a[1]);
@@ -13061,14 +13061,14 @@ function renderSummary(){
     const concText=conc?(concWarn?'Concentration alert &mdash; '+_lgEsc(conc.carrier)+' is '+Math.round(conc.pct*100)+'% of in-force AP':'Top carrier: '+_lgEsc(conc.carrier)+' &mdash; '+Math.round(conc.pct*100)+'% of in-force AP'):'No in-force policies yet.';
     let mixRows;
     if(mixEnt.length){
-      mixRows=mixEnt.map(e=>'<div style="display:flex;align-items:center;gap:8px"><span class="lgm" style="font-weight:600;font-size:10.5px;color:#3B372F;width:38px">'+_lgEsc(e[0])+'</span>'+
-        '<div style="flex:1;height:8px;background:#F0EDE7;border-radius:3px;overflow:hidden"><div style="width:'+Math.round(e[1]/mixMax*100)+'%;height:8px;background:#B0A99C;border-radius:3px"></div></div>'+
-        '<span class="lgm" style="font-weight:600;font-size:11px;color:#0F1D3D;width:56px;text-align:right">'+_lg$(e[1])+'</span>'+
-        '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:32px;text-align:right">'+(mix.total?Math.round(e[1]/mix.total*100)+'%':'')+'</span></div>').join('');
+      mixRows=mixEnt.map(e=>'<div style="display:flex;align-items:center;gap:8px"><span class="lgm" style="font-weight:600;font-size:10.5px;color:var(--lg-text2);width:38px">'+_lgEsc(e[0])+'</span>'+
+        '<div style="flex:1;height:8px;background:var(--lg-divider);border-radius:3px;overflow:hidden"><div style="width:'+Math.round(e[1]/mixMax*100)+'%;height:8px;background:var(--lg-faint);border-radius:3px"></div></div>'+
+        '<span class="lgm" style="font-weight:600;font-size:11px;color:var(--lg-text1);width:56px;text-align:right">'+_lg$(e[1])+'</span>'+
+        '<span class="lgm" style="font-weight:400;font-size:10.5px;color:var(--lg-faint);width:32px;text-align:right">'+(mix.total?Math.round(e[1]/mix.total*100)+'%':'')+'</span></div>').join('');
     } else { mixRows=_lgEmpty('No in-force policies yet.'); }
     const concLine=concWarn
-      ? '<div style="margin-top:10px;background:#FBEBDD;color:#A34E0C;font-weight:500;font-size:11.5px;padding:7px 10px;border-radius:6px">'+concText+'</div>'
-      : '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">'+concText+'</div>';
+      ? '<div style="margin-top:10px;background:var(--lg-pill-noans-bg);color:var(--lg-pill-noans-fg);font-weight:500;font-size:11.5px;padding:7px 10px;border-radius:6px">'+concText+'</div>'
+      : '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption);margin-top:10px;border-top:1px solid var(--lg-divider);padding-top:8px">'+concText+'</div>';
     const prodCard=_lgCard(_lgHead('Product mix','','Book-wide')+'<div style="display:flex;flex-direction:column;gap:8px">'+mixRows+'</div>'+concLine);
     H += '<div class="lg-af" style="--lg-min:260px">'+mixCard+persistCard+prodCard+'</div>';
 
@@ -13077,19 +13077,19 @@ function renderSummary(){
     const amCounts=[dNum,cNum,appts,salesN,placed];
     const amLabels=['Dials','Contacts','Appointments','Apps','Issued'];
     const amMax=Math.max(dNum,1);
-    const amRows=amLabels.map((lbl,i)=>'<div style="display:flex;align-items:center;gap:8px"><span style="font-weight:400;font-size:11px;color:#948C7F;width:74px">'+lbl+'</span>'+
-      '<div style="flex:1;height:8px;background:#F0EDE7;border-radius:3px;overflow:hidden"><div style="width:'+(amMax?Math.max(amCounts[i]/amMax*100, amCounts[i]>0?2:0):0).toFixed(1)+'%;height:8px;background:#5B94E8;border-radius:3px"></div></div>'+
-      '<span class="lgm" style="font-weight:600;font-size:12px;color:#0F1D3D;width:44px;text-align:right">'+amCounts[i]+'</span></div>').join('');
+    const amRows=amLabels.map((lbl,i)=>'<div style="display:flex;align-items:center;gap:8px"><span style="font-weight:400;font-size:11px;color:var(--lg-caption);width:74px">'+lbl+'</span>'+
+      '<div style="flex:1;height:8px;background:var(--lg-divider);border-radius:3px;overflow:hidden"><div style="width:'+(amMax?Math.max(amCounts[i]/amMax*100, amCounts[i]>0?2:0):0).toFixed(1)+'%;height:8px;background:var(--lg-blue-mark);border-radius:3px"></div></div>'+
+      '<span class="lgm" style="font-weight:600;font-size:12px;color:var(--lg-text1);width:44px;text-align:right">'+amCounts[i]+'</span></div>').join('');
     const sstat=(typeof streakStats==='function')?streakStats():{current:0,longest:0,totalDays:0};
     const ach=(typeof evaluateAchievements==='function')?evaluateAchievements():[];
-    const achHtml=ach.map(a=>{ const on=!!a._earned; return '<span style="font-weight:600;font-size:11px;color:'+(on?'#1B7A43':'#B0A99C')+';background:'+(on?'#E4F2E9':'#FAF8F5')+';border:1px solid '+(on?'#CBE4D4':'#E4E0DA')+';padding:2px 8px;border-radius:6px">'+_lgEsc(a.label)+'</span>'; }).join('');
+    const achHtml=ach.map(a=>{ const on=!!a._earned; return '<span style="font-weight:600;font-size:11px;color:'+(on?'var(--lg-green)':'var(--lg-faint)')+';background:'+(on?'var(--lg-green-soft)':'var(--lg-inner)')+';border:1px solid '+(on?'var(--lg-green-border)':'var(--lg-border)')+';padding:2px 8px;border-radius:6px">'+_lgEsc(a.label)+'</span>'; }).join('');
     H += _lgCard(_lgHead('Activity momentum','', periodTag)+
       '<div class="lg-af" style="--lg-min:200px;--lg-gap:24px">'+
         '<div style="display:flex;flex-direction:column;gap:7px">'+amRows+'</div>'+
-        '<div style="border-left:1px solid #F0EDE7;padding-left:24px">'+_lgLbl('Current streak')+
-          '<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+sstat.current+' <span style="font-weight:400;font-size:12px;color:#948C7F">days</span></div>'+
-          '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:6px">longest <span class="lgm" style="font-weight:600;color:#3B372F">'+sstat.longest+'</span> &middot; '+sstat.totalDays+' active days total</div></div>'+
-        '<div style="border-left:1px solid #F0EDE7;padding-left:24px">'+_lgLbl('Achievements')+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+achHtml+'</div></div>'+
+        '<div style="border-left:1px solid var(--lg-divider);padding-left:24px">'+_lgLbl('Current streak')+
+          '<div class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1);margin-top:4px;white-space:nowrap">'+sstat.current+' <span style="font-weight:400;font-size:12px;color:var(--lg-caption)">days</span></div>'+
+          '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption);margin-top:6px">longest <span class="lgm" style="font-weight:600;color:var(--lg-text2)">'+sstat.longest+'</span> &middot; '+sstat.totalDays+' active days total</div></div>'+
+        '<div style="border-left:1px solid var(--lg-divider);padding-left:24px">'+_lgLbl('Achievements')+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+achHtml+'</div></div>'+
       '</div>');
 
     // ---- Bonus tier intelligence (program windows) ----
@@ -13123,44 +13123,44 @@ function renderSummary(){
     } catch(e){ console.warn('[summary] bonus', e); }
     let laddersHtml=ladders.map(l=>{
       let mid;
-      if(l.portal){ mid='<div style="font-weight:400;font-size:11.5px;color:#948C7F">'+l.note+'</div>'; }
+      if(l.portal){ mid='<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">'+l.note+'</div>'; }
       else {
         const ticks=l.tiers.map(t=>'<div style="position:absolute;top:-3px;left:'+t.pos+'%;width:2px;height:14px;background:'+(t.reached?'#1B7A43':'#C7C1B6')+'"></div>').join('');
-        mid='<div style="position:relative;height:22px;display:flex;align-items:center"><div style="position:relative;width:100%;height:8px;background:#F0EDE7;border-radius:3px">'+
-          '<div style="width:'+l.fillPct+'%;height:8px;background:#5B94E8;border-radius:3px"></div>'+ticks+'</div></div>';
+        mid='<div style="position:relative;height:22px;display:flex;align-items:center"><div style="position:relative;width:100%;height:8px;background:var(--lg-divider);border-radius:3px">'+
+          '<div style="width:'+l.fillPct+'%;height:8px;background:var(--lg-blue-mark);border-radius:3px"></div>'+ticks+'</div></div>';
       }
-      return '<div class="lg-ladder" style="padding:11px 0;border-top:1px solid #F0EDE7">'+
-        '<div><div style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(l.carrier)+'</div>'+
-          '<div style="font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(l.program)+(l.program?' &middot; ':'')+l.windowLabel+'</div></div>'+
+      return '<div class="lg-ladder" style="padding:11px 0;border-top:1px solid var(--lg-divider)">'+
+        '<div><div style="font-weight:500;font-size:12.5px;color:var(--lg-text1)">'+_lgEsc(l.carrier)+'</div>'+
+          '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">'+_lgEsc(l.program)+(l.program?' &middot; ':'')+l.windowLabel+'</div></div>'+
         mid+
-        '<div style="font-weight:400;font-size:11.5px;color:#3B372F;text-align:right"><span class="lgm" style="font-weight:600;font-size:12px;color:#0F1D3D">'+l.progLabel+'</span><span style="color:#948C7F"> &middot; '+l.gapLine+'</span></div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:var(--lg-text2);text-align:right"><span class="lgm" style="font-weight:600;font-size:12px;color:var(--lg-text1)">'+l.progLabel+'</span><span style="color:var(--lg-caption)"> &middot; '+l.gapLine+'</span></div>'+
       '</div>';
     }).join('');
-    if(!laddersHtml) laddersHtml='<div style="border-top:1px solid #F0EDE7;padding-top:11px">'+_lgEmpty('No active bonus programs selected &mdash; pick your carriers in the Bonus Tracker.')+'</div>';
+    if(!laddersHtml) laddersHtml='<div style="border-top:1px solid var(--lg-divider);padding-top:11px">'+_lgEmpty('No active bonus programs selected &mdash; pick your carriers in the Bonus Tracker.')+'</div>';
 
     // nearest tiers + upcoming
     const nearest=ladders.filter(l=>!l.portal && l._gap>0 && l._unlock>0).sort((a,b)=>a._gapNum-b._gapNum).slice(0,3);
     let nearestHtml;
     if(nearest.length){
-      nearestHtml=nearest.map((l,i)=>'<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0"><span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+(i+1)+'</span>'+
-        '<span style="font-weight:500;font-size:12px;color:#0F1D3D">'+_lgEsc(l.carrier)+' '+_lgEsc(l.program)+'</span>'+
-        '<span class="lgm" style="font-weight:600;font-size:12px;color:#1B7A43">est. +'+_lg$(l._unlock)+'</span>'+
-        '<span style="margin-left:auto;font-weight:400;font-size:11.5px;color:#948C7F"><span class="lgm" style="color:#3B372F">'+(l._isCount?Math.ceil(l._gap)+' pol':_lg$(l._gap))+'</span> to go by '+_lgFd(l._winEnd)+' &middot; '+l._daysLeft+'d left</span></div>').join('');
-    } else { nearestHtml='<div style="font-weight:400;font-size:12px;color:#948C7F">No tier gaps to chase right now.</div>'; }
+      nearestHtml=nearest.map((l,i)=>'<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0"><span class="lgm" style="font-weight:400;font-size:10.5px;color:var(--lg-faint)">'+(i+1)+'</span>'+
+        '<span style="font-weight:500;font-size:12px;color:var(--lg-text1)">'+_lgEsc(l.carrier)+' '+_lgEsc(l.program)+'</span>'+
+        '<span class="lgm" style="font-weight:600;font-size:12px;color:var(--lg-green)">est. +'+_lg$(l._unlock)+'</span>'+
+        '<span style="margin-left:auto;font-weight:400;font-size:11.5px;color:var(--lg-caption)"><span class="lgm" style="color:var(--lg-text2)">'+(l._isCount?Math.ceil(l._gap)+' pol':_lg$(l._gap))+'</span> to go by '+_lgFd(l._winEnd)+' &middot; '+l._daysLeft+'d left</span></div>').join('');
+    } else { nearestHtml='<div style="font-weight:400;font-size:12px;color:var(--lg-caption)">No tier gaps to chase right now.</div>'; }
 
     let upcoming=[]; try { upcoming=(typeof computeUpcomingBonuses==='function')?computeUpcomingBonuses(now):[]; } catch(e){}
     let upcomingHtml;
     if(upcoming.length){
-      upcomingHtml=upcoming.map(u=>'<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0"><span style="font-weight:500;font-size:12px;color:#0F1D3D">'+_lgEsc(u.bonus.carrier.split(' (')[0])+' &mdash; '+_lgEsc(u.bonus.program||'')+'</span>'+
-        '<span class="lgm" style="font-weight:600;font-size:12px;color:#1B7A43">'+(u.amount!=null?'est. '+_lg$(u.amount):_lgEsc(u.label))+'</span>'+
-        '<span style="margin-left:auto;font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(u.timing||'')+'</span></div>').join('');
-    } else { upcomingHtml='<div style="font-weight:400;font-size:12px;color:#948C7F">Nothing unlocked yet this window.</div>'; }
+      upcomingHtml=upcoming.map(u=>'<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0"><span style="font-weight:500;font-size:12px;color:var(--lg-text1)">'+_lgEsc(u.bonus.carrier.split(' (')[0])+' &mdash; '+_lgEsc(u.bonus.program||'')+'</span>'+
+        '<span class="lgm" style="font-weight:600;font-size:12px;color:var(--lg-green)">'+(u.amount!=null?'est. '+_lg$(u.amount):_lgEsc(u.label))+'</span>'+
+        '<span style="margin-left:auto;font-weight:400;font-size:11.5px;color:var(--lg-caption)">'+_lgEsc(u.timing||'')+'</span></div>').join('');
+    } else { upcomingHtml='<div style="font-weight:400;font-size:12px;color:var(--lg-caption)">Nothing unlocked yet this window.</div>'; }
 
     H += _lgCard(_lgHead('Bonus tier intelligence','all payouts are estimates &mdash; verify on the carrier portal','Program windows')+
       '<div style="display:flex;flex-direction:column">'+laddersHtml+'</div>'+
       '<div class="lg-af" style="--lg-min:260px;margin-top:12px">'+
-        '<div style="background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:10px 12px">'+_lgLbl('Nearest tiers')+'<div style="margin-top:6px">'+nearestHtml+'</div></div>'+
-        '<div style="background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:10px 12px">'+_lgLbl('Upcoming bonuses')+'<div style="margin-top:6px">'+upcomingHtml+'</div></div>'+
+        '<div style="background:var(--lg-inner);border:1px solid var(--lg-border);border-radius:6px;padding:10px 12px">'+_lgLbl('Nearest tiers')+'<div style="margin-top:6px">'+nearestHtml+'</div></div>'+
+        '<div style="background:var(--lg-inner);border:1px solid var(--lg-border);border-radius:6px;padding:10px 12px">'+_lgLbl('Upcoming bonuses')+'<div style="margin-top:6px">'+upcomingHtml+'</div></div>'+
       '</div>');
 
     // ---- Lead-source ROI (period) + Cycle time (book-wide) ----
@@ -13170,33 +13170,33 @@ function renderSummary(){
     periodSold.forEach(p=>{ const s=p.leadSource||null; if(!s)return; const cur=salesBySrc.get(s)||{sales:0,ap:0,comm:0}; cur.sales++; cur.ap+=Number(p.ap)||0; cur.comm+=_lgAdvComm(p); salesBySrc.set(s,cur); });
     const srcKeys=[...new Set([...leadsBySrc.keys(),...salesBySrc.keys()])];
     const roiRows=srcKeys.map(s=>{ const leadsC=leadsBySrc.get(s)||0; const sm=salesBySrc.get(s)||{sales:0,ap:0,comm:0}; return {source:s,leads:leadsC,sales:sm.sales,ap:sm.ap,comm:sm.comm,conv:(leadsC>0&&sm.sales>0)?Math.min(100,sm.sales/leadsC*100).toFixed(1)+'%':'&mdash;'}; }).sort((a,b)=>b.ap-a.ap);
-    const roiHead='<div style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Source</span><span style="text-align:right">Leads</span><span style="text-align:right">Sales</span><span style="text-align:right">Conv</span><span style="text-align:right">Total AP</span><span style="text-align:right">Est. comm</span></div>';
+    const roiHead='<div style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:34px;background:var(--lg-inner);border-top:1px solid var(--lg-divider);padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-caption)"><span>Source</span><span style="text-align:right">Leads</span><span style="text-align:right">Sales</span><span style="text-align:right">Conv</span><span style="text-align:right">Total AP</span><span style="text-align:right">Est. comm</span></div>';
     let roiBody;
     if(roiRows.length){
-      roiBody=roiRows.map(r=>'<div class="lg-rowh" style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+      roiBody=roiRows.map(r=>'<div class="lg-rowh" style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid var(--lg-divider);font-weight:400;font-size:13px;color:var(--lg-text1)">'+
         '<span style="font-weight:500">'+_lgEsc(r.source)+'</span>'+
         '<span class="lgm" style="text-align:right">'+r.leads+'</span>'+
         '<span class="lgm" style="text-align:right">'+r.sales+'</span>'+
-        '<span class="lgm" style="text-align:right;color:#6B6459">'+r.conv+'</span>'+
+        '<span class="lgm" style="text-align:right;color:var(--lg-text3)">'+r.conv+'</span>'+
         '<span class="lgm" style="text-align:right;font-weight:600">'+(r.ap?_lg$(r.ap):'&mdash;')+'</span>'+
-        '<span class="lgm" style="text-align:right;color:#6B6459">'+(r.comm?'est. '+_lg$(r.comm):'&mdash;')+'</span></div>').join('');
-    } else { roiBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:#948C7F">No leads in this period yet.</div>'; }
-    const roiCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Lead-source ROI','', periodTag)+'</div><div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:600px">'+roiHead+roiBody+'</div></div></div>';
+        '<span class="lgm" style="text-align:right;color:var(--lg-text3)">'+(r.comm?'est. '+_lg$(r.comm):'&mdash;')+'</span></div>').join('');
+    } else { roiBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:var(--lg-caption)">No leads in this period yet.</div>'; }
+    const roiCard='<div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Lead-source ROI','', periodTag)+'</div><div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:600px">'+roiHead+roiBody+'</div></div></div>';
 
     const cyMap=new Map(); const Dd=86400000;
     pols.forEach(p=>{ if(!p.issueDate)return; const sub=_lgSubDate(p); if(!sub)return; const si=(new Date(p.issueDate)-new Date(sub+'T00:00:00'))/Dd; const car=p.carrier||'&mdash;'; const e=cyMap.get(car)||{si:[],ip:[]}; if(isFinite(si)&&si>=0) e.si.push(si); if(p.payDate){ const ip=(new Date(p.payDate)-new Date(p.issueDate))/Dd; if(isFinite(ip)&&ip>=0) e.ip.push(ip);} cyMap.set(car,e); });
     const avg=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
     let cyRows=[...cyMap.entries()].filter(e=>e[1].si.length>=3).map(([car,e])=>({carrier:car,si:avg(e.si),ip:avg(e.ip)})).sort((a,b)=>b.si-a.si);
     cyRows=cyRows.map((c,i)=>({carrier:c.carrier,si:Math.round(c.si)+'d',ip:c.ip!=null?Math.round(c.ip)+'d':'&mdash;',slow:i===0&&cyRows.length>1}));
-    const cyHead='<div style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Carrier</span><span style="text-align:right">Sub &rarr; issued</span><span style="text-align:right">Issued &rarr; paid</span></div>';
+    const cyHead='<div style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:34px;background:var(--lg-inner);border-top:1px solid var(--lg-divider);padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-caption)"><span>Carrier</span><span style="text-align:right">Sub &rarr; issued</span><span style="text-align:right">Issued &rarr; paid</span></div>';
     let cyBody;
     if(cyRows.length){
-      cyBody=cyRows.map(c=>'<div class="lg-rowh" style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
-        '<span style="font-weight:500;display:flex;align-items:center;gap:6px">'+_lgEsc(c.carrier)+(c.slow?'<span style="font-weight:600;font-size:10.5px;color:#A34E0C;background:#FBEBDD;padding:1px 6px;border-radius:6px">slowest</span>':'')+'</span>'+
+      cyBody=cyRows.map(c=>'<div class="lg-rowh" style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid var(--lg-divider);font-weight:400;font-size:13px;color:var(--lg-text1)">'+
+        '<span style="font-weight:500;display:flex;align-items:center;gap:6px">'+_lgEsc(c.carrier)+(c.slow?'<span style="font-weight:600;font-size:10.5px;color:var(--lg-pill-noans-fg);background:var(--lg-pill-noans-bg);padding:1px 6px;border-radius:6px">slowest</span>':'')+'</span>'+
         '<span class="lgm" style="text-align:right">'+c.si+'</span>'+
-        '<span class="lgm" style="text-align:right;color:#6B6459">'+c.ip+'</span></div>').join('');
-    } else { cyBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:#948C7F">Not enough issued policies to measure yet.</div>'; }
-    const cyCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Cycle time','','Book-wide')+'</div><div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:340px">'+cyHead+cyBody+'</div></div></div>';
+        '<span class="lgm" style="text-align:right;color:var(--lg-text3)">'+c.ip+'</span></div>').join('');
+    } else { cyBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:var(--lg-caption)">Not enough issued policies to measure yet.</div>'; }
+    const cyCard='<div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Cycle time','','Book-wide')+'</div><div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:340px">'+cyHead+cyBody+'</div></div></div>';
     H += '<div class="lg-af" style="--lg-min:300px">'+roiCard+cyCard+'</div>';
 
     // ---- Free-look watchlist (book-wide) ----
@@ -13204,12 +13204,12 @@ function renderSummary(){
     let flBody;
     if(watch.length){
       flBody=watch.map(p=>{ const left=p._daysLeftInFreeLook; const dot=left<=7?'#D2483F':left<=15?'#C9971F':'#2E9E5B';
-        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0EDE7">'+
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--lg-divider)">'+
           '<span style="width:8px;height:8px;border-radius:50%;background:'+dot+';flex-shrink:0"></span>'+
-          '<span style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(p.client||'Unnamed')+'</span>'+
-          '<span style="font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(p.carrier||'')+' &middot; '+_lg$(Number(p.ap)||0)+' AP</span>'+
-          '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:12px;color:#3B372F">'+left+'d left</span>'+
-          '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">issued '+_lgFd(p.issueDate)+'</span></div>'; }).join('');
+          '<span style="font-weight:500;font-size:12.5px;color:var(--lg-text1)">'+_lgEsc(p.client||'Unnamed')+'</span>'+
+          '<span style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">'+_lgEsc(p.carrier||'')+' &middot; '+_lg$(Number(p.ap)||0)+' AP</span>'+
+          '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:12px;color:var(--lg-text2)">'+left+'d left</span>'+
+          '<span class="lgm" style="font-weight:400;font-size:10.5px;color:var(--lg-faint)">issued '+_lgFd(p.issueDate)+'</span></div>'; }).join('');
     } else { flBody=_lgEmpty('No policies in the free-look window right now.'); }
     H += _lgCard(_lgHead('Free-look watchlist','policies inside the 30-day free-look window','Book-wide')+flBody);
   }
@@ -13222,12 +13222,12 @@ function renderSummary(){
     const agencyCode=(window._myAgencyCode)||'&mdash;';
 
     if(teamData==='loading' || teamData===undefined){
-      const skelRow='<div style="height:12px;width:88%;background:#F0EDE7;border-radius:6px" class="lg-skel"></div>';
+      const skelRow='<div style="height:12px;width:88%;background:var(--lg-divider);border-radius:6px" class="lg-skel"></div>';
       H += '<div style="display:flex;align-items:baseline;gap:10px;margin-top:8px">'+
-        '<div style="font-weight:600;font-size:13px;color:#0F1D3D">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
-        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C">'+periodTag+'</span></div>'+
-        _lgCard('<div style="display:flex;flex-direction:column;gap:10px"><div style="height:12px;width:38%;background:#ECE9E3;border-radius:6px" class="lg-skel"></div>'+skelRow+skelRow+skelRow+skelRow+
-        '<div style="font-weight:400;font-size:11.5px;color:#948C7F">Loading team aggregates &mdash; your personal stats above are already live.</div></div>');
+        '<div style="font-weight:600;font-size:13px;color:var(--lg-text1)">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
+        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-faint)">'+periodTag+'</span></div>'+
+        _lgCard('<div style="display:flex;flex-direction:column;gap:10px"><div style="height:12px;width:38%;background:var(--lg-divider);border-radius:6px" class="lg-skel"></div>'+skelRow+skelRow+skelRow+skelRow+
+        '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">Loading team aggregates &mdash; your personal stats above are already live.</div></div>');
     } else if(teamData && teamData.unavailable){
       H += _lgCard(_lgHead('Team summary','','Team Leader')+_lgEmpty('Team rollups are unavailable &mdash; run the <span class="lgm">get_team_summary</span> migration (supabase/migrations/20260716b_team_summary.sql) in the Supabase SQL editor to enable this.'));
     } else if(teamData && teamData.error){
@@ -13245,15 +13245,15 @@ function renderSummary(){
       const youRatio=you.ratio?you.ratio+':1':'&mdash;';
 
       H += '<div style="display:flex;align-items:baseline;gap:10px;margin-top:8px">'+
-        '<div style="font-weight:600;font-size:13px;color:#0F1D3D">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
-        '<span class="lgm" style="font-weight:400;font-size:11px;color:#B0A99C">AGENCY CODE '+_lgEsc(agencyCode)+' &middot; '+rows.length+' agent'+(rows.length===1?'':'s')+'</span>'+
-        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C">'+periodTag+'</span></div>';
+        '<div style="font-weight:600;font-size:13px;color:var(--lg-text1)">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
+        '<span class="lgm" style="font-weight:400;font-size:11px;color:var(--lg-faint)">AGENCY CODE '+_lgEsc(agencyCode)+' &middot; '+rows.length+' agent'+(rows.length===1?'':'s')+'</span>'+
+        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-faint)">'+periodTag+'</span></div>';
 
       // Team vs You strip
       H += _lgCard('<div class="lg-af" style="--lg-min:190px;--lg-gap:14px">'+
-        '<div>'+_lgLbl('AP &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+_lg$(you.ap)+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team avg <span class="lgm">'+_lg$(tot.ap/n)+'</span></span></div></div>'+
-        '<div>'+_lgLbl('Dials &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+you.dials+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team avg <span class="lgm">'+Math.round(tot.dials/n)+'</span></span></div></div>'+
-        '<div>'+_lgLbl('Call-to-close &mdash; you vs team')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+youRatio+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team-wide <span class="lgm">'+teamRatio+'</span></span></div></div>'+
+        '<div>'+_lgLbl('AP &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1)">'+_lg$(you.ap)+'</span><span style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">team avg <span class="lgm">'+_lg$(tot.ap/n)+'</span></span></div></div>'+
+        '<div>'+_lgLbl('Dials &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1)">'+you.dials+'</span><span style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">team avg <span class="lgm">'+Math.round(tot.dials/n)+'</span></span></div></div>'+
+        '<div>'+_lgLbl('Call-to-close &mdash; you vs team')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1)">'+youRatio+'</span><span style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">team-wide <span class="lgm">'+teamRatio+'</span></span></div></div>'+
       '</div>');
 
       // Sortable table
@@ -13263,18 +13263,18 @@ function renderSummary(){
       const ar=c=>_lgTeamSort.col===c?(_lgTeamSort.dir==='desc'?' &#9662;':' &#9652;'):'';
       const th=(c,lbl,align)=>'<span class="lg-th" onclick="ledgerSortTeam(\''+c+'\')"'+(align?' style="text-align:'+align+'"':'')+'>'+lbl+ar(c)+'</span>';
       const gcols='grid-template-columns:1.7fr 1fr .7fr .9fr 1fr 1fr';
-      let tbl='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">'+
+      let tbl='<div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">'+
         '<div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:660px">'+
-        '<div style="display:grid;'+gcols+';align-items:center;height:34px;background:#FAF8F5;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F">'+
+        '<div style="display:grid;'+gcols+';align-items:center;height:34px;background:var(--lg-inner);padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-caption)">'+
           th('name','Agent')+th('ap','AP (period)','right')+th('sales','Sales','right')+th('dials','Total dials','right')+th('time','Call time','right')+th('ratio','Call-to-close','right')+'</div>';
-      tbl+=sorted.map(t=>'<div class="lg-rowh" style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
-        '<span style="font-weight:500;display:flex;align-items:center;gap:8px">'+_lgEsc(t.name)+(t.you?'<span style="font-weight:600;font-size:10.5px;color:#2A5599;background:#E7EFFB;padding:1px 6px;border-radius:6px">You</span>':'')+'</span>'+
+      tbl+=sorted.map(t=>'<div class="lg-rowh" style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid var(--lg-divider);font-weight:400;font-size:13px;color:var(--lg-text1)">'+
+        '<span style="font-weight:500;display:flex;align-items:center;gap:8px">'+_lgEsc(t.name)+(t.you?'<span style="font-weight:600;font-size:10.5px;color:var(--lg-blue-deep);background:var(--lg-blue-soft);padding:1px 6px;border-radius:6px">You</span>':'')+'</span>'+
         '<span class="lgm" style="text-align:right;font-weight:600">'+_lg$(t.ap)+'</span>'+
         '<span class="lgm" style="text-align:right">'+t.sales+'</span>'+
         '<span class="lgm" style="text-align:right">'+t.dials+'</span>'+
-        '<span class="lgm" style="text-align:right;color:#6B6459">'+_lgDur(t.time)+'</span>'+
-        '<span class="lgm" style="text-align:right;color:#6B6459">'+(t.ratio?t.ratio+':1':'&mdash;')+'</span></div>').join('');
-      tbl+='<div style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #E4E0DA;background:#FAF8F5;font-weight:600;font-size:13px;color:#0F1D3D">'+
+        '<span class="lgm" style="text-align:right;color:var(--lg-text3)">'+_lgDur(t.time)+'</span>'+
+        '<span class="lgm" style="text-align:right;color:var(--lg-text3)">'+(t.ratio?t.ratio+':1':'&mdash;')+'</span></div>').join('');
+      tbl+='<div style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid var(--lg-border);background:var(--lg-inner);font-weight:600;font-size:13px;color:var(--lg-text1)">'+
         '<span>Team total</span>'+
         '<span class="lgm" style="text-align:right">'+_lg$(tot.ap)+'</span>'+
         '<span class="lgm" style="text-align:right">'+tot.sales+'</span>'+
@@ -13283,7 +13283,7 @@ function renderSummary(){
         '<span class="lgm" style="text-align:right">'+teamRatio+'</span></div>';
       tbl+='</div></div></div>';
       H += tbl;
-      H += '<div style="font-weight:400;font-size:10.5px;color:#B0A99C;margin-top:-6px">Downline rows show production and calling totals only &mdash; no client names, policy details, or commission amounts.</div>';
+      H += '<div style="font-weight:400;font-size:10.5px;color:var(--lg-faint);margin-top:-6px">Downline rows show production and calling totals only &mdash; no client names, policy details, or commission amounts.</div>';
     }
   }
 
@@ -13297,46 +13297,46 @@ function renderSummary(){
       ['Bonus tier intelligence','Every active program, your gap to the next tier, and est. payouts coming.'],
       ['Lead-source ROI','Leads, conversion %, AP, and est. commission for every lead source you buy.']
     ];
-    const teaserCard=(title,desc,badge,btn,tier2)=>'<div style="position:relative;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:14px 16px;min-height:172px;box-sizing:border-box">'+
-      '<div style="font-weight:600;font-size:13px;color:#0F1D3D;margin-bottom:12px">'+title+'</div>'+
+    const teaserCard=(title,desc,badge,btn,tier2)=>'<div style="position:relative;background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:14px 16px;min-height:172px;box-sizing:border-box">'+
+      '<div style="font-weight:600;font-size:13px;color:var(--lg-text1);margin-bottom:12px">'+title+'</div>'+
       '<div style="filter:blur(3px);opacity:.55;pointer-events:none;display:flex;flex-direction:column;gap:10px">'+
-        '<div style="height:20px;width:38%;background:#ECE9E3;border-radius:6px"></div>'+
-        '<div style="height:9px;width:92%;background:#F0EDE7;border-radius:6px"></div>'+
-        '<div style="height:9px;width:76%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="height:20px;width:38%;background:var(--lg-divider);border-radius:6px"></div>'+
+        '<div style="height:9px;width:92%;background:var(--lg-divider);border-radius:6px"></div>'+
+        '<div style="height:9px;width:76%;background:var(--lg-divider);border-radius:6px"></div>'+
         '<div style="display:flex;gap:8px;align-items:flex-end;height:44px">'+
-          '<div style="flex:1;height:20px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
-          '<div style="flex:1;height:34px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
-          '<div style="flex:1;height:26px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
-          '<div style="flex:1;height:42px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
-          '<div style="flex:1;height:30px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:20px;background:var(--lg-divider);border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:34px;background:var(--lg-divider);border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:26px;background:var(--lg-divider);border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:42px;background:var(--lg-divider);border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:30px;background:var(--lg-divider);border-radius:3px 3px 0 0"></div>'+
         '</div></div>'+
       '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;background:rgba(255,255,255,.55);border-radius:6px">'+
-        '<span style="font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#2A5599;background:#E7EFFB;border:1px solid #B8CCEE;padding:2px 8px;border-radius:6px">'+badge+'</span>'+
-        '<div style="font-weight:400;font-size:12.5px;color:#3B372F;text-align:center;max-width:280px">'+desc+'</div>'+
-        '<button class="lg-btn lg-click" onclick="lgUpgrade(\''+tier2+'\')" style="background:#3A73C9;color:#FFFFFF;border:none;border-radius:6px;font-weight:600;font-size:12.5px;padding:7px 12px;cursor:pointer">'+btn+'</button>'+
+        '<span style="font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-blue-deep);background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);padding:2px 8px;border-radius:6px">'+badge+'</span>'+
+        '<div style="font-weight:400;font-size:12.5px;color:var(--lg-text2);text-align:center;max-width:280px">'+desc+'</div>'+
+        '<button class="lg-btn lg-click" onclick="lgUpgrade(\''+tier2+'\')" style="background:var(--lg-blue);color:#FFFFFF;border:none;border-radius:6px;font-weight:600;font-size:12.5px;padding:7px 12px;cursor:pointer">'+btn+'</button>'+
       '</div></div>';
     H += '<div class="lg-af" style="--lg-min:460px">'+
       proTeasers.map(t=>teaserCard(t[0],t[1],'Pro','Upgrade to Pro','pro')).join('')+'</div>';
   }
 
   if(tier!=='leader'){
-    H += '<div style="position:relative;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:14px 16px;min-height:180px;box-sizing:border-box">'+
-      '<div style="font-weight:600;font-size:13px;color:#0F1D3D;margin-bottom:12px">Team summary</div>'+
+    H += '<div style="position:relative;background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:14px 16px;min-height:180px;box-sizing:border-box">'+
+      '<div style="font-weight:600;font-size:13px;color:var(--lg-text1);margin-bottom:12px">Team summary</div>'+
       '<div style="filter:blur(3px);opacity:.55;pointer-events:none;display:flex;flex-direction:column;gap:9px">'+
-        '<div style="height:12px;width:32%;background:#ECE9E3;border-radius:6px"></div>'+
-        '<div style="height:11px;width:94%;background:#F0EDE7;border-radius:6px"></div>'+
-        '<div style="height:11px;width:90%;background:#F0EDE7;border-radius:6px"></div>'+
-        '<div style="height:11px;width:92%;background:#F0EDE7;border-radius:6px"></div>'+
-        '<div style="height:11px;width:86%;background:#F0EDE7;border-radius:6px"></div></div>'+
+        '<div style="height:12px;width:32%;background:var(--lg-divider);border-radius:6px"></div>'+
+        '<div style="height:11px;width:94%;background:var(--lg-divider);border-radius:6px"></div>'+
+        '<div style="height:11px;width:90%;background:var(--lg-divider);border-radius:6px"></div>'+
+        '<div style="height:11px;width:92%;background:var(--lg-divider);border-radius:6px"></div>'+
+        '<div style="height:11px;width:86%;background:var(--lg-divider);border-radius:6px"></div></div>'+
       '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;background:rgba(255,255,255,.55);border-radius:6px">'+
-        '<span style="font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#2A5599;background:#E7EFFB;border:1px solid #B8CCEE;padding:2px 8px;border-radius:6px">Team Leader</span>'+
-        '<div style="font-weight:400;font-size:12.5px;color:#3B372F;text-align:center;max-width:340px">See every downline agent\'s AP, sales, dials, call time, and call-to-close beside your own.</div>'+
-        '<button class="lg-btn lg-click" onclick="lgUpgrade(\'leader\')" style="background:#3A73C9;color:#FFFFFF;border:none;border-radius:6px;font-weight:600;font-size:12.5px;padding:7px 12px;cursor:pointer">Upgrade to Team Leader</button>'+
+        '<span style="font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-blue-deep);background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);padding:2px 8px;border-radius:6px">Team Leader</span>'+
+        '<div style="font-weight:400;font-size:12.5px;color:var(--lg-text2);text-align:center;max-width:340px">See every downline agent\'s AP, sales, dials, call time, and call-to-close beside your own.</div>'+
+        '<button class="lg-btn lg-click" onclick="lgUpgrade(\'leader\')" style="background:var(--lg-blue);color:#FFFFFF;border:none;border-radius:6px;font-weight:600;font-size:12.5px;padding:7px 12px;cursor:pointer">Upgrade to Team Leader</button>'+
       '</div></div>';
   }
 
   // footer
-  H += '<div style="font-weight:400;font-size:10.5px;color:#B0A99C;padding-bottom:8px">All metrics derive from your entered policies, leads, and dialer activity. Estimates marked &ldquo;est.&rdquo; are subject to carrier persistency and quality requirements.</div>';
+  H += '<div style="font-weight:400;font-size:10.5px;color:var(--lg-faint);padding-bottom:8px">All metrics derive from your entered policies, leads, and dialer activity. Estimates marked &ldquo;est.&rdquo; are subject to carrier persistency and quality requirements.</div>';
 
   H += '</div>'; // content column
   H += '</div>'; // .lg-wrap
@@ -17732,12 +17732,12 @@ function renderTrackerCalendar() {
 
   // status → { bg, border, color } — Ledger status palette (matches list pills + legend)
   const statusStyle = {
-    pending:    { bg:'#F6EDD8', border:'#C9971F', color:'#8A6116' },
-    approved:   { bg:'#E7EFFB', border:'#5B94E8', color:'#2A5599' },
-    issued:     { bg:'#EEF1F6', border:'#98A1AE', color:'#5A6473' },
-    paid:       { bg:'#E4F2E9', border:'#2E9E5B', color:'#1B7A43' },
-    lapsed:     { bg:'#FBEBDD', border:'#D97B2A', color:'#A34E0C' },
-    chargeback: { bg:'#FAE8E7', border:'#D2483F', color:'#B3261E' },
+    pending:    { bg:'var(--lg-pill-new-bg)',   border:'#C9971F', color:'var(--lg-pill-new-fg)' },
+    approved:   { bg:'var(--lg-blue-soft)',      border:'#5B94E8', color:'var(--lg-blue-deep)' },
+    issued:     { bg:'var(--lg-pill-ni-bg)',     border:'#98A1AE', color:'var(--lg-pill-ni-fg)' },
+    paid:       { bg:'var(--lg-green-soft)',     border:'#2E9E5B', color:'var(--lg-green)' },
+    lapsed:     { bg:'var(--lg-pill-noans-bg)',  border:'#D97B2A', color:'var(--lg-pill-noans-fg)' },
+    chargeback: { bg:'var(--lg-red-soft)',       border:'#D2483F', color:'var(--lg-red)' },
   };
   const sLbl = {pending:'Pending',approved:'Sub/Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed',chargeback:'Charge Back'};
 
@@ -17787,12 +17787,12 @@ function renderTrackerCalendar() {
         ev.innerHTML =
           `<div class="tc-event-name" style="color:${ss.color}">${escHTML(p.client)}</div>` +
           `<div class="tc-event-carrier" style="color:${ss.color}">${escHTML(p.carrier)}</div>` +
-          `<div class="tc-event-meta"><span>${fmt$(ap)}/yr</span><span style="color:#1B7A43">${fmt$(advComm)} adv</span></div>`;
+          `<div class="tc-event-meta"><span>${fmt$(ap)}/yr</span><span style="color:var(--lg-green)">${fmt$(advComm)} adv</span></div>`;
         cell.appendChild(ev);
       });
       if (dayPolicies.length > 3) {
         const more = document.createElement('div');
-        more.style.cssText = 'font-size:10px;color:#948C7F;padding:2px 4px';
+        more.style.cssText = 'font-size:10px;color:var(--lg-caption);padding:2px 4px';
         more.textContent = `+${dayPolicies.length - 3} more`;
         cell.appendChild(more);
       }
