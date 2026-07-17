@@ -5,14 +5,14 @@
 // in Node and runs in Deno. Given a parsed event and the user's existing
 // policies, decide how to route it:
 //   - exact policy-number match (incl. Transamerica masked last-5) → auto-attach
-//   - single/multiple name+carrier candidates → review (never auto-applied)
+//   - UNIQUE strong name+carrier match (all tokens shared, high parse
+//     confidence) → auto-attach; fuzzy or multiple candidates → review
 //   - nothing → review as no_policy_match
 //
-// Reality of this codebase: existing policies are JSONB and carry NO carrier
-// policy number, and the tracker keys on client name + carrier. So the
-// name+carrier path is the workable primary today; the policy-number path is
-// kept for forward-compatibility once emails start writing numbers onto
-// policies. Carrier is free text on policies, so it's normalized to our keys.
+// Reality of this codebase: policies are JSONB; the tracker keys on client
+// name + carrier, and now carries an optional agent-entered `policyNumber`
+// (auto-backfilled from unmasked email matches by match-events). Carrier is
+// free text on policies, so it's normalized to our keys.
 // ============================================================
 
 export interface PolicyRef {
@@ -31,7 +31,7 @@ export interface EventRef {
 }
 
 export type MatchResult =
-  | { status: "matched"; method: "policy_number" | "masked_last5"; policyId: string }
+  | { status: "matched"; method: "policy_number" | "masked_last5" | "name_carrier"; policyId: string }
   | { status: "review"; reason: "ambiguous_match"; candidateIds: string[] }
   | { status: "review"; reason: "no_policy_match"; candidateIds: [] }
   | { status: "review"; reason: "low_confidence"; candidateIds: string[] };
@@ -121,7 +121,9 @@ export function matchEvent(event: EventRef, policies: PolicyRef[]): MatchResult 
     if (hits.length > 1) return { status: "review", reason: "ambiguous_match", candidateIds: hits.map((p) => p.id) };
   }
 
-  // 3. Client name + carrier. Never auto-applied — surfaced for one-click confirm.
+  // 3. Client name + carrier. A UNIQUE strong match (effectively all name
+  // tokens shared, same carrier, high parse confidence) auto-attaches so the
+  // tracker can update itself; anything weaker or ambiguous goes to review.
   const sameCarrier = policies.filter((p) => p.carrierKey && p.carrierKey === event.carrier);
   const scored = sameCarrier
     .map((p) => ({ p, score: nameSimilarity(p.name, event.clientName) }))
@@ -129,6 +131,9 @@ export function matchEvent(event: EventRef, policies: PolicyRef[]): MatchResult 
     .sort((a, b) => b.score - a.score);
 
   const strong = scored.filter((x) => x.score >= STRONG_NAME);
+  if (strong.length === 1 && event.confidence >= AUTO_APPLY_CONFIDENCE) {
+    return { status: "matched", method: "name_carrier", policyId: strong[0].p.id };
+  }
   if (strong.length === 1) return { status: "review", reason: "ambiguous_match", candidateIds: [strong[0].p.id] };
   if (strong.length > 1) return { status: "review", reason: "ambiguous_match", candidateIds: strong.map((x) => x.p.id) };
   if (scored.length) return { status: "review", reason: "ambiguous_match", candidateIds: scored.slice(0, 5).map((x) => x.p.id) };
