@@ -3985,6 +3985,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
                   <option value="paid">Paid</option>
                   <option value="lapsed">Lapsed</option>
                   <option value="chargeback">Charge Back</option>
+                  <option value="lapsed+chargeback">Lapsed / Charge Back</option>
                 </select>
               </div>
               <div class="pt-field" style="flex:1.2 1 180px">
@@ -10849,7 +10850,10 @@ function _ptComputeView(all, filter, sort, page){
     if (filter.carrier && p.carrier !== filter.carrier) return false;
     if (filter.submitted && _ptGetSub(p) !== filter.submitted) return false;
     if (filter.draft && (p.draft||'') !== filter.draft) return false;
-    if (filter.status && p.status !== filter.status) return false;
+    // status may be a single value ('paid') or a '+'-joined set
+    // ('lapsed+chargeback') so the Summary "Lapse / CB" segment can drill into
+    // both statuses at once; a single value degrades to a 1-element match.
+    if (filter.status && !filter.status.split('+').includes(p.status)) return false;
     return true;
   });
 
@@ -12650,7 +12654,9 @@ function renderSummary(){
     const segs = SL.filter(s=>counts[s]>0).map(s=>'<div title="'+pill[s][0].replace(/&mdash;/g,'-')+': '+counts[s]+'" style="width:'+(counts[s]/totalC*100).toFixed(2)+'%;background:'+barColor[s]+'"></div>').join('');
     const pills = SL.map(s=>{
       const pct = totalC? Math.round(counts[s]/totalC*100)+'%' : '0%';
-      return '<div class="lg-click" title="Show '+pill[s][0].replace(/&mdash;/g,'-')+' in Policy Tracker" onclick="summaryDrillTo&&summaryDrillTo(\'tracker\',{status:\''+s+'\'})" style="display:flex;align-items:center;gap:6px">'+
+      // The 'lapsed' bucket folds in chargeback, so it drills into both.
+      const drill = s==='lapsed' ? 'lapsed+chargeback' : s;
+      return '<div class="lg-click" title="Show '+pill[s][0].replace(/&mdash;/g,'-')+' in Policy Tracker" onclick="summaryDrillTo&&summaryDrillTo(\'tracker\',{status:\''+drill+'\'})" style="display:flex;align-items:center;gap:6px">'+
         '<span style="font-weight:600;font-size:11px;color:'+pill[s][1]+';background:'+pill[s][2]+';padding:2px 8px;border-radius:6px">'+pill[s][0]+'</span>'+
         '<span class="lgm" style="font-weight:600;font-size:12px;color:#3B372F">'+counts[s]+'</span>'+
         '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+pct+'</span></div>';
