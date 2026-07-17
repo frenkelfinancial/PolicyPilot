@@ -10,7 +10,15 @@ You are working in the PolicyPilot / ProducerStack repo. Read `CLAUDE.md` first 
 
 Agents live in this tool 6+ hours a day tracking policies, commissions, chargebacks, and leads across multiple carriers (Mutual of Omaha, Transamerica, Corebridge, Americo). It's an operational workhorse, not a marketing page. **Data density matters more than visual delight.** Reference points: Attio, Linear, Ramp, Retool — left-aligned, tight vertical rhythm, 13px body text in-app, tables that look like real tables with visible row separators. Think a bank's internal tooling, not a startup landing page.
 
-The visual direction is already chosen: **"Ledger" (2a)** — warm-gray neutrals, Spline Sans + Spline Sans Mono, blue as accent only. The full token spec is at the end of this prompt and is the single source of truth for fonts, colors, spacing, radius, shadows, pills, sidebar, tables, chips, buttons, charts, and feed rows. Where the spec and any existing `--ds-*` styling in `app.html` conflict, the Ledger spec wins on the Summary pages. Do not invent a new direction.
+### Pixel-fidelity reference (highest authority)
+
+`docs/design-reference/ProducerStackSummaryLeaderLedger.html` is the **approved design** — a standalone mockup of the Team Leader summary page. Read it first, before writing any code. Reuse its exact CSS (copy stylesheet values verbatim, don't approximate) and match its markup structure and layout. The four screenshots `docs/design-reference/summary-1.png` through `summary-4.png` show the full target page top to bottom — visually compare your build against them.
+
+The reference shows the Leader tier; derive Pro and Basic by rendering fewer widgets from the same components (Pro = Leader minus the team section; Basic = its subset with remaining widgets as locked upgrade teasers). Do not restyle anything the reference already defines.
+
+Precedence: reference HTML/screenshots > written token spec below > existing app styles. Minor additions (buttons, controls) are allowed where the build spec requires functionality the mockup doesn't show — style them with the reference's existing patterns.
+
+The visual direction is **"Ledger" (2a)** — warm-gray neutrals, Spline Sans + Spline Sans Mono, blue as accent only. The full token spec is at the end of this prompt and is the single source of truth for fonts, colors, spacing, radius, shadows, pills, sidebar, tables, chips, buttons, charts, and feed rows. Where the spec and any existing `--ds-*` styling in `app.html` conflict, the Ledger spec wins on the Summary pages. Do not invent a new direction.
 
 ### Hard design constraints — never do any of these
 
@@ -120,7 +128,7 @@ Also add a small "Team vs You" strip: your AP / dials / call-to-close side by si
 - Fixture-test period boundaries (policy at 11:59pm Sunday counts in that week, etc.) and the call-to-close zero-sales case.
 - Verify a `basic`-tier account sees teasers not data for Pro widgets; a `pro` account sees no Team section; a non-leader can't get data from the team RPC (test the RPC's authorization directly).
 - Confirm nothing on any Summary tier reads from `parsed_events`, `commission_events`, `portal_nudges`, `email_ingest_log`, or calls `cmRefreshUrgent`.
-- Visually diff against the style spec below: font sizes, pill colors, table row heights, chip states, and shadows must match exactly. Then audit against the hard design constraints (no gradients/glass/pills/emoji, single 6px radius, blue ≤ ~5% of any screen).
+- Visually diff against `docs/design-reference/summary-1.png` … `summary-4.png` and the reference HTML: font sizes, pill colors, table row heights, chip states, and shadows must match exactly. Then audit against the hard design constraints (no gradients/glass/pills/emoji, single 6px radius, blue ≤ ~5% of any screen).
 
 ---
 

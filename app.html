@@ -2964,6 +2964,31 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .auth-plan-card-price{font-size:12.5px;font-weight:600;color:#5BA0E8;margin-top:2px}
 .auth-plan-card-desc{font-size:12px;color:#8AA8CA;margin-top:3px}
 </style>
+<!-- ============================================================
+     LEDGER SUMMARY styles (scoped to .ledger) — 2026-07-16
+     Warm-gray "Ledger" design language for the tiered Summary page.
+     Spline Sans + Spline Sans Mono. Blue is an accent only.
+     ============================================================ -->
+<style id="ledger-fonts">@import url('https://fonts.googleapis.com/css2?family=Spline+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap');</style>
+<style id="ledger-summary-styles">
+.ledger{font-family:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0F1D3D;background:#F5F3F0;-webkit-font-smoothing:antialiased;margin:-26px;padding:20px 24px 32px;min-height:calc(100vh - 52px);font-size:13px;line-height:1.45}
+.ledger *{box-sizing:border-box}
+.ledger .lgm{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace}
+.ledger .lg-chip{transition:border-color .14s ease}
+.ledger .lg-chip:hover{border-color:#B8CCEE}
+.ledger .lg-btn{transition:background .14s ease}
+.ledger .lg-btn:hover{background:#2A5599 !important}
+.ledger .lg-rowh{transition:background .1s ease}
+.ledger .lg-rowh:hover{background:#FAF8F5}
+.ledger .lg-th{cursor:pointer;user-select:none}
+.ledger .lg-th:hover{color:#3A73C9}
+.ledger .lg-click{cursor:pointer}
+@keyframes lg-pulse{0%,100%{opacity:.5}50%{opacity:1}}
+.ledger .lg-skel{animation:lg-pulse 1.4s ease-in-out infinite}
+@media(max-width:1024px){.ledger{margin:-14px -12px;padding:14px}}
+@media(max-width:960px){.ledger .lg-grid{grid-template-columns:1fr !important}}
+@media(max-width:640px){.ledger{margin:-10px;padding:10px}}
+</style>
 </head>
 <body>
 
@@ -3583,154 +3608,8 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <!-- ========== SUMMARY (v3 modern bold) ========== -->
     <div class="section active sum-v3" id="sec-summary">
 
-      <!-- SUMMARY EMAIL TOGGLE (1st + 15th account-statement emails) -->
-      <div class="card" id="summary-email-pref" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px">
-        <div>
-          <div style="font-size:13px;font-weight:600;color:var(--text)">Scheduled Summary Emails</div>
-          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Account statements on the 1st &amp; 15th</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span id="summary-email-saved" style="font-size:11px;color:var(--text3);opacity:0;transition:opacity .3s"></span>
-          <div class="theme-toggle" onclick="toggleSummaryEmails()" title="Toggle scheduled summary emails" style="cursor:pointer">
-            <span class="toggle-label" id="summary-email-lbl-off">Off</span>
-            <div class="toggle-track" id="summary-email-track">
-              <div class="toggle-thumb"></div>
-            </div>
-            <span class="toggle-label" id="summary-email-lbl-on">On</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- ACTION HUB (Phase 1.2 — urgent/today/opportunity) -->
-      <div class="card ah-hub" id="action-hub">
-        <div class="ah-hub__head">
-          <div class="ah-hub__title">What to do today</div>
-          <span class="ah-hub__meta">All clear</span>
-        </div>
-        <div class="ah-hub__body"></div>
-      </div>
-
-      <!-- HERO: goal ring + scorecard | activity -->
-      <div class="sum-hero">
-
-        <!-- Left card: monthly goal ring + scorecard -->
-        <div class="card hero-goal">
-          <div class="sgh-rings">
-            <div class="sgh-ring-mount" id="sgh-outer-mount"></div>
-            <div class="sgh-ring-mount sgh-ring-mount--inner" id="sgh-inner-mount"></div>
-            <div class="sgh-center" title="Click for breakdown">
-              <div class="sgh-pulse-num" id="sgh-pulse-num">0</div>
-              <div class="sgh-pulse-lbl">Sales</div>
-              <div class="sgh-pulse-hint">tap for detail</div>
-            </div>
-          </div>
-          <div class="goal-side sgh-meta">
-            <h3 style="margin-bottom:var(--ds-space-3)">Monthly Goals</h3>
-            <div class="sgh-meta__row" id="sgh-row-quota"><span class="sgh-meta__lbl">Committed AP</span><span class="sgh-meta__val">—</span></div>
-            <div class="sgh-meta__row" id="sgh-row-pace"><span class="sgh-meta__lbl">Pace needed</span><span class="sgh-meta__val">—</span></div>
-            <div class="sgh-meta__row" id="sgh-row-stretch"><span class="sgh-meta__lbl">Stretch</span><span class="sgh-meta__val">—</span></div>
-            <div class="sgh-meta__row" id="sgh-row-projected"><span class="sgh-meta__lbl">Projected end</span><span class="sgh-meta__val">—</span></div>
-            <div class="goal-edit" onclick="nav('settings')">Edit in Settings → Profile</div>
-          </div>
-        </div>
-
-        <!-- Right column: today's pulse + week/month + top carriers MTD -->
-        <div class="hero-side">
-          <div class="card today-tile">
-            <div class="today-eyebrow">Today</div>
-            <div class="today-row">
-              <div class="today-num" id="today-count">0</div>
-              <div class="today-ap" id="today-ap">$0 AP</div>
-            </div>
-            <div class="today-sub" id="today-sub">No policies submitted today</div>
-          </div>
-
-          <div class="activity-grid">
-            <div class="card act-tile">
-              <div class="act-eyebrow">This week</div>
-              <div class="act-num" id="act-week">0</div>
-              <div class="act-sub" id="act-week-ap">$0 AP</div>
-            </div>
-            <div class="card act-tile">
-              <div class="act-eyebrow">This month</div>
-              <div class="act-num" id="act-month">0</div>
-              <div class="act-sub" id="act-month-ap">$0 AP</div>
-            </div>
-          </div>
-
-          <div class="card carriers-tile">
-            <div class="carriers-head">
-              <span class="carriers-eyebrow">Top Carriers · This Month</span>
-              <span class="carriers-total" id="carriers-total"></span>
-            </div>
-            <div class="carriers-list" id="carriers-list"></div>
-          </div>
-        </div>
-
-      </div>
-
-      <div class="sum-period-row">
-        <div class="sum-period-chips" role="tablist">
-          <button class="period-chip" data-period="wtd" onclick="setSummaryPeriod('wtd')">This Week</button>
-          <button class="period-chip" data-period="mtd" onclick="setSummaryPeriod('mtd')">This Month</button>
-          <button class="period-chip" data-period="ytd" onclick="setSummaryPeriod('ytd')">This Year</button>
-          <button class="period-chip" data-period="all" onclick="setSummaryPeriod('all')">All Time</button>
-        </div>
-        <div class="sum-period-caption" id="sum-period-caption">&mdash;</div>
-      </div>
-
-      <!-- INCOME REALITY (Phase 3) -->
-      <div class="ir-row" id="income-reality"></div>
-
-      <!-- ACTIVITY & MOMENTUM (Phase 5) -->
-      <div class="am-row" id="activity-momentum"></div>
-
-      <!-- PERSISTENCY & BOOK HEALTH (Phase 4) -->
-      <div class="ph-row" id="persistency-health"></div>
-
-      <!-- PIPELINE FUNNEL (Phase 2) -->
-      <div class="card pf-card" id="pipeline-funnel">
-        <div class="pf-card__head">
-          <div class="pf-card__title">Pipeline · Where money sits</div>
-          <span class="pf-card__placement">Placement: <strong>0%</strong> · Target 80%</span>
-        </div>
-        <div class="pf-funnel" role="list" aria-label="Policy pipeline by stage"></div>
-      </div>
-
-      <!-- BONUS TIER INTELLIGENCE — Phase 6 -->
-      <div class="card pace-card bti-card">
-        <div class="bti-card__head">
-          <div class="bti-card__title">Bonus Tier Intelligence</div>
-          <button class="btn-link" onclick="nav('bonuses')">Open Bonus Tracker &rarr;</button>
-        </div>
-        <div class="bti-card__body"></div>
-        <div class="bti-recommend" style="display:none"></div>
-      </div>
-
-      <div id="bonus-upcoming-compact"></div>
-
-      <div class="sum-mid-row">
-        <div class="card status-card">
-          <div class="kpi-label">Policy Status</div>
-          <div class="status-bar" id="sum-status-bar"></div>
-          <div class="status-legend" id="sum-status-legend"></div>
-        </div>
-
-        <div class="card mix-card">
-          <div class="kpi-label">Carrier Mix</div>
-          <div class="mix-wrap">
-            <svg class="mix-donut" id="sum-mix-donut" viewBox="0 0 120 120" aria-hidden="true">
-              <g transform="translate(60 60)">
-                <circle r="50" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="14"/>
-                <g id="sum-mix-arcs"></g>
-                <text id="sum-mix-center" x="0" y="6" text-anchor="middle" font-size="14" font-family="JetBrains Mono,Consolas,ui-monospace" fill="#E8F0FB">$0</text>
-              </g>
-            </svg>
-            <div class="mix-legend" id="sum-mix-legend"></div>
-          </div>
-        </div>
-      </div>
-
+      <!-- Tiered "Ledger" Summary — rendered by renderSummary() (basic / pro / leader). -->
+      <div class="ledger" id="sum-ledger"></div>
     </div>
 
     <!-- ========== DS PLAYGROUND (dev-only, ?ds=1) ========== -->
@@ -11475,6 +11354,25 @@ function setSummaryPeriod(p) {
 // 'all' returns no bounds (everything counts) and skips the prior comparison.
 function summaryPeriodRange(period, today) {
   const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // Ledger Summary period keys (daily / weekly / monthly) — added 2026-07-16.
+  if (period === 'daily') {
+    const end = new Date(t); end.setDate(end.getDate() + 1);
+    const prevStart = new Date(t); prevStart.setDate(prevStart.getDate() - 1);
+    return { start: t, end, prevStart, prevEnd: t, label: 'Today vs yesterday' };
+  }
+  if (period === 'weekly') {
+    const dow = (t.getDay() + 6) % 7; // Mon=0
+    const start = new Date(t); start.setDate(start.getDate() - dow);
+    const end   = new Date(start); end.setDate(end.getDate() + 7);
+    const prevStart = new Date(start); prevStart.setDate(prevStart.getDate() - 7);
+    return { start, end, prevStart, prevEnd: start, label: 'This week vs last week' };
+  }
+  if (period === 'monthly') {
+    const start = new Date(t.getFullYear(), t.getMonth(), 1);
+    const end   = new Date(t.getFullYear(), t.getMonth() + 1, 1);
+    const prevStart = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+    return { start, end, prevStart, prevEnd: start, label: 'This month vs last month' };
+  }
   if (period === 'wtd') {
     const dow = (t.getDay() + 6) % 7; // Mon=0
     const start = new Date(t); start.setDate(start.getDate() - dow);
@@ -12294,91 +12192,671 @@ function guardedOpenPreviewDialer() {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
-function renderSummary() {
-  if (!document.getElementById('sec-summary')) return;
-  _applyPlanGating();
-  if (typeof initSummaryEmailToggle === 'function') initSummaryEmailToggle();
-  renderGreeting();
-  if (typeof renderActionHub === 'function') renderActionHub();
-  if (typeof cmRefreshUrgent === 'function') cmRefreshUrgent();
-  const _rsTier = _planTier();
-  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderPipelineFunnel === 'function') renderPipelineFunnel();
-  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderIncomeReality === 'function') renderIncomeReality();
-  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderActivityMomentum === 'function') renderActivityMomentum();
-  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderPersistencyHealth === 'function') renderPersistencyHealth();
-  const pols = Array.isArray(policies) ? policies : [];
-  const today = new Date();
-  const range = summaryPeriodRange(summaryPeriod, today);
+// ============================================================
+// LEDGER SUMMARY (tiered: basic / pro / leader) — 2026-07-16
+// Rewrites the Summary section in the "Ledger" design language.
+// Every metric derives from user-entered policies (`policies`), leads
+// (`leads`), logged activities (ds_activities), the dialer `calls` table,
+// and static bonus/comp reference data. No email-pipeline reads anywhere.
+// Composes shared widget builders; the tier switch lives in renderSummary().
+// ============================================================
 
-  // --- HERO BAND: monthly goal ring (always month-scoped, regardless of period chip) ---
-  const monthRange = summaryPeriodRange('mtd', today);
-  const monthPolsHero = pols.filter(p => _inRange(p, monthRange.start, monthRange.end));
-  const monthAP = _sumKey(monthPolsHero, 'ap');
-  renderSmartGoalHub(monthAP, monthPolsHero.length, today);
+const LG_PERIODS = ['daily','weekly','monthly'];
+let ledgerPeriod = (function(){ try { const v = localStorage.getItem('pp_summary_period'); return LG_PERIODS.includes(v) ? v : 'monthly'; } catch(e){ return 'monthly'; } })();
+let _lgTeamSort = { col:'ap', dir:'desc' };
+const _lgCalls = {};   // period -> {dials,contacts,callTime} | 'loading'
+const _lgTeam  = {};   // period -> rows[] | 'loading' | {unavailable:true} | {error:true}
 
-  // --- HERO BAND: today / week / month / top carriers ---
-  const weekRange = summaryPeriodRange('wtd', today);
-  renderHeroSide(pols, today, monthRange, weekRange);
+// ---- tier + formatters ----
+function _lgTier(){ const t=(typeof _planTier==='function')?_planTier():null; return t==='leader'?'leader':t==='pro'?'pro':'basic'; }
+function _lg$(n){ n=Math.round(Number(n)||0); return '$'+n.toLocaleString('en-US'); }
+function _lgKk(n){ n=Number(n)||0; return n>=1000 ? '$'+(n/1000).toFixed(1)+'k' : '$'+Math.round(n); }
+function _lgDur(sec){ sec=Math.max(0,Math.floor(Number(sec)||0)); const h=Math.floor(sec/3600),m=Math.round((sec%3600)/60); return h?(h+'h '+m+'m'):(m+'m'); }
+function _lgFd(d){ if(!d)return'&mdash;'; const x=(d instanceof Date)?d:new Date(d); if(isNaN(x.getTime()))return'&mdash;'; return x.toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function _lgEsc(s){ return (typeof escHTML==='function')?escHTML(s):String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  // --- Update period chips + caption ---
-  document.querySelectorAll('#sec-summary .period-chip').forEach(chip => {
-    chip.classList.toggle('active', chip.dataset.period === summaryPeriod);
-  });
-  document.getElementById('sum-period-caption').textContent = range.label;
+// ---- period math (agent-local timezone, same convention as streakStats) ----
+function _lgPeriodRange(period, today){
+  // Delegates to the shared summaryPeriodRange helper (extended with the
+  // daily/weekly/monthly keys); Ledger only needs {start,end}.
+  const r = summaryPeriodRange(LG_PERIODS.includes(period)?period:'monthly', today);
+  return { start:r.start, end:r.end };
+}
+function _lgSubDate(p){ return p && (p.dateSubmitted || p.draft || (p.id? new Date(+p.id).toISOString().slice(0,10) : null)); }
+function _lgInRange(dateStr, range){ if(!dateStr)return false; const d=new Date(dateStr+'T00:00:00'); if(isNaN(d.getTime()))return false; return d>=range.start && d<range.end; }
+function _lgWhenInRange(iso, range){ const t=new Date(iso).getTime(); return isFinite(t) && t>=range.start.getTime() && t<range.end.getTime(); }
+function _lgAdvComm(p){ const ap=Number(p.ap)||0; return Number(p.advComm) || +(ap*(Number(p.commPct)||0)/100*0.75); }
 
-  // --- Period-scoped slices ---
-  const inCurrent = p => _inRange(p, range.start, range.end);
-  const inPrior   = p => range.prevStart ? _inRange(p, range.prevStart, range.prevEnd) : false;
+// ---- controls (global — referenced from inline onclick) ----
+function setLedgerPeriod(p){ if(!LG_PERIODS.includes(p))return; ledgerPeriod=p; try{localStorage.setItem('pp_summary_period',p);}catch(e){} renderSummary(); }
+function ledgerSortTeam(col){ if(_lgTeamSort.col===col){ _lgTeamSort.dir = _lgTeamSort.dir==='desc'?'asc':'desc'; } else { _lgTeamSort={col,dir:'desc'}; } renderSummary(); }
+function lgUpgrade(tier){ if(typeof showUpgradeGate==='function'){ showUpgradeGate(tier==='leader'?'Team Summary':'Pro Summary', tier); } else if(typeof pbOpenUpgradeModal==='function'){ pbOpenUpgradeModal(); } }
 
-  const curPols   = pols.filter(inCurrent);
-  const priorPols = pols.filter(inPrior);
+// ---- async: calling stats for the period (dialer calls ∪ logged dials) ----
+async function _lgFetchCalls(range, period){
+  let stats = { dials:0, contacts:0, callTime:0 };
+  try {
+    if (typeof sb !== 'undefined' && sb && currentAgent && currentAgent.id) {
+      const { data, error } = await sb.from('calls')
+        .select('duration_sec,status,started_at')
+        .eq('agent_id', currentAgent.id)
+        .gte('started_at', range.start.toISOString())
+        .lt('started_at', range.end.toISOString());
+      if (error) throw error;
+      const rows = data || [];
+      stats.dials    = rows.length;
+      stats.callTime = rows.reduce((s,r)=>s+(Number(r.duration_sec)||0),0);
+      stats.contacts = rows.filter(r => r.status==='completed' && (Number(r.duration_sec)||0)>=5).length;
+    }
+    // Union with manually-logged dials (ds_activities type 'call'), de-duped:
+    // each dialer call also logs a 'call' activity, so take the larger count.
+    const acts = (typeof getActivities==='function') ? getActivities() : [];
+    const logged = acts.filter(a => a && a.type==='call' && _lgWhenInRange(a.when, range)).length;
+    stats.dials = Math.max(stats.dials, logged);
+  } catch (e) {
+    const acts = (typeof getActivities==='function') ? getActivities() : [];
+    stats = { dials: acts.filter(a => a && a.type==='call' && _lgWhenInRange(a.when, range)).length, contacts:0, callTime:0 };
+  }
+  _lgCalls[period] = stats;
+  if (ledgerPeriod === period && document.getElementById('sum-ledger')) renderSummary();
+}
 
-  // --- Status breakdown (always reflects current period) ---
-  const counts = Object.fromEntries(SUM_STATUSES.map(s => [s, 0]));
-  curPols.forEach(p => { if (counts[p.status] != null) counts[p.status]++; });
-  const totalCount = curPols.length || 1;
+// ---- async: team rollup via security-definer RPC (leader only) ----
+async function _lgFetchTeam(range, period){
+  try {
+    if (window._myAgencyName === undefined && typeof sb!=='undefined' && sb && currentAgent && currentAgent.id) {
+      try { const { data:myRow } = await sb.from('agents').select('agency_code, agency_name').eq('id', currentAgent.id).maybeSingle();
+        window._myAgencyCode = (myRow && myRow.agency_code) || null; window._myAgencyName = (myRow && myRow.agency_name) || null; } catch(_e){}
+    }
+    const { data, error } = await sb.rpc('get_team_summary', { p_start: range.start.toISOString(), p_end: range.end.toISOString() });
+    if (error) {
+      if (error.code === 'PGRST202' || /get_team_summary/.test(error.message||'')) _lgTeam[period] = { unavailable:true };
+      else { console.warn('[summary] team rpc', error.message); _lgTeam[period] = { error:true }; }
+    } else {
+      _lgTeam[period] = Array.isArray(data) ? data : [];
+    }
+  } catch (e) { console.warn('[summary] team rpc', e); _lgTeam[period] = { error:true }; }
+  if (ledgerPeriod === period && document.getElementById('sum-ledger')) renderSummary();
+}
 
-  const bar = document.getElementById('sum-status-bar');
-  bar.innerHTML = '';
-  SUM_STATUSES.forEach(s => {
-    if (!counts[s]) return;
-    const seg = document.createElement('div');
-    seg.className = 'status-seg s-' + s;
-    seg.title = `${SUM_S_LBL[s]}: ${counts[s]} (${Math.round(counts[s]/totalCount*100)}%)`;
-    seg.onclick = () => summaryDrillTo('tracker', { status: s });
-    bar.appendChild(seg);
-    // Animate width from 0 to target on next frame so the CSS transition fires.
-    requestAnimationFrame(() => { seg.style.width = (counts[s] / totalCount * 100) + '%'; });
-  });
+// ---- shared widget builders ----
+function _lgCard(inner, pad){ return '<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:'+(pad||'14px 16px')+'">'+inner+'</div>'; }
+function _lgHead(title, mid, tag){
+  return '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">'+
+    '<div style="font-weight:600;font-size:13px;color:#0F1D3D">'+title+'</div>'+
+    (mid?'<span style="font-weight:400;font-size:11.5px;color:#948C7F">'+mid+'</span>':'')+
+    (tag?'<span style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C;margin-left:auto;white-space:nowrap;padding-left:8px">'+tag+'</span>':'')+
+  '</div>';
+}
+function _lgLbl(t){ return '<div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F">'+t+'</div>'; }
+function _lgStat(label, value, sub, color){
+  return '<div>'+_lgLbl(label)+
+    '<div class="lgm" style="font-weight:600;font-size:22px;color:'+(color||'#0F1D3D')+';margin-top:6px;white-space:nowrap">'+value+'</div>'+
+    '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:2px">'+sub+'</div></div>';
+}
+function _lgSkel(w){ return '<div class="lg-skel" style="height:20px;width:'+(w||'62%')+';background:#ECE9E3;border-radius:6px;margin-top:6px"></div>'; }
+function _lgEmpty(t){ return '<div style="font-weight:400;font-size:12px;color:#948C7F;padding:10px 0">'+t+'</div>'; }
 
-  document.getElementById('sum-status-legend').innerHTML = SUM_STATUSES.map(s => {
-    const c = counts[s];
-    const pct = curPols.length ? Math.round(c / curPols.length * 100) : 0;
-    return `<div class="leg" onclick="summaryDrillTo('tracker',{status:'${s}'})">` +
-           `<span class="dot" style="background:${SUM_S_COLOR[s]}"></span>${SUM_S_LBL[s]}` +
-           ` <span class="leg-num">${c}</span> <span class="leg-pct">${pct}%</span></div>`;
-  }).join('');
+// ============================================================
+// renderSummary — tier switch, composes shared widgets
+// ============================================================
+function renderSummary(){
+  const root = document.getElementById('sum-ledger');
+  if(!root) return;
+  if(typeof _applyPlanGating==='function'){ try { _applyPlanGating(); } catch(_e){} }
 
-  // --- Carrier mix (current period) ---
-  _renderCarrierDonut(curPols);
+  const tier   = _lgTier();
+  const period = ledgerPeriod;
+  const now    = new Date();
+  const pols   = Array.isArray(policies) ? policies : [];
+  const leadsArr = Array.isArray(typeof leads!=='undefined' ? leads : null) ? leads : [];
+  const range  = _lgPeriodRange(period, now);
 
-  // --- Bonus Tier Intelligence (Phase 6 — replaces three renderPaceRow calls) ---
-  renderBonusTierIntel();
-  renderUpcomingBonuses();
+  // ---- period labels ----
+  const resetTxt = period==='daily'?'at midnight':period==='weekly'?'Monday':'on the 1st';
+  const periodCaption = (period==='daily' ? 'Today, '+_lgFd(range.start) : _lgFd(range.start)+' &ndash; '+_lgFd(now)) + ' &middot; resets '+resetTxt;
+  const periodTag = period==='daily' ? 'Today' : (_lgFd(range.start)+' &ndash; '+_lgFd(now));
 
-  // --- Phase 7: streak-diff celebration ---
-  const streak = (typeof streakStats === 'function') ? streakStats().current : 0;
-  const prevStreak = _lastSeenValue('streak');
-  if (streak > prevStreak && (streak === 3 || streak === 7 || streak % 10 === 0)) dashboardMomentStreak(streak);
-  if (prevStreak >= 3 && streak === 0) dashboardMomentStreakBreak(prevStreak);
-  _storeLastValue('streak', streak);
+  // ---- period slices ----
+  const NOT_SOLD = new Set(['lapsed','chargeback']);
+  const periodPols = pols.filter(p => _lgInRange(_lgSubDate(p), range));
+  const periodSold = periodPols.filter(p => !NOT_SOLD.has(p.status));
 
-  // --- Phase 7.5: detect placement transitions ---
-  detectPlacementTransitions(pols);
+  // ---- KPIs ----
+  const kAPn   = periodSold.reduce((s,p)=>s+(Number(p.ap)||0),0);
+  const kCommN = periodSold.reduce((s,p)=>s+_lgAdvComm(p),0);
+  const kPolicies = String(periodSold.length);
+  const kAP    = _lg$(kAPn);
+  const kComm  = kCommN>0 ? 'est. '+_lg$(kCommN) : '$0';
+  const kAvgPrem = periodSold.length ? _lg$(Math.round(kAPn/periodSold.length/12)) : '&mdash;';
 
-  // --- Phase 7: restore layout order + daily summary notification ---
-  applyDashboardLayout();
-  scheduleDailySummary();
+  // ---- calling stats (async) ----
+  let callStats = _lgCalls[period];
+  if(callStats===undefined){ _lgCalls[period]='loading'; _lgFetchCalls(range, period); callStats=null; }
+  else if(callStats==='loading'){ callStats=null; }
+  const dNum = callStats ? callStats.dials    : 0;
+  const cNum = callStats ? callStats.contacts : 0;
+  const tSec = callStats ? callStats.callTime : 0;
+  const salesN = periodSold.length;
+  const ratio  = (salesN>0 && dNum>0) ? Math.max(1, Math.round(dNum/salesN)) : null;
+
+  // ---- status counts (chargeback folds into lapsed) ----
+  const SL = ['pending','approved','issued','paid','lapsed'];
+  const barColor = {pending:'#C9971F',approved:'#98A1AE',issued:'#5B94E8',paid:'#2E9E5B',lapsed:'#D97B2A'};
+  const pill = {pending:['Pending UW','#8A6116','#F6EDD8'],approved:['Approved','#5A6472','#ECEEF1'],issued:['Issued &mdash; Not Paid','#2A5599','#E7EFFB'],paid:['Active','#1B7A43','#E4F2E9'],lapsed:['Lapse / CB','#A34E0C','#FBEBDD']};
+  const counts = {pending:0,approved:0,issued:0,paid:0,lapsed:0};
+  periodPols.forEach(p=>{ const s=p.status==='chargeback'?'lapsed':p.status; if(counts[s]!=null) counts[s]++; });
+  const totalC = periodPols.length;
+
+  // ---- top carriers (period sold) ----
+  const carMap = new Map();
+  periodSold.forEach(p=>{ const k=p.carrier||'&mdash;'; carMap.set(k,(carMap.get(k)||0)+(Number(p.ap)||0)); });
+  const carEntries = [...carMap.entries()].sort((a,b)=>b[1]-a[1]);
+
+  // ---- monthly goal (calendar month, fixed regardless of chip) ----
+  const monthRange = _lgPeriodRange('monthly', now);
+  const monthAP = pols.filter(p=>!NOT_SOLD.has(p.status) && _lgInRange(_lgSubDate(p), monthRange)).reduce((s,p)=>s+(Number(p.ap)||0),0);
+  const goal = (typeof getMonthlyGoal==='function') ? getMonthlyGoal() : 50000;
+  const goalPct = Math.min(1, goal>0 ? monthAP/goal : 0);
+  const goalDays = (typeof daysLeftInMonth==='function') ? daysLeftInMonth(now) : 0;
+  const goalNeed = goalDays>0 ? _lg$(Math.max(0, goal-monthAP)/goalDays) : '$0';
+
+  // ================= SHELL =================
+  const tierLabel = tier==='leader'?'Team Leader':tier==='pro'?'Pro Producer':'Basic';
+  const _nm = (currentAgent && (currentAgent.user_metadata && currentAgent.user_metadata.display_name)) || (currentAgent && currentAgent.display_name) || (currentAgent && currentAgent.email) || '';
+  const _initials = (_nm.replace(/@.*/,'').trim().split(/[.\s_-]+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('') || '&mdash;').toUpperCase();
+  const todayLabel = now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+
+  let H = '';
+  // Topbar strip
+  H += '<div style="height:50px;background:#FFFFFF;border-bottom:1px solid #E4E0DA;display:flex;align-items:center;gap:12px;padding:0 24px;box-sizing:border-box;margin:-20px -24px 16px">'+
+    '<div style="font-weight:600;font-size:15px;color:#0F1D3D">Summary</div>'+
+    '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">'+
+      '<span style="font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F;background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:2px 8px">'+tierLabel+'</span>'+
+      '<span class="lgm" style="font-weight:400;font-size:11.5px;color:#948C7F">'+todayLabel+'</span>'+
+      '<div style="width:26px;height:26px;background:#0F1D3D;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10.5px;color:#FFFFFF">'+_initials+'</div>'+
+    '</div></div>';
+
+  H += '<div style="display:flex;flex-direction:column;gap:16px;max-width:1392px">';
+
+  // Period toggle
+  const chip = (p,label)=>{ const on=period===p; return '<button class="lg-chip lg-click" onclick="setLedgerPeriod(\''+p+'\')" style="padding:6px 10px;font-weight:500;font-size:12.5px;background:#FFFFFF;border:1px solid '+(on?'#B8CCEE':'#E4E0DA')+';color:'+(on?'#3A73C9':'#3B372F')+';border-radius:6px;cursor:pointer">'+label+'</button>'; };
+  H += '<div style="display:flex;align-items:center;gap:8px">'+chip('daily','Daily')+chip('weekly','Weekly')+chip('monthly','Monthly')+
+    '<span class="lgm" style="margin-left:auto;font-weight:400;font-size:11.5px;color:#948C7F">'+periodCaption+'</span></div>';
+
+  // KPI row
+  const kpiCard = (label,val,sub,color)=> _lgCard(_lgStat(label,val,sub,color), '13px 16px');
+  H += '<div class="lg-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">'+
+    kpiCard('Policies written', kPolicies, 'submitted this period')+
+    kpiCard('Total AP submitted', kAP, 'annualized premium')+
+    kpiCard('Est. commission', kComm, 'AP &times; comm% &times; 75% advance')+
+    kpiCard('Avg premium', kAvgPrem, 'monthly, per policy')+
+  '</div>';
+
+  // Calling stats + Goal ring
+  const callVal = (v)=> callStats ? v : _lgSkel('60%');
+  const contactRate = callStats ? (dNum? Math.round(cNum/dNum*100)+'% answer rate' : 'no calls yet') : 'loading&hellip;';
+  const ratioBig = callStats ? (ratio? ratio+':1' : '&mdash;') : '';
+  const ratioSub = callStats ? (ratio? '1 sale per '+ratio+' dials' : (salesN? 'no dials yet' : 'no sales yet this period')) : 'loading&hellip;';
+  const callGrid =
+    '<div class="lg-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">'+
+      _lgStat('Total dials', callVal(String(dNum)), 'dialer + logged calls')+
+      _lgStat('Call time', callVal(tSec?_lgDur(tSec):'0m'), 'total talk time')+
+      _lgStat('Contacts', callVal(String(cNum)), contactRate)+
+      _lgStat('Call-to-close', callStats?(ratioBig||'&mdash;'):_lgSkel('50%'), ratioSub)+
+    '</div>';
+  const callCard = _lgCard(_lgHead('Calling stats','', periodTag)+callGrid);
+
+  const goalDash = (goalPct*351.86).toFixed(1)+' 351.86';
+  const goalRing =
+    '<div style="display:flex;align-items:center;gap:16px">'+
+      '<div style="position:relative;width:112px;height:112px;flex-shrink:0">'+
+        '<svg width="112" height="112" viewBox="0 0 128 128">'+
+          '<circle cx="64" cy="64" r="56" fill="none" stroke="#F0EDE7" stroke-width="10"></circle>'+
+          '<circle cx="64" cy="64" r="56" fill="none" stroke="#3A73C9" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+goalDash+'" transform="rotate(-90 64 64)"></circle>'+
+        '</svg>'+
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">'+
+          '<span class="lgm" style="font-weight:600;font-size:18px;color:#0F1D3D">'+Math.round(goalPct*100)+'%</span>'+
+          '<span style="font-weight:400;font-size:9.5px;color:#948C7F">of goal</span></div>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:6px;min-width:0">'+
+        '<div class="lgm" style="font-weight:600;font-size:15px;color:#0F1D3D">'+_lg$(monthAP)+'</div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F">of '+_lg$(goal)+' goal</div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#3B372F">'+goalDays+' days left &middot; <span class="lgm">'+goalNeed+'</span>/day to hit it</div>'+
+      '</div>'+
+    '</div>';
+  const goalCard = _lgCard(_lgHead('Monthly AP goal','', 'Calendar month')+goalRing);
+  H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.8fr 1fr;gap:16px">'+callCard+goalCard+'</div>';
+
+  // Status breakdown + Top carriers
+  let statusBody;
+  if(totalC>0){
+    const segs = SL.filter(s=>counts[s]>0).map(s=>'<div title="'+pill[s][0].replace(/&mdash;/g,'-')+': '+counts[s]+'" style="width:'+(counts[s]/totalC*100).toFixed(2)+'%;background:'+barColor[s]+'"></div>').join('');
+    const pills = SL.map(s=>{
+      const pct = totalC? Math.round(counts[s]/totalC*100)+'%' : '0%';
+      return '<div class="lg-click" title="Open in Policy Tracker" onclick="summaryDrillTo&&summaryDrillTo(\'tracker\')" style="display:flex;align-items:center;gap:6px">'+
+        '<span style="font-weight:600;font-size:11px;color:'+pill[s][1]+';background:'+pill[s][2]+';padding:2px 8px;border-radius:6px">'+pill[s][0]+'</span>'+
+        '<span class="lgm" style="font-weight:600;font-size:12px;color:#3B372F">'+counts[s]+'</span>'+
+        '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+pct+'</span></div>';
+    }).join('');
+    statusBody = '<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:#F0EDE7">'+segs+'</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+pills+'</div>';
+  } else {
+    statusBody = _lgEmpty('No policies this period yet.');
+  }
+  const statusCard = _lgCard(_lgHead('Status breakdown','click a status to open the Policy Tracker', periodTag)+statusBody);
+
+  let topBody;
+  if(carEntries.length){
+    topBody = carEntries.slice(0,3).map((e,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0EDE7">'+
+      '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:12px">'+(i+1)+'</span>'+
+      '<span style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(e[0])+'</span>'+
+      '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:12px;color:#0F1D3D">'+_lg$(e[1])+'</span>'+
+      '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:34px;text-align:right">'+(kAPn?Math.round(e[1]/kAPn*100)+'%':'')+'</span></div>').join('');
+  } else { topBody = _lgEmpty('No carrier production this period.'); }
+  const topCard = _lgCard(_lgHead('Top carriers by AP','', periodTag)+topBody);
+  H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.8fr 1fr;gap:16px">'+statusCard+topCard+'</div>';
+
+  // ================= PRO + LEADER =================
+  if(tier==='pro' || tier==='leader'){
+    // ---- Income reality (book-wide) ----
+    const nc = (typeof netCommission==='function') ? netCommission(pols) : {earned:0,exposed:0,net:0};
+    const cb = (typeof getChargebackExposure==='function') ? getChargebackExposure() : {totalAdvanced:0,atRiskPolicies:[]};
+    const inForce = (typeof inForceAP==='function') ? inForceAP(pols) : 0;
+    const renewal = (typeof renewalProjection12mo==='function') ? (renewalProjection12mo(pols)[11]||0) : inForce*0.05;
+    const irNet = (nc.net<0?'&minus;':'')+_lg$(Math.abs(nc.net));
+    H += _lgCard(_lgHead('Income reality','earned &minus; exposed, plus what the book pays as-earned','Book-wide')+
+      '<div class="lg-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">'+
+        _lgStat('Net commission', irNet, 'est. '+_lg$(nc.earned)+' earned &minus; '+_lg$(nc.exposed)+' exposed', nc.net<0?'#B3261E':'#0F1D3D')+
+        _lgStat('Chargeback exposure', _lg$(nc.exposed), cb.atRiskPolicies.length+' policies in the 9-mo window', '#B3261E')+
+        _lgStat('12-mo renewal projection', 'est. '+_lg$(renewal), 'est. 5% as-earned on in-force AP')+
+        _lgStat('In-force AP', _lg$(inForce), 'issued + paid, book-wide')+
+      '</div>');
+
+    // ---- Chargeback earn-down (book-wide) ----
+    const D=86400000; const cutoff9=new Date(now.getFullYear(),now.getMonth()-9,now.getDate());
+    const atRisk = pols.filter(p=>p.status==='lapsed' && (function(){ const s=_lgSubDate(p); return s && new Date(s+'T00:00:00')>=cutoff9; })());
+    const buckets = new Array(9).fill(0);
+    atRisk.forEach(p=>{ const s=_lgSubDate(p); const sm=new Date(s+'T00:00:00').getTime(); const monthsIn=Math.min(8,Math.max(0,Math.floor((now-sm)/(30.44*D)))); const remaining=9-monthsIn; const per=_lgAdvComm(p)/9; for(let m=0;m<remaining;m++) buckets[m]+=per; });
+    const edTotal = atRisk.reduce((s,p)=>s+_lgAdvComm(p),0);
+    const edMax = Math.max(...buckets,1);
+    const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let edBody;
+    if(edTotal>0){
+      const bars = buckets.map((v,i)=>{ const h=v>0?Math.max(4,Math.round(v/edMax*84)):0; const amt=v>0?(v>=1000?'$'+(v/1000).toFixed(1)+'k':'$'+Math.round(v)):''; const col=i===0?'#3A73C9':'#5B94E8';
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0">'+
+          '<span class="lgm" style="font-weight:400;font-size:10px;color:#6B6459">'+amt+'</span>'+
+          '<div style="width:100%;height:'+h+'px;background:'+col+';border-radius:3px 3px 0 0"></div>'+
+          '<span class="lgm" style="font-weight:400;font-size:10px;color:#948C7F">'+MON[(now.getMonth()+i)%12]+'</span></div>'; }).join('');
+      edBody = '<div style="display:flex;align-items:flex-end;gap:8px;height:128px">'+bars+'</div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">est. <span class="lgm" style="font-weight:600;color:#B3261E">'+_lg$(edTotal)+'</span> still at risk across '+atRisk.length+' lapsed policies</div>';
+    } else { edBody = _lgEmpty('No at-risk advances &mdash; nothing in the 9-month window.'); }
+    const edCard = _lgCard(_lgHead('Chargeback earn-down','at-risk advance clearing month by month','Book-wide')+edBody);
+
+    // ---- Dial efficiency ----
+    const perDial = callStats ? (dNum>0&&kCommN>0?'est. $'+(kCommN/dNum).toFixed(2):'&mdash;') : _lgSkel('60%');
+    const perContact = callStats ? (cNum>0&&kCommN>0?'est. $'+(kCommN/cNum).toFixed(2):'&mdash;') : _lgSkel('60%');
+    const dialCard = _lgCard(_lgHead('Dial efficiency','', periodTag)+
+      '<div style="display:flex;flex-direction:column;gap:12px">'+
+        '<div>'+_lgLbl('Est. $ per dial')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+perDial+'</div></div>'+
+        '<div>'+_lgLbl('Est. $ per contact')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+perContact+'</div></div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F;border-top:1px solid #F0EDE7;padding-top:8px">period est. commission &divide; dials / contacts</div>'+
+      '</div>');
+
+    // ---- Term conversion radar (book-wide) ----
+    const radarPols = pols.filter(p=>{ if(!p.conversionDeadline)return false; const d=new Date(p.conversionDeadline); return !isNaN(d.getTime()) && d>now && (d-now)/D<=90; });
+    const radarAP = radarPols.reduce((s,p)=>s+(Number(p.ap)||0),0);
+    let radarBody;
+    if(radarPols.length){
+      radarBody = '<div style="display:flex;flex-direction:column;gap:12px">'+
+        '<div>'+_lgLbl('Deadlines within 90 days')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+radarPols.length+' <span style="font-weight:400;font-size:12px;color:#948C7F">policies</span></div></div>'+
+        '<div>'+_lgLbl('Convertible AP')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+_lg$(radarAP)+'</div></div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F;border-top:1px solid #F0EDE7;padding-top:8px">term policies with a conversion deadline coming up</div>'+
+      '</div>';
+    } else { radarBody = _lgEmpty('No conversion deadlines in the next 90 days.'); }
+    const radarCard = _lgCard(_lgHead('Term conversion radar','','Book-wide')+radarBody);
+    H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.7fr .85fr .85fr;gap:16px">'+edCard+dialCard+radarCard+'</div>';
+
+    // ---- Pipeline funnel (period) ----
+    const placed = counts.issued+counts.paid;
+    const placement = totalC? Math.round(placed/totalC*100)+'%' : '&mdash;';
+    let funnelBody;
+    if(totalC>0){
+      const fCounts=[totalC,counts.pending,counts.approved,counts.issued,counts.paid];
+      const fLabels=['Submitted','In UW','Approved','Issued','Paid'];
+      const FBG=['#F0EDE7','#EDE9E1','#E7E2D8','#DFD9CD','#D6CFC0'];
+      const fMax=Math.max(...fCounts,1);
+      funnelBody='<div style="display:flex;gap:4px">'+fLabels.map((lbl,i)=>'<div style="flex-grow:'+(0.6+fCounts[i]/fMax*2.4).toFixed(2)+';flex-basis:0;min-width:52px;background:'+FBG[i]+';border-radius:6px;padding:9px 12px">'+
+        '<div style="font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F">'+lbl+'</div>'+
+        '<div class="lgm" style="font-weight:600;font-size:15px;color:#0F1D3D;margin-top:2px">'+fCounts[i]+'</div></div>').join('')+'</div>';
+    } else { funnelBody=_lgEmpty('Nothing submitted this period yet.'); }
+    H += _lgCard(
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+        '<div style="font-weight:600;font-size:13px;color:#0F1D3D">Pipeline funnel</div>'+
+        '<span style="font-weight:600;font-size:11px;color:#1B7A43;background:#E4F2E9;padding:2px 8px;border-radius:6px">Placement '+placement+'</span>'+
+        '<span style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C;margin-left:auto;white-space:nowrap;padding-left:8px">'+periodTag+'</span>'+
+      '</div>'+funnelBody);
+
+    // ---- Carrier mix donut + Persistency + Product mix ----
+    const DCOLORS=['#3A73C9','#5B94E8','#A9C4EE','#C7C1B6','#D8D3CA','#ECEEF1'];
+    const Cdon=2*Math.PI*46;
+    let mixBody;
+    if(kAPn>0 && carEntries.length){
+      const dEnt=carEntries.slice(0,5); const other=carEntries.slice(5).reduce((s,e)=>s+e[1],0); if(other>0) dEnt.push(['Other',other]);
+      let cum=0; const segs=dEnt.map((e,i)=>{ const frac=kAPn?e[1]/kAPn:0; const seg='<circle cx="60" cy="60" r="46" fill="none" stroke="'+DCOLORS[i%6]+'" stroke-width="14" stroke-dasharray="'+(frac*Cdon).toFixed(2)+' '+(Cdon-frac*Cdon).toFixed(2)+'" stroke-dashoffset="'+(-cum*Cdon).toFixed(2)+'" transform="rotate(-90 60 60)"></circle>'; cum+=frac; return seg; }).join('');
+      const legend=dEnt.map((e,i)=>'<div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:2px;background:'+DCOLORS[i%6]+';flex-shrink:0"></span>'+
+        '<span style="font-weight:400;font-size:11.5px;color:#3B372F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_lgEsc(e[0])+'</span>'+
+        '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:11px;color:#0F1D3D">'+_lg$(e[1])+'</span></div>').join('');
+      mixBody='<div style="display:flex;align-items:center;gap:14px"><div style="position:relative;width:116px;height:116px;flex-shrink:0">'+
+        '<svg width="116" height="116" viewBox="0 0 120 120">'+segs+'</svg>'+
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">'+
+          '<span class="lgm" style="font-weight:600;font-size:13px;color:#0F1D3D;white-space:nowrap">'+_lgKk(kAPn)+'</span>'+
+          '<span style="font-weight:400;font-size:9px;color:#948C7F">total AP</span></div></div>'+
+        '<div style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1">'+legend+'</div></div>';
+    } else { mixBody=_lgEmpty('No carrier data for this period.'); }
+    const mixCard=_lgCard(_lgHead('Carrier mix','', periodTag)+mixBody);
+
+    const RC=2*Math.PI*40;
+    const p13=(typeof persistency13mo==='function')?persistency13mo(pols):{rate:null,cohort:0};
+    const p25=(typeof persistency25mo==='function')?persistency25mo(pols):{rate:null,cohort:0};
+    const ring=(p)=>{ const dash=(p.rate==null?0:p.rate*RC).toFixed(1)+' '+RC.toFixed(1); const lbl=p.rate==null?'&mdash;':Math.round(p.rate*100)+'%'; const sub=p.rate==null?'no cohort yet':'cohort of '+p.cohort; return {dash,lbl,sub}; };
+    const r13=ring(p13), r25=ring(p25);
+    const ringHtml=(r,label)=>'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="position:relative;width:84px;height:84px">'+
+      '<svg width="84" height="84" viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="none" stroke="#F0EDE7" stroke-width="8"></circle>'+
+      '<circle cx="48" cy="48" r="40" fill="none" stroke="#3A73C9" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+r.dash+'" transform="rotate(-90 48 48)"></circle></svg>'+
+      '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center" class="lgm"><span style="font-weight:600;font-size:15px;color:#0F1D3D">'+r.lbl+'</span></div></div>'+
+      '<div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F">'+label+'</div>'+
+      '<div class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+r.sub+'</div></div>';
+    const persistCard=_lgCard(_lgHead('Persistency health','','Book-wide')+
+      '<div style="display:flex;gap:18px;justify-content:center">'+ringHtml(r13,'13-month')+ringHtml(r25,'25-month')+'</div>'+
+      '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">benchmarks: 85% at 13 mo &middot; 75% at 25 mo</div>');
+
+    const mix=(typeof productMix==='function')?productMix(pols):{groups:new Map(),total:0};
+    const mixEnt=[...mix.groups.entries()].sort((a,b)=>b[1]-a[1]);
+    const mixMax=Math.max(...mixEnt.map(e=>e[1]),1);
+    const conc=(typeof carrierConcentration==='function')?carrierConcentration(pols):null;
+    const concWarn=conc && conc.pct>0.6;
+    const concText=conc?(concWarn?'Concentration alert &mdash; '+_lgEsc(conc.carrier)+' is '+Math.round(conc.pct*100)+'% of in-force AP':'Top carrier: '+_lgEsc(conc.carrier)+' &mdash; '+Math.round(conc.pct*100)+'% of in-force AP'):'No in-force policies yet.';
+    let mixRows;
+    if(mixEnt.length){
+      mixRows=mixEnt.map(e=>'<div style="display:flex;align-items:center;gap:8px"><span class="lgm" style="font-weight:600;font-size:10.5px;color:#3B372F;width:38px">'+_lgEsc(e[0])+'</span>'+
+        '<div style="flex:1;height:8px;background:#F0EDE7;border-radius:3px;overflow:hidden"><div style="width:'+Math.round(e[1]/mixMax*100)+'%;height:8px;background:#B0A99C;border-radius:3px"></div></div>'+
+        '<span class="lgm" style="font-weight:600;font-size:11px;color:#0F1D3D;width:56px;text-align:right">'+_lg$(e[1])+'</span>'+
+        '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:32px;text-align:right">'+(mix.total?Math.round(e[1]/mix.total*100)+'%':'')+'</span></div>').join('');
+    } else { mixRows=_lgEmpty('No in-force policies yet.'); }
+    const concLine=concWarn
+      ? '<div style="margin-top:10px;background:#FBEBDD;color:#A34E0C;font-weight:500;font-size:11.5px;padding:7px 10px;border-radius:6px">'+concText+'</div>'
+      : '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">'+concText+'</div>';
+    const prodCard=_lgCard(_lgHead('Product mix','','Book-wide')+'<div style="display:flex;flex-direction:column;gap:8px">'+mixRows+'</div>'+concLine);
+    H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:16px">'+mixCard+persistCard+prodCard+'</div>';
+
+    // ---- Activity momentum (period) ----
+    const appts=Math.round(cNum*0.3);
+    const amCounts=[dNum,cNum,appts,salesN,placed];
+    const amLabels=['Dials','Contacts','Appointments','Apps','Issued'];
+    const amMax=Math.max(dNum,1);
+    const amRows=amLabels.map((lbl,i)=>'<div style="display:flex;align-items:center;gap:8px"><span style="font-weight:400;font-size:11px;color:#948C7F;width:74px">'+lbl+'</span>'+
+      '<div style="flex:1;height:8px;background:#F0EDE7;border-radius:3px;overflow:hidden"><div style="width:'+(amMax?Math.max(amCounts[i]/amMax*100, amCounts[i]>0?2:0):0).toFixed(1)+'%;height:8px;background:#5B94E8;border-radius:3px"></div></div>'+
+      '<span class="lgm" style="font-weight:600;font-size:12px;color:#0F1D3D;width:44px;text-align:right">'+amCounts[i]+'</span></div>').join('');
+    const sstat=(typeof streakStats==='function')?streakStats():{current:0,longest:0,totalDays:0};
+    const ach=(typeof evaluateAchievements==='function')?evaluateAchievements():[];
+    const achHtml=ach.map(a=>{ const on=!!a._earned; return '<span style="font-weight:600;font-size:11px;color:'+(on?'#1B7A43':'#B0A99C')+';background:'+(on?'#E4F2E9':'#FAF8F5')+';border:1px solid '+(on?'#CBE4D4':'#E4E0DA')+';padding:2px 8px;border-radius:6px">'+_lgEsc(a.label)+'</span>'; }).join('');
+    H += _lgCard(_lgHead('Activity momentum','', periodTag)+
+      '<div class="lg-grid" style="display:grid;grid-template-columns:1.5fr 1fr 1.2fr;gap:24px">'+
+        '<div style="display:flex;flex-direction:column;gap:7px">'+amRows+'</div>'+
+        '<div style="border-left:1px solid #F0EDE7;padding-left:24px">'+_lgLbl('Current streak')+
+          '<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+sstat.current+' <span style="font-weight:400;font-size:12px;color:#948C7F">days</span></div>'+
+          '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:6px">longest <span class="lgm" style="font-weight:600;color:#3B372F">'+sstat.longest+'</span> &middot; '+sstat.totalDays+' active days total</div></div>'+
+        '<div style="border-left:1px solid #F0EDE7;padding-left:24px">'+_lgLbl('Achievements')+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+achHtml+'</div></div>'+
+      '</div>');
+
+    // ---- Bonus tier intelligence (program windows) ----
+    let ladders=[]; let allSnaps=[];
+    try {
+      allSnaps=(typeof computeBonusSnapshots==='function')?computeBonusSnapshots(now):[];
+      for(const s of allSnaps){
+        const b=s.bonus;
+        if(!s.computable){
+          ladders.push({portal:true,carrier:b.carrier.split(' (')[0],program:b.program||'',windowLabel:'ongoing',note:'Program active &mdash; tiers live on the carrier portal. No projection shown.',progLabel:'',gapLine:'see portal'});
+          continue;
+        }
+        if(s.closed || !s.state || s.state.kind==='trip') continue;
+        const st=s.state; const isCount=b.basis==='policy_count';
+        const winEnd=(s.win.end instanceof Date)?s.win.end:new Date(s.win.end);
+        const winStart=(s.win.start instanceof Date)?s.win.start:new Date(s.win.start);
+        const daysLeft=Math.max(0,Math.ceil((winEnd-now)/86400000));
+        const tiers=st.tiers||[{threshold:st.threshold}];
+        const maxT=st.maxT||(tiers.length?tiers[tiers.length-1].threshold:1);
+        const next=st.next||tiers.find(t=>s.progress<t.threshold);
+        ladders.push({
+          portal:false, carrier:b.carrier.split(' (')[0], program:b.program||'',
+          windowLabel:_lgFd(winStart)+' &ndash; '+_lgFd(winEnd),
+          fillPct:Math.min(100,maxT>0?s.progress/maxT*100:0).toFixed(1),
+          progLabel:isCount?Math.round(s.progress)+' pol':_lg$(s.progress),
+          tiers:tiers.map(t=>({pos:Math.min(100,maxT>0?t.threshold/maxT*100:0).toFixed(1),reached:s.progress>=t.threshold})),
+          gapLine: st.gap>0 ? ((isCount?Math.ceil(st.gap)+' pol':_lg$(st.gap))+(st.unlockValue>0?' to est. +'+_lg$(st.unlockValue):'')+' &middot; '+daysLeft+'d left') : 'top tier reached',
+          _gapNum: st.gap>0?st.gap:Infinity, _unlock:st.unlockValue||0, _daysLeft:daysLeft, _winEnd:winEnd, _isCount:isCount, _gap:st.gap||0
+        });
+      }
+    } catch(e){ console.warn('[summary] bonus', e); }
+    let laddersHtml=ladders.map(l=>{
+      let mid;
+      if(l.portal){ mid='<div style="font-weight:400;font-size:11.5px;color:#948C7F">'+l.note+'</div>'; }
+      else {
+        const ticks=l.tiers.map(t=>'<div style="position:absolute;top:-3px;left:'+t.pos+'%;width:2px;height:14px;background:'+(t.reached?'#1B7A43':'#C7C1B6')+'"></div>').join('');
+        mid='<div style="position:relative;height:22px;display:flex;align-items:center"><div style="position:relative;width:100%;height:8px;background:#F0EDE7;border-radius:3px">'+
+          '<div style="width:'+l.fillPct+'%;height:8px;background:#5B94E8;border-radius:3px"></div>'+ticks+'</div></div>';
+      }
+      return '<div class="lg-grid" style="display:grid;grid-template-columns:220px 1fr 250px;gap:20px;align-items:center;padding:11px 0;border-top:1px solid #F0EDE7">'+
+        '<div><div style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(l.carrier)+'</div>'+
+          '<div style="font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(l.program)+(l.program?' &middot; ':'')+l.windowLabel+'</div></div>'+
+        mid+
+        '<div style="font-weight:400;font-size:11.5px;color:#3B372F;text-align:right"><span class="lgm" style="font-weight:600;font-size:12px;color:#0F1D3D">'+l.progLabel+'</span><span style="color:#948C7F"> &middot; '+l.gapLine+'</span></div>'+
+      '</div>';
+    }).join('');
+    if(!laddersHtml) laddersHtml='<div style="border-top:1px solid #F0EDE7;padding-top:11px">'+_lgEmpty('No active bonus programs selected &mdash; pick your carriers in the Bonus Tracker.')+'</div>';
+
+    // nearest tiers + upcoming
+    const nearest=ladders.filter(l=>!l.portal && l._gap>0 && l._unlock>0).sort((a,b)=>a._gapNum-b._gapNum).slice(0,3);
+    let nearestHtml;
+    if(nearest.length){
+      nearestHtml=nearest.map((l,i)=>'<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0"><span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+(i+1)+'</span>'+
+        '<span style="font-weight:500;font-size:12px;color:#0F1D3D">'+_lgEsc(l.carrier)+' '+_lgEsc(l.program)+'</span>'+
+        '<span class="lgm" style="font-weight:600;font-size:12px;color:#1B7A43">est. +'+_lg$(l._unlock)+'</span>'+
+        '<span style="margin-left:auto;font-weight:400;font-size:11.5px;color:#948C7F"><span class="lgm" style="color:#3B372F">'+(l._isCount?Math.ceil(l._gap)+' pol':_lg$(l._gap))+'</span> to go by '+_lgFd(l._winEnd)+' &middot; '+l._daysLeft+'d left</span></div>').join('');
+    } else { nearestHtml='<div style="font-weight:400;font-size:12px;color:#948C7F">No tier gaps to chase right now.</div>'; }
+
+    let upcoming=[]; try { upcoming=(typeof computeUpcomingBonuses==='function')?computeUpcomingBonuses(now):[]; } catch(e){}
+    let upcomingHtml;
+    if(upcoming.length){
+      upcomingHtml=upcoming.map(u=>'<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0"><span style="font-weight:500;font-size:12px;color:#0F1D3D">'+_lgEsc(u.bonus.carrier.split(' (')[0])+' &mdash; '+_lgEsc(u.bonus.program||'')+'</span>'+
+        '<span class="lgm" style="font-weight:600;font-size:12px;color:#1B7A43">'+(u.amount!=null?'est. '+_lg$(u.amount):_lgEsc(u.label))+'</span>'+
+        '<span style="margin-left:auto;font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(u.timing||'')+'</span></div>').join('');
+    } else { upcomingHtml='<div style="font-weight:400;font-size:12px;color:#948C7F">Nothing unlocked yet this window.</div>'; }
+
+    H += _lgCard(_lgHead('Bonus tier intelligence','all payouts are estimates &mdash; verify on the carrier portal','Program windows')+
+      '<div style="display:flex;flex-direction:column">'+laddersHtml+'</div>'+
+      '<div class="lg-grid" style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:12px">'+
+        '<div style="background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:10px 12px">'+_lgLbl('Nearest tiers')+'<div style="margin-top:6px">'+nearestHtml+'</div></div>'+
+        '<div style="background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:10px 12px">'+_lgLbl('Upcoming bonuses')+'<div style="margin-top:6px">'+upcomingHtml+'</div></div>'+
+      '</div>');
+
+    // ---- Lead-source ROI (period) + Cycle time (book-wide) ----
+    const leadsBySrc=new Map();
+    leadsArr.forEach(l=>{ const created=l.importedAt||l.created_at; if(created && _lgWhenInRange(created,range)){ const s=l.source||'&mdash;'; leadsBySrc.set(s,(leadsBySrc.get(s)||0)+1); } });
+    const salesBySrc=new Map();
+    periodSold.forEach(p=>{ const s=p.leadSource||null; if(!s)return; const cur=salesBySrc.get(s)||{sales:0,ap:0,comm:0}; cur.sales++; cur.ap+=Number(p.ap)||0; cur.comm+=_lgAdvComm(p); salesBySrc.set(s,cur); });
+    const srcKeys=[...new Set([...leadsBySrc.keys(),...salesBySrc.keys()])];
+    const roiRows=srcKeys.map(s=>{ const leadsC=leadsBySrc.get(s)||0; const sm=salesBySrc.get(s)||{sales:0,ap:0,comm:0}; return {source:s,leads:leadsC,sales:sm.sales,ap:sm.ap,comm:sm.comm,conv:(leadsC>0&&sm.sales>0)?Math.min(100,sm.sales/leadsC*100).toFixed(1)+'%':'&mdash;'}; }).sort((a,b)=>b.ap-a.ap);
+    const roiHead='<div class="lg-grid" style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Source</span><span style="text-align:right">Leads</span><span style="text-align:right">Sales</span><span style="text-align:right">Conv</span><span style="text-align:right">Total AP</span><span style="text-align:right">Est. comm</span></div>';
+    let roiBody;
+    if(roiRows.length){
+      roiBody=roiRows.map(r=>'<div class="lg-grid lg-rowh" style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+        '<span style="font-weight:500">'+_lgEsc(r.source)+'</span>'+
+        '<span class="lgm" style="text-align:right">'+r.leads+'</span>'+
+        '<span class="lgm" style="text-align:right">'+r.sales+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+r.conv+'</span>'+
+        '<span class="lgm" style="text-align:right;font-weight:600">'+(r.ap?_lg$(r.ap):'&mdash;')+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+(r.comm?'est. '+_lg$(r.comm):'&mdash;')+'</span></div>').join('');
+    } else { roiBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:#948C7F">No leads in this period yet.</div>'; }
+    const roiCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Lead-source ROI','', periodTag)+'</div>'+roiHead+roiBody+'</div>';
+
+    const cyMap=new Map(); const Dd=86400000;
+    pols.forEach(p=>{ if(!p.issueDate)return; const sub=_lgSubDate(p); if(!sub)return; const si=(new Date(p.issueDate)-new Date(sub+'T00:00:00'))/Dd; const car=p.carrier||'&mdash;'; const e=cyMap.get(car)||{si:[],ip:[]}; if(isFinite(si)&&si>=0) e.si.push(si); if(p.payDate){ const ip=(new Date(p.payDate)-new Date(p.issueDate))/Dd; if(isFinite(ip)&&ip>=0) e.ip.push(ip);} cyMap.set(car,e); });
+    const avg=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
+    let cyRows=[...cyMap.entries()].filter(e=>e[1].si.length>=3).map(([car,e])=>({carrier:car,si:avg(e.si),ip:avg(e.ip)})).sort((a,b)=>b.si-a.si);
+    cyRows=cyRows.map((c,i)=>({carrier:c.carrier,si:Math.round(c.si)+'d',ip:c.ip!=null?Math.round(c.ip)+'d':'&mdash;',slow:i===0&&cyRows.length>1}));
+    const cyHead='<div class="lg-grid" style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Carrier</span><span style="text-align:right">Sub &rarr; issued</span><span style="text-align:right">Issued &rarr; paid</span></div>';
+    let cyBody;
+    if(cyRows.length){
+      cyBody=cyRows.map(c=>'<div class="lg-grid lg-rowh" style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+        '<span style="font-weight:500;display:flex;align-items:center;gap:6px">'+_lgEsc(c.carrier)+(c.slow?'<span style="font-weight:600;font-size:10.5px;color:#A34E0C;background:#FBEBDD;padding:1px 6px;border-radius:6px">slowest</span>':'')+'</span>'+
+        '<span class="lgm" style="text-align:right">'+c.si+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+c.ip+'</span></div>').join('');
+    } else { cyBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:#948C7F">Not enough issued policies to measure yet.</div>'; }
+    const cyCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Cycle time','','Book-wide')+'</div>'+cyHead+cyBody+'</div>';
+    H += '<div class="lg-grid" style="display:grid;grid-template-columns:1.7fr 1fr;gap:16px">'+roiCard+cyCard+'</div>';
+
+    // ---- Free-look watchlist (book-wide) ----
+    const watch=(typeof freeLookWatch==='function')?freeLookWatch(pols):[];
+    let flBody;
+    if(watch.length){
+      flBody=watch.map(p=>{ const left=p._daysLeftInFreeLook; const dot=left<=7?'#D2483F':left<=15?'#C9971F':'#2E9E5B';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0EDE7">'+
+          '<span style="width:8px;height:8px;border-radius:50%;background:'+dot+';flex-shrink:0"></span>'+
+          '<span style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(p.client||'Unnamed')+'</span>'+
+          '<span style="font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(p.carrier||'')+' &middot; '+_lg$(Number(p.ap)||0)+' AP</span>'+
+          '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:12px;color:#3B372F">'+left+'d left</span>'+
+          '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">issued '+_lgFd(p.issueDate)+'</span></div>'; }).join('');
+    } else { flBody=_lgEmpty('No policies in the free-look window right now.'); }
+    H += _lgCard(_lgHead('Free-look watchlist','policies inside the 30-day free-look window','Book-wide')+flBody);
+  }
+
+  // ================= LEADER: TEAM =================
+  if(tier==='leader'){
+    let teamData=_lgTeam[period];
+    if(teamData===undefined){ _lgTeam[period]='loading'; _lgFetchTeam(range, period); teamData='loading'; }
+    const agencyName=(window._myAgencyName)||'Your Team';
+    const agencyCode=(window._myAgencyCode)||'&mdash;';
+
+    if(teamData==='loading' || teamData===undefined){
+      const skelRow='<div style="height:12px;width:88%;background:#F0EDE7;border-radius:6px" class="lg-skel"></div>';
+      H += '<div style="display:flex;align-items:baseline;gap:10px;margin-top:8px">'+
+        '<div style="font-weight:600;font-size:13px;color:#0F1D3D">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
+        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C">'+periodTag+'</span></div>'+
+        _lgCard('<div style="display:flex;flex-direction:column;gap:10px"><div style="height:12px;width:38%;background:#ECE9E3;border-radius:6px" class="lg-skel"></div>'+skelRow+skelRow+skelRow+skelRow+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F">Loading team aggregates &mdash; your personal stats above are already live.</div></div>');
+    } else if(teamData && teamData.unavailable){
+      H += _lgCard(_lgHead('Team summary','','Team Leader')+_lgEmpty('Team rollups are unavailable &mdash; run the <span class="lgm">get_team_summary</span> migration (supabase/migrations/20260716b_team_summary.sql) in the Supabase SQL editor to enable this.'));
+    } else if(teamData && teamData.error){
+      H += _lgCard(_lgHead('Team summary','','Team Leader')+_lgEmpty('Could not load team data right now. Please try again.'));
+    } else {
+      const rows=(Array.isArray(teamData)?teamData:[]).map(r=>({
+        agent_id:r.agent_id, name:r.agent_name||'&mdash;', you:(currentAgent&&r.agent_id===currentAgent.id)||!!r.is_leader,
+        ap:Number(r.ap)||0, sales:Number(r.sales)||0, dials:Number(r.dials)||0, time:Number(r.call_time_sec)||0,
+        ratio:(Number(r.sales)>0&&Number(r.dials)>0)?Math.max(1,Math.round(Number(r.dials)/Number(r.sales))):null
+      }));
+      const n=rows.length||1;
+      const tot=rows.reduce((s,r)=>({ap:s.ap+r.ap,sales:s.sales+r.sales,dials:s.dials+r.dials,time:s.time+r.time}),{ap:0,sales:0,dials:0,time:0});
+      const you=rows.find(r=>r.you)||{ap:0,dials:0,sales:0,time:0,ratio:null};
+      const teamRatio=tot.sales>0?Math.max(1,Math.round(tot.dials/tot.sales))+':1':'&mdash;';
+      const youRatio=you.ratio?you.ratio+':1':'&mdash;';
+
+      H += '<div style="display:flex;align-items:baseline;gap:10px;margin-top:8px">'+
+        '<div style="font-weight:600;font-size:13px;color:#0F1D3D">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
+        '<span class="lgm" style="font-weight:400;font-size:11px;color:#B0A99C">AGENCY CODE '+_lgEsc(agencyCode)+' &middot; '+rows.length+' agent'+(rows.length===1?'':'s')+'</span>'+
+        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C">'+periodTag+'</span></div>';
+
+      // Team vs You strip
+      H += _lgCard('<div class="lg-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px">'+
+        '<div>'+_lgLbl('AP &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+_lg$(you.ap)+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team avg <span class="lgm">'+_lg$(tot.ap/n)+'</span></span></div></div>'+
+        '<div>'+_lgLbl('Dials &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+you.dials+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team avg <span class="lgm">'+Math.round(tot.dials/n)+'</span></span></div></div>'+
+        '<div>'+_lgLbl('Call-to-close &mdash; you vs team')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+youRatio+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team-wide <span class="lgm">'+teamRatio+'</span></span></div></div>'+
+      '</div>');
+
+      // Sortable table
+      const dir=_lgTeamSort.dir==='desc'?-1:1; const col=_lgTeamSort.col;
+      const keyf=t=>col==='name'?t.name:col==='ap'?t.ap:col==='sales'?t.sales:col==='dials'?t.dials:col==='time'?t.time:(t.sales>0?t.dials/t.sales:Infinity);
+      const sorted=rows.slice().sort((a,b)=>{ const ka=keyf(a),kb=keyf(b); if(typeof ka==='string') return ka.localeCompare(kb)*dir; return (ka===kb?0:ka<kb?-1:1)*dir; });
+      const ar=c=>_lgTeamSort.col===c?(_lgTeamSort.dir==='desc'?' &#9662;':' &#9652;'):'';
+      const th=(c,lbl,align)=>'<span class="lg-th" onclick="ledgerSortTeam(\''+c+'\')"'+(align?' style="text-align:'+align+'"':'')+'>'+lbl+ar(c)+'</span>';
+      const gcols='grid-template-columns:1.7fr 1fr .7fr .9fr 1fr 1fr';
+      let tbl='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">'+
+        '<div class="lg-grid" style="display:grid;'+gcols+';align-items:center;height:34px;background:#FAF8F5;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F">'+
+          th('name','Agent')+th('ap','AP (period)','right')+th('sales','Sales','right')+th('dials','Total dials','right')+th('time','Call time','right')+th('ratio','Call-to-close','right')+'</div>';
+      tbl+=sorted.map(t=>'<div class="lg-grid lg-rowh" style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+        '<span style="font-weight:500;display:flex;align-items:center;gap:8px">'+_lgEsc(t.name)+(t.you?'<span style="font-weight:600;font-size:10.5px;color:#2A5599;background:#E7EFFB;padding:1px 6px;border-radius:6px">You</span>':'')+'</span>'+
+        '<span class="lgm" style="text-align:right;font-weight:600">'+_lg$(t.ap)+'</span>'+
+        '<span class="lgm" style="text-align:right">'+t.sales+'</span>'+
+        '<span class="lgm" style="text-align:right">'+t.dials+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+_lgDur(t.time)+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+(t.ratio?t.ratio+':1':'&mdash;')+'</span></div>').join('');
+      tbl+='<div class="lg-grid" style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #E4E0DA;background:#FAF8F5;font-weight:600;font-size:13px;color:#0F1D3D">'+
+        '<span>Team total</span>'+
+        '<span class="lgm" style="text-align:right">'+_lg$(tot.ap)+'</span>'+
+        '<span class="lgm" style="text-align:right">'+tot.sales+'</span>'+
+        '<span class="lgm" style="text-align:right">'+tot.dials+'</span>'+
+        '<span class="lgm" style="text-align:right">'+_lgDur(tot.time)+'</span>'+
+        '<span class="lgm" style="text-align:right">'+teamRatio+'</span></div>';
+      tbl+='</div>';
+      H += tbl;
+      H += '<div style="font-weight:400;font-size:10.5px;color:#B0A99C;margin-top:-6px">Downline rows show production and calling totals only &mdash; no client names, policy details, or commission amounts.</div>';
+    }
+  }
+
+  // ================= TEASERS =================
+  if(tier==='basic'){
+    const proTeasers=[
+      ['Income reality','Net commission, chargeback exposure, and your 12-month renewal projection.'],
+      ['Chargeback earn-down','Watch at-risk advance dollars clear month by month over the 9-month window.'],
+      ['Pipeline funnel','Submitted &rarr; paid with placement %, so you see exactly where deals stall.'],
+      ['Carrier mix &amp; persistency','13/25-month persistency, product mix, and carrier concentration alerts.'],
+      ['Bonus tier intelligence','Every active program, your gap to the next tier, and est. payouts coming.'],
+      ['Lead-source ROI','Leads, conversion %, AP, and est. commission for every lead source you buy.']
+    ];
+    const teaserCard=(title,desc,badge,btn,tier2)=>'<div style="position:relative;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:14px 16px;min-height:172px;box-sizing:border-box">'+
+      '<div style="font-weight:600;font-size:13px;color:#0F1D3D;margin-bottom:12px">'+title+'</div>'+
+      '<div style="filter:blur(3px);opacity:.55;pointer-events:none;display:flex;flex-direction:column;gap:10px">'+
+        '<div style="height:20px;width:38%;background:#ECE9E3;border-radius:6px"></div>'+
+        '<div style="height:9px;width:92%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="height:9px;width:76%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="display:flex;gap:8px;align-items:flex-end;height:44px">'+
+          '<div style="flex:1;height:20px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:34px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:26px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:42px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:30px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+        '</div></div>'+
+      '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;background:rgba(255,255,255,.55);border-radius:6px">'+
+        '<span style="font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#2A5599;background:#E7EFFB;border:1px solid #B8CCEE;padding:2px 8px;border-radius:6px">'+badge+'</span>'+
+        '<div style="font-weight:400;font-size:12.5px;color:#3B372F;text-align:center;max-width:280px">'+desc+'</div>'+
+        '<button class="lg-btn lg-click" onclick="lgUpgrade(\''+tier2+'\')" style="background:#3A73C9;color:#FFFFFF;border:none;border-radius:6px;font-weight:600;font-size:12.5px;padding:7px 12px;cursor:pointer">'+btn+'</button>'+
+      '</div></div>';
+    H += '<div class="lg-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">'+
+      proTeasers.map(t=>teaserCard(t[0],t[1],'Pro','Upgrade to Pro','pro')).join('')+'</div>';
+  }
+
+  if(tier!=='leader'){
+    H += '<div style="position:relative;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:14px 16px;min-height:180px;box-sizing:border-box">'+
+      '<div style="font-weight:600;font-size:13px;color:#0F1D3D;margin-bottom:12px">Team summary</div>'+
+      '<div style="filter:blur(3px);opacity:.55;pointer-events:none;display:flex;flex-direction:column;gap:9px">'+
+        '<div style="height:12px;width:32%;background:#ECE9E3;border-radius:6px"></div>'+
+        '<div style="height:11px;width:94%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="height:11px;width:90%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="height:11px;width:92%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="height:11px;width:86%;background:#F0EDE7;border-radius:6px"></div></div>'+
+      '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;background:rgba(255,255,255,.55);border-radius:6px">'+
+        '<span style="font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#2A5599;background:#E7EFFB;border:1px solid #B8CCEE;padding:2px 8px;border-radius:6px">Team Leader</span>'+
+        '<div style="font-weight:400;font-size:12.5px;color:#3B372F;text-align:center;max-width:340px">See every downline agent\'s AP, sales, dials, call time, and call-to-close beside your own.</div>'+
+        '<button class="lg-btn lg-click" onclick="lgUpgrade(\'leader\')" style="background:#3A73C9;color:#FFFFFF;border:none;border-radius:6px;font-weight:600;font-size:12.5px;padding:7px 12px;cursor:pointer">Upgrade to Team Leader</button>'+
+      '</div></div>';
+  }
+
+  // footer
+  H += '<div style="font-weight:400;font-size:10.5px;color:#B0A99C;padding-bottom:8px">All metrics derive from your entered policies, leads, and dialer activity. Estimates marked &ldquo;est.&rdquo; are subject to carrier persistency and quality requirements.</div>';
+
+  H += '</div>'; // content column
+  root.innerHTML = H;
 }
 
 /** Fire dashboardMomentPlacement when a policy transitions into 'placed' since last render.
