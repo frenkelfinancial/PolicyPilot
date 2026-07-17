@@ -188,6 +188,46 @@ body.light{
   --ds-elev-hover: 0 1px 0 rgba(11,31,58,.04) inset, 0 8px 20px -12px rgba(11,31,58,.18);
   --ds-elev-modal: 0 1px 0 rgba(11,31,58,.06) inset, 0 24px 64px -24px rgba(11,31,58,.30);
 }
+/* ============================================================
+   LEDGER design tokens (theme-aware) — "Ledger 2a" warm-gray
+   system. Consumed by the Leads section (.ledger-leads). Dark
+   values live on :root (default theme), light on body.light.
+   Palette lifted from the Leads redesign reference (THEMES + PILLD).
+   ============================================================ */
+:root{
+  --lg-canvas:#0E0E0F; --lg-card:#1A1A1C; --lg-inner:#212124;
+  --lg-border:#2E2E32; --lg-divider:#28282C; --lg-border-strong:#3E3E44;
+  --lg-text1:#F2F2F3; --lg-text2:#C9C9CD; --lg-text3:#9A9AA1; --lg-caption:#7C7C84; --lg-faint:#5F5F67;
+  --lg-blue:#6FA3EC; --lg-blue-deep:#8FB8F0; --lg-blue-border:#3A5578; --lg-blue-soft:#1F2C40; --lg-blue-mark:#6FA3EC;
+  --lg-green:#4FBF7E; --lg-green-border:#2E5C42; --lg-green-soft:#1E3327;
+  --lg-red:#E5766E; --lg-red-border:#59302D; --lg-red-soft:#3B2321;
+  --lg-check-border:#45454B; --lg-sold-bg:#16211B; --lg-sold-border:#2C4436;
+  /* status pill fg/bg (dark) */
+  --lg-pill-new-fg:#E5C577;    --lg-pill-new-bg:#3B3320;
+  --lg-pill-called-fg:#B9C0CA; --lg-pill-called-bg:#2A2D31;
+  --lg-pill-noans-fg:#E8A265;  --lg-pill-noans-bg:#3A2B1D;
+  --lg-pill-appt-fg:#8FB8F0;   --lg-pill-appt-bg:#1F2C40;
+  --lg-pill-obj-fg:#EE9089;    --lg-pill-obj-bg:#3B2321;
+  --lg-pill-ni-fg:#B9C0CA;     --lg-pill-ni-bg:#2A2D31;
+  --lg-pill-sold-fg:#7CC79A;   --lg-pill-sold-bg:#1E3327;
+}
+body.light{
+  --lg-canvas:#F5F3F0; --lg-card:#FFFFFF; --lg-inner:#FAF8F5;
+  --lg-border:#E4E0DA; --lg-divider:#F0EDE7; --lg-border-strong:#D8D3CA;
+  --lg-text1:#0F1D3D; --lg-text2:#3B372F; --lg-text3:#6B6459; --lg-caption:#948C7F; --lg-faint:#B0A99C;
+  --lg-blue:#3A73C9; --lg-blue-deep:#2A5599; --lg-blue-border:#B8CCEE; --lg-blue-soft:#E7EFFB; --lg-blue-mark:#5B94E8;
+  --lg-green:#1B7A43; --lg-green-border:#9CC7AB; --lg-green-soft:#E4F2E9;
+  --lg-red:#B3261E; --lg-red-border:#E4B7B4; --lg-red-soft:#FAE8E7;
+  --lg-check-border:#D8D3CA; --lg-sold-bg:#F2F8F4; --lg-sold-border:#C6E0CF;
+  /* status pill fg/bg (light) */
+  --lg-pill-new-fg:#8A6116;    --lg-pill-new-bg:#F6EDD8;
+  --lg-pill-called-fg:#5A6472; --lg-pill-called-bg:#ECEEF1;
+  --lg-pill-noans-fg:#A34E0C;  --lg-pill-noans-bg:#FBEBDD;
+  --lg-pill-appt-fg:#2A5599;   --lg-pill-appt-bg:#E7EFFB;
+  --lg-pill-obj-fg:#B3261E;    --lg-pill-obj-bg:#FAE8E7;
+  --lg-pill-ni-fg:#5A6472;     --lg-pill-ni-bg:#ECEEF1;
+  --lg-pill-sold-fg:#1B7A43;   --lg-pill-sold-bg:#E4F2E9;
+}
 body.light .sidebar{background:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(244,248,253,.42) 100%)}
 body.light .overlay{background:rgba(11,31,58,.42)}
 body.light .topbar{background:var(--card);border-bottom-color:var(--border)}
@@ -2964,6 +3004,284 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .auth-plan-card-price{font-size:12.5px;font-weight:600;color:#5BA0E8;margin-top:2px}
 .auth-plan-card-desc{font-size:12px;color:#8AA8CA;margin-top:3px}
 </style>
+<!-- ============================================================
+     LEDGER SUMMARY styles (scoped to .ledger) — 2026-07-16
+     Warm-gray "Ledger" design language for the tiered Summary page.
+     Spline Sans + Spline Sans Mono. Blue is an accent only.
+     ============================================================ -->
+<style id="ledger-fonts">@import url('https://fonts.googleapis.com/css2?family=Spline+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap');</style>
+<style id="ledger-summary-styles">
+.ledger{font-family:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0F1D3D;background:#F5F3F0;-webkit-font-smoothing:antialiased;margin:-26px;padding:0;min-height:calc(100vh - 52px);font-size:13px;line-height:1.45}
+.ledger *{box-sizing:border-box}
+/* Fluid shell: stretch to fill the space beside the sidebar at every width (no max-width cap, no auto margins). */
+.ledger .lg-wrap{width:100%;padding:20px 24px 32px;min-width:0}
+.ledger .lg-topbar{margin:-20px -24px 16px}
+/* Auto-fit card rows — reflow instead of squishing. --lg-min = sensible column floor, --lg-gap = gap. */
+.ledger .lg-af{display:grid;gap:var(--lg-gap,16px);grid-template-columns:repeat(auto-fit,minmax(min(var(--lg-min,220px),100%),1fr))}
+.ledger .lg-af>*{min-width:0}
+/* Bonus ladder row: keep the bar column widest, collapse to a stack on narrow screens. */
+.ledger .lg-ladder{display:grid;grid-template-columns:minmax(150px,1.1fr) minmax(180px,4fr) minmax(150px,1.2fr);gap:20px;align-items:center}
+/* Tables: horizontal scroll on their own wrapper rather than breaking the page. */
+.ledger .lg-tscroll{overflow-x:auto}
+.ledger .lg-tmin{min-width:var(--lg-tmin,640px)}
+.ledger .lgm{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace}
+.ledger .lg-chip{transition:border-color .14s ease}
+.ledger .lg-chip:hover{border-color:#B8CCEE}
+.ledger .lg-btn{transition:background .14s ease}
+.ledger .lg-btn:hover{background:#2A5599 !important}
+.ledger .lg-rowh{transition:background .1s ease}
+.ledger .lg-rowh:hover{background:#FAF8F5}
+.ledger .lg-th{cursor:pointer;user-select:none}
+.ledger .lg-th:hover{color:#3A73C9}
+.ledger .lg-click{cursor:pointer}
+@keyframes lg-pulse{0%,100%{opacity:.5}50%{opacity:1}}
+.ledger .lg-skel{animation:lg-pulse 1.4s ease-in-out infinite}
+@media(max-width:1024px){.ledger{margin:-14px -12px}.ledger .lg-wrap{padding:14px}.ledger .lg-topbar{margin:-14px -14px 14px}}
+@media(max-width:640px){.ledger{margin:-10px}.ledger .lg-wrap{padding:10px}.ledger .lg-topbar{margin:-10px -10px 12px}.ledger .lg-ladder{grid-template-columns:1fr;gap:8px}}
+/* ============================================================
+   LEDGER POLICY TRACKER styles (scoped to .ledger) — 2026-07-16
+   List view (KPI strip, filters, grid table, status pills,
+   pagination) + calendar restyle. Same tokens as the Summary.
+   ============================================================ */
+/* KPI strip */
+.ledger .pt-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-left:-1px}
+.ledger .pt-kpi{padding:13px 16px;border-left:1px solid #F0EDE7}
+.ledger .pt-kpi-l{font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F}
+.ledger .pt-kpi-v{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;font-size:22px;font-weight:600;color:#0F1D3D;margin-top:2px;white-space:nowrap}
+/* View tabs (chips) */
+.ledger .tracker-tabs{display:flex;gap:8px;background:transparent;padding:0;border-radius:0;width:auto;margin:0}
+.ledger .tracker-tab{padding:6px 12px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;background:#FFFFFF;border:1px solid #E4E0DA;color:#3B372F;box-shadow:none;font-family:'Spline Sans',sans-serif;transition:border-color .14s,color .14s}
+.ledger .tracker-tab:hover:not(.active){border-color:#B8CCEE}
+.ledger .tracker-tab.active{background:#FFFFFF;border-color:#B8CCEE;color:#3A73C9;box-shadow:none}
+/* Filters */
+.ledger .pt-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.ledger .pt-field{display:flex;flex-direction:column;min-width:0}
+.ledger .pt-field label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#948C7F;margin-bottom:6px}
+.ledger .pt-input{width:100%;height:32px;padding:0 10px;border:1px solid #E4E0DA;border-radius:6px;font-size:12.5px;font-family:'Spline Sans',sans-serif;color:#0F1D3D;background:#FFFFFF;outline:none;transition:border-color .14s}
+.ledger .pt-input:focus{border-color:#B8CCEE}
+.ledger .pt-input::placeholder{color:#B0A99C}
+.ledger input.pt-input[type=date]{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:12px;color:#3B372F;padding:0 8px}
+.ledger select.pt-input{cursor:pointer;padding-right:8px}
+/* Buttons */
+.ledger .pt-btn{height:32px;border-radius:6px;padding:0 12px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:'Spline Sans',sans-serif;white-space:nowrap;transition:background .14s,border-color .14s}
+.ledger .pt-btn-primary{background:#3A73C9;color:#FFFFFF;border:none}
+.ledger .pt-btn-primary:hover{background:#2A5599}
+.ledger .pt-btn-ghost{background:#FFFFFF;border:1px solid #E4E0DA;color:#3B372F;font-weight:500}
+.ledger .pt-btn-ghost:hover{background:#FAF8F5}
+/* Grid table */
+.ledger .pt-tmin{min-width:1228px}
+.ledger .pt-grid{display:grid;grid-template-columns:minmax(108px,1.4fr) minmax(96px,.95fr) minmax(92px,1fr) minmax(66px,.75fr) minmax(78px,.8fr) minmax(84px,.8fr) minmax(88px,.8fr) minmax(88px,.8fr) minmax(92px,.85fr) minmax(108px,.9fr) minmax(116px,1fr) 92px;column-gap:8px;align-items:center;padding:0 16px}
+.ledger .pt-thead{min-height:34px;padding-top:5px;padding-bottom:5px;background:#FAF8F5;border-bottom:1px solid #E4E0DA;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#948C7F}
+.ledger .pt-th{cursor:pointer;user-select:none;transition:color .14s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ledger .pt-th:hover{color:#3A73C9}
+.ledger .pt-item{border-bottom:1px solid #F0EDE7}
+.ledger .pt-row{min-height:38px;background:#FFFFFF;transition:background .1s ease}
+.ledger .pt-row:hover{background:#FAF8F5}
+.ledger .pt-row.pt-cb,.ledger .pt-row.pt-cb:hover{background:#FCF1F0}
+.ledger .pt-ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+/* Status pill (native <select> styled as a Ledger pill) */
+.ledger .pt-status{appearance:none;-webkit-appearance:none;-moz-appearance:none;border:none;outline:none;cursor:pointer;font-family:'Spline Sans',sans-serif;font-size:11px;font-weight:600;border-radius:6px;padding:3px 22px 3px 9px;max-width:100%;background-repeat:no-repeat;background-position:right 7px center;background-size:9px 6px;transition:filter .14s}
+.ledger .pt-status:hover{filter:brightness(.97)}
+.ledger .pt-status option{font-weight:500;color:#0F1D3D;background:#FFFFFF}
+.ledger .pt-status--pending{background-color:#F6EDD8;color:#8A6116;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238A6116' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--approved{background-color:#E7EFFB;color:#2A5599;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%232A5599' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--issued{background-color:#E7EFFB;color:#2A5599;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%232A5599' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--paid{background-color:#E4F2E9;color:#1B7A43;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%231B7A43' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--lapsed{background-color:#FBEBDD;color:#A34E0C;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23A34E0C' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.ledger .pt-status--chargeback{background-color:#FAE8E7;color:#B3261E;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23B3261E' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+/* Row action icons */
+.ledger .pt-acts{display:flex;gap:4px;justify-content:flex-end}
+.ledger .pt-act{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:none;background:transparent;border-radius:6px;cursor:pointer;color:#948C7F;transition:background .14s,color .14s}
+.ledger .pt-act:hover{background:#F0EDE7;color:#0F1D3D}
+.ledger .pt-act.active{color:#3A73C9}
+.ledger .pt-act-del:hover{background:#FAE8E7;color:#B3261E}
+.ledger .pt-act-edit:hover{background:#E7EFFB;color:#3A73C9}
+/* Client-notes panel */
+.ledger .pt-notes{background:#FAF8F5;border-top:1px solid #F0EDE7;padding:12px 16px}
+.ledger .pt-notes-ta{width:100%;min-height:72px;padding:8px 10px;border:1px solid #E4E0DA;border-radius:6px;font-size:12.5px;color:#0F1D3D;background:#FFFFFF;outline:none;resize:vertical;line-height:1.45;font-family:'Spline Sans',sans-serif}
+.ledger .pt-notes-ta:focus{border-color:#B8CCEE}
+/* Pagination */
+.ledger .pt-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 16px;border-top:1px solid #E4E0DA;background:#FFFFFF}
+.ledger .pt-pginfo{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:11px;color:#948C7F}
+.ledger .pt-pgnav{display:flex;align-items:center;gap:6px}
+.ledger .pt-pgchip{height:28px;min-width:28px;padding:0 8px;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:12px;font-weight:600;color:#3B372F;cursor:pointer;transition:background .14s,border-color .14s}
+.ledger .pt-pgchip:hover:not(:disabled){background:#FAF8F5}
+.ledger .pt-pgchip.active{border-color:#B8CCEE;color:#3A73C9}
+.ledger .pt-pgbtn{height:28px;padding:0 10px;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;font-size:12px;font-weight:500;color:#3B372F;cursor:pointer;transition:background .14s}
+.ledger .pt-pgbtn:hover:not(:disabled){background:#FAF8F5}
+.ledger .pt-pgbtn:disabled{color:#B0A99C;cursor:default}
+/* Empty state */
+.ledger .pt-empty{padding:34px 16px;text-align:center;font-size:12.5px;color:#948C7F;display:flex;flex-direction:column;align-items:center;gap:10px}
+.ledger .pt-empty svg{color:#B0A99C}
+/* Calendar (Ledger token overrides — tracker calendar only) */
+.ledger .cal-cell{border-right:1px solid #F0EDE7;border-bottom:1px solid #F0EDE7;background:#FFFFFF}
+.ledger .cal-cell.other-month{background:#FAF8F5;opacity:.6}
+.ledger .cal-cell.today{background:#E7EFFB;border-color:#B8CCEE}
+.ledger .cal-day-num{color:#948C7F}
+.ledger .cal-cell.today .cal-day-num{color:#3A73C9}
+.ledger .tc-event{border-radius:6px}
+@media(max-width:900px){.ledger .pt-status{padding-right:20px}}
+</style>
+<!-- ============================================================
+     LEDGER LEADS styles — warm-gray "Ledger 2a" reskin of the
+     Leads page, scoped to #sec-leads.ledger-leads. Theme-aware
+     (light + dark via --lg-* tokens). RESTYLE ONLY: every existing
+     id / class / handler / data-attr is preserved; this only
+     remaps the palette + fonts and adds KPI/pill/responsive rules.
+     ============================================================ -->
+<style id="ledger-leads-styles">
+/* Token remap — existing .lead-*/.tab/.btn/.card/.bulk-bar rules
+   inherit the Ledger palette + Spline fonts automatically, in BOTH
+   themes, with no per-rule rewrite. Scoped so nothing else changes. */
+.ledger-leads{
+  --card:var(--lg-card); --bg:var(--lg-canvas); --bg2:var(--lg-divider); --bg3:var(--lg-card);
+  --border:var(--lg-border); --border2:var(--lg-border-strong);
+  --text:var(--lg-text1); --text2:var(--lg-text2); --text3:var(--lg-caption);
+  --accent:var(--lg-blue); --accent-2:var(--lg-blue-deep); --brand-navy:var(--lg-blue);
+  --sans:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;
+  --ds-color-info:var(--lg-blue); --ds-color-info-bg:var(--lg-blue-soft);
+  --ds-color-success:var(--lg-green); --ds-color-success-bg:var(--lg-green-soft);
+  --ds-color-danger:var(--lg-red); --ds-color-danger-bg:var(--lg-red-soft);
+}
+/* Shell: fill the content area edge-to-edge (bleed matches .content
+   padding at each breakpoint; body/html overflow-x:hidden clips any
+   sub-pixel remainder, so no horizontal scrollbar ever). */
+.ledger-leads{margin:-26px;padding:clamp(14px,1.6vw,24px);background:var(--lg-canvas);color:var(--lg-text1);font-family:var(--sans);font-size:13px;line-height:1.45;min-height:calc(100vh - 50px);-webkit-font-smoothing:antialiased}
+.ledger-leads *{box-sizing:border-box}
+.ledger-leads ::placeholder{color:var(--lg-faint);opacity:1}
+/* Single 6px radius across the whole page */
+.ledger-leads .card,.ledger-leads .lead-row,.ledger-leads .btn,.ledger-leads .tab,.ledger-leads .tabs,.ledger-leads .vsw-group,.ledger-leads .vsw-btn,.ledger-leads input,.ledger-leads select,.ledger-leads textarea,.ledger-leads .bulk-bar,.ledger-leads #lead-select-all-row,.ledger-leads .lead-notes,.ledger-leads .cmpct-notes,.ledger-leads .lead-disposition-sel,.ledger-leads .lead-act-btn,.ledger-leads .lead-click-to-call,.ledger-leads .cmpct-call,.ledger-leads .cmpct-status-btn,.ledger-leads .cmpct-more-btn,.ledger-leads .lead-new-field-btn{border-radius:6px}
+.ledger-leads .card{background:var(--lg-card);border:1px solid var(--lg-border);box-shadow:0 1px 2px rgba(15,29,61,.05)}
+
+/* KPI strip (new) — auto-fit, never a hard 4-col grid */
+.ledger-leads .lgl-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:16px}
+.ledger-leads .lgl-kpi{background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;padding:13px 16px;box-shadow:0 1px 2px rgba(15,29,61,.05);min-width:0}
+.ledger-leads .lgl-kpi-l{font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-caption)}
+.ledger-leads .lgl-kpi-v{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--lg-text1);margin-top:4px;white-space:nowrap;line-height:1.2}
+.ledger-leads .lgl-kpi-v.pos{color:var(--lg-green)}
+
+/* Status sub-tabs → Ledger chips */
+.ledger-leads .tabs{background:transparent;border:none;padding:0;gap:8px;flex-wrap:wrap;width:auto;margin-bottom:0;border-radius:0}
+.ledger-leads .tab{padding:6px 12px;font-size:12.5px;font-weight:500;background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2);box-shadow:none}
+.ledger-leads .tab:hover{color:var(--lg-text2);border-color:var(--lg-blue-border)}
+.ledger-leads .tab.active{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue);box-shadow:none;font-weight:600}
+.ledger-leads .tab .tab-count{font-family:var(--mono);background:var(--lg-divider);color:var(--lg-caption);font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:6px;min-width:18px}
+.ledger-leads .tab.active .tab-count{background:var(--lg-blue-soft);color:var(--lg-blue-deep)}
+
+/* View switcher */
+.ledger-leads .vsw-group{background:var(--lg-card);border:1px solid var(--lg-border)}
+.ledger-leads .vsw-btn{color:var(--lg-caption)}
+.ledger-leads .vsw-btn:hover{color:var(--lg-text2)}
+.ledger-leads .vsw-btn.active{background:var(--lg-blue-soft);color:var(--lg-blue);box-shadow:none}
+
+/* Inputs / selects / textareas */
+.ledger-leads input,.ledger-leads select,.ledger-leads textarea{background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text1);font-family:var(--sans)}
+.ledger-leads input:focus,.ledger-leads select:focus,.ledger-leads textarea:focus,.ledger-leads input:focus-visible,.ledger-leads select:focus-visible,.ledger-leads textarea:focus-visible{border-color:var(--lg-blue-border);box-shadow:none;outline:none}
+/* force single 6px radius over the inline border-radius:8px/7px on the search + filter + per-page + bulk-status controls */
+.ledger-leads input,.ledger-leads select{border-radius:6px!important}
+
+/* Buttons */
+.ledger-leads .btn{font-family:var(--sans);font-weight:500}
+.ledger-leads .btn-p{background:var(--lg-blue);color:#fff}
+.ledger-leads .btn-p:hover{background:var(--lg-blue-deep)}
+.ledger-leads .btn-s{background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2)}
+.ledger-leads .btn-s:hover{color:var(--lg-blue);border-color:var(--lg-blue-border)}
+
+/* Bulk-action bar + select-all row (both wrap on narrow) */
+.ledger-leads .bulk-bar{background:var(--lg-card);border:1px solid var(--lg-blue-border);box-shadow:0 1px 2px rgba(15,29,61,.05);flex-wrap:wrap}
+.ledger-leads .bulk-count{color:var(--lg-text1)}
+.ledger-leads #lead-select-all-row{background:var(--lg-inner);border:1px solid var(--lg-border)}
+
+/* Lead rows (standard) */
+.ledger-leads .lead-row{background:var(--lg-card);border:1px solid var(--lg-border);box-shadow:0 1px 2px rgba(15,29,61,.05)}
+.ledger-leads .lead-row:hover{border-color:var(--lg-border-strong)}
+.ledger-leads .lead-row.sold{background:var(--lg-sold-bg)!important;border-color:var(--lg-sold-border)!important}
+.ledger-leads .lead-row.not_interested{opacity:.55}
+.ledger-leads .lead-col{border-right-color:var(--lg-divider)}
+.ledger-leads .lead-name{font-size:14px;font-weight:600;color:var(--lg-text1)}
+.ledger-leads .lead-phone-link{color:var(--lg-blue);font-family:var(--mono);font-weight:500;letter-spacing:0}
+.ledger-leads .lead-email-link{color:var(--lg-blue)}
+.ledger-leads .lead-field-label{color:var(--lg-caption);letter-spacing:.06em;font-size:10.5px}
+.ledger-leads .lead-state-row,.ledger-leads .lead-bday-row,.ledger-leads .lead-quote-row,.ledger-leads .lead-localtime-row{color:var(--lg-text2)}
+.ledger-leads .lead-state-row strong,.ledger-leads .lead-bday-row,.ledger-leads .lead-quote-row,.ledger-leads .lead-localtime-row{font-family:var(--mono)}
+.ledger-leads .lead-notes,.ledger-leads .cmpct-notes{background:var(--lg-inner);border:1px solid var(--lg-border);color:var(--lg-text2);font-family:var(--mono);font-size:11.5px}
+.ledger-leads .lead-notes:focus,.ledger-leads .cmpct-notes:focus{background:var(--lg-card);border-color:var(--lg-blue-border);box-shadow:none}
+/* Fields grid — mono values, caption labels */
+.ledger-leads .lead-info-line .lbl{color:var(--lg-caption);letter-spacing:.06em}
+.ledger-leads .lead-info-line .val{font-family:var(--mono);color:var(--lg-text2)}
+.ledger-leads .lead-info-line .val.notset{color:var(--lg-faint)}
+.ledger-leads .lead-info-line .val.dim{color:var(--lg-caption)}
+.ledger-leads .lead-received-icons .lead-edit-btn{color:var(--lg-blue)}
+.ledger-leads .lead-received-icons .lead-del-btn{color:var(--lg-caption)}
+.ledger-leads .lead-del-btn:hover{color:var(--lg-red)}
+.ledger-leads .lead-new-field-btn{border:1px dashed var(--lg-border-strong);color:var(--lg-caption)}
+.ledger-leads .lead-new-field-btn:hover{border-color:var(--lg-blue-border);color:var(--lg-blue)}
+
+/* Click-to-call + call chips */
+.ledger-leads .lead-click-to-call{background:var(--lg-blue)}
+.ledger-leads .lead-click-to-call:hover{background:var(--lg-blue-deep);filter:none}
+.ledger-leads .cmpct-call{background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .cmpct-call:hover{background:var(--lg-blue-soft);border-color:var(--lg-blue);filter:none}
+.ledger-leads .lead-call-badge{background:var(--lg-red);border-color:var(--lg-card)}
+
+/* Disposition select (standard view) — neutral Ledger form control */
+.ledger-leads .lead-disposition-sel{background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2);font-family:var(--sans)}
+.ledger-leads .lead-disposition-wrap::after{color:var(--lg-caption)}
+
+/* Action buttons: Sold (green) / Quote + TruePeopleSearch (blue) */
+.ledger-leads .lead-act-btn{border:1px solid var(--lg-border);background:var(--lg-card);color:var(--lg-text2)}
+.ledger-leads .lead-act-btn:hover{border-color:var(--lg-border-strong);color:var(--lg-text1);background:var(--lg-card)}
+.ledger-leads .lead-act-btn.sold-btn{background:var(--lg-green-soft);border-color:var(--lg-green-border);color:var(--lg-green)}
+.ledger-leads .lead-act-btn.quote-btn{background:var(--lg-blue-soft);border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .lead-act-btn.tps-btn{background:var(--lg-blue-soft);border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .lead-act-btn.sold-btn:hover,.ledger-leads .lead-act-btn.quote-btn:hover,.ledger-leads .lead-act-btn.tps-btn:hover{filter:brightness(.98)}
+
+/* Compact cards + status pill (the status <select> styled as a pill) */
+.ledger-leads .cmpct-name{color:var(--lg-text1);font-weight:600}
+.ledger-leads .cmpct-phone{color:var(--lg-text3);font-family:var(--mono)}
+.ledger-leads .cmpct-fl{color:var(--lg-caption)}
+.ledger-leads .cmpct-fv{color:var(--lg-text2)}
+.ledger-leads .cmpct-fv a{color:var(--lg-blue)}
+.ledger-leads .cmpct-more-btn{border:1px solid var(--lg-border);background:var(--lg-card);color:var(--lg-caption)}
+.ledger-leads .cmpct-more-btn:hover{color:var(--lg-text2);border-color:var(--lg-border-strong)}
+.ledger-leads .cmpct-extra{border-top:1px solid var(--lg-divider)}
+.ledger-leads .cmpct-status-btn{border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:2px 8px;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--pb,var(--lg-inner));color:var(--pf,var(--lg-text2))}
+.ledger-leads .cmpct-status-btn:hover{filter:brightness(.97)}
+.ledger-leads .lead-pill--new{--pf:var(--lg-pill-new-fg);--pb:var(--lg-pill-new-bg)}
+.ledger-leads .lead-pill--called{--pf:var(--lg-pill-called-fg);--pb:var(--lg-pill-called-bg)}
+.ledger-leads .lead-pill--no_answer{--pf:var(--lg-pill-noans-fg);--pb:var(--lg-pill-noans-bg)}
+.ledger-leads .lead-pill--appointment{--pf:var(--lg-pill-appt-fg);--pb:var(--lg-pill-appt-bg)}
+.ledger-leads .lead-pill--social_obj,.ledger-leads .lead-pill--banking_obj{--pf:var(--lg-pill-obj-fg);--pb:var(--lg-pill-obj-bg)}
+.ledger-leads .lead-pill--not_interested{--pf:var(--lg-pill-ni-fg);--pb:var(--lg-pill-ni-bg)}
+.ledger-leads .lead-pill--sold{--pf:var(--lg-pill-sold-fg);--pb:var(--lg-pill-sold-bg)}
+
+/* Empty state */
+.ledger-leads .empty{color:var(--lg-caption)}
+.ledger-leads .empty [data-ico] svg{color:var(--lg-faint)}
+.ledger-leads #lead-count-display,.ledger-leads #lead-count-bot,.ledger-leads #lead-page-info-top,.ledger-leads #lead-page-info-bot{font-family:var(--mono);color:var(--lg-caption)}
+
+/* ---------- Responsiveness ---------- */
+/* Fluid standard-row grid: minmax floors instead of the old fixed
+   195px / calc(50% - 195px) / 155px columns that could overflow. */
+.ledger-leads .lead-wide-grid{grid-template-columns:minmax(190px,1fr) minmax(200px,1.5fr) 154px minmax(220px,1.7fr)}
+@media(max-width:1180px){
+  .ledger-leads .lead-wide-grid{grid-template-columns:minmax(170px,1fr) minmax(170px,1.35fr) 144px minmax(190px,1.5fr)}
+}
+@media(max-width:900px){
+  .ledger-leads .lead-wide-grid{grid-template-columns:1fr;gap:0}
+  .ledger-leads .lead-col{border-right:none;border-bottom:1px solid var(--lg-divider);padding:10px 0}
+  .ledger-leads .lead-col:first-child{padding-top:0}
+  .ledger-leads .lead-col:last-child{border-bottom:none;padding-bottom:0}
+}
+/* Compact grids stay fluid (1fr fractions never overflow) but collapse
+   column count gracefully on narrow screens instead of squeezing. */
+@media(max-width:820px){.ledger-leads #lead-list-container.view-compact4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.ledger-leads #lead-list-container.view-compact4,.ledger-leads #lead-list-container.view-compact2{grid-template-columns:1fr}}
+/* Bleed margins track .content padding at each breakpoint */
+@media(max-width:1024px){.ledger-leads{margin:-14px -12px;padding:14px}}
+@media(max-width:640px){.ledger-leads{margin:-10px;padding:10px}.ledger-leads .lgl-kpis{gap:10px}}
+</style>
 </head>
 <body>
 
@@ -3583,154 +3901,8 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     <!-- ========== SUMMARY (v3 modern bold) ========== -->
     <div class="section active sum-v3" id="sec-summary">
 
-      <!-- SUMMARY EMAIL TOGGLE (1st + 15th account-statement emails) -->
-      <div class="card" id="summary-email-pref" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px">
-        <div>
-          <div style="font-size:13px;font-weight:600;color:var(--text)">Scheduled Summary Emails</div>
-          <div style="font-size:11.5px;color:var(--text3);margin-top:2px">Account statements on the 1st &amp; 15th</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <span id="summary-email-saved" style="font-size:11px;color:var(--text3);opacity:0;transition:opacity .3s"></span>
-          <div class="theme-toggle" onclick="toggleSummaryEmails()" title="Toggle scheduled summary emails" style="cursor:pointer">
-            <span class="toggle-label" id="summary-email-lbl-off">Off</span>
-            <div class="toggle-track" id="summary-email-track">
-              <div class="toggle-thumb"></div>
-            </div>
-            <span class="toggle-label" id="summary-email-lbl-on">On</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- ACTION HUB (Phase 1.2 — urgent/today/opportunity) -->
-      <div class="card ah-hub" id="action-hub">
-        <div class="ah-hub__head">
-          <div class="ah-hub__title">What to do today</div>
-          <span class="ah-hub__meta">All clear</span>
-        </div>
-        <div class="ah-hub__body"></div>
-      </div>
-
-      <!-- HERO: goal ring + scorecard | activity -->
-      <div class="sum-hero">
-
-        <!-- Left card: monthly goal ring + scorecard -->
-        <div class="card hero-goal">
-          <div class="sgh-rings">
-            <div class="sgh-ring-mount" id="sgh-outer-mount"></div>
-            <div class="sgh-ring-mount sgh-ring-mount--inner" id="sgh-inner-mount"></div>
-            <div class="sgh-center" title="Click for breakdown">
-              <div class="sgh-pulse-num" id="sgh-pulse-num">0</div>
-              <div class="sgh-pulse-lbl">Sales</div>
-              <div class="sgh-pulse-hint">tap for detail</div>
-            </div>
-          </div>
-          <div class="goal-side sgh-meta">
-            <h3 style="margin-bottom:var(--ds-space-3)">Monthly Goals</h3>
-            <div class="sgh-meta__row" id="sgh-row-quota"><span class="sgh-meta__lbl">Committed AP</span><span class="sgh-meta__val">—</span></div>
-            <div class="sgh-meta__row" id="sgh-row-pace"><span class="sgh-meta__lbl">Pace needed</span><span class="sgh-meta__val">—</span></div>
-            <div class="sgh-meta__row" id="sgh-row-stretch"><span class="sgh-meta__lbl">Stretch</span><span class="sgh-meta__val">—</span></div>
-            <div class="sgh-meta__row" id="sgh-row-projected"><span class="sgh-meta__lbl">Projected end</span><span class="sgh-meta__val">—</span></div>
-            <div class="goal-edit" onclick="nav('settings')">Edit in Settings → Profile</div>
-          </div>
-        </div>
-
-        <!-- Right column: today's pulse + week/month + top carriers MTD -->
-        <div class="hero-side">
-          <div class="card today-tile">
-            <div class="today-eyebrow">Today</div>
-            <div class="today-row">
-              <div class="today-num" id="today-count">0</div>
-              <div class="today-ap" id="today-ap">$0 AP</div>
-            </div>
-            <div class="today-sub" id="today-sub">No policies submitted today</div>
-          </div>
-
-          <div class="activity-grid">
-            <div class="card act-tile">
-              <div class="act-eyebrow">This week</div>
-              <div class="act-num" id="act-week">0</div>
-              <div class="act-sub" id="act-week-ap">$0 AP</div>
-            </div>
-            <div class="card act-tile">
-              <div class="act-eyebrow">This month</div>
-              <div class="act-num" id="act-month">0</div>
-              <div class="act-sub" id="act-month-ap">$0 AP</div>
-            </div>
-          </div>
-
-          <div class="card carriers-tile">
-            <div class="carriers-head">
-              <span class="carriers-eyebrow">Top Carriers · This Month</span>
-              <span class="carriers-total" id="carriers-total"></span>
-            </div>
-            <div class="carriers-list" id="carriers-list"></div>
-          </div>
-        </div>
-
-      </div>
-
-      <div class="sum-period-row">
-        <div class="sum-period-chips" role="tablist">
-          <button class="period-chip" data-period="wtd" onclick="setSummaryPeriod('wtd')">This Week</button>
-          <button class="period-chip" data-period="mtd" onclick="setSummaryPeriod('mtd')">This Month</button>
-          <button class="period-chip" data-period="ytd" onclick="setSummaryPeriod('ytd')">This Year</button>
-          <button class="period-chip" data-period="all" onclick="setSummaryPeriod('all')">All Time</button>
-        </div>
-        <div class="sum-period-caption" id="sum-period-caption">&mdash;</div>
-      </div>
-
-      <!-- INCOME REALITY (Phase 3) -->
-      <div class="ir-row" id="income-reality"></div>
-
-      <!-- ACTIVITY & MOMENTUM (Phase 5) -->
-      <div class="am-row" id="activity-momentum"></div>
-
-      <!-- PERSISTENCY & BOOK HEALTH (Phase 4) -->
-      <div class="ph-row" id="persistency-health"></div>
-
-      <!-- PIPELINE FUNNEL (Phase 2) -->
-      <div class="card pf-card" id="pipeline-funnel">
-        <div class="pf-card__head">
-          <div class="pf-card__title">Pipeline · Where money sits</div>
-          <span class="pf-card__placement">Placement: <strong>0%</strong> · Target 80%</span>
-        </div>
-        <div class="pf-funnel" role="list" aria-label="Policy pipeline by stage"></div>
-      </div>
-
-      <!-- BONUS TIER INTELLIGENCE — Phase 6 -->
-      <div class="card pace-card bti-card">
-        <div class="bti-card__head">
-          <div class="bti-card__title">Bonus Tier Intelligence</div>
-          <button class="btn-link" onclick="nav('bonuses')">Open Bonus Tracker &rarr;</button>
-        </div>
-        <div class="bti-card__body"></div>
-        <div class="bti-recommend" style="display:none"></div>
-      </div>
-
-      <div id="bonus-upcoming-compact"></div>
-
-      <div class="sum-mid-row">
-        <div class="card status-card">
-          <div class="kpi-label">Policy Status</div>
-          <div class="status-bar" id="sum-status-bar"></div>
-          <div class="status-legend" id="sum-status-legend"></div>
-        </div>
-
-        <div class="card mix-card">
-          <div class="kpi-label">Carrier Mix</div>
-          <div class="mix-wrap">
-            <svg class="mix-donut" id="sum-mix-donut" viewBox="0 0 120 120" aria-hidden="true">
-              <g transform="translate(60 60)">
-                <circle r="50" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="14"/>
-                <g id="sum-mix-arcs"></g>
-                <text id="sum-mix-center" x="0" y="6" text-anchor="middle" font-size="14" font-family="JetBrains Mono,Consolas,ui-monospace" fill="#E8F0FB">$0</text>
-              </g>
-            </svg>
-            <div class="mix-legend" id="sum-mix-legend"></div>
-          </div>
-        </div>
-      </div>
-
+      <!-- Tiered "Ledger" Summary — rendered by renderSummary() (basic / pro / leader). -->
+      <div class="ledger" id="sum-ledger"></div>
     </div>
 
     <!-- ========== DS PLAYGROUND (dev-only, ?ds=1) ========== -->
@@ -3952,121 +4124,150 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 
     <!-- ========== POLICY TRACKER ========== -->
     <div class="section" id="sec-tracker">
-      <div class="flex jb aic" style="margin-bottom:18px">
-        <div><div style="font-size:15px;font-weight:600">Policy Tracker</div><div class="text-m mt4" style="font-size:12px">Track all submitted policies, commissions & pay dates</div></div>
-        <button class="btn btn-p" onclick="openAddPolicy()">+ Add Policy</button>
-      </div>
-      <div class="running mt4" id="running-totals">
-        <div><div class="rt-lbl">Total Submitted AP</div><div class="rt-val" id="total-ap">$0</div></div>
-        <div><div class="rt-lbl">Est. Adv. Commission</div><div class="rt-val text-g" id="total-comm">$0</div></div>
-        <div><div class="rt-lbl">Policies</div><div class="rt-val" id="total-cnt">0</div></div>
-        <div><div class="rt-lbl">Issued / Active</div><div class="rt-val" id="total-issued">0</div></div>
-        <div><div class="rt-lbl">Monthly Americo AP</div><div class="rt-val" id="am-ap">$0</div></div>
-        <div><div class="rt-lbl">Monthly AmAm AP</div><div class="rt-val" id="amam-ap">$0</div></div>
-      </div>
-      <!-- Sub-tabs -->
-      <div class="tracker-tabs">
-        <button class="tracker-tab active" id="pt-tab-list" onclick="trackerTabSwitch('list',this)">List View</button>
-        <button class="tracker-tab" id="pt-tab-cal" onclick="trackerTabSwitch('cal',this)">Calendar View</button>
-      </div>
+      <div class="ledger">
+        <div class="lg-wrap">
+          <!-- Header -->
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+            <div>
+              <div style="font-size:15px;font-weight:600;color:#0F1D3D">Policy Tracker</div>
+              <div style="font-size:12px;color:#948C7F;margin-top:2px">Track all submitted policies, commissions &amp; pay dates</div>
+            </div>
+            <button class="pt-btn pt-btn-primary" onclick="openAddPolicy()">+ Add Policy</button>
+          </div>
 
-      <!-- LIST VIEW panel -->
-      <div id="pt-view-list">
-        <!-- Filter + Sort bar -->
-        <div id="pt-filter-bar" class="frow" style="margin-bottom:14px;align-items:flex-end">
-          <div class="fg" style="min-width:160px">
-            <label for="ptf-client">Client Name</label>
-            <input type="text" id="ptf-client" placeholder="Search client…" oninput="applyTrackerFilters()">
+          <!-- KPI strip -->
+          <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin-bottom:16px">
+            <div class="pt-kpis">
+              <div class="pt-kpi"><div class="pt-kpi-l">Total Submitted AP</div><div class="pt-kpi-v" id="total-ap">$0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Est. Adv. Commission</div><div class="pt-kpi-v" id="total-comm" style="color:#1B7A43">$0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Policies</div><div class="pt-kpi-v" id="total-cnt">0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Issued / Active</div><div class="pt-kpi-v" id="total-issued">0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Monthly Americo AP</div><div class="pt-kpi-v" id="am-ap">$0</div></div>
+              <div class="pt-kpi"><div class="pt-kpi-l">Monthly AmAm AP</div><div class="pt-kpi-v" id="amam-ap">$0</div></div>
+            </div>
           </div>
-          <div class="fg" style="min-width:150px">
-            <label for="ptf-carrier">Carrier</label>
-            <select id="ptf-carrier" onchange="applyTrackerFilters()">
-              <option value="">All Carriers</option>
-            </select>
-          </div>
-          <div class="fg" style="min-width:140px">
-            <label for="ptf-submitted">Date Submitted</label>
-            <input type="date" id="ptf-submitted" onchange="applyTrackerFilters()">
-          </div>
-          <div class="fg" style="min-width:140px">
-            <label for="ptf-draft">Draft Date</label>
-            <input type="date" id="ptf-draft" onchange="applyTrackerFilters()">
-          </div>
-          <div class="fg" style="min-width:140px">
-            <label for="ptf-status">Status</label>
-            <select id="ptf-status" onchange="applyTrackerFilters()">
-              <option value="">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Sub/Approved</option>
-              <option value="issued">Issued</option>
-              <option value="paid">Paid</option>
-              <option value="lapsed">Lapsed</option>
-              <option value="chargeback">Charge Back</option>
-            </select>
-          </div>
-          <div class="fg" style="min-width:200px">
-            <label for="ptf-sort">Sort By</label>
-            <select id="ptf-sort" onchange="applyTrackerFilters()">
-              <option value="">Default (newest first)</option>
-              <option value="status">Status</option>
-              <option value="carrier">Carrier A–Z</option>
-              <option value="client-az">Client A–Z</option>
-              <option value="draft-asc">Draft Date (Soonest → Latest)</option>
-              <option value="draft-desc">Draft Date (Latest → Soonest)</option>
-              <option value="sub-asc">Date Submitted (Soonest → Latest)</option>
-              <option value="sub-desc">Date Submitted (Latest → Soonest)</option>
-            </select>
-          </div>
-          <div style="padding-bottom:2px;flex-shrink:0">
-            <button class="btn btn-s" onclick="resetTrackerFilters()" style="white-space:nowrap">Clear Filters</button>
-          </div>
-        </div>
-        <div class="card">
-          <div class="empty" id="pol-empty"><div class="ico" data-ico="clipboard-text" data-size="32"></div><p>No policies yet. Click "+ Add Policy" to start.</p></div>
-          <div style="overflow-x:auto">
-            <table class="ptbl" id="pol-table" style="display:none">
-              <thead><tr>
-                <th>Client</th><th>Carrier</th><th>Product</th><th>Monthly</th><th>Ann. Premium</th>
-                <th>Date Submitted</th><th>Draft Date</th><th>Est. Adv. Commission</th><th>Class</th><th>Status</th><th></th>
-              </tr></thead>
-              <tbody id="pol-tbody"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
 
-      <!-- CALENDAR VIEW panel -->
-      <div id="pt-view-cal" style="display:none">
-        <div class="flex aic gap12" style="margin-bottom:14px">
-          <button class="btn btn-s btn-sm" onclick="trackerCalNavMonth(-1)">← Prev</button>
-          <div style="font-size:15px;font-weight:600;min-width:160px;text-align:center" id="tc-month-label"></div>
-          <button class="btn btn-s btn-sm" onclick="trackerCalNavMonth(1)">Next →</button>
-          <div style="margin-left:auto;font-size:12px;color:var(--text3)">Commission deposits typically 7–10 days after draft</div>
-        </div>
-        <div class="running" style="margin-bottom:16px">
-          <div><div class="rt-lbl">Drafting This Month</div><div class="rt-val" id="tc-count-mo">0</div></div>
-          <div><div class="rt-lbl">Monthly Premium</div><div class="rt-val" id="tc-ap-mo">$0</div></div>
-          <div><div class="rt-lbl">Est. Adv. Commission</div><div class="rt-val text-g" id="tc-comm-mo">$0</div></div>
-          <div><div class="rt-lbl">Next 30 Days</div><div class="rt-val" id="tc-next30">0 policies</div></div>
-        </div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:var(--text3)">
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-warning-bg);border:1px solid var(--ds-color-warning);display:inline-block"></span>Pending</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-momentum-bg);border:1px solid var(--ds-color-momentum);display:inline-block"></span>Sub/Approved</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-success-bg);border:1px solid var(--ds-color-success);display:inline-block"></span>Issued</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-info-bg);border:1px solid var(--ds-color-info);display:inline-block"></span>Paid</span>
-          <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:3px;background:var(--ds-color-danger-bg);border:1px solid var(--ds-color-danger);display:inline-block"></span>Lapsed / Charge Back</span>
-        </div>
-        <div class="card" style="padding:0;overflow:hidden">
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg3);border-bottom:1px solid var(--border)">
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Sun</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Mon</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Tue</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Wed</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Thu</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Fri</div>
-            <div style="padding:10px;text-align:center;font-size:11px;color:var(--text3);font-weight:600">Sat</div>
+          <!-- View tabs -->
+          <div class="tracker-tabs" style="margin-bottom:16px">
+            <button class="tracker-tab active" id="pt-tab-list" onclick="trackerTabSwitch('list',this)">List View</button>
+            <button class="tracker-tab" id="pt-tab-cal" onclick="trackerTabSwitch('cal',this)">Calendar View</button>
           </div>
-          <div id="tc-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr)"></div>
+
+          <!-- LIST VIEW panel -->
+          <div id="pt-view-list">
+            <!-- Filter + Sort bar -->
+            <div class="pt-filters" id="pt-filter-bar" style="margin-bottom:14px">
+              <div class="pt-field" style="flex:1.5 1 170px">
+                <label for="ptf-client">Client Name</label>
+                <input type="text" id="ptf-client" class="pt-input" placeholder="Search client…" oninput="applyTrackerFilters()">
+              </div>
+              <div class="pt-field" style="flex:1 1 140px">
+                <label for="ptf-carrier">Carrier</label>
+                <select id="ptf-carrier" class="pt-input" onchange="applyTrackerFilters()">
+                  <option value="">All Carriers</option>
+                </select>
+              </div>
+              <div class="pt-field" style="flex:1 1 140px">
+                <label for="ptf-submitted">Date Submitted</label>
+                <input type="date" id="ptf-submitted" class="pt-input" onchange="applyTrackerFilters()">
+              </div>
+              <div class="pt-field" style="flex:1 1 140px">
+                <label for="ptf-draft">Draft Date</label>
+                <input type="date" id="ptf-draft" class="pt-input" onchange="applyTrackerFilters()">
+              </div>
+              <div class="pt-field" style="flex:1 1 140px">
+                <label for="ptf-status">Status</label>
+                <select id="ptf-status" class="pt-input" onchange="applyTrackerFilters()">
+                  <option value="">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Sub/Approved</option>
+                  <option value="issued">Issued</option>
+                  <option value="paid">Paid</option>
+                  <option value="lapsed">Lapsed</option>
+                  <option value="chargeback">Charge Back</option>
+                  <option value="lapsed+chargeback">Lapsed / Charge Back</option>
+                </select>
+              </div>
+              <div class="pt-field" style="flex:1.2 1 180px">
+                <label for="ptf-sort">Sort By</label>
+                <select id="ptf-sort" class="pt-input" onchange="applyTrackerFilters()">
+                  <option value="">Default (newest first)</option>
+                  <option value="status">Status</option>
+                  <option value="carrier">Carrier A–Z</option>
+                  <option value="client-az">Client A–Z</option>
+                  <option value="draft-asc">Draft Date (Soonest → Latest)</option>
+                  <option value="draft-desc">Draft Date (Latest → Soonest)</option>
+                  <option value="sub-asc">Date Submitted (Soonest → Latest)</option>
+                  <option value="sub-desc">Date Submitted (Latest → Soonest)</option>
+                </select>
+              </div>
+              <div style="flex:0 0 auto">
+                <button class="pt-btn pt-btn-ghost" onclick="resetTrackerFilters()">Clear Filters</button>
+              </div>
+            </div>
+
+            <!-- Ledger table card -->
+            <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">
+              <div class="lg-tscroll">
+                <div class="pt-tmin">
+                  <div class="pt-grid pt-thead">
+                    <div class="pt-th" onclick="ptHeaderSort('client')" title="Sort by client">Client</div>
+                    <div>Policy #</div>
+                    <div class="pt-th" onclick="ptHeaderSort('carrier')" title="Sort by carrier">Carrier</div>
+                    <div>Product</div>
+                    <div>Monthly</div>
+                    <div>Ann. Premium</div>
+                    <div class="pt-th" onclick="ptHeaderSort('submitted')" title="Sort by date submitted">Date Submitted</div>
+                    <div class="pt-th" onclick="ptHeaderSort('draft')" title="Sort by draft date">Draft Date</div>
+                    <div>Est. Adv. Commission</div>
+                    <div>Class</div>
+                    <div class="pt-th" onclick="ptHeaderSort('status')" title="Sort by status">Status</div>
+                    <div></div>
+                  </div>
+                  <div id="pol-tbody"></div>
+                </div>
+              </div>
+              <div class="pt-empty" id="pol-empty" style="display:none"></div>
+              <div id="pt-pager"></div>
+            </div>
+          </div>
+
+          <!-- CALENDAR VIEW panel -->
+          <div id="pt-view-cal" style="display:none">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+              <button class="pt-btn pt-btn-ghost" onclick="trackerCalNavMonth(-1)">← Prev</button>
+              <div style="font-size:14px;font-weight:600;min-width:150px;text-align:center;color:#0F1D3D" id="tc-month-label"></div>
+              <button class="pt-btn pt-btn-ghost" onclick="trackerCalNavMonth(1)">Next →</button>
+              <div style="margin-left:auto;font-size:11.5px;color:#948C7F">Commission deposits typically 7–10 days after draft</div>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin-bottom:16px">
+              <div class="pt-kpis">
+                <div class="pt-kpi"><div class="pt-kpi-l">Drafting This Month</div><div class="pt-kpi-v" id="tc-count-mo">0</div></div>
+                <div class="pt-kpi"><div class="pt-kpi-l">Monthly Premium</div><div class="pt-kpi-v" id="tc-ap-mo">$0</div></div>
+                <div class="pt-kpi"><div class="pt-kpi-l">Est. Adv. Commission</div><div class="pt-kpi-v" id="tc-comm-mo" style="color:#1B7A43">$0</div></div>
+                <div class="pt-kpi"><div class="pt-kpi-l">Next 30 Days</div><div class="pt-kpi-v" id="tc-next30">0 policies</div></div>
+              </div>
+            </div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:#948C7F">
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#C9971F;display:inline-block"></span>Pending</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#5B94E8;display:inline-block"></span>Sub/Approved</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#98A1AE;display:inline-block"></span>Issued</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#2E9E5B;display:inline-block"></span>Paid</span>
+              <span style="display:flex;align-items:center;gap:5px"><span style="width:9px;height:9px;border-radius:3px;background:#D2483F;display:inline-block"></span>Lapsed / Charge Back</span>
+            </div>
+            <div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);background:#FAF8F5;border-bottom:1px solid #E4E0DA">
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Sun</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Mon</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Tue</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Wed</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Thu</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Fri</div>
+                <div style="padding:10px;text-align:center;font-size:10.5px;color:#948C7F;font-weight:600;letter-spacing:.06em;text-transform:uppercase">Sat</div>
+              </div>
+              <div id="tc-cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr)"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -4181,7 +4382,14 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     </div>
 
     <!-- ========== LEADS ========== -->
-    <div class="section" id="sec-leads">
+    <div class="section ledger-leads" id="sec-leads">
+      <!-- KPI strip (Ledger) — live counts from lead data, set in updateLeadKpis() -->
+      <div class="lgl-kpis" id="lead-kpis">
+        <div class="lgl-kpi"><div class="lgl-kpi-l">Total Leads</div><div class="lgl-kpi-v" id="kpi-total">0</div></div>
+        <div class="lgl-kpi"><div class="lgl-kpi-l">New This Week</div><div class="lgl-kpi-v" id="kpi-new">0</div></div>
+        <div class="lgl-kpi"><div class="lgl-kpi-l">Appointments Set</div><div class="lgl-kpi-v" id="kpi-appt">0</div></div>
+        <div class="lgl-kpi"><div class="lgl-kpi-l">Sold / Conversion</div><div class="lgl-kpi-v pos" id="kpi-sold">0 · 0.0%</div></div>
+      </div>
       <!-- Status sub-tabs + dial buttons -->
       <div style="display:flex;align-items:center;margin-top:4px;margin-bottom:14px;gap:12px">
         <div class="tabs" id="lead-subtabs" style="margin-bottom:0;flex-shrink:0">
@@ -4194,10 +4402,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </div>
         <div style="flex:1"></div>
         <div class="js-desktop-only-dialer" style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPowerDialer()">
+          <button class="btn btn-sm" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPowerDialer()">
             <span data-ico="phone" data-size="14"></span>Power Dial
           </button>
-          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPreviewDialer()">
+          <button class="btn btn-sm" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPreviewDialer()">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial
           </button>
         </div>
@@ -4290,10 +4498,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </select>
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
         <div class="js-desktop-only-dialer" style="width:1px;height:22px;background:var(--border)"></div>
-        <button class="btn btn-sm js-desktop-only-dialer" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
-        <button class="btn btn-sm js-desktop-only-dialer" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
+        <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
+        <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
-        <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
+        <button class="btn btn-sm" style="background:var(--lg-red-soft);border:1px solid var(--lg-red-border);color:var(--lg-red);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
         <button class="btn btn-s btn-sm" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px" onclick="clearBulkSelection()"><span data-ico="x" data-size="14"></span>Clear Selection</button>
       </div>
 
@@ -5525,6 +5733,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <label style="display:flex;align-items:center;gap:6px">Issue Date <span style="font-size:10px;color:var(--text3);font-weight:400">(carrier-issued; defaults to Draft Date)</span></label>
         <input type="date" id="p-issueDate">
       </div>
+      <div class="fg" style="flex:1">
+        <label style="display:flex;align-items:center;gap:6px">Policy # <span style="font-size:10px;color:var(--text3);font-weight:400">(optional; links carrier emails to this policy)</span></label>
+        <input type="text" id="p-policyNum" placeholder="BU6691749">
+      </div>
     </div>
     <div class="mt16"><button class="btn btn-g w-full" onclick="addPolicy()">Save Policy</button></div>
   </div>
@@ -5606,6 +5818,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
       <div class="fg" style="flex:1">
         <label style="display:flex;align-items:center;gap:6px">Issue Date <span style="font-size:10px;color:var(--text3);font-weight:400">(carrier-issued)</span></label>
         <input type="date" id="ep-issueDate">
+      </div>
+      <div class="fg" style="flex:1">
+        <label style="display:flex;align-items:center;gap:6px">Policy # <span style="font-size:10px;color:var(--text3);font-weight:400">(links carrier emails to this policy)</span></label>
+        <input type="text" id="ep-policyNum" placeholder="BU6691749">
       </div>
     </div>
     <div class="mt16"><button class="btn btn-g w-full" onclick="saveEditPolicy()">Save Changes</button></div>
@@ -10436,8 +10652,9 @@ const LOCAL_TO_ITK_TERM = {
 // ============================================================
 // Hydrated from namespaced storage in bootDashboard() once auth resolves.
 let policies = [];
-let ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'' };
+let ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'', subStart:'', subEnd:'' };
 let ptSort = '';
+let ptPage = 1;                       // Policy Tracker current page (Ledger pagination)
 
 function calcModalAP() {
   const monthly = parseFloat(document.getElementById('p-monthly').value) || 0;
@@ -10638,9 +10855,12 @@ async function addPolicy() {
   const termYrEl = document.getElementById('p-term-years');
   const termYears = (termYrEl && document.getElementById('p-term-year-fg')?.style.display !== 'none') ? parseInt(termYrEl.value) || null : null;
 
+  const policyNumber = (document.getElementById('p-policyNum')?.value || '').trim();
+
   const policy = { id:Date.now(), client, carrier, product, cls, monthly, ap, cov, dateSubmitted, draft, status, advComm, payDate, commPct };
   if (issueDate) policy.issueDate = issueDate;
   if (termYears) policy.termYears = termYears;
+  if (policyNumber) policy.policyNumber = policyNumber;
 
   const { error } = await sbUpsertPolicy(policy);
   if (error) { alert('Save failed: ' + error.message); return; }
@@ -10650,7 +10870,7 @@ async function addPolicy() {
   renderPolicies();
   updateBonusFromTracker();
 
-  ['p-client','p-monthly','p-ap','p-cov','p-dateSubmitted','p-issueDate'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['p-client','p-monthly','p-ap','p-cov','p-dateSubmitted','p-issueDate','p-policyNum'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   // Phase 7: celebration moment on app submit.
   dashboardMomentApp(policy);
 }
@@ -10702,6 +10922,8 @@ function openEditPolicy(id) {
   const statusSel = document.getElementById('ep-status');
   if (statusSel) statusSel.value = p.status || 'pending';
   document.getElementById('ep-issueDate').value = p.issueDate || '';
+  const polNumEl = document.getElementById('ep-policyNum');
+  if (polNumEl) polNumEl.value = p.policyNumber || '';
   updateCommPctPreview('ep');
   document.getElementById('editPolModal').classList.add('open');
 }
@@ -10739,9 +10961,11 @@ async function saveEditPolicy() {
   const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
   let payDate = p.payDate || '';
   if (draft) { const d = new Date(draft); d.setDate(d.getDate() + 10); payDate = d.toISOString().split('T')[0]; }
+  const policyNumber = (document.getElementById('ep-policyNum')?.value || '').trim();
   const updated = { ...p, client, carrier, product, cls, monthly, ap, cov, dateSubmitted, draft, status, advComm, payDate, commPct };
   if (issueDate) updated.issueDate = issueDate; else delete updated.issueDate;
   if (termYears) updated.termYears = termYears; else delete updated.termYears;
+  if (policyNumber) updated.policyNumber = policyNumber; else delete updated.policyNumber;
   const { error } = await sbUpsertPolicy(updated);
   if (error) { alert('Save failed: ' + error.message); return; }
   const idx = policies.findIndex(pol => pol.id === id);
@@ -10758,7 +10982,7 @@ function toggleClientInfo(id) {
   const btn = document.getElementById(`info-btn-${id}`);
   if (!row) return;
   const opening = row.style.display === 'none';
-  row.style.display = opening ? 'table-row' : 'none';
+  row.style.display = opening ? '' : 'none';   // notes panel is a block <div> in the Ledger layout
   if (btn) btn.classList.toggle('active', opening);
   if (opening) {
     const p = policies.find(x => x.id === id);
@@ -10781,12 +11005,16 @@ async function saveClientNotes(id) {
 }
 
 async function updatePolicyStatus(id, newStatus, selectEl) {
-  const sMap = {pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l',chargeback:'sp-cb'};
   const policy = policies.find(p => p.id === id);
   if (!policy) return;
   policy.status = newStatus;
   localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
-  if (selectEl) selectEl.className = 'status-sel ' + (sMap[newStatus] || 'sp-p');
+  // Recolor the Ledger status pill in place and re-tint the row (chargeback bg).
+  if (selectEl) {
+    selectEl.className = 'pt-status pt-status--' + newStatus;
+    const rowEl = selectEl.closest('.pt-row');
+    if (rowEl) rowEl.classList.toggle('pt-cb', newStatus === 'chargeback');
+  }
   const { error } = await sbUpsertPolicy(policy);
   if (error) { showToast('Status update failed: ' + error.message, '#f87171'); return; }
   updateBonusFromTracker();
@@ -10807,119 +11035,208 @@ function autoSetPaidOnDraftDate() {
   if (changed) localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
 }
 
-function renderPolicies() {
-  autoSetPaidOnDraftDate();
-  const tbody = document.getElementById('pol-tbody');
-  const tbl = document.getElementById('pol-table');
-  const empty = document.getElementById('pol-empty');
+// ============================================================
+// POLICY TRACKER — Ledger list view (pure view builder + render)
+// __PT_PURE_START__  (harness-extractable: the block between the PURE
+// markers depends only on fmt$, escHTML, getProductDisplayLabel,
+// getPlanDisplayLabel and icon; no DOM/global-state access.)
+// ============================================================
+const PT_PAGE_SIZE = 15;
+const PT_STATUS_ORDER = ['pending','approved','issued','paid','lapsed','chargeback'];
+const PT_STATUS_LABELS = {pending:'Pending',approved:'Sub/Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed',chargeback:'Charge Back'};
 
-  const sMap = {pending:'sp-p',approved:'sp-a',issued:'sp-i',paid:'sp-d',lapsed:'sp-l',chargeback:'sp-cb'};
-  const statusOrder = ['pending','approved','issued','paid','lapsed','chargeback'];
+// Submitted date: explicit field, else derived from the id timestamp.
+function _ptGetSub(p){ return p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : ''); }
 
-  // Compute totals from ALL policies (unaffected by filters)
+// Submission date used for PERIOD bucketing — mirrors the Summary's _lgSubDate
+// exactly (dateSubmitted -> draft -> id timestamp) so a period drill-in counts
+// the same policies the Summary segment counts. Distinct from _ptGetSub (which
+// has no draft fallback) on purpose: this one must match the Summary.
+function _ptSubForRange(p){ return (p && (p.dateSubmitted || p.draft || (p.id ? new Date(+p.id).toISOString().slice(0,10) : ''))) || ''; }
+
+// Local-calendar 'YYYY-MM-DD' for a Date (matches summaryPeriodRange's local
+// midnight boundaries; string compare then equals _lgInRange's date compare).
+function _ptFmtLocalDate(d){ if(!d) return ''; const z=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+z(d.getMonth()+1)+'-'+z(d.getDate()); }
+
+// Pure: given all policies + filter/sort/page, return totals, the current
+// page's row HTML, and the pager HTML. Totals span ALL policies; the table
+// reflects the filtered + sorted + paginated slice.
+function _ptComputeView(all, filter, sort, page){
+  all = Array.isArray(all) ? all : [];
+  filter = filter || {};
+  const cmpDate = (a,b) => (!a && !b) ? 0 : !a ? 1 : !b ? -1 : (a < b ? -1 : a > b ? 1 : 0);
+
   let totAP=0, totAdv=0, issued=0, amAP=0, amamAP=0;
-  policies.forEach(p => {
-    const monthly = p.monthly || +(p.ap / 12).toFixed(2);
+  all.forEach(p => {
+    const monthly = p.monthly || +(((p.ap||0)) / 12).toFixed(2);
     const ap = p.ap || +(monthly * 12).toFixed(2);
     const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
     totAP += ap||0;
     totAdv += advComm||0;
-    if(['issued','paid','approved'].includes(p.status)) issued++;
-    if(p.carrier==='Americo') amAP += ap||0;
-    if((p.carrier||'').includes('Amicable')) amamAP += ap||0;
+    if (['issued','paid','approved'].includes(p.status)) issued++;
+    if (p.carrier === 'Americo') amAP += ap||0;
+    if ((p.carrier||'').includes('Amicable')) amamAP += ap||0;
   });
 
-  // Apply filters
-  const cmpDate = (a, b) => { if(!a&&!b) return 0; if(!a) return 1; if(!b) return -1; return a<b?-1:a>b?1:0; };
-  const getSub = p => p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : '');
-  let display = policies.filter(p => {
-    if (ptFilter.client && !(p.client||'').toLowerCase().includes(ptFilter.client)) return false;
-    if (ptFilter.carrier && p.carrier !== ptFilter.carrier) return false;
-    if (ptFilter.submitted && getSub(p) !== ptFilter.submitted) return false;
-    if (ptFilter.draft && (p.draft||'') !== ptFilter.draft) return false;
-    if (ptFilter.status && p.status !== ptFilter.status) return false;
+  let display = all.filter(p => {
+    if (filter.client && !(p.client||'').toLowerCase().includes(filter.client)) return false;
+    if (filter.carrier && p.carrier !== filter.carrier) return false;
+    if (filter.submitted && _ptGetSub(p) !== filter.submitted) return false;
+    if (filter.draft && (p.draft||'') !== filter.draft) return false;
+    // Period range (Date Submitted) carried from a Summary drill-in. Mirrors
+    // _lgInRange: [subStart, subEnd) on the _lgSubDate-equivalent bucket date;
+    // ISO 'YYYY-MM-DD' string compare == the Summary's local-midnight compare.
+    if (filter.subStart || filter.subEnd) {
+      const sd = _ptSubForRange(p);
+      if (!sd) return false;                                  // no date -> out of range
+      if (filter.subStart && sd < filter.subStart) return false;
+      if (filter.subEnd && sd >= filter.subEnd) return false; // end exclusive
+    }
+    // status may be a single value ('paid') or a '+'-joined set
+    // ('lapsed+chargeback') so the Summary "Lapse / CB" segment can drill into
+    // both statuses at once; a single value degrades to a 1-element match.
+    if (filter.status && !filter.status.split('+').includes(p.status)) return false;
     return true;
   });
 
-  // Apply sort
-  switch (ptSort) {
-    case 'status':    display.sort((a,b) => statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status)); break;
+  switch (sort) {
+    case 'status':    display.sort((a,b) => PT_STATUS_ORDER.indexOf(a.status) - PT_STATUS_ORDER.indexOf(b.status)); break;
     case 'carrier':   display.sort((a,b) => (a.carrier||'').localeCompare(b.carrier||'')); break;
     case 'client-az': display.sort((a,b) => (a.client||'').localeCompare(b.client||'')); break;
     case 'draft-asc': display.sort((a,b) => cmpDate(a.draft, b.draft)); break;
     case 'draft-desc':display.sort((a,b) => cmpDate(b.draft, a.draft)); break;
-    case 'sub-asc':   display.sort((a,b) => cmpDate(getSub(a), getSub(b))); break;
-    case 'sub-desc':  display.sort((a,b) => cmpDate(getSub(b), getSub(a))); break;
+    case 'sub-asc':   display.sort((a,b) => cmpDate(_ptGetSub(a), _ptGetSub(b))); break;
+    case 'sub-desc':  display.sort((a,b) => cmpDate(_ptGetSub(b), _ptGetSub(a))); break;
   }
 
-  // Show/hide table vs empty state
-  if (!policies.length) {
-    tbl.style.display='none'; empty.style.display='block';
-    empty.innerHTML = '<div class="ico" data-ico="clipboard-text" data-size="32"></div><p>No policies yet. Click &quot;+ Add Policy&quot; to start.</p>';
-    mountIcons(empty);
-  } else if (!display.length) {
-    tbl.style.display='none'; empty.style.display='block';
-    empty.innerHTML = '<div class="ico" data-ico="funnel" data-size="32"></div><p>No policies match your filters.</p>';
-    mountIcons(empty);
+  const total = display.length;
+  const totalPages = Math.max(1, Math.ceil(total / PT_PAGE_SIZE));
+  const cur = Math.min(Math.max(1, page || 1), totalPages);
+  const start = (cur - 1) * PT_PAGE_SIZE;
+  const slice = display.slice(start, start + PT_PAGE_SIZE);
+
+  return {
+    totals: { totAP, totAdv, cnt: all.length, issued, amAP, amamAP },
+    total, totalPages, cur, start,
+    hasAny: all.length > 0,
+    matched: total,
+    rowsHTML: slice.map(_ptRowHTML).join(''),
+    pagerHTML: _ptPagerHTML(total, cur, totalPages, start)
+  };
+}
+
+function _ptRowHTML(p){
+  const monthly = p.monthly || +(((p.ap||0)) / 12).toFixed(2);
+  const ap = p.ap || +(monthly * 12).toFixed(2);
+  const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
+  const st = PT_STATUS_ORDER.includes(p.status) ? p.status : 'pending';
+  const cb = st === 'chargeback' ? ' pt-cb' : '';
+  const sub = _ptGetSub(p) || '—';
+  const draft = escHTML(p.draft) || '—';
+  const opts = PT_STATUS_ORDER.map(kk =>
+    '<option value="'+kk+'"'+(st===kk?' selected':'')+'>'+PT_STATUS_LABELS[kk]+'</option>').join('');
+  return ''+
+  '<div class="pt-item">'+
+    '<div class="pt-grid pt-row'+cb+'">'+
+      '<div class="pt-ell" style="font-size:13px;font-weight:500;color:#0F1D3D">'+escHTML(p.client)+'</div>'+
+      '<div class="pt-ell lgm" style="font-size:12px;color:#6B6459">'+(p.policyNumber ? escHTML(p.policyNumber) : '—')+'</div>'+
+      '<div class="pt-ell" style="font-size:13px;color:#3B372F">'+escHTML(p.carrier)+'</div>'+
+      '<div class="pt-ell" style="font-size:12.5px;color:#3B372F">'+escHTML(getProductDisplayLabel(p.product))+'</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:#0F1D3D;white-space:nowrap">'+fmt$(monthly)+'/mo</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:#3B372F;white-space:nowrap">'+fmt$(ap)+'/yr</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:#6B6459;white-space:nowrap">'+escHTML(sub)+'</div>'+
+      '<div class="lgm" style="font-size:12.5px;color:#6B6459;white-space:nowrap">'+draft+'</div>'+
+      '<div style="white-space:nowrap"><span class="lgm" style="font-size:12.5px;font-weight:500;color:#1B7A43">'+fmt$(advComm)+'</span></div>'+
+      '<div class="pt-ell" style="font-size:12px;color:#3B372F">'+escHTML(getPlanDisplayLabel(p.cls))+'</div>'+
+      '<div style="min-width:0"><select class="pt-status pt-status--'+st+'" onchange="updatePolicyStatus('+p.id+',this.value,this)" title="Change status">'+opts+'</select></div>'+
+      '<div class="pt-acts">'+
+        '<button class="pt-act" id="info-btn-'+p.id+'" onclick="toggleClientInfo('+p.id+')" title="View/Edit client info">'+icon('user',{size:18})+'</button>'+
+        '<button class="pt-act pt-act-del" onclick="deletePolicy('+p.id+')" title="Delete policy">'+icon('trash',{size:18})+'</button>'+
+        '<button class="pt-act pt-act-edit" onclick="openEditPolicy('+p.id+')" title="Edit policy details">'+icon('pencil',{size:18})+'</button>'+
+      '</div>'+
+    '</div>'+
+    '<div id="notes-row-'+p.id+'" class="pt-notes" style="display:none">'+
+      '<div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#948C7F;margin-bottom:8px">Client Info — '+escHTML(p.client)+'</div>'+
+      '<textarea id="notes-ta-'+p.id+'" class="pt-notes-ta" placeholder="Enter client details: DOB, SSN, address, beneficiaries, health notes, contact info...">'+escHTML(p.clientNotes ?? p.notes ?? '')+'</textarea>'+
+      '<div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">'+
+        '<button class="pt-btn pt-btn-ghost" onclick="toggleClientInfo('+p.id+')">Close</button>'+
+        '<button class="pt-btn pt-btn-primary" onclick="saveClientNotes('+p.id+')">Save</button>'+
+      '</div>'+
+    '</div>'+
+  '</div>';
+}
+
+function _ptPagerHTML(total, cur, totalPages, start){
+  if (totalPages <= 1) return '';
+  const from = total === 0 ? 0 : start + 1;
+  const to = Math.min(start + PT_PAGE_SIZE, total);
+  let chips = '';
+  for (let i = 1; i <= totalPages; i++) {
+    chips += '<button class="pt-pgchip'+(i===cur?' active':'')+'" onclick="ptGoToPage('+i+')">'+i+'</button>';
+  }
+  return '<div class="pt-pager">'+
+    '<div class="pt-pginfo">Showing '+from+'–'+to+' of '+total+'</div>'+
+    '<div class="pt-pgnav">'+
+      '<button class="pt-pgbtn" onclick="ptPrevPage()"'+(cur<=1?' disabled':'')+'>Prev</button>'+
+      chips+
+      '<button class="pt-pgbtn" onclick="ptNextPage()"'+(cur>=totalPages?' disabled':'')+'>Next</button>'+
+    '</div>'+
+  '</div>';
+}
+// __PT_PURE_END__
+
+function renderPolicies() {
+  autoSetPaidOnDraftDate();
+  const tbody = document.getElementById('pol-tbody');
+  const empty = document.getElementById('pol-empty');
+  const pager = document.getElementById('pt-pager');
+  if (!tbody) return;
+
+  const view = _ptComputeView(policies, ptFilter, ptSort, ptPage);
+  ptPage = view.cur;   // clamp (deletes / filter changes may drop the last page)
+
+  if (!view.hasAny) {
+    tbody.innerHTML = '';
+    if (empty) { empty.style.display = 'flex'; empty.innerHTML = icon('clipboard-text',{size:32}) + '<p style="margin:0">No policies yet. Click “+ Add Policy” to start.</p>'; }
+  } else if (view.matched === 0) {
+    tbody.innerHTML = '';
+    if (empty) { empty.style.display = 'flex'; empty.innerHTML = icon('funnel',{size:32}) + '<p style="margin:0">No policies match your filters.</p>'; }
   } else {
-    tbl.style.display='table'; empty.style.display='none';
+    if (empty) empty.style.display = 'none';
+    tbody.innerHTML = view.rowsHTML;
   }
+  if (pager) pager.innerHTML = view.pagerHTML;
 
-  tbody.innerHTML = '';
-  display.forEach(p => {
-    const monthly = p.monthly || +(p.ap / 12).toFixed(2);
-    const ap = p.ap || +(monthly * 12).toFixed(2);
-    const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="color:var(--text);font-weight:500">${escHTML(p.client)}</td>
-      <td>${escHTML(p.carrier)}</td><td style="font-size:12px">${escHTML(getProductDisplayLabel(p.product))}</td>
-      <td class="mono text-b">${fmt$(monthly)}/mo</td>
-      <td class="mono">${fmt$(ap)}/yr</td>
-      <td class="mono">${getSub(p)||'—'}</td>
-      <td class="mono">${escHTML(p.draft)||'—'}</td>
-      <td class="mono text-g">${fmt$(advComm)} <span style="font-size:10px;color:var(--text3)">(${(p.commPct||0).toFixed(1)}%×75%)</span></td>
-      <td style="font-size:11px;color:var(--text3)">${escHTML(getPlanDisplayLabel(p.cls))}</td>
-      <td><select class="status-sel ${sMap[p.status]||'sp-p'}" onchange="updatePolicyStatus(${p.id},this.value,this)" title="Change status">
-        <option value="pending" ${p.status==='pending'?'selected':''}>Pending</option>
-        <option value="approved" ${p.status==='approved'?'selected':''}>Sub/Approved</option>
-        <option value="issued" ${p.status==='issued'?'selected':''}>Issued</option>
-        <option value="paid" ${p.status==='paid'?'selected':''}>Paid</option>
-        <option value="lapsed" ${p.status==='lapsed'?'selected':''}>Lapsed</option>
-        <option value="chargeback" ${p.status==='chargeback'?'selected':''}>Charge Back</option>
-      </select></td>
-      <td style="white-space:nowrap">
-        <button class="info-btn" id="info-btn-${p.id}" onclick="toggleClientInfo(${p.id})" title="View/Edit client info">${icon('user',{size:14})}</button>
-        <button class="del-btn" onclick="deletePolicy(${p.id})" title="Delete policy">${icon('trash',{size:14})}</button>
-        <button class="info-btn" onclick="openEditPolicy(${p.id})" title="Edit policy details" style="color:var(--ds-color-info)">${icon('pencil',{size:14})}</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-    const notesRow = document.createElement('tr');
-    notesRow.id = `notes-row-${p.id}`;
-    notesRow.style.display = 'none';
-    notesRow.innerHTML = `
-      <td colspan="11" style="padding:0">
-        <div class="client-notes-panel">
-          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Client Info — ${escHTML(p.client)}</div>
-          <textarea id="notes-ta-${p.id}" class="client-notes-ta" placeholder="Enter client details: DOB, SSN, address, beneficiaries, health notes, contact info...">${escHTML(p.clientNotes ?? p.notes ?? '')}</textarea>
-          <div style="display:flex;gap:8px;margin-top:8px;justify-content:flex-end">
-            <button class="btn btn-s btn-sm" onclick="toggleClientInfo(${p.id})">Close</button>
-            <button class="btn btn-p btn-sm" onclick="saveClientNotes(${p.id})">Save</button>
-          </div>
-        </div>
-      </td>
-    `;
-    tbody.appendChild(notesRow);
-  });
-
-  document.getElementById('total-ap').textContent = fmt$(totAP);
-  document.getElementById('total-comm').textContent = fmt$(totAdv);
-  document.getElementById('total-cnt').textContent = policies.length;
-  document.getElementById('total-issued').textContent = issued;
-  document.getElementById('am-ap').textContent = fmt$(amAP);
-  document.getElementById('amam-ap').textContent = fmt$(amamAP);
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('total-ap', fmt$(view.totals.totAP));
+  set('total-comm', fmt$(view.totals.totAdv));
+  set('total-cnt', view.totals.cnt);
+  set('total-issued', view.totals.issued);
+  set('am-ap', fmt$(view.totals.amAP));
+  set('amam-ap', fmt$(view.totals.amamAP));
   if (typeof renderIncomeReality === 'function') renderIncomeReality();
+}
+
+// Pagination controls (clamping happens in renderPolicies via view.cur).
+function ptGoToPage(n){ ptPage = n; renderPolicies(); }
+function ptPrevPage(){ ptPage = Math.max(1, ptPage - 1); renderPolicies(); }
+function ptNextPage(){ ptPage = ptPage + 1; renderPolicies(); }
+
+// Clickable column headers — toggle asc/desc where the sort dropdown offers
+// both, sync the Sort By <select>, and reset to page 1.
+function ptHeaderSort(key){
+  let next;
+  if (key === 'submitted')   next = (ptSort === 'sub-asc')   ? 'sub-desc'   : 'sub-asc';
+  else if (key === 'draft')  next = (ptSort === 'draft-asc') ? 'draft-desc' : 'draft-asc';
+  else if (key === 'client') next = 'client-az';
+  else if (key === 'carrier')next = 'carrier';
+  else if (key === 'status') next = 'status';
+  else return;
+  ptSort = next;
+  const sel = document.getElementById('ptf-sort');
+  if (sel) sel.value = next;
+  ptPage = 1;
+  renderPolicies();
 }
 
 function applyTrackerFilters() {
@@ -10929,14 +11246,16 @@ function applyTrackerFilters() {
   ptFilter.draft     =  document.getElementById('ptf-draft')?.value     || '';
   ptFilter.status    =  document.getElementById('ptf-status')?.value    || '';
   ptSort             =  document.getElementById('ptf-sort')?.value      || '';
+  ptPage = 1;   // filter/sort change resets to the first page
   renderPolicies();
 }
 
 function resetTrackerFilters() {
   ['ptf-client','ptf-submitted','ptf-draft'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   ['ptf-carrier','ptf-status','ptf-sort'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
-  ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'' };
+  ptFilter = { client:'', carrier:'', submitted:'', draft:'', status:'', subStart:'', subEnd:'' };
   ptSort = '';
+  ptPage = 1;
   renderPolicies();
 }
 
@@ -11475,6 +11794,25 @@ function setSummaryPeriod(p) {
 // 'all' returns no bounds (everything counts) and skips the prior comparison.
 function summaryPeriodRange(period, today) {
   const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // Ledger Summary period keys (daily / weekly / monthly) — added 2026-07-16.
+  if (period === 'daily') {
+    const end = new Date(t); end.setDate(end.getDate() + 1);
+    const prevStart = new Date(t); prevStart.setDate(prevStart.getDate() - 1);
+    return { start: t, end, prevStart, prevEnd: t, label: 'Today vs yesterday' };
+  }
+  if (period === 'weekly') {
+    const dow = (t.getDay() + 6) % 7; // Mon=0
+    const start = new Date(t); start.setDate(start.getDate() - dow);
+    const end   = new Date(start); end.setDate(end.getDate() + 7);
+    const prevStart = new Date(start); prevStart.setDate(prevStart.getDate() - 7);
+    return { start, end, prevStart, prevEnd: start, label: 'This week vs last week' };
+  }
+  if (period === 'monthly') {
+    const start = new Date(t.getFullYear(), t.getMonth(), 1);
+    const end   = new Date(t.getFullYear(), t.getMonth() + 1, 1);
+    const prevStart = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+    return { start, end, prevStart, prevEnd: start, label: 'This month vs last month' };
+  }
   if (period === 'wtd') {
     const dow = (t.getDay() + 6) % 7; // Mon=0
     const start = new Date(t); start.setDate(start.getDate() - dow);
@@ -11621,10 +11959,47 @@ function _renderCarrierDonut(pols) {
   });
 }
 
+// Drill from a Summary widget into another section. For the Policy Tracker,
+// opts.status pre-sets the status filter (clearing the other tracker filters
+// for a clean focused view) and resets pagination to page 1. opts.period
+// (daily/weekly/monthly) additionally applies the Summary's active period as a
+// Date Submitted range using the SAME bucketing rule the segment count uses, so
+// the tracker's filtered count exactly equals the clicked segment's count.
+// Summary buckets map 1:1 by name to #ptf-status values
+// (pending/approved/issued/paid); the merged "Lapse / CB" bucket drills with
+// 'lapsed+chargeback'.
 function summaryDrillTo(target, opts) {
   if (!target) return;
-  // opts is reserved for future filter wiring (pp_tracker_filter, etc).
+  opts = opts || {};
   nav(target);
+  if (target === 'tracker' && opts.status) {
+    // Clear the other filter controls so the drill-in shows all policies of
+    // the clicked status, then let applyTrackerFilters() sync state + page 1.
+    ['ptf-client','ptf-submitted','ptf-draft'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['ptf-carrier','ptf-sort'].forEach(id => { const el = document.getElementById(id); if (el) el.selectedIndex = 0; });
+    const statusSel = document.getElementById('ptf-status');
+    if (statusSel) statusSel.value = opts.status;
+    // Carry the active Summary period into a Date Submitted range so the
+    // tracker's count matches the segment (same range + same bucket date rule).
+    let subStart = '', subEnd = '';
+    if (opts.period && typeof summaryPeriodRange === 'function') {
+      try {
+        const r = summaryPeriodRange(opts.period, new Date());
+        subStart = _ptFmtLocalDate(r.start);
+        subEnd   = _ptFmtLocalDate(r.end);   // exclusive, matches _lgInRange
+      } catch (e) { /* unknown period -> no range */ }
+    }
+    // Set the range BEFORE applyTrackerFilters (which mutates the control-backed
+    // fields but preserves subStart/subEnd), so a single render carries it.
+    ptFilter.subStart = subStart; ptFilter.subEnd = subEnd;
+    if (typeof applyTrackerFilters === 'function') {
+      applyTrackerFilters();   // reads controls -> ptFilter, sets ptPage=1, renders
+    } else {
+      ptFilter = { client:'', carrier:'', submitted:'', draft:'', status: opts.status, subStart, subEnd };
+      ptSort = ''; ptPage = 1;
+      if (typeof renderPolicies === 'function') renderPolicies();
+    }
+  }
 }
 
 // ---- v3 helpers: goal, milestones ----
@@ -12294,91 +12669,678 @@ function guardedOpenPreviewDialer() {
 }
 // ────────────────────────────────────────────────────────────────────────────
 
-function renderSummary() {
-  if (!document.getElementById('sec-summary')) return;
-  _applyPlanGating();
-  if (typeof initSummaryEmailToggle === 'function') initSummaryEmailToggle();
-  renderGreeting();
-  if (typeof renderActionHub === 'function') renderActionHub();
-  if (typeof cmRefreshUrgent === 'function') cmRefreshUrgent();
-  const _rsTier = _planTier();
-  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderPipelineFunnel === 'function') renderPipelineFunnel();
-  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderIncomeReality === 'function') renderIncomeReality();
-  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderActivityMomentum === 'function') renderActivityMomentum();
-  if ((_rsTier === 'pro' || _rsTier === 'leader') && typeof renderPersistencyHealth === 'function') renderPersistencyHealth();
-  const pols = Array.isArray(policies) ? policies : [];
-  const today = new Date();
-  const range = summaryPeriodRange(summaryPeriod, today);
+// ============================================================
+// LEDGER SUMMARY (tiered: basic / pro / leader) — 2026-07-16
+// Rewrites the Summary section in the "Ledger" design language.
+// Every metric derives from user-entered policies (`policies`), leads
+// (`leads`), logged activities (ds_activities), the dialer `calls` table,
+// and static bonus/comp reference data. No email-pipeline reads anywhere.
+// Composes shared widget builders; the tier switch lives in renderSummary().
+// ============================================================
 
-  // --- HERO BAND: monthly goal ring (always month-scoped, regardless of period chip) ---
-  const monthRange = summaryPeriodRange('mtd', today);
-  const monthPolsHero = pols.filter(p => _inRange(p, monthRange.start, monthRange.end));
-  const monthAP = _sumKey(monthPolsHero, 'ap');
-  renderSmartGoalHub(monthAP, monthPolsHero.length, today);
+const LG_PERIODS = ['daily','weekly','monthly'];
+let ledgerPeriod = (function(){ try { const v = localStorage.getItem('pp_summary_period'); return LG_PERIODS.includes(v) ? v : 'monthly'; } catch(e){ return 'monthly'; } })();
+let _lgTeamSort = { col:'ap', dir:'desc' };
+const _lgCalls = {};   // period -> {dials,contacts,callTime} | 'loading'
+const _lgTeam  = {};   // period -> rows[] | 'loading' | {unavailable:true} | {error:true}
 
-  // --- HERO BAND: today / week / month / top carriers ---
-  const weekRange = summaryPeriodRange('wtd', today);
-  renderHeroSide(pols, today, monthRange, weekRange);
+// ---- tier + formatters ----
+function _lgTier(){ const t=(typeof _planTier==='function')?_planTier():null; return t==='leader'?'leader':t==='pro'?'pro':'basic'; }
+function _lg$(n){ n=Math.round(Number(n)||0); return '$'+n.toLocaleString('en-US'); }
+function _lgKk(n){ n=Number(n)||0; return n>=1000 ? '$'+(n/1000).toFixed(1)+'k' : '$'+Math.round(n); }
+function _lgDur(sec){ sec=Math.max(0,Math.floor(Number(sec)||0)); const h=Math.floor(sec/3600),m=Math.round((sec%3600)/60); return h?(h+'h '+m+'m'):(m+'m'); }
+function _lgFd(d){ if(!d)return'&mdash;'; const x=(d instanceof Date)?d:new Date(d); if(isNaN(x.getTime()))return'&mdash;'; return x.toLocaleDateString('en-US',{month:'short',day:'numeric'}); }
+function _lgEsc(s){ return (typeof escHTML==='function')?escHTML(s):String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  // --- Update period chips + caption ---
-  document.querySelectorAll('#sec-summary .period-chip').forEach(chip => {
-    chip.classList.toggle('active', chip.dataset.period === summaryPeriod);
-  });
-  document.getElementById('sum-period-caption').textContent = range.label;
+// ---- period math (agent-local timezone, same convention as streakStats) ----
+function _lgPeriodRange(period, today){
+  // Delegates to the shared summaryPeriodRange helper (extended with the
+  // daily/weekly/monthly keys); Ledger only needs {start,end}.
+  const r = summaryPeriodRange(LG_PERIODS.includes(period)?period:'monthly', today);
+  return { start:r.start, end:r.end };
+}
+function _lgSubDate(p){ return p && (p.dateSubmitted || p.draft || (p.id? new Date(+p.id).toISOString().slice(0,10) : null)); }
+function _lgInRange(dateStr, range){ if(!dateStr)return false; const d=new Date(dateStr+'T00:00:00'); if(isNaN(d.getTime()))return false; return d>=range.start && d<range.end; }
+function _lgWhenInRange(iso, range){ const t=new Date(iso).getTime(); return isFinite(t) && t>=range.start.getTime() && t<range.end.getTime(); }
+function _lgAdvComm(p){ const ap=Number(p.ap)||0; return Number(p.advComm) || +(ap*(Number(p.commPct)||0)/100*0.75); }
 
-  // --- Period-scoped slices ---
-  const inCurrent = p => _inRange(p, range.start, range.end);
-  const inPrior   = p => range.prevStart ? _inRange(p, range.prevStart, range.prevEnd) : false;
+// ---- controls (global — referenced from inline onclick) ----
+function setLedgerPeriod(p){ if(!LG_PERIODS.includes(p))return; ledgerPeriod=p; try{localStorage.setItem('pp_summary_period',p);}catch(e){} renderSummary(); }
+function ledgerSortTeam(col){ if(_lgTeamSort.col===col){ _lgTeamSort.dir = _lgTeamSort.dir==='desc'?'asc':'desc'; } else { _lgTeamSort={col,dir:'desc'}; } renderSummary(); }
+function lgUpgrade(tier){ if(typeof showUpgradeGate==='function'){ showUpgradeGate(tier==='leader'?'Team Summary':'Pro Summary', tier); } else if(typeof pbOpenUpgradeModal==='function'){ pbOpenUpgradeModal(); } }
 
-  const curPols   = pols.filter(inCurrent);
-  const priorPols = pols.filter(inPrior);
+// ---- async: calling stats for the period (dialer calls ∪ logged dials) ----
+async function _lgFetchCalls(range, period){
+  let stats = { dials:0, contacts:0, callTime:0 };
+  try {
+    if (typeof sb !== 'undefined' && sb && currentAgent && currentAgent.id) {
+      const { data, error } = await sb.from('calls')
+        .select('duration_sec,status,started_at')
+        .eq('agent_id', currentAgent.id)
+        .gte('started_at', range.start.toISOString())
+        .lt('started_at', range.end.toISOString());
+      if (error) throw error;
+      const rows = data || [];
+      stats.dials    = rows.length;
+      stats.callTime = rows.reduce((s,r)=>s+(Number(r.duration_sec)||0),0);
+      stats.contacts = rows.filter(r => r.status==='completed' && (Number(r.duration_sec)||0)>=5).length;
+    }
+    // Union with manually-logged dials (ds_activities type 'call'), de-duped:
+    // each dialer call also logs a 'call' activity, so take the larger count.
+    const acts = (typeof getActivities==='function') ? getActivities() : [];
+    const logged = acts.filter(a => a && a.type==='call' && _lgWhenInRange(a.when, range)).length;
+    stats.dials = Math.max(stats.dials, logged);
+  } catch (e) {
+    const acts = (typeof getActivities==='function') ? getActivities() : [];
+    stats = { dials: acts.filter(a => a && a.type==='call' && _lgWhenInRange(a.when, range)).length, contacts:0, callTime:0 };
+  }
+  _lgCalls[period] = stats;
+  if (ledgerPeriod === period && document.getElementById('sum-ledger')) renderSummary();
+}
 
-  // --- Status breakdown (always reflects current period) ---
-  const counts = Object.fromEntries(SUM_STATUSES.map(s => [s, 0]));
-  curPols.forEach(p => { if (counts[p.status] != null) counts[p.status]++; });
-  const totalCount = curPols.length || 1;
+// ---- async: team rollup via security-definer RPC (leader only) ----
+async function _lgFetchTeam(range, period){
+  try {
+    if (window._myAgencyName === undefined && typeof sb!=='undefined' && sb && currentAgent && currentAgent.id) {
+      try { const { data:myRow } = await sb.from('agents').select('agency_code, agency_name').eq('id', currentAgent.id).maybeSingle();
+        window._myAgencyCode = (myRow && myRow.agency_code) || null; window._myAgencyName = (myRow && myRow.agency_name) || null; } catch(_e){}
+    }
+    const { data, error } = await sb.rpc('get_team_summary', { p_start: range.start.toISOString(), p_end: range.end.toISOString() });
+    if (error) {
+      if (error.code === 'PGRST202' || /get_team_summary/.test(error.message||'')) _lgTeam[period] = { unavailable:true };
+      else { console.warn('[summary] team rpc', error.message); _lgTeam[period] = { error:true }; }
+    } else {
+      _lgTeam[period] = Array.isArray(data) ? data : [];
+    }
+  } catch (e) { console.warn('[summary] team rpc', e); _lgTeam[period] = { error:true }; }
+  if (ledgerPeriod === period && document.getElementById('sum-ledger')) renderSummary();
+}
 
-  const bar = document.getElementById('sum-status-bar');
-  bar.innerHTML = '';
-  SUM_STATUSES.forEach(s => {
-    if (!counts[s]) return;
-    const seg = document.createElement('div');
-    seg.className = 'status-seg s-' + s;
-    seg.title = `${SUM_S_LBL[s]}: ${counts[s]} (${Math.round(counts[s]/totalCount*100)}%)`;
-    seg.onclick = () => summaryDrillTo('tracker', { status: s });
-    bar.appendChild(seg);
-    // Animate width from 0 to target on next frame so the CSS transition fires.
-    requestAnimationFrame(() => { seg.style.width = (counts[s] / totalCount * 100) + '%'; });
-  });
+// ---- shared widget builders ----
+function _lgCard(inner, pad){ return '<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:'+(pad||'14px 16px')+'">'+inner+'</div>'; }
+function _lgHead(title, mid, tag){
+  return '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">'+
+    '<div style="font-weight:600;font-size:13px;color:#0F1D3D">'+title+'</div>'+
+    (mid?'<span style="font-weight:400;font-size:11.5px;color:#948C7F">'+mid+'</span>':'')+
+    (tag?'<span style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C;margin-left:auto;white-space:nowrap;padding-left:8px">'+tag+'</span>':'')+
+  '</div>';
+}
+function _lgLbl(t){ return '<div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F">'+t+'</div>'; }
+function _lgStat(label, value, sub, color){
+  return '<div>'+_lgLbl(label)+
+    '<div class="lgm" style="font-weight:600;font-size:22px;color:'+(color||'#0F1D3D')+';margin-top:6px;white-space:nowrap">'+value+'</div>'+
+    '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:2px">'+sub+'</div></div>';
+}
+function _lgSkel(w){ return '<div class="lg-skel" style="height:20px;width:'+(w||'62%')+';background:#ECE9E3;border-radius:6px;margin-top:6px"></div>'; }
+function _lgEmpty(t){ return '<div style="font-weight:400;font-size:12px;color:#948C7F;padding:10px 0">'+t+'</div>'; }
 
-  document.getElementById('sum-status-legend').innerHTML = SUM_STATUSES.map(s => {
-    const c = counts[s];
-    const pct = curPols.length ? Math.round(c / curPols.length * 100) : 0;
-    return `<div class="leg" onclick="summaryDrillTo('tracker',{status:'${s}'})">` +
-           `<span class="dot" style="background:${SUM_S_COLOR[s]}"></span>${SUM_S_LBL[s]}` +
-           ` <span class="leg-num">${c}</span> <span class="leg-pct">${pct}%</span></div>`;
-  }).join('');
+// ============================================================
+// renderSummary — tier switch, composes shared widgets
+// ============================================================
+function renderSummary(){
+  const root = document.getElementById('sum-ledger');
+  if(!root) return;
+  if(typeof _applyPlanGating==='function'){ try { _applyPlanGating(); } catch(_e){} }
 
-  // --- Carrier mix (current period) ---
-  _renderCarrierDonut(curPols);
+  const tier   = _lgTier();
+  const period = ledgerPeriod;
+  const now    = new Date();
+  const pols   = Array.isArray(policies) ? policies : [];
+  const leadsArr = Array.isArray(typeof leads!=='undefined' ? leads : null) ? leads : [];
+  const range  = _lgPeriodRange(period, now);
 
-  // --- Bonus Tier Intelligence (Phase 6 — replaces three renderPaceRow calls) ---
-  renderBonusTierIntel();
-  renderUpcomingBonuses();
+  // ---- period labels ----
+  const resetTxt = period==='daily'?'at midnight':period==='weekly'?'Monday':'on the 1st';
+  const periodCaption = (period==='daily' ? 'Today, '+_lgFd(range.start) : _lgFd(range.start)+' &ndash; '+_lgFd(now)) + ' &middot; resets '+resetTxt;
+  const periodTag = period==='daily' ? 'Today' : (_lgFd(range.start)+' &ndash; '+_lgFd(now));
 
-  // --- Phase 7: streak-diff celebration ---
-  const streak = (typeof streakStats === 'function') ? streakStats().current : 0;
-  const prevStreak = _lastSeenValue('streak');
-  if (streak > prevStreak && (streak === 3 || streak === 7 || streak % 10 === 0)) dashboardMomentStreak(streak);
-  if (prevStreak >= 3 && streak === 0) dashboardMomentStreakBreak(prevStreak);
-  _storeLastValue('streak', streak);
+  // ---- period slices ----
+  const NOT_SOLD = new Set(['lapsed','chargeback']);
+  const periodPols = pols.filter(p => _lgInRange(_lgSubDate(p), range));
+  const periodSold = periodPols.filter(p => !NOT_SOLD.has(p.status));
 
-  // --- Phase 7.5: detect placement transitions ---
-  detectPlacementTransitions(pols);
+  // ---- KPIs ----
+  const kAPn   = periodSold.reduce((s,p)=>s+(Number(p.ap)||0),0);
+  const kCommN = periodSold.reduce((s,p)=>s+_lgAdvComm(p),0);
+  const kPolicies = String(periodSold.length);
+  const kAP    = _lg$(kAPn);
+  const kComm  = kCommN>0 ? 'est. '+_lg$(kCommN) : '$0';
+  const kAvgPrem = periodSold.length ? _lg$(Math.round(kAPn/periodSold.length/12)) : '&mdash;';
 
-  // --- Phase 7: restore layout order + daily summary notification ---
-  applyDashboardLayout();
-  scheduleDailySummary();
+  // ---- calling stats (async) ----
+  let callStats = _lgCalls[period];
+  if(callStats===undefined){ _lgCalls[period]='loading'; _lgFetchCalls(range, period); callStats=null; }
+  else if(callStats==='loading'){ callStats=null; }
+  const dNum = callStats ? callStats.dials    : 0;
+  const cNum = callStats ? callStats.contacts : 0;
+  const tSec = callStats ? callStats.callTime : 0;
+  const salesN = periodSold.length;
+  const ratio  = (salesN>0 && dNum>0) ? Math.max(1, Math.round(dNum/salesN)) : null;
+
+  // ---- status counts (chargeback folds into lapsed) ----
+  const SL = ['pending','approved','issued','paid','lapsed'];
+  const barColor = {pending:'#C9971F',approved:'#98A1AE',issued:'#5B94E8',paid:'#2E9E5B',lapsed:'#D97B2A'};
+  const pill = {pending:['Pending UW','#8A6116','#F6EDD8'],approved:['Approved','#5A6472','#ECEEF1'],issued:['Issued &mdash; Not Paid','#2A5599','#E7EFFB'],paid:['Active','#1B7A43','#E4F2E9'],lapsed:['Lapse / CB','#A34E0C','#FBEBDD']};
+  const counts = {pending:0,approved:0,issued:0,paid:0,lapsed:0};
+  periodPols.forEach(p=>{ const s=p.status==='chargeback'?'lapsed':p.status; if(counts[s]!=null) counts[s]++; });
+  const totalC = periodPols.length;
+
+  // ---- top carriers (period sold) ----
+  const carMap = new Map();
+  periodSold.forEach(p=>{ const k=p.carrier||'&mdash;'; carMap.set(k,(carMap.get(k)||0)+(Number(p.ap)||0)); });
+  const carEntries = [...carMap.entries()].sort((a,b)=>b[1]-a[1]);
+
+  // ---- monthly goal (calendar month, fixed regardless of chip) ----
+  const monthRange = _lgPeriodRange('monthly', now);
+  const monthAP = pols.filter(p=>!NOT_SOLD.has(p.status) && _lgInRange(_lgSubDate(p), monthRange)).reduce((s,p)=>s+(Number(p.ap)||0),0);
+  const goal = (typeof getMonthlyGoal==='function') ? getMonthlyGoal() : 50000;
+  const goalPct = Math.min(1, goal>0 ? monthAP/goal : 0);
+  const goalDays = (typeof daysLeftInMonth==='function') ? daysLeftInMonth(now) : 0;
+  const goalNeed = goalDays>0 ? _lg$(Math.max(0, goal-monthAP)/goalDays) : '$0';
+
+  // ================= SHELL =================
+  const tierLabel = tier==='leader'?'Team Leader':tier==='pro'?'Pro Producer':'Basic';
+  const _nm = (currentAgent && (currentAgent.user_metadata && currentAgent.user_metadata.display_name)) || (currentAgent && currentAgent.display_name) || (currentAgent && currentAgent.email) || '';
+  const _initials = (_nm.replace(/@.*/,'').trim().split(/[.\s_-]+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('') || '&mdash;').toUpperCase();
+  const todayLabel = now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+
+  let H = '';
+  // Fluid canvas wrapper: centers the whole page at the 1440 design canvas, fluid below.
+  H += '<div class="lg-wrap">';
+  // Topbar strip (bleeds to the wrapper edges via .lg-topbar)
+  H += '<div class="lg-topbar" style="height:50px;background:#FFFFFF;border-bottom:1px solid #E4E0DA;display:flex;align-items:center;gap:12px;padding:0 24px;box-sizing:border-box">'+
+    '<div style="font-weight:600;font-size:15px;color:#0F1D3D">Summary</div>'+
+    '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">'+
+      '<span style="font-weight:600;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F;background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:2px 8px">'+tierLabel+'</span>'+
+      '<span class="lgm" style="font-weight:400;font-size:11.5px;color:#948C7F">'+todayLabel+'</span>'+
+      '<div style="width:26px;height:26px;background:#0F1D3D;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10.5px;color:#FFFFFF">'+_initials+'</div>'+
+    '</div></div>';
+
+  H += '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">';
+
+  // Period toggle
+  const chip = (p,label)=>{ const on=period===p; return '<button class="lg-chip lg-click" onclick="setLedgerPeriod(\''+p+'\')" style="padding:6px 10px;font-weight:500;font-size:12.5px;background:#FFFFFF;border:1px solid '+(on?'#B8CCEE':'#E4E0DA')+';color:'+(on?'#3A73C9':'#3B372F')+';border-radius:6px;cursor:pointer">'+label+'</button>'; };
+  H += '<div style="display:flex;align-items:center;gap:8px">'+chip('daily','Daily')+chip('weekly','Weekly')+chip('monthly','Monthly')+
+    '<span class="lgm" style="margin-left:auto;font-weight:400;font-size:11.5px;color:#948C7F">'+periodCaption+'</span></div>';
+
+  // KPI row
+  const kpiCard = (label,val,sub,color)=> _lgCard(_lgStat(label,val,sub,color), '13px 16px');
+  H += '<div class="lg-af" style="--lg-min:190px;--lg-gap:14px">'+
+    kpiCard('Policies written', kPolicies, 'submitted this period')+
+    kpiCard('Total AP submitted', kAP, 'annualized premium')+
+    kpiCard('Est. commission', kComm, 'AP &times; comm% &times; 75% advance')+
+    kpiCard('Avg premium', kAvgPrem, 'monthly, per policy')+
+  '</div>';
+
+  // Calling stats + Goal ring
+  const callVal = (v)=> callStats ? v : _lgSkel('60%');
+  const contactRate = callStats ? (dNum? Math.round(cNum/dNum*100)+'% answer rate' : 'no calls yet') : 'loading&hellip;';
+  const ratioBig = callStats ? (ratio? ratio+':1' : '&mdash;') : '';
+  const ratioSub = callStats ? (ratio? '1 sale per '+ratio+' dials' : (salesN? 'no dials yet' : 'no sales yet this period')) : 'loading&hellip;';
+  const callGrid =
+    '<div class="lg-af" style="--lg-min:128px;--lg-gap:14px">'+
+      _lgStat('Total dials', callVal(String(dNum)), 'dialer + logged calls')+
+      _lgStat('Call time', callVal(tSec?_lgDur(tSec):'0m'), 'total talk time')+
+      _lgStat('Contacts', callVal(String(cNum)), contactRate)+
+      _lgStat('Call-to-close', callStats?(ratioBig||'&mdash;'):_lgSkel('50%'), ratioSub)+
+    '</div>';
+  const callCard = _lgCard(_lgHead('Calling stats','', periodTag)+callGrid);
+
+  const goalDash = (goalPct*351.86).toFixed(1)+' 351.86';
+  const goalRing =
+    '<div style="display:flex;align-items:center;gap:16px">'+
+      '<div style="position:relative;width:112px;max-width:100%;aspect-ratio:1/1;flex-shrink:0">'+
+        '<svg viewBox="0 0 128 128" style="width:100%;height:100%;display:block">'+
+          '<circle cx="64" cy="64" r="56" fill="none" stroke="#F0EDE7" stroke-width="10"></circle>'+
+          '<circle cx="64" cy="64" r="56" fill="none" stroke="#3A73C9" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+goalDash+'" transform="rotate(-90 64 64)"></circle>'+
+        '</svg>'+
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">'+
+          '<span class="lgm" style="font-weight:600;font-size:18px;color:#0F1D3D">'+Math.round(goalPct*100)+'%</span>'+
+          '<span style="font-weight:400;font-size:9.5px;color:#948C7F">of goal</span></div>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:6px;min-width:0">'+
+        '<div class="lgm" style="font-weight:600;font-size:15px;color:#0F1D3D">'+_lg$(monthAP)+'</div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F">of '+_lg$(goal)+' goal</div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#3B372F">'+goalDays+' days left &middot; <span class="lgm">'+goalNeed+'</span>/day to hit it</div>'+
+      '</div>'+
+    '</div>';
+  const goalCard = _lgCard(_lgHead('Monthly AP goal','', 'Calendar month')+goalRing);
+  H += '<div class="lg-af" style="--lg-min:300px">'+callCard+goalCard+'</div>';
+
+  // Status breakdown + Top carriers
+  let statusBody;
+  if(totalC>0){
+    const segs = SL.filter(s=>counts[s]>0).map(s=>'<div title="'+pill[s][0].replace(/&mdash;/g,'-')+': '+counts[s]+'" style="width:'+(counts[s]/totalC*100).toFixed(2)+'%;background:'+barColor[s]+'"></div>').join('');
+    const pills = SL.map(s=>{
+      const pct = totalC? Math.round(counts[s]/totalC*100)+'%' : '0%';
+      // The 'lapsed' bucket folds in chargeback, so it drills into both.
+      const drill = s==='lapsed' ? 'lapsed+chargeback' : s;
+      // Carry the active period so the tracker's Date Submitted range matches this count.
+      return '<div class="lg-click" title="Show '+pill[s][0].replace(/&mdash;/g,'-')+' in Policy Tracker" onclick="summaryDrillTo&&summaryDrillTo(\'tracker\',{status:\''+drill+'\',period:\''+period+'\'})" style="display:flex;align-items:center;gap:6px">'+
+        '<span style="font-weight:600;font-size:11px;color:'+pill[s][1]+';background:'+pill[s][2]+';padding:2px 8px;border-radius:6px">'+pill[s][0]+'</span>'+
+        '<span class="lgm" style="font-weight:600;font-size:12px;color:#3B372F">'+counts[s]+'</span>'+
+        '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+pct+'</span></div>';
+    }).join('');
+    statusBody = '<div style="display:flex;height:10px;border-radius:6px;overflow:hidden;background:#F0EDE7">'+segs+'</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">'+pills+'</div>';
+  } else {
+    statusBody = _lgEmpty('No policies this period yet.');
+  }
+  const statusCard = _lgCard(_lgHead('Status breakdown','click a status to open the Policy Tracker', periodTag)+statusBody);
+
+  let topBody;
+  if(carEntries.length){
+    topBody = carEntries.slice(0,3).map((e,i)=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #F0EDE7">'+
+      '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:12px">'+(i+1)+'</span>'+
+      '<span style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(e[0])+'</span>'+
+      '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:12px;color:#0F1D3D">'+_lg$(e[1])+'</span>'+
+      '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:34px;text-align:right">'+(kAPn?Math.round(e[1]/kAPn*100)+'%':'')+'</span></div>').join('');
+  } else { topBody = _lgEmpty('No carrier production this period.'); }
+  const topCard = _lgCard(_lgHead('Top carriers by AP','', periodTag)+topBody);
+  H += '<div class="lg-af" style="--lg-min:300px">'+statusCard+topCard+'</div>';
+
+  // ================= PRO + LEADER =================
+  if(tier==='pro' || tier==='leader'){
+    // ---- Income reality (book-wide) ----
+    const nc = (typeof netCommission==='function') ? netCommission(pols) : {earned:0,exposed:0,net:0};
+    const cb = (typeof getChargebackExposure==='function') ? getChargebackExposure() : {totalAdvanced:0,atRiskPolicies:[]};
+    const inForce = (typeof inForceAP==='function') ? inForceAP(pols) : 0;
+    const renewal = (typeof renewalProjection12mo==='function') ? (renewalProjection12mo(pols)[11]||0) : inForce*0.05;
+    const irNet = (nc.net<0?'&minus;':'')+_lg$(Math.abs(nc.net));
+    H += _lgCard(_lgHead('Income reality','earned &minus; exposed, plus what the book pays as-earned','Book-wide')+
+      '<div class="lg-af" style="--lg-min:180px;--lg-gap:14px">'+
+        _lgStat('Net commission', irNet, 'est. '+_lg$(nc.earned)+' earned &minus; '+_lg$(nc.exposed)+' exposed', nc.net<0?'#B3261E':'#0F1D3D')+
+        _lgStat('Chargeback exposure', _lg$(nc.exposed), cb.atRiskPolicies.length+' policies in the 9-mo window', '#B3261E')+
+        _lgStat('12-mo renewal projection', 'est. '+_lg$(renewal), 'est. 5% as-earned on in-force AP')+
+        _lgStat('In-force AP', _lg$(inForce), 'issued + paid, book-wide')+
+      '</div>');
+
+    // ---- Chargeback earn-down (book-wide) ----
+    const D=86400000; const cutoff9=new Date(now.getFullYear(),now.getMonth()-9,now.getDate());
+    const atRisk = pols.filter(p=>p.status==='lapsed' && (function(){ const s=_lgSubDate(p); return s && new Date(s+'T00:00:00')>=cutoff9; })());
+    const buckets = new Array(9).fill(0);
+    atRisk.forEach(p=>{ const s=_lgSubDate(p); const sm=new Date(s+'T00:00:00').getTime(); const monthsIn=Math.min(8,Math.max(0,Math.floor((now-sm)/(30.44*D)))); const remaining=9-monthsIn; const per=_lgAdvComm(p)/9; for(let m=0;m<remaining;m++) buckets[m]+=per; });
+    const edTotal = atRisk.reduce((s,p)=>s+_lgAdvComm(p),0);
+    const edMax = Math.max(...buckets,1);
+    const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    let edBody;
+    if(edTotal>0){
+      const bars = buckets.map((v,i)=>{ const h=v>0?Math.max(4,Math.round(v/edMax*84)):0; const amt=v>0?(v>=1000?'$'+(v/1000).toFixed(1)+'k':'$'+Math.round(v)):''; const col=i===0?'#3A73C9':'#5B94E8';
+        return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0">'+
+          '<span class="lgm" style="font-weight:400;font-size:10px;color:#6B6459">'+amt+'</span>'+
+          '<div style="width:100%;height:'+h+'px;background:'+col+';border-radius:3px 3px 0 0"></div>'+
+          '<span class="lgm" style="font-weight:400;font-size:10px;color:#948C7F">'+MON[(now.getMonth()+i)%12]+'</span></div>'; }).join('');
+      edBody = '<div style="display:flex;align-items:flex-end;gap:8px;height:128px">'+bars+'</div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">est. <span class="lgm" style="font-weight:600;color:#B3261E">'+_lg$(edTotal)+'</span> still at risk across '+atRisk.length+' lapsed policies</div>';
+    } else { edBody = _lgEmpty('No at-risk advances &mdash; nothing in the 9-month window.'); }
+    const edCard = _lgCard(_lgHead('Chargeback earn-down','at-risk advance clearing month by month','Book-wide')+edBody);
+
+    // ---- Dial efficiency ----
+    const perDial = callStats ? (dNum>0&&kCommN>0?'est. $'+(kCommN/dNum).toFixed(2):'&mdash;') : _lgSkel('60%');
+    const perContact = callStats ? (cNum>0&&kCommN>0?'est. $'+(kCommN/cNum).toFixed(2):'&mdash;') : _lgSkel('60%');
+    const dialCard = _lgCard(_lgHead('Dial efficiency','', periodTag)+
+      '<div style="display:flex;flex-direction:column;gap:12px">'+
+        '<div>'+_lgLbl('Est. $ per dial')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+perDial+'</div></div>'+
+        '<div>'+_lgLbl('Est. $ per contact')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+perContact+'</div></div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F;border-top:1px solid #F0EDE7;padding-top:8px">period est. commission &divide; dials / contacts</div>'+
+      '</div>');
+
+    // ---- Term conversion radar (book-wide) ----
+    const radarPols = pols.filter(p=>{ if(!p.conversionDeadline)return false; const d=new Date(p.conversionDeadline); return !isNaN(d.getTime()) && d>now && (d-now)/D<=90; });
+    const radarAP = radarPols.reduce((s,p)=>s+(Number(p.ap)||0),0);
+    let radarBody;
+    if(radarPols.length){
+      radarBody = '<div style="display:flex;flex-direction:column;gap:12px">'+
+        '<div>'+_lgLbl('Deadlines within 90 days')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+radarPols.length+' <span style="font-weight:400;font-size:12px;color:#948C7F">policies</span></div></div>'+
+        '<div>'+_lgLbl('Convertible AP')+'<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+_lg$(radarAP)+'</div></div>'+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F;border-top:1px solid #F0EDE7;padding-top:8px">term policies with a conversion deadline coming up</div>'+
+      '</div>';
+    } else { radarBody = _lgEmpty('No conversion deadlines in the next 90 days.'); }
+    const radarCard = _lgCard(_lgHead('Term conversion radar','','Book-wide')+radarBody);
+    H += '<div class="lg-af" style="--lg-min:240px">'+edCard+dialCard+radarCard+'</div>';
+
+    // ---- Pipeline funnel (period) ----
+    const placed = counts.issued+counts.paid;
+    const placement = totalC? Math.round(placed/totalC*100)+'%' : '&mdash;';
+    let funnelBody;
+    if(totalC>0){
+      const fCounts=[totalC,counts.pending,counts.approved,counts.issued,counts.paid];
+      const fLabels=['Submitted','In UW','Approved','Issued','Paid'];
+      const FBG=['#F0EDE7','#EDE9E1','#E7E2D8','#DFD9CD','#D6CFC0'];
+      const fMax=Math.max(...fCounts,1);
+      funnelBody='<div style="display:flex;gap:4px">'+fLabels.map((lbl,i)=>'<div style="flex-grow:'+(0.6+fCounts[i]/fMax*2.4).toFixed(2)+';flex-basis:0;min-width:52px;background:'+FBG[i]+';border-radius:6px;padding:9px 12px">'+
+        '<div style="font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F">'+lbl+'</div>'+
+        '<div class="lgm" style="font-weight:600;font-size:15px;color:#0F1D3D;margin-top:2px">'+fCounts[i]+'</div></div>').join('')+'</div>';
+    } else { funnelBody=_lgEmpty('Nothing submitted this period yet.'); }
+    H += _lgCard(
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+        '<div style="font-weight:600;font-size:13px;color:#0F1D3D">Pipeline funnel</div>'+
+        '<span style="font-weight:600;font-size:11px;color:#1B7A43;background:#E4F2E9;padding:2px 8px;border-radius:6px">Placement '+placement+'</span>'+
+        '<span style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C;margin-left:auto;white-space:nowrap;padding-left:8px">'+periodTag+'</span>'+
+      '</div>'+funnelBody);
+
+    // ---- Carrier mix donut + Persistency + Product mix ----
+    const DCOLORS=['#3A73C9','#5B94E8','#A9C4EE','#C7C1B6','#D8D3CA','#ECEEF1'];
+    const Cdon=2*Math.PI*46;
+    let mixBody;
+    if(kAPn>0 && carEntries.length){
+      const dEnt=carEntries.slice(0,5); const other=carEntries.slice(5).reduce((s,e)=>s+e[1],0); if(other>0) dEnt.push(['Other',other]);
+      let cum=0; const segs=dEnt.map((e,i)=>{ const frac=kAPn?e[1]/kAPn:0; const seg='<circle cx="60" cy="60" r="46" fill="none" stroke="'+DCOLORS[i%6]+'" stroke-width="14" stroke-dasharray="'+(frac*Cdon).toFixed(2)+' '+(Cdon-frac*Cdon).toFixed(2)+'" stroke-dashoffset="'+(-cum*Cdon).toFixed(2)+'" transform="rotate(-90 60 60)"></circle>'; cum+=frac; return seg; }).join('');
+      const legend=dEnt.map((e,i)=>'<div style="display:flex;align-items:center;gap:7px"><span style="width:8px;height:8px;border-radius:2px;background:'+DCOLORS[i%6]+';flex-shrink:0"></span>'+
+        '<span style="font-weight:400;font-size:11.5px;color:#3B372F;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+_lgEsc(e[0])+'</span>'+
+        '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:11px;color:#0F1D3D">'+_lg$(e[1])+'</span></div>').join('');
+      mixBody='<div style="display:flex;align-items:center;gap:14px"><div style="position:relative;width:116px;max-width:100%;aspect-ratio:1/1;flex-shrink:0">'+
+        '<svg viewBox="0 0 120 120" style="width:100%;height:100%;display:block">'+segs+'</svg>'+
+        '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">'+
+          '<span class="lgm" style="font-weight:600;font-size:13px;color:#0F1D3D;white-space:nowrap">'+_lgKk(kAPn)+'</span>'+
+          '<span style="font-weight:400;font-size:9px;color:#948C7F">total AP</span></div></div>'+
+        '<div style="display:flex;flex-direction:column;gap:5px;min-width:0;flex:1">'+legend+'</div></div>';
+    } else { mixBody=_lgEmpty('No carrier data for this period.'); }
+    const mixCard=_lgCard(_lgHead('Carrier mix','', periodTag)+mixBody);
+
+    const RC=2*Math.PI*40;
+    const p13=(typeof persistency13mo==='function')?persistency13mo(pols):{rate:null,cohort:0};
+    const p25=(typeof persistency25mo==='function')?persistency25mo(pols):{rate:null,cohort:0};
+    const ring=(p)=>{ const dash=(p.rate==null?0:p.rate*RC).toFixed(1)+' '+RC.toFixed(1); const lbl=p.rate==null?'&mdash;':Math.round(p.rate*100)+'%'; const sub=p.rate==null?'no cohort yet':'cohort of '+p.cohort; return {dash,lbl,sub}; };
+    const r13=ring(p13), r25=ring(p25);
+    const ringHtml=(r,label)=>'<div style="display:flex;flex-direction:column;align-items:center;gap:4px"><div style="position:relative;width:84px;max-width:100%;aspect-ratio:1/1">'+
+      '<svg viewBox="0 0 96 96" style="width:100%;height:100%;display:block"><circle cx="48" cy="48" r="40" fill="none" stroke="#F0EDE7" stroke-width="8"></circle>'+
+      '<circle cx="48" cy="48" r="40" fill="none" stroke="#3A73C9" stroke-width="8" stroke-linecap="round" stroke-dasharray="'+r.dash+'" transform="rotate(-90 48 48)"></circle></svg>'+
+      '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center" class="lgm"><span style="font-weight:600;font-size:15px;color:#0F1D3D">'+r.lbl+'</span></div></div>'+
+      '<div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#948C7F">'+label+'</div>'+
+      '<div class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+r.sub+'</div></div>';
+    const persistCard=_lgCard(_lgHead('Persistency health','','Book-wide')+
+      '<div style="display:flex;gap:18px;justify-content:center">'+ringHtml(r13,'13-month')+ringHtml(r25,'25-month')+'</div>'+
+      '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">benchmarks: 85% at 13 mo &middot; 75% at 25 mo</div>');
+
+    const mix=(typeof productMix==='function')?productMix(pols):{groups:new Map(),total:0};
+    const mixEnt=[...mix.groups.entries()].sort((a,b)=>b[1]-a[1]);
+    const mixMax=Math.max(...mixEnt.map(e=>e[1]),1);
+    const conc=(typeof carrierConcentration==='function')?carrierConcentration(pols):null;
+    const concWarn=conc && conc.pct>0.6;
+    const concText=conc?(concWarn?'Concentration alert &mdash; '+_lgEsc(conc.carrier)+' is '+Math.round(conc.pct*100)+'% of in-force AP':'Top carrier: '+_lgEsc(conc.carrier)+' &mdash; '+Math.round(conc.pct*100)+'% of in-force AP'):'No in-force policies yet.';
+    let mixRows;
+    if(mixEnt.length){
+      mixRows=mixEnt.map(e=>'<div style="display:flex;align-items:center;gap:8px"><span class="lgm" style="font-weight:600;font-size:10.5px;color:#3B372F;width:38px">'+_lgEsc(e[0])+'</span>'+
+        '<div style="flex:1;height:8px;background:#F0EDE7;border-radius:3px;overflow:hidden"><div style="width:'+Math.round(e[1]/mixMax*100)+'%;height:8px;background:#B0A99C;border-radius:3px"></div></div>'+
+        '<span class="lgm" style="font-weight:600;font-size:11px;color:#0F1D3D;width:56px;text-align:right">'+_lg$(e[1])+'</span>'+
+        '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C;width:32px;text-align:right">'+(mix.total?Math.round(e[1]/mix.total*100)+'%':'')+'</span></div>').join('');
+    } else { mixRows=_lgEmpty('No in-force policies yet.'); }
+    const concLine=concWarn
+      ? '<div style="margin-top:10px;background:#FBEBDD;color:#A34E0C;font-weight:500;font-size:11.5px;padding:7px 10px;border-radius:6px">'+concText+'</div>'
+      : '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:10px;border-top:1px solid #F0EDE7;padding-top:8px">'+concText+'</div>';
+    const prodCard=_lgCard(_lgHead('Product mix','','Book-wide')+'<div style="display:flex;flex-direction:column;gap:8px">'+mixRows+'</div>'+concLine);
+    H += '<div class="lg-af" style="--lg-min:260px">'+mixCard+persistCard+prodCard+'</div>';
+
+    // ---- Activity momentum (period) ----
+    const appts=Math.round(cNum*0.3);
+    const amCounts=[dNum,cNum,appts,salesN,placed];
+    const amLabels=['Dials','Contacts','Appointments','Apps','Issued'];
+    const amMax=Math.max(dNum,1);
+    const amRows=amLabels.map((lbl,i)=>'<div style="display:flex;align-items:center;gap:8px"><span style="font-weight:400;font-size:11px;color:#948C7F;width:74px">'+lbl+'</span>'+
+      '<div style="flex:1;height:8px;background:#F0EDE7;border-radius:3px;overflow:hidden"><div style="width:'+(amMax?Math.max(amCounts[i]/amMax*100, amCounts[i]>0?2:0):0).toFixed(1)+'%;height:8px;background:#5B94E8;border-radius:3px"></div></div>'+
+      '<span class="lgm" style="font-weight:600;font-size:12px;color:#0F1D3D;width:44px;text-align:right">'+amCounts[i]+'</span></div>').join('');
+    const sstat=(typeof streakStats==='function')?streakStats():{current:0,longest:0,totalDays:0};
+    const ach=(typeof evaluateAchievements==='function')?evaluateAchievements():[];
+    const achHtml=ach.map(a=>{ const on=!!a._earned; return '<span style="font-weight:600;font-size:11px;color:'+(on?'#1B7A43':'#B0A99C')+';background:'+(on?'#E4F2E9':'#FAF8F5')+';border:1px solid '+(on?'#CBE4D4':'#E4E0DA')+';padding:2px 8px;border-radius:6px">'+_lgEsc(a.label)+'</span>'; }).join('');
+    H += _lgCard(_lgHead('Activity momentum','', periodTag)+
+      '<div class="lg-af" style="--lg-min:200px;--lg-gap:24px">'+
+        '<div style="display:flex;flex-direction:column;gap:7px">'+amRows+'</div>'+
+        '<div style="border-left:1px solid #F0EDE7;padding-left:24px">'+_lgLbl('Current streak')+
+          '<div class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D;margin-top:4px;white-space:nowrap">'+sstat.current+' <span style="font-weight:400;font-size:12px;color:#948C7F">days</span></div>'+
+          '<div style="font-weight:400;font-size:11.5px;color:#948C7F;margin-top:6px">longest <span class="lgm" style="font-weight:600;color:#3B372F">'+sstat.longest+'</span> &middot; '+sstat.totalDays+' active days total</div></div>'+
+        '<div style="border-left:1px solid #F0EDE7;padding-left:24px">'+_lgLbl('Achievements')+'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">'+achHtml+'</div></div>'+
+      '</div>');
+
+    // ---- Bonus tier intelligence (program windows) ----
+    let ladders=[]; let allSnaps=[];
+    try {
+      allSnaps=(typeof computeBonusSnapshots==='function')?computeBonusSnapshots(now):[];
+      for(const s of allSnaps){
+        const b=s.bonus;
+        if(!s.computable){
+          ladders.push({portal:true,carrier:b.carrier.split(' (')[0],program:b.program||'',windowLabel:'ongoing',note:'Program active &mdash; tiers live on the carrier portal. No projection shown.',progLabel:'',gapLine:'see portal'});
+          continue;
+        }
+        if(s.closed || !s.state || s.state.kind==='trip') continue;
+        const st=s.state; const isCount=b.basis==='policy_count';
+        const winEnd=(s.win.end instanceof Date)?s.win.end:new Date(s.win.end);
+        const winStart=(s.win.start instanceof Date)?s.win.start:new Date(s.win.start);
+        const daysLeft=Math.max(0,Math.ceil((winEnd-now)/86400000));
+        const tiers=st.tiers||[{threshold:st.threshold}];
+        const maxT=st.maxT||(tiers.length?tiers[tiers.length-1].threshold:1);
+        const next=st.next||tiers.find(t=>s.progress<t.threshold);
+        ladders.push({
+          portal:false, carrier:b.carrier.split(' (')[0], program:b.program||'',
+          windowLabel:_lgFd(winStart)+' &ndash; '+_lgFd(winEnd),
+          fillPct:Math.min(100,maxT>0?s.progress/maxT*100:0).toFixed(1),
+          progLabel:isCount?Math.round(s.progress)+' pol':_lg$(s.progress),
+          tiers:tiers.map(t=>({pos:Math.min(100,maxT>0?t.threshold/maxT*100:0).toFixed(1),reached:s.progress>=t.threshold})),
+          gapLine: st.gap>0 ? ((isCount?Math.ceil(st.gap)+' pol':_lg$(st.gap))+(st.unlockValue>0?' to est. +'+_lg$(st.unlockValue):'')+' &middot; '+daysLeft+'d left') : 'top tier reached',
+          _gapNum: st.gap>0?st.gap:Infinity, _unlock:st.unlockValue||0, _daysLeft:daysLeft, _winEnd:winEnd, _isCount:isCount, _gap:st.gap||0
+        });
+      }
+    } catch(e){ console.warn('[summary] bonus', e); }
+    let laddersHtml=ladders.map(l=>{
+      let mid;
+      if(l.portal){ mid='<div style="font-weight:400;font-size:11.5px;color:#948C7F">'+l.note+'</div>'; }
+      else {
+        const ticks=l.tiers.map(t=>'<div style="position:absolute;top:-3px;left:'+t.pos+'%;width:2px;height:14px;background:'+(t.reached?'#1B7A43':'#C7C1B6')+'"></div>').join('');
+        mid='<div style="position:relative;height:22px;display:flex;align-items:center"><div style="position:relative;width:100%;height:8px;background:#F0EDE7;border-radius:3px">'+
+          '<div style="width:'+l.fillPct+'%;height:8px;background:#5B94E8;border-radius:3px"></div>'+ticks+'</div></div>';
+      }
+      return '<div class="lg-ladder" style="padding:11px 0;border-top:1px solid #F0EDE7">'+
+        '<div><div style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(l.carrier)+'</div>'+
+          '<div style="font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(l.program)+(l.program?' &middot; ':'')+l.windowLabel+'</div></div>'+
+        mid+
+        '<div style="font-weight:400;font-size:11.5px;color:#3B372F;text-align:right"><span class="lgm" style="font-weight:600;font-size:12px;color:#0F1D3D">'+l.progLabel+'</span><span style="color:#948C7F"> &middot; '+l.gapLine+'</span></div>'+
+      '</div>';
+    }).join('');
+    if(!laddersHtml) laddersHtml='<div style="border-top:1px solid #F0EDE7;padding-top:11px">'+_lgEmpty('No active bonus programs selected &mdash; pick your carriers in the Bonus Tracker.')+'</div>';
+
+    // nearest tiers + upcoming
+    const nearest=ladders.filter(l=>!l.portal && l._gap>0 && l._unlock>0).sort((a,b)=>a._gapNum-b._gapNum).slice(0,3);
+    let nearestHtml;
+    if(nearest.length){
+      nearestHtml=nearest.map((l,i)=>'<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0"><span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">'+(i+1)+'</span>'+
+        '<span style="font-weight:500;font-size:12px;color:#0F1D3D">'+_lgEsc(l.carrier)+' '+_lgEsc(l.program)+'</span>'+
+        '<span class="lgm" style="font-weight:600;font-size:12px;color:#1B7A43">est. +'+_lg$(l._unlock)+'</span>'+
+        '<span style="margin-left:auto;font-weight:400;font-size:11.5px;color:#948C7F"><span class="lgm" style="color:#3B372F">'+(l._isCount?Math.ceil(l._gap)+' pol':_lg$(l._gap))+'</span> to go by '+_lgFd(l._winEnd)+' &middot; '+l._daysLeft+'d left</span></div>').join('');
+    } else { nearestHtml='<div style="font-weight:400;font-size:12px;color:#948C7F">No tier gaps to chase right now.</div>'; }
+
+    let upcoming=[]; try { upcoming=(typeof computeUpcomingBonuses==='function')?computeUpcomingBonuses(now):[]; } catch(e){}
+    let upcomingHtml;
+    if(upcoming.length){
+      upcomingHtml=upcoming.map(u=>'<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0"><span style="font-weight:500;font-size:12px;color:#0F1D3D">'+_lgEsc(u.bonus.carrier.split(' (')[0])+' &mdash; '+_lgEsc(u.bonus.program||'')+'</span>'+
+        '<span class="lgm" style="font-weight:600;font-size:12px;color:#1B7A43">'+(u.amount!=null?'est. '+_lg$(u.amount):_lgEsc(u.label))+'</span>'+
+        '<span style="margin-left:auto;font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(u.timing||'')+'</span></div>').join('');
+    } else { upcomingHtml='<div style="font-weight:400;font-size:12px;color:#948C7F">Nothing unlocked yet this window.</div>'; }
+
+    H += _lgCard(_lgHead('Bonus tier intelligence','all payouts are estimates &mdash; verify on the carrier portal','Program windows')+
+      '<div style="display:flex;flex-direction:column">'+laddersHtml+'</div>'+
+      '<div class="lg-af" style="--lg-min:260px;margin-top:12px">'+
+        '<div style="background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:10px 12px">'+_lgLbl('Nearest tiers')+'<div style="margin-top:6px">'+nearestHtml+'</div></div>'+
+        '<div style="background:#FAF8F5;border:1px solid #E4E0DA;border-radius:6px;padding:10px 12px">'+_lgLbl('Upcoming bonuses')+'<div style="margin-top:6px">'+upcomingHtml+'</div></div>'+
+      '</div>');
+
+    // ---- Lead-source ROI (period) + Cycle time (book-wide) ----
+    const leadsBySrc=new Map();
+    leadsArr.forEach(l=>{ const created=l.importedAt||l.created_at; if(created && _lgWhenInRange(created,range)){ const s=l.source||'&mdash;'; leadsBySrc.set(s,(leadsBySrc.get(s)||0)+1); } });
+    const salesBySrc=new Map();
+    periodSold.forEach(p=>{ const s=p.leadSource||null; if(!s)return; const cur=salesBySrc.get(s)||{sales:0,ap:0,comm:0}; cur.sales++; cur.ap+=Number(p.ap)||0; cur.comm+=_lgAdvComm(p); salesBySrc.set(s,cur); });
+    const srcKeys=[...new Set([...leadsBySrc.keys(),...salesBySrc.keys()])];
+    const roiRows=srcKeys.map(s=>{ const leadsC=leadsBySrc.get(s)||0; const sm=salesBySrc.get(s)||{sales:0,ap:0,comm:0}; return {source:s,leads:leadsC,sales:sm.sales,ap:sm.ap,comm:sm.comm,conv:(leadsC>0&&sm.sales>0)?Math.min(100,sm.sales/leadsC*100).toFixed(1)+'%':'&mdash;'}; }).sort((a,b)=>b.ap-a.ap);
+    const roiHead='<div style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Source</span><span style="text-align:right">Leads</span><span style="text-align:right">Sales</span><span style="text-align:right">Conv</span><span style="text-align:right">Total AP</span><span style="text-align:right">Est. comm</span></div>';
+    let roiBody;
+    if(roiRows.length){
+      roiBody=roiRows.map(r=>'<div class="lg-rowh" style="display:grid;grid-template-columns:1.5fr .6fr .6fr .8fr .9fr 1fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+        '<span style="font-weight:500">'+_lgEsc(r.source)+'</span>'+
+        '<span class="lgm" style="text-align:right">'+r.leads+'</span>'+
+        '<span class="lgm" style="text-align:right">'+r.sales+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+r.conv+'</span>'+
+        '<span class="lgm" style="text-align:right;font-weight:600">'+(r.ap?_lg$(r.ap):'&mdash;')+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+(r.comm?'est. '+_lg$(r.comm):'&mdash;')+'</span></div>').join('');
+    } else { roiBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:#948C7F">No leads in this period yet.</div>'; }
+    const roiCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Lead-source ROI','', periodTag)+'</div><div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:600px">'+roiHead+roiBody+'</div></div></div>';
+
+    const cyMap=new Map(); const Dd=86400000;
+    pols.forEach(p=>{ if(!p.issueDate)return; const sub=_lgSubDate(p); if(!sub)return; const si=(new Date(p.issueDate)-new Date(sub+'T00:00:00'))/Dd; const car=p.carrier||'&mdash;'; const e=cyMap.get(car)||{si:[],ip:[]}; if(isFinite(si)&&si>=0) e.si.push(si); if(p.payDate){ const ip=(new Date(p.payDate)-new Date(p.issueDate))/Dd; if(isFinite(ip)&&ip>=0) e.ip.push(ip);} cyMap.set(car,e); });
+    const avg=a=>a.length?a.reduce((s,v)=>s+v,0)/a.length:null;
+    let cyRows=[...cyMap.entries()].filter(e=>e[1].si.length>=3).map(([car,e])=>({carrier:car,si:avg(e.si),ip:avg(e.ip)})).sort((a,b)=>b.si-a.si);
+    cyRows=cyRows.map((c,i)=>({carrier:c.carrier,si:Math.round(c.si)+'d',ip:c.ip!=null?Math.round(c.ip)+'d':'&mdash;',slow:i===0&&cyRows.length>1}));
+    const cyHead='<div style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:34px;background:#FAF8F5;border-top:1px solid #F0EDE7;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F"><span>Carrier</span><span style="text-align:right">Sub &rarr; issued</span><span style="text-align:right">Issued &rarr; paid</span></div>';
+    let cyBody;
+    if(cyRows.length){
+      cyBody=cyRows.map(c=>'<div class="lg-rowh" style="display:grid;grid-template-columns:1.4fr .9fr .9fr;align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+        '<span style="font-weight:500;display:flex;align-items:center;gap:6px">'+_lgEsc(c.carrier)+(c.slow?'<span style="font-weight:600;font-size:10.5px;color:#A34E0C;background:#FBEBDD;padding:1px 6px;border-radius:6px">slowest</span>':'')+'</span>'+
+        '<span class="lgm" style="text-align:right">'+c.si+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+c.ip+'</span></div>').join('');
+    } else { cyBody='<div style="padding:12px 16px;font-weight:400;font-size:12px;color:#948C7F">Not enough issued policies to measure yet.</div>'; }
+    const cyCard='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden"><div style="padding:14px 16px 10px">'+_lgHead('Cycle time','','Book-wide')+'</div><div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:340px">'+cyHead+cyBody+'</div></div></div>';
+    H += '<div class="lg-af" style="--lg-min:300px">'+roiCard+cyCard+'</div>';
+
+    // ---- Free-look watchlist (book-wide) ----
+    const watch=(typeof freeLookWatch==='function')?freeLookWatch(pols):[];
+    let flBody;
+    if(watch.length){
+      flBody=watch.map(p=>{ const left=p._daysLeftInFreeLook; const dot=left<=7?'#D2483F':left<=15?'#C9971F':'#2E9E5B';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #F0EDE7">'+
+          '<span style="width:8px;height:8px;border-radius:50%;background:'+dot+';flex-shrink:0"></span>'+
+          '<span style="font-weight:500;font-size:12.5px;color:#0F1D3D">'+_lgEsc(p.client||'Unnamed')+'</span>'+
+          '<span style="font-weight:400;font-size:11.5px;color:#948C7F">'+_lgEsc(p.carrier||'')+' &middot; '+_lg$(Number(p.ap)||0)+' AP</span>'+
+          '<span class="lgm" style="margin-left:auto;font-weight:600;font-size:12px;color:#3B372F">'+left+'d left</span>'+
+          '<span class="lgm" style="font-weight:400;font-size:10.5px;color:#B0A99C">issued '+_lgFd(p.issueDate)+'</span></div>'; }).join('');
+    } else { flBody=_lgEmpty('No policies in the free-look window right now.'); }
+    H += _lgCard(_lgHead('Free-look watchlist','policies inside the 30-day free-look window','Book-wide')+flBody);
+  }
+
+  // ================= LEADER: TEAM =================
+  if(tier==='leader'){
+    let teamData=_lgTeam[period];
+    if(teamData===undefined){ _lgTeam[period]='loading'; _lgFetchTeam(range, period); teamData='loading'; }
+    const agencyName=(window._myAgencyName)||'Your Team';
+    const agencyCode=(window._myAgencyCode)||'&mdash;';
+
+    if(teamData==='loading' || teamData===undefined){
+      const skelRow='<div style="height:12px;width:88%;background:#F0EDE7;border-radius:6px" class="lg-skel"></div>';
+      H += '<div style="display:flex;align-items:baseline;gap:10px;margin-top:8px">'+
+        '<div style="font-weight:600;font-size:13px;color:#0F1D3D">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
+        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C">'+periodTag+'</span></div>'+
+        _lgCard('<div style="display:flex;flex-direction:column;gap:10px"><div style="height:12px;width:38%;background:#ECE9E3;border-radius:6px" class="lg-skel"></div>'+skelRow+skelRow+skelRow+skelRow+
+        '<div style="font-weight:400;font-size:11.5px;color:#948C7F">Loading team aggregates &mdash; your personal stats above are already live.</div></div>');
+    } else if(teamData && teamData.unavailable){
+      H += _lgCard(_lgHead('Team summary','','Team Leader')+_lgEmpty('Team rollups are unavailable &mdash; run the <span class="lgm">get_team_summary</span> migration (supabase/migrations/20260716b_team_summary.sql) in the Supabase SQL editor to enable this.'));
+    } else if(teamData && teamData.error){
+      H += _lgCard(_lgHead('Team summary','','Team Leader')+_lgEmpty('Could not load team data right now. Please try again.'));
+    } else {
+      const rows=(Array.isArray(teamData)?teamData:[]).map(r=>({
+        agent_id:r.agent_id, name:r.agent_name||'&mdash;', you:(currentAgent&&r.agent_id===currentAgent.id)||!!r.is_leader,
+        ap:Number(r.ap)||0, sales:Number(r.sales)||0, dials:Number(r.dials)||0, time:Number(r.call_time_sec)||0,
+        ratio:(Number(r.sales)>0&&Number(r.dials)>0)?Math.max(1,Math.round(Number(r.dials)/Number(r.sales))):null
+      }));
+      const n=rows.length||1;
+      const tot=rows.reduce((s,r)=>({ap:s.ap+r.ap,sales:s.sales+r.sales,dials:s.dials+r.dials,time:s.time+r.time}),{ap:0,sales:0,dials:0,time:0});
+      const you=rows.find(r=>r.you)||{ap:0,dials:0,sales:0,time:0,ratio:null};
+      const teamRatio=tot.sales>0?Math.max(1,Math.round(tot.dials/tot.sales))+':1':'&mdash;';
+      const youRatio=you.ratio?you.ratio+':1':'&mdash;';
+
+      H += '<div style="display:flex;align-items:baseline;gap:10px;margin-top:8px">'+
+        '<div style="font-weight:600;font-size:13px;color:#0F1D3D">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
+        '<span class="lgm" style="font-weight:400;font-size:11px;color:#B0A99C">AGENCY CODE '+_lgEsc(agencyCode)+' &middot; '+rows.length+' agent'+(rows.length===1?'':'s')+'</span>'+
+        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:#B0A99C">'+periodTag+'</span></div>';
+
+      // Team vs You strip
+      H += _lgCard('<div class="lg-af" style="--lg-min:190px;--lg-gap:14px">'+
+        '<div>'+_lgLbl('AP &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+_lg$(you.ap)+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team avg <span class="lgm">'+_lg$(tot.ap/n)+'</span></span></div></div>'+
+        '<div>'+_lgLbl('Dials &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+you.dials+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team avg <span class="lgm">'+Math.round(tot.dials/n)+'</span></span></div></div>'+
+        '<div>'+_lgLbl('Call-to-close &mdash; you vs team')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:#0F1D3D">'+youRatio+'</span><span style="font-weight:400;font-size:11.5px;color:#948C7F">team-wide <span class="lgm">'+teamRatio+'</span></span></div></div>'+
+      '</div>');
+
+      // Sortable table
+      const dir=_lgTeamSort.dir==='desc'?-1:1; const col=_lgTeamSort.col;
+      const keyf=t=>col==='name'?t.name:col==='ap'?t.ap:col==='sales'?t.sales:col==='dials'?t.dials:col==='time'?t.time:(t.sales>0?t.dials/t.sales:Infinity);
+      const sorted=rows.slice().sort((a,b)=>{ const ka=keyf(a),kb=keyf(b); if(typeof ka==='string') return ka.localeCompare(kb)*dir; return (ka===kb?0:ka<kb?-1:1)*dir; });
+      const ar=c=>_lgTeamSort.col===c?(_lgTeamSort.dir==='desc'?' &#9662;':' &#9652;'):'';
+      const th=(c,lbl,align)=>'<span class="lg-th" onclick="ledgerSortTeam(\''+c+'\')"'+(align?' style="text-align:'+align+'"':'')+'>'+lbl+ar(c)+'</span>';
+      const gcols='grid-template-columns:1.7fr 1fr .7fr .9fr 1fr 1fr';
+      let tbl='<div style="background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">'+
+        '<div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:660px">'+
+        '<div style="display:grid;'+gcols+';align-items:center;height:34px;background:#FAF8F5;padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#948C7F">'+
+          th('name','Agent')+th('ap','AP (period)','right')+th('sales','Sales','right')+th('dials','Total dials','right')+th('time','Call time','right')+th('ratio','Call-to-close','right')+'</div>';
+      tbl+=sorted.map(t=>'<div class="lg-rowh" style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #F0EDE7;font-weight:400;font-size:13px;color:#0F1D3D">'+
+        '<span style="font-weight:500;display:flex;align-items:center;gap:8px">'+_lgEsc(t.name)+(t.you?'<span style="font-weight:600;font-size:10.5px;color:#2A5599;background:#E7EFFB;padding:1px 6px;border-radius:6px">You</span>':'')+'</span>'+
+        '<span class="lgm" style="text-align:right;font-weight:600">'+_lg$(t.ap)+'</span>'+
+        '<span class="lgm" style="text-align:right">'+t.sales+'</span>'+
+        '<span class="lgm" style="text-align:right">'+t.dials+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+_lgDur(t.time)+'</span>'+
+        '<span class="lgm" style="text-align:right;color:#6B6459">'+(t.ratio?t.ratio+':1':'&mdash;')+'</span></div>').join('');
+      tbl+='<div style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid #E4E0DA;background:#FAF8F5;font-weight:600;font-size:13px;color:#0F1D3D">'+
+        '<span>Team total</span>'+
+        '<span class="lgm" style="text-align:right">'+_lg$(tot.ap)+'</span>'+
+        '<span class="lgm" style="text-align:right">'+tot.sales+'</span>'+
+        '<span class="lgm" style="text-align:right">'+tot.dials+'</span>'+
+        '<span class="lgm" style="text-align:right">'+_lgDur(tot.time)+'</span>'+
+        '<span class="lgm" style="text-align:right">'+teamRatio+'</span></div>';
+      tbl+='</div></div></div>';
+      H += tbl;
+      H += '<div style="font-weight:400;font-size:10.5px;color:#B0A99C;margin-top:-6px">Downline rows show production and calling totals only &mdash; no client names, policy details, or commission amounts.</div>';
+    }
+  }
+
+  // ================= TEASERS =================
+  if(tier==='basic'){
+    const proTeasers=[
+      ['Income reality','Net commission, chargeback exposure, and your 12-month renewal projection.'],
+      ['Chargeback earn-down','Watch at-risk advance dollars clear month by month over the 9-month window.'],
+      ['Pipeline funnel','Submitted &rarr; paid with placement %, so you see exactly where deals stall.'],
+      ['Carrier mix &amp; persistency','13/25-month persistency, product mix, and carrier concentration alerts.'],
+      ['Bonus tier intelligence','Every active program, your gap to the next tier, and est. payouts coming.'],
+      ['Lead-source ROI','Leads, conversion %, AP, and est. commission for every lead source you buy.']
+    ];
+    const teaserCard=(title,desc,badge,btn,tier2)=>'<div style="position:relative;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:14px 16px;min-height:172px;box-sizing:border-box">'+
+      '<div style="font-weight:600;font-size:13px;color:#0F1D3D;margin-bottom:12px">'+title+'</div>'+
+      '<div style="filter:blur(3px);opacity:.55;pointer-events:none;display:flex;flex-direction:column;gap:10px">'+
+        '<div style="height:20px;width:38%;background:#ECE9E3;border-radius:6px"></div>'+
+        '<div style="height:9px;width:92%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="height:9px;width:76%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="display:flex;gap:8px;align-items:flex-end;height:44px">'+
+          '<div style="flex:1;height:20px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:34px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:26px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:42px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+          '<div style="flex:1;height:30px;background:#ECE9E3;border-radius:3px 3px 0 0"></div>'+
+        '</div></div>'+
+      '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;background:rgba(255,255,255,.55);border-radius:6px">'+
+        '<span style="font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#2A5599;background:#E7EFFB;border:1px solid #B8CCEE;padding:2px 8px;border-radius:6px">'+badge+'</span>'+
+        '<div style="font-weight:400;font-size:12.5px;color:#3B372F;text-align:center;max-width:280px">'+desc+'</div>'+
+        '<button class="lg-btn lg-click" onclick="lgUpgrade(\''+tier2+'\')" style="background:#3A73C9;color:#FFFFFF;border:none;border-radius:6px;font-weight:600;font-size:12.5px;padding:7px 12px;cursor:pointer">'+btn+'</button>'+
+      '</div></div>';
+    H += '<div class="lg-af" style="--lg-min:460px">'+
+      proTeasers.map(t=>teaserCard(t[0],t[1],'Pro','Upgrade to Pro','pro')).join('')+'</div>';
+  }
+
+  if(tier!=='leader'){
+    H += '<div style="position:relative;background:#FFFFFF;border:1px solid #E4E0DA;border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:14px 16px;min-height:180px;box-sizing:border-box">'+
+      '<div style="font-weight:600;font-size:13px;color:#0F1D3D;margin-bottom:12px">Team summary</div>'+
+      '<div style="filter:blur(3px);opacity:.55;pointer-events:none;display:flex;flex-direction:column;gap:9px">'+
+        '<div style="height:12px;width:32%;background:#ECE9E3;border-radius:6px"></div>'+
+        '<div style="height:11px;width:94%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="height:11px;width:90%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="height:11px;width:92%;background:#F0EDE7;border-radius:6px"></div>'+
+        '<div style="height:11px;width:86%;background:#F0EDE7;border-radius:6px"></div></div>'+
+      '<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;background:rgba(255,255,255,.55);border-radius:6px">'+
+        '<span style="font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:#2A5599;background:#E7EFFB;border:1px solid #B8CCEE;padding:2px 8px;border-radius:6px">Team Leader</span>'+
+        '<div style="font-weight:400;font-size:12.5px;color:#3B372F;text-align:center;max-width:340px">See every downline agent\'s AP, sales, dials, call time, and call-to-close beside your own.</div>'+
+        '<button class="lg-btn lg-click" onclick="lgUpgrade(\'leader\')" style="background:#3A73C9;color:#FFFFFF;border:none;border-radius:6px;font-weight:600;font-size:12.5px;padding:7px 12px;cursor:pointer">Upgrade to Team Leader</button>'+
+      '</div></div>';
+  }
+
+  // footer
+  H += '<div style="font-weight:400;font-size:10.5px;color:#B0A99C;padding-bottom:8px">All metrics derive from your entered policies, leads, and dialer activity. Estimates marked &ldquo;est.&rdquo; are subject to carrier persistency and quality requirements.</div>';
+
+  H += '</div>'; // content column
+  H += '</div>'; // .lg-wrap
+  root.innerHTML = H;
 }
 
 /** Fire dashboardMomentPlacement when a policy transitions into 'placed' since last render.
@@ -12856,10 +13818,36 @@ function setLeadView(v) {
   renderLeads();
 }
 
+// Ledger KPI strip — live counts derived from the lead pool (no
+// fabricated numbers). Total / new-this-week (importedAt within 7d) /
+// appointments set / sold + conversion%. Safe no-op if the strip
+// markup is absent.
+function updateLeadKpis() {
+  const el = id => document.getElementById(id);
+  if (!el('kpi-total')) return;
+  const list = Array.isArray(leads) ? leads : [];
+  const total = list.length;
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  let newWk = 0, appts = 0, sold = 0;
+  for (const l of list) {
+    const s = l.status || 'new';
+    if (s === 'appointment') appts++;
+    if (s === 'sold') sold++;
+    const t = l.importedAt ? new Date(l.importedAt).getTime() : NaN;
+    if (!Number.isNaN(t) && t >= weekAgo) newWk++;
+  }
+  const conv = total ? (sold / total * 100).toFixed(1) : '0.0';
+  el('kpi-total').textContent = String(total);
+  if (el('kpi-new'))  el('kpi-new').textContent  = String(newWk);
+  if (el('kpi-appt')) el('kpi-appt').textContent = String(appts);
+  if (el('kpi-sold')) el('kpi-sold').textContent = sold + ' · ' + conv + '%';
+}
+
 function renderLeads() {
   populateLeadSourceFilter();
   filterLeads_silent();
   updateLeadTabCounts();
+  updateLeadKpis();
   const container = document.getElementById('lead-list-container');
   const empty = document.getElementById('leads-empty');
   const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
@@ -13072,7 +14060,7 @@ function renderLeads() {
         <div class="cmpct-hdr">
           <input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead" style="flex-shrink:0">
           <div class="cmpct-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
-          <select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb" data-lid="${lid}" style="color:${sc.color};border-color:${sc.color}55;background:${sc.bg}" title="Set status">
+          <select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb lead-pill--${status}" data-lid="${lid}" title="Set status">
             ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
             ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
           </select>
@@ -13112,7 +14100,7 @@ function renderLeads() {
             ${lead.email ? `<a href="mailto:${escapeHTML(lead.email)}" class="lead-email-link" onclick="event.stopPropagation()" title="${escapeHTML(lead.email)}">${escapeHTML(lead.email)}</a>` : ''}
             ${stateVal ? `<div class="lead-state-row">${icon('map-pin',{size:11})} <strong>${escapeHTML(stateVal)}</strong></div>` : ''}
             ${dobVal ? `<div class="lead-bday-row"><span class="lead-field-label">Birthday</span>&nbsp;${escapeHTML(dobVal)}</div>` : ''}
-            <div class="lead-quote-row"><span class="lead-field-label">Quote</span>&nbsp;<span style="color:${lead.quote?'var(--text2)':'#f87171'}">${lead.quote?escapeHTML(String(lead.quote)):'Not set'}</span></div>
+            <div class="lead-quote-row"><span class="lead-field-label">Quote</span>&nbsp;<span style="color:${lead.quote?'var(--text2)':'var(--lg-faint)'}">${lead.quote?escapeHTML(String(lead.quote)):'Not set'}</span></div>
             ${localTime ? `<div class="lead-localtime-row"><span class="lead-field-label">Local time</span>&nbsp;${escapeHTML(localTime)}</div>` : ''}
             ${tpsHref ? `<a href="${tpsHref}" class="lead-act-btn tps-btn" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">TruePeopleSearch</a>` : ''}
           </div>
@@ -16742,14 +17730,14 @@ function renderTrackerCalendar() {
   const daysInMonth = new Date(yr, mo+1, 0).getDate();
   const daysInPrev  = new Date(yr, mo, 0).getDate();
 
-  // status → { bg, border, color } using CSS variables resolved at runtime
+  // status → { bg, border, color } — Ledger status palette (matches list pills + legend)
   const statusStyle = {
-    pending:    { bg:'var(--ds-color-warning-bg)',   border:'var(--ds-color-warning)',   color:'var(--ds-color-warning)'   },
-    approved:   { bg:'var(--ds-color-momentum-bg)',  border:'var(--ds-color-momentum)',  color:'var(--ds-color-momentum)'  },
-    issued:     { bg:'var(--ds-color-success-bg)',   border:'var(--ds-color-success)',   color:'var(--ds-color-success)'   },
-    paid:       { bg:'var(--ds-color-info-bg)',      border:'var(--ds-color-info)',      color:'var(--ds-color-info)'      },
-    lapsed:     { bg:'var(--ds-color-danger-bg)',    border:'var(--ds-color-danger)',    color:'var(--ds-color-danger)'    },
-    chargeback: { bg:'var(--ds-color-danger-bg)',    border:'var(--ds-color-danger)',    color:'var(--ds-color-danger)'    },
+    pending:    { bg:'#F6EDD8', border:'#C9971F', color:'#8A6116' },
+    approved:   { bg:'#E7EFFB', border:'#5B94E8', color:'#2A5599' },
+    issued:     { bg:'#EEF1F6', border:'#98A1AE', color:'#5A6473' },
+    paid:       { bg:'#E4F2E9', border:'#2E9E5B', color:'#1B7A43' },
+    lapsed:     { bg:'#FBEBDD', border:'#D97B2A', color:'#A34E0C' },
+    chargeback: { bg:'#FAE8E7', border:'#D2483F', color:'#B3261E' },
   };
   const sLbl = {pending:'Pending',approved:'Sub/Approved',issued:'Issued',paid:'Paid',lapsed:'Lapsed',chargeback:'Charge Back'};
 
@@ -16799,12 +17787,12 @@ function renderTrackerCalendar() {
         ev.innerHTML =
           `<div class="tc-event-name" style="color:${ss.color}">${escHTML(p.client)}</div>` +
           `<div class="tc-event-carrier" style="color:${ss.color}">${escHTML(p.carrier)}</div>` +
-          `<div class="tc-event-meta"><span>${fmt$(ap)}/yr</span><span style="color:var(--ds-color-success)">${fmt$(advComm)} adv</span></div>`;
+          `<div class="tc-event-meta"><span>${fmt$(ap)}/yr</span><span style="color:#1B7A43">${fmt$(advComm)} adv</span></div>`;
         cell.appendChild(ev);
       });
       if (dayPolicies.length > 3) {
         const more = document.createElement('div');
-        more.style.cssText = 'font-size:10px;color:var(--text3);padding:2px 4px';
+        more.style.cssText = 'font-size:10px;color:#948C7F;padding:2px 4px';
         more.textContent = `+${dayPolicies.length - 3} more`;
         cell.appendChild(more);
       }
@@ -17252,6 +18240,7 @@ function cmEmailStatus(e){
   if (e.parse_status === 'failed') return { label:'Parse failed', color:'#dc2626' };
   if (e.parse_status === 'pending_parse') return { label:'Queued', color:'var(--text3)' };
   const pes = e.parsed_events || [];
+  if (pes.some(p => p.applied)) return { label:'Updated tracker', color:'#10b981' };
   if (pes.some(p => p.matched_policy_id)) return { label:'Linked', color:'#10b981' };
   if (e.parse_status === 'review' || pes.some(p => !CM_COMMISSION_TYPES.has(p.event_type) && !p.matched_policy_id)) return { label:'Needs review', color:'#f59e0b' };
   if (pes.length && pes.every(p => CM_COMMISSION_TYPES.has(p.event_type))) return { label:'Commission', color:'#5ba0e8' };
@@ -17276,7 +18265,7 @@ async function renderCarrierMail() {
     await cmEnsureAccountEmail();
     const [em, nud] = await Promise.all([
       sb.from('email_ingest_log')
-        .select('id,gmail_message_id,carrier,email_type,route,subject,received_at,parse_status,done_at,parsed_events(id,event_type,client_name,policy_number_raw,amounts,event_date,details,matched_policy_id)')
+        .select('id,gmail_message_id,carrier,email_type,route,subject,received_at,parse_status,done_at,parsed_events(id,event_type,client_name,policy_number_raw,amounts,event_date,details,matched_policy_id,applied)')
         .is('deleted_at', null)
         .order('received_at', { ascending: false })
         .limit(200),
@@ -17411,15 +18400,31 @@ async function cmRefreshUrgent() {
   if (typeof renderActionHub === 'function') renderActionHub();
 }
 
-// One button: run the whole pipeline (sync → parse → match) then re-render.
+// One button: run the whole pipeline (sync → parse → match+apply) then
+// re-render. The same pipeline also runs unattended twice a day (9 AM / 5 PM
+// Central) via the email-pipeline cron — this button is the on-demand version.
 async function cmSyncParse(btn) {
   const o = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.innerHTML = 'Working…'; }
   try {
     await sb.functions.invoke('gmail-sync', { body: { full_scan_days: 30 } });
     await sb.functions.invoke('parse-email', { body: {} });
-    await sb.functions.invoke('match-events', { body: {} });
-    showToast('Carrier mail refreshed.', '#10b981');
+    const { data: matchRes } = await sb.functions.invoke('match-events', { body: {} });
+    const changed = Number(matchRes && matchRes.status_changed) || 0;
+    // match-events may have written statuses back to policies — re-pull so the
+    // tracker (and local cache) reflect the auto-applied changes immediately.
+    if ((Number(matchRes && matchRes.applied) || 0) > 0) {
+      const remote = await sbPullPolicies();
+      if (remote !== null) {
+        policies = remote;
+        localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
+        renderPolicies();
+        updateBonusFromTracker();
+      }
+    }
+    showToast(changed > 0
+      ? ('Carrier mail refreshed — ' + changed + (changed === 1 ? ' policy status' : ' policy statuses') + ' auto-updated.')
+      : 'Carrier mail refreshed.', '#10b981');
   } catch (_) {
     showToast('Refresh failed — try again.', '#dc2626');
   } finally {

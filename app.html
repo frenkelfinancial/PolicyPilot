@@ -188,6 +188,46 @@ body.light{
   --ds-elev-hover: 0 1px 0 rgba(11,31,58,.04) inset, 0 8px 20px -12px rgba(11,31,58,.18);
   --ds-elev-modal: 0 1px 0 rgba(11,31,58,.06) inset, 0 24px 64px -24px rgba(11,31,58,.30);
 }
+/* ============================================================
+   LEDGER design tokens (theme-aware) — "Ledger 2a" warm-gray
+   system. Consumed by the Leads section (.ledger-leads). Dark
+   values live on :root (default theme), light on body.light.
+   Palette lifted from the Leads redesign reference (THEMES + PILLD).
+   ============================================================ */
+:root{
+  --lg-canvas:#0E0E0F; --lg-card:#1A1A1C; --lg-inner:#212124;
+  --lg-border:#2E2E32; --lg-divider:#28282C; --lg-border-strong:#3E3E44;
+  --lg-text1:#F2F2F3; --lg-text2:#C9C9CD; --lg-text3:#9A9AA1; --lg-caption:#7C7C84; --lg-faint:#5F5F67;
+  --lg-blue:#6FA3EC; --lg-blue-deep:#8FB8F0; --lg-blue-border:#3A5578; --lg-blue-soft:#1F2C40; --lg-blue-mark:#6FA3EC;
+  --lg-green:#4FBF7E; --lg-green-border:#2E5C42; --lg-green-soft:#1E3327;
+  --lg-red:#E5766E; --lg-red-border:#59302D; --lg-red-soft:#3B2321;
+  --lg-check-border:#45454B; --lg-sold-bg:#16211B; --lg-sold-border:#2C4436;
+  /* status pill fg/bg (dark) */
+  --lg-pill-new-fg:#E5C577;    --lg-pill-new-bg:#3B3320;
+  --lg-pill-called-fg:#B9C0CA; --lg-pill-called-bg:#2A2D31;
+  --lg-pill-noans-fg:#E8A265;  --lg-pill-noans-bg:#3A2B1D;
+  --lg-pill-appt-fg:#8FB8F0;   --lg-pill-appt-bg:#1F2C40;
+  --lg-pill-obj-fg:#EE9089;    --lg-pill-obj-bg:#3B2321;
+  --lg-pill-ni-fg:#B9C0CA;     --lg-pill-ni-bg:#2A2D31;
+  --lg-pill-sold-fg:#7CC79A;   --lg-pill-sold-bg:#1E3327;
+}
+body.light{
+  --lg-canvas:#F5F3F0; --lg-card:#FFFFFF; --lg-inner:#FAF8F5;
+  --lg-border:#E4E0DA; --lg-divider:#F0EDE7; --lg-border-strong:#D8D3CA;
+  --lg-text1:#0F1D3D; --lg-text2:#3B372F; --lg-text3:#6B6459; --lg-caption:#948C7F; --lg-faint:#B0A99C;
+  --lg-blue:#3A73C9; --lg-blue-deep:#2A5599; --lg-blue-border:#B8CCEE; --lg-blue-soft:#E7EFFB; --lg-blue-mark:#5B94E8;
+  --lg-green:#1B7A43; --lg-green-border:#9CC7AB; --lg-green-soft:#E4F2E9;
+  --lg-red:#B3261E; --lg-red-border:#E4B7B4; --lg-red-soft:#FAE8E7;
+  --lg-check-border:#D8D3CA; --lg-sold-bg:#F2F8F4; --lg-sold-border:#C6E0CF;
+  /* status pill fg/bg (light) */
+  --lg-pill-new-fg:#8A6116;    --lg-pill-new-bg:#F6EDD8;
+  --lg-pill-called-fg:#5A6472; --lg-pill-called-bg:#ECEEF1;
+  --lg-pill-noans-fg:#A34E0C;  --lg-pill-noans-bg:#FBEBDD;
+  --lg-pill-appt-fg:#2A5599;   --lg-pill-appt-bg:#E7EFFB;
+  --lg-pill-obj-fg:#B3261E;    --lg-pill-obj-bg:#FAE8E7;
+  --lg-pill-ni-fg:#5A6472;     --lg-pill-ni-bg:#ECEEF1;
+  --lg-pill-sold-fg:#1B7A43;   --lg-pill-sold-bg:#E4F2E9;
+}
 body.light .sidebar{background:linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(244,248,253,.42) 100%)}
 body.light .overlay{background:rgba(11,31,58,.42)}
 body.light .topbar{background:var(--card);border-bottom-color:var(--border)}
@@ -3082,6 +3122,166 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger .tc-event{border-radius:6px}
 @media(max-width:900px){.ledger .pt-status{padding-right:20px}}
 </style>
+<!-- ============================================================
+     LEDGER LEADS styles — warm-gray "Ledger 2a" reskin of the
+     Leads page, scoped to #sec-leads.ledger-leads. Theme-aware
+     (light + dark via --lg-* tokens). RESTYLE ONLY: every existing
+     id / class / handler / data-attr is preserved; this only
+     remaps the palette + fonts and adds KPI/pill/responsive rules.
+     ============================================================ -->
+<style id="ledger-leads-styles">
+/* Token remap — existing .lead-*/.tab/.btn/.card/.bulk-bar rules
+   inherit the Ledger palette + Spline fonts automatically, in BOTH
+   themes, with no per-rule rewrite. Scoped so nothing else changes. */
+.ledger-leads{
+  --card:var(--lg-card); --bg:var(--lg-canvas); --bg2:var(--lg-divider); --bg3:var(--lg-card);
+  --border:var(--lg-border); --border2:var(--lg-border-strong);
+  --text:var(--lg-text1); --text2:var(--lg-text2); --text3:var(--lg-caption);
+  --accent:var(--lg-blue); --accent-2:var(--lg-blue-deep); --brand-navy:var(--lg-blue);
+  --sans:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --mono:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;
+  --ds-color-info:var(--lg-blue); --ds-color-info-bg:var(--lg-blue-soft);
+  --ds-color-success:var(--lg-green); --ds-color-success-bg:var(--lg-green-soft);
+  --ds-color-danger:var(--lg-red); --ds-color-danger-bg:var(--lg-red-soft);
+}
+/* Shell: fill the content area edge-to-edge (bleed matches .content
+   padding at each breakpoint; body/html overflow-x:hidden clips any
+   sub-pixel remainder, so no horizontal scrollbar ever). */
+.ledger-leads{margin:-26px;padding:clamp(14px,1.6vw,24px);background:var(--lg-canvas);color:var(--lg-text1);font-family:var(--sans);font-size:13px;line-height:1.45;min-height:calc(100vh - 50px);-webkit-font-smoothing:antialiased}
+.ledger-leads *{box-sizing:border-box}
+.ledger-leads ::placeholder{color:var(--lg-faint);opacity:1}
+/* Single 6px radius across the whole page */
+.ledger-leads .card,.ledger-leads .lead-row,.ledger-leads .btn,.ledger-leads .tab,.ledger-leads .tabs,.ledger-leads .vsw-group,.ledger-leads .vsw-btn,.ledger-leads input,.ledger-leads select,.ledger-leads textarea,.ledger-leads .bulk-bar,.ledger-leads #lead-select-all-row,.ledger-leads .lead-notes,.ledger-leads .cmpct-notes,.ledger-leads .lead-disposition-sel,.ledger-leads .lead-act-btn,.ledger-leads .lead-click-to-call,.ledger-leads .cmpct-call,.ledger-leads .cmpct-status-btn,.ledger-leads .cmpct-more-btn,.ledger-leads .lead-new-field-btn{border-radius:6px}
+.ledger-leads .card{background:var(--lg-card);border:1px solid var(--lg-border);box-shadow:0 1px 2px rgba(15,29,61,.05)}
+
+/* KPI strip (new) — auto-fit, never a hard 4-col grid */
+.ledger-leads .lgl-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:16px}
+.ledger-leads .lgl-kpi{background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;padding:13px 16px;box-shadow:0 1px 2px rgba(15,29,61,.05);min-width:0}
+.ledger-leads .lgl-kpi-l{font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-caption)}
+.ledger-leads .lgl-kpi-v{font-family:var(--mono);font-size:22px;font-weight:600;color:var(--lg-text1);margin-top:4px;white-space:nowrap;line-height:1.2}
+.ledger-leads .lgl-kpi-v.pos{color:var(--lg-green)}
+
+/* Status sub-tabs → Ledger chips */
+.ledger-leads .tabs{background:transparent;border:none;padding:0;gap:8px;flex-wrap:wrap;width:auto;margin-bottom:0;border-radius:0}
+.ledger-leads .tab{padding:6px 12px;font-size:12.5px;font-weight:500;background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2);box-shadow:none}
+.ledger-leads .tab:hover{color:var(--lg-text2);border-color:var(--lg-blue-border)}
+.ledger-leads .tab.active{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue);box-shadow:none;font-weight:600}
+.ledger-leads .tab .tab-count{font-family:var(--mono);background:var(--lg-divider);color:var(--lg-caption);font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:6px;min-width:18px}
+.ledger-leads .tab.active .tab-count{background:var(--lg-blue-soft);color:var(--lg-blue-deep)}
+
+/* View switcher */
+.ledger-leads .vsw-group{background:var(--lg-card);border:1px solid var(--lg-border)}
+.ledger-leads .vsw-btn{color:var(--lg-caption)}
+.ledger-leads .vsw-btn:hover{color:var(--lg-text2)}
+.ledger-leads .vsw-btn.active{background:var(--lg-blue-soft);color:var(--lg-blue);box-shadow:none}
+
+/* Inputs / selects / textareas */
+.ledger-leads input,.ledger-leads select,.ledger-leads textarea{background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text1);font-family:var(--sans)}
+.ledger-leads input:focus,.ledger-leads select:focus,.ledger-leads textarea:focus,.ledger-leads input:focus-visible,.ledger-leads select:focus-visible,.ledger-leads textarea:focus-visible{border-color:var(--lg-blue-border);box-shadow:none;outline:none}
+/* force single 6px radius over the inline border-radius:8px/7px on the search + filter + per-page + bulk-status controls */
+.ledger-leads input,.ledger-leads select{border-radius:6px!important}
+
+/* Buttons */
+.ledger-leads .btn{font-family:var(--sans);font-weight:500}
+.ledger-leads .btn-p{background:var(--lg-blue);color:#fff}
+.ledger-leads .btn-p:hover{background:var(--lg-blue-deep)}
+.ledger-leads .btn-s{background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2)}
+.ledger-leads .btn-s:hover{color:var(--lg-blue);border-color:var(--lg-blue-border)}
+
+/* Bulk-action bar + select-all row (both wrap on narrow) */
+.ledger-leads .bulk-bar{background:var(--lg-card);border:1px solid var(--lg-blue-border);box-shadow:0 1px 2px rgba(15,29,61,.05);flex-wrap:wrap}
+.ledger-leads .bulk-count{color:var(--lg-text1)}
+.ledger-leads #lead-select-all-row{background:var(--lg-inner);border:1px solid var(--lg-border)}
+
+/* Lead rows (standard) */
+.ledger-leads .lead-row{background:var(--lg-card);border:1px solid var(--lg-border);box-shadow:0 1px 2px rgba(15,29,61,.05)}
+.ledger-leads .lead-row:hover{border-color:var(--lg-border-strong)}
+.ledger-leads .lead-row.sold{background:var(--lg-sold-bg)!important;border-color:var(--lg-sold-border)!important}
+.ledger-leads .lead-row.not_interested{opacity:.55}
+.ledger-leads .lead-col{border-right-color:var(--lg-divider)}
+.ledger-leads .lead-name{font-size:14px;font-weight:600;color:var(--lg-text1)}
+.ledger-leads .lead-phone-link{color:var(--lg-blue);font-family:var(--mono);font-weight:500;letter-spacing:0}
+.ledger-leads .lead-email-link{color:var(--lg-blue)}
+.ledger-leads .lead-field-label{color:var(--lg-caption);letter-spacing:.06em;font-size:10.5px}
+.ledger-leads .lead-state-row,.ledger-leads .lead-bday-row,.ledger-leads .lead-quote-row,.ledger-leads .lead-localtime-row{color:var(--lg-text2)}
+.ledger-leads .lead-state-row strong,.ledger-leads .lead-bday-row,.ledger-leads .lead-quote-row,.ledger-leads .lead-localtime-row{font-family:var(--mono)}
+.ledger-leads .lead-notes,.ledger-leads .cmpct-notes{background:var(--lg-inner);border:1px solid var(--lg-border);color:var(--lg-text2);font-family:var(--mono);font-size:11.5px}
+.ledger-leads .lead-notes:focus,.ledger-leads .cmpct-notes:focus{background:var(--lg-card);border-color:var(--lg-blue-border);box-shadow:none}
+/* Fields grid — mono values, caption labels */
+.ledger-leads .lead-info-line .lbl{color:var(--lg-caption);letter-spacing:.06em}
+.ledger-leads .lead-info-line .val{font-family:var(--mono);color:var(--lg-text2)}
+.ledger-leads .lead-info-line .val.notset{color:var(--lg-faint)}
+.ledger-leads .lead-info-line .val.dim{color:var(--lg-caption)}
+.ledger-leads .lead-received-icons .lead-edit-btn{color:var(--lg-blue)}
+.ledger-leads .lead-received-icons .lead-del-btn{color:var(--lg-caption)}
+.ledger-leads .lead-del-btn:hover{color:var(--lg-red)}
+.ledger-leads .lead-new-field-btn{border:1px dashed var(--lg-border-strong);color:var(--lg-caption)}
+.ledger-leads .lead-new-field-btn:hover{border-color:var(--lg-blue-border);color:var(--lg-blue)}
+
+/* Click-to-call + call chips */
+.ledger-leads .lead-click-to-call{background:var(--lg-blue)}
+.ledger-leads .lead-click-to-call:hover{background:var(--lg-blue-deep);filter:none}
+.ledger-leads .cmpct-call{background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .cmpct-call:hover{background:var(--lg-blue-soft);border-color:var(--lg-blue);filter:none}
+.ledger-leads .lead-call-badge{background:var(--lg-red);border-color:var(--lg-card)}
+
+/* Disposition select (standard view) — neutral Ledger form control */
+.ledger-leads .lead-disposition-sel{background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2);font-family:var(--sans)}
+.ledger-leads .lead-disposition-wrap::after{color:var(--lg-caption)}
+
+/* Action buttons: Sold (green) / Quote + TruePeopleSearch (blue) */
+.ledger-leads .lead-act-btn{border:1px solid var(--lg-border);background:var(--lg-card);color:var(--lg-text2)}
+.ledger-leads .lead-act-btn:hover{border-color:var(--lg-border-strong);color:var(--lg-text1);background:var(--lg-card)}
+.ledger-leads .lead-act-btn.sold-btn{background:var(--lg-green-soft);border-color:var(--lg-green-border);color:var(--lg-green)}
+.ledger-leads .lead-act-btn.quote-btn{background:var(--lg-blue-soft);border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .lead-act-btn.tps-btn{background:var(--lg-blue-soft);border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .lead-act-btn.sold-btn:hover,.ledger-leads .lead-act-btn.quote-btn:hover,.ledger-leads .lead-act-btn.tps-btn:hover{filter:brightness(.98)}
+
+/* Compact cards + status pill (the status <select> styled as a pill) */
+.ledger-leads .cmpct-name{color:var(--lg-text1);font-weight:600}
+.ledger-leads .cmpct-phone{color:var(--lg-text3);font-family:var(--mono)}
+.ledger-leads .cmpct-fl{color:var(--lg-caption)}
+.ledger-leads .cmpct-fv{color:var(--lg-text2)}
+.ledger-leads .cmpct-fv a{color:var(--lg-blue)}
+.ledger-leads .cmpct-more-btn{border:1px solid var(--lg-border);background:var(--lg-card);color:var(--lg-caption)}
+.ledger-leads .cmpct-more-btn:hover{color:var(--lg-text2);border-color:var(--lg-border-strong)}
+.ledger-leads .cmpct-extra{border-top:1px solid var(--lg-divider)}
+.ledger-leads .cmpct-status-btn{border:none;font-family:var(--sans);font-size:11px;font-weight:600;padding:2px 8px;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--pb,var(--lg-inner));color:var(--pf,var(--lg-text2))}
+.ledger-leads .cmpct-status-btn:hover{filter:brightness(.97)}
+.ledger-leads .lead-pill--new{--pf:var(--lg-pill-new-fg);--pb:var(--lg-pill-new-bg)}
+.ledger-leads .lead-pill--called{--pf:var(--lg-pill-called-fg);--pb:var(--lg-pill-called-bg)}
+.ledger-leads .lead-pill--no_answer{--pf:var(--lg-pill-noans-fg);--pb:var(--lg-pill-noans-bg)}
+.ledger-leads .lead-pill--appointment{--pf:var(--lg-pill-appt-fg);--pb:var(--lg-pill-appt-bg)}
+.ledger-leads .lead-pill--social_obj,.ledger-leads .lead-pill--banking_obj{--pf:var(--lg-pill-obj-fg);--pb:var(--lg-pill-obj-bg)}
+.ledger-leads .lead-pill--not_interested{--pf:var(--lg-pill-ni-fg);--pb:var(--lg-pill-ni-bg)}
+.ledger-leads .lead-pill--sold{--pf:var(--lg-pill-sold-fg);--pb:var(--lg-pill-sold-bg)}
+
+/* Empty state */
+.ledger-leads .empty{color:var(--lg-caption)}
+.ledger-leads .empty [data-ico] svg{color:var(--lg-faint)}
+.ledger-leads #lead-count-display,.ledger-leads #lead-count-bot,.ledger-leads #lead-page-info-top,.ledger-leads #lead-page-info-bot{font-family:var(--mono);color:var(--lg-caption)}
+
+/* ---------- Responsiveness ---------- */
+/* Fluid standard-row grid: minmax floors instead of the old fixed
+   195px / calc(50% - 195px) / 155px columns that could overflow. */
+.ledger-leads .lead-wide-grid{grid-template-columns:minmax(190px,1fr) minmax(200px,1.5fr) 154px minmax(220px,1.7fr)}
+@media(max-width:1180px){
+  .ledger-leads .lead-wide-grid{grid-template-columns:minmax(170px,1fr) minmax(170px,1.35fr) 144px minmax(190px,1.5fr)}
+}
+@media(max-width:900px){
+  .ledger-leads .lead-wide-grid{grid-template-columns:1fr;gap:0}
+  .ledger-leads .lead-col{border-right:none;border-bottom:1px solid var(--lg-divider);padding:10px 0}
+  .ledger-leads .lead-col:first-child{padding-top:0}
+  .ledger-leads .lead-col:last-child{border-bottom:none;padding-bottom:0}
+}
+/* Compact grids stay fluid (1fr fractions never overflow) but collapse
+   column count gracefully on narrow screens instead of squeezing. */
+@media(max-width:820px){.ledger-leads #lead-list-container.view-compact4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.ledger-leads #lead-list-container.view-compact4,.ledger-leads #lead-list-container.view-compact2{grid-template-columns:1fr}}
+/* Bleed margins track .content padding at each breakpoint */
+@media(max-width:1024px){.ledger-leads{margin:-14px -12px;padding:14px}}
+@media(max-width:640px){.ledger-leads{margin:-10px;padding:10px}.ledger-leads .lgl-kpis{gap:10px}}
+</style>
 </head>
 <body>
 
@@ -4182,7 +4382,14 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     </div>
 
     <!-- ========== LEADS ========== -->
-    <div class="section" id="sec-leads">
+    <div class="section ledger-leads" id="sec-leads">
+      <!-- KPI strip (Ledger) — live counts from lead data, set in updateLeadKpis() -->
+      <div class="lgl-kpis" id="lead-kpis">
+        <div class="lgl-kpi"><div class="lgl-kpi-l">Total Leads</div><div class="lgl-kpi-v" id="kpi-total">0</div></div>
+        <div class="lgl-kpi"><div class="lgl-kpi-l">New This Week</div><div class="lgl-kpi-v" id="kpi-new">0</div></div>
+        <div class="lgl-kpi"><div class="lgl-kpi-l">Appointments Set</div><div class="lgl-kpi-v" id="kpi-appt">0</div></div>
+        <div class="lgl-kpi"><div class="lgl-kpi-l">Sold / Conversion</div><div class="lgl-kpi-v pos" id="kpi-sold">0 · 0.0%</div></div>
+      </div>
       <!-- Status sub-tabs + dial buttons -->
       <div style="display:flex;align-items:center;margin-top:4px;margin-bottom:14px;gap:12px">
         <div class="tabs" id="lead-subtabs" style="margin-bottom:0;flex-shrink:0">
@@ -4195,10 +4402,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </div>
         <div style="flex:1"></div>
         <div class="js-desktop-only-dialer" style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPowerDialer()">
+          <button class="btn btn-sm" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPowerDialer()">
             <span data-ico="phone" data-size="14"></span>Power Dial
           </button>
-          <button class="btn btn-sm" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPreviewDialer()">
+          <button class="btn btn-sm" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPreviewDialer()">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial
           </button>
         </div>
@@ -4291,10 +4498,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </select>
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
         <div class="js-desktop-only-dialer" style="width:1px;height:22px;background:var(--border)"></div>
-        <button class="btn btn-sm js-desktop-only-dialer" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
-        <button class="btn btn-sm js-desktop-only-dialer" style="background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);color:#6366f1;display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
+        <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
+        <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
-        <button class="btn btn-sm" style="background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--ds-color-danger);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
+        <button class="btn btn-sm" style="background:var(--lg-red-soft);border:1px solid var(--lg-red-border);color:var(--lg-red);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
         <button class="btn btn-s btn-sm" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px" onclick="clearBulkSelection()"><span data-ico="x" data-size="14"></span>Clear Selection</button>
       </div>
 
@@ -13611,10 +13818,36 @@ function setLeadView(v) {
   renderLeads();
 }
 
+// Ledger KPI strip — live counts derived from the lead pool (no
+// fabricated numbers). Total / new-this-week (importedAt within 7d) /
+// appointments set / sold + conversion%. Safe no-op if the strip
+// markup is absent.
+function updateLeadKpis() {
+  const el = id => document.getElementById(id);
+  if (!el('kpi-total')) return;
+  const list = Array.isArray(leads) ? leads : [];
+  const total = list.length;
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  let newWk = 0, appts = 0, sold = 0;
+  for (const l of list) {
+    const s = l.status || 'new';
+    if (s === 'appointment') appts++;
+    if (s === 'sold') sold++;
+    const t = l.importedAt ? new Date(l.importedAt).getTime() : NaN;
+    if (!Number.isNaN(t) && t >= weekAgo) newWk++;
+  }
+  const conv = total ? (sold / total * 100).toFixed(1) : '0.0';
+  el('kpi-total').textContent = String(total);
+  if (el('kpi-new'))  el('kpi-new').textContent  = String(newWk);
+  if (el('kpi-appt')) el('kpi-appt').textContent = String(appts);
+  if (el('kpi-sold')) el('kpi-sold').textContent = sold + ' · ' + conv + '%';
+}
+
 function renderLeads() {
   populateLeadSourceFilter();
   filterLeads_silent();
   updateLeadTabCounts();
+  updateLeadKpis();
   const container = document.getElementById('lead-list-container');
   const empty = document.getElementById('leads-empty');
   const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
@@ -13827,7 +14060,7 @@ function renderLeads() {
         <div class="cmpct-hdr">
           <input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead" style="flex-shrink:0">
           <div class="cmpct-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
-          <select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb" data-lid="${lid}" style="color:${sc.color};border-color:${sc.color}55;background:${sc.bg}" title="Set status">
+          <select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb lead-pill--${status}" data-lid="${lid}" title="Set status">
             ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
             ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
           </select>
@@ -13867,7 +14100,7 @@ function renderLeads() {
             ${lead.email ? `<a href="mailto:${escapeHTML(lead.email)}" class="lead-email-link" onclick="event.stopPropagation()" title="${escapeHTML(lead.email)}">${escapeHTML(lead.email)}</a>` : ''}
             ${stateVal ? `<div class="lead-state-row">${icon('map-pin',{size:11})} <strong>${escapeHTML(stateVal)}</strong></div>` : ''}
             ${dobVal ? `<div class="lead-bday-row"><span class="lead-field-label">Birthday</span>&nbsp;${escapeHTML(dobVal)}</div>` : ''}
-            <div class="lead-quote-row"><span class="lead-field-label">Quote</span>&nbsp;<span style="color:${lead.quote?'var(--text2)':'#f87171'}">${lead.quote?escapeHTML(String(lead.quote)):'Not set'}</span></div>
+            <div class="lead-quote-row"><span class="lead-field-label">Quote</span>&nbsp;<span style="color:${lead.quote?'var(--text2)':'var(--lg-faint)'}">${lead.quote?escapeHTML(String(lead.quote)):'Not set'}</span></div>
             ${localTime ? `<div class="lead-localtime-row"><span class="lead-field-label">Local time</span>&nbsp;${escapeHTML(localTime)}</div>` : ''}
             ${tpsHref ? `<a href="${tpsHref}" class="lead-act-btn tps-btn" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">TruePeopleSearch</a>` : ''}
           </div>
