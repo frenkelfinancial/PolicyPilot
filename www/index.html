@@ -3130,9 +3130,9 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
      remaps the palette + fonts and adds KPI/pill/responsive rules.
      ============================================================ -->
 <style id="ledger-leads-styles">
-/* Token remap — existing .lead-*/.tab/.btn/.card/.bulk-bar rules
-   inherit the Ledger palette + Spline fonts automatically, in BOTH
-   themes, with no per-rule rewrite. Scoped so nothing else changes. */
+/* Token remap: the existing .lead / .tab / .btn / .card / .bulk-bar
+   rules inherit the Ledger palette + Spline fonts automatically, in
+   both themes, with no per-rule rewrite. Scoped so nothing else changes. */
 .ledger-leads{
   --card:var(--lg-card); --bg:var(--lg-canvas); --bg2:var(--lg-divider); --bg3:var(--lg-card);
   --border:var(--lg-border); --border2:var(--lg-border-strong);
@@ -3180,6 +3180,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger-leads input:focus,.ledger-leads select:focus,.ledger-leads textarea:focus,.ledger-leads input:focus-visible,.ledger-leads select:focus-visible,.ledger-leads textarea:focus-visible{border-color:var(--lg-blue-border);box-shadow:none;outline:none}
 /* force single 6px radius over the inline border-radius:8px/7px on the search + filter + per-page + bulk-status controls */
 .ledger-leads input,.ledger-leads select{border-radius:6px!important}
+/* Force the toolbar/bulk form controls to the card colour (white in light,
+   dark card in dark) so they match the lead boxes — overrides the inline
+   background:var(--bg3) on these controls. */
+.ledger-leads #lead-search,.ledger-leads #lead-filter-status,.ledger-leads #lead-filter-source,.ledger-leads #lead-filter-state,.ledger-leads #lead-per-page,.ledger-leads #bulk-status-sel{background:var(--lg-card)!important}
 
 /* Buttons */
 .ledger-leads .btn{font-family:var(--sans);font-weight:500}
@@ -3191,7 +3195,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 /* Bulk-action bar + select-all row (both wrap on narrow) */
 .ledger-leads .bulk-bar{background:var(--lg-card);border:1px solid var(--lg-blue-border);box-shadow:0 1px 2px rgba(15,29,61,.05);flex-wrap:wrap}
 .ledger-leads .bulk-count{color:var(--lg-text1)}
-.ledger-leads #lead-select-all-row{background:var(--lg-inner);border:1px solid var(--lg-border)}
+.ledger-leads #lead-select-all-row{background:var(--lg-card);border:1px solid var(--lg-border)}
 
 /* Lead rows (standard) */
 .ledger-leads .lead-row{background:var(--lg-card);border:1px solid var(--lg-border);box-shadow:0 1px 2px rgba(15,29,61,.05)}
@@ -3200,7 +3204,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger-leads .lead-row.not_interested{opacity:.55}
 .ledger-leads .lead-col{border-right-color:var(--lg-divider)}
 .ledger-leads .lead-name{font-size:14px;font-weight:600;color:var(--lg-text1)}
-.ledger-leads .lead-phone-link{color:var(--lg-blue);font-family:var(--mono);font-weight:500;letter-spacing:0}
+.ledger-leads .lead-phone-link{color:var(--lg-blue);font-family:var(--sans);font-weight:500;letter-spacing:0}
 .ledger-leads .lead-email-link{color:var(--lg-blue)}
 .ledger-leads .lead-field-label{color:var(--lg-caption);letter-spacing:.06em;font-size:10.5px}
 .ledger-leads .lead-state-row,.ledger-leads .lead-bday-row,.ledger-leads .lead-quote-row,.ledger-leads .lead-localtime-row{color:var(--lg-text2)}
@@ -3221,7 +3225,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 /* Click-to-call + call chips */
 .ledger-leads .lead-click-to-call{background:var(--lg-blue)}
 .ledger-leads .lead-click-to-call:hover{background:var(--lg-blue-deep);filter:none}
-.ledger-leads .cmpct-call{background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .cmpct-call{background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue)}
 .ledger-leads .cmpct-call:hover{background:var(--lg-blue-soft);border-color:var(--lg-blue);filter:none}
 .ledger-leads .lead-call-badge{background:var(--lg-red);border-color:var(--lg-card)}
 
@@ -3232,14 +3236,15 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 /* Action buttons: Sold (green) / Quote + TruePeopleSearch (blue) */
 .ledger-leads .lead-act-btn{border:1px solid var(--lg-border);background:var(--lg-card);color:var(--lg-text2)}
 .ledger-leads .lead-act-btn:hover{border-color:var(--lg-border-strong);color:var(--lg-text1);background:var(--lg-card)}
-.ledger-leads .lead-act-btn.sold-btn{background:var(--lg-green-soft);border-color:var(--lg-green-border);color:var(--lg-green)}
-.ledger-leads .lead-act-btn.quote-btn{background:var(--lg-blue-soft);border-color:var(--lg-blue-border);color:var(--lg-blue)}
-.ledger-leads .lead-act-btn.tps-btn{background:var(--lg-blue-soft);border-color:var(--lg-blue-border);color:var(--lg-blue)}
-.ledger-leads .lead-act-btn.sold-btn:hover,.ledger-leads .lead-act-btn.quote-btn:hover,.ledger-leads .lead-act-btn.tps-btn:hover{filter:brightness(.98)}
+.ledger-leads .lead-act-btn.sold-btn{background:var(--lg-card);border-color:var(--lg-green-border);color:var(--lg-green)}
+.ledger-leads .lead-act-btn.quote-btn{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .lead-act-btn.tps-btn{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .lead-act-btn.sold-btn:hover{background:var(--lg-green-soft);color:var(--lg-green)}
+.ledger-leads .lead-act-btn.quote-btn:hover,.ledger-leads .lead-act-btn.tps-btn:hover{background:var(--lg-blue-soft);color:var(--lg-blue)}
 
 /* Compact cards + status pill (the status <select> styled as a pill) */
 .ledger-leads .cmpct-name{color:var(--lg-text1);font-weight:600}
-.ledger-leads .cmpct-phone{color:var(--lg-text3);font-family:var(--mono)}
+.ledger-leads .cmpct-phone{color:var(--lg-text3);font-family:var(--sans);font-weight:500}
 .ledger-leads .cmpct-fl{color:var(--lg-caption)}
 .ledger-leads .cmpct-fv{color:var(--lg-text2)}
 .ledger-leads .cmpct-fv a{color:var(--lg-blue)}
@@ -3261,6 +3266,23 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger-leads .empty [data-ico] svg{color:var(--lg-faint)}
 .ledger-leads #lead-count-display,.ledger-leads #lead-count-bot,.ledger-leads #lead-page-info-top,.ledger-leads #lead-page-info-bot{font-family:var(--mono);color:var(--lg-caption)}
 
+/* Beat the app's global dark-theme navy overrides. Leads reuses the shared
+   .card/.lead-row/.tabs/.tab/.btn-* classes, and the `body:not(.light) .X`
+   rules (specificity 0,2,1) repaint those boxes with navy gradients/fills in
+   dark mode — outranking the plain `.ledger-leads .X` rules (0,2,0). Force the
+   neutral Ledger palette in both themes. */
+.ledger-leads .card,.ledger-leads .lead-row{background:var(--lg-card)!important;border-color:var(--lg-border)!important}
+.ledger-leads .lead-row.sold{background:var(--lg-sold-bg)!important;border-color:var(--lg-sold-border)!important}
+.ledger-leads .tabs{background:transparent!important;border-color:transparent!important}
+.ledger-leads .tab{background:var(--lg-card)!important;border-color:var(--lg-border)!important}
+.ledger-leads .tab.active{background:var(--lg-card)!important;border-color:var(--lg-blue-border)!important;color:var(--lg-blue)!important}
+.ledger-leads .btn-p{background:var(--lg-blue)!important;color:#fff!important}
+.ledger-leads .btn-p:hover{background:var(--lg-blue-deep)!important}
+.ledger-leads .btn-s{background:var(--lg-card)!important;border-color:var(--lg-border)!important;color:var(--lg-text2)!important}
+.ledger-leads .fg input,.ledger-leads .fg select,.ledger-leads .fg textarea{background:var(--lg-card)!important;border-color:var(--lg-border)!important}
+.ledger-leads .vsw-group{background:var(--lg-card)!important;border-color:var(--lg-border)!important}
+.ledger-leads .bulk-bar{background:var(--lg-card)!important;border-color:var(--lg-blue-border)!important}
+.ledger-leads #lead-select-all-row{background:var(--lg-card)!important;border-color:var(--lg-border)!important}
 /* ---------- Responsiveness ---------- */
 /* Fluid standard-row grid: minmax floors instead of the old fixed
    195px / calc(50% - 195px) / 155px columns that could overflow. */
@@ -4402,11 +4424,11 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </div>
         <div style="flex:1"></div>
         <div class="js-desktop-only-dialer" style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-sm" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPowerDialer()">
+          <button class="btn btn-sm" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPowerDialer()">
             <span data-ico="phone" data-size="14"></span>Power Dial
           </button>
-          <button class="btn btn-sm" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPreviewDialer()">
-            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial
+          <button class="btn btn-sm" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:7px;font-weight:600;padding:8px 18px" onclick="guardedOpenPreviewDialer()">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="3" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/><rect x="7.5" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial
           </button>
         </div>
       </div>
@@ -4476,7 +4498,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
             </select>
             <button class="btn btn-s btn-sm" onclick="openAddLeadModal()" style="margin-right:6px">+ Add Lead</button>
             <button class="btn btn-s btn-sm" onclick="openDupeRemoveModal()" style="margin-right:6px" title="Find and remove duplicate leads">⊘ Remove Duplicates</button>
-            <button class="btn btn-s btn-sm" onclick="openIntegrationsModal()" style="margin-right:6px" title="Manage lead vendor webhook integrations">⚡ Integrations</button>
+            <button class="btn btn-s btn-sm" onclick="openIntegrationsModal()" style="margin-right:6px" title="Manage lead vendor webhook integrations"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>Integrations</button>
             <button class="btn btn-p btn-sm" onclick="openImportModal()">+ Import Leads</button>
           </div>
         </div>
@@ -4498,10 +4520,10 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </select>
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
         <div class="js-desktop-only-dialer" style="width:1px;height:22px;background:var(--border)"></div>
-        <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
-        <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="1.5" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/><rect x="8" y="1.5" width="3.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
+        <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
+        <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="3" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/><rect x="7.5" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
-        <button class="btn btn-sm" style="background:var(--lg-red-soft);border:1px solid var(--lg-red-border);color:var(--lg-red);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
+        <button class="btn btn-sm" style="background:var(--lg-card);border:1px solid var(--lg-red-border);color:var(--lg-red);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
         <button class="btn btn-s btn-sm" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px" onclick="clearBulkSelection()"><span data-ico="x" data-size="14"></span>Clear Selection</button>
       </div>
 
