@@ -3504,7 +3504,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <div class="apc-plan-col" id="pricing-col-leader" data-tier="leader" onclick="selectPricingPlan(this)">
           <div class="apc-plan-header">
             <div class="apc-plan-name">Team<br>Leader</div>
-            <div class="apc-plan-price" id="pricing-price-leader">$249.99/mo</div>
+            <div class="apc-plan-price" id="pricing-price-leader">$199.99/mo</div>
           </div>
           <div class="apc-check-row yes">✓</div>
           <div class="apc-check-row yes">✓</div>
@@ -3659,7 +3659,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
               <div class="swiz-pc-head">
                 <div class="swiz-pc-tier">Individual</div>
                 <div class="swiz-pc-name">Basic Producer</div>
-                <div class="swiz-pc-price" id="pricing-price-basic">$89.99/mo</div>
+                <div class="swiz-pc-price" id="pricing-price-basic">$79.99/mo</div>
                 <div class="swiz-pc-per">billed monthly after trial</div>
                 <div class="swiz-pc-trial">Free for 7 days</div>
               </div>
@@ -3690,7 +3690,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
               <div class="swiz-pc-head">
                 <div class="swiz-pc-tier">Top Producers</div>
                 <div class="swiz-pc-name">Pro Producer</div>
-                <div class="swiz-pc-price" id="pricing-price-pro">$149.99/mo</div>
+                <div class="swiz-pc-price" id="pricing-price-pro">$129.99/mo</div>
                 <div class="swiz-pc-per">billed monthly after trial</div>
                 <div class="swiz-pc-trial">Free for 7 days</div>
               </div>
@@ -3721,7 +3721,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
               <div class="swiz-pc-head">
                 <div class="swiz-pc-tier">Agency Leaders</div>
                 <div class="swiz-pc-name">Team Leader</div>
-                <div class="swiz-pc-price" id="pricing-price-leader">$249.99/mo</div>
+                <div class="swiz-pc-price" id="pricing-price-leader">$199.99/mo</div>
                 <div class="swiz-pc-per">billed monthly after trial</div>
                 <div class="swiz-pc-trial">Free for 7 days</div>
               </div>
@@ -4723,12 +4723,12 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <div class="pb-billing-rate-grid">
           <div class="pb-billing-rate-item">
             <div class="pb-billing-rate-label">Per Phone Number</div>
-            <div class="pb-billing-rate-value" id="pb-rate-number">$3.00</div>
+            <div class="pb-billing-rate-value" id="pb-rate-number">$2.00</div>
             <div class="pb-billing-rate-sub">per number / month</div>
           </div>
           <div class="pb-billing-rate-item">
             <div class="pb-billing-rate-label">Per Minute</div>
-            <div class="pb-billing-rate-value" id="pb-rate-minute">$0.01</div>
+            <div class="pb-billing-rate-value" id="pb-rate-minute">$0.012</div>
             <div class="pb-billing-rate-sub">per call minute (rounded up)</div>
           </div>
         </div>
@@ -5339,7 +5339,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     </div>
     <div class="alert alert-i" style="margin-bottom:14px">
       <span data-ico="info"></span>
-      <div id="pb-buy-modal-desc">Search US Local numbers by 3-digit area code. Each number is billed at <strong id="pb-buy-modal-rate">$3.00/month</strong> and added to your monthly Stripe charge immediately.</div>
+      <div id="pb-buy-modal-desc">Search US Local numbers by 3-digit area code. Each number is billed at <strong id="pb-buy-modal-rate">$2.00/month</strong> from your wallet balance. Buy as many as you want — no cap.</div>
     </div>
     <div class="pb-search-row">
       <div class="fg">
@@ -12688,7 +12688,7 @@ function _applyPlanGating() {
 function showUpgradeGate(featureName, requiredTier) {
   const isLeaderReq = requiredTier === 'leader';
   const tierLabel = isLeaderReq ? 'Team Leader' : 'Pro Producer';
-  const tierPrice = isLeaderReq ? '$249.99' : '$149.99';
+  const tierPrice = isLeaderReq ? '$199.99' : '$129.99';
   let el = document.getElementById('_upgrade-gate');
   if (!el) {
     el = document.createElement('div');
@@ -19936,21 +19936,22 @@ function lowBalanceTopUpNow() {
 
 // ── Billing Rates card ───────────────────────────────────────
 function pbRenderBillingCard(usedMinThisMonth) {
-  const cfg = _pbBillingConfig || { number_local_mills: 3000, call_minute_mills: 10 };
+  const cfg = _pbBillingConfig || { number_local_mills: 2000, call_minute_mills: 12 };
   // Mills are the source of truth for what's actually charged (wallet_debit
   // reads these same columns) — cents columns (number_rate_cents/minute_rate_cents)
   // are the old Stripe-era config and are no longer what's billed.
-  const numRateCents = (cfg.number_local_mills != null ? cfg.number_local_mills : 3000) / 10;
-  const minRateCents = (cfg.call_minute_mills != null ? cfg.call_minute_mills : 10) / 10;
+  const numRateCents = (cfg.number_local_mills != null ? cfg.number_local_mills : 2000) / 10;
+  const minRateCents = (cfg.call_minute_mills != null ? cfg.call_minute_mills : 12) / 10;
 
   const numRateEl = document.getElementById('pb-rate-number');
   const minRateEl = document.getElementById('pb-rate-minute');
-  if (numRateEl) numRateEl.textContent = '$' + (numRateCents / 100).toFixed(2);
-  if (minRateEl) minRateEl.textContent = '$' + (minRateCents / 100).toFixed(2);
+  const _fmtRate = c => '$' + (Number.isInteger(c) ? (c / 100).toFixed(2) : (c / 100).toFixed(3));
+  if (numRateEl) numRateEl.textContent = _fmtRate(numRateCents);
+  if (minRateEl) minRateEl.textContent = _fmtRate(minRateCents);
 
   // Update buy modal rate display
   const modalRateEl = document.getElementById('pb-buy-modal-rate');
-  if (modalRateEl) modalRateEl.textContent = '$' + (numRateCents / 100).toFixed(2) + '/month';
+  if (modalRateEl) modalRateEl.textContent = _fmtRate(numRateCents) + '/month';
 
   // Estimated monthly charge = (numbers × numRate) + (minutes × minRate)
   const numberCount = Array.isArray(_pbNumbers) ? _pbNumbers.length : 0;

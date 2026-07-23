@@ -5,11 +5,44 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pricing — Producer Stack</title>
 <link rel="icon" href="assets/logos/producer-stack-logo.png" type="image/png">
-<meta name="description" content="Start your 7-day free trial today. Simple, transparent pricing starting at $89.99/mo after trial. No hidden fees, no long-term contracts. Cancel any time.">
+<meta name="description" content="Start your 7-day free trial today. Simple, transparent pricing starting at $79.99/mo after trial — full usage rate card published. No hidden fees, no long-term contracts. Cancel any time.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<style>
+/* new-pricing additions */
+.bill-toggle{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:30px;flex-wrap:wrap}
+.bill-switch{display:inline-flex;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:100px;padding:3px;gap:2px}
+.bill-btn{font-family:inherit;font-size:12.5px;font-weight:500;color:var(--text3);background:transparent;border:none;border-radius:100px;padding:7px 16px;cursor:pointer;transition:.2s}
+.bill-btn.on{background:var(--accent);color:#fff}
+.bill-save{font-size:11.5px;color:var(--green);background:rgba(75,191,160,.08);border:1px solid rgba(75,191,160,.2);border-radius:100px;padding:4px 11px;font-weight:500}
+.plan-annual-note{font-size:11px;color:var(--green);margin-top:4px;min-height:16px}
+.downline-badge{display:flex;align-items:flex-start;gap:9px;background:rgba(212,169,106,.07);border:1px solid rgba(212,169,106,.22);border-radius:10px;padding:10px 12px;margin-bottom:16px}
+.downline-badge svg{width:15px;height:15px;color:var(--gold);flex-shrink:0;margin-top:1px}
+.downline-badge div{font-size:11.5px;color:var(--text2);line-height:1.5}
+.downline-badge strong{color:var(--gold);font-weight:600}
+.rates-head{margin:52px 0 22px;text-align:center}
+.rates-head h2{font-size:clamp(22px,2.6vw,32px);font-weight:700;color:var(--text);letter-spacing:-.03em;margin-bottom:8px}
+.rates-head h2 .hl{background:linear-gradient(130deg,var(--accent-l) 0%,var(--accent) 55%,#A8D4FF 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.rates-head p{font-size:13.5px;color:var(--text2);max-width:520px;margin:0 auto;line-height:1.65}
+.rate-tables{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.rate-card{border:1px solid var(--border);border-radius:16px;overflow:hidden;background:linear-gradient(170deg,rgba(10,16,35,.95),rgba(6,11,26,.98))}
+.rate-card.hi{border-color:rgba(91,159,232,.22)}
+.rate-title{padding:14px 20px;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);background:rgba(255,255,255,.025);border-bottom:1px solid var(--border)}
+.rate-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:13px 20px;border-bottom:1px solid rgba(255,255,255,.04)}
+.rate-row:last-child{border-bottom:none}
+.rate-what{font-size:13px;color:var(--text);font-weight:500}
+.rate-note{display:block;font-size:11px;color:var(--text3);font-weight:400;margin-top:2px;line-height:1.5}
+.rate-note em{color:var(--green);font-style:normal}
+.rate-amt{font-family:'DM Mono',monospace;font-size:14.5px;font-weight:500;color:var(--text);white-space:nowrap;text-align:right}
+.rate-amt small{display:block;font-family:inherit;font-size:10px;color:var(--text3);margin-top:1px}
+.rate-amt.good,.rate-amt.zero{color:var(--green)}
+.unlimited-flag{display:inline-flex;font-size:9.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--gold);background:rgba(212,169,106,.09);border:1px solid rgba(212,169,106,.24);border-radius:100px;padding:2px 8px;vertical-align:1px;margin-left:6px}
+.rate-promise{margin-top:18px;background:rgba(75,191,160,.05);border:1px solid rgba(75,191,160,.18);border-radius:12px;padding:14px 16px;font-size:12.5px;color:var(--text2);line-height:1.6}
+.rate-promise strong{color:var(--text)}
+@media(max-width:900px){.rate-tables{grid-template-columns:1fr}}
+</style>
 </head>
 <body>
 
@@ -71,11 +104,18 @@
 <section class="section">
 <div class="sec-shell">
   <div class="pricing-wrap">
+    <div class="bill-toggle reveal">
+      <div class="bill-switch" role="tablist" aria-label="Billing period">
+        <button class="bill-btn on" id="bill-monthly" onclick="setBilling('monthly')">Monthly</button>
+        <button class="bill-btn" id="bill-annual" onclick="setBilling('annual')">Annual</button>
+      </div>
+      <span class="bill-save">Save 15% on any seat with annual billing</span>
+    </div>
     <div class="plan-row">
       <div class="plan-card reveal">
         <div class="plan-name">Basic Producer</div>
         <div class="plan-desc">Everything a solo producer needs to organize leads and start dialing.</div>
-        <div class="plan-price"><div class="plan-amt"><sup>$</sup>89.99</div><div class="plan-per">per month after trial</div><div class="plan-trial">Free for 7 days</div></div>
+        <div class="plan-price"><div class="plan-amt"><sup>$</sup><span class="price-num" data-monthly="79.99" data-annual="67.99">79.99</span></div><div class="plan-per per-label">per month, billed monthly</div><div class="plan-annual-note annual-note" data-note="Billed annually — 15% off"></div><div class="plan-trial">Free for 7 days</div></div>
         <div class="plan-div"></div>
         <ul class="plan-feats">
           <li>Policy Tracker</li>
@@ -93,18 +133,18 @@
       <div class="plan-card feat reveal">
         <div class="plan-badge">Most Popular</div>
         <div class="plan-name">Pro Producer</div>
-        <div class="plan-desc">For serious producers who want to maximize call volume and production.</div>
-        <div class="plan-price"><div class="plan-amt"><sup>$</sup>149.99</div><div class="plan-per">per month after trial</div><div class="plan-trial">Free for 7 days</div></div>
+        <div class="plan-desc">For serious producers who want maximum call volume — including the AI Sales Agent.</div>
+        <div class="plan-price"><div class="plan-amt"><sup>$</sup><span class="price-num" data-monthly="129.99" data-annual="110.49">129.99</span></div><div class="plan-per per-label">per month, billed monthly</div><div class="plan-annual-note annual-note" data-note="Pro ≈ $110/mo billed annually — 15% off"></div><div class="plan-trial">Free for 7 days</div></div>
         <div class="plan-div"></div>
         <ul class="plan-feats">
           <li>Everything in Basic</li>
+          <li>AI Sales Agent — dials, qualifies, live-transfers</li>
+          <li>Power Dialer (batch calling)</li>
           <li>500 Quotes / month</li>
           <li>500 AI Underwriter queries / month</li>
           <li>Bonus Tracker</li>
-          <li>Power Dialer (batch calling)</li>
           <li>Advanced Analytics</li>
           <li>Goal &amp; Pace Tracking</li>
-          <li>Activity Momentum Tracker</li>
         </ul>
         <a href="app.html?view=signup" class="plan-cta fill">Start Free Trial</a>
       </div>
@@ -112,16 +152,21 @@
       <div class="plan-card reveal">
         <div class="plan-name">Team Leader</div>
         <div class="plan-desc">For agency builders managing a downline and growing a team.</div>
-        <div class="plan-price"><div class="plan-amt"><sup>$</sup>249.99</div><div class="plan-per">per month after trial</div><div class="plan-trial">Free for 7 days</div></div>
+        <div class="plan-price"><div class="plan-amt"><sup>$</sup><span class="price-num" data-monthly="199.99" data-annual="169.99">199.99</span></div><div class="plan-per per-label">per month, billed monthly</div><div class="plan-annual-note annual-note" data-note="Billed annually — 15% off"></div><div class="plan-trial">Free for 7 days</div></div>
+        <div class="downline-badge">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <div><strong>Recruiting perk:</strong> Your agents get Producer Stack at 30% off their seats when you're on Team Leader.</div>
+        </div>
         <div class="plan-div"></div>
         <ul class="plan-feats">
           <li>Everything in Pro</li>
+          <li>AI Sales Agent</li>
           <li>1000 Quotes / month</li>
           <li>Unlimited AI Underwriter</li>
           <li>Agency Management</li>
           <li>Team Access &amp; Dashboards</li>
-          <li>Priority Support</li>
-          <li>Dedicated Onboarding</li>
+          <li>Downline seats 30% off</li>
+          <li>Priority Support &amp; Dedicated Onboarding</li>
           <li>Custom Agency Codes</li>
         </ul>
         <a href="app.html?view=signup" class="plan-cta out">Start Free Trial</a>
@@ -184,6 +229,12 @@
         <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       </div>
       <div class="compare-row">
+        <div class="compare-feat">AI Sales Agent (dials, qualifies, live-transfers)</div>
+        <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="compare-row">
         <div class="compare-feat">Bonus Tracker</div>
         <div class="compare-cell ci-no"><svg class="ico-x" fill="none" viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></div>
         <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
@@ -220,6 +271,61 @@
         <div class="compare-cell ci-yes"><svg class="ico-check" fill="none" viewBox="0 0 20 20"><path d="M4 10l4 4 8-8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
       </div>
     </div>
+
+    <!-- ═══ FULL RATE CARD ═══ -->
+    <div class="rates-head reveal" id="rates">
+      <h2>The full rate card — <span class="hl">every price we charge</span></h2>
+      <p>Calling and AI usage are billed from your prepaid wallet: load a balance, usage drains it, every debit itemized down to the unit rate. If it's not in these tables, we don't charge for it.</p>
+    </div>
+    <div class="rate-tables">
+      <div class="rate-card reveal">
+        <div class="rate-title">Seats</div>
+        <div class="rate-row">
+          <div><span class="rate-what">Basic Producer</span><span class="rate-note">$67.99/mo billed annually (15% off)</span></div>
+          <div class="rate-amt">$79.99<small>per month</small></div>
+        </div>
+        <div class="rate-row">
+          <div><span class="rate-what">Pro Producer</span><span class="rate-note">≈ $110/mo billed annually (15% off)</span></div>
+          <div class="rate-amt">$129.99<small>per month</small></div>
+        </div>
+        <div class="rate-row">
+          <div><span class="rate-what">Team Leader</span><span class="rate-note">$169.99/mo billed annually (15% off)</span></div>
+          <div class="rate-amt">$199.99<small>per month</small></div>
+        </div>
+        <div class="rate-row">
+          <div><span class="rate-what">Downline agent seats</span><span class="rate-note">When your team leader is on Team Leader — <em>seats only, never usage rates</em></span></div>
+          <div class="rate-amt good">30% off<small>any seat</small></div>
+        </div>
+        <div class="rate-row">
+          <div><span class="rate-what">Free trial</span><span class="rate-note">Every plan — no charge until day 8</span></div>
+          <div class="rate-amt zero">7 days<small>free</small></div>
+        </div>
+        <div class="rate-row">
+          <div><span class="rate-what">Setup fees</span></div>
+          <div class="rate-amt zero">$0<small>always</small></div>
+        </div>
+      </div>
+      <div class="rate-card hi reveal">
+        <div class="rate-title">Usage — from your prepaid wallet</div>
+        <div class="rate-row">
+          <div><span class="rate-what">Dialer minutes</span><span class="rate-note">Power Dialer &amp; softphone calling</span></div>
+          <div class="rate-amt">$0.012<small>per minute</small></div>
+        </div>
+        <div class="rate-row">
+          <div><span class="rate-what">AI voice minutes</span><span class="rate-note">AI Sales Agent talk time — <em>drops to $0.065/min above 2,000 AI minutes in a month</em></span></div>
+          <div class="rate-amt">$0.075<small>per minute</small></div>
+        </div>
+        <div class="rate-row">
+          <div><span class="rate-what">Phone numbers<span class="unlimited-flag">Unlimited</span></span><span class="rate-note">As many numbers as you want for rotation — <em>competitors cap you at 5</em></span></div>
+          <div class="rate-amt">$2.00<small>per number / month</small></div>
+        </div>
+        <div class="rate-row">
+          <div><span class="rate-what">Anything else</span><span class="rate-note">If it's not in this table, we don't charge for it</span></div>
+          <div class="rate-amt zero">$0<small>nothing hidden</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="rate-promise reveal"><strong>The transparency promise:</strong> this rate card is the whole deal. No hidden fees means you can see all of them — seats, minutes, and numbers, itemized to the penny in your wallet.</div>
   </div>
 </div>
 </section>
@@ -284,6 +390,14 @@ document.getElementById('hbg').addEventListener('click',()=>{document.getElement
 function closeMob(){document.getElementById('mob-menu').classList.remove('open')}
 const ro=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('in');ro.unobserve(x.target)}})},{threshold:.1,rootMargin:'0px 0px -32px 0px'});
 document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+function setBilling(mode){
+  const annual=mode==='annual';
+  document.getElementById('bill-monthly').classList.toggle('on',!annual);
+  document.getElementById('bill-annual').classList.toggle('on',annual);
+  document.querySelectorAll('.price-num').forEach(el=>{el.textContent=annual?el.dataset.annual:el.dataset.monthly});
+  document.querySelectorAll('.per-label').forEach(el=>{el.textContent=annual?'per month, billed annually':'per month, billed monthly'});
+  document.querySelectorAll('.annual-note').forEach(el=>{el.textContent=annual?el.dataset.note:''});
+}
 </script>
 </body>
 </html>
