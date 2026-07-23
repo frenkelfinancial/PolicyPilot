@@ -2,21 +2,25 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 
-// Reusable coupon backing the agency downline discount. Created lazily on
-// first use so no manual Stripe Dashboard setup is required.
-const AGENCY_DISCOUNT_COUPON_ID = "agency-downline-20";
+// Reusable coupon backing the downline agent-seat discount: 30% off, forever
+// (July 2026 repricing — was 20%). SEATS ONLY: this coupon is only ever
+// attached to a seat SUBSCRIPTION below (new checkout + existing-subscriber
+// update), never to the wallet top-up or numbers/usage flows. Created lazily on
+// first use, with the same id/percent as scripts/stripe-repricing-2026-07.mjs
+// so the two are idempotent — whichever runs first wins, the other no-ops.
+const DOWNLINE_DISCOUNT_COUPON_ID = "DOWNLINE30";
 
-async function ensureAgencyDiscountCoupon(stripeHdrs: Record<string, string>) {
-  const getRes = await fetch(`https://api.stripe.com/v1/coupons/${AGENCY_DISCOUNT_COUPON_ID}`, { headers: stripeHdrs });
+async function ensureDownlineDiscountCoupon(stripeHdrs: Record<string, string>) {
+  const getRes = await fetch(`https://api.stripe.com/v1/coupons/${DOWNLINE_DISCOUNT_COUPON_ID}`, { headers: stripeHdrs });
   if (getRes.ok) return;
   await fetch("https://api.stripe.com/v1/coupons", {
     method: "POST",
     headers: stripeHdrs,
     body: new URLSearchParams({
-      id: AGENCY_DISCOUNT_COUPON_ID,
-      percent_off: "20",
+      id: DOWNLINE_DISCOUNT_COUPON_ID,
+      percent_off: "30",
       duration: "forever",
-      name: "Agency Downline 20% Off",
+      name: "Downline agent seat — 30% off (Team Leader upline)",
     }),
   }).catch(() => {});
 }
@@ -260,20 +264,29 @@ serve(async (req) => {
     "Content-Type": "application/x-www-form-urlencoded",
   };
 
-  // Downline agents on Basic/Pro get an ongoing 20% discount for as long as
-  // they stay linked to a team leader via a valid agency code.
+  // Downline agents on a Basic/Pro SEAT get an ongoing 30% discount — but ONLY
+  // while they are linked to a leader who CURRENTLY holds an active Team Leader
+  // subscription. This is enforced server-side by
+  // public.agent_has_active_leader_link(): it re-checks is_agency_leader(leader)
+  // — i.e. the leader's agents.plan_id still points at a Team Leader plan — on
+  // every checkout. stripe-webhook clears a leader's plan_id the moment their
+  // subscription is canceled/unpaid/deleted, so the discount evaporates
+  // automatically when a leader downgrades. Merely holding an accepted invite is
+  // NOT enough. Seats only: this flag is only ever read in the seat-subscription
+  // paths below — never for wallet top-ups or number/usage checkouts.
   const planTier = (plan.name || "").toLowerCase();
-  let applyAgencyDiscount = false;
+  let applyDownlineDiscount = false;
   if (planTier.includes("basic") || planTier.includes("pro")) {
-    const { data: links } = await sb
-      .from("agency_invites")
-      .select("id")
-      .eq("invitee_id", user.id)
-      .eq("status", "accepted")
-      .limit(1);
-    applyAgencyDiscount = !!(links && links.length);
+    const { data: eligible, error: eligErr } = await sb.rpc("agent_has_active_leader_link", {
+      p_invitee: user.id,
+    });
+    if (eligErr) {
+      // Fail CLOSED — never grant the discount if eligibility can't be confirmed.
+      console.warn("agent_has_active_leader_link failed:", eligErr.message);
+    }
+    applyDownlineDiscount = eligible === true;
   }
-  if (applyAgencyDiscount) await ensureAgencyDiscountCoupon(stripeHdrs);
+  if (applyDownlineDiscount) await ensureDownlineDiscountCoupon(stripeHdrs);
 
   // Existing subscriber: update price via Stripe API — no checkout redirect needed.
   if (agent?.stripe_subscription_id) {
@@ -297,7 +310,7 @@ serve(async (req) => {
       [`metadata[plan_id]`]:          plan.id,
       [`metadata[area_code]`]:        areaCode,
     });
-    if (applyAgencyDiscount) updateParams.set(`discounts[0][coupon]`, AGENCY_DISCOUNT_COUPON_ID);
+    if (applyDownlineDiscount) updateParams.set(`discounts[0][coupon]`, DOWNLINE_DISCOUNT_COUPON_ID);
     const updateRes = await fetch(
       `https://api.stripe.com/v1/subscriptions/${agent.stripe_subscription_id}`,
       { method: "POST", headers: stripeHdrs, body: updateParams },
@@ -319,7 +332,7 @@ serve(async (req) => {
 
   // New subscriber: create a hosted Stripe Checkout Session (opens in popup).
   // Note: Stripe disallows combining `discounts` with `allow_promotion_codes`,
-  // so a downline agent gets their agency discount applied silently instead
+  // so a downline agent gets their downline discount applied silently instead
   // of being able to type in a separate promo code.
   const sessionParams = new URLSearchParams({
     "mode":                                             "subscription",
@@ -335,8 +348,8 @@ serve(async (req) => {
     [`subscription_data[metadata][area_code]`]:        areaCode,
     "subscription_data[trial_period_days]":            "7",
   });
-  if (applyAgencyDiscount) {
-    sessionParams.set(`discounts[0][coupon]`, AGENCY_DISCOUNT_COUPON_ID);
+  if (applyDownlineDiscount) {
+    sessionParams.set(`discounts[0][coupon]`, DOWNLINE_DISCOUNT_COUPON_ID);
   } else {
     sessionParams.set("allow_promotion_codes", "true");
   }
