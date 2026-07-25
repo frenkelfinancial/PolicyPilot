@@ -237,6 +237,10 @@ serve(async (req) => {
       to:                         phoneE164,
       from:                       callerId,
       answering_machine_detection: "premium",
+      // Hard 5-min cap at the call-leg level, belt-and-suspenders with the
+      // assistant's telephony_settings.time_limit_secs (=300). Telnyx force-
+      // ends the leg at this many seconds even if the assistant runs long.
+      time_limit_secs:            300,
       webhook_url:                webhookUrl,
       webhook_url_method:         "POST",
       client_state:               clientState,
