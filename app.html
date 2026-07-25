@@ -3943,6 +3943,57 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
       </div>
     </div>
 
+    <!-- ========== AI DIALER TEST (Phase 1 rig; injected + shown ONLY when BOTH kill switches are ON) ========== -->
+    <div class="section" id="sec-ai-test">
+      <div class="card" style="max-width:780px">
+        <div class="card-head">
+          <div class="kpi-label">AI Dialer — Phase 1 Test</div>
+          <span class="ds-trend" data-tone="static">TEST RIG</span>
+        </div>
+        <p style="font:13px/19px var(--sans);color:var(--text2);margin:0 0 4px">
+          Place one compliant AI Sales Agent qualification call to your own consented cell and watch it settle
+          end-to-end. Visible only while both AI-dialer kill switches are on.
+        </p>
+        <div id="aiTest-switches" style="font:12px var(--sans);color:var(--text2);margin:0 0 20px"></div>
+
+        <!-- 1 · Create / update the test lead -->
+        <div style="font:600 13px var(--sans);margin:0 0 8px">1 · Test lead (ai-test-001)</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+          <input id="aiTest-phone" type="tel" autocomplete="off" placeholder="Your cell, e.g. (555) 123-4567"
+            style="flex:1;min-width:220px;padding:9px 12px;border:1px solid rgba(127,127,127,.3);border-radius:8px;background:var(--card);color:inherit;font:14px var(--sans)">
+          <button id="aiTest-createBtn" onclick="aiTestCreateLead()"
+            style="padding:9px 16px;border:0;border-radius:8px;background:#2563eb;color:#fff;font:600 13px var(--sans);cursor:pointer">Create / update test lead</button>
+        </div>
+        <div id="aiTest-leadInfo" style="font:12px/1.5 var(--sans);color:var(--text2);margin-bottom:24px">No test lead yet — create one above.</div>
+
+        <!-- 2 · Start the AI call -->
+        <div style="font:600 13px var(--sans);margin:0 0 8px">2 · Start AI call</div>
+        <button id="aiTest-startBtn" onclick="aiTestStartCall()"
+          style="padding:9px 16px;border:0;border-radius:8px;background:#10b981;color:#fff;font:600 13px var(--sans);cursor:pointer;margin-bottom:10px">Start AI call</button>
+        <div id="aiTest-response" style="margin-bottom:24px"></div>
+
+        <!-- 3 · Live call status (polled every 2s while in_progress) -->
+        <div style="font:600 13px var(--sans);margin:0 0 8px">3 · Live call status</div>
+        <div id="aiTest-status" style="font:13px var(--sans);color:var(--text2);margin-bottom:24px">No active call.</div>
+
+        <!-- 4 · Wallet receipts (category = ai_call) -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px">
+          <div style="font:600 13px var(--sans)">4 · Wallet receipts (ai_call)</div>
+          <button id="aiTest-receiptsBtn" onclick="aiTestLoadReceipts()"
+            style="padding:5px 12px;border:1px solid rgba(127,127,127,.3);border-radius:7px;background:transparent;color:inherit;font:12px var(--sans);cursor:pointer">Refresh</button>
+        </div>
+        <div id="aiTest-receipts" style="margin-bottom:24px;font:13px var(--sans);color:var(--text2)">No ai_call wallet entries yet.</div>
+
+        <!-- 5 · Reset the DNC test -->
+        <div style="font:600 13px var(--sans);margin:0 0 8px">5 · Reset DNC test</div>
+        <p style="font:12px/1.5 var(--sans);color:var(--text2);margin:0 0 8px">
+          Clears the suppression row + the lead's DNC flag for this test lead only, so you can re-dial after saying &ldquo;remove me&rdquo;.
+        </p>
+        <button id="aiTest-resetBtn" onclick="aiTestResetDnc()"
+          style="padding:9px 16px;border:1px solid #dc2626;border-radius:8px;background:transparent;color:#dc2626;font:600 13px var(--sans);cursor:pointer">Reset DNC test</button>
+      </div>
+    </div>
+
     <!-- ========== QUOTE + UNDERWRITING (ITK API) ========== -->
     <div class="section" id="sec-api-quoter">
       <style>
@@ -18521,6 +18572,312 @@ const NAV_TITLES = {
   settings:'Settings',
 };
 
+// ============================================================
+// AI DIALER TEST PANEL (Phase 1 test rig)
+// Visible ONLY when BOTH kill switches are true: the agent's
+// agents.ai_dialer_enabled AND the global billing_config.ai_dialer_enabled.
+// Ships on the live site — everyone else gets no nav item and the section
+// stays hidden. Mirrors dsInitPlayground()'s dynamic-nav injection (appends
+// AFTER Settings) so the positional idxMap inside nav() stays valid.
+// The two kill switches are flipped by SQL only — there is deliberately no UI
+// to toggle them here.
+// ============================================================
+const AI_TEST_CLIENT_ID = 'ai-test-001';
+let aiTestState = { leadId: null, aiCallId: null, callControlId: null, pollTimer: null, pollTicks: 0 };
+
+async function aiTestInit() {
+  if (!currentAgent) return;
+  if (document.getElementById('nav-ai-test')) return; // already injected this session
+  let agentOn = false, globalOn = false;
+  try {
+    const [aRes, bRes] = await Promise.all([
+      sb.from('agents').select('ai_dialer_enabled').eq('id', currentAgent.id).maybeSingle(),
+      sb.from('billing_config').select('ai_dialer_enabled').eq('id', 1).maybeSingle(),
+    ]);
+    agentOn  = !!(aRes.data && aRes.data.ai_dialer_enabled);
+    globalOn = !!(bRes.data && bRes.data.ai_dialer_enabled);
+  } catch (_) { return; }
+  if (!(agentOn && globalOn)) return; // strict AND gate — everyone else sees nothing
+
+  if (typeof NAV_TITLES === 'object' && NAV_TITLES) NAV_TITLES['ai-test'] = 'AI Dialer Test';
+
+  // Inject the nav item AFTER Settings so nav()'s positional idxMap stays correct.
+  // nav() highlights by index and won't know about this dynamic item, so the
+  // click handler toggles the active class manually (same trick as ds-playground).
+  const settingsItem = document.querySelector('.sidebar .nav-item[onclick*="settings"]');
+  if (settingsItem && !document.getElementById('nav-ai-test')) {
+    const a = document.createElement('div');
+    a.className = 'nav-item';
+    a.id = 'nav-ai-test';
+    a.onclick = () => {
+      nav('ai-test');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      a.classList.add('active');
+      aiTestOnShow();
+    };
+    a.innerHTML = '<span class="ico" data-ico="robot"></span><span class="nav-lbl-text">AI Dialer Test</span>';
+    if (settingsItem.nextSibling) settingsItem.parentNode.insertBefore(a, settingsItem.nextSibling);
+    else settingsItem.parentNode.appendChild(a);
+  }
+
+  const sw = document.getElementById('aiTest-switches');
+  if (sw) sw.textContent = 'Global switch: ON · Your switch: ON';
+}
+
+// Runs each time the panel is opened.
+function aiTestOnShow() {
+  aiTestLoadExistingLead();
+  aiTestLoadReceipts();
+}
+
+// Prefill phone + lead id from an existing ai-test-001 lead, if any.
+async function aiTestLoadExistingLead() {
+  const info = document.getElementById('aiTest-leadInfo');
+  try {
+    const { data } = await sb.from('leads')
+      .select('id, data, dnc, tcpa_consent')
+      .eq('agent_id', currentAgent.id).eq('client_id', AI_TEST_CLIENT_ID).maybeSingle();
+    if (data) {
+      aiTestState.leadId = data.id;
+      const phone = (data.data && data.data.phone) || '';
+      const phEl = document.getElementById('aiTest-phone');
+      if (phEl && !phEl.value) phEl.value = phone;
+      if (info) info.textContent =
+        'Test lead ready — ' + (phone || 'no phone') +
+        ' · consent: ' + (data.tcpa_consent ? 'yes' : 'NO') +
+        ' · DNC: ' + (data.dnc ? 'YES' : 'no') +
+        ' · id ' + data.id;
+    } else {
+      aiTestState.leadId = null;
+      if (info) info.textContent = 'No test lead yet — create one above.';
+    }
+  } catch (_) { /* non-fatal */ }
+}
+
+// 1 · Upsert the test lead: consented, not DNC, pointing at the tester's cell.
+// Same shape as the SQL block (a): data blob + tcpa/dnc/timezone columns.
+async function aiTestCreateLead() {
+  const phEl = document.getElementById('aiTest-phone');
+  const btn  = document.getElementById('aiTest-createBtn');
+  const e164 = toE164(phEl ? phEl.value : '');
+  if (!e164) { showToast('Enter a valid US phone number', '#dc2626'); return; }
+  let tz = '';
+  try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_) {}
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const row = {
+    agent_id: currentAgent.id,
+    client_id: AI_TEST_CLIENT_ID,
+    data: { id: AI_TEST_CLIENT_ID, name: 'AI Test (my cell)', phone: e164, state: 'TX', coverage_wanted: 'final expense' },
+    tcpa_consent: true,
+    tcpa_consent_source: 'phase1 in-app test panel — verbal consent recorded by tester',
+    tcpa_consent_at: new Date().toISOString(),
+    dnc: false,
+    dnc_at: null,
+    lead_timezone: tz || null,
+  };
+  const { data, error } = await sb.from('leads')
+    .upsert(row, { onConflict: 'agent_id,client_id' })
+    .select('id').maybeSingle();
+  if (btn) { btn.disabled = false; btn.textContent = 'Create / update test lead'; }
+  if (error) { showToast('Could not save test lead: ' + error.message, '#dc2626'); return; }
+  aiTestState.leadId = data ? data.id : null;
+  showToast('Test lead ready (consent on, DNC cleared)', '#10b981');
+  aiTestLoadExistingLead();
+}
+
+// 2 · Invoke ai-call-start via the app's supabase client; surface the JSON
+// response and translate every gate error into plain words.
+async function aiTestStartCall() {
+  if (!aiTestState.leadId) { showToast('Create the test lead first', '#dc2626'); return; }
+  const btn    = document.getElementById('aiTest-startBtn');
+  const respEl = document.getElementById('aiTest-response');
+  if (btn) { btn.disabled = true; btn.textContent = 'Dialing…'; }
+  if (respEl) respEl.textContent = 'Calling ai-call-start…';
+  let body, ok = false;
+  try {
+    const resp = await sb.functions.invoke('ai-call-start', { body: { lead_id: aiTestState.leadId } });
+    if (resp.error) { body = await _aiTestErrBody(resp.error); }
+    else { body = resp.data; ok = !!(body && body.ok); }
+  } catch (e) {
+    body = { error: 'network_error', detail: (e && e.message) || String(e) };
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Start AI call'; }
+  if (respEl) {
+    respEl.innerHTML = '';
+    const line = document.createElement('div');
+    line.style.cssText = 'font:600 13px/19px var(--sans);margin:0 0 8px;color:' + (ok ? '#10b981' : '#dc2626');
+    line.textContent = ok ? '✓ Call started — your phone should ring.' : ('✗ ' + aiTestGateMessage(body));
+    const pre = document.createElement('pre');
+    pre.style.cssText = 'margin:0;padding:10px;border-radius:8px;background:rgba(127,127,127,.12);overflow:auto;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word';
+    pre.textContent = JSON.stringify(body, null, 2);
+    respEl.appendChild(line); respEl.appendChild(pre);
+  }
+  if (ok && body && body.ai_call_id) {
+    aiTestState.aiCallId = body.ai_call_id;
+    aiTestState.callControlId = body.call_control_id || null;
+    aiTestStartPolling();
+  }
+}
+
+// Read the JSON body out of a failed sb.functions.invoke() (non-2xx). Mirrors
+// _pdInvokeErrorDetail but returns the whole parsed body, not just a string.
+async function _aiTestErrBody(error) {
+  try {
+    if (error && error.context && typeof error.context.clone === 'function') {
+      return await error.context.clone().json();
+    }
+  } catch (_) { /* not JSON */ }
+  return { error: (error && error.message) || 'unknown_error' };
+}
+
+// Map an ai-call-start / reset error body to a plain-English sentence.
+function aiTestGateMessage(body) {
+  const e = (body && body.error) || 'unknown_error';
+  if (e === 'not_callable') return 'Not callable — ' + ((body && body.reason) || 'lead failed a compliance check') + '.';
+  const map = {
+    ai_disabled:              'AI dialer kill switch is off (global or per-agent).',
+    upgrade_required:         'Plan not entitled — Pro Producer or Team Leader required (admins bypass).',
+    insufficient_balance:     'Wallet balance is below the AI call-start floor — top up first.',
+    quiet_hours:              (body && body.detail) || 'Outside the lead-local calling window (quiet hours).',
+    no_caller_id:             'No Telnyx caller ID assigned — buy/assign a number in Phone Book.',
+    missing_lead_id:          'No lead id sent — create the test lead first.',
+    telnyx_not_configured:    'Server is missing Telnyx API secrets.',
+    assistant_not_configured: 'Server is missing the Telnyx AI Assistant id secret.',
+    db_insert_failed:         'Server could not create the call row.',
+    telnyx_error:             'Telnyx rejected the call' + ((body && body.detail) ? (': ' + body.detail) : '.'),
+    forbidden:                (body && body.detail) || 'Not permitted.',
+    unauthorized:             'Not signed in.',
+    network_error:            'Network error reaching the function' + ((body && body.detail) ? (': ' + body.detail) : '.'),
+  };
+  return map[e] || ((body && body.detail) || e);
+}
+
+// 3 · Poll the ai_calls row every 2s while status is in_progress.
+function aiTestStartPolling() {
+  aiTestStopPolling();
+  aiTestState.pollTicks = 0;
+  const statusEl = document.getElementById('aiTest-status');
+  if (statusEl) statusEl.textContent = 'Call in progress… (polling every 2s)';
+  aiTestPollOnce();
+  aiTestState.pollTimer = setInterval(aiTestPollOnce, 2000);
+}
+
+function aiTestStopPolling() {
+  if (aiTestState.pollTimer) { clearInterval(aiTestState.pollTimer); aiTestState.pollTimer = null; }
+}
+
+async function aiTestPollOnce() {
+  // Auto-stop if the tester navigated away from the panel (no nav() hook needed).
+  const sec = document.getElementById('sec-ai-test');
+  if (!sec || !sec.classList.contains('active')) { aiTestStopPolling(); return; }
+  if (!aiTestState.aiCallId) { aiTestStopPolling(); return; }
+  if (++aiTestState.pollTicks > 180) { aiTestStopPolling(); return; } // ~6 min safety cap
+  let row;
+  try {
+    const { data } = await sb.from('ai_calls')
+      .select('status, outcome, answered_at, duration_secs, billed_minutes, summary, transcript, started_at, ended_at, call_control_id')
+      .eq('id', aiTestState.aiCallId).maybeSingle();
+    row = data;
+  } catch (_) { return; }
+  if (!row) return;
+  aiTestRenderCall(row);
+  if (row.status !== 'in_progress') {
+    aiTestStopPolling();
+    aiTestLoadReceipts(); // the debit lands on finalize (call.hangup)
+  }
+}
+
+function aiTestRenderCall(row) {
+  const el = document.getElementById('aiTest-status');
+  if (!el) return;
+  const inProg   = row.status === 'in_progress';
+  const dur      = (row.duration_secs != null) ? (row.duration_secs + 's') : '—';
+  const answered = row.answered_at ? new Date(row.answered_at).toLocaleTimeString() : '—';
+  const lines = [
+    ['Status', row.status + (inProg ? ' …' : '')],
+    ['Outcome', row.outcome || '—'],
+    ['Answered at', answered],
+    ['Duration', dur],
+    ['Billed minutes', (row.billed_minutes != null) ? String(row.billed_minutes) : '—'],
+  ];
+  let html = '<div style="display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font:13px/1.5 var(--sans)">';
+  for (const [k, v] of lines) html += '<div style="color:var(--text2)">' + k + '</div><div style="font-weight:600">' + _aiTestEsc(v) + '</div>';
+  html += '</div>';
+  if (row.summary) {
+    html += '<div style="margin-top:14px"><div style="color:var(--text2);font:13px var(--sans);margin-bottom:4px">Summary</div>' +
+            '<div style="font:13px/1.5 var(--sans)">' + _aiTestEsc(row.summary) + '</div></div>';
+  }
+  if (row.transcript != null) {
+    const t = (typeof row.transcript === 'string') ? row.transcript : JSON.stringify(row.transcript, null, 2);
+    html += '<div style="margin-top:14px"><div style="color:var(--text2);font:13px var(--sans);margin-bottom:4px">Transcript</div>' +
+            '<pre style="margin:0;padding:10px;border-radius:8px;background:rgba(127,127,127,.12);overflow:auto;max-height:320px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word">' + _aiTestEsc(t) + '</pre></div>';
+  }
+  el.innerHTML = html;
+}
+
+// 4 · List the caller's own ai_call wallet_ledger rows (RLS: wallet_ledger_select_own).
+async function aiTestLoadReceipts() {
+  const el = document.getElementById('aiTest-receipts');
+  if (!el) return;
+  let rows;
+  try {
+    const { data, error } = await sb.from('wallet_ledger')
+      .select('created_at, amount_mills, units, unit_rate_mills, status, ref_id, description')
+      .eq('agent_id', currentAgent.id).eq('category', 'ai_call')
+      .order('created_at', { ascending: false }).limit(20);
+    if (error) throw error;
+    rows = data || [];
+  } catch (e) { el.textContent = 'Could not load receipts: ' + ((e && e.message) || e); return; }
+  if (!rows.length) { el.textContent = 'No ai_call wallet entries yet.'; return; }
+  const money = m => '$' + (Math.abs(Number(m) || 0) / 1000).toFixed(3);
+  const head = ['When', 'Amount', 'Min', 'Rate', 'Status', 'Ref'];
+  let html = '<table style="width:100%;border-collapse:collapse;font:12px/1.4 var(--sans)"><thead><tr>' +
+    head.map(h => '<th style="text-align:left;padding:6px 8px;color:var(--text2);border-bottom:1px solid rgba(127,127,127,.2)">' + h + '</th>').join('') +
+    '</tr></thead><tbody>';
+  for (const r of rows) {
+    html += '<tr>' +
+      '<td style="padding:6px 8px;white-space:nowrap">' + _aiTestEsc(new Date(r.created_at).toLocaleString()) + '</td>' +
+      '<td style="padding:6px 8px;font-weight:600">' + money(r.amount_mills) + '</td>' +
+      '<td style="padding:6px 8px">' + (r.units != null ? _aiTestEsc(r.units) : '—') + '</td>' +
+      '<td style="padding:6px 8px">' + (r.unit_rate_mills != null ? money(r.unit_rate_mills) + '/min' : '—') + '</td>' +
+      '<td style="padding:6px 8px">' + _aiTestEsc(r.status) + '</td>' +
+      '<td style="padding:6px 8px;font:11px ui-monospace,monospace;color:var(--text2)">' + _aiTestEsc(String(r.ref_id || '').slice(0, 14)) + '</td>' +
+      '</tr>';
+  }
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// 5 · Reset the DNC test for this lead only (service-role edge function —
+// suppression_list has no client delete policy).
+async function aiTestResetDnc() {
+  const btn  = document.getElementById('aiTest-resetBtn');
+  const phEl = document.getElementById('aiTest-phone');
+  const phone = toE164(phEl ? phEl.value : '');
+  if (btn) { btn.disabled = true; btn.textContent = 'Resetting…'; }
+  let body, ok = false;
+  try {
+    const resp = await sb.functions.invoke('ai-dialer-test-reset', {
+      body: { client_id: AI_TEST_CLIENT_ID, phone: phone || undefined },
+    });
+    if (resp.error) { body = await _aiTestErrBody(resp.error); }
+    else { body = resp.data; ok = !!(body && body.ok); }
+  } catch (e) {
+    body = { error: 'network_error', detail: (e && e.message) || String(e) };
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Reset DNC test'; }
+  if (ok) {
+    showToast('DNC reset — cleared ' + (body.cleared_suppression || 0) + ' suppression row(s)', '#10b981');
+    aiTestLoadExistingLead();
+  } else {
+    showToast('Reset failed: ' + aiTestGateMessage(body), '#dc2626');
+  }
+}
+
+function _aiTestEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
 function nav(id) {
   // Plan gate — intercept before navigating
   const _navTier = _planTier();
@@ -23042,6 +23399,7 @@ async function bootDashboard() {
     if (tabParam && valid[tabParam]) nav(tabParam);
   } catch (e) {}
   if (typeof dsInitPlayground === 'function') dsInitPlayground();
+  if (typeof aiTestInit === 'function') aiTestInit(); // AI Dialer Test panel — gated on both kill switches
   // Phase 7: wire drag-to-reorder once DOM is settled.
   _wireReorder();
 
