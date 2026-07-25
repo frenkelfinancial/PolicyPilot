@@ -85,3 +85,13 @@ verify_jwt = false
 # platform default (verify_jwt = true).
 [functions.email-pipeline]
 verify_jwt = false
+
+# ai-call-webhook: the Telnyx Call Control + AI Assistant webhook for the AI
+# Sales Agent (Phase 1). Telnyx POSTs it unauthenticated (Ed25519-signed, not
+# a Supabase JWT), so the platform gate must be off; the function verifies the
+# telnyx-signature-ed25519 header itself against TELNYX_PUBLIC_KEY, exactly
+# like messaging-delivery-webhook. ai-call-start is NOT listed here — it's
+# called by the authenticated browser client with the user's session JWT, so
+# it correctly uses the platform default (verify_jwt = true).
+[functions.ai-call-webhook]
+verify_jwt = false
