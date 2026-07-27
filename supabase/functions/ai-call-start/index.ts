@@ -74,7 +74,7 @@ serve(async (req) => {
   // One parallel round-trip for everything the gates read.
   const [{ data: agent }, { data: billingConfig }, { data: wallet }, { data: lead }] = await Promise.all([
     sb.from("agents")
-      .select("is_admin, ai_dialer_enabled, plan_id, display_name, agency_name, signalwire_caller_id")
+      .select("is_admin, ai_dialer_enabled, plan_id, display_name, agency_name, signalwire_caller_id, ai_voice")
       .eq("id", user.id)
       .maybeSingle(),
     sb.from("billing_config")
@@ -177,18 +177,46 @@ serve(async (req) => {
     }, 422);
   }
 
+  // ---- Preflight: the assistant id must actually exist -------------------
+  // A wrong TELNYX_AI_ASSISTANT_ID produces the worst possible failure mode:
+  // the call connects, the webhook's ai_assistant_start 404s, and the lead
+  // hears dead air until the hangup. Verify the id up front and fail loudly
+  // with its own error code so the test rig can say exactly what's wrong.
+  const preflight = await fetch(
+    `https://api.telnyx.com/v2/ai/assistants/${TELNYX_ASSISTANT}`,
+    { headers: { "Authorization": `Bearer ${TELNYX_API_KEY}` } },
+  ).catch(() => null);
+  if (!preflight || !preflight.ok) {
+    const status = preflight ? preflight.status : "network_error";
+    const detail = preflight ? await preflight.text().catch(() => "") : "";
+    console.error("[ai-call-start] assistant preflight failed:", status, detail);
+    return json({
+      error: "assistant_not_found",
+      detail: `Telnyx returned ${status} for assistant id "${TELNYX_ASSISTANT}". ` +
+        "Check that the TELNYX_AI_ASSISTANT_ID secret exactly matches the id shown in " +
+        "Mission Control -> AI -> AI Assistants (it looks like 'assistant-xxxxxxxx-...'). " +
+        detail.slice(0, 300),
+    }, 502);
+  }
+
   // ---- Dynamic variables handed to the assistant -------------------------
   const d = (lead.data as Record<string, unknown> | null) || {};
   const asStr = (v: unknown) => (typeof v === "string" ? v : "");
   const leadName = asStr(d.name) ||
     [asStr(d.first_name), asStr(d.last_name)].filter(Boolean).join(" ").trim() ||
     "there";
+  // Agent-chosen TTS voice (agents.ai_voice). Travels in client_state.vars;
+  // the webhook sends it as the top-level `voice` override on
+  // ai_assistant_start. Empty = use the assistant's Mission Control voice.
+  const aiVoice = asStr((agent as { ai_voice?: unknown } | null)?.ai_voice).trim();
+
   const dynamicVariables = {
     lead_name:   leadName,
     lead_state:  asStr(d.state),
     lead_type:   asStr(d.coverage_wanted) || asStr(d.lead_type) || asStr(d.type) || asStr(d.source),
     agent_name:  asStr(agent?.display_name) || "your agent",
     agency_name: asStr(agent?.agency_name) || asStr(agent?.display_name) || "our agency",
+    voice:       aiVoice,
   };
 
   const telnyxHeaders = {
@@ -208,6 +236,7 @@ serve(async (req) => {
     from_e164:  callerId,
     status:     "in_progress",
     outcome:    "in_progress",
+    voice:      aiVoice || null,
     started_at: new Date().toISOString(),
   }).select("id").single();
 

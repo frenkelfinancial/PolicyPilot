@@ -145,27 +145,54 @@ serve(async (req) => {
           `lead_type: ${vars.lead_type || ""}; agent: ${vars.agent_name || ""}; ` +
           `agency: ${vars.agency_name || ""}.`;
 
+        // Only assistant.id is required; greeting + message_history override
+        // the assistant's stored config for this call, and any field omitted
+        // falls back to that stored config. `voice` (when the agent picked
+        // one — client_state.vars.voice, from agents.ai_voice) overrides the
+        // assistant's Mission Control voice for this call only.
+        const startBody: Record<string, unknown> = {
+          assistant:       { id: TELNYX_ASSISTANT },
+          greeting,
+          message_history: [{ role: "system", content: systemContext }],
+          command_id:      crypto.randomUUID(),
+        };
+        if (vars.voice) startBody.voice = vars.voice;
+
         const startRes = await fetch(
           `https://api.telnyx.com/v2/calls/${callControlId}/actions/ai_assistant_start`,
           {
             method: "POST",
             headers: telnyxHeaders,
-            body: JSON.stringify({
-              // Only assistant.id is required; greeting + message_history
-              // override the assistant's stored config for this call, and any
-              // field omitted falls back to that stored config.
-              assistant:       { id: TELNYX_ASSISTANT },
-              greeting,
-              message_history: [{ role: "system", content: systemContext }],
-              command_id:      crypto.randomUUID(),
-            }),
+            body: JSON.stringify(startBody),
           },
         );
         if (!startRes.ok) {
-          console.error("[ai-call-webhook] ai_assistant_start failed:", startRes.status, await startRes.text().catch(() => ""));
+          const failText = await startRes.text().catch(() => "");
+          console.error("[ai-call-webhook] ai_assistant_start failed:", startRes.status, failText);
+          // Make the failure VISIBLE (the "answered but silent" bug): store
+          // the Telnyx response on the row so the test rig can display it...
+          await sb.from("ai_calls").update({
+            error_detail: `ai_assistant_start ${startRes.status}: ${failText.slice(0, 500)}`,
+          }).eq(idCol, idVal);
+          // ...and hang up rather than leaving the lead listening to dead
+          // air until the 5-minute cap. Finalize (call.hangup) will mark the
+          // outcome 'error' since answered_at is set but nothing terminal is.
+          await fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/hangup`, {
+            method: "POST",
+            headers: telnyxHeaders,
+            body: JSON.stringify({ command_id: crypto.randomUUID() }),
+          }).catch(() => {});
         }
       } else {
         console.error("[ai-call-webhook] TELNYX_AI_ASSISTANT_ID not set — cannot start the assistant.");
+        await sb.from("ai_calls").update({
+          error_detail: "TELNYX_AI_ASSISTANT_ID secret not set — assistant never attached.",
+        }).eq(idCol, idVal);
+        await fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/hangup`, {
+          method: "POST",
+          headers: telnyxHeaders,
+          body: JSON.stringify({ command_id: crypto.randomUUID() }),
+        }).catch(() => {});
       }
       return new Response("ok");
     }

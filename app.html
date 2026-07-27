@@ -3966,6 +3966,17 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </div>
         <div id="aiTest-leadInfo" style="font:12px/1.5 var(--sans);color:var(--text2);margin-bottom:24px">No test lead yet — create one above.</div>
 
+        <!-- 1b · AI voice -->
+        <div style="font:600 13px var(--sans);margin:0 0 8px">1b · AI voice</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+          <select id="aiTest-voice" onchange="aiTestSaveVoice()"
+            style="flex:1;min-width:220px;padding:9px 12px;border:1px solid rgba(127,127,127,.3);border-radius:8px;background:var(--card);color:inherit;font:14px var(--sans)"></select>
+        </div>
+        <div style="font:12px/1.5 var(--sans);color:var(--text2);margin-bottom:24px">
+          The voice the AI uses on your calls &mdash; saved to your account instantly, applies from the next call.
+          &ldquo;Assistant default&rdquo; uses whatever voice is configured on the assistant in Telnyx Mission Control.
+        </div>
+
         <!-- 2 · Start the AI call -->
         <div style="font:600 13px var(--sans);margin:0 0 8px">2 · Start AI call</div>
         <button id="aiTest-startBtn" onclick="aiTestStartCall()"
@@ -18627,7 +18638,49 @@ async function aiTestInit() {
 // Runs each time the panel is opened.
 function aiTestOnShow() {
   aiTestLoadExistingLead();
+  aiTestLoadVoice();
   aiTestLoadReceipts();
+}
+
+// Curated Telnyx TTS voices for the AI Sales Agent. value = the exact string
+// the webhook sends as the ai_assistant_start `voice` override ('' = use the
+// assistant's Mission Control default). Full catalog:
+// https://developers.telnyx.com/docs/voice/programmable-voice/tts-available-voices
+const AI_VOICES = [
+  { value: '',                         label: 'Assistant default (Mission Control setting)' },
+  { value: 'AWS.Polly.Joanna-Neural',  label: 'Joanna \u2014 female, warm (AWS)' },
+  { value: 'AWS.Polly.Salli-Neural',   label: 'Salli \u2014 female, crisp (AWS)' },
+  { value: 'Azure.en-US-AvaNeural',    label: 'Ava \u2014 female, natural (Azure)' },
+  { value: 'AWS.Polly.Matthew-Neural', label: 'Matthew \u2014 male, warm (AWS)' },
+  { value: 'Azure.en-US-AndrewNeural', label: 'Andrew \u2014 male, natural (Azure)' },
+  { value: 'Azure.en-US-BrianNeural',  label: 'Brian \u2014 male, casual (Azure)' },
+];
+
+// 1b · Populate the picker + reflect the saved agents.ai_voice.
+async function aiTestLoadVoice() {
+  const sel = document.getElementById('aiTest-voice');
+  if (!sel) return;
+  if (!sel.options.length) {
+    for (const v of AI_VOICES) {
+      const o = document.createElement('option');
+      o.value = v.value; o.textContent = v.label;
+      sel.appendChild(o);
+    }
+  }
+  try {
+    const { data } = await sb.from('agents').select('ai_voice').eq('id', currentAgent.id).maybeSingle();
+    const cur = (data && data.ai_voice) || '';
+    sel.value = AI_VOICES.some(v => v.value === cur) ? cur : '';
+  } catch (_) { /* non-fatal */ }
+}
+
+async function aiTestSaveVoice() {
+  const sel = document.getElementById('aiTest-voice');
+  if (!sel) return;
+  const v = sel.value || null;
+  const { error } = await sb.from('agents').update({ ai_voice: v }).eq('id', currentAgent.id);
+  if (error) { showToast('Could not save voice: ' + error.message, '#dc2626'); return; }
+  showToast(v ? 'AI voice saved \u2014 applies from the next call' : 'AI voice reset to assistant default', '#10b981');
 }
 
 // Prefill phone + lead id from an existing ai-test-001 lead, if any.
@@ -18743,6 +18796,7 @@ function aiTestGateMessage(body) {
     missing_lead_id:          'No lead id sent — create the test lead first.',
     telnyx_not_configured:    'Server is missing Telnyx API secrets.',
     assistant_not_configured: 'Server is missing the Telnyx AI Assistant id secret.',
+    assistant_not_found:      'Assistant id rejected by Telnyx \u2014 TELNYX_AI_ASSISTANT_ID doesn\u2019t match an assistant in Mission Control' + ((body && body.detail) ? (': ' + body.detail) : '.'),
     db_insert_failed:         'Server could not create the call row.',
     telnyx_error:             'Telnyx rejected the call' + ((body && body.detail) ? (': ' + body.detail) : '.'),
     forbidden:                (body && body.detail) || 'Not permitted.',
@@ -18775,7 +18829,7 @@ async function aiTestPollOnce() {
   let row;
   try {
     const { data } = await sb.from('ai_calls')
-      .select('status, outcome, answered_at, duration_secs, billed_minutes, summary, transcript, started_at, ended_at, call_control_id')
+      .select('status, outcome, answered_at, duration_secs, billed_minutes, summary, transcript, started_at, ended_at, call_control_id, error_detail, voice')
       .eq('id', aiTestState.aiCallId).maybeSingle();
     row = data;
   } catch (_) { return; }
@@ -18799,10 +18853,15 @@ function aiTestRenderCall(row) {
     ['Answered at', answered],
     ['Duration', dur],
     ['Billed minutes', (row.billed_minutes != null) ? String(row.billed_minutes) : '—'],
+    ['Voice', row.voice || 'assistant default'],
   ];
   let html = '<div style="display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font:13px/1.5 var(--sans)">';
   for (const [k, v] of lines) html += '<div style="color:var(--text2)">' + k + '</div><div style="font-weight:600">' + _aiTestEsc(v) + '</div>';
   html += '</div>';
+  if (row.error_detail) {
+    html += '<div style="margin-top:14px"><div style="color:#dc2626;font:600 13px var(--sans);margin-bottom:4px">Error detail</div>' +
+            '<pre style="margin:0;padding:10px;border-radius:8px;background:rgba(220,38,38,.08);overflow:auto;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:#dc2626">' + _aiTestEsc(row.error_detail) + '</pre></div>';
+  }
   if (row.summary) {
     html += '<div style="margin-top:14px"><div style="color:var(--text2);font:13px var(--sans);margin-bottom:4px">Summary</div>' +
             '<div style="font:13px/1.5 var(--sans)">' + _aiTestEsc(row.summary) + '</div></div>';
