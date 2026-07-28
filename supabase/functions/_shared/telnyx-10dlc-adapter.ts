@@ -56,6 +56,11 @@ export interface BrandSubmitResult {
   error?: string;
 }
 
+// ⚠ a2p-register WAS PULLED FROM PRODUCTION 2026-07-28. It is deleted from the
+// Supabase project (the route now 404s); this source is kept for Phase 2. Do
+// not redeploy it until submitBrand and submitCampaign below are fixed AND
+// verified live — see the reasoning in the submitCampaign block.
+//
 // PHASE 2 — NOT verified end-to-end yet; DO NOT rely on submitBrand /
 // submitCampaign as-is. What the 2026-07-27 live probing DID establish:
 //   • /v2/10dlc/* returns BARE objects, so the `data?.data?.<field>` reads
@@ -154,6 +159,34 @@ export interface CampaignInfo {
 // `messageFlow` is REQUIRED — the probe returned "Missing required parameter"
 // for brandId, usecase, description, and messageFlow. As written,
 // submitCampaign cannot succeed. Fixing that is Phase 2 work.
+//
+// WHY a2p-register WAS PULLED RATHER THAN PATCHED (2026-07-28)
+//
+// Reachability was established, not assumed: the deployed function answered
+// with its OWN body `{"error":"unauthorized"}` (401), whereas a function that
+// does not exist answers `{"code":"NOT_FOUND"}` (404). Those are distinguish-
+// able, so the 401 was never ambiguous evidence — and `supabase functions
+// list` showed it ACTIVE at v11 independently. It was deployed and executing.
+//
+// It was NOT, however, reachable with the anon key alone: the function builds
+// an anon client with the caller's Authorization header and calls getUser(),
+// and a publishable key carries no user, so it 401s inside the function. The
+// real caller set was "any authenticated agent", not "anyone with the key".
+//
+// The decisive problem is upstream of submitCampaign. submitBrand POSTs to a
+// real endpoint, so Telnyx CREATES A REAL BRAND — then the `data?.data?.
+// brandId` read returns undefined against the bare-object response, so
+// a2p-register returns 502 and writes no row. The brand exists at Telnyx,
+// billable, with nothing in our DB pointing at it. submitCampaign is never
+// even reached. Patching submitCampaign alone would have made that worse, not
+// better: it would carry execution past brand creation and into wallet_debit.
+//
+// Fixing this properly needs live verification (campaignBuilder field set,
+// messageFlow copy, usecase enum, whether fees return synchronously) that
+// cannot be done without creating real, billable brands and campaigns. That is
+// a deliberate spend decision, not a refactor — so the function was removed
+// from production instead of being left reachable in a state where its only
+// possible outcome was an orphaned brand.
 // ------------------------------------------------------------
 
 export interface CampaignSubmitResult {
