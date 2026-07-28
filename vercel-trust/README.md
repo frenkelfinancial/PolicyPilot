@@ -11,8 +11,13 @@ pages on a domain that belongs to us:
 /a/:slug/sms-opt-in/confirmed
 ```
 
-It is a **separate Vercel project** from the repo-root one (`policy-pilot`).
-Run every command below from inside this directory, never from the repo root.
+It is a **separate Vercel project** from the repo-root one (`policy-pilot`):
+`producerstack-trust`, under the team `frenkelfinancials-projects`.
+
+**Link from this directory, but deploy from the repo root** — the project's
+Root Directory setting is `vercel-trust`, so Vercel descends into this folder
+itself. See Setup below; getting this backwards fails with a confusing
+"path does not exist" error.
 
 ## Why this project exists at all
 
@@ -69,12 +74,40 @@ curl -sI https://trust.producerstackcrm.com/a/<slug>/sms-opt-in \
 
 ## Setup
 
+**The project already exists: `producerstack-trust`, under the team
+`frenkelfinancials-projects`, with `trust.producerstackcrm.com` attached.**
+Link to it by name — a bare `vercel link --yes` defaults the project name to
+the *directory* name and would silently create a second, domainless project
+called `vercel-trust`:
+
 ```bash
 cd vercel-trust
-vercel link                                    # create a NEW project
-vercel --prod
-vercel domains add trust.producerstackcrm.com
+vercel link --yes --project producerstack-trust --scope frenkelfinancials-projects
 ```
+
+### 🔴 Deploy from the REPO ROOT, not from this directory
+
+The project's **Root Directory setting is `vercel-trust`**, so Vercel already
+descends into this folder itself. Running `vercel --prod` from inside here
+makes it look for `vercel-trust/vercel-trust` and fail with:
+
+```
+Error: The provided path ".../vercel-trust/vercel-trust" does not exist.
+```
+
+Deploy from the repo root and name the project explicitly, which needs no
+change to project settings and leaves no stray link at the root:
+
+```bash
+# from the repo root
+vercel --prod --yes --project producerstack-trust --scope frenkelfinancials-projects
+```
+
+(An earlier version of this README said to run `vercel --prod` from inside
+`vercel-trust/`. That was wrong and cost a failed deploy on 2026-07-28.)
+
+The domain is already attached; `vercel domains add` is only for a rebuild
+from scratch.
 
 Then add the DNS record Vercel prints at the registrar holding
 `producerstackcrm.com`. Vercel now issues a **project-specific** CNAME target,

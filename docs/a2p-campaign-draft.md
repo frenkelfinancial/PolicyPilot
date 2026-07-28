@@ -183,20 +183,46 @@ that consent ever supported.
 
 ### Before resubmitting
 
-- [ ] `supabase/migrations/20260733_sms_optin_consent.sql` applied
-- [ ] `compliance-page` deployed with `--no-verify-jwt`, and `vercel-trust`
-      redeployed so the CSP carries `form-action 'self'` — with `'none'` the
-      browser silently refuses to submit the form and nothing logs anywhere
-- [ ] All four URLs return `200 text/html`: `""`, `/privacy-policy`,
-      `/terms`, `/sms-opt-in`
-- [ ] A real POST to `/sms-opt-in` returns `303` and writes a
-      `consent_method='web_form'` row with a populated `disclosure_text`
-      (curl block in `vercel-trust/README.md`)
-- [ ] The disclosure on the live page matches the quote above **word for
-      word** — a reviewer will compare them, so compare them first
-- [ ] Brand `website` field set to the privacy policy URL
-- [ ] At least one real opt-in captured, so the campaign describes something
-      that has actually happened rather than something that could
+**All complete as of 2026-07-28T21:xxZ.** Everything below was verified against
+production, not assumed.
+
+- [x] `supabase/migrations/20260733_sms_optin_consent.sql` applied — 4/4
+      behavioural checks, see `docs/schema-state.md`
+- [x] `compliance-page` deployed with `--no-verify-jwt` (and four other
+      functions, each individually; all 16 `verify_jwt` flags re-audited
+      against `supabase/config.toml`)
+- [x] `vercel-trust` redeployed — live CSP now reads `form-action 'self'`.
+      With `'none'` the browser silently refuses to submit and nothing logs
+      anywhere, which is why this is verified with a real browser below
+- [x] All four URLs return `200 text/html`: `""`, `/privacy-policy`,
+      `/terms`, `/sms-opt-in`; an unknown slug returns `404`
+- [x] A real POST to `/sms-opt-in` returns `303` and wrote a
+      `consent_method='web_form'` row with `disclosure_text`, `page_url`,
+      `ip_address` and `captured_at` all populated
+- [x] **Submitted through headless Chromium, not curl** — checkbox unchecked
+      on load, POST issued, `303`, landed on `/confirmed`, no CSP console
+      violation. A second submission of the same number wrote **no second
+      row**, confirming the phone-keyed repeat check
+- [x] The disclosure on the live page matches the quote above **word for
+      word** — compared programmatically, 641 chars, byte-for-byte identical
+- [x] Brand `website` field set to the privacy policy URL — was
+      `https://frenkelfinancial.com`, an **agent-recruiting site** ("Build
+      Your Career With Us"), which is one of the mismatches carrier review
+      rejects. `PUT` diff touched only `website` + `updatedAt`;
+      `identityStatus: VERIFIED` and the EIN were preserved
+- [x] At least one real opt-in captured — 1 row, for a number the agency owns
+
+**One caveat carried forward:** `ip_address` currently records the proxy hop,
+not the consumer, because a Vercel rewrite to an external origin does not
+forward the caller's address. The disclosure, page URL, timestamp and name are
+unaffected — see `docs/compliance-pages.md` § "Two defects found in live
+verification". Not a blocker for resubmission; the consent evidence does not
+rest on the IP.
+
+### 🔴 Still requires an explicit go from Jace
+
+Resubmission is **$15**, and one rejection has already been paid for. Nothing
+above submits anything.
 
 **$15 per submission, and resubmission after a rejection is another $15.** One
 rejection has already been paid for.
