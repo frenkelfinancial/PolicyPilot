@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getBrandStatus, getCampaignStatus } from "../_shared/telnyx-10dlc-adapter.ts";
+import { getBrandStatus, getCampaignStatus, getNumberAssignmentStatus } from "../_shared/telnyx-10dlc-adapter.ts";
 
 // Cron worker: polls Telnyx for every agent's 10DLC brand/campaign status
 // and keeps a2p_registrations.status in sync. Two groups are polled:
@@ -17,6 +17,11 @@ import { getBrandStatus, getCampaignStatus } from "../_shared/telnyx-10dlc-adapt
 // TODO is filled in with Telnyx's real raw status strings — until then they
 // surface as "pending" from the adapter and this poll takes no action,
 // which is a safe (if inert) default, not a false "still approved".
+//
+// It ALSO runs an assignment-confirmation pass (PROMPT_15 Phase 1.4):
+// numbers left at PENDING_ASSIGNMENT by a2p-assign-number / the buy-time
+// auto-assign are flipped to ASSIGNED (setting a2p_campaign_id + sms_capable)
+// once Telnyx's per-number getNumberAssignmentStatus reports ASSIGNED.
 //
 // Authenticated with WALLET_CRON_SECRET, same pattern as the other wallet
 // cron functions. Scheduled via pg_cron — see the cron.schedule(...) note
@@ -92,7 +97,76 @@ Deno.serve(async (req) => {
     }
   }
 
-  return new Response(JSON.stringify({ ok: true, ...results }), {
+  // ------------------------------------------------------------
+  // Assignment-confirmation pass (PROMPT_15 Phase 1.4): for every number
+  // sitting at PENDING_ASSIGNMENT, ask Telnyx for that number's campaign
+  // assignment directly and flip to ASSIGNED once the carrier confirms it.
+  // On confirm we set a2p_campaign_id + sms_capable (the send gate) — the
+  // manual/auto assign path deliberately left them unset while pending.
+  //
+  // Uses the per-number GET /v2/10dlc/phone_number_campaigns/{e164}
+  // (getNumberAssignmentStatus) — verified 2026-07-27 to be exact (404 when
+  // not yet assigned), unlike the /10dlc list's unconfirmed filter[campaignId].
+  // We need the campaign_id only to record it on confirm, from the agent's reg.
+  // ------------------------------------------------------------
+  const asg = { assignments_confirmed: 0, assignments_still_pending: 0, assignments_failed: 0, assignment_errors: 0 };
+  const { data: pendingNums } = await sb.from("phone_numbers")
+    .select("id, e164, agent_id")
+    .eq("a2p_assignment_status", "PENDING_ASSIGNMENT");
+
+  if (pendingNums && pendingNums.length) {
+    const agentIds = [...new Set(pendingNums.map((n) => n.agent_id as string))];
+    const { data: regs } = await sb.from("a2p_registrations")
+      .select("agent_id, campaign_id, status")
+      .in("agent_id", agentIds);
+    const campaignForAgent = new Map<string, string>();
+    for (const r of regs || []) {
+      if (r.status === "approved" && r.campaign_id) campaignForAgent.set(r.agent_id as string, r.campaign_id as string);
+    }
+
+    for (const num of pendingNums) {
+      try {
+        const campaignId = campaignForAgent.get(num.agent_id as string);
+        if (!campaignId) { asg.assignment_errors++; continue; }
+
+        const st = await getNumberAssignmentStatus(TELNYX_API_KEY, num.e164 as string);
+        if (!st.ok) { asg.assignment_errors++; continue; }
+
+        if (st.found && st.assignmentStatus === "ASSIGNED") {
+          await sb.from("phone_numbers").update({
+            a2p_campaign_id: campaignId,
+            a2p_assignment_status: "ASSIGNED",
+            a2p_assigned_at: new Date().toISOString(),
+            sms_capable: true,
+          }).eq("id", num.id);
+          await sb.from("a2p_registrations").update({
+            assignment_status: "ASSIGNED",
+            assignment_failure_reason: null,
+          }).eq("agent_id", num.agent_id);
+          asg.assignments_confirmed++;
+        } else if (st.found && st.assignmentStatus === "FAILED_ASSIGNMENT") {
+          await sb.from("phone_numbers").update({
+            a2p_assignment_status: "FAILED_ASSIGNMENT",
+            sms_capable: false,
+          }).eq("id", num.id);
+          await sb.from("a2p_registrations").update({
+            assignment_status: "FAILED_ASSIGNMENT",
+            assignment_failure_reason: st.failureReasons || "Telnyx reported FAILED_ASSIGNMENT for this number during status poll.",
+          }).eq("agent_id", num.agent_id);
+          asg.assignments_failed++;
+        } else {
+          // Not found yet (404) or still PENDING_ASSIGNMENT — leave pending
+          // and re-check next run.
+          asg.assignments_still_pending++;
+        }
+      } catch (err) {
+        console.error(`[a2p-status-poll] assignment confirm failed for number ${num.id}:`, (err as Error)?.message || err);
+        asg.assignment_errors++;
+      }
+    }
+  }
+
+  return new Response(JSON.stringify({ ok: true, ...results, ...asg }), {
     headers: { "Content-Type": "application/json" },
   });
 });

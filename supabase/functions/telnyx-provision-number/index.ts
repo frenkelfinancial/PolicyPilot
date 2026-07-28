@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { registerNumberBestEffort } from "../_shared/telnyx-reputation.ts";
+import { ensureNumberOnMessagingProfile } from "../_shared/telnyx-10dlc-adapter.ts";
 
 // Service-role endpoint: auto-searches and purchases a Telnyx local number for
 // a given user, then sets it as their caller ID. Called by stripe-webhook on
@@ -20,6 +21,7 @@ serve(async (req) => {
   const SERVICE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
   const TELNYX_CONN_ID = Deno.env.get("TELNYX_CONNECTION_ID");
+  const TELNYX_MSG_PROFILE_ID = Deno.env.get("TELNYX_MESSAGING_PROFILE_ID");
 
   if (!TELNYX_API_KEY || !TELNYX_CONN_ID) {
     return json({ error: "telnyx_not_configured" }, 500);
@@ -135,6 +137,22 @@ serve(async (req) => {
 
   // Best-effort spam-reputation registration; never blocks provisioning.
   await registerNumberBestEffort(sb, TELNYX_API_KEY, chosen, "local");
+
+  // Attach to the account Messaging Profile so the number can carry SMS/MMS
+  // and later be assigned to the agent's 10DLC campaign. No auto-assign here:
+  // this path runs at subscription activation, long before any campaign is
+  // approved. Never blocks provisioning — but the outcome is RECORDED on the
+  // number row (sms_setup_error) rather than swallowed, so a failed SMS setup
+  // is visible (matched by e164, which is unique).
+  if (TELNYX_MSG_PROFILE_ID) {
+    const ensured = await ensureNumberOnMessagingProfile(TELNYX_API_KEY, chosen, TELNYX_MSG_PROFILE_ID);
+    try {
+      await sb.from("phone_numbers")
+        .update({ sms_setup_error: ensured.ok ? null : (ensured.error ?? "messaging_profile_attach_failed") })
+        .eq("e164", chosen);
+    } catch (e) { console.warn("[telnyx-provision-number] sms_setup_error write failed:", e); }
+    if (!ensured.ok) console.warn(`[telnyx-provision-number] messaging-profile attach failed for ${chosen}:`, ensured.error);
+  }
 
   console.log(`[telnyx-provision-number] Provisioned ${chosen} for user ${user_id}`);
   return json({ ok: true, e164: chosen, order_id: orderId });

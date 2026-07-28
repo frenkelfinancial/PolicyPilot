@@ -1,23 +1,25 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { assignNumberToCampaign } from "../_shared/telnyx-10dlc-adapter.ts";
+import { assignAgentNumberToCampaign } from "../_shared/a2p-assign.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
 // Attaches one of the agent's owned Telnyx numbers to their approved 10DLC
-// campaign, so it can be used as a broadcast `from_number` (see
-// messaging-broadcast-create §2's campaign-assignment check).
+// campaign, so it can send SMS/MMS (see messaging-broadcast-create §2's
+// campaign-assignment check and the sms_capable gate on the composer).
 //
-// a2p-register only submits the brand+campaign — it never assigns a
-// number to it. This function closes that gap. The actual Telnyx call
-// (assignNumberToCampaign, _shared/telnyx-10dlc-adapter.ts) is a
-// deliberate TODO stub as of this build: the exact Telnyx endpoint/field
-// names for number->campaign assignment could not be confirmed, so it
-// fails closed with `not_implemented` rather than guessing. Until that
-// adapter function is filled in against confirmed Telnyx docs, this
-// endpoint cannot mark a number assigned — phone_numbers.a2p_campaign_id
-// must be set manually via SQL after confirming the assignment out of
-// band (Telnyx dashboard/support), same interim pattern already used for
-// agents.outbound_email_from.
+// a2p-register only submits the brand+campaign — it never assigns a number.
+// This function closes that gap. All the work (preconditions, the Telnyx
+// call, and the DB writes for ASSIGNED/PENDING/FAILED) lives in the shared
+// _shared/a2p-assign.ts routine, which telnyx-buy-number also uses to
+// auto-assign a number bought after approval.
+//
+// Outcomes:
+//   ASSIGNED            -> phone_numbers.a2p_campaign_id + sms_capable set; ok.
+//   PENDING_ASSIGNMENT  -> pending state stored, a2p_campaign_id left null;
+//                          a2p-status-poll confirms it. Carrier propagation
+//                          then takes 24-72h before delivery is reliable.
+//   FAILED_ASSIGNMENT   -> failure reason stored + returned 502 to the UI.
+//   already assigned    -> ok with no second Telnyx call (idempotent).
 serve(async (req) => {
   const cors = corsHeaders(req.headers.get("origin"));
 
@@ -34,6 +36,7 @@ serve(async (req) => {
   const SERVICE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const ANON_KEY       = Deno.env.get("SUPABASE_ANON_KEY")!;
   const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
+  const TELNYX_MSG_PROFILE_ID = Deno.env.get("TELNYX_MESSAGING_PROFILE_ID");
 
   if (!TELNYX_API_KEY) return json({ error: "telnyx_not_configured" }, 500);
 
@@ -54,34 +57,29 @@ serve(async (req) => {
 
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  const { data: phoneNumber } = await sb.from("phone_numbers")
-    .select("id, e164, status, a2p_campaign_id")
-    .eq("id", phoneNumberId)
-    .eq("agent_id", user.id)
-    .maybeSingle();
-  if (!phoneNumber) return json({ error: "phone_number_not_found" }, 404);
-  if (phoneNumber.status !== "active") {
-    return json({ error: "phone_number_not_active", detail: `status is ${phoneNumber.status}` }, 400);
+  const outcome = await assignAgentNumberToCampaign(
+    sb, TELNYX_API_KEY, TELNYX_MSG_PROFILE_ID, user.id, phoneNumberId,
+  );
+
+  if (!outcome.ok) {
+    // precondition failures carry their own httpStatus (400/404/409);
+    // Telnyx FAILED_ASSIGNMENT comes back as 502 with the reason surfaced.
+    return json({ error: outcome.reason.split(":")[0], detail: outcome.reason }, outcome.httpStatus);
   }
 
-  const { data: a2p } = await sb.from("a2p_registrations")
-    .select("campaign_id, status")
-    .eq("agent_id", user.id)
-    .maybeSingle();
-  if (!a2p || a2p.status !== "approved" || !a2p.campaign_id) {
-    return json({ error: "a2p_not_approved", detail: "SMS/MMS is blocked until your A2P 10DLC brand + campaign registration is approved." }, 400);
+  if (outcome.status === "pending") {
+    return json({
+      ok: true,
+      status: "pending_assignment",
+      campaign_id: outcome.campaignId,
+      detail: "Number submitted for assignment. It becomes textable once the carrier confirms it (checked automatically); delivery is fully reliable ~24-72h after that.",
+    });
   }
 
-  if (phoneNumber.a2p_campaign_id === a2p.campaign_id) {
-    return json({ ok: true, already_assigned: true, campaign_id: a2p.campaign_id });
-  }
-
-  const result = await assignNumberToCampaign(TELNYX_API_KEY, a2p.campaign_id, phoneNumber.e164);
-  if (!result.ok) {
-    return json({ error: "assignment_not_implemented", detail: result.error }, 501);
-  }
-
-  await sb.from("phone_numbers").update({ a2p_campaign_id: a2p.campaign_id }).eq("id", phoneNumber.id);
-
-  return json({ ok: true, campaign_id: a2p.campaign_id });
+  return json({
+    ok: true,
+    status: "assigned",
+    already_assigned: outcome.alreadyAssigned,
+    campaign_id: outcome.campaignId,
+  });
 });
