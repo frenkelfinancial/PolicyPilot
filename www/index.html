@@ -3966,6 +3966,17 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         </div>
         <div id="aiTest-leadInfo" style="font:12px/1.5 var(--sans);color:var(--text2);margin-bottom:24px">No test lead yet — create one above.</div>
 
+        <!-- 1b · AI voice -->
+        <div style="font:600 13px var(--sans);margin:0 0 8px">1b · AI voice</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+          <select id="aiTest-voice" onchange="aiTestSaveVoice()"
+            style="flex:1;min-width:220px;padding:9px 12px;border:1px solid rgba(127,127,127,.3);border-radius:8px;background:var(--card);color:inherit;font:14px var(--sans)"></select>
+        </div>
+        <div style="font:12px/1.5 var(--sans);color:var(--text2);margin-bottom:24px">
+          The voice the AI uses on your calls &mdash; saved to your account instantly, applies from the next call.
+          &ldquo;Assistant default&rdquo; uses whatever voice is configured on the assistant in Telnyx Mission Control.
+        </div>
+
         <!-- 2 · Start the AI call -->
         <div style="font:600 13px var(--sans);margin:0 0 8px">2 · Start AI call</div>
         <button id="aiTest-startBtn" onclick="aiTestStartCall()"
@@ -5086,6 +5097,116 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
             </button>
           </div>
 
+        </div>
+
+        <!-- ── Business Profile (PROMPT_16) ──
+             Feeds two things at once: the public compliance pages carriers
+             require before an agent can text, and the 10DLC brand/campaign
+             registration itself. Before this existed the business details
+             lived nowhere — a2p-register read them from its request body and
+             nothing ever populated it. -->
+        <div class="card" style="margin-top:18px">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="buildings" data-size="13"></span>Business Profile</div>
+          <div style="font-size:11.5px;color:var(--text2);line-height:1.45;margin-bottom:12px">
+            Your agency's public details. Carriers check these before approving you for text messaging, and consumers see them on your privacy policy — so use the name and address a client would recognize.
+          </div>
+
+          <div class="frow">
+            <div class="fg">
+              <label>Agency Name <span style="color:var(--text3);font-weight:400;font-size:11.5px">(what clients call you)</span></label>
+              <input type="text" id="stg-dba-name" placeholder="e.g. Frenkel Financial Agency" autocomplete="organization">
+            </div>
+            <div class="fg">
+              <label>Legal Entity Name <span style="color:var(--text3);font-weight:400;font-size:11.5px">(blank if you have no LLC)</span></label>
+              <input type="text" id="stg-legal-name" placeholder="e.g. Frenkel Financial LLC" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="frow" style="margin-top:8px">
+            <div class="fg">
+              <label>Business Structure</label>
+              <select id="stg-entity-type" onchange="stgOnEntityTypeChange()">
+                <option value="sole_proprietor">Sole proprietor — no entity</option>
+                <option value="llc">LLC</option>
+                <option value="corporation">Corporation</option>
+                <option value="s_corporation">S Corporation</option>
+                <option value="partnership">Partnership</option>
+              </select>
+            </div>
+            <div class="fg" id="stg-formation-state-wrap" style="display:none">
+              <label>State of Formation</label>
+              <select id="stg-formation-state"></select>
+            </div>
+          </div>
+
+          <div class="fg" style="margin-top:8px">
+            <label>Street Address <span style="color:var(--text3);font-weight:400;font-size:11.5px">(a real physical address — required, PO boxes are rejected)</span></label>
+            <input type="text" id="stg-biz-street" placeholder="123 Main Street, Suite 400" autocomplete="street-address">
+          </div>
+
+          <div class="frow" style="margin-top:8px">
+            <div class="fg">
+              <label>City</label>
+              <input type="text" id="stg-biz-city" placeholder="Milwaukee" autocomplete="address-level2">
+            </div>
+            <div class="fg">
+              <label>State</label>
+              <select id="stg-biz-state"></select>
+            </div>
+            <div class="fg">
+              <label>ZIP</label>
+              <input type="text" id="stg-biz-zip" placeholder="53202" autocomplete="postal-code" maxlength="10">
+            </div>
+          </div>
+
+          <div class="frow" style="margin-top:8px">
+            <div class="fg">
+              <label>Business Phone <span style="color:var(--text3);font-weight:400;font-size:11.5px">(a number clients can call)</span></label>
+              <input type="tel" id="stg-biz-phone" placeholder="(414) 555-1234" autocomplete="tel">
+            </div>
+            <div class="fg">
+              <label>Business Email <span style="color:var(--text3);font-weight:400;font-size:11.5px">(monitored inbox)</span></label>
+              <input type="email" id="stg-biz-email" placeholder="you@youragency.com" autocomplete="email">
+            </div>
+          </div>
+
+          <div class="fg" style="margin-top:12px">
+            <label>Where your leads come from</label>
+            <div style="font-size:11.5px;color:var(--text2);line-height:1.45;margin-bottom:6px">
+              Named on your privacy policy and on your 10DLC registration. These two must match, so pick every vendor you actually buy from.
+            </div>
+            <div id="stg-lead-vendors" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;text-transform:none;letter-spacing:0;color:var(--text)">
+                <input type="checkbox" id="stg-lv-goatleads" value="goatleads" style="width:auto;margin:0"> GoatLeads
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;text-transform:none;letter-spacing:0;color:var(--text)">
+                <input type="checkbox" id="stg-lv-builtleads" value="builtleads" style="width:auto;margin:0"> Built Leads
+              </label>
+              <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;text-transform:none;letter-spacing:0;color:var(--text)">
+                <input type="checkbox" id="stg-lv-other" style="width:auto;margin:0" onchange="stgOnOtherVendorToggle()"> Other
+              </label>
+              <input type="text" id="stg-lv-other-name" placeholder="Vendor name" autocomplete="off" style="display:none;max-width:220px">
+            </div>
+          </div>
+
+          <div id="stg-biz-msg" style="font-size:12px;margin-top:10px;min-height:18px"></div>
+          <button class="btn btn-p mt12" id="stg-biz-save" onclick="saveBusinessProfile()" style="display:inline-flex;align-items:center;gap:6px">
+            <span data-ico="check" data-size="14"></span>Save Business Profile
+          </button>
+        </div>
+
+        <!-- ── Compliance Pages (PROMPT_16) — read-only ──
+             Deliberately framed as something already handled, not a task.
+             The agent never requests these pages; the database publishes them
+             the moment the profile above is complete. -->
+        <div class="card" id="stg-compliance-card" style="margin-top:18px">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="shield-check" data-size="13"></span>Your Compliance Pages</div>
+          <div style="font-size:11.5px;color:var(--text2);line-height:1.45;margin-bottom:12px">
+            These pages let you register for text messaging. Carriers require them. We keep them current for you.
+          </div>
+          <div id="stg-compliance-body">
+            <div style="font-size:12px;color:var(--text3)">Loading…</div>
+          </div>
         </div>
 
         <!-- Contract Level + Monthly Quota -->
@@ -18627,7 +18748,49 @@ async function aiTestInit() {
 // Runs each time the panel is opened.
 function aiTestOnShow() {
   aiTestLoadExistingLead();
+  aiTestLoadVoice();
   aiTestLoadReceipts();
+}
+
+// Curated Telnyx TTS voices for the AI Sales Agent. value = the exact string
+// the webhook sends as the ai_assistant_start `voice` override ('' = use the
+// assistant's Mission Control default). Full catalog:
+// https://developers.telnyx.com/docs/voice/programmable-voice/tts-available-voices
+const AI_VOICES = [
+  { value: '',                         label: 'Assistant default (Mission Control setting)' },
+  { value: 'AWS.Polly.Joanna-Neural',  label: 'Joanna \u2014 female, warm (AWS)' },
+  { value: 'AWS.Polly.Salli-Neural',   label: 'Salli \u2014 female, crisp (AWS)' },
+  { value: 'Azure.en-US-AvaNeural',    label: 'Ava \u2014 female, natural (Azure)' },
+  { value: 'AWS.Polly.Matthew-Neural', label: 'Matthew \u2014 male, warm (AWS)' },
+  { value: 'Azure.en-US-AndrewNeural', label: 'Andrew \u2014 male, natural (Azure)' },
+  { value: 'Azure.en-US-BrianNeural',  label: 'Brian \u2014 male, casual (Azure)' },
+];
+
+// 1b · Populate the picker + reflect the saved agents.ai_voice.
+async function aiTestLoadVoice() {
+  const sel = document.getElementById('aiTest-voice');
+  if (!sel) return;
+  if (!sel.options.length) {
+    for (const v of AI_VOICES) {
+      const o = document.createElement('option');
+      o.value = v.value; o.textContent = v.label;
+      sel.appendChild(o);
+    }
+  }
+  try {
+    const { data } = await sb.from('agents').select('ai_voice').eq('id', currentAgent.id).maybeSingle();
+    const cur = (data && data.ai_voice) || '';
+    sel.value = AI_VOICES.some(v => v.value === cur) ? cur : '';
+  } catch (_) { /* non-fatal */ }
+}
+
+async function aiTestSaveVoice() {
+  const sel = document.getElementById('aiTest-voice');
+  if (!sel) return;
+  const v = sel.value || null;
+  const { error } = await sb.from('agents').update({ ai_voice: v }).eq('id', currentAgent.id);
+  if (error) { showToast('Could not save voice: ' + error.message, '#dc2626'); return; }
+  showToast(v ? 'AI voice saved \u2014 applies from the next call' : 'AI voice reset to assistant default', '#10b981');
 }
 
 // Prefill phone + lead id from an existing ai-test-001 lead, if any.
@@ -18743,6 +18906,7 @@ function aiTestGateMessage(body) {
     missing_lead_id:          'No lead id sent — create the test lead first.',
     telnyx_not_configured:    'Server is missing Telnyx API secrets.',
     assistant_not_configured: 'Server is missing the Telnyx AI Assistant id secret.',
+    assistant_not_found:      'Assistant id rejected by Telnyx \u2014 TELNYX_AI_ASSISTANT_ID doesn\u2019t match an assistant in Mission Control' + ((body && body.detail) ? (': ' + body.detail) : '.'),
     db_insert_failed:         'Server could not create the call row.',
     telnyx_error:             'Telnyx rejected the call' + ((body && body.detail) ? (': ' + body.detail) : '.'),
     forbidden:                (body && body.detail) || 'Not permitted.',
@@ -18775,7 +18939,7 @@ async function aiTestPollOnce() {
   let row;
   try {
     const { data } = await sb.from('ai_calls')
-      .select('status, outcome, answered_at, duration_secs, billed_minutes, summary, transcript, started_at, ended_at, call_control_id')
+      .select('status, outcome, answered_at, duration_secs, billed_minutes, summary, transcript, started_at, ended_at, call_control_id, error_detail, voice')
       .eq('id', aiTestState.aiCallId).maybeSingle();
     row = data;
   } catch (_) { return; }
@@ -18799,10 +18963,15 @@ function aiTestRenderCall(row) {
     ['Answered at', answered],
     ['Duration', dur],
     ['Billed minutes', (row.billed_minutes != null) ? String(row.billed_minutes) : '—'],
+    ['Voice', row.voice || 'assistant default'],
   ];
   let html = '<div style="display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font:13px/1.5 var(--sans)">';
   for (const [k, v] of lines) html += '<div style="color:var(--text2)">' + k + '</div><div style="font-weight:600">' + _aiTestEsc(v) + '</div>';
   html += '</div>';
+  if (row.error_detail) {
+    html += '<div style="margin-top:14px"><div style="color:#dc2626;font:600 13px var(--sans);margin-bottom:4px">Error detail</div>' +
+            '<pre style="margin:0;padding:10px;border-radius:8px;background:rgba(220,38,38,.08);overflow:auto;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:#dc2626">' + _aiTestEsc(row.error_detail) + '</pre></div>';
+  }
   if (row.summary) {
     html += '<div style="margin-top:14px"><div style="color:var(--text2);font:13px var(--sans);margin-bottom:4px">Summary</div>' +
             '<div style="font:13px/1.5 var(--sans)">' + _aiTestEsc(row.summary) + '</div></div>';
@@ -21857,6 +22026,7 @@ function initSettingsSection() {
   tabs.forEach((t, i) => t.classList.toggle('active', i === 0));
   mountIcons(document.getElementById('sec-settings'));
   _stgLoadPlanCard();
+  _stgLoadBusinessProfile();
 }
 
 async function _stgLoadPlanCard() {
@@ -21920,6 +22090,286 @@ async function saveAccountProfile() {
   } finally {
     if (saveBtn) { saveBtn.disabled = false; }
     setTimeout(() => { if (msg) msg.textContent = ''; }, 4000);
+  }
+}
+
+// ============================================================
+// Business Profile + Compliance Pages  (PROMPT_16 Phase 4)
+//
+// The agent never asks for a compliance page. Saving a complete business
+// profile is what publishes it — the slug allocation, the published_at
+// stamp, and the audit revision all happen in a database trigger
+// (agents_sync_compliance_page, 20260729_compliance_pages.sql), so the page
+// appears no matter which code path writes the row. This UI only collects
+// the fields and shows the result.
+//
+// compliance_slug and compliance_page_published_at are NOT written here and
+// cannot be: agents_protect_compliance_columns reverts any client write to
+// them. They are read-only facts to this screen.
+// ============================================================
+
+// Must match DEFAULT_COMPLIANCE_BASE_URL in _shared/compliance-page.ts.
+// producerstackcrm.com itself is GitHub Pages (static), so the pages live on
+// the trust. subdomain — see docs/compliance-pages.md.
+const COMPLIANCE_BASE_URL = 'https://trust.producerstackcrm.com';
+
+// Mirrors missingComplianceFields() in _shared/compliance-page.ts so the
+// panel can name a missing field before the server ever sees the row.
+const COMPLIANCE_REQUIRED = [
+  { field: 'dba_name',             el: 'stg-dba-name',   label: 'Business name' },
+  { field: 'business_street',      el: 'stg-biz-street', label: 'Street address' },
+  { field: 'business_city',        el: 'stg-biz-city',   label: 'City' },
+  { field: 'business_state',       el: 'stg-biz-state',  label: 'State' },
+  { field: 'business_postal_code', el: 'stg-biz-zip',    label: 'ZIP code' },
+  { field: 'business_phone',       el: 'stg-biz-phone',  label: 'Business phone' },
+  { field: 'business_email',       el: 'stg-biz-email',  label: 'Business email' },
+];
+
+let _stgComplianceRow = null;
+
+function _stgFillStateSelect(el, placeholder) {
+  if (!el || el.options.length) return;
+  el.innerHTML = `<option value="">${placeholder}</option>` +
+    US_STATES.map(([code, name]) => `<option value="${code}">${escHTML(name)}</option>`).join('');
+}
+
+function stgOnEntityTypeChange() {
+  const type = document.getElementById('stg-entity-type')?.value || 'sole_proprietor';
+  const wrap = document.getElementById('stg-formation-state-wrap');
+  // A sole proprietor has no state of formation, and asserting one on a
+  // compliance document would be a false statement.
+  if (wrap) wrap.style.display = (type && type !== 'sole_proprietor') ? '' : 'none';
+}
+
+function stgOnOtherVendorToggle() {
+  const on = document.getElementById('stg-lv-other')?.checked;
+  const inp = document.getElementById('stg-lv-other-name');
+  if (inp) { inp.style.display = on ? '' : 'none'; if (on) inp.focus(); }
+}
+
+async function _stgLoadBusinessProfile() {
+  _stgFillStateSelect(document.getElementById('stg-biz-state'), 'Select…');
+  _stgFillStateSelect(document.getElementById('stg-formation-state'), 'Select…');
+  if (!currentAgent || !currentAgent.id) return;
+
+  const { data, error } = await sb.from('agents')
+    .select('dba_name, business_legal_name, business_entity_type, formation_state, business_street, business_city, business_state, business_postal_code, business_phone, business_email, lead_vendors, compliance_slug, compliance_page_published_at')
+    .eq('id', currentAgent.id)
+    .maybeSingle();
+
+  if (error) {
+    const body = document.getElementById('stg-compliance-body');
+    if (body) body.innerHTML = `<div style="font-size:12px;color:var(--a4)">Could not load: ${escHTML(error.message)}</div>`;
+    return;
+  }
+
+  const row = data || {};
+  _stgComplianceRow = row;
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  set('stg-dba-name',        row.dba_name);
+  set('stg-legal-name',      row.business_legal_name);
+  set('stg-entity-type',     row.business_entity_type || 'sole_proprietor');
+  set('stg-formation-state', row.formation_state);
+  set('stg-biz-street',      row.business_street);
+  set('stg-biz-city',        row.business_city);
+  set('stg-biz-state',       row.business_state);
+  set('stg-biz-zip',         row.business_postal_code);
+  set('stg-biz-phone',       formatPhone(row.business_phone));
+  set('stg-biz-email',       row.business_email);
+
+  const vendors = Array.isArray(row.lead_vendors) ? row.lead_vendors : [];
+  const goat  = document.getElementById('stg-lv-goatleads');
+  const built = document.getElementById('stg-lv-builtleads');
+  const other = document.getElementById('stg-lv-other');
+  const otherName = document.getElementById('stg-lv-other-name');
+  if (goat)  goat.checked  = vendors.includes('goatleads');
+  if (built) built.checked = vendors.includes('builtleads');
+  const custom = vendors.find(v => typeof v === 'string' && v.toLowerCase().startsWith('other:'));
+  if (other) other.checked = !!custom;
+  if (otherName) otherName.value = custom ? custom.slice('other:'.length) : '';
+
+  stgOnEntityTypeChange();
+  stgOnOtherVendorToggle();
+  _stgRenderCompliancePanel(row);
+}
+
+function _stgMissingComplianceFields(row) {
+  const filled = v => typeof v === 'string' && v.trim().length > 0;
+  return COMPLIANCE_REQUIRED.filter(r => {
+    // A sole proprietor with only a DBA still satisfies the name rule.
+    if (r.field === 'dba_name') return !filled(row.dba_name) && !filled(row.business_legal_name);
+    return !filled(row[r.field]);
+  });
+}
+
+function _stgFocusField(elId) {
+  settingsTab('account', document.querySelector('#sec-settings > .tabs .tab'));
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.focus({ preventScroll: true });
+}
+
+function _stgRenderCompliancePanel(row) {
+  const body = document.getElementById('stg-compliance-body');
+  if (!body) return;
+
+  const missing = _stgMissingComplianceFields(row || {});
+
+  if (!row || !row.compliance_page_published_at || !row.compliance_slug) {
+    // Name the exact fields and link straight to them — never "something is
+    // missing". A2P registration is blocked until these are filled in.
+    const items = missing.length
+      ? missing.map(m => `<li style="margin:0 0 4px"><a href="#" onclick="_stgFocusField('${m.el}');return false" style="color:var(--accent)">${escHTML(m.label)}</a></li>`).join('')
+      : '<li style="margin:0 0 4px">Save your business profile above.</li>';
+    body.innerHTML =
+      `<div class="alert alert-w" style="margin:0">
+         <span data-ico="warning"></span>
+         <div>
+           <div style="font-weight:600;margin-bottom:4px">Not published yet</div>
+           <div style="margin-bottom:6px">Add ${missing.length === 1 ? 'this detail' : 'these details'} and your pages go live automatically:</div>
+           <ul style="margin:0;padding-left:18px">${items}</ul>
+         </div>
+       </div>`;
+    mountIcons(document.getElementById('stg-compliance-card'));
+    return;
+  }
+
+  const slug    = row.compliance_slug;
+  const privacy = `${COMPLIANCE_BASE_URL}/a/${slug}/privacy-policy`;
+  const terms   = `${COMPLIANCE_BASE_URL}/a/${slug}/terms`;
+  const updated = row.compliance_page_published_at
+    ? new Date(row.compliance_page_published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '—';
+
+  const urlRow = (label, url) => `
+    <div style="margin-bottom:10px">
+      <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">${escHTML(label)}</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <code style="flex:1;min-width:220px;font-size:11.5px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:7px 9px;overflow-x:auto;white-space:nowrap">${escHTML(url)}</code>
+        <button class="btn btn-s btn-sm" onclick="stgCopyComplianceUrl('${escHTML(url)}',this)" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="copy" data-size="13"></span>Copy</button>
+        <a class="btn btn-s btn-sm" href="${escHTML(url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="arrow-square-out" data-size="13"></span>Preview</a>
+      </div>
+    </div>`;
+
+  body.innerHTML =
+    urlRow('Privacy Policy', privacy) +
+    urlRow('Terms of Service', terms) +
+    `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text3);margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+       <span data-ico="check-circle" data-size="13" style="color:var(--a2)"></span>
+       Published &middot; last updated ${escHTML(updated)}
+     </div>` +
+    (missing.length
+      ? `<div style="font-size:11.5px;color:var(--a4);margin-top:8px">Heads up: ${escHTML(missing.map(m => m.label).join(', '))} ${missing.length === 1 ? 'is' : 'are'} now blank. Your pages stay live with the last saved details until you fill ${missing.length === 1 ? 'it' : 'them'} back in.</div>`
+      : '');
+
+  mountIcons(document.getElementById('stg-compliance-card'));
+}
+
+async function stgCopyComplianceUrl(url, btn) {
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('Link copied', '#10b981');
+  } catch {
+    // Clipboard API is unavailable in some in-app webviews; select instead
+    // so the agent can copy by hand rather than getting a silent no-op.
+    const code = btn?.parentElement?.querySelector('code');
+    if (code && window.getSelection) {
+      const range = document.createRange();
+      range.selectNodeContents(code);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      showToast('Press Ctrl+C to copy', '#f59e0b');
+    } else {
+      showToast('Could not copy — select the link manually', '#dc2626');
+    }
+  }
+}
+
+async function saveBusinessProfile() {
+  if (!currentAgent || !currentAgent.id) return;
+  const msg = document.getElementById('stg-biz-msg');
+  const btn = document.getElementById('stg-biz-save');
+  const val = id => (document.getElementById(id)?.value || '').trim();
+
+  const entityType = val('stg-entity-type') || 'sole_proprietor';
+  const rawPhone   = val('stg-biz-phone');
+  const phone      = rawPhone ? toE164(rawPhone) : '';
+  const email      = val('stg-biz-email');
+
+  if (rawPhone && !phone) {
+    msg.style.color = 'var(--a4)';
+    msg.textContent = 'Business phone must be a valid 10-digit US number.';
+    return;
+  }
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    msg.style.color = 'var(--a4)';
+    msg.textContent = 'Business email does not look like a valid address.';
+    return;
+  }
+
+  const vendors = [];
+  if (document.getElementById('stg-lv-goatleads')?.checked)  vendors.push('goatleads');
+  if (document.getElementById('stg-lv-builtleads')?.checked) vendors.push('builtleads');
+  if (document.getElementById('stg-lv-other')?.checked) {
+    const name = val('stg-lv-other-name');
+    if (!name) {
+      msg.style.color = 'var(--a4)';
+      msg.textContent = 'Name the other lead vendor, or untick "Other".';
+      return;
+    }
+    vendors.push('other:' + name);
+  }
+
+  const payload = {
+    dba_name:             val('stg-dba-name')   || null,
+    business_legal_name:  val('stg-legal-name') || null,
+    business_entity_type: entityType,
+    // Only meaningful for a real entity; blanked for a sole proprietor so a
+    // stale value can never render entity language on their terms page.
+    formation_state:      entityType === 'sole_proprietor' ? null : (val('stg-formation-state') || null),
+    business_street:      val('stg-biz-street') || null,
+    business_city:        val('stg-biz-city')   || null,
+    business_state:       val('stg-biz-state')  || null,
+    business_postal_code: val('stg-biz-zip')    || null,
+    business_phone:       phone || null,
+    business_email:       email || null,
+    lead_vendors:         vendors,
+  };
+
+  if (btn) btn.disabled = true;
+  try {
+    const { error } = await sb.from('agents').update(payload).eq('id', currentAgent.id);
+    if (error) throw error;
+
+    // Re-read rather than trusting the payload: the compliance columns are
+    // written by the database trigger, not by this update, so the slug and
+    // published_at only exist after the round trip.
+    const { data: fresh } = await sb.from('agents')
+      .select('dba_name, business_legal_name, business_entity_type, formation_state, business_street, business_city, business_state, business_postal_code, business_phone, business_email, lead_vendors, compliance_slug, compliance_page_published_at')
+      .eq('id', currentAgent.id)
+      .maybeSingle();
+
+    const wasPublished = !!(_stgComplianceRow && _stgComplianceRow.compliance_page_published_at);
+    _stgComplianceRow = fresh || {};
+    _stgRenderCompliancePanel(_stgComplianceRow);
+
+    if (!wasPublished && _stgComplianceRow.compliance_page_published_at) {
+      msg.style.color = 'var(--a2)';
+      msg.textContent = 'Saved. Your compliance pages are live — see below.';
+      showToast('Compliance pages published', '#10b981');
+    } else {
+      msg.style.color = 'var(--a2)';
+      msg.textContent = 'Business profile saved.';
+    }
+  } catch (e) {
+    msg.style.color = 'var(--a4)';
+    msg.textContent = 'Save failed: ' + (e.message || e);
+  } finally {
+    if (btn) btn.disabled = false;
+    setTimeout(() => { if (msg) msg.textContent = ''; }, 5000);
   }
 }
 
