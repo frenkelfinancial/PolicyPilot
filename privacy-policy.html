@@ -4,234 +4,618 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Privacy Policy — Producer Stack</title>
+<link rel="icon" href="assets/logos/producer-stack-logo.png" type="image/png">
+<meta name="description" content="How Producer Stack collects, uses, and protects your data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 <style>
-  :root{
-    --bg:#070d1a;
-    --bg2:#0e1626;
-    --border:#1d2940;
-    --text:#e7edf7;
-    --text2:#aab6c9;
-    --text3:#7c8aa3;
-    --accent:#5ba0e8;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"DM Sans",Arial,sans-serif;
-    line-height:1.65;
-  }
-  .wrap{max-width:780px;margin:0 auto;padding:40px 20px 80px}
-  h1{font-size:26px;margin:0 0 6px;font-weight:700}
-  .updated{color:var(--text3);font-size:13px;margin-bottom:32px}
-  h2{font-size:17px;margin:32px 0 10px;color:var(--text);font-weight:600;border-bottom:1px solid var(--border);padding-bottom:6px}
-  h3{font-size:14.5px;margin:20px 0 8px;color:var(--text);font-weight:600}
-  p,li{color:var(--text2);font-size:14.5px}
-  ul{padding-left:22px}
-  li{margin-bottom:6px}
-  a{color:var(--accent);text-decoration:underline}
-  strong{color:var(--text)}
-  .back{display:inline-block;margin-bottom:24px;font-size:13px;color:var(--text3);text-decoration:none}
-  .back:hover{color:var(--accent)}
-  .contact{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-top:8px}
-  .contact p{margin:4px 0}
-  .callout{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;margin:14px 0}
-  .callout p{margin:0;font-size:13.5px}
+/* ── LEGAL PAGE ─────────────────────────────────────────────── */
+/* .sec-shell clips with overflow:hidden, which makes it the sticky scroll
+   container and stops the TOC rail from ever sticking. overflow:clip clips
+   identically without creating a scroll container. Page-scoped: styles.css
+   is left alone. Browsers without clip support just keep a non-sticky rail. */
+.sec-shell{overflow:clip}
+.legal-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.legal-body{max-width:800px;min-width:0}
+
+/* Jump-to (small screens) */
+.legal-jump{margin:0 0 34px;border:1px solid var(--border);border-radius:var(--r12);background:rgba(255,255,255,.02)}
+.legal-jump>summary{list-style:none;cursor:pointer;padding:13px 16px;font-size:13px;font-weight:500;color:var(--text2);display:flex;align-items:center;justify-content:space-between;gap:10px;letter-spacing:-.01em}
+.legal-jump>summary::-webkit-details-marker{display:none}
+.legal-jump>summary::after{content:'▾';font-size:11px;color:var(--text3);transition:transform .25s}
+.legal-jump[open]>summary::after{transform:rotate(180deg)}
+.legal-jump[open]>summary{border-bottom:1px solid var(--border)}
+.legal-jump-list{padding:8px;max-height:min(52vh,420px);overflow-y:auto;display:grid;gap:1px}
+.legal-jump-list a{display:flex;gap:9px;font-size:12.5px;color:var(--text3);text-decoration:none;padding:8px 9px;border-radius:var(--r8);line-height:1.45;letter-spacing:-.01em}
+.legal-jump-list a:hover{color:var(--text2);background:rgba(255,255,255,.04)}
+
+/* Sticky rail (≥1100px) */
+.legal-toc{display:none}
+@media(min-width:1100px){
+  .legal-layout{grid-template-columns:214px minmax(0,1fr);gap:44px;align-items:start}
+  .legal-jump{display:none}
+  .legal-toc{display:block;position:sticky;top:calc(var(--nav-h) + 26px);max-height:calc(100vh - var(--nav-h) - 60px);overflow-y:auto;overscroll-behavior:contain;padding-right:6px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.10) transparent}
+  .legal-toc::-webkit-scrollbar{width:5px}
+  .legal-toc::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:3px}
+}
+.legal-toc-h{font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 0 11px 11px;margin-bottom:5px;border-bottom:1px solid var(--border)}
+.legal-toc-list{display:grid;gap:1px;padding-top:5px;border-left:1px solid var(--border);margin-left:1px}
+.legal-toc-list a{display:flex;gap:8px;align-items:baseline;font-size:11.5px;color:var(--text3);text-decoration:none;padding:6px 9px 6px 10px;margin-left:-1px;border-left:1.5px solid transparent;line-height:1.45;letter-spacing:-.005em;transition:color .2s,border-color .2s}
+.legal-toc-list a:hover{color:var(--text2)}
+.legal-toc-list a.on{color:var(--text);border-left-color:var(--accent)}
+.toc-n{font-family:var(--mono);font-size:10px;color:var(--text3);flex-shrink:0;min-width:15px}
+.legal-toc-list a.on .toc-n{color:var(--accent)}
+
+/* Document body */
+.legal-intro{font-size:14.5px;color:var(--text2);line-height:1.8;letter-spacing:-.005em;padding-bottom:30px;border-bottom:1px solid var(--border)}
+.legal-sec{padding-top:6px}
+.legal-body h2{font-size:17.5px;font-weight:600;color:var(--text);letter-spacing:-.025em;line-height:1.3;margin:46px 0 15px;padding-bottom:11px;border-bottom:1px solid var(--border);scroll-margin-top:calc(var(--nav-h) + 24px)}
+.legal-body h3{font-size:14.5px;font-weight:600;color:var(--text);letter-spacing:-.02em;margin:24px 0 8px}
+.legal-body p{font-size:14.5px;color:var(--text2);line-height:1.8;letter-spacing:-.005em;margin-bottom:15px}
+.legal-body ul{list-style:none;margin:0 0 15px;display:flex;flex-direction:column;gap:9px}
+.legal-body li{font-size:14.5px;color:var(--text2);line-height:1.75;letter-spacing:-.005em;padding-left:19px;position:relative}
+.legal-body li::before{content:'';position:absolute;left:2px;top:.72em;width:4px;height:4px;border-radius:50%;background:rgba(91,159,232,.5)}
+.legal-body strong{color:var(--text);font-weight:600}
+.legal-body a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(91,159,232,.28);transition:border-color .2s}
+.legal-body a:hover{border-bottom-color:var(--accent)}
+
+/* Callouts */
+.legal-body .callout,.legal-body .shout{background:linear-gradient(165deg,rgba(12,18,38,.9),rgba(8,14,30,.95));border:1px solid var(--border);border-left:2.5px solid var(--accent);border-radius:var(--r12);padding:15px 18px;margin:20px 0}
+.legal-body .shout{border-left-color:var(--coral);background:linear-gradient(165deg,rgba(38,16,16,.5),rgba(20,10,14,.6))}
+.legal-body .callout p,.legal-body .shout p{margin:0;font-size:13.5px;line-height:1.72}
+
+/* Rate tables — same language as the pricing page rate cards */
+.tbl-wrap{border:1px solid var(--border);border-radius:var(--r16);overflow:hidden;background:linear-gradient(170deg,rgba(10,16,35,.95),rgba(6,11,26,.98));margin:20px 0}
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+.tbl-scroll::-webkit-scrollbar{height:6px}
+.tbl-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:3px}
+.legal-body table{width:100%;border-collapse:collapse;font-size:13px;min-width:440px}
+.legal-body th{background:rgba(255,255,255,.025);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);text-align:left;padding:13px 18px;border-bottom:1px solid var(--border);white-space:nowrap}
+.legal-body td{padding:13px 18px;color:var(--text2);line-height:1.6;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;letter-spacing:-.005em}
+.legal-body tr:last-child td{border-bottom:none}
+.legal-body td strong{color:var(--text);font-weight:500}
+.legal-body td.amt{font-family:var(--mono);font-size:12.5px;color:var(--text);white-space:nowrap}
+
+/* Contact card */
+.legal-body .contact{background:linear-gradient(165deg,rgba(12,18,38,.9),rgba(8,14,30,.95));border:1px solid var(--border);border-radius:var(--r16);padding:22px 24px;margin-top:6px}
+.legal-body .contact p{margin:0 0 7px;font-size:14px}
+.legal-body .contact p:last-child{margin-bottom:0}
+
+@media(max-width:900px){
+  .legal-body h2{font-size:16.5px;margin:38px 0 13px}
+  .legal-intro,.legal-body p,.legal-body li{font-size:14px}
+}
+@media(max-width:480px){
+  .legal-body .callout,.legal-body .shout{padding:13px 14px;margin:16px 0}
+  .legal-body th,.legal-body td{padding:11px 13px}
+  .legal-body .contact{padding:18px 16px}
+}
+
+/* No-JS: reveal must never hide a legal document */
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}}
+
+/* Print — legal pages get printed */
+@media print{
+  .bg-canvas,.nav,.mob-menu,footer,.legal-toc,.legal-jump,.hamburger{display:none!important}
+  html,body{background:#fff!important;color:#000!important}
+  .page-hero{padding:0 0 18px!important;text-align:left!important}
+  .eyebrow{display:none!important}
+  .page-h,.page-h .hl{font-size:24px!important;color:#000!important;-webkit-text-fill-color:#000!important;background:none!important}
+  .page-sub{color:#333!important;margin:0 0 20px!important;text-align:left!important;max-width:none!important}
+  .section{padding:0!important;max-width:none!important}
+  .sec-shell{background:none!important;border:none!important;border-radius:0!important;padding:0!important}
+  .sec-shell::before{display:none!important}
+  .legal-layout{display:block!important}
+  .legal-body{max-width:none!important}
+  .legal-body h2{color:#000!important;border-bottom:1px solid #999!important;page-break-after:avoid;margin-top:22px!important}
+  .legal-intro,.legal-body p,.legal-body li,.legal-body td,.legal-body th{color:#000!important}
+  .legal-body a{color:#000!important;border-bottom:none!important;text-decoration:underline}
+  .legal-body li::before{background:#000!important}
+  .legal-body .callout,.legal-body .shout,.legal-body .contact,.tbl-wrap{background:none!important;border:1px solid #999!important;page-break-inside:avoid}
+  .legal-body th{background:none!important}
+  .reveal{opacity:1!important;transform:none!important}
+}
 </style>
+<noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
 </head>
 <body>
-<div class="wrap">
 
-  <a class="back" href="index.html">&larr; Back to Producer Stack</a>
+<div class="bg-canvas" aria-hidden="true">
+  <div class="bg-aurora"></div>
+  <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+  <div class="orb orb-4"></div><div class="orb orb-5"></div><div class="orb orb-6"></div>
+  <div class="bg-grid"></div><div class="bg-vignette"></div>
+</div>
 
-  <h1>Privacy Policy</h1>
-  <div class="updated">Effective date: July 8, 2026</div>
+<nav class="nav" id="main-nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
+      <div class="nav-logo-name">Producer Stack</div>
+    </a>
+    <div class="nav-links">
+      <a href="features.html">Features</a>
+      <a href="how-it-works.html">How It Works</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="support.html">Support</a>
+    </div>
+    <div class="nav-right">
+      <a href="app.html" class="btn-ghost">Sign In</a>
+      <a href="app.html?view=signup" class="btn-nav">Start Free Trial</a>
+    </div>
+    <button class="hamburger" id="hbg" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
 
-  <p>This Privacy Policy describes how <strong>Frenkel Financial LLC</strong>, a Wisconsin limited liability
-  company, doing business as <strong>Producer Stack</strong> ("Producer Stack," "we," "us," or "our"), collects,
-  uses, discloses, and safeguards information in connection with the Producer Stack CRM web and mobile
-  application (the "App"), a customer relationship management, dialing, and quoting tool for licensed life
-  insurance producers. This Policy should be read together with our <a href="terms-of-service.html">Terms of
-  Service</a>, which governs your use of the App. By creating an account or using the App, you agree to the
-  practices described in this Policy.</p>
+<div class="mob-menu" id="mob-menu">
+  <a href="features.html" onclick="closeMob()">Features</a>
+  <a href="how-it-works.html" onclick="closeMob()">How It Works</a>
+  <a href="pricing.html" onclick="closeMob()">Pricing</a>
+  <a href="support.html" onclick="closeMob()">Support</a>
+  <div class="mob-div"></div>
+  <a href="app.html">Sign In</a>
+  <a href="app.html?view=signup" style="color:var(--accent)">Get Started →</a>
+</div>
 
-  <h2>1. Information We Collect</h2>
+<!-- PAGE HERO -->
+<div class="page-hero">
+  <div class="eyebrow anim d1">Legal</div>
+  <h1 class="page-h anim d2">Privacy <span class="hl">Policy</span></h1>
+  <p class="page-sub anim d3">Effective date: July 27, 2026</p>
+</div>
+
+<section class="section">
+<div class="sec-shell">
+  <div class="legal-layout">
+
+    <nav class="legal-toc" aria-label="Contents">
+      <div class="legal-toc-h">Contents</div>
+      <div class="legal-toc-list">
+        <a href="#s1" data-sec="s1"><span class="toc-n">1</span><span>Information We Collect</span></a>
+        <a href="#s2" data-sec="s2"><span class="toc-n">2</span><span>How We Use Information</span></a>
+        <a href="#s3" data-sec="s3"><span class="toc-n">3</span><span>SMS Consent &amp; Mobile Information</span></a>
+        <a href="#s4" data-sec="s4"><span class="toc-n">4</span><span>How Information Is Shared</span></a>
+        <a href="#s5" data-sec="s5"><span class="toc-n">5</span><span>Telemarketing, Do-Not-Call &amp; Call Recording</span></a>
+        <a href="#s6" data-sec="s6"><span class="toc-n">6</span><span>Data Security</span></a>
+        <a href="#s7" data-sec="s7"><span class="toc-n">7</span><span>Data Breach Notification</span></a>
+        <a href="#s8" data-sec="s8"><span class="toc-n">8</span><span>Data Retention</span></a>
+        <a href="#s9" data-sec="s9"><span class="toc-n">9</span><span>Your Rights &amp; Choices</span></a>
+        <a href="#s10" data-sec="s10"><span class="toc-n">10</span><span>Children's Privacy</span></a>
+        <a href="#s11" data-sec="s11"><span class="toc-n">11</span><span>International Users</span></a>
+        <a href="#s12" data-sec="s12"><span class="toc-n">12</span><span>Governing Law</span></a>
+        <a href="#s13" data-sec="s13"><span class="toc-n">13</span><span>Changes to This Policy</span></a>
+        <a href="#s14" data-sec="s14"><span class="toc-n">14</span><span>Contact Us</span></a>
+      </div>
+    </nav>
+
+    <div class="legal-body">
+      <details class="legal-jump">
+        <summary>Jump to section</summary>
+        <div class="legal-jump-list">
+        <a href="#s1"><span class="toc-n">1</span><span>Information We Collect</span></a>
+        <a href="#s2"><span class="toc-n">2</span><span>How We Use Information</span></a>
+        <a href="#s3"><span class="toc-n">3</span><span>SMS Consent &amp; Mobile Information</span></a>
+        <a href="#s4"><span class="toc-n">4</span><span>How Information Is Shared</span></a>
+        <a href="#s5"><span class="toc-n">5</span><span>Telemarketing, Do-Not-Call &amp; Call Recording</span></a>
+        <a href="#s6"><span class="toc-n">6</span><span>Data Security</span></a>
+        <a href="#s7"><span class="toc-n">7</span><span>Data Breach Notification</span></a>
+        <a href="#s8"><span class="toc-n">8</span><span>Data Retention</span></a>
+        <a href="#s9"><span class="toc-n">9</span><span>Your Rights &amp; Choices</span></a>
+        <a href="#s10"><span class="toc-n">10</span><span>Children's Privacy</span></a>
+        <a href="#s11"><span class="toc-n">11</span><span>International Users</span></a>
+        <a href="#s12"><span class="toc-n">12</span><span>Governing Law</span></a>
+        <a href="#s13"><span class="toc-n">13</span><span>Changes to This Policy</span></a>
+        <a href="#s14"><span class="toc-n">14</span><span>Contact Us</span></a>
+        </div>
+      </details>
+
+      <div class="legal-intro reveal">
+<p>This Privacy Policy describes how <strong>Frenkel Financial LLC</strong>, a Wisconsin limited liability
+  company, doing business as <strong>Producer Stack</strong> ("Producer Stack," "we," "us," or "our"),
+  collects, uses, discloses, and safeguards information in connection with the Producer Stack website
+  (producerstackcrm.com) and the Producer Stack CRM web and mobile application — a customer relationship
+  management, dialing, texting, AI, and quoting platform for licensed life insurance producers (together, the
+  "Service"). This Policy should be read together with our <a href="terms-of-service.html">Terms of
+  Service</a>, which governs your use of the Service. By creating an account or using the Service, you agree
+  to the practices described in this Policy.</p>
+      </div>
+
+      <section class="legal-sec reveal" data-sec="s1">
+        <h2 id="s1">1. Information We Collect</h2>
 
   <p><strong>a. Account &amp; Profile Information.</strong> When you register, we collect your name, email
   address, password (stored in hashed form by our authentication provider and never visible to us in plain
-  text), phone number, National Producer Number (NPN), the states in which you are licensed, and, if you enroll
-  under an upline or team leader, the agency/enrollment code linking your account to that hierarchy.</p>
+  text), phone number, National Producer Number (NPN), the states in which you are licensed, and, if you
+  enroll under an upline or team leader, the agency/enrollment code linking your account to that
+  hierarchy.</p>
 
-  <p><strong>b. Client &amp; Lead Information You Enter.</strong> The App allows you to store information about
-  your own insurance prospects and clients ("Client Data"), which may include names, contact details, dates of
-  birth, addresses, health information relevant to insurance underwriting, income and financial information, and
-  policy details. <strong>As between you and Producer Stack, you are the controller of Client Data.</strong> You
-  are solely responsible for ensuring you have the legal right and any required consent to collect, store, and
-  process this information, and for complying with applicable law, including state insurance privacy
-  regulations and the Gramm-Leach-Bliley Act (GLBA), with respect to your clients' nonpublic personal
-  information. <strong>We act as your service provider (processor)</strong> with respect to Client Data and
-  process it only as necessary to provide, secure, and support the App — not for our own independent purposes.</p>
+  <p><strong>b. Client &amp; Lead Information You Enter.</strong> The Service allows you to store information
+  about your own insurance prospects and clients ("Client Data"), which may include names, contact details,
+  dates of birth, addresses, health information relevant to insurance underwriting, income and financial
+  information, and policy details. <strong>As between you and Producer Stack, you are the controller of
+  Client Data.</strong> You are solely responsible for ensuring you have the legal right and any required
+  consent to collect, store, and process this information, and for complying with applicable law, including
+  state insurance privacy regulations and the Gramm-Leach-Bliley Act (GLBA), with respect to your clients'
+  nonpublic personal information. <strong>We act as your service provider (processor)</strong> with respect
+  to Client Data and process it only as necessary to provide, secure, and support the Service — not for our
+  own independent purposes.</p>
 
-  <div class="callout"><p><strong>Sensitive information.</strong> Health information relevant to underwriting is
-  sensitive personal information under laws such as the California Consumer Privacy Act (CCPA/CPRA). We do not
-  use health information you enter for any purpose other than powering the App's quoting and underwriting-estimate
-  features, and we do not sell it, share it for advertising, or use it to build profiles about your clients.</p></div>
+  <div class="callout"><p><strong>Sensitive information.</strong> Health information relevant to underwriting
+  is sensitive personal information under laws such as the California Consumer Privacy Act (CCPA/CPRA). We do
+  not use health information you enter for any purpose other than powering the Service's quoting and
+  underwriting-estimate features, and we do not sell it, share it for advertising, or use it to build
+  profiles about your clients.</p></div>
 
-  <p><strong>c. Commission, Production &amp; Team Data.</strong> The App allows you to record commission levels
-  and percentages, policies submitted and issued, production totals and progress toward carrier bonus tiers, and
-  — if you belong to an agency or downline — production visibility shared with your upline/team leader as
-  configured within the App.</p>
+  <p><strong>c. Commission, Production &amp; Team Data.</strong> The Service allows you to record commission
+  levels and percentages, policies submitted and issued, production totals and progress toward carrier bonus
+  tiers, and — if you belong to an agency or downline — production visibility shared with your upline/team
+  leader as configured within the Service.</p>
 
-  <p><strong>d. Calling &amp; Communications Data.</strong> If you use the App's calling features, our telephony
-  service providers process the phone numbers you dial, call duration, call status/outcome, and — if you grant
-  microphone permission — audio needed to place and connect the call. <strong>Depending on your subscription plan
-  and the features you enable, calls placed through the App may be recorded</strong> and retained for a
-  plan-dependent period. See Section 3 of our <a href="terms-of-service.html">Terms of Service</a> for your
-  obligations regarding call recording consent and telemarketing law.</p>
+  <p><strong>d. Calling &amp; Voice Data (Including AI Calls).</strong> If you use the Service's calling
+  features (softphone, Power Dialer, or AI Sales Agent), our telephony service providers process the phone
+  numbers you dial, caller ID information, call duration, call status/outcome, and — if you grant microphone
+  permission — audio needed to place and connect calls. <strong>Depending on your subscription plan and the
+  features you enable, calls placed through the Service may be recorded</strong> and retained for a
+  plan-dependent period. Calls placed by the AI Sales Agent additionally generate transcripts, machine-made
+  summaries, and outcome classifications stored in your account. You are responsible for call-recording
+  consent and telemarketing-law compliance as set out in our <a href="terms-of-service.html">Terms of
+  Service</a>.</p>
 
-  <p><strong>e. Device, Usage &amp; Diagnostic Information.</strong> We may automatically collect information
-  about the device and app version you use, your operating system, IP address, and general usage or diagnostic
-  data to operate, secure, and improve the App. <strong>We do not use third-party advertising trackers or
-  analytics pixels</strong> (e.g., ad-network or social-media pixels) in the App.</p>
+  <p><strong>e. Messaging Data.</strong> If you use the Service's texting features, we process the messages
+  you send and receive (content, recipient number, sending number, segment counts), delivery status reported
+  by carriers, inbound replies, and opt-out events. To support billing transparency and legal compliance we
+  also maintain consent records (who consented, when, and from what source), do-not-contact lists (including
+  numbers that reply STOP), and A2P 10DLC registration records.</p>
 
-  <p><strong>f. Locally Stored Data.</strong> Some data (such as policy records, leads, quotes, and personal
-  settings) is stored locally on your device. Clearing your browser/app storage may permanently delete this
-  information unless it has also been saved to our servers.</p>
+  <p><strong>f. A2P Registration Information.</strong> To register your texting brand and campaign with The
+  Campaign Registry as required by U.S. carriers, we collect and submit business identity information you
+  provide, which may include your legal name, business name, EIN (or Sole Proprietor identity details if you
+  have no EIN), address, website, and contact information. This information is shared with our telephony
+  provider and The Campaign Registry solely to complete and maintain your registration.</p>
 
-  <p><strong>g. Gmail Integration Data (Optional).</strong> If you choose to connect your Gmail account, you
-  grant the App <strong>read-only</strong> access to your Gmail messages (Google OAuth scope
-  <code>gmail.readonly</code>) for one purpose: identifying emails sent to you by the insurance carriers you
-  work with and extracting policy status, underwriting, payment, and commission information into your own CRM
-  records. We filter messages by carrier sender address and process only matching carrier emails; personal and
-  non-carrier mail is never stored, analyzed, or transmitted to any third party. From matching carrier emails we
-  store the extracted data fields (e.g., policy number, client name, status, amounts), limited message metadata
-  (sender, subject, date), and a trimmed text excerpt — not your full mailbox. OAuth tokens are stored encrypted
-  (AES-256-GCM) with decryption keys held outside the database, are never exposed to your browser, and are
-  deleted — along with associated ingested email data — when you disconnect Gmail or close your account. You can
-  disconnect at any time in Settings or revoke access at
+  <p><strong>g. Billing &amp; Wallet Information.</strong> Payments are processed by Stripe; we do not store
+  full card numbers. We maintain your subscription status, invoices, prepaid wallet balance, and an itemized
+  wallet ledger recording every usage debit (item, units, unit rate, and resulting balance).</p>
+
+  <p><strong>h. Device, Usage &amp; Diagnostic Information.</strong> We may automatically collect information
+  about the device and app version you use, your operating system, IP address, and general usage or
+  diagnostic data to operate, secure, and improve the Service. <strong>We do not use third-party advertising
+  trackers or analytics pixels</strong> (e.g., ad-network or social-media pixels) in the Service.</p>
+
+  <p><strong>i. Support &amp; Feedback Data.</strong> When you contact support or use the in-app feedback
+  widget, we collect the contents of your message and related account context so we can respond.</p>
+
+  <p><strong>j. Locally Stored Data.</strong> Some data (such as policy records, leads, quotes, and personal
+  settings) may be stored locally on your device. Clearing your browser/app storage may permanently delete
+  this information unless it has also been saved to our servers.</p>
+
+  <p><strong>k. Gmail Integration Data (Optional).</strong> If you choose to connect your Gmail account, you
+  grant the Service access to your Gmail messages for one purpose: identifying emails sent to you by the
+  insurance carriers you work with and extracting policy status, underwriting, payment, and commission
+  information into your own CRM records. We filter messages by carrier sender address and process only
+  matching carrier emails; personal and non-carrier mail is never stored, analyzed, or transmitted to any
+  third party. From matching carrier emails we store the extracted data fields (e.g., policy number, client
+  name, status, amounts), limited message metadata (sender, subject, date), and a trimmed text excerpt — not
+  your full mailbox. Where you enable outreach features, the integration may also request Gmail send
+  permission so the Service can send emails from your address at your direction. OAuth tokens are stored
+  encrypted (AES-256-GCM) with decryption keys held outside the database, are never exposed to your browser,
+  and are deleted — along with associated ingested email data — when you disconnect Gmail or close your
+  account. You can disconnect at any time in Settings or revoke access at
   <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</p>
 
-  <div class="callout"><p><strong>Google API Limited Use disclosure.</strong> Producer Stack's use and transfer
-  of information received from Google APIs adheres to the
-  <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data
-  Policy</a>, including the Limited Use requirements. Gmail data is used only to provide the carrier-email
-  features described above, is never used for advertising, is never sold, and is never used to train
-  generalized AI or machine-learning models. Human access to Gmail data is limited to cases where you grant
-  explicit permission (e.g., support), where necessary for security purposes, or where required by law.</p></div>
+  <p><strong>l. Google Calendar Integration Data (Optional).</strong> If you connect Google Calendar, we
+  access your calendar events and free/busy information to sync appointments into the Service's Calendar tab
+  and, where you direct, to create appointments. We request only the scopes needed for these features, and
+  calendar data is deleted when you disconnect the integration or close your account.</p>
 
-  <h2>2. How We Use Information</h2>
+  <div class="callout"><p><strong>Google API Limited Use disclosure.</strong> Producer Stack's use and
+  transfer of information received from Google APIs adheres to the
+  <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data
+  Policy</a>, including the Limited Use requirements. Google user data (Gmail and Calendar) is used only to
+  provide the user-facing features described above, is never used for advertising, is never sold, and is
+  never used to train generalized AI or machine-learning models. Human access to Google user data is limited
+  to cases where you grant explicit permission (e.g., support), where necessary for security purposes, or
+  where required by law.</p></div>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s2">
+        <h2 id="s2">2. How We Use Information</h2>
   <ul>
-    <li>To provide, operate, and maintain the App</li>
+    <li>To provide, operate, and maintain the Service</li>
     <li>To authenticate you and keep your account secure</li>
-    <li>To power quoting, AI-assisted underwriting estimate tools, lead and policy tracking, commission tracking,
-    and calling features</li>
-    <li>To send account-related communications, including an optional daily activity digest</li>
+    <li>To power quoting, AI-assisted underwriting estimate tools, lead and policy tracking, commission and
+    bonus tracking, calling, texting, and AI Sales Agent features</li>
+    <li>To register and maintain your A2P 10DLC brand and campaign with carriers and The Campaign Registry</li>
+    <li>To process payments, maintain your prepaid wallet, and provide an itemized usage ledger</li>
+    <li>To enforce compliance gates you rely on (consent checks, quiet hours, do-not-contact lists, opt-out
+    keyword handling)</li>
+    <li>To send account-related communications, including service notifications, billing and renewal notices,
+    and an optional daily activity digest</li>
+    <li>To respond to support requests and feedback</li>
     <li>To detect, prevent, and address technical issues, fraud, or misuse</li>
-    <li>To comply with legal obligations</li>
+    <li>To comply with legal obligations, including telecom and carrier requirements</li>
   </ul>
   <p>We do <strong>not</strong> sell your personal information, and we do not use Client Data for advertising
   purposes.</p>
 
-  <div class="callout"><p><strong>Underwriting estimates are not guarantees.</strong> The App's AI-assisted and
-  rule-based underwriting tools produce a general estimate of likely carrier classification based on the
-  information entered. They are not an application, quote, or binding offer, and actual underwriting decisions
-  are made solely by the insurance carrier. See our <a href="terms-of-service.html">Terms of Service</a> for the
-  full disclaimer.</p></div>
+  <div class="callout"><p><strong>Underwriting estimates are not guarantees.</strong> The Service's
+  AI-assisted and rule-based underwriting tools produce a general estimate of likely carrier classification
+  based on the information entered. They are not an application, quote, or binding offer, and actual
+  underwriting decisions are made solely by the insurance carrier. See our
+  <a href="terms-of-service.html">Terms of Service</a> for the full disclaimer.</p></div>
+      </section>
 
-  <h2>3. How Information Is Shared</h2>
-  <p>We share information with service providers ("subprocessors") that help us operate the App, each of which
-  may access information only as needed to provide their service to us, and each of which is contractually bound
-  to protect information with confidentiality and data-protection obligations consistent with this Policy:</p>
+      <section class="legal-sec reveal" data-sec="s3">
+        <h2 id="s3">3. SMS Consent &amp; Mobile Information</h2>
+  <p><strong>We do not share, sell, rent, or trade your mobile phone number or SMS opt-in consent with third
+  parties or affiliates for their promotional or marketing purposes.</strong> Mobile information is shared
+  only with our telephony and SMS delivery providers as necessary to deliver messages you have consented to
+  receive, and as required by law.</p>
+  <p>If you opt in to receive texts from Producer Stack, message frequency varies, message and data rates may
+  apply, you can reply <strong>STOP</strong> at any time to opt out, and you can reply <strong>HELP</strong>
+  or contact us at 920-422-7733 for help. Consent to receive texts is not a condition of purchase. We honor
+  opt-out requests promptly and maintain records of consent and revocation.</p>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s4">
+        <h2 id="s4">4. How Information Is Shared</h2>
+  <p>We share information with service providers ("subprocessors") that help us operate the Service, each of
+  which may access information only as needed to provide their service to us, and each of which is
+  contractually bound to protect information with confidentiality and data-protection obligations consistent
+  with this Policy:</p>
   <ul>
     <li><strong>Supabase</strong> — database hosting, authentication, and backend functions</li>
-    <li><strong>SignalWire / Telnyx</strong> — telephony, including placing and (where enabled) recording calls,
-    and provisioning phone numbers</li>
-    <li><strong>DeepSeek</strong> — AI-assisted parsing of health information you submit, used solely to generate
-    underwriting-condition estimates within the App</li>
+    <li><strong>Telnyx</strong> — telephony and messaging: placing and (where enabled) recording calls,
+    sending and receiving SMS/MMS, provisioning phone numbers, and submitting A2P 10DLC brand/campaign
+    registrations to The Campaign Registry (SignalWire is a legacy telephony provider being phased out)</li>
+    <li><strong>Stripe</strong> — subscription billing, wallet top-ups, and payment processing</li>
+    <li><strong>DeepSeek</strong> — AI-assisted parsing of health information you submit, used solely to
+    generate underwriting-condition estimates within the Service</li>
     <li><strong>Anthropic</strong> — AI-assisted extraction of structured data (policy status, payment, and
-    commission details) from carrier emails you have authorized us to read via the optional Gmail integration.
-    Anthropic does not use data submitted through its API to train its models by default</li>
-    <li><strong>Stripe</strong> — subscription billing and payment processing</li>
+    commission details) from carrier emails you have authorized us to read via the optional Gmail
+    integration, and AI summaries of calls. Anthropic does not use data submitted through its API to train
+    its models by default</li>
+    <li><strong>AI voice infrastructure providers</strong> — real-time speech processing (speech-to-text,
+    text-to-speech, and conversation handling) for AI Sales Agent calls</li>
+    <li><strong>Google</strong> — optional Gmail and Google Calendar integrations, at your direction</li>
+    <li><strong>Resend</strong> — transactional email delivery (e.g., daily digests and notifications)</li>
     <li><strong>Insurance carrier portals &amp; quoting tools (e.g., ITK)</strong> — third-party quoting and
-    product data accessed from within the App</li>
+    product data accessed from within the Service</li>
   </ul>
-  <p>We may also disclose information if required by law or legal process, to protect the rights, property, or
-  safety of Producer Stack, our users, or others, or in connection with a merger, acquisition, financing, or sale
-  of assets, with notice to affected users where required by law.</p>
+  <p>We may also disclose information if required by law or legal process (including lawful requests from
+  telecom regulators and carriers), to protect the rights, property, or safety of Producer Stack, our users,
+  or others, or in connection with a merger, acquisition, financing, or sale of assets, with notice to
+  affected users where required by law.</p>
+      </section>
 
-  <h2>4. Telemarketing, Do-Not-Call &amp; Call Recording</h2>
-  <p>The App provides dialing infrastructure that you use to contact your own leads and clients. <strong>You are
-  solely responsible</strong> for complying with the Telephone Consumer Protection Act (TCPA), state and federal
-  Do-Not-Call regulations, permitted calling hours, and obtaining any consent required before contacting a
-  person. Producer Stack does not verify that numbers you upload or dial have been scrubbed against Do-Not-Call
-  registries or that you have consent to call them.</p>
+      <section class="legal-sec reveal" data-sec="s5">
+        <h2 id="s5">5. Telemarketing, Do-Not-Call &amp; Call Recording</h2>
+  <p>The Service provides dialing, texting, and AI calling infrastructure that you use to contact your own
+  leads and clients. <strong>You are solely responsible</strong> for complying with the Telephone Consumer
+  Protection Act (TCPA), state and federal Do-Not-Call regulations, state telemarketing statutes, permitted
+  calling hours, and obtaining any consent required before contacting a person — including the prior express
+  written consent generally required for artificial/prerecorded-voice calls placed by the AI Sales Agent.
+  Producer Stack does not verify that numbers you upload or dial have been scrubbed against Do-Not-Call
+  registries or that you have consent to call or text them; the compliance tooling we provide is an aid, not
+  a guarantee.</p>
   <p>Where call recording is enabled for your plan, <strong>you are solely responsible</strong> for complying
   with all applicable call-recording and wiretapping laws, including obtaining any required notice or consent
-  from call participants in two-party/all-party consent states. Full responsibility-shifting terms are set out
-  in our <a href="terms-of-service.html">Terms of Service</a>.</p>
+  from call participants in two-party/all-party consent states. Full responsibility-shifting terms are set
+  out in our <a href="terms-of-service.html">Terms of Service</a>.</p>
+      </section>
 
-  <h2>5. Data Security</h2>
-  <p>We use administrative, technical, and physical safeguards designed to protect information from unauthorized
-  access, use, alteration, or disclosure, including encryption of data in transit (HTTPS/TLS) and encryption of
-  data at rest (AES-256, provided by our database infrastructure). We maintain access controls limiting who can
-  reach production data. No method of transmission or storage is 100% secure, and we cannot guarantee absolute
-  security.</p>
+      <section class="legal-sec reveal" data-sec="s6">
+        <h2 id="s6">6. Data Security</h2>
+  <p>We use administrative, technical, and physical safeguards designed to protect information from
+  unauthorized access, use, alteration, or disclosure, including encryption of data in transit (HTTPS/TLS),
+  encryption of data at rest (AES-256, provided by our database infrastructure), encrypted storage of OAuth
+  tokens with keys held outside the database, row-level security so agents can access only their own records,
+  and access controls limiting who can reach production data. No method of transmission or storage is 100%
+  secure, and we cannot guarantee absolute security.</p>
+      </section>
 
-  <h2>6. Data Breach Notification</h2>
-  <p>If we experience a breach of security compromising personal information, we will notify affected users and
-  any required regulators as required by applicable law, including Wis. Stat. § 134.98 and other applicable state
-  breach-notification statutes.</p>
+      <section class="legal-sec reveal" data-sec="s7">
+        <h2 id="s7">7. Data Breach Notification</h2>
+  <p>If we experience a breach of security compromising personal information, we will notify affected users
+  and any required regulators as required by applicable law, including Wis. Stat. § 134.98 and other
+  applicable state breach-notification statutes.</p>
+      </section>
 
-  <h2>7. Data Retention</h2>
-  <p>We retain account information for as long as your account remains active. Client Data is retained until you
-  delete it or close your account, after which it will be deleted or de-identified within a commercially
-  reasonable time, except where retention is required by law. Call recordings, where applicable, are retained for
-  the period specified by your subscription plan. Gmail integration data (OAuth tokens, ingested carrier-email
-  records, and extracted fields) is deleted when you disconnect your Gmail account or close your Producer Stack
-  account, except where retention is required by law.</p>
+      <section class="legal-sec reveal" data-sec="s8">
+        <h2 id="s8">8. Data Retention</h2>
+  <ul>
+    <li><strong>Account information</strong> — retained for as long as your account remains active, then
+    deleted or de-identified within a commercially reasonable time except where retention is required by
+    law.</li>
+    <li><strong>Client Data</strong> — retained until you delete it or close your account, with a reasonable
+    export window on closure.</li>
+    <li><strong>Call recordings</strong> — retained for the period specified by your subscription plan.</li>
+    <li><strong>AI call transcripts and summaries</strong> — retained with your account records until you
+    delete them or close your account.</li>
+    <li><strong>Messaging consent, opt-out, and do-not-contact records</strong> — retained for up to five (5)
+    years after last activity, consistent with TCPA statute-of-limitations defense needs, even after account
+    closure.</li>
+    <li><strong>Wallet ledger and billing records</strong> — retained as required for tax, accounting, and
+    audit obligations.</li>
+    <li><strong>Gmail/Google Calendar integration data</strong> — OAuth tokens, ingested carrier-email
+    records, extracted fields, and synced calendar data are deleted when you disconnect the integration or
+    close your account, except where retention is required by law.</li>
+    <li><strong>A2P registration records</strong> — retained while your registration is active and as
+    required to document carrier compliance.</li>
+  </ul>
+      </section>
 
-  <h2>8. Your Rights &amp; Choices</h2>
-  <p>You can review, update, or correct most account information directly within the App's Settings. Depending
-  on your location, you may also have the right to request access to, correction of, export of, or deletion of
-  personal information we hold about you by contacting us using the information below.</p>
+      <section class="legal-sec reveal" data-sec="s9">
+        <h2 id="s9">9. Your Rights &amp; Choices</h2>
+  <p>You can review, update, or correct most account information directly within the Service's Settings.
+  Depending on your location, you may also have the right to request access to, correction of, export of, or
+  deletion of personal information we hold about you by contacting us using the information below. We will
+  verify requests using your account email and respond within the time required by applicable law. We do not
+  discriminate against you for exercising privacy rights.</p>
 
   <p><strong>California Residents.</strong> Under the California Consumer Privacy Act (CCPA/CPRA), California
-  residents have the right to know what personal information is collected, to request deletion of that
-  information, and to opt out of the sale or sharing of personal information. We do not sell or share personal
-  information as those terms are defined under the CCPA, and we do not use any analytics or advertising
-  technology that would constitute "sharing."</p>
+  residents have the right to know what personal information is collected, to request correction or deletion
+  of that information, and to opt out of the sale or sharing of personal information. We do not sell or share
+  personal information as those terms are defined under the CCPA, and we do not use any analytics or
+  advertising technology that would constitute "sharing." We do not sell or share the personal information of
+  consumers under 16.</p>
 
-  <p><strong>EEA / UK Residents.</strong> If the General Data Protection Regulation (GDPR) or UK GDPR applies to
-  you, you may have additional rights, including the right to access, rectify, erase, restrict, or port your
-  data, and to object to certain processing. To exercise these rights, contact us using the information below.</p>
+  <p><strong>Other U.S. State Residents.</strong> If you reside in a state with a comprehensive privacy law
+  (such as Virginia, Colorado, Connecticut, or Texas), you may have similar rights of access, correction,
+  deletion, and portability, and the right to appeal a refusal, exercisable by contacting us below.</p>
 
-  <h2>9. Children's Privacy</h2>
-  <p>The App is intended for use by licensed insurance professionals and is not directed to, and is not
+  <p><strong>EEA / UK Residents.</strong> If the General Data Protection Regulation (GDPR) or UK GDPR applies
+  to you, you may have additional rights, including the right to access, rectify, erase, restrict, or port
+  your data, and to object to certain processing. To exercise these rights, contact us using the information
+  below.</p>
+
+  <p><strong>Your clients' requests.</strong> Because you are the controller of Client Data, privacy requests
+  from your clients about data you entered should be directed to you; we will assist you as your service
+  provider.</p>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s10">
+        <h2 id="s10">10. Children's Privacy</h2>
+  <p>The Service is intended for use by licensed insurance professionals and is not directed to, and is not
   knowingly used by, individuals under the age of 18. We do not knowingly collect personal information from
   children.</p>
+      </section>
 
-  <h2>10. International Users</h2>
-  <p>The App is operated from the United States. If you access the App from outside the United States, your
-  information may be transferred to, stored, and processed in the United States, where data protection laws may
-  differ from those in your jurisdiction.</p>
+      <section class="legal-sec reveal" data-sec="s11">
+        <h2 id="s11">11. International Users</h2>
+  <p>The Service is operated from the United States. If you access the Service from outside the United
+  States, your information may be transferred to, stored, and processed in the United States, where data
+  protection laws may differ from those in your jurisdiction.</p>
+      </section>
 
-  <h2>11. Governing Law</h2>
+      <section class="legal-sec reveal" data-sec="s12">
+        <h2 id="s12">12. Governing Law</h2>
   <p>This Policy is governed by the laws of the State of Wisconsin, without regard to conflict-of-laws
   principles. Any dispute arising from this Policy is subject to the dispute-resolution, arbitration, and
   class-action-waiver provisions of our <a href="terms-of-service.html">Terms of Service</a>.</p>
+      </section>
 
-  <h2>12. Changes to This Policy</h2>
-  <p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with a revised
-  "Effective date" above. Your continued use of the App after changes become effective constitutes acceptance of
-  the revised Policy.</p>
+      <section class="legal-sec reveal" data-sec="s13">
+        <h2 id="s13">13. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. Any changes will be posted on this page with a
+  revised "Effective date" above. Your continued use of the Service after changes become effective
+  constitutes acceptance of the revised Policy.</p>
+      </section>
 
-  <h2>13. Contact Us</h2>
+      <section class="legal-sec reveal" data-sec="s14">
+        <h2 id="s14">14. Contact Us</h2>
   <div class="contact">
     <p><strong>Frenkel Financial LLC</strong> d/b/a Producer Stack</p>
     <p>Privacy &amp; legal requests: <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a></p>
+    <p>Phone / text: <a href="tel:9204227733">920-422-7733</a></p>
   </div>
+      </section>
+    </div>
 
+  </div>
 </div>
+</section>
+
+<footer>
+  <div class="ft">
+    <div class="ft-top">
+      <div class="ft-brand">
+        <a href="/" class="nav-logo">
+          <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
+          <div class="nav-logo-name">Producer Stack</div>
+        </a>
+        <p>The all-in-one CRM platform built for life insurance producers. Power Dialer, live rates, and full production analytics.</p>
+      </div>
+      <div class="ft-col">
+        <h4>Product</h4>
+        <a href="features.html">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="app.html?view=signup">Create Account</a>
+        <a href="app.html">Sign In</a>
+      </div>
+      <div class="ft-col">
+        <h4>Features</h4>
+        <a href="features.html">Power Dialer</a>
+        <a href="features.html">Lead CRM</a>
+        <a href="features.html">Rate Quoter</a>
+        <a href="features.html">AI Underwriter</a>
+        <a href="features.html">KPI Dashboard</a>
+        <a href="how-it-works.html">Lead Integration</a>
+        <a href="features.html">Team Leader</a>
+      </div>
+      <div class="ft-col">
+        <h4>Support</h4>
+        <a href="tel:9204227733">920-422-7733</a>
+        <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <div class="ft-copy">&copy; 2026 Producer Stack. All rights reserved.</div>
+      <div class="ft-copy"><a href="privacy-policy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms-of-service.html">Terms</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+window.addEventListener('scroll',()=>{document.getElementById('main-nav').classList.toggle('scrolled',scrollY>24)},{passive:true});
+document.getElementById('hbg').addEventListener('click',()=>{document.getElementById('mob-menu').classList.toggle('open')});
+function closeMob(){document.getElementById('mob-menu').classList.remove('open')}
+/* threshold 0, not .1 — legal sections are tall enough that a 10% threshold
+   can leave a section faded out while its heading is already on screen. */
+const ro=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('in');ro.unobserve(x.target)}})},{threshold:0,rootMargin:'0px 0px -40px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+/* TOC current-section highlight — same IntersectionObserver pattern as .reveal */
+(function(){
+  const secs=[...document.querySelectorAll('.legal-sec[data-sec]')];
+  const links=new Map([...document.querySelectorAll('.legal-toc-list a')].map(a=>[a.dataset.sec,a]));
+  if(!secs.length||!links.size)return;
+  const rail=document.querySelector('.legal-toc');
+  let cur=null;
+  function paint(){
+    /* Current section = the last one whose heading has crossed the reading
+       line under the fixed nav. Picking the first *intersecting* section
+       instead marks the previous one, because a long section still clips the
+       top of the band while the next one is already being read. */
+    const line=140;
+    let id=secs[0].dataset.sec;
+    for(const s of secs){if(s.getBoundingClientRect().top-line<=0)id=s.dataset.sec;else break}
+    if(id===cur)return;
+    if(cur&&links.get(cur))links.get(cur).classList.remove('on');
+    cur=id;
+    const a=id&&links.get(id);
+    if(!a)return;
+    a.classList.add('on');
+    if(rail&&rail.scrollHeight>rail.clientHeight){
+      const r=a.offsetTop-rail.scrollTop;
+      if(r<40||r>rail.clientHeight-60)rail.scrollTop=a.offsetTop-rail.clientHeight/2;
+    }
+  }
+  /* Repaint on the frame after the event, not inside it: reading geometry
+     straight from a scroll handler can land before layout settles and leave
+     the rail one section behind. rAF also collapses scroll bursts to 1/frame. */
+  let raf=0,tail=0;
+  function schedule(){
+    if(!raf)raf=requestAnimationFrame(()=>{raf=0;paint()});
+    /* Trailing repaint so an instant jump (anchor link, find-in-page, restored
+       scroll position) still settles on the right section. */
+    clearTimeout(tail);tail=setTimeout(paint,120);
+  }
+  /* IntersectionObserver wakes the highlight as sections enter/leave the
+     reading band; scroll/resize/hash keep it exact in between. */
+  const io=new IntersectionObserver(schedule,{rootMargin:'-84px 0px -55% 0px',threshold:0});
+  secs.forEach(s=>io.observe(s));
+  addEventListener('scroll',schedule,{passive:true});
+  addEventListener('resize',schedule,{passive:true});
+  addEventListener('hashchange',schedule);
+  paint();
+  document.querySelectorAll('.legal-jump-list a').forEach(a=>a.addEventListener('click',()=>{
+    const d=a.closest('details'); if(d)d.open=false;
+  }));
+})();
+</script>
 </body>
 </html>

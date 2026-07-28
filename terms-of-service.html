@@ -4,200 +4,754 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Terms of Service — Producer Stack</title>
+<link rel="icon" href="assets/logos/producer-stack-logo.png" type="image/png">
+<meta name="description" content="The terms that govern your use of Producer Stack.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,300;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
 <style>
-  :root{
-    --bg:#070d1a;
-    --bg2:#0e1626;
-    --border:#1d2940;
-    --text:#e7edf7;
-    --text2:#aab6c9;
-    --text3:#7c8aa3;
-    --accent:#5ba0e8;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"DM Sans",Arial,sans-serif;
-    line-height:1.65;
-  }
-  .wrap{max-width:780px;margin:0 auto;padding:40px 20px 80px}
-  h1{font-size:26px;margin:0 0 6px;font-weight:700}
-  .updated{color:var(--text3);font-size:13px;margin-bottom:32px}
-  h2{font-size:17px;margin:32px 0 10px;color:var(--text);font-weight:600;border-bottom:1px solid var(--border);padding-bottom:6px}
-  h3{font-size:14.5px;margin:18px 0 8px;color:var(--text);font-weight:600}
-  p,li{color:var(--text2);font-size:14.5px}
-  ul{padding-left:22px}
-  li{margin-bottom:6px}
-  a{color:var(--accent);text-decoration:underline}
-  strong{color:var(--text)}
-  .back{display:inline-block;margin-bottom:24px;font-size:13px;color:var(--text3);text-decoration:none}
-  .back:hover{color:var(--accent)}
-  .contact{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 18px;margin-top:8px}
-  .contact p{margin:4px 0}
-  .callout{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;margin:14px 0}
-  .callout p{margin:0;font-size:13.5px}
-  .shout{background:var(--bg2);border:1px solid var(--border);border-left:3px solid #ef4444;border-radius:8px;padding:12px 16px;margin:14px 0}
-  .shout p{margin:0;font-size:13.5px}
+/* ── LEGAL PAGE ─────────────────────────────────────────────── */
+/* .sec-shell clips with overflow:hidden, which makes it the sticky scroll
+   container and stops the TOC rail from ever sticking. overflow:clip clips
+   identically without creating a scroll container. Page-scoped: styles.css
+   is left alone. Browsers without clip support just keep a non-sticky rail. */
+.sec-shell{overflow:clip}
+.legal-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:0}
+.legal-body{max-width:800px;min-width:0}
+
+/* Jump-to (small screens) */
+.legal-jump{margin:0 0 34px;border:1px solid var(--border);border-radius:var(--r12);background:rgba(255,255,255,.02)}
+.legal-jump>summary{list-style:none;cursor:pointer;padding:13px 16px;font-size:13px;font-weight:500;color:var(--text2);display:flex;align-items:center;justify-content:space-between;gap:10px;letter-spacing:-.01em}
+.legal-jump>summary::-webkit-details-marker{display:none}
+.legal-jump>summary::after{content:'▾';font-size:11px;color:var(--text3);transition:transform .25s}
+.legal-jump[open]>summary::after{transform:rotate(180deg)}
+.legal-jump[open]>summary{border-bottom:1px solid var(--border)}
+.legal-jump-list{padding:8px;max-height:min(52vh,420px);overflow-y:auto;display:grid;gap:1px}
+.legal-jump-list a{display:flex;gap:9px;font-size:12.5px;color:var(--text3);text-decoration:none;padding:8px 9px;border-radius:var(--r8);line-height:1.45;letter-spacing:-.01em}
+.legal-jump-list a:hover{color:var(--text2);background:rgba(255,255,255,.04)}
+
+/* Sticky rail (≥1100px) */
+.legal-toc{display:none}
+@media(min-width:1100px){
+  .legal-layout{grid-template-columns:214px minmax(0,1fr);gap:44px;align-items:start}
+  .legal-jump{display:none}
+  .legal-toc{display:block;position:sticky;top:calc(var(--nav-h) + 26px);max-height:calc(100vh - var(--nav-h) - 60px);overflow-y:auto;overscroll-behavior:contain;padding-right:6px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.10) transparent}
+  .legal-toc::-webkit-scrollbar{width:5px}
+  .legal-toc::-webkit-scrollbar-thumb{background:rgba(255,255,255,.10);border-radius:3px}
+}
+.legal-toc-h{font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);padding:0 0 11px 11px;margin-bottom:5px;border-bottom:1px solid var(--border)}
+.legal-toc-list{display:grid;gap:1px;padding-top:5px;border-left:1px solid var(--border);margin-left:1px}
+.legal-toc-list a{display:flex;gap:8px;align-items:baseline;font-size:11.5px;color:var(--text3);text-decoration:none;padding:6px 9px 6px 10px;margin-left:-1px;border-left:1.5px solid transparent;line-height:1.45;letter-spacing:-.005em;transition:color .2s,border-color .2s}
+.legal-toc-list a:hover{color:var(--text2)}
+.legal-toc-list a.on{color:var(--text);border-left-color:var(--accent)}
+.toc-n{font-family:var(--mono);font-size:10px;color:var(--text3);flex-shrink:0;min-width:15px}
+.legal-toc-list a.on .toc-n{color:var(--accent)}
+
+/* Document body */
+.legal-intro{font-size:14.5px;color:var(--text2);line-height:1.8;letter-spacing:-.005em;padding-bottom:30px;border-bottom:1px solid var(--border)}
+.legal-sec{padding-top:6px}
+.legal-body h2{font-size:17.5px;font-weight:600;color:var(--text);letter-spacing:-.025em;line-height:1.3;margin:46px 0 15px;padding-bottom:11px;border-bottom:1px solid var(--border);scroll-margin-top:calc(var(--nav-h) + 24px)}
+.legal-body h3{font-size:14.5px;font-weight:600;color:var(--text);letter-spacing:-.02em;margin:24px 0 8px}
+.legal-body p{font-size:14.5px;color:var(--text2);line-height:1.8;letter-spacing:-.005em;margin-bottom:15px}
+.legal-body ul{list-style:none;margin:0 0 15px;display:flex;flex-direction:column;gap:9px}
+.legal-body li{font-size:14.5px;color:var(--text2);line-height:1.75;letter-spacing:-.005em;padding-left:19px;position:relative}
+.legal-body li::before{content:'';position:absolute;left:2px;top:.72em;width:4px;height:4px;border-radius:50%;background:rgba(91,159,232,.5)}
+.legal-body strong{color:var(--text);font-weight:600}
+.legal-body a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(91,159,232,.28);transition:border-color .2s}
+.legal-body a:hover{border-bottom-color:var(--accent)}
+
+/* Callouts */
+.legal-body .callout,.legal-body .shout{background:linear-gradient(165deg,rgba(12,18,38,.9),rgba(8,14,30,.95));border:1px solid var(--border);border-left:2.5px solid var(--accent);border-radius:var(--r12);padding:15px 18px;margin:20px 0}
+.legal-body .shout{border-left-color:var(--coral);background:linear-gradient(165deg,rgba(38,16,16,.5),rgba(20,10,14,.6))}
+.legal-body .callout p,.legal-body .shout p{margin:0;font-size:13.5px;line-height:1.72}
+
+/* Rate tables — same language as the pricing page rate cards */
+.tbl-wrap{border:1px solid var(--border);border-radius:var(--r16);overflow:hidden;background:linear-gradient(170deg,rgba(10,16,35,.95),rgba(6,11,26,.98));margin:20px 0}
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+.tbl-scroll::-webkit-scrollbar{height:6px}
+.tbl-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:3px}
+.legal-body table{width:100%;border-collapse:collapse;font-size:13px;min-width:440px}
+.legal-body th{background:rgba(255,255,255,.025);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);text-align:left;padding:13px 18px;border-bottom:1px solid var(--border);white-space:nowrap}
+.legal-body td{padding:13px 18px;color:var(--text2);line-height:1.6;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;letter-spacing:-.005em}
+.legal-body tr:last-child td{border-bottom:none}
+.legal-body td strong{color:var(--text);font-weight:500}
+.legal-body td.amt{font-family:var(--mono);font-size:12.5px;color:var(--text);white-space:nowrap}
+
+/* Contact card */
+.legal-body .contact{background:linear-gradient(165deg,rgba(12,18,38,.9),rgba(8,14,30,.95));border:1px solid var(--border);border-radius:var(--r16);padding:22px 24px;margin-top:6px}
+.legal-body .contact p{margin:0 0 7px;font-size:14px}
+.legal-body .contact p:last-child{margin-bottom:0}
+
+@media(max-width:900px){
+  .legal-body h2{font-size:16.5px;margin:38px 0 13px}
+  .legal-intro,.legal-body p,.legal-body li{font-size:14px}
+}
+@media(max-width:480px){
+  .legal-body .callout,.legal-body .shout{padding:13px 14px;margin:16px 0}
+  .legal-body th,.legal-body td{padding:11px 13px}
+  .legal-body .contact{padding:18px 16px}
+}
+
+/* No-JS: reveal must never hide a legal document */
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none}}
+
+/* Print — legal pages get printed */
+@media print{
+  .bg-canvas,.nav,.mob-menu,footer,.legal-toc,.legal-jump,.hamburger{display:none!important}
+  html,body{background:#fff!important;color:#000!important}
+  .page-hero{padding:0 0 18px!important;text-align:left!important}
+  .eyebrow{display:none!important}
+  .page-h,.page-h .hl{font-size:24px!important;color:#000!important;-webkit-text-fill-color:#000!important;background:none!important}
+  .page-sub{color:#333!important;margin:0 0 20px!important;text-align:left!important;max-width:none!important}
+  .section{padding:0!important;max-width:none!important}
+  .sec-shell{background:none!important;border:none!important;border-radius:0!important;padding:0!important}
+  .sec-shell::before{display:none!important}
+  .legal-layout{display:block!important}
+  .legal-body{max-width:none!important}
+  .legal-body h2{color:#000!important;border-bottom:1px solid #999!important;page-break-after:avoid;margin-top:22px!important}
+  .legal-intro,.legal-body p,.legal-body li,.legal-body td,.legal-body th{color:#000!important}
+  .legal-body a{color:#000!important;border-bottom:none!important;text-decoration:underline}
+  .legal-body li::before{background:#000!important}
+  .legal-body .callout,.legal-body .shout,.legal-body .contact,.tbl-wrap{background:none!important;border:1px solid #999!important;page-break-inside:avoid}
+  .legal-body th{background:none!important}
+  .reveal{opacity:1!important;transform:none!important}
+}
 </style>
+<noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
 </head>
 <body>
-<div class="wrap">
 
-  <a class="back" href="index.html">&larr; Back to Producer Stack</a>
+<div class="bg-canvas" aria-hidden="true">
+  <div class="bg-aurora"></div>
+  <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+  <div class="orb orb-4"></div><div class="orb orb-5"></div><div class="orb orb-6"></div>
+  <div class="bg-grid"></div><div class="bg-vignette"></div>
+</div>
 
-  <h1>Terms of Service</h1>
-  <div class="updated">Effective date: July 3, 2026</div>
+<nav class="nav" id="main-nav">
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
+      <div class="nav-logo-name">Producer Stack</div>
+    </a>
+    <div class="nav-links">
+      <a href="features.html">Features</a>
+      <a href="how-it-works.html">How It Works</a>
+      <a href="pricing.html">Pricing</a>
+      <a href="support.html">Support</a>
+    </div>
+    <div class="nav-right">
+      <a href="app.html" class="btn-ghost">Sign In</a>
+      <a href="app.html?view=signup" class="btn-nav">Start Free Trial</a>
+    </div>
+    <button class="hamburger" id="hbg" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+</nav>
 
-  <p>These Terms of Service ("Terms") are a binding agreement between you and <strong>Frenkel Financial
+<div class="mob-menu" id="mob-menu">
+  <a href="features.html" onclick="closeMob()">Features</a>
+  <a href="how-it-works.html" onclick="closeMob()">How It Works</a>
+  <a href="pricing.html" onclick="closeMob()">Pricing</a>
+  <a href="support.html" onclick="closeMob()">Support</a>
+  <div class="mob-div"></div>
+  <a href="app.html">Sign In</a>
+  <a href="app.html?view=signup" style="color:var(--accent)">Get Started →</a>
+</div>
+
+<!-- PAGE HERO -->
+<div class="page-hero">
+  <div class="eyebrow anim d1">Legal</div>
+  <h1 class="page-h anim d2">Terms of <span class="hl">Service</span></h1>
+  <p class="page-sub anim d3">Effective date: July 27, 2026</p>
+</div>
+
+<section class="section">
+<div class="sec-shell">
+  <div class="legal-layout">
+
+    <nav class="legal-toc" aria-label="Contents">
+      <div class="legal-toc-h">Contents</div>
+      <div class="legal-toc-list">
+        <a href="#s1" data-sec="s1"><span class="toc-n">1</span><span>Eligibility &amp; Accounts</span></a>
+        <a href="#s2" data-sec="s2"><span class="toc-n">2</span><span>Description of the Service</span></a>
+        <a href="#s3" data-sec="s3"><span class="toc-n">3</span><span>Free Trial</span></a>
+        <a href="#s4" data-sec="s4"><span class="toc-n">4</span><span>Subscriptions, Seat Pricing &amp; Cancellation</span></a>
+        <a href="#s5" data-sec="s5"><span class="toc-n">5</span><span>Prepaid Wallet &amp; Usage Billing</span></a>
+        <a href="#s6" data-sec="s6"><span class="toc-n">6</span><span>Phone Numbers</span></a>
+        <a href="#s7" data-sec="s7"><span class="toc-n">7</span><span>A2P 10DLC Registration</span></a>
+        <a href="#s8" data-sec="s8"><span class="toc-n">8</span><span>Telemarketing, Do-Not-Call &amp; Call Recording Compliance</span></a>
+        <a href="#s9" data-sec="s9"><span class="toc-n">9</span><span>Text Messaging Rules for Your Campaigns</span></a>
+        <a href="#s10" data-sec="s10"><span class="toc-n">10</span><span>AI Sales Agent &amp; AI Features</span></a>
+        <a href="#s11" data-sec="s11"><span class="toc-n">11</span><span>Producer Stack's Messages to You (SMS Program Terms)</span></a>
+        <a href="#s12" data-sec="s12"><span class="toc-n">12</span><span>No Marketing Agency; You Are the Sender</span></a>
+        <a href="#s13" data-sec="s13"><span class="toc-n">13</span><span>Client Data</span></a>
+        <a href="#s14" data-sec="s14"><span class="toc-n">14</span><span>Acceptable Use</span></a>
+        <a href="#s15" data-sec="s15"><span class="toc-n">15</span><span>Third-Party Services</span></a>
+        <a href="#s16" data-sec="s16"><span class="toc-n">16</span><span>Intellectual Property</span></a>
+        <a href="#s17" data-sec="s17"><span class="toc-n">17</span><span>Copyright Policy (DMCA)</span></a>
+        <a href="#s18" data-sec="s18"><span class="toc-n">18</span><span>Disclaimer of Warranties</span></a>
+        <a href="#s19" data-sec="s19"><span class="toc-n">19</span><span>Limitation of Liability</span></a>
+        <a href="#s20" data-sec="s20"><span class="toc-n">20</span><span>Indemnification</span></a>
+        <a href="#s21" data-sec="s21"><span class="toc-n">21</span><span>Termination</span></a>
+        <a href="#s22" data-sec="s22"><span class="toc-n">22</span><span>Dispute Resolution — Binding Arbitration &amp; Class Action Waiver</span></a>
+        <a href="#s23" data-sec="s23"><span class="toc-n">23</span><span>State Telemarketing Addendum (Including Florida FTSA)</span></a>
+        <a href="#s24" data-sec="s24"><span class="toc-n">24</span><span>Taxes</span></a>
+        <a href="#s25" data-sec="s25"><span class="toc-n">25</span><span>Governing Law</span></a>
+        <a href="#s26" data-sec="s26"><span class="toc-n">26</span><span>Changes to These Terms</span></a>
+        <a href="#s27" data-sec="s27"><span class="toc-n">27</span><span>General Provisions</span></a>
+        <a href="#s28" data-sec="s28"><span class="toc-n">28</span><span>Contact Us</span></a>
+      </div>
+    </nav>
+
+    <div class="legal-body">
+      <details class="legal-jump">
+        <summary>Jump to section</summary>
+        <div class="legal-jump-list">
+        <a href="#s1"><span class="toc-n">1</span><span>Eligibility &amp; Accounts</span></a>
+        <a href="#s2"><span class="toc-n">2</span><span>Description of the Service</span></a>
+        <a href="#s3"><span class="toc-n">3</span><span>Free Trial</span></a>
+        <a href="#s4"><span class="toc-n">4</span><span>Subscriptions, Seat Pricing &amp; Cancellation</span></a>
+        <a href="#s5"><span class="toc-n">5</span><span>Prepaid Wallet &amp; Usage Billing</span></a>
+        <a href="#s6"><span class="toc-n">6</span><span>Phone Numbers</span></a>
+        <a href="#s7"><span class="toc-n">7</span><span>A2P 10DLC Registration</span></a>
+        <a href="#s8"><span class="toc-n">8</span><span>Telemarketing, Do-Not-Call &amp; Call Recording Compliance</span></a>
+        <a href="#s9"><span class="toc-n">9</span><span>Text Messaging Rules for Your Campaigns</span></a>
+        <a href="#s10"><span class="toc-n">10</span><span>AI Sales Agent &amp; AI Features</span></a>
+        <a href="#s11"><span class="toc-n">11</span><span>Producer Stack's Messages to You (SMS Program Terms)</span></a>
+        <a href="#s12"><span class="toc-n">12</span><span>No Marketing Agency; You Are the Sender</span></a>
+        <a href="#s13"><span class="toc-n">13</span><span>Client Data</span></a>
+        <a href="#s14"><span class="toc-n">14</span><span>Acceptable Use</span></a>
+        <a href="#s15"><span class="toc-n">15</span><span>Third-Party Services</span></a>
+        <a href="#s16"><span class="toc-n">16</span><span>Intellectual Property</span></a>
+        <a href="#s17"><span class="toc-n">17</span><span>Copyright Policy (DMCA)</span></a>
+        <a href="#s18"><span class="toc-n">18</span><span>Disclaimer of Warranties</span></a>
+        <a href="#s19"><span class="toc-n">19</span><span>Limitation of Liability</span></a>
+        <a href="#s20"><span class="toc-n">20</span><span>Indemnification</span></a>
+        <a href="#s21"><span class="toc-n">21</span><span>Termination</span></a>
+        <a href="#s22"><span class="toc-n">22</span><span>Dispute Resolution — Binding Arbitration &amp; Class Action Waiver</span></a>
+        <a href="#s23"><span class="toc-n">23</span><span>State Telemarketing Addendum (Including Florida FTSA)</span></a>
+        <a href="#s24"><span class="toc-n">24</span><span>Taxes</span></a>
+        <a href="#s25"><span class="toc-n">25</span><span>Governing Law</span></a>
+        <a href="#s26"><span class="toc-n">26</span><span>Changes to These Terms</span></a>
+        <a href="#s27"><span class="toc-n">27</span><span>General Provisions</span></a>
+        <a href="#s28"><span class="toc-n">28</span><span>Contact Us</span></a>
+        </div>
+      </details>
+
+      <div class="legal-intro reveal">
+<p>These Terms of Service ("Terms") are a binding agreement between you and <strong>Frenkel Financial
   LLC</strong>, a Wisconsin limited liability company, doing business as <strong>Producer Stack</strong>
-  ("Producer Stack," "we," "us," or "our"), governing your access to and use of the Producer Stack CRM web and
-  mobile application (the "App"). By creating an account, clicking "I agree," or using the App, you agree to
-  these Terms and to our <a href="privacy-policy.html">Privacy Policy</a>, which is incorporated by reference. If
-  you do not agree, do not use the App.</p>
+  ("Producer Stack," "we," "us," or "our"), governing your access to and use of the Producer Stack website
+  (producerstackcrm.com), the Producer Stack CRM web and mobile application, and all related dialing, texting,
+  AI, quoting, and analytics features (together, the "Service"). By creating an account, clicking "I agree,"
+  starting a free trial, or using the Service, you agree to these Terms and to our
+  <a href="privacy-policy.html">Privacy Policy</a>, which is incorporated by reference. If you do not agree, do
+  not use the Service.</p>
+      </div>
 
-  <h2>1. Eligibility &amp; Accounts</h2>
-  <p>The App is intended for licensed insurance producers and their staff acting in a business capacity. You
-  must be at least 18 years old, capable of forming a binding contract, and (where you use the App's quoting or
-  underwriting tools in connection with actual clients) appropriately licensed in the states in which you do
-  business. You are responsible for maintaining the confidentiality of your login credentials and for all
-  activity that occurs under your account. Notify us promptly of any unauthorized use.</p>
+      <section class="legal-sec reveal" data-sec="s1">
+        <h2 id="s1">1. Eligibility &amp; Accounts</h2>
+  <p>The Service is intended for licensed insurance producers and their staff acting in a business capacity.
+  You must be at least 18 years old, capable of forming a binding contract, and — where you use the Service's
+  quoting or underwriting tools in connection with actual clients — appropriately licensed in the states in
+  which you do business. You are responsible for maintaining the confidentiality of your login credentials and
+  for all activity that occurs under your account, including activity by staff or downline agents you enroll.
+  Notify us promptly of any unauthorized use.</p>
+      </section>
 
-  <h2>2. The Service</h2>
-  <p>The App provides customer relationship management, lead and policy tracking, commission tracking, quoting
-  reference tools, AI-assisted underwriting estimate tools, and telephony/dialing features. <strong>Underwriting
-  estimates, quotes, and bonus/commission calculations produced by the App are informational estimates only.</strong>
-  They are not applications, offers, binding quotes, or guarantees of carrier approval, pricing, or commission,
-  and actual outcomes are determined solely by the relevant insurance carrier and your agency contract. You are
+      <section class="legal-sec reveal" data-sec="s2">
+        <h2 id="s2">2. Description of the Service</h2>
+  <p>The Service provides customer relationship management, lead and policy tracking, commission and bonus
+  tracking, quoting reference tools, AI-assisted underwriting estimate tools, a cloud VoIP softphone and Power
+  Dialer, SMS/MMS texting (including mass texting), an AI Sales Agent that can place outbound qualification
+  calls and live-transfer interested prospects to you, phone number provisioning, A2P 10DLC registration
+  handled on your behalf, optional Gmail and Google Calendar integrations, and agency/team management
+  features. Feature availability depends on your subscription plan.</p>
+  <div class="callout"><p><strong>Estimates are not guarantees.</strong> Underwriting estimates, quotes, and
+  bonus/commission calculations produced by the Service are informational estimates only. They are not
+  applications, offers, binding quotes, or guarantees of carrier approval, pricing, or commission. Actual
+  outcomes are determined solely by the relevant insurance carrier and your agency contract. You are
   responsible for independently verifying any figure before relying on it with a client or in your business
-  decisions.</p>
+  decisions.</p></div>
+      </section>
 
-  <h2>3. Telemarketing, Do-Not-Call &amp; Call Recording Compliance</h2>
+      <section class="legal-sec reveal" data-sec="s3">
+        <h2 id="s3">3. Free Trial</h2>
+  <ul>
+    <li><strong>Length &amp; scope.</strong> Every plan starts with a 7-day free trial. A valid payment method
+    is required at signup. You will not be charged a subscription fee during the trial; your payment method is
+    charged automatically on day 8 unless you cancel before the trial ends.</li>
+    <li><strong>One trial per customer.</strong> The free trial is limited to one per customer, where a
+    "customer" means a unique combination of email address, payment method, and business identity. We may deny
+    or revoke trials we reasonably believe are duplicates or abuse.</li>
+    <li><strong>Trial covers the seat only.</strong> The trial waives the recurring subscription (seat) fee. It
+    does not include free usage: calling minutes, AI voice minutes, texting, phone numbers, and A2P
+    registration fees are billed from your prepaid wallet from day one (see Section 5).</li>
+    <li><strong>Cancellation.</strong> You can cancel anytime in-app from Settings → Billing. If you cancel
+    during the trial, you will not be charged a subscription fee.</li>
+  </ul>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s4">
+        <h2 id="s4">4. Subscriptions, Seat Pricing &amp; Cancellation</h2>
+  <p>Paid plans are billed in advance on a monthly or annual basis through our payment processor, Stripe.
+  Current seat pricing as of the Effective date:</p>
+  <div class="tbl-wrap"><div class="tbl-scroll"><table>
+    <tr><th>Plan</th><th>Monthly</th><th>Annual (15% off)</th></tr>
+    <tr><td><strong>Basic Producer</strong></td><td class="amt">$79.99 / month</td><td class="amt">$67.99 / month, billed annually</td></tr>
+    <tr><td><strong>Pro Producer</strong></td><td class="amt">$129.99 / month</td><td class="amt">≈ $110.49 / month, billed annually</td></tr>
+    <tr><td><strong>Team Leader</strong></td><td class="amt">$199.99 / month</td><td class="amt">$169.99 / month, billed annually</td></tr>
+  </table></div></div>
+  <ul>
+    <li><strong>Downline discount.</strong> When your team leader maintains an active Team Leader plan, agents
+    enrolled under their agency code receive 30% off their seat price. The discount applies to seats only,
+    never to usage rates, and ends prospectively if the Team Leader subscription lapses.</li>
+    <li><strong>No setup fees.</strong> We do not charge setup, onboarding, or activation fees.</li>
+    <li><strong>Auto-renewal.</strong> Subscriptions renew automatically at the end of each billing period, and
+    you authorize us to charge your payment method on file, until you cancel.</li>
+    <li><strong>Cancellation.</strong> You may cancel anytime through Settings → Billing. Cancellation takes
+    effect at the end of the current billing period. Because you retain full access through the end of the
+    period, subscription fees for billing periods that have begun are non-refundable except where required by
+    law.</li>
+    <li><strong>Effect of cancellation.</strong> On cancellation or expiration, phone numbers provisioned to
+    your account may be released and your A2P 10DLC brand and campaign registrations may be deactivated;
+    released numbers and registrations may not be recoverable (see Sections 6–7). You may export your Client
+    Data as described in Section 13.</li>
+    <li><strong>Price changes.</strong> We may change subscription pricing prospectively with notice; changes
+    take effect at your next renewal.</li>
+  </ul>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s5">
+        <h2 id="s5">5. Prepaid Wallet &amp; Usage Billing</h2>
+  <p>Usage-based features (calling, AI voice, texting, phone numbers, A2P fees) are paid from a prepaid wallet
+  balance you load through Stripe. By loading funds, you authorize us to debit the wallet for usage at the
+  rates below.</p>
+  <div class="tbl-wrap"><div class="tbl-scroll"><table>
+    <tr><th>Usage item</th><th>Rate</th><th>Notes</th></tr>
+    <tr><td><strong>Dialer minutes</strong></td><td class="amt">$0.012 / minute</td><td>Power Dialer and softphone calls; rounded up to the next full minute</td></tr>
+    <tr><td><strong>AI voice minutes</strong></td><td class="amt">$0.075 / minute</td><td>AI Sales Agent talk time; drops to $0.065 / minute above 2,000 AI minutes in a calendar month</td></tr>
+    <tr><td><strong>Outbound SMS</strong></td><td class="amt">$0.01 / segment</td><td>Segments counted per carrier standard (160 chars GSM-7 single-message; 153 concatenated; 70/67 for Unicode)</td></tr>
+    <tr><td><strong>Outbound MMS</strong></td><td class="amt">$0.03 / message</td><td></td></tr>
+    <tr><td><strong>Phone numbers</strong></td><td class="amt">$2.00 / number / month</td><td>Unlimited numbers; billed per 30-day period from your wallet</td></tr>
+    <tr><td><strong>A2P 10DLC fees</strong></td><td>Pass-through at cost</td><td>Brand, campaign, and monthly carrier registration fees, itemized in your ledger (Section 7)</td></tr>
+  </table></div></div>
+  <ul>
+    <li><strong>Itemized ledger.</strong> Every wallet debit appears as an itemized, human-readable ledger
+    entry showing the item, units, unit rate, and resulting balance. Your balance is denominated in real
+    dollars.</li>
+    <li><strong>We never charge for undelivered messages.</strong> When you send an SMS or MMS, the cost is
+    held from your balance and settled only when the carrier confirms delivery. If a message fails or is
+    undelivered, the hold is voided and your net charge for that message is $0.</li>
+    <li><strong>Balances never expire.</strong> Your wallet balance does not expire for as long as your account
+    exists.</li>
+    <li><strong>Non-refundable; no cash value.</strong> Wallet top-ups are non-refundable, non-transferable,
+    and have no cash value, except where a refund is required by applicable law. Remaining balance is
+    forfeited when your account is closed.</li>
+    <li><strong>Insufficient balance.</strong> Actions that would take your balance below zero are declined.
+    If your wallet cannot cover a phone number renewal, the number enters a past-due state and may be released
+    if not funded.</li>
+    <li><strong>Auto-recharge.</strong> If you enable auto-recharge, you authorize us to charge your payment
+    method for the recharge amount you configure whenever your balance falls below your chosen threshold. You
+    can disable auto-recharge anytime in Settings → Billing.</li>
+    <li><strong>Rate changes.</strong> The rates above are current as of the Effective date. We may change
+    usage rates prospectively with notice; the rate card published at
+    <a href="pricing.html">producerstackcrm.com/pricing</a> reflects the rates currently in effect, and the
+    rate shown in your wallet ledger at the time of the debit is the rate you are charged.</li>
+  </ul>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s6">
+        <h2 id="s6">6. Phone Numbers</h2>
+  <p>Phone numbers are provisioned through our telephony provider and leased to you while your account remains
+  active and funded. Numbers are billed from your wallet per 30-day period. You do not own provisioned
+  numbers. Numbers may be released for non-payment (after a past-due grace state), on cancellation, or if
+  required by our carrier or a regulator (for example, for spam or compliance violations). Released numbers
+  may not be recoverable. You agree to use provisioned numbers, including local-presence and rotation
+  features, only in compliance with applicable law, including laws prohibiting misleading caller ID
+  (Truth in Caller ID Act).</p>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s7">
+        <h2 id="s7">7. A2P 10DLC Registration</h2>
+  <p>To send application-to-person SMS/MMS in the United States, carriers require registration of your brand
+  and messaging campaign with The Campaign Registry (TCR). The Service automates this registration on your
+  behalf through our telephony provider, including a Sole Proprietor registration path for producers without
+  an EIN. You agree that:</p>
+  <ul>
+    <li>You will provide true, accurate, and complete business and identity information for registration, and
+    you authorize us to submit it to our telephony provider and TCR on your behalf;</li>
+    <li>Brand, campaign, and recurring carrier registration fees are passed through to your wallet at cost and
+    are <strong>non-refundable</strong> once submitted, whether or not your registration is approved;</li>
+    <li>Texting features are blocked until your campaign is approved; approval timelines and decisions belong
+    to TCR and the carriers, not to us;</li>
+    <li>Each account receives its own brand and campaign; registrations are not shared or transferable;</li>
+    <li>Registrations may be deactivated on cancellation or termination and may not be recoverable.</li>
+  </ul>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s8">
+        <h2 id="s8">8. Telemarketing, Do-Not-Call &amp; Call Recording Compliance</h2>
   <div class="shout"><p><strong>You, not Producer Stack, are solely responsible for lawful calling and
-  texting.</strong> The App gives you infrastructure to place calls; it does not vet your lead sources, scrub
-  numbers against Do-Not-Call registries, or confirm you have consent to contact anyone.</p></div>
+  texting.</strong> The Service gives you infrastructure to place calls and send messages; it does not vet
+  your lead sources, scrub numbers against Do-Not-Call registries, or confirm you have consent to contact
+  anyone. Compliance tooling we provide (consent tracking, quiet-hour gates, opt-out handling, suppression
+  lists) is an aid, not a substitute for your own legal compliance.</p></div>
   <p>You represent, warrant, and agree that:</p>
   <ul>
-    <li>You will comply with the Telephone Consumer Protection Act (TCPA), the CAN-SPAM Act, state and federal
-    Do-Not-Call rules, and all other applicable telemarketing, robocall, and messaging laws;</li>
-    <li>You have obtained, and will maintain records of, any consent required before calling or texting a lead or
-    client, and will honor opt-out and Do-Not-Call requests promptly;</li>
-    <li>You will only call within legally permitted hours and will not use the App to place calls to numbers on a
-    national, state, or internal Do-Not-Call list without valid consent or an applicable exemption;</li>
+    <li>You will comply with the Telephone Consumer Protection Act (TCPA), the Telemarketing Sales Rule, the
+    FTC Act, CAN-SPAM, state and federal Do-Not-Call rules, state "mini-TCPA" telemarketing statutes, and all
+    other applicable telemarketing, robocall, and messaging laws;</li>
+    <li>You have obtained — and will maintain records of — all legally required consent (including prior
+    express written consent where required) before calling or texting any person, and you will honor opt-out
+    and Do-Not-Call requests promptly;</li>
+    <li>You will call and text only within legally permitted hours for the recipient's location;</li>
+    <li>You will not upload, import, dial, or message lead lists that you do not have the legal right to
+    contact;</li>
     <li>Where call recording is enabled for your plan, you are solely responsible for complying with all
-    applicable call-recording and wiretapping laws, including providing any notice or obtaining any consent
-    required in two-party/all-party consent states, before recording a call;</li>
-    <li>You will not upload, import, or dial lead lists that you do not have the legal right to contact.</li>
+    applicable call-recording and wiretapping laws, including providing notice and obtaining consent in
+    two-party/all-party consent states before recording;</li>
+    <li>You will not use the Service to transmit misleading caller ID information or content that is
+    deceptive, harassing, or unlawful.</li>
   </ul>
-  <p>We may suspend or terminate your account immediately, without notice, if we reasonably believe you are
-  using the App's calling features in violation of this Section or applicable law.</p>
+  <p>We may suspend or terminate your account, or block specific sends and calls, immediately and without
+  notice if we reasonably believe you are violating this Section, applicable law, or carrier requirements.</p>
+      </section>
 
-  <h2>4. Client Data</h2>
-  <p>As between you and Producer Stack, you are the data controller for information you enter about your own
-  insurance prospects and clients ("Client Data"), and we act as your service provider (processor) with respect
-  to that data, processing it only to provide the App. You represent and warrant that you have the legal right,
-  and any consent required by law, to collect, store, and process Client Data — including health, financial, and
-  other sensitive information — through the App, and that you will comply with all applicable privacy and
-  insurance-privacy laws, including the Gramm-Leach-Bliley Act (GLBA), with respect to that data. You retain
-  ownership of your Client Data. On termination of your account, you may export Client Data for a reasonable
-  period before it is deleted, as described in our <a href="privacy-policy.html">Privacy Policy</a>.</p>
+      <section class="legal-sec reveal" data-sec="s9">
+        <h2 id="s9">9. Text Messaging Rules for Your Campaigns</h2>
+  <p>In addition to Section 8, when you send SMS/MMS through the Service (including mass texting), you agree
+  that: every recipient must have given you prior express written consent (or another lawful basis) to receive
+  that category of message; the Service's built-in gates — consent records, do-not-contact lists, quiet hours,
+  and STOP/HELP keyword handling — must not be circumvented; recipients who reply STOP (or similar opt-out
+  keywords) are automatically added to your do-not-contact list and must not be re-added without new consent;
+  and your message content must comply with carrier content policies (no SHAFT content: sex, hate, alcohol,
+  firearms, tobacco; no deceptive or prohibited content). Carriers and our telephony provider may filter or
+  block messages at their discretion; we are not liable for carrier filtering.</p>
+      </section>
 
-  <h2>5. Subscription, Billing &amp; Cancellation</h2>
-  <p>Paid features are billed on a subscription basis through our payment processor, Stripe. Where a free trial
-  is offered, your payment method will be charged automatically at the end of the trial unless you cancel before
-  it ends. You may cancel at any time through your account settings; cancellation takes effect at the end of the
-  current billing period, and we do not provide partial-period refunds except where required by law. We may
-  change subscription pricing prospectively with notice.</p>
+      <section class="legal-sec reveal" data-sec="s10">
+        <h2 id="s10">10. AI Sales Agent &amp; AI Features</h2>
+  <ul>
+    <li><strong>Artificial-voice calls require consent.</strong> Calls placed by the AI Sales Agent use an
+    artificial/prerecorded voice within the meaning of the TCPA. Under FCC rules, such calls generally require
+    the recipient's <strong>prior express written consent</strong>. The Service will only dial leads you have
+    marked as consented; you are solely responsible for the truth of that marking and for retaining proof of
+    consent.</li>
+    <li><strong>Disclosure.</strong> Some states require disclosure that a caller is an automated or AI system.
+    You are responsible for configuring and using the AI Sales Agent in compliance with disclosure laws in the
+    states you call.</li>
+    <li><strong>Quiet hours and suppression.</strong> AI calls are gated to permitted calling hours in the
+    lead's local time and against your suppression list. These gates are aids, not guarantees of
+    compliance.</li>
+    <li><strong>Recordings and transcripts.</strong> AI calls generate recordings, transcripts, and summaries
+    stored in your account. Your call-recording consent obligations under Section 8 apply fully to AI
+    calls.</li>
+    <li><strong>AI output is not advice.</strong> Output from the AI Sales Agent, AI Underwriter, and other AI
+    features may be inaccurate or incomplete. It is not legal, financial, medical, or insurance advice. You
+    must review AI output before relying on it or communicating it to a client, and you remain fully
+    responsible for anything the AI Sales Agent communicates on your behalf.</li>
+  </ul>
+      </section>
 
-  <h2>6. Acceptable Use</h2>
-  <p>You agree not to: use the App for any unlawful purpose; misrepresent your identity, license status, or
-  affiliation; attempt to gain unauthorized access to the App or other users' data; reverse-engineer, scrape, or
-  resell the App without our written consent; upload malicious code; or use the App in a manner that violates the
-  rights of any third party, including your own clients.</p>
+      <section class="legal-sec reveal" data-sec="s11">
+        <h2 id="s11">11. Producer Stack's Messages to You (SMS Program Terms)</h2>
+  <p>By providing your mobile number and opting in, you consent to receive calls, texts, and emails from
+  Producer Stack about your account, including onboarding help, service and billing notifications, trial and
+  renewal reminders, support replies, and — where you have opted in — marketing messages.</p>
+  <ul>
+    <li><strong>Message frequency</strong> varies based on your account activity.</li>
+    <li><strong>Message and data rates may apply.</strong> These are charged by your mobile carrier, not by
+    us.</li>
+    <li><strong>Opt out</strong> anytime by replying <strong>STOP</strong> to any text from us, or by
+    contacting us at <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a> or
+    920-422-7733. Reply <strong>HELP</strong> for help.</li>
+    <li><strong>Carriers are not liable</strong> for delayed or undelivered messages.</li>
+    <li>Consent to receive texts is not a condition of purchasing any Producer Stack service. See our
+    <a href="privacy-policy.html">Privacy Policy</a> for how mobile information is handled — we do not share
+    your mobile number with third parties for their marketing.</li>
+  </ul>
+      </section>
 
-  <h2>7. Third-Party Services</h2>
-  <p>The App integrates third-party services, including Supabase (hosting/database), SignalWire/Telnyx
-  (telephony), Stripe (billing), DeepSeek (AI-assisted parsing), and insurance carrier portals/quoting tools
-  (e.g., ITK). We are not responsible for the acts, omissions, availability, or accuracy of third-party services,
-  and your use of them may be subject to their own terms.</p>
+      <section class="legal-sec reveal" data-sec="s12">
+        <h2 id="s12">12. No Marketing Agency; You Are the Sender</h2>
+  <p>Producer Stack provides software and infrastructure only. We are not a marketing agency, lead vendor, or
+  compliance advisor; we do not supply leads, draft your campaigns, or provide legal advice. <strong>For every
+  call, text, and email you originate through the Service, you are the sender, the caller, and the marketer of
+  record, and you assume all legal responsibility for your campaigns</strong>, including content, targeting,
+  consent, timing, and recordkeeping.</p>
+      </section>
 
-  <h2>8. Intellectual Property</h2>
-  <p>Producer Stack and its licensors own all right, title, and interest in the App, including its software,
-  design, and underwriting-reference content, excluding your Client Data. We grant you a limited,
-  non-exclusive, non-transferable license to use the App for your own business purposes during your
-  subscription. All rights not expressly granted are reserved.</p>
+      <section class="legal-sec reveal" data-sec="s13">
+        <h2 id="s13">13. Client Data</h2>
+  <p>As between you and Producer Stack, you are the data controller for information you enter or import about
+  your own insurance prospects and clients ("Client Data"), and we act as your service provider (processor)
+  with respect to that data, processing it only to provide the Service. You represent and warrant that you
+  have the legal right, and any consent required by law, to collect, store, and process Client Data —
+  including health, financial, and other sensitive information — through the Service, and that you will comply
+  with all applicable privacy and insurance-privacy laws, including the Gramm-Leach-Bliley Act (GLBA), with
+  respect to that data. You retain ownership of your Client Data. On termination of your account, you may
+  export Client Data for a reasonable period before it is deleted, as described in our
+  <a href="privacy-policy.html">Privacy Policy</a>.</p>
+      </section>
 
-  <h2>9. Disclaimer of Warranties</h2>
-  <p><strong>THE APP IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS,
-  IMPLIED, OR STATUTORY, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
-  NON-INFRINGEMENT, OR THAT THE APP WILL BE UNINTERRUPTED, ERROR-FREE, OR SECURE.</strong> Without limiting the
-  foregoing, we do not warrant the accuracy of any quote, underwriting estimate, commission calculation, or
-  carrier reference data provided by the App, and you assume all risk of relying on such information without
-  independent verification.</p>
+      <section class="legal-sec reveal" data-sec="s14">
+        <h2 id="s14">14. Acceptable Use</h2>
+  <p>You agree not to: use the Service for any unlawful purpose; misrepresent your identity, license status,
+  or affiliation; attempt to gain unauthorized access to the Service or other users' data; probe, scan, or
+  test the vulnerability of the Service; reverse-engineer, scrape, or resell the Service without our written
+  consent; use the Service to develop a competing product; upload malicious code; interfere with the integrity
+  or performance of the Service; use another user's A2P registration, phone numbers, or account; or use the
+  Service in a manner that violates the rights of any third party, including your own clients.</p>
+      </section>
 
-  <h2>10. Limitation of Liability</h2>
+      <section class="legal-sec reveal" data-sec="s15">
+        <h2 id="s15">15. Third-Party Services</h2>
+  <p>The Service is built on and integrates third-party services, including Supabase (database, authentication,
+  and backend hosting), Telnyx (voice, SMS/MMS, phone numbers, and A2P 10DLC registration), Stripe
+  (subscription billing, wallet top-ups, and payment processing), DeepSeek and Anthropic (AI processing),
+  Google (optional Gmail and Google Calendar integrations), Resend (transactional email), and insurance
+  carrier portals and quoting tools (e.g., ITK). We are not responsible for the acts, omissions, availability,
+  or accuracy of third-party services, and your use of them may be subject to their own terms. Carrier and
+  registry decisions (number availability, message filtering, A2P approvals) are outside our control.</p>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s16">
+        <h2 id="s16">16. Intellectual Property</h2>
+  <p>Producer Stack and its licensors own all right, title, and interest in the Service, including its
+  software, design, and underwriting-reference content, excluding your Client Data. We grant you a limited,
+  non-exclusive, non-transferable license to use the Service for your own business purposes during your
+  subscription. All rights not expressly granted are reserved. If you send us feedback or suggestions, you
+  grant us a perpetual, irrevocable, royalty-free license to use them without obligation to you.</p>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s17">
+        <h2 id="s17">17. Copyright Policy (DMCA)</h2>
+  <p>We respond to notices of alleged copyright infringement that comply with the Digital Millennium Copyright
+  Act. Send notices identifying the copyrighted work, the allegedly infringing material and its location, your
+  contact information, a good-faith statement, and a statement under penalty of perjury of your authority, with
+  your physical or electronic signature, to
+  <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a> with the subject "DMCA Notice." We
+  may terminate the accounts of repeat infringers.</p>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s18">
+        <h2 id="s18">18. Disclaimer of Warranties</h2>
+  <p><strong>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTIES OF ANY KIND, WHETHER
+  EXPRESS, IMPLIED, OR STATUTORY, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+  NON-INFRINGEMENT, OR THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE, OR SECURE.</strong> Without
+  limiting the foregoing, we do not warrant the accuracy of any quote, underwriting estimate, commission or
+  bonus calculation, AI output, carrier reference data, or message/call deliverability, and you assume all
+  risk of relying on such information without independent verification.</p>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s19">
+        <h2 id="s19">19. Limitation of Liability</h2>
   <p><strong>TO THE MAXIMUM EXTENT PERMITTED BY LAW, PRODUCER STACK AND ITS OWNERS, OFFICERS, EMPLOYEES, AND
-  SUBPROCESSORS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR
-  ANY LOSS OF PROFITS, REVENUE, DATA, OR BUSINESS OPPORTUNITY, ARISING FROM OR RELATED TO YOUR USE OF THE
-  APP.</strong> To the maximum extent permitted by law, our total aggregate liability arising from or related to
-  these Terms or the App will not exceed the greater of (a) the amount you paid us in the twelve (12) months
-  preceding the claim, or (b) one hundred dollars ($100). Some jurisdictions do not allow certain liability
-  limitations, so some of the above limitations may not apply to you.</p>
+  SUBPROCESSORS WILL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES,
+  OR ANY LOSS OF PROFITS, REVENUE, DATA, OR BUSINESS OPPORTUNITY, ARISING FROM OR RELATED TO YOUR USE OF THE
+  SERVICE.</strong> To the maximum extent permitted by law, our total aggregate liability arising from or
+  related to these Terms or the Service will not exceed the greater of (a) the amount you paid us in the
+  twelve (12) months preceding the claim, or (b) one hundred dollars ($100). Some jurisdictions do not allow
+  certain liability limitations, so some of the above limitations may not apply to you.</p>
+      </section>
 
-  <h2>11. Indemnification</h2>
-  <p>You agree to defend, indemnify, and hold harmless Producer Stack, Frenkel Financial LLC, and their owners,
-  officers, employees, and subprocessors from and against any claims, damages, losses, liabilities, costs, and
-  expenses (including reasonable attorneys' fees) arising out of or related to: (a) your Client Data, including
-  any claim that you lacked the right or consent to collect, store, or process it; (b) your violation of the
-  TCPA, Do-Not-Call rules, call-recording/wiretapping laws, or any other telemarketing or communications law; (c)
-  your breach of these Terms or applicable law; or (d) your use of the App to communicate with, solicit, or
-  provide advice to any third party.</p>
+      <section class="legal-sec reveal" data-sec="s20">
+        <h2 id="s20">20. Indemnification</h2>
+  <p>You agree to defend, indemnify, and hold harmless Producer Stack, Frenkel Financial LLC, and their
+  owners, officers, employees, and subprocessors from and against any claims, demands, investigations, fines,
+  penalties, damages, losses, liabilities, costs, and expenses (including reasonable attorneys' fees) arising
+  out of or related to: (a) your Client Data, including any claim that you lacked the right or consent to
+  collect, store, or process it; (b) your calls, texts, emails, and campaigns, including any violation of the
+  TCPA, Telemarketing Sales Rule, Do-Not-Call rules, state telemarketing laws (including the Florida FTSA),
+  call-recording/wiretapping laws, or carrier/A2P requirements; (c) information you submit for A2P
+  registration; (d) your breach of these Terms or applicable law; or (e) your use of the Service to
+  communicate with, solicit, or provide advice to any third party.</p>
+      </section>
 
-  <h2>12. Termination</h2>
-  <p>You may stop using the App and cancel your account at any time. We may suspend or terminate your account if
-  you breach these Terms, misuse the App's calling features, or if required by law. Sections of these Terms
-  that by their nature should survive termination (including Sections 9–11 and 13) will survive.</p>
+      <section class="legal-sec reveal" data-sec="s21">
+        <h2 id="s21">21. Termination</h2>
+  <p>You may stop using the Service and cancel your account at any time. We may suspend or terminate your
+  account if you breach these Terms, misuse the calling or messaging features, create carrier or registry
+  compliance risk, fail to pay amounts due, or if required by law. On termination: your subscription ends per
+  Section 4; remaining wallet balance is handled per Section 5; phone numbers and A2P registrations are
+  handled per Sections 6–7; and you may export Client Data per Section 13. Sections that by their nature
+  should survive termination (including Sections 12, 16, and 18–23) survive.</p>
+      </section>
 
-  <h2>13. Dispute Resolution — Binding Arbitration &amp; Class Action Waiver</h2>
+      <section class="legal-sec reveal" data-sec="s22">
+        <h2 id="s22">22. Dispute Resolution — Binding Arbitration &amp; Class Action Waiver</h2>
   <p><strong>Please read this section carefully — it affects your legal rights.</strong></p>
   <p>Except for disputes that qualify for small-claims court or claims for injunctive relief to protect
   intellectual property or confidential information, you and Producer Stack agree that any dispute arising out
-  of or relating to these Terms, the Privacy Policy, or the App will be resolved by <strong>binding, individual
-  arbitration</strong> administered by the American Arbitration Association (AAA) under its Commercial
-  Arbitration Rules, rather than in court, except that either party may bring an individual action in small
-  claims court. The arbitration will be conducted in Wisconsin or another mutually agreed location, or by
-  videoconference where permitted by AAA rules.</p>
-  <p><strong>Class Action Waiver.</strong> You and Producer Stack agree that any proceeding to resolve a dispute
-  will be conducted only on an individual basis and not as a class, consolidated, or representative action.</p>
+  of or relating to these Terms, the Privacy Policy, or the Service will be resolved by <strong>binding,
+  individual arbitration</strong> administered by the American Arbitration Association (AAA) under its
+  Commercial Arbitration Rules, rather than in court, except that either party may bring an individual action
+  in small claims court. The arbitration will be conducted in Wisconsin or another mutually agreed location,
+  or by videoconference where permitted by AAA rules.</p>
+  <p><strong>Class Action &amp; Jury Trial Waiver.</strong> You and Producer Stack agree that any proceeding
+  to resolve a dispute will be conducted only on an individual basis and not as a class, consolidated, or
+  representative action, and each party waives any right to a jury trial.</p>
   <p><strong>Right to opt out.</strong> You may opt out of this arbitration agreement by emailing
   <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a> with your name and account email
-  within 30 days of first agreeing to these Terms, stating that you opt out of arbitration. If you opt out, any
-  dispute will instead be resolved exclusively in the state or federal courts located in Wisconsin, and you and
-  Producer Stack each waive any right to a jury trial.</p>
+  within 30 days of first agreeing to these Terms, stating that you opt out of arbitration. If you opt out,
+  any dispute will instead be resolved exclusively in the state or federal courts located in Wisconsin, and
+  you and Producer Stack each waive any right to a jury trial.</p>
+      </section>
 
-  <h2>14. Governing Law</h2>
+      <section class="legal-sec reveal" data-sec="s23">
+        <h2 id="s23">23. State Telemarketing Addendum (Including Florida FTSA)</h2>
+  <p>If you place calls or send texts to residents of Florida, you represent and warrant that you will comply
+  with the Florida Telephone Solicitation Act (FTSA), including its consent, calling-hour, and technology
+  provisions. The same applies to any other state telemarketing statute (including, without limitation, those
+  of Oklahoma, Washington, Maryland, Connecticut, and New Jersey) applicable to your recipients. You will
+  indemnify Producer Stack for any FTSA or state-law claim, fine, or lawsuit arising from your campaigns as
+  provided in Section 20.</p>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s24">
+        <h2 id="s24">24. Taxes</h2>
+  <p>Fees are exclusive of taxes. Where required, we collect applicable sales, use, communications, or similar
+  taxes and regulatory fees based on your billing address, and you are responsible for all such taxes and fees
+  other than taxes on our net income.</p>
+      </section>
+
+      <section class="legal-sec reveal" data-sec="s25">
+        <h2 id="s25">25. Governing Law</h2>
   <p>These Terms are governed by the laws of the State of Wisconsin, without regard to conflict-of-laws
-  principles, except where AAA arbitration rules or the Federal Arbitration Act apply to Section 13.</p>
+  principles, except where the Federal Arbitration Act applies to Section 22.</p>
+      </section>
 
-  <h2>15. Changes to These Terms</h2>
+      <section class="legal-sec reveal" data-sec="s26">
+        <h2 id="s26">26. Changes to These Terms</h2>
   <p>We may update these Terms from time to time. Material changes will be posted on this page with a revised
   "Effective date" above, and, where required by law, we will provide additional notice. Your continued use of
-  the App after changes become effective constitutes acceptance of the revised Terms.</p>
+  the Service after changes become effective constitutes acceptance of the revised Terms.</p>
+      </section>
 
-  <h2>16. General Provisions</h2>
+      <section class="legal-sec reveal" data-sec="s27">
+        <h2 id="s27">27. General Provisions</h2>
   <p>These Terms, together with the Privacy Policy, constitute the entire agreement between you and Producer
-  Stack regarding the App. If any provision is found unenforceable, the remaining provisions remain in full
-  force. Our failure to enforce a provision is not a waiver of it. You may not assign these Terms without our
-  written consent; we may assign them in connection with a merger, acquisition, or sale of assets. Neither party
-  is liable for delays caused by events beyond its reasonable control.</p>
+  Stack regarding the Service. If any provision is found unenforceable, the remaining provisions remain in
+  full force. Our failure to enforce a provision is not a waiver of it. You may not assign these Terms without
+  our written consent; we may assign them in connection with a merger, acquisition, or sale of assets. Neither
+  party is liable for delays caused by events beyond its reasonable control, including carrier, registry, or
+  upstream provider outages.</p>
+      </section>
 
-  <h2>17. Contact Us</h2>
+      <section class="legal-sec reveal" data-sec="s28">
+        <h2 id="s28">28. Contact Us</h2>
   <div class="contact">
     <p><strong>Frenkel Financial LLC</strong> d/b/a Producer Stack</p>
     <p>Legal &amp; account requests: <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a></p>
+    <p>Phone / text: <a href="tel:9204227733">920-422-7733</a></p>
   </div>
+      </section>
+    </div>
 
+  </div>
 </div>
+</section>
+
+<footer>
+  <div class="ft">
+    <div class="ft-top">
+      <div class="ft-brand">
+        <a href="/" class="nav-logo">
+          <img src="assets/logos/producer-stack-logo.png" class="nav-logo-icon" alt="Producer Stack">
+          <div class="nav-logo-name">Producer Stack</div>
+        </a>
+        <p>The all-in-one CRM platform built for life insurance producers. Power Dialer, live rates, and full production analytics.</p>
+      </div>
+      <div class="ft-col">
+        <h4>Product</h4>
+        <a href="features.html">Features</a>
+        <a href="pricing.html">Pricing</a>
+        <a href="how-it-works.html">How It Works</a>
+        <a href="app.html?view=signup">Create Account</a>
+        <a href="app.html">Sign In</a>
+      </div>
+      <div class="ft-col">
+        <h4>Features</h4>
+        <a href="features.html">Power Dialer</a>
+        <a href="features.html">Lead CRM</a>
+        <a href="features.html">Rate Quoter</a>
+        <a href="features.html">AI Underwriter</a>
+        <a href="features.html">KPI Dashboard</a>
+        <a href="how-it-works.html">Lead Integration</a>
+        <a href="features.html">Team Leader</a>
+      </div>
+      <div class="ft-col">
+        <h4>Support</h4>
+        <a href="tel:9204227733">920-422-7733</a>
+        <a href="mailto:jace@frenkelfinancial.com">jace@frenkelfinancial.com</a>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <div class="ft-copy">&copy; 2026 Producer Stack. All rights reserved.</div>
+      <div class="ft-copy"><a href="privacy-policy.html">Privacy</a> &nbsp;·&nbsp; <a href="terms-of-service.html">Terms</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+window.addEventListener('scroll',()=>{document.getElementById('main-nav').classList.toggle('scrolled',scrollY>24)},{passive:true});
+document.getElementById('hbg').addEventListener('click',()=>{document.getElementById('mob-menu').classList.toggle('open')});
+function closeMob(){document.getElementById('mob-menu').classList.remove('open')}
+/* threshold 0, not .1 — legal sections are tall enough that a 10% threshold
+   can leave a section faded out while its heading is already on screen. */
+const ro=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('in');ro.unobserve(x.target)}})},{threshold:0,rootMargin:'0px 0px -40px 0px'});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+/* TOC current-section highlight — same IntersectionObserver pattern as .reveal */
+(function(){
+  const secs=[...document.querySelectorAll('.legal-sec[data-sec]')];
+  const links=new Map([...document.querySelectorAll('.legal-toc-list a')].map(a=>[a.dataset.sec,a]));
+  if(!secs.length||!links.size)return;
+  const rail=document.querySelector('.legal-toc');
+  let cur=null;
+  function paint(){
+    /* Current section = the last one whose heading has crossed the reading
+       line under the fixed nav. Picking the first *intersecting* section
+       instead marks the previous one, because a long section still clips the
+       top of the band while the next one is already being read. */
+    const line=140;
+    let id=secs[0].dataset.sec;
+    for(const s of secs){if(s.getBoundingClientRect().top-line<=0)id=s.dataset.sec;else break}
+    if(id===cur)return;
+    if(cur&&links.get(cur))links.get(cur).classList.remove('on');
+    cur=id;
+    const a=id&&links.get(id);
+    if(!a)return;
+    a.classList.add('on');
+    if(rail&&rail.scrollHeight>rail.clientHeight){
+      const r=a.offsetTop-rail.scrollTop;
+      if(r<40||r>rail.clientHeight-60)rail.scrollTop=a.offsetTop-rail.clientHeight/2;
+    }
+  }
+  /* Repaint on the frame after the event, not inside it: reading geometry
+     straight from a scroll handler can land before layout settles and leave
+     the rail one section behind. rAF also collapses scroll bursts to 1/frame. */
+  let raf=0,tail=0;
+  function schedule(){
+    if(!raf)raf=requestAnimationFrame(()=>{raf=0;paint()});
+    /* Trailing repaint so an instant jump (anchor link, find-in-page, restored
+       scroll position) still settles on the right section. */
+    clearTimeout(tail);tail=setTimeout(paint,120);
+  }
+  /* IntersectionObserver wakes the highlight as sections enter/leave the
+     reading band; scroll/resize/hash keep it exact in between. */
+  const io=new IntersectionObserver(schedule,{rootMargin:'-84px 0px -55% 0px',threshold:0});
+  secs.forEach(s=>io.observe(s));
+  addEventListener('scroll',schedule,{passive:true});
+  addEventListener('resize',schedule,{passive:true});
+  addEventListener('hashchange',schedule);
+  paint();
+  document.querySelectorAll('.legal-jump-list a').forEach(a=>a.addEventListener('click',()=>{
+    const d=a.closest('details'); if(d)d.open=false;
+  }));
+})();
+</script>
 </body>
 </html>
