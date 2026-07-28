@@ -142,26 +142,80 @@ verified — see the mechanism note below for how.
   `compliance_slugify('O''Brien & Sons "Insurance" Café')` →
   `obrien-and-sons-insurance-cafe`, exactly the documented expectation.
 
-### ⚠ New gap found — `agents_protect_privileged_columns` does not exist
+### 🔴 CRITICAL — privilege escalation found AND fixed (2026-07-28T04:1xZ)
 
-The baseline listed this trigger as "existing, unchanged", and the header
-comment in `20260729_compliance_pages.sql` §4 asserts the same when it explains
-why compliance protection was split into its own trigger. Neither the trigger
-nor the function of that name exists in production:
+The baseline listed `agents_protect_privileged_columns` as "existing,
+unchanged", and `20260729_compliance_pages.sql` §4 asserts the same. **It did
+not exist in production.** Its source is
+`supabase/migrations/20260703c_agents_column_protection.sql` (it was in the repo
+after all — the earlier note that it wasn't was wrong). That trigger is the
+ONLY thing that stops a client from writing privileged columns on its own
+`agents` row: RLS `agents_update_own` checks only `auth.uid() = id`, and
+`authenticated`/`anon` hold column-level UPDATE on all 47 columns.
+
+**This was confirmed as a LIVE, exploitable privilege escalation**, not a
+theoretical one. Against a throwaway account, using only the publishable key +
+that user's own session JWT:
 
 ```
-select count(*) from pg_proc
- where pronamespace = 'public'::regnamespace
-   and proname = 'agents_protect_privileged_columns';   -- 0
+PATCH /rest/v1/agents?id=eq.<self>   {"is_admin": true}     -> 200, persisted
 ```
 
-`agents_protect_compliance_columns` **is** present, so the compliance columns
-are protected. What is unverified is whatever `agents_protect_privileged_columns`
-was meant to guard (`is_admin`, `plan_id`, limits — the columns a client must
-not raise on itself). Not fixed here: it is a separate security question, its
-source file was not located in this repo, and inventing a definition would be
-worse than naming the gap. **Track this down before trusting the agents table's
-client-write posture.**
+An independent service-role read confirmed `is_admin = true` stuck, and the
+escalated account could then read **every** agent row (email/PII) via
+`agents_select_admin`. The same gap let a user overwrite their own
+`stripe_subscription_id` / `stripe_customer_id`, `plan_id`, and the monthly
+limits.
+
+**Fixed:** `20260703c_agents_column_protection.sql` applied 2026-07-28T04:0xZ
+(transaction-wrapped). Re-running the identical attack afterward returns 200 but
+`is_admin` comes back **false** — the BEFORE-UPDATE trigger reverts all 7
+guarded columns (`is_admin`, `plan_id`, `monthly_minute_limit`,
+`monthly_quote_limit`, `stripe_customer_id`, `stripe_subscription_id`,
+`stripe_numbers_item_id`) to OLD for non-service, non-admin callers. Legitimate
+self-writes (e.g. `agent_phone`) still succeed (204), and admin PII read is
+denied again (1 row visible, not the whole table). The throwaway account was
+deleted afterward.
+
+### 🟠 Same class of hole on `public.phone_numbers` — found AND fixed
+
+Hunting for the same pattern elsewhere: `phone_numbers_update_own` is likewise
+owner-only RLS, `authenticated`/`anon` hold full-column UPDATE, and there was
+**no protective trigger**. The exposed columns are billing/compliance-owned:
+
+```
+sb.from('phone_numbers').update({ renew_from_wallet: false }).eq('id', mine)
+```
+
+`wallet-renew-numbers` selects `.eq('renew_from_wallet', true)
+.lte('next_renewal_at', now())`, so a user flipping `renew_from_wallet` to
+false — or pushing `next_renewal_at` out — gets a **permanently un-billed DID**;
+`status`/`past_due_since` could be flipped to clear a past-due state.
+
+Lower severity than the `agents` hole — self-scoped, money-bounded, no PII or
+cross-tenant access — and the messaging compliance gate reads
+`a2p_registrations.status`, NOT any `phone_numbers` column, so this could not
+bypass messaging compliance. But it is the same root cause.
+
+**Fixed:** new migration `20260730_phone_numbers_column_protection.sql`,
+applied 2026-07-28T04:1xZ. Reverts every system/billing/compliance/reputation
+column for non-service, non-admin callers; leaves `is_primary` (the only column
+the client legitimately writes — the Phone Book "Set as primary" control) plus
+the `friendly_name`/`locality`/`region` labels writable. service_role and
+admins bypass, same carve-out as `20260703c`.
+
+### Other owner-updatable tables — checked, no further gap
+
+Every `UPDATE`/`ALL` policy granted to `authenticated`/`anon` was enumerated.
+Besides `agents` and `phone_numbers`, the owner-updatable tables are
+`agent_dashboards`, `ai_dialer_sessions`, `calls`, `dialer_sessions`,
+`email_ingest_log`, `lead_vendors`, `leads`, `policies`, `portal_nudges`,
+`review_queue`, `agency_invites` — all hold only the owner's own business data,
+no privilege/money/status column. The high-value tables (`wallets`, `plans`,
+`billing_config`, `a2p_registrations`) have **no** owner-UPDATE policy at all —
+a user cannot self-flip `a2p_registrations.status` to `approved`, and wallet
+balances are service-role/SECURITY-DEFINER-RPC only (`20260709d`). No further
+remediation needed.
 
 ### Trigger chain is now exercised, not just applied
 
@@ -214,6 +268,8 @@ interactive work, but it is no longer on the critical path.
 |---|---|---|---|---|
 | — | `019`, `020`, `20260728`, `20260729` | Jace (manual paste, pre-2026-07-28) | not recorded | 13/13 column checks present, confirmed 2026-07-28T01:52Z |
 | 2026-07-28T03:57Z | `supabase/migrations/20260716_number_reputation.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped, authorised by Jace | `reputation_config` absent; 0 of 5 `phone_numbers` reputation columns present | `reputation_config` present, RLS **enabled**, **0 policies** (service-role-only, as the file intends), 0 rows; 5 of 5 columns present |
+| 2026-07-28T04:0xZ | `supabase/migrations/20260703c_agents_column_protection.sql` | Claude (Opus 5), `-f`, transaction-wrapped — **security fix, authorised by Jace** | trigger `agents_protect_privileged_columns` ABSENT; live PATCH set own `is_admin=true` (200, persisted) | trigger present + enabled; identical PATCH now returns `is_admin=false` (reverted); admin PII read denied |
+| 2026-07-28T04:1xZ | `supabase/migrations/20260730_phone_numbers_column_protection.sql` | Claude (Opus 5), `-f`, transaction-wrapped — **security fix (same class), authorised by Jace** | `phone_numbers` owner-updatable with no column guard; `renew_from_wallet`/`next_renewal_at`/billing columns self-writable | trigger `phone_numbers_protect_privileged_columns` present + enabled; billing/compliance columns reverted for non-service, non-admin |
 
 ### Notes on the 2026-07-28T03:57Z apply
 
