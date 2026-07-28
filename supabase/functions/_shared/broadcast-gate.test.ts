@@ -28,6 +28,17 @@ test("invalid_phone skips with skip_reason=invalid_phone", () => {
   assert.deepEqual(classifyGateReason("invalid_phone"), { action: "skip", skipReason: "invalid_phone" });
 });
 
+test("daily_limit_reached HALTS — the recipients are valid, the quota is spent", () => {
+  // Skipping would permanently discard recipients who are simply on the wrong
+  // side of a sole-prop campaign's ~1,000/day ceiling. Halting leaves them
+  // pending so the next run sends them once the day rolls over.
+  assert.deepEqual(classifyGateReason("daily_limit_reached"), { action: "halt" });
+});
+
+test("no_sms_capable_number HALTS — it is agent-wide, not recipient-specific", () => {
+  assert.deepEqual(classifyGateReason("no_sms_capable_number"), { action: "halt" });
+});
+
 test("an unrecognized reason fails closed to skip, never to send", () => {
   const outcome = classifyGateReason("some_future_gate_reason_not_yet_handled");
   assert.notEqual(outcome.action, "send");

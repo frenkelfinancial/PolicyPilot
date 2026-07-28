@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { runComplianceGate } from "../_shared/messaging-shared.ts";
+import { runComplianceGate, resolveTextingNumber } from "../_shared/messaging-shared.ts";
 import { sendMessageCore } from "../_shared/messaging-send-core.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -63,13 +63,18 @@ serve(async (req) => {
   if (!gate.ok) return json({ error: gate.reason, detail: gate.detail }, 403);
   const to = gate.normalizedAddress;
 
-  // --- Sender identity (agent's caller ID). ---
+  // --- Sender identity: the agent's TEXTING number, not merely their caller
+  //     ID. Only a number confirmed assigned to their approved 10DLC
+  //     campaign (phone_numbers.sms_capable) may carry A2P traffic; a voice
+  //     caller ID often is not that number, and carriers silently filter
+  //     texts sent from an unregistered one. ---
   const { data: agent } = await sb.from("agents")
     .select("signalwire_caller_id")
     .eq("id", user.id)
     .maybeSingle();
-  const fromNumber = agent?.signalwire_caller_id;
-  if (!fromNumber) return json({ error: "sender_not_configured", detail: "No outbound caller ID configured for this agent." }, 400);
+  const sender = await resolveTextingNumber(sb, user.id, agent?.signalwire_caller_id);
+  if (!sender.ok) return json({ error: sender.reason, detail: sender.detail }, 400);
+  const fromNumber = sender.fromNumber;
 
   const result = await sendMessageCore(
     { agentId: user.id, channel: "sms", to, fromNumber, text, consentId: gate.consentId },

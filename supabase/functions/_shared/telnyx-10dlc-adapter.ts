@@ -1,27 +1,85 @@
 // ============================================================
-// ADAPTER — VERIFY AGAINST CURRENT TELNYX 10DLC API DOCS BEFORE GO-LIVE.
-// (Cowork hand-off, file 05 §2.)
+// TELNYX 10DLC ADAPTER
 //
-// Every endpoint path, field name, and status-value string below is a
-// best-effort reconstruction of Telnyx's 10DLC brand/campaign registration
-// API — this build could not verify them against Telnyx's current docs.
-// Everything that calls into this adapter (a2p-register, a2p-status-poll)
-// is written against the return shape of the four functions below, NOT
-// against Telnyx's raw response — so if the real field names differ, only
-// this file needs to change.
+// Callers (a2p-register, a2p-verify-otp, a2p-status-poll, _shared/a2p-assign)
+// depend on THIS FILE'S return shapes, never on Telnyx's raw JSON. If Telnyx
+// changes a field name, only this file changes.
 //
-// Known areas most likely to have drifted:
-//   - Exact path (v2/10dlc/... vs a dedicated 10DLC subdomain/prefix).
-//   - Required vs optional brand fields (EIN format, entityType enum
-//     values, altBusinessId requirements for non-US entities).
-//   - Campaign `usecase` enum values (CTIA/carrier-defined, changes
-//     periodically) — confirm "LOW_VOLUME" / "MIXED" / whichever use case
-//     best fits a life-insurance agent's outbound texting before submitting
-//     for real, since the wrong usecase can cause campaign rejection.
-//   - Status field names/values on the GET endpoints (identityStatus vs
-//     brandStatus, campaignStatus values).
-//   - Whether fee amounts are returned synchronously on submit or only
-//     appear later on the Telnyx invoice/balance API.
+// ---- VERIFIED FACTS (live probing 2026-07-27/28; docs/telnyx-10dlc-brands.md)
+//
+//   • /v2/10dlc/* returns BARE OBJECTS — no {data:…} envelope. (Lists use
+//     {records:[…]}.) /v2/phone_numbers/* DOES use the standard {data}
+//     wrapper. Mixing these up is what produced the 2026-07-28 orphan brand,
+//     so every read below goes through unwrap() rather than hand-rolling it.
+//   • Brand review status is `identityStatus` (VERIFIED). There is a
+//     secondary `status`="OK" which is NOT a review status — never key off it.
+//   • Campaign status is `campaignStatus` (TCR_PENDING / TCR_FAILED /
+//     TCR_ACCEPTED / ACTIVE).
+//   • Campaign creation is POST /v2/10dlc/campaignBuilder — NOT /campaign.
+//     `messageFlow` is REQUIRED (the probe returned "Missing required
+//     parameter" for brandId, usecase, description AND messageFlow).
+//   • campaignBuilder SILENTLY DISCARDS unknown fields — verified with a
+//     deliberately bogus field name. So sending a field Telnyx does not know
+//     is not an error, it is a NO-OP THAT LOOKS LIKE SUCCESS. Everything sent
+//     from here is therefore filtered through CAMPAIGN_BUILDER_FIELDS below.
+//   • Brand create returns no synchronous fee; the charge appears later on
+//     `billedDate`. Fee amounts come from billing_config, not the response.
+//
+// ---- CONFIRMED 2026-07-28 BY CREATING A REAL MOCK CAMPAIGN
+//
+// scripts/a2p-phase2-smoke.ts created campaign 4b30019f-a751-7137-49de-
+// f9834598ee05 on the sandbox brand, which settled every open question that
+// only a live create could answer:
+//   • POST /v2/10dlc/campaignBuilder returns the campaign with `campaignId`
+//     on the BARE object. This is the exact parse the withdrawn code got
+//     wrong; it now round-trips.
+//   • `billedDate: null` and `mock: true` — a sandbox campaign really is
+//     free, so the smoke test costs nothing to re-run.
+//   • messageFlow, description, sample1-3, optinMessage, optoutMessage,
+//     helpMessage, termsAndConditions, embeddedPhone and numberPool all
+//     PERSIST and read back unchanged.
+//   • privacyPolicyLink / termsAndConditionsLink read back as null on the
+//     GET — they exist as response keys but cannot be set. Third
+//     independent confirmation that the campaign has no link field.
+//
+// VALID `usecase` VALUES (the full enum, from Telnyx's own 10032 error —
+// this was previously an unverified guess flagged "confirm before go-live"):
+//   ACCOUNT_NOTIFICATION, AGENTS_FRANCHISES, CARRIER_EXEMPT, CHARITY,
+//   CONVERSATIONAL, CUSTOMER_CARE, DELIVERY_NOTIFICATION, EMERGENCY,
+//   FRAUD_ALERT, HIGHER_EDUCATION, K12_EDUCATION, LOW_VOLUME, MARKETING,
+//   MIXED, POLITICAL, POLLING_VOTING, PROXY, PUBLIC_SAFETY_RESTRICTED,
+//   PUBLIC_SERVICE_ANNOUNCEMENT, SECURITY_ALERT, SOCIAL, SWEEPSTAKE, 2FA,
+//   UCAAS_LOW, M2M, SOLE_PROPRIETOR, TRIAL, UCAAS_HIGH
+// Both values we rely on — LOW_VOLUME (standard) and SOLE_PROPRIETOR — are
+// in the list and LOW_VOLUME was accepted on a real create.
+//
+// ---- CAMPAIGN FIELD NAMES — PROBED AGAINST LIVE TELNYX 2026-07-28
+//
+// Method: each candidate was sent with a WRONG-TYPED value. If the validator
+// named it in an error, the field is real; if the request was accepted and
+// the field vanished, it is not. Every probe also carried an invalid
+// `usecase`, so nothing was ever created and nothing was ever billed.
+//
+// REAL (validator type-checked them):
+//   termsAndConditions, subscriberOptin, subscriberOptout, subscriberHelp,
+//   embeddedLink, embeddedPhone, ageGated, directLending, numberPool,
+//   autoRenewal              -> booleans
+//   helpMessage, optinMessage, optoutMessage, sample1, sample2,
+//   description, messageFlow -> strings
+//   webhookURL, webhookFailoverURL -> URLs ("Invalid URL" when malformed)
+//
+// NOT REAL — silently dropped, every spelling tried:
+//   privacyPolicyLink, termsAndConditionsLink, privacyPolicyURL,
+//   termsAndConditionsURL, privacyPolicy, privacyPolicyUrl,
+//   termsAndConditionsUrl, affiliateMarketing, optinKeywords,
+//   optoutKeywords, helpKeywords, resellerId, subUsecases, tag, vertical
+//
+// THE CAMPAIGN HAS NO COMPLIANCE-LINK FIELD. `termsAndConditions` is real but
+// it is a BOOLEAN ATTESTATION, not a link — do not put a URL in it. The
+// compliance URLs reach the reviewer by the two routes that ARE verified:
+//   1. brand.website (probed real — errors "Invalid URL" on a bad value)
+//   2. the free-text messageFlow / description, which the reviewer reads
+// See docs/compliance-pages.md § "How the URLs actually reach the carrier".
 // ============================================================
 
 const TELNYX_BASE = "https://api.telnyx.com/v2/10dlc";
@@ -31,6 +89,32 @@ function telnyxHeaders(apiKey: string) {
     "Authorization": `Bearer ${apiKey}`,
     "Content-Type":  "application/json",
   };
+}
+
+/**
+ * Read a /10dlc response body.
+ *
+ * /10dlc/* returns BARE objects (verified 2026-07-27). We still tolerate a
+ * {data:…} envelope so a future Telnyx change to the standard v2 shape
+ * degrades to "still works" instead of "silently reads undefined" — the exact
+ * failure that created a paid-for orphan brand on 2026-07-28.
+ */
+// deno-lint-ignore no-explicit-any
+function unwrap(body: any): Record<string, unknown> {
+  if (body && typeof body === "object" && body.data && typeof body.data === "object" && !Array.isArray(body.data)) {
+    return body.data as Record<string, unknown>;
+  }
+  return (body ?? {}) as Record<string, unknown>;
+}
+
+function str(v: unknown): string | undefined {
+  return typeof v === "string" && v.trim() ? v.trim() : undefined;
+}
+
+/** Compact an error body to something loggable and safe to show an agent. */
+async function errText(res: Response): Promise<string> {
+  const raw = await res.text().catch(() => "");
+  return `${res.status}: ${raw.slice(0, 800)}`;
 }
 
 export interface BusinessInfo {
@@ -49,32 +133,89 @@ export interface BusinessInfo {
   website?: string;
 }
 
+/**
+ * Sole Proprietor brand — a 1099 producer with NO EIN.
+ *
+ * This is a first-class registration path, not a degraded one: most of our
+ * agents are producers, not entities, and the old code hard-required an EIN
+ * so they simply could not register at all.
+ *
+ * Telnyx's sole-prop flow is brand -> SMS OTP to the agent's personal mobile
+ * -> verify -> campaign. The mobile is the identity proof that replaces the
+ * EIN, which is why `mobilePhone` is required and why Telnyx caps how many
+ * sole-prop brands one mobile number can back.
+ */
+export interface SoleProprietorInfo {
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  email: string;
+  /** Business/contact phone, E.164. */
+  phone: string;
+  /** The agent's personal mobile, E.164 — this is where the PIN is delivered. */
+  mobilePhone: string;
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  vertical: string;
+  /** Required for sole prop. We always pass the generated compliance page. */
+  website: string;
+}
+
 export interface BrandSubmitResult {
   ok: boolean;
   brandId?: string;
-  feeMills?: number;
+  tcrBrandId?: string;
+  /** identityStatus as returned on create, when present. */
+  identityStatus?: string;
+  /** true when Telnyx reports this as a mock (sandbox) brand — no fee. */
+  mock?: boolean;
   error?: string;
 }
 
-// ⚠ a2p-register WAS PULLED FROM PRODUCTION 2026-07-28. It is deleted from the
-// Supabase project (the route now 404s); this source is kept for Phase 2. Do
-// not redeploy it until submitBrand and submitCampaign below are fixed AND
-// verified live — see the reasoning in the submitCampaign block.
-//
-// PHASE 2 — NOT verified end-to-end yet; DO NOT rely on submitBrand /
-// submitCampaign as-is. What the 2026-07-27 live probing DID establish:
-//   • /v2/10dlc/* returns BARE objects, so the `data?.data?.<field>` reads
-//     below (brandId/campaignId) are WRONG — they must read the bare object,
-//     e.g. (data?.data ?? data)?.brandId. (getBrandStatus/getCampaignStatus
-//     were fixed for exactly this; these two still need it.)
-//   • Campaign creation is NOT POST /v2/10dlc/campaign — that path is for
-//     other ops. The real create is POST /v2/10dlc/campaignBuilder, and it
-//     needs messageFlow + opt-in/opt-out/help keyword+message fields, not
-//     just sample1/sample2 (confirmed by creating a real mock campaign).
-//   • Brand create likely has no synchronous fee on the response; brand
-//     review status is `identityStatus` (VERIFIED). Fee shows on billedDate.
-// Fixing these is Phase 2 work (a2p-register) — left as-is here so this
-// change set stays scoped to the Phase 1 assignment path.
+/**
+ * Read a brand-create response.
+ *
+ * THE SINGLE MOST IMPORTANT PARSE IN THIS FILE. POST /10dlc/brand creates a
+ * REAL, BILLABLE brand at Telnyx. If we fail to extract the id, the brand
+ * exists and is charged for and we have no pointer to it — that is the
+ * 2026-07-28 orphan-brand incident, caused by reading `data.data.brandId`
+ * against a bare object.
+ *
+ * Hence: unwrap(), then try every id spelling Telnyx uses across its 10DLC
+ * surface, and treat "created but unreadable" as a hard, loud failure so the
+ * caller can log the raw body for manual recovery rather than silently
+ * dropping it.
+ */
+// deno-lint-ignore no-explicit-any
+function readBrandCreate(body: any): BrandSubmitResult {
+  const d = unwrap(body);
+  const brandId = str(d.brandId) ?? str(d.id) ?? str(d.brand_id);
+  if (!brandId) {
+    return {
+      ok: false,
+      error: `brand_created_but_id_unreadable: Telnyx accepted the brand but no id could be read from the response. ` +
+        `A BILLABLE BRAND MAY NOW EXIST — recover it from the Telnyx portal or GET /v2/10dlc/brand before retrying. Raw: ${JSON.stringify(body).slice(0, 800)}`,
+    };
+  }
+  return {
+    ok: true,
+    brandId,
+    tcrBrandId: str(d.tcrBrandId),
+    identityStatus: str(d.identityStatus),
+    mock: d.mock === true,
+  };
+}
+
+/**
+ * Standard (EIN-backed) brand. POST /v2/10dlc/brand.
+ *
+ * `website` is deliberately load-bearing: it is the only VERIFIED field that
+ * carries the agent's compliance URL to the carrier reviewer, since the
+ * campaign has no link field at all.
+ */
 export async function submitBrand(apiKey: string, info: BusinessInfo): Promise<BrandSubmitResult> {
   const res = await fetch(`${TELNYX_BASE}/brand`, {
     method: "POST",
@@ -96,19 +237,119 @@ export async function submitBrand(apiKey: string, info: BusinessInfo): Promise<B
     }),
   });
 
-  if (!res.ok) return { ok: false, error: `${res.status}: ${await res.text()}` };
+  if (!res.ok) return { ok: false, error: await errText(res) };
+  return readBrandCreate(await res.json());
+}
 
-  const data = await res.json();
-  const brandId = data?.data?.brandId ?? data?.data?.id;
-  const feeMillsRaw = data?.data?.price ?? data?.data?.fee; // dollars, likely — confirm units
-  const feeMills = typeof feeMillsRaw === "number" ? Math.round(feeMillsRaw * 1000) : undefined;
-  return { ok: true, brandId, feeMills };
+/**
+ * Sole Proprietor brand. POST /v2/10dlc/brand with NO EIN.
+ *
+ * entityType SOLE_PROPRIETOR + mobilePhone is what tells Telnyx to run the
+ * OTP identity flow instead of an EIN lookup. Sending an EIN alongside it is
+ * rejected upstream in a2p-register, not here — the adapter's job is the wire
+ * format, the policy lives with the caller.
+ */
+export async function submitSoleProprietorBrand(
+  apiKey: string,
+  info: SoleProprietorInfo,
+): Promise<BrandSubmitResult> {
+  const res = await fetch(`${TELNYX_BASE}/brand`, {
+    method: "POST",
+    headers: telnyxHeaders(apiKey),
+    body: JSON.stringify({
+      entityType:   "SOLE_PROPRIETOR",
+      displayName:  info.displayName,
+      firstName:    info.firstName,
+      lastName:     info.lastName,
+      email:        info.email,
+      phone:        info.phone,
+      mobilePhone:  info.mobilePhone,
+      street:       info.street,
+      city:         info.city,
+      state:        info.state,
+      postalCode:   info.postalCode,
+      country:      info.country,
+      vertical:     info.vertical,
+      website:      info.website,
+      // No `ein` and no `companyName`: a sole proprietor has neither, and
+      // sending an empty string is not the same as omitting the field.
+    }),
+  });
+
+  if (!res.ok) return { ok: false, error: await errText(res) };
+  return readBrandCreate(await res.json());
+}
+
+// ------------------------------------------------------------
+// Sole-proprietor mobile OTP.
+//
+// The PIN is delivered by SMS to SoleProprietorInfo.mobilePhone and EXPIRES
+// 24 HOURS AFTER DELIVERY. If it lapses, the brand submission has to start
+// over — so a2p-register stores otp_requested_at and the UI counts down
+// against it and offers a resend.
+// ------------------------------------------------------------
+
+export interface OtpResult {
+  ok: boolean;
+  /** Telnyx's own view of the OTP state, when it returns one. */
+  status?: string;
+  error?: string;
+}
+
+/** Ask Telnyx to send (or re-send) the PIN. POST /10dlc/brand/{id}/smsOtp. */
+export async function requestBrandOtp(apiKey: string, brandId: string): Promise<OtpResult> {
+  const res = await fetch(`${TELNYX_BASE}/brand/${encodeURIComponent(brandId)}/smsOtp`, {
+    method: "POST",
+    headers: telnyxHeaders(apiKey),
+  });
+  if (!res.ok) return { ok: false, error: await errText(res) };
+  const d = unwrap(await res.json().catch(() => ({})));
+  return { ok: true, status: str(d.status) ?? str(d.otpStatus) };
+}
+
+/** Read OTP state without sending one. GET /10dlc/brand/{id}/smsOtp. */
+export async function getBrandOtpStatus(apiKey: string, brandId: string): Promise<OtpResult> {
+  const res = await fetch(`${TELNYX_BASE}/brand/${encodeURIComponent(brandId)}/smsOtp`, {
+    headers: telnyxHeaders(apiKey),
+  });
+  if (!res.ok) return { ok: false, error: await errText(res) };
+  const d = unwrap(await res.json().catch(() => ({})));
+  return { ok: true, status: str(d.status) ?? str(d.otpStatus) };
+}
+
+/**
+ * Submit the PIN the agent typed. PUT /10dlc/brand/{id}/smsOtp.
+ *
+ * A wrong or expired PIN comes back as a 4xx, which we surface as ok:false
+ * with Telnyx's own text — the caller decides whether that is "try again" or
+ * "the 24h window lapsed, resend". We do NOT guess attempts-remaining:
+ * Telnyx does not expose it, so a2p_registrations.otp_attempts is ours.
+ */
+export async function verifyBrandOtp(apiKey: string, brandId: string, pin: string): Promise<OtpResult> {
+  const res = await fetch(`${TELNYX_BASE}/brand/${encodeURIComponent(brandId)}/smsOtp`, {
+    method: "PUT",
+    headers: telnyxHeaders(apiKey),
+    body: JSON.stringify({ pin }),
+  });
+  if (!res.ok) return { ok: false, error: await errText(res) };
+  const d = unwrap(await res.json().catch(() => ({})));
+  return { ok: true, status: str(d.status) ?? str(d.otpStatus) ?? "verified" };
 }
 
 export interface CampaignInfo {
   brandId: string;
-  usecase: string; // e.g. "LOW_VOLUME" or "MIXED" — CONFIRM before go-live
+  /**
+   * "SOLE_PROPRIETOR" for sole-prop brands (required — a sole-prop brand
+   * cannot carry any other use case), otherwise "LOW_VOLUME".
+   */
+  usecase: string;
   description: string;
+  /**
+   * REQUIRED by campaignBuilder. Free-text description of how the consumer
+   * opts in. This is one of only two verified routes by which the agent's
+   * compliance URLs reach a carrier reviewer, so it is never blank.
+   */
+  messageFlow: string;
   sampleMessages: string[];
   subscriberOptin: boolean;
   subscriberOptout: boolean;
@@ -117,117 +358,132 @@ export interface CampaignInfo {
   embeddedPhone: boolean;
   ageGated: boolean;
   directLending: boolean;
+  /** Keyword auto-responses. Real fields (probed); required in practice for approval. */
+  optinMessage?: string;
+  optoutMessage?: string;
+  helpMessage?: string;
+  /** Boolean ATTESTATION that terms exist — NOT a link. Never put a URL here. */
+  termsAndConditions?: boolean;
+  numberPool?: boolean;
+  autoRenewal?: boolean;
 }
 
-// ------------------------------------------------------------
-// CAMPAIGN FIELD NAMES — PROBED AGAINST LIVE TELNYX 2026-07-28.
-//
-// Method: campaignBuilder SILENTLY IGNORES unknown fields (confirmed with a
-// deliberately bogus field name), but type-checks fields it knows. So each
-// candidate was sent with a wrong-typed value; if the validator named it in
-// an error, the field is real. Every probe carried an invalid `usecase`, so
-// nothing was ever created.
-//
-// REAL (validator type-checked them):
-//   termsAndConditions, subscriberOptin, subscriberOptout, subscriberHelp,
-//   embeddedLink, embeddedPhone, ageGated, directLending, numberPool,
-//   autoRenewal            -> booleans
-//   helpMessage, optinMessage, optoutMessage, sample1, sample2,
-//   description, messageFlow -> strings
-//   webhookURL, webhookFailoverURL -> URLs ("Invalid URL" when malformed)
-//
-// NOT REAL — silently dropped, every spelling tried:
-//   privacyPolicyLink, termsAndConditionsLink, privacyPolicyURL,
-//   termsAndConditionsURL, privacyPolicy, privacyPolicyUrl,
-//   termsAndConditionsUrl, affiliateMarketing, optinKeywords,
-//   optoutKeywords, helpKeywords, resellerId, subUsecases, tag, vertical
-//
-// THE CAMPAIGN HAS NO COMPLIANCE-LINK FIELD. An earlier revision of this file
-// sent privacyPolicyLink/termsAndConditionsLink; Telnyx accepted the request
-// and threw them away, so the compliance URLs would never have reached the
-// carrier. They are now carried two ways that ARE verified to land:
-//   1. brand.website — probed real ("Invalid URL"); a2p-register sets it to
-//      the agent's privacy policy URL.
-//   2. the opt-in workflow text (messageFlow / description) — free text the
-//      reviewer actually reads; buildOptinDescription() appends both URLs.
-//
-// `termsAndConditions` is real but it is a BOOLEAN attestation, not a link —
-// do not mistake it for somewhere to put a URL.
-//
-// STILL BROKEN, PRE-EXISTING (PROMPT_15 Phase 2, not fixed here): this
-// function posts to /campaign, but the real create is /campaignBuilder, and
-// `messageFlow` is REQUIRED — the probe returned "Missing required parameter"
-// for brandId, usecase, description, and messageFlow. As written,
-// submitCampaign cannot succeed. Fixing that is Phase 2 work.
-//
-// WHY a2p-register WAS PULLED RATHER THAN PATCHED (2026-07-28)
-//
-// Reachability was established, not assumed: the deployed function answered
-// with its OWN body `{"error":"unauthorized"}` (401), whereas a function that
-// does not exist answers `{"code":"NOT_FOUND"}` (404). Those are distinguish-
-// able, so the 401 was never ambiguous evidence — and `supabase functions
-// list` showed it ACTIVE at v11 independently. It was deployed and executing.
-//
-// It was NOT, however, reachable with the anon key alone: the function builds
-// an anon client with the caller's Authorization header and calls getUser(),
-// and a publishable key carries no user, so it 401s inside the function. The
-// real caller set was "any authenticated agent", not "anyone with the key".
-//
-// The decisive problem is upstream of submitCampaign. submitBrand POSTs to a
-// real endpoint, so Telnyx CREATES A REAL BRAND — then the `data?.data?.
-// brandId` read returns undefined against the bare-object response, so
-// a2p-register returns 502 and writes no row. The brand exists at Telnyx,
-// billable, with nothing in our DB pointing at it. submitCampaign is never
-// even reached. Patching submitCampaign alone would have made that worse, not
-// better: it would carry execution past brand creation and into wallet_debit.
-//
-// Fixing this properly needs live verification (campaignBuilder field set,
-// messageFlow copy, usecase enum, whether fees return synchronously) that
-// cannot be done without creating real, billable brands and campaigns. That is
-// a deliberate spend decision, not a refactor — so the function was removed
-// from production instead of being left reachable in a state where its only
-// possible outcome was an orphaned brand.
-// ------------------------------------------------------------
+/**
+ * The ONLY field names campaignBuilder is verified to accept.
+ *
+ * This allowlist exists because campaignBuilder's failure mode for an unknown
+ * field is SILENCE, not an error: Telnyx returns 200, drops the field, and we
+ * would believe we had sent something we never sent. That is exactly how
+ * privacyPolicyLink / termsAndConditionsLink shipped as a no-op for weeks.
+ *
+ * Adding a name here without probing it live re-opens that hole. The probe
+ * method is in this file's header — send the candidate with a wrong-typed
+ * value and see whether the validator names it.
+ */
+const CAMPAIGN_BUILDER_FIELDS = new Set([
+  "brandId", "usecase", "description", "messageFlow",
+  "sample1", "sample2", "sample3", "sample4", "sample5",
+  "subscriberOptin", "subscriberOptout", "subscriberHelp",
+  "optinMessage", "optoutMessage", "helpMessage",
+  "embeddedLink", "embeddedPhone", "ageGated", "directLending",
+  "numberPool", "autoRenewal", "termsAndConditions",
+  "webhookURL", "webhookFailoverURL",
+]);
+
+/** Drop undefined values AND any key not on the verified allowlist. */
+function campaignBody(fields: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fields)) {
+    if (v === undefined || v === null || v === "") continue;
+    if (!CAMPAIGN_BUILDER_FIELDS.has(k)) {
+      // Loud, not silent — the whole point of the allowlist.
+      console.error(`[telnyx-10dlc] refusing to send unverified campaignBuilder field "${k}" — Telnyx would discard it silently. See CAMPAIGN_BUILDER_FIELDS.`);
+      continue;
+    }
+    out[k] = v;
+  }
+  return out;
+}
 
 export interface CampaignSubmitResult {
   ok: boolean;
   campaignId?: string;
-  feeMills?: number;
-  monthlyFeeMills?: number;
+  tcrCampaignId?: string;
+  campaignStatus?: string;
+  /** true when Telnyx reports a mock campaign (sandbox brand) — not billed. */
+  mock?: boolean;
   error?: string;
 }
 
+/**
+ * Create the campaign. POST /v2/10dlc/campaignBuilder — VERIFIED.
+ *
+ * NOT /10dlc/campaign: that path serves other operations and cannot create.
+ * The previous implementation posted there and could never have succeeded.
+ *
+ * `messageFlow` is required and is enforced here rather than left to Telnyx,
+ * because a missing-required-parameter round trip against a real brand is a
+ * wasted call on a path where calls cost money.
+ *
+ * NO FEE IS READ FROM THE RESPONSE. Telnyx does not return a synchronous
+ * price for 10DLC registration (the charge lands later against `billedDate`),
+ * so the old `data.data.price` read was always undefined. Fee amounts come
+ * from billing_config — see a2p-register.
+ */
 export async function submitCampaign(apiKey: string, info: CampaignInfo): Promise<CampaignSubmitResult> {
-  const res = await fetch(`${TELNYX_BASE}/campaign`, {
+  if (!info.messageFlow || !info.messageFlow.trim()) {
+    return { ok: false, error: "message_flow_required: campaignBuilder rejects a campaign with no opt-in workflow description." };
+  }
+  if (!info.sampleMessages?.[0] || !info.sampleMessages?.[1]) {
+    return { ok: false, error: "two_sample_messages_required: campaignBuilder needs at least sample1 and sample2." };
+  }
+
+  const res = await fetch(`${TELNYX_BASE}/campaignBuilder`, {
     method: "POST",
     headers: telnyxHeaders(apiKey),
-    body: JSON.stringify({
-      brandId:          info.brandId,
-      usecase:          info.usecase,
-      description:      info.description,
-      sample1:          info.sampleMessages[0],
-      sample2:          info.sampleMessages[1],
-      subscriberOptin:  info.subscriberOptin,
-      subscriberOptout: info.subscriberOptout,
-      subscriberHelp:   info.subscriberHelp,
-      embeddedLink:     info.embeddedLink,
-      embeddedPhone:    info.embeddedPhone,
-      ageGated:         info.ageGated,
-      directLending:    info.directLending,
-    }),
+    body: JSON.stringify(campaignBody({
+      brandId:            info.brandId,
+      usecase:            info.usecase,
+      description:        info.description,
+      messageFlow:        info.messageFlow,
+      sample1:            info.sampleMessages[0],
+      sample2:            info.sampleMessages[1],
+      sample3:            info.sampleMessages[2],
+      subscriberOptin:    info.subscriberOptin,
+      subscriberOptout:   info.subscriberOptout,
+      subscriberHelp:     info.subscriberHelp,
+      optinMessage:       info.optinMessage,
+      optoutMessage:      info.optoutMessage,
+      helpMessage:        info.helpMessage,
+      embeddedLink:       info.embeddedLink,
+      embeddedPhone:      info.embeddedPhone,
+      ageGated:           info.ageGated,
+      directLending:      info.directLending,
+      numberPool:         info.numberPool,
+      autoRenewal:        info.autoRenewal,
+      termsAndConditions: info.termsAndConditions,
+      // Deliberately absent: privacyPolicyLink / termsAndConditionsLink and
+      // every spelling of them. They are not real fields — the compliance
+      // URLs ride in messageFlow (above) and on the brand's `website`.
+    })),
   });
 
-  if (!res.ok) return { ok: false, error: `${res.status}: ${await res.text()}` };
+  if (!res.ok) return { ok: false, error: await errText(res) };
 
-  const data = await res.json();
-  const campaignId = data?.data?.campaignId ?? data?.data?.id;
-  const feeRaw = data?.data?.price ?? data?.data?.fee;
-  const monthlyFeeRaw = data?.data?.monthlyFee;
+  const d = unwrap(await res.json());
+  const campaignId = str(d.campaignId) ?? str(d.id) ?? str(d.campaign_id);
+  if (!campaignId) {
+    return {
+      ok: false,
+      error: `campaign_created_but_id_unreadable: Telnyx accepted the campaign but returned no readable id. A BILLABLE CAMPAIGN MAY NOW EXIST — check the Telnyx portal before retrying. Raw: ${JSON.stringify(d).slice(0, 800)}`,
+    };
+  }
   return {
     ok: true,
     campaignId,
-    feeMills: typeof feeRaw === "number" ? Math.round(feeRaw * 1000) : undefined,
-    monthlyFeeMills: typeof monthlyFeeRaw === "number" ? Math.round(monthlyFeeRaw * 1000) : undefined,
+    tcrCampaignId: str(d.tcrCampaignId),
+    campaignStatus: str(d.campaignStatus),
+    mock: d.mock === true,
   };
 }
 
@@ -254,27 +510,55 @@ function normalizeStatus(rawStatus: string | undefined): RegistrationStatus {
 }
 
 // Brand/campaign GETs hit /v2/10dlc/*, which returns a BARE object (no
-// {data} envelope) — VERIFIED 2026-07-27. We still read (data?.data ?? data)
-// so a future wrapper wouldn't silently break this. (The earlier
+// {data} envelope) — VERIFIED 2026-07-27. unwrap() still tolerates a wrapper
+// so a future Telnyx change degrades to "still works". (The earlier
 // data?.data?.<field> parse read undefined on the real shape, which would
 // have kept every brand/campaign stuck at "pending" — the poller could never
 // mark a registration approved, and no number could ever be assigned.)
 export async function getBrandStatus(apiKey: string, brandId: string): Promise<{ status: RegistrationStatus; raw?: string; error?: string }> {
-  const res = await fetch(`${TELNYX_BASE}/brand/${brandId}`, { headers: telnyxHeaders(apiKey) });
-  if (!res.ok) return { status: "pending", error: `${res.status}: ${await res.text()}` };
-  const data = await res.json();
-  const d = (data?.data ?? data) as { identityStatus?: string; brandStatus?: string } | undefined;
-  const raw = d?.identityStatus ?? d?.brandStatus;
+  const res = await fetch(`${TELNYX_BASE}/brand/${encodeURIComponent(brandId)}`, { headers: telnyxHeaders(apiKey) });
+  if (!res.ok) return { status: "pending", error: await errText(res) };
+  const d = unwrap(await res.json());
+  // identityStatus is the review status. The secondary `status`="OK" is NOT
+  // one — never fall back to it.
+  const raw = str(d.identityStatus) ?? str(d.brandStatus);
   return { status: normalizeStatus(raw), raw };
 }
 
 export async function getCampaignStatus(apiKey: string, campaignId: string): Promise<{ status: RegistrationStatus; raw?: string; error?: string }> {
-  const res = await fetch(`${TELNYX_BASE}/campaign/${campaignId}`, { headers: telnyxHeaders(apiKey) });
-  if (!res.ok) return { status: "pending", error: `${res.status}: ${await res.text()}` };
-  const data = await res.json();
-  const d = (data?.data ?? data) as { campaignStatus?: string } | undefined;
-  const raw = d?.campaignStatus;
+  const res = await fetch(`${TELNYX_BASE}/campaign/${encodeURIComponent(campaignId)}`, { headers: telnyxHeaders(apiKey) });
+  if (!res.ok) return { status: "pending", error: await errText(res) };
+  const d = unwrap(await res.json());
+  const raw = str(d.campaignStatus);
   return { status: normalizeStatus(raw), raw };
+}
+
+export interface BrandDetails {
+  ok: boolean;
+  brandId?: string;
+  identityStatus?: string;
+  entityType?: string;
+  /** true = Telnyx mock brand (the sandbox). Mock brands are never billed. */
+  mock?: boolean;
+  error?: string;
+}
+
+/**
+ * Fetch a brand's identity. Used by a2p-register's production guard to prove
+ * that the brand it is about to operate on really is the mock sandbox brand,
+ * rather than trusting an env var to be pointed where we think it is.
+ */
+export async function getBrand(apiKey: string, brandId: string): Promise<BrandDetails> {
+  const res = await fetch(`${TELNYX_BASE}/brand/${encodeURIComponent(brandId)}`, { headers: telnyxHeaders(apiKey) });
+  if (!res.ok) return { ok: false, error: await errText(res) };
+  const d = unwrap(await res.json());
+  return {
+    ok: true,
+    brandId: str(d.brandId) ?? str(d.id),
+    identityStatus: str(d.identityStatus),
+    entityType: str(d.entityType),
+    mock: d.mock === true,
+  };
 }
 
 export type AssignmentStatus =

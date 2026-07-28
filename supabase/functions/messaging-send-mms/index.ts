@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { runComplianceGate } from "../_shared/messaging-shared.ts";
+import { runComplianceGate, resolveTextingNumber } from "../_shared/messaging-shared.ts";
 import { sendMessageCore } from "../_shared/messaging-send-core.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 
@@ -61,13 +61,16 @@ serve(async (req) => {
   if (!gate.ok) return json({ error: gate.reason, detail: gate.detail }, 403);
   const to = gate.normalizedAddress;
 
-  // --- Sender identity (agent's caller ID). ---
+  // --- Sender identity: the agent's TEXTING number (sms_capable), not just
+  //     their voice caller ID. Same rule and same helper as
+  //     messaging-send-sms — see resolveTextingNumber. ---
   const { data: agent } = await sb.from("agents")
     .select("signalwire_caller_id")
     .eq("id", user.id)
     .maybeSingle();
-  const fromNumber = agent?.signalwire_caller_id;
-  if (!fromNumber) return json({ error: "sender_not_configured", detail: "No outbound caller ID configured for this agent." }, 400);
+  const sender = await resolveTextingNumber(sb, user.id, agent?.signalwire_caller_id);
+  if (!sender.ok) return json({ error: sender.reason, detail: sender.detail }, 400);
+  const fromNumber = sender.fromNumber;
 
   const result = await sendMessageCore(
     { agentId: user.id, channel: "mms", to, fromNumber, text, mediaUrls, consentId: gate.consentId },

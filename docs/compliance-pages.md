@@ -263,10 +263,15 @@ The full probe results (which campaign fields are real, which are ignored) are
 recorded in the field-name block at the top of
 `supabase/functions/_shared/telnyx-10dlc-adapter.ts`.
 
-> **Separate, pre-existing:** `submitCampaign` still posts to `/campaign`, but
-> the real create is `/campaignBuilder`, and `messageFlow` is a required field
-> it never sends. As written it cannot succeed. That is PROMPT_15 Phase 2 work
-> and is not fixed here.
+> **Resolved 2026-07-28 (PROMPT_15 Phase 2).** `submitCampaign` used to post
+> to `/campaign` and never sent the required `messageFlow`, so it could not
+> succeed. It now posts to `/campaignBuilder` and always sends `messageFlow`,
+> verified by creating a real (free, mock) campaign on the sandbox brand —
+> `4b30019f-a751-7137-49de-f9834598ee05`. The GET on that campaign showed the
+> opt-in workflow text stored intact **with both compliance URLs in it**, and
+> `privacyPolicyLink`/`termsAndConditionsLink` reading back `null`. So the
+> route described in the table above is not just the intended one, it is the
+> observed one. See `docs/telnyx-10dlc-brands.md`.
 
 ## Lead vendors
 

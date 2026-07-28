@@ -56,4 +56,59 @@ deliberately, not as part of routine dev testing.
 - **Campaign status field:** `campaignStatus` (`TCR_PENDING`/`TCR_FAILED`/`TCR_ACCEPTED`/`ACTIVE`). `TCR_FAILED` = rejected.
 - **Messaging profile:** the account has ONE — "Jarvis" `40019edb-acf4-47da-ae79-9a712deda81a` (`TELNYX_MESSAGING_PROFILE_ID`). A number's `messaging_profile_id` is on the **base** `/v2/phone_numbers` object; set it via `PATCH /v2/phone_numbers/{id}/messaging {messaging_profile_id}`.
 - **`/10dlc` list filters use plain query params** (`?brandId=…`), NOT the `filter[brandId]` JSON:API style used elsewhere in Telnyx v2.
-- **Campaign creation** (Phase 2) is `POST /v2/10dlc/campaignBuilder` (needs `messageFlow` + opt-in/opt-out/help keyword+message fields) — NOT `POST /v2/10dlc/campaign`.
+- **Campaign creation** is `POST /v2/10dlc/campaignBuilder` (needs `messageFlow` + opt-in/opt-out/help keyword+message fields) — NOT `POST /v2/10dlc/campaign`. **Implemented and verified live 2026-07-28** — see below.
+
+## Verified by a real mock campaign — 2026-07-28
+
+`scripts/a2p-phase2-smoke.ts` created campaign
+`4b30019f-a751-7137-49de-f9834598ee05` on the sandbox brand. Re-runnable at
+any time; it costs nothing.
+
+- `campaignBuilder` returns the campaign as a **bare object with
+  `campaignId`** — the parse the withdrawn `a2p-register` got wrong now
+  round-trips.
+- `billedDate: null`, `mock: true` → **a sandbox campaign is genuinely free.**
+- `messageFlow`, `description`, `sample1-3`, `optinMessage`, `optoutMessage`,
+  `helpMessage`, `termsAndConditions`, `embeddedPhone`, `numberPool` all
+  persist and read back unchanged.
+- `privacyPolicyLink` / `termsAndConditionsLink` read back **null** on the
+  GET. They exist as response keys but cannot be set — a third independent
+  confirmation that the campaign has no compliance-link field.
+
+**`usecase` enum — no longer a guess.** Telnyx's own `10032` error lists all
+28 valid values:
+
+```
+ACCOUNT_NOTIFICATION, AGENTS_FRANCHISES, CARRIER_EXEMPT, CHARITY,
+CONVERSATIONAL, CUSTOMER_CARE, DELIVERY_NOTIFICATION, EMERGENCY, FRAUD_ALERT,
+HIGHER_EDUCATION, K12_EDUCATION, LOW_VOLUME, MARKETING, MIXED, POLITICAL,
+POLLING_VOTING, PROXY, PUBLIC_SAFETY_RESTRICTED, PUBLIC_SERVICE_ANNOUNCEMENT,
+SECURITY_ALERT, SOCIAL, SWEEPSTAKE, 2FA, UCAAS_LOW, M2M, SOLE_PROPRIETOR,
+TRIAL, UCAAS_HIGH
+```
+
+Both values we depend on are present: `LOW_VOLUME` (standard brands, accepted
+on a real create) and `SOLE_PROPRIETOR` (sole-prop brands, which accept no
+other use case).
+
+## The production guard (`a2p-register`, from 2026-07-28)
+
+`a2p-register` will **not** create a production brand unless the request body
+explicitly carries `allow_production: true`. Without it the function attaches
+to `TELNYX_SANDBOX_BRAND_ID` and charges nothing — and it verifies with Telnyx
+that the id really reports `mock: true` rather than trusting the env var to be
+pointed where we think it is. A production run logs loudly before it spends
+anything.
+
+`TELNYX_SANDBOX_BRAND_ID` is therefore now read by a **deployed** function, so
+it must exist as a Supabase secret, not only in `.env.local`:
+
+```bash
+supabase secrets set TELNYX_SANDBOX_BRAND_ID=4b20019f-a5e2-5239-ca22-5a978e4de52f
+```
+
+The sandbox brand is deliberately **shared** across agents — one mock brand
+that every dev registration points at. The uniqueness guarantees in
+`20260731_a2p_resumable_registration.sql` exclude `telnyx_env = 'sandbox'` for
+exactly that reason, and the immutability trigger permits a sandbox →
+production promotion without a manual unlock.

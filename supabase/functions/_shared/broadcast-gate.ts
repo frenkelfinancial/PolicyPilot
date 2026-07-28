@@ -46,6 +46,16 @@ export function classifyGateReason(reason: string): GateOutcome {
       return { action: "defer" };
     case "a2p_not_approved":
       return { action: "halt" };
+    // Sole-prop daily throughput ceiling. HALT, not skip: the remaining
+    // recipients are perfectly valid, there is simply no quota left today.
+    // Halting leaves every one of them `pending`, so the next run sends them
+    // once the day rolls over — skipping would discard them permanently.
+    case "daily_limit_reached":
+      return { action: "halt" };
+    // No number is currently allowed to carry A2P traffic for this agent.
+    // Campaign-wide, not recipient-specific — same treatment.
+    case "no_sms_capable_number":
+      return { action: "halt" };
     default:
       return { action: "skip", skipReason: "no_consent" };
   }

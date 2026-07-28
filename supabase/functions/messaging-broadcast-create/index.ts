@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { toE164 } from "../_shared/phone.ts";
 import { expandLeadsToRecipients, leadMatchesStatusFilter, type LeadRow } from "../_shared/leads.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import { ONE_NUMBER_EXPLANATION } from "../_shared/a2p-registration.ts";
 
 // Creates a mass-text broadcast and (optionally) expands its CRM-lead
 // recipients. CSV-sourced recipients are added afterward via
@@ -78,7 +79,7 @@ serve(async (req) => {
 
   // --- §2: from-number ownership + A2P campaign assignment. ---
   const { data: phoneNumber } = await sb.from("phone_numbers")
-    .select("id, e164, status, a2p_campaign_id")
+    .select("id, e164, status, a2p_campaign_id, sms_capable")
     .eq("agent_id", user.id)
     .eq("e164", fromNumber)
     .maybeSingle();
@@ -88,16 +89,24 @@ serve(async (req) => {
   }
 
   const { data: a2p } = await sb.from("a2p_registrations")
-    .select("campaign_id, status")
+    .select("campaign_id, status, brand_type")
     .eq("agent_id", user.id)
     .maybeSingle();
   if (!a2p || a2p.status !== "approved" || !a2p.campaign_id) {
     return json({ error: "a2p_not_approved", detail: "SMS/MMS broadcasts are blocked until your A2P 10DLC brand + campaign registration is approved." }, 400);
   }
-  if (phoneNumber.a2p_campaign_id !== a2p.campaign_id) {
+  // sms_capable is the canonical "this number may carry A2P traffic" flag —
+  // the same one the 1:1 senders resolve against — and it is only set once
+  // Telnyx confirms the assignment as ASSIGNED. a2p_campaign_id is checked
+  // alongside it because a broadcast must go out on THIS agent's approved
+  // campaign specifically, not merely on some sms-capable number.
+  if (!phoneNumber.sms_capable || phoneNumber.a2p_campaign_id !== a2p.campaign_id) {
     return json({
       error: "number_not_campaign_assigned",
-      detail: "This number is not yet assigned to your approved 10DLC campaign — call a2p-assign-number for it first.",
+      detail: a2p.brand_type === "sole_proprietor"
+        ? "That number is not your texting number. " + ONE_NUMBER_EXPLANATION
+        : "This number is not set up for texting yet. It has to be attached to your approved 10DLC campaign first — " +
+          "that happens automatically after approval, and carrier propagation can take a further 24-72 hours.",
     }, 400);
   }
 

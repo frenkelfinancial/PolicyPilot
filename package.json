@@ -10,6 +10,7 @@
     "test:messaging": "node --test \"supabase/functions/_shared/segments.test.ts\" \"supabase/functions/_shared/tcpa.test.ts\" \"supabase/functions/_shared/phone.test.ts\" \"supabase/functions/_shared/messaging-shared.test.ts\" \"supabase/functions/_shared/messaging-send-core.test.ts\" \"supabase/functions/_shared/broadcast-gate.test.ts\" \"supabase/functions/_shared/broadcast-pacing.test.ts\" \"supabase/functions/_shared/csv.test.ts\" \"supabase/functions/_shared/leads.test.ts\"",
     "test:ai": "node --test \"supabase/functions/_shared/ai-minute-billing.test.ts\" \"supabase/functions/_shared/ai-call-billing.test.ts\"",
     "test:compliance": "node --test \"supabase/functions/_shared/compliance-page.test.ts\"",
+    "test:a2p": "node --test \"supabase/functions/_shared/a2p-registration.test.ts\"",
     "prebuild": "node scripts/prebuild.js",
     "build": "npx cap sync",
     "cap:sync": "npm run prebuild && npx cap sync",

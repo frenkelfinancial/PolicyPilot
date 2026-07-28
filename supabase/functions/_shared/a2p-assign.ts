@@ -21,6 +21,7 @@
 //        FAILED_ASSIGNMENT — reason is human-readable and surfaced to the UI.
 // ============================================================
 import { assignNumberToCampaign, ensureNumberOnMessagingProfile } from "./telnyx-10dlc-adapter.ts";
+import { ONE_NUMBER_EXPLANATION, SOLE_PROP, STANDARD_MAX_NUMBERS } from "./a2p-registration.ts";
 
 // deno-lint-ignore no-explicit-any
 type Sb = { from: (t: string) => any };
@@ -80,25 +81,45 @@ export async function assignAgentNumberToCampaign(
     return { ok: true, status: "assigned", campaignId, alreadyAssigned: true };
   }
 
-  // 4. Per-brand number cap. Sole prop = 1 texting number per campaign
-  //    (Telnyx hard limit); standard = 49. Counts numbers already ASSIGNED
-  //    to this campaign (a2p_campaign_id set). TODO(PROMPT_15 Phase 2):
-  //    also count PENDING_ASSIGNMENT numbers so two can't be submitted at
-  //    once for a sole-prop brand.
+  // 4. Per-brand number cap. Sole prop = ONE texting number per campaign
+  //    (Telnyx hard limit); standard = 49.
+  //
+  //    PENDING COUNTS TOO. Counting only numbers with a2p_campaign_id set
+  //    left a real hole: assignment is asynchronous, so two numbers could
+  //    both be submitted while the first was still PENDING_ASSIGNMENT, both
+  //    pass this check, and a sole-prop brand would end up with two numbers
+  //    in flight — which Telnyx then rejects at the carrier, days later,
+  //    for a reason the agent cannot act on. A number that is already
+  //    on its way to this campaign occupies a slot.
   const isSoleProp = reg.brand_type === "sole_proprietor";
-  const maxNumbers = typeof reg.max_numbers === "number" ? reg.max_numbers : (isSoleProp ? 1 : 49);
-  const { count } = await sb.from("phone_numbers")
+  const maxNumbers = typeof reg.max_numbers === "number"
+    ? reg.max_numbers
+    : (isSoleProp ? SOLE_PROP.maxNumbersPerCampaign : STANDARD_MAX_NUMBERS);
+
+  const { count: assignedCount } = await sb.from("phone_numbers")
     .select("id", { count: "exact", head: true })
     .eq("agent_id", agentId)
     .eq("a2p_campaign_id", campaignId);
-  if ((count ?? 0) >= maxNumbers) {
+  const { count: pendingCount } = await sb.from("phone_numbers")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", agentId)
+    .is("a2p_campaign_id", null)
+    .eq("a2p_assignment_status", "PENDING_ASSIGNMENT")
+    .neq("id", phoneNumberId);
+
+  const occupied = (assignedCount ?? 0) + (pendingCount ?? 0);
+  if (occupied >= maxNumbers) {
     return {
       ok: false,
       status: "precondition",
       httpStatus: 409,
+      // Plain language, not a raw API error. PROMPT_15 Phase 2 acceptance:
+      // "with an explanatory message rather than a raw API error".
       reason: isSoleProp
-        ? "sole_prop_one_number_limit: A Sole Proprietor 10DLC campaign can carry only ONE texting number. Unassign the current texting number before assigning a different one."
-        : `campaign_number_limit_reached: this campaign already has its maximum of ${maxNumbers} assigned numbers.`,
+        ? `sole_prop_one_number_limit: ${ONE_NUMBER_EXPLANATION}` +
+          (pendingCount ? " (A number you assigned a moment ago is still being activated by the carriers.)" : "")
+        : `campaign_number_limit_reached: This campaign already has its maximum of ${maxNumbers} texting numbers` +
+          (pendingCount ? `, counting ${pendingCount} still being activated` : "") + ".",
     };
   }
 

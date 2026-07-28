@@ -270,6 +270,52 @@ interactive work, but it is no longer on the critical path.
 | 2026-07-28T03:57Z | `supabase/migrations/20260716_number_reputation.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped, authorised by Jace | `reputation_config` absent; 0 of 5 `phone_numbers` reputation columns present | `reputation_config` present, RLS **enabled**, **0 policies** (service-role-only, as the file intends), 0 rows; 5 of 5 columns present |
 | 2026-07-28T04:0xZ | `supabase/migrations/20260703c_agents_column_protection.sql` | Claude (Opus 5), `-f`, transaction-wrapped — **security fix, authorised by Jace** | trigger `agents_protect_privileged_columns` ABSENT; live PATCH set own `is_admin=true` (200, persisted) | trigger present + enabled; identical PATCH now returns `is_admin=false` (reverted); admin PII read denied |
 | 2026-07-28T04:1xZ | `supabase/migrations/20260730_phone_numbers_column_protection.sql` | Claude (Opus 5), `-f`, transaction-wrapped — **security fix (same class), authorised by Jace** | `phone_numbers` owner-updatable with no column guard; `renew_from_wallet`/`next_renewal_at`/billing columns self-writable | trigger `phone_numbers_protect_privileged_columns` present + enabled; billing/compliance columns reverted for non-service, non-admin |
+| 2026-07-28T05:0xZ | `supabase/migrations/20260731_a2p_resumable_registration.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. Additive only — no approval needed under the rules above | `a2p_registrations` had no step markers, no uniqueness on `brand_id`/`campaign_id`, no immutability trigger; `wallet_ledger` had no A2P fee-idempotency index. 0 rows in `a2p_registrations`, 0 A2P ledger rows | 9 new columns + `telnyx_env` check constraint; 2 partial unique indexes; function + trigger `a2p_registrations_guard_ids`; `wallet_ledger_a2p_fee_ref_uidx`. **9/9 behavioural checks pass** (see below) |
+
+### Notes on the 2026-07-28T05:0xZ apply — A2P resumable registration
+
+Additive only: `ADD COLUMN IF NOT EXISTS` ×9, `CREATE UNIQUE INDEX IF NOT
+EXISTS` ×3, one `CREATE OR REPLACE FUNCTION`, one trigger, one check
+constraint. No `DROP`/`DELETE`/`TRUNCATE` of data, nothing touching `auth.*`
+or `storage.*`. (`drop trigger if exists` immediately before `create trigger`
+is the repo's standard idempotency idiom, not a data change.) Re-running is a
+no-op.
+
+**Why it exists.** `a2p-register` was pulled from production earlier the same
+day because `submitBrand` created a REAL, BILLABLE Telnyx brand, misparsed the
+bare-object response, returned 502, and wrote **no row** — a paid-for brand
+that nothing pointed at, and a second one on every retry. The code fix is a
+resumable step machine (`_shared/a2p-registration.ts`); this migration is the
+durable state it resumes from, plus three guarantees that hold even if the
+application code is wrong.
+
+**Verified behaviourally, not just structurally.** The objects existing proves
+nothing about whether they *work*, so the guarantees were exercised against
+production inside a transaction that **rolled back** — no INSERT persisted and
+no DELETE was needed, so nothing required approval. All nine passed:
+
+| Check | Result |
+|---|---|
+| `brand_id` is write-once (blocked, `a2p_brand_id_immutable`) | PASS |
+| `campaign_id` is write-once | PASS |
+| `brand_id` cannot be nulled either (that is also an orphan) | PASS |
+| Unrelated columns still update freely — the guard is narrow | PASS |
+| Documented escape hatch (`set local app.a2p_allow_id_change='on'`) works | PASS |
+| sandbox → production promotion allowed without the escape hatch | PASS |
+| Two agents cannot share one **production** brand (unique violation) | PASS |
+| The **sandbox** brand IS shareable (index deliberately excludes it) | PASS |
+| `wallet_ledger_a2p_fee_ref_uidx` present with the intended predicate | PASS |
+
+`a2p_registrations` and the A2P ledger were both still at **0 rows**
+afterwards, confirming the rollback.
+
+**The trigger deliberately binds the service role too.** Every other guard in
+this schema carves out `service_role` because edge functions are trusted to
+write business data. This one does not, because the failure it prevents *is*
+an edge-function bug creating a second billable brand — a guard the buggy
+caller can bypass is not a guarantee. The one built-in exception is
+sandbox → production promotion, where the ids being replaced are mock, free,
+and route nothing.
 
 ### Notes on the 2026-07-28T03:57Z apply
 
