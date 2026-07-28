@@ -323,28 +323,42 @@ Fixing it is additive (`add column if not exists body text`) plus writes in
 `messaging-send-core.ts` and both inbound webhooks. Left unbuilt so it can be
 scoped with retention and PII questions attached, not bolted on.
 
-### 2. `messaging-consent-record` is an attestation, not evidence
+### 2. ✅ CLOSED — `messaging-consent-record` was an attestation, not evidence
 
-`messaging-consent-record` (added 2026-07-28) unblocks 1:1 sending by letting
-an agent state that a lead gave written consent, storing the provenance as
-`consent_records.source = 'agent_attested: <where>'`.
+**Logged 2026-07-28 morning, closed 2026-07-28 evening by the hosted SMS
+opt-in page.** Kept in full because the reasoning is what drove the fix.
 
-**That is sufficient for the send gate and insufficient for a dispute.** What
-it records is an agent's assertion about consent, made after the fact, with no
-independent artefact behind it. The real evidence exists — TrustedForm
-certifies the consumer's IP, session activity, timestamp and the exact
-disclosure text shown, and the certificate is delivered with each lead — but
-`lead-ingest` does not capture it and nothing stores it.
+The gap as logged: `messaging-consent-record` unblocked 1:1 sending by letting
+an agent *state* that a lead gave written consent, storing the provenance as
+`consent_records.source = 'agent_attested: <where>'`. Sufficient for the send
+gate, insufficient for a dispute — an assertion made after the fact with no
+independent artefact behind it.
 
-**PROMPT_17 should replace the attestation path with the certificate captured
-at ingestion:** persist the TrustedForm certificate URL/ID per lead at
-`lead-ingest` time, write the `consent_records` row from that rather than from
-a checkbox, and keep the attestation only as a manual fallback for leads that
-genuinely arrived outside a vendor form. The privacy policy and the campaign
-opt-in description already both claim we retain that certificate
-(`_shared/lead-vendors.ts`, `_shared/compliance-page.ts`) — so today those two
-carrier-facing documents describe a retention practice the schema does not
-implement. That is the sharpest reason to close it.
+The proposed fix was to capture the vendor's TrustedForm certificate at
+ingestion. **That is no longer the plan, because the vendor's consent turned
+out not to be usable at all:** the 10DLC campaign was rejected on the ground
+that a lead vendor's "…and its licensed agents" wording is not opt-in evidence
+for a campaign sending as a named agency, and the vendor will not change it.
+Capturing a stronger certificate of the wrong consent would not have helped.
+
+**What shipped instead** (`supabase/migrations/20260733_sms_optin_consent.sql`
+plus the `/a/<slug>/sms-opt-in` route on `compliance-page`): consent is
+collected on the agency's own page, and `consent_records` now carries the
+evidence itself — `consent_method`, `disclosure_text` (the exact words
+displayed, not a template id), `page_url`, `ip_address`, `user_agent`, and the
+consumer's name. A check constraint refuses a `consent_method='web_form'` row
+that arrives without its disclosure and page URL, so the evidenced grade
+cannot be claimed without the evidence.
+
+The attestation path remains, correctly labelled `consent_method =
+'agent_attested'`, for an agent who genuinely holds a written record of their
+own. The composer offers it second, folded away, behind a sentence saying why.
+
+**One consequence to watch:** the privacy policy no longer claims the vendor
+form covers texting, and the campaign opt-in description no longer quotes the
+vendor's wording. Those two must keep agreeing with each other — there is a
+unit test asserting exactly that (`neither the policy nor the campaign
+description claims the vendor form covers texting`).
 
 ---
 
@@ -386,7 +400,39 @@ interactive work, but it is no longer on the critical path.
 | 2026-07-28T04:0xZ | `supabase/migrations/20260703c_agents_column_protection.sql` | Claude (Opus 5), `-f`, transaction-wrapped — **security fix, authorised by Jace** | trigger `agents_protect_privileged_columns` ABSENT; live PATCH set own `is_admin=true` (200, persisted) | trigger present + enabled; identical PATCH now returns `is_admin=false` (reverted); admin PII read denied |
 | 2026-07-28T04:1xZ | `supabase/migrations/20260730_phone_numbers_column_protection.sql` | Claude (Opus 5), `-f`, transaction-wrapped — **security fix (same class), authorised by Jace** | `phone_numbers` owner-updatable with no column guard; `renew_from_wallet`/`next_renewal_at`/billing columns self-writable | trigger `phone_numbers_protect_privileged_columns` present + enabled; billing/compliance columns reverted for non-service, non-admin |
 | 2026-07-28T17:xxZ | `supabase/migrations/20260732_a2p_fee_correction.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. **Authorised by Jace** — he read Telnyx's real checkout prices. Column defaults + one UPDATE of the `billing_config` singleton; no DROP, no `auth.*`/`storage.*` | live row `4000 / 15000 / 10000 / 2000`; defaults identical. `a2p_registrations`: **0 rows**, `sum(monthly_fee_mills) = 0` — so no existing registration carried the wrong figure | live row `4000 / **14500** / **1500** / 2000`; defaults updated to match; re-run confirmed a no-op |
+| 2026-07-28T19:1xZ | `supabase/migrations/20260733_sms_optin_consent.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. Additive only — no approval needed under the rules above | 0 of 7 evidence columns present; **0 rows** in `consent_records` (so the backfill was a guaranteed no-op and no existing row could violate the new constraints); 2 check constraints; 3 indexes; 2 policies, both `SELECT` | 7 of 7 columns present; `consent_records_method_check` + `consent_records_web_form_evidence_check` added; `consent_records_ip_captured_idx` added; **policies unchanged — still SELECT-only, no INSERT policy**; 0 rows. **4/4 behavioural checks pass** (see below); re-run confirmed a no-op |
 | 2026-07-28T05:0xZ | `supabase/migrations/20260731_a2p_resumable_registration.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. Additive only — no approval needed under the rules above | `a2p_registrations` had no step markers, no uniqueness on `brand_id`/`campaign_id`, no immutability trigger; `wallet_ledger` had no A2P fee-idempotency index. 0 rows in `a2p_registrations`, 0 A2P ledger rows | 9 new columns + `telnyx_env` check constraint; 2 partial unique indexes; function + trigger `a2p_registrations_guard_ids`; `wallet_ledger_a2p_fee_ref_uidx`. **9/9 behavioural checks pass** (see below) |
+
+### Notes on the 2026-07-28T19:1xZ apply — SMS opt-in consent evidence
+
+Applied ahead of deploying `compliance-page`, because the opt-in form renders
+fine without these columns and every submission would then fail on `column
+consent_method does not exist` — which reads to the consumer as our error and
+loses a real opt-in.
+
+**4/4 behavioural checks, each run inside `begin; … rollback;` so production
+kept 0 rows throughout:**
+
+| # | Check | Result |
+|---|---|---|
+| 1 | INSERT `consent_method='web_form'` with **no** `disclosure_text`/`page_url` | **rejected** — `23514 … violates check constraint "consent_records_web_form_evidence_check"` |
+| 2 | Same INSERT **with** disclosure + page URL + IP | **accepted** (1 row staged, then rolled back) |
+| 3 | INSERT `consent_method='telepathy'` | **rejected** — `violates check constraint "consent_records_method_check"` |
+| 4 | Row count after all three rollbacks | **0** |
+
+Check 1 is the one that matters. The whole point of the migration is that a row
+cannot *claim* to be an evidenced web-form opt-in without carrying the
+evidence — otherwise it would pass a filter for "self-service opt-ins" and then
+prove nothing when opened. It is enforced in the database rather than in the
+edge function because the edge function is not the only thing that will ever
+write this table.
+
+**The backfill did nothing, as predicted.** `consent_records` held 0 rows
+before and after — there has never been a consent record in production, which
+also means the `no_consent` gate has been refusing every 1:1 text since it
+shipped. The opt-in page is the first thing that will ever populate it.
+
+The file was re-run end to end afterwards and was a clean no-op.
 
 ### Notes on the 2026-07-28T17:xxZ apply — A2P fee correction
 

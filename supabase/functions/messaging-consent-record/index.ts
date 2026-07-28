@@ -21,6 +21,20 @@ import { toE164 } from "../_shared/phone.ts";
 // on the vendor's lead form and certified by TrustedForm — it was simply
 // never recorded anywhere our gate could see.
 //
+// NO LONGER THE PRIMARY PATH — 2026-07-28
+// ---------------------------------------
+// The 10DLC campaign was REJECTED because carrier review would not accept a
+// lead vendor's "…and its licensed agents" language as opt-in evidence for a
+// campaign sending as the agency. An attestation quoting that same vendor
+// form inherits the identical weakness: it is our word about their wording.
+//
+// Consent is now collected primarily on the agent's own hosted opt-in page,
+// /a/<slug>/sms-opt-in, which writes an evidence-grade row through the
+// `compliance-page` function (consent_method='web_form', with the exact
+// disclosure displayed, the page URL, the IP and the timestamp). This
+// function stays for the genuine case where the agent holds the written
+// record themselves — the composer offers it second, behind a disclosure.
+//
 // WHAT THIS IS NOT
 // ----------------
 // It is not a way to manufacture consent. It records an EXPLICIT agent
@@ -150,13 +164,23 @@ serve(async (req) => {
 
   // consent_records is append-only by design — a re-grant after a revoke is a
   // NEW row, never an update of the old one.
+  //
+  // consent_method is 'agent_attested' and can never be anything else from
+  // here. It is the column that tells an auditor — and the UI — that this row
+  // is our word about someone else's form, not a consumer ticking a box on a
+  // page we host. Those are different grades of evidence and the campaign
+  // rejection turned on exactly that difference; the web_form grade is
+  // written only by the compliance-page function, and the database refuses a
+  // 'web_form' row that arrives without its disclosure text and page URL
+  // (consent_records_web_form_evidence_check, 20260733).
   const { data: inserted, error: insertErr } = await sb.from("consent_records")
     .insert({
-      agent_id:      user.id,
-      contact_phone: contactPhone,
-      consent_type:  consentType,
+      agent_id:       user.id,
+      contact_phone:  contactPhone,
+      consent_type:   consentType,
+      consent_method: "agent_attested",
       source,
-      captured_at:   capturedAt,
+      captured_at:    capturedAt,
     })
     .select("id")
     .maybeSingle();

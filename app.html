@@ -851,6 +851,21 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-act-btn.tps-btn:hover{background:rgba(14,165,233,.2);border-color:rgba(14,165,233,.7);filter:brightness(1.1)}
 .lead-act-btn.lead-text-btn{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:#34d399;font-weight:600;width:100%}
 .lead-act-btn.lead-text-btn:hover{background:rgba(16,185,129,.2);border-color:rgba(16,185,129,.7);filter:brightness(1.1)}
+/* Text button states. Green means a consent_records row exists for this
+   contact — nothing else earns green, because green here reads as "this
+   will go through" and an agent who learns otherwise mid-compose stops
+   trusting the colour. Everything short of that is muted; the button still
+   opens the thread, which explains why and offers the fix. */
+.lead-act-btn.lead-text-btn--needs_optin,
+.lead-act-btn.lead-text-btn--unknown,
+.lead-act-btn.lead-text-btn--no_phone{background:rgba(148,163,184,.10);border-color:rgba(148,163,184,.32);color:var(--text3)}
+.lead-act-btn.lead-text-btn--needs_optin:hover,
+.lead-act-btn.lead-text-btn--unknown:hover,
+.lead-act-btn.lead-text-btn--no_phone:hover{background:rgba(148,163,184,.18);border-color:rgba(148,163,184,.55);filter:none}
+.lead-act-btn.lead-text-btn--opted_out{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.32);color:#f87171}
+.lead-act-btn.lead-text-btn--opted_out:hover{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);filter:none}
+.lead-act-btn.lead-optin-btn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.4);color:#fbbf24;font-weight:600;width:100%}
+.lead-act-btn.lead-optin-btn:hover{background:rgba(245,158,11,.2);border-color:rgba(245,158,11,.7);filter:brightness(1.1)}
 .lead-info-line{margin-bottom:6px;line-height:1.4}
 .lead-info-line .lbl{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;font-weight:600;display:block;margin-bottom:1px}
 .lead-info-line .val{font-size:12px;color:var(--text2)}
@@ -3287,6 +3302,12 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger-leads .lead-act-btn.sold-btn{background:var(--lg-card);border-color:var(--lg-green-border);color:var(--lg-green)}
 .ledger-leads .lead-act-btn.quote-btn{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue)}
 .ledger-leads .lead-act-btn.lead-text-btn{background:var(--lg-card);border-color:var(--lg-green-border);color:var(--lg-green)}
+/* Same rule as the dark theme: green only when consent is genuinely on file. */
+.ledger-leads .lead-act-btn.lead-text-btn--needs_optin,
+.ledger-leads .lead-act-btn.lead-text-btn--unknown,
+.ledger-leads .lead-act-btn.lead-text-btn--no_phone{background:var(--lg-card);border-color:var(--lg-border);color:var(--lg-caption)}
+.ledger-leads .lead-act-btn.lead-text-btn--opted_out{background:var(--lg-red-soft);border-color:var(--lg-red-border);color:var(--lg-red)}
+.ledger-leads .lead-act-btn.lead-optin-btn{background:var(--lg-card);border-color:var(--lg-border-strong);color:var(--lg-text1)}
 .ledger-leads .lead-act-btn.tps-btn{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue)}
 .ledger-leads .lead-act-btn.sold-btn:hover{background:var(--lg-green-soft);color:var(--lg-green)}
 .ledger-leads .lead-act-btn.quote-btn:hover,.ledger-leads .lead-act-btn.tps-btn:hover{background:var(--lg-blue-soft);color:var(--lg-blue)}
@@ -14446,6 +14467,18 @@ function renderLeads() {
     const phoneDigits = (lead.phone||'').replace(/\D/g,'');
     const callHref = phoneDigits ? `tel:${phoneDigits}` : '#';
 
+    // Texting eligibility for THIS lead — a stored consent_records row, not
+    // the agent's own sms_capable number. See leadTextingState().
+    const _tx = leadTextingState(lead);
+    const _txCls = _tx.code === 'ready' ? '' : ` lead-text-btn--${_tx.code}`;
+    const _txBtn = `<button class="lead-act-btn lead-text-btn${_txCls}" data-lid="${lid}" title="${escapeHTML(_tx.label)}">Text</button>`;
+    // The fix for "no consent" is a click, not a support ticket. Only offered
+    // when there is an email to send it to — the opt-in link is emailed,
+    // never texted, because texting them is the thing we lack consent for.
+    const _optInBtn = (_tx.code === 'needs_optin' && lead.email)
+      ? `<button class="lead-act-btn lead-optin-btn" data-lid="${lid}" title="Email ${escapeHTML(lead.email)} a link to your opt-in page, so they can agree to texts themselves">Opt-in link</button>`
+      : '';
+
     const nameSubParts = [];
     if (firstName) nameSubParts.push(`First: ${escapeHTML(firstName)}`);
     if (lastName)  nameSubParts.push(`Last: ${escapeHTML(lastName)}`);
@@ -14566,7 +14599,8 @@ function renderLeads() {
           <div class="cmpct-actions">
             <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
-            <button class="lead-act-btn lead-text-btn" data-lid="${lid}" title="Text this lead">Text</button>
+            ${_txBtn}
+            ${_optInBtn}
           </div>
           ${_sfHTML ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : ''}
         </div>
@@ -14611,7 +14645,8 @@ function renderLeads() {
             </div>
             <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote — prefills from this lead">Quote</button>
-            <button class="lead-act-btn lead-text-btn" data-lid="${lid}" title="Text this lead — opens the conversation">Text</button>
+            ${_txBtn}
+            ${_optInBtn}
           </div>
           <div class="lead-col lead-col-fields">
             <div class="lead-received-icons">
@@ -14677,7 +14712,16 @@ function renderLeads() {
   container.querySelectorAll('.lead-text-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
+      // Always opens, whatever the state. The thread is where every gate is
+      // explained in full and where the fix lives; a button that silently
+      // does nothing teaches the agent nothing.
       smsOpenThread(e.currentTarget.dataset.lid);
+    });
+  });
+  container.querySelectorAll('.lead-optin-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      smsSendOptInLink(e.currentTarget.dataset.lid, e.currentTarget);
     });
   });
   container.querySelectorAll('.lead-edit-info-btn').forEach(btn => {
@@ -23330,6 +23374,7 @@ function a2pRenderCompliancePanel() {
 
   const privacy = `${COMPLIANCE_BASE_URL}/a/${ag.compliance_slug}/privacy-policy`;
   const terms   = `${COMPLIANCE_BASE_URL}/a/${ag.compliance_slug}/terms`;
+  const optIn   = `${COMPLIANCE_BASE_URL}/a/${ag.compliance_slug}/sms-opt-in`;
   const row = (label, url) => `
     <div style="margin-bottom:10px">
       <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">${escHTML(label)}</div>
@@ -23340,7 +23385,15 @@ function a2pRenderCompliancePanel() {
       </div>
     </div>`;
   body.innerHTML = row('Privacy Policy', privacy) + row('Terms of Service', terms) +
-    `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text3);margin-top:8px;padding-top:10px;border-top:1px solid var(--border)">
+    row('Text Message Opt-In', optIn) +
+    // The opt-in page is the one an agent actually hands out, so it gets a
+    // sentence saying what it is for. The other two are for reviewers.
+    `<div style="font-size:11.5px;color:var(--text3);line-height:1.6;margin:-4px 0 8px">
+       Send this to anyone you want to be able to text. They tick the box themselves and we record exactly
+       what they saw — that record is what the carriers accept, and the lack of one is what got our own
+       campaign turned down. There is an <strong>Opt-in link</strong> button on every lead row that emails it.
+     </div>
+     <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text3);margin-top:8px;padding-top:10px;border-top:1px solid var(--border)">
        <span data-ico="check-circle" data-size="13" style="color:var(--a2)"></span>
        Published &middot; updated ${escHTML(new Date(ag.compliance_page_published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))}
      </div>`;
@@ -23649,6 +23702,141 @@ function smsCountSegments(text) {
   return { encoding: 'UCS2', length: len, segments: len <= 70 ? 1 : Math.ceil(len / 67) };
 }
 
+// ============================================================
+// Per-lead texting eligibility — "can I text THIS person?"
+//
+// phone_numbers.sms_capable answers a DIFFERENT question: whether the
+// AGENT'S OWN NUMBER may carry A2P traffic. It says nothing about the
+// recipient. A lead is textable only when there is a stored, unrevoked
+// consent_records row for their number, which is what runComplianceGate()
+// actually reads — so that is what the lead row shows.
+//
+// Before this, every lead row offered the same green "Text" button and the
+// consent check happened after the agent had already opened a thread and
+// typed something. Now the row tells the truth up front, and the fix — the
+// hosted opt-in page — is one click away from the row itself.
+//
+// Loaded in ONE pair of queries for the whole book rather than per row: a
+// 2,000-lead list must not become 2,000 round trips.
+// ============================================================
+let _leadConsent = { byPhone: new Map(), dnc: new Set(), requireWritten: true, loaded: false };
+
+async function smsLoadLeadConsent() {
+  if (!currentAgent || !currentAgent.id) return;
+  try {
+    const [consentRes, dncRes, cfgRes] = await Promise.all([
+      // Newest first, so the first row seen for a number is the one that
+      // counts — same rule as the server gate, which reads the most recent
+      // record regardless of revoked_at and THEN checks it. Filtering
+      // revoked rows out here would let a stale older grant win over a
+      // newer revocation.
+      sb.from('consent_records')
+        .select('contact_phone, consent_type, revoked_at, captured_at, consent_method')
+        .eq('agent_id', currentAgent.id).not('contact_phone', 'is', null)
+        .order('captured_at', { ascending: false }).limit(5000),
+      sb.from('dnc_list').select('agent_id, contact_phone').not('contact_phone', 'is', null),
+      sb.from('billing_config').select('sms_require_written_consent').eq('id', 1).maybeSingle(),
+    ]);
+
+    const byPhone = new Map();
+    for (const r of (consentRes.data || [])) {
+      if (!r.contact_phone || byPhone.has(r.contact_phone)) continue;
+      byPhone.set(r.contact_phone, r);
+    }
+    const dnc = new Set();
+    for (const r of (dncRes.data || [])) {
+      if (r.agent_id === null || r.agent_id === currentAgent.id) dnc.add(r.contact_phone);
+    }
+
+    _leadConsent = {
+      byPhone,
+      dnc,
+      requireWritten: cfgRes.data ? cfgRes.data.sms_require_written_consent !== false : true,
+      loaded: true,
+    };
+  } catch (e) {
+    // Never block the leads list on this. `loaded` stays false, and
+    // leadTextingState() reports 'unknown' rather than guessing "textable"
+    // — a row that wrongly looks ready sends the agent into a refusal.
+    console.warn('[sms] lead consent state load failed', e);
+  }
+}
+
+/**
+ * What we can say about texting one lead, without asking the server.
+ *
+ * Mirrors the ORDER of runComplianceGate() for the recipient-specific checks
+ * (DNC before consent), so the row can never look readier than the send.
+ * Returns 'unknown' when the consent map has not loaded — the honest answer,
+ * and it renders as a neutral button rather than a green or a grey one.
+ */
+function leadTextingState(lead) {
+  const phone = toE164((lead && lead.phone) || '');
+  if (!phone) return { code: 'no_phone', label: 'No mobile number on file' };
+  if (!_leadConsent.loaded) return { code: 'unknown', label: 'Checking…', phone };
+  if (_leadConsent.dnc.has(phone)) {
+    return { code: 'opted_out', label: 'Opted out — they replied STOP', phone };
+  }
+  const c = _leadConsent.byPhone.get(phone);
+  if (!c || c.revoked_at) return { code: 'needs_optin', label: 'No text consent on file yet', phone };
+  const acceptable = _leadConsent.requireWritten
+    ? ['express_written'] : ['express_written', 'express'];
+  if (!acceptable.includes(c.consent_type)) {
+    return { code: 'needs_optin', label: 'Only verbal consent on file — texting needs written', phone, weak: true };
+  }
+  return { code: 'ready', label: 'Consent on file — you can text them', phone, consent: c };
+}
+
+/** The per-contact answer to "is this number textable?" — a stored consent row, nothing else. */
+function leadSmsCapable(lead) {
+  return leadTextingState(lead).code === 'ready';
+}
+
+// ------------------------------------------------------------
+// "Send opt-in link" — email the lead their agent's hosted opt-in page.
+//
+// Email is permitted under the consent already captured on the lead vendor's
+// form. Texting them to ask is not — that is the exact finding that got the
+// campaign rejected, and it is why this action is an email and only an email.
+// ------------------------------------------------------------
+async function smsSendOptInLink(leadId, btn) {
+  const lead = leads.find(l => String(l.id) === String(leadId));
+  if (!lead) return;
+
+  if (!lead.email) {
+    showToast('No email address on this lead — add one to send the opt-in link', '#f59e0b');
+    return;
+  }
+
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('messaging-send-optin-invite', {
+      body: {
+        contact_email: lead.email,
+        contact_phone: lead.phone || '',
+        first_name: lead.first_name || (lead.name || '').split(' ')[0] || '',
+      },
+    });
+    if (error) {
+      const body = await _a2pErrBody(error);
+      showToast(_a2pErrText(body), '#ef4444');
+      return;
+    }
+    if (data && data.already_consented) {
+      showToast('Already opted in — you can text them now', '#10b981');
+      await smsLoadLeadConsent();
+      renderLeads();
+      return;
+    }
+    showToast(`Opt-in link emailed to ${lead.email}`, '#10b981');
+  } catch (e) {
+    showToast('Could not reach the server. Try again in a moment.', '#ef4444');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original || 'Opt-in link'; }
+  }
+}
+
 async function smsOpenThread(leadId) {
   const lead = leads.find(l => String(l.id) === String(leadId));
   if (!lead) return;
@@ -23815,46 +24003,104 @@ function smsRenderGate() {
 }
 
 // ------------------------------------------------------------
-// Consent. Nothing in the app has ever written consent_records for a lead —
-// `lead-ingest` does not, and the table is service-role-write-only — so an
-// otherwise perfectly registered agent hits `no_consent` on their first
-// text. The consent is real (it is captured on the vendor's form and
-// certified by TrustedForm); it was simply never recorded where the gate can
-// see it. This records it, as an explicit attestation the agent makes, with
-// the provenance stored verbatim for audit.
+// Consent.
 //
-// Only WRITTEN consent is offered. billing_config.sms_require_written_consent
-// defaults to true, so an "they told me on the phone" record would be
-// accepted here and then rejected at send time — a worse experience than
-// saying plainly that verbal consent is not enough for texting.
+// 🔴 THE PRIMARY MECHANISM IS THE HOSTED OPT-IN PAGE, NOT THIS ATTESTATION.
+//
+// The 10DLC campaign was REJECTED because carrier review would not accept
+// the lead vendor's "…and its licensed agents" wording as opt-in evidence
+// for a campaign sending as the agency. The vendor will not change their
+// form. An agent attestation quoting that same vendor form inherits exactly
+// the weakness that got us rejected — it is our word about their wording.
+//
+// So the first thing offered here is the agent's own hosted opt-in page
+// (/a/<slug>/sms-opt-in), which produces an evidence-grade consent_records
+// row: the exact disclosure displayed, the page URL, the IP, the timestamp,
+// the name the consumer typed. Attestation is kept, second and folded away,
+// because it is still the right record for a genuinely written consent the
+// agent holds themselves — but it is no longer the path of least resistance,
+// and it should not be.
+//
+// Only WRITTEN consent is offered on the attestation path.
+// billing_config.sms_require_written_consent defaults to true, so an "they
+// told me on the phone" record would be accepted here and then rejected at
+// send time — worse than saying plainly that verbal is not enough to text.
 // ------------------------------------------------------------
 function smsConsentPromptHTML(weak) {
-  const vendors = Array.isArray((_a2pState.agency || {}).lead_vendors) ? _a2pState.agency.lead_vendors : [];
+  const ag   = _a2pState.agency || {};
+  const slug = ag.compliance_slug || '';
+  const optInUrl = slug && ag.compliance_page_published_at
+    ? `${COMPLIANCE_BASE_URL}/a/${slug}/sms-opt-in` : '';
+  const lead = _smsThread.lead || {};
+  const hasEmail = !!lead.email;
+
+  const vendors = Array.isArray(ag.lead_vendors) ? ag.lead_vendors : [];
   const vendorLabel = v => v.toLowerCase().startsWith('other:') ? v.slice(6)
     : v === 'goatleads' ? 'GoatLeads' : v === 'builtleads' ? 'Built Leads' : v;
   const opts = vendors.map(v => `<option value="${escHTML(vendorLabel(v))}">${escHTML(vendorLabel(v))} lead form</option>`).join('')
     + '<option value="__other">Another lead form or web form</option>';
 
+  // The opt-in page block. Absent only when the agent's compliance pages
+  // have not published yet — in which case completing the business profile
+  // is the real next step, and we say so rather than hiding the section.
+  const optInBlock = optInUrl
+    ? `<div style="line-height:1.6;margin-bottom:10px">
+         Send them your opt-in page. They tick the box themselves, and we record exactly what they saw,
+         when, and from where — that is the evidence the carriers asked for, and it is the reason our own
+         campaign was turned down without it.
+       </div>
+       ${hasEmail
+         ? `<button class="btn btn-p btn-sm" id="sms-optin-btn" onclick="smsSendOptInLinkFromThread(this)">Email the opt-in link</button>
+            <div style="font-size:11.5px;color:var(--text3);margin-top:6px">Goes to ${escHTML(lead.email)}. Email is fine under the consent we already have — texting them to ask is the part we cannot do.</div>`
+         : `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">This lead has no email address, so there is nothing to send the link to. Add one on their row, or read them the link over the phone.</div>`}
+       <div style="font-size:11.5px;margin-top:9px;word-break:break-all">
+         <a href="${escHTML(optInUrl)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${escHTML(optInUrl)}</a>
+         <button class="btn btn-sm" style="margin-left:6px;padding:2px 8px" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escHTML(optInUrl)}').then(()=>showToast('Link copied','#10b981'))">Copy</button>
+       </div>`
+    : `<div style="line-height:1.6;margin-bottom:10px">
+         Your opt-in page has not been generated yet — it publishes itself as soon as your business profile
+         is complete.
+         <a href="#" onclick="smsCloseThread();openTextingSettings();return false" style="color:inherit;font-weight:700;text-decoration:underline">Finish it on the Texting screen →</a>
+       </div>`;
+
   return `
     <div class="alert alert-w" style="margin:0 0 14px"><span data-ico="warning"></span><div style="width:100%">
-      <div style="font-weight:600;margin-bottom:4px">${weak ? 'We only have verbal consent on file' : 'No consent on file for this number'}</div>
+      <div style="font-weight:600;margin-bottom:4px">${weak ? 'We only have verbal consent on file' : 'No text consent on file for this number'}</div>
       <div style="line-height:1.6;margin-bottom:10px">
         ${weak
-          ? 'Texting requires <strong>written</strong> consent specifically — a verbal or implied opt-in is enough to call, but not to text. If they also agreed in writing on a lead form, record that below.'
-          : 'The carriers require a record of how this person agreed to be texted before we send anything. If they came from a lead form where they agreed to be contacted by text, record it here — that is exactly the consent the rule is asking about.'}
+          ? 'Texting requires <strong>written</strong> consent specifically — a verbal or implied opt-in is enough to call, but not to text.'
+          : 'The carriers require a record of how this person agreed to be texted before we send anything.'}
       </div>
-      <div class="fg" style="margin-bottom:9px">
-        <label style="color:inherit">Where did they agree?</label>
-        <select id="sms-consent-source" style="width:100%" onchange="smsOnConsentSourceChange()">${opts}</select>
-      </div>
-      <input type="text" id="sms-consent-other" placeholder="Name the form or site" style="width:100%;display:${vendors.length ? 'none' : ''};margin-bottom:9px">
-      <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.55;text-transform:none;letter-spacing:0;margin-bottom:10px">
-        <input type="checkbox" id="sms-consent-confirm" style="width:auto;margin:2px 0 0">
-        <span>I confirm this person gave written consent to be contacted by text message, and I can produce the record of it if asked.</span>
-      </label>
-      <button class="btn btn-p btn-sm" id="sms-consent-btn" onclick="smsRecordConsent()">Record consent</button>
-      <div id="sms-consent-msg" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+      ${optInBlock}
+      <details style="margin-top:12px">
+        <summary style="cursor:pointer;font-size:12px;color:var(--text3)">They already gave written consent somewhere else</summary>
+        <div style="margin-top:10px">
+          <div style="font-size:12px;line-height:1.6;color:var(--text3);margin-bottom:9px">
+            Record it only if you hold the written record yourself and could produce it. A lead vendor's form
+            that names their partners generally, rather than your agency, is what carrier review already
+            rejected — the opt-in page above exists because of it.
+          </div>
+          <div class="fg" style="margin-bottom:9px">
+            <label style="color:inherit">Where did they agree?</label>
+            <select id="sms-consent-source" style="width:100%" onchange="smsOnConsentSourceChange()">${opts}</select>
+          </div>
+          <input type="text" id="sms-consent-other" placeholder="Name the form or site" style="width:100%;display:${vendors.length ? 'none' : ''};margin-bottom:9px">
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.55;text-transform:none;letter-spacing:0;margin-bottom:10px">
+            <input type="checkbox" id="sms-consent-confirm" style="width:auto;margin:2px 0 0">
+            <span>I confirm this person gave written consent to be contacted by text message, and I can produce the record of it if asked.</span>
+          </label>
+          <button class="btn btn-sm" id="sms-consent-btn" onclick="smsRecordConsent()">Record consent</button>
+          <div id="sms-consent-msg" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+        </div>
+      </details>
     </div></div>`;
+}
+
+/** "Email the opt-in link" from inside the thread — same call as the lead row. */
+async function smsSendOptInLinkFromThread(btn) {
+  await smsSendOptInLink(_smsThread.leadId, btn);
+  await smsLoadLeadConsent();
+  await smsLoadThread();
 }
 
 function smsOnConsentSourceChange() {
@@ -23900,6 +24146,10 @@ async function smsRecordConsent() {
       return;
     }
     showToast('Consent recorded', '#10b981');
+    // The lead row's Text button reads the same map, so refresh it here or
+    // the row keeps saying "no consent" until the next page load.
+    await smsLoadLeadConsent();
+    if (typeof renderLeads === 'function') renderLeads();
     await smsLoadThread();
   } catch (e) {
     if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Could not reach the server. Try again in a moment.'; }
@@ -25443,6 +25693,12 @@ async function bootDashboard() {
       const localContract = parseInt(document.getElementById('myContract').value) || 100;
       await sbSaveContract(localContract);
     }
+
+    // Per-lead texting eligibility. Awaited before the re-render below so
+    // the rows draw once with the right state rather than flashing green and
+    // correcting themselves — the flash reads as "you can text them", which
+    // is the one thing the button must never say when it isn't true.
+    if (typeof smsLoadLeadConsent === 'function') await smsLoadLeadConsent();
 
     // Re-render with fresh remote data.
     renderPolicies();

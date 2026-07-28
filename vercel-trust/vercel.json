@@ -11,7 +11,7 @@
       "source": "/a/:path*",
       "headers": [
         { "key": "Content-Type", "value": "text/html; charset=utf-8" },
-        { "key": "Content-Security-Policy", "value": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; frame-ancestors 'none'; base-uri 'none'" },
+        { "key": "Content-Security-Policy", "value": "default-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" },
         { "key": "X-Robots-Tag", "value": "index, follow" }
       ]
     }

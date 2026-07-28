@@ -15,22 +15,33 @@ import assert from "node:assert/strict";
 import {
   MOBILE_INFO_PARAGRAPH,
   agencyDisplayName,
+  buildOptInAutoResponse,
+  buildOptInDisclosure,
   compliancePageUrls,
   entityClause,
   escapeHtml,
   formatPhoneDisplay,
   isValidSlug,
+  maskPhoneLast4,
   missingComplianceFields,
   renderIndexPage,
   renderNotFoundPage,
   renderPrivacyPolicyPage,
+  renderSmsOptInConfirmedPage,
+  renderSmsOptInPage,
   renderTermsPage,
   slugifyAgencyName,
   stateName,
   type AgencyProfile,
 } from "./compliance-page.ts";
 
-import { buildOptinDescription, joinVendorNames, resolveVendorNames } from "./lead-vendors.ts";
+import {
+  buildOptinDescription,
+  joinVendorNames,
+  resolveVendorNames,
+  TCR_MESSAGE_FLOW_MAX,
+} from "./lead-vendors.ts";
+import { buildCampaignInfo } from "./a2p-registration.ts";
 
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -78,6 +89,18 @@ const allPages = (p: AgencyProfile) => [
   renderIndexPage({ profile: p, ...RENDER_OPTS }),
   renderPrivacyPolicyPage({ profile: p, ...RENDER_OPTS }),
   renderTermsPage({ profile: p, ...RENDER_OPTS }),
+  // The opt-in surfaces go through every whole-document rule too — no JS, no
+  // external requests, balanced tags, nothing double-escaped. A form is the
+  // most tempting place in this codebase to reach for a line of JavaScript,
+  // which is exactly why it is in this list.
+  renderSmsOptInPage({ profile: p, ...RENDER_OPTS }),
+  renderSmsOptInPage({
+    profile: p,
+    ...RENDER_OPTS,
+    error: "Please tick the box to agree to receive text messages.",
+    values: { first_name: "Jo", last_name: "Ng", phone: "555" },
+  }),
+  renderSmsOptInConfirmedPage({ profile: p, ...RENDER_OPTS, firstName: "Jo", maskedPhone: "(•••) •••-0123" }),
 ];
 
 // ------------------------------------------------------------
@@ -323,16 +346,42 @@ test("terms page contains every required section", () => {
 test("the opt-in source section names the same vendors as the campaign description", () => {
   const html = renderPrivacyPolicyPage({ profile: LLC_AGENT, ...RENDER_OPTS });
   const optin = buildOptinDescription(agencyDisplayName(LLC_AGENT), LLC_AGENT.lead_vendors);
-  // A reviewer comparing the two must see the same vendors and the same
-  // TrustedForm claim. Divergence here is a rejection.
+  // A reviewer comparing the two must see the same vendors. Divergence here
+  // is a rejection.
   assert.ok(html.includes("GoatLeads and Built Leads"));
   assert.ok(optin.includes("GoatLeads and Built Leads"));
   assert.ok(html.includes("TrustedForm"));
-  assert.ok(optin.includes("TrustedForm"));
 });
 
-test("every page shows a Last updated date", () => {
-  for (const html of allPages(LLC_AGENT)) {
+// The rejection this whole feature exists because of. Both surfaces must say
+// the vendor form covers PHONE AND EMAIL, and that texting is opted into
+// separately. If either one drifts back to claiming the vendor form covers
+// SMS, we are resubmitting the exact assertion carrier review already refused.
+test("neither the policy nor the campaign description claims the vendor form covers texting", () => {
+  const html = renderPrivacyPolicyPage({ profile: LLC_AGENT, ...RENDER_OPTS });
+  const optin = buildOptinDescription(agencyDisplayName(LLC_AGENT), LLC_AGENT.lead_vendors, {
+    privacy: "https://trust.producerstackcrm.com/a/x/privacy-policy",
+    terms: "https://trust.producerstackcrm.com/a/x/terms",
+    smsOptIn: "https://trust.producerstackcrm.com/a/x/sms-opt-in",
+  });
+  assert.ok(html.includes("contacted by phone and email by licensed insurance agents"));
+  assert.ok(!html.includes("by phone and text message by licensed insurance agents"));
+  assert.ok(html.includes("Text messages are separate"));
+  assert.ok(optin.includes("consent there to be contacted by telephone and email"));
+  assert.ok(optin.includes("That form is NOT the basis for text messages"));
+});
+
+// Policy documents only. The opt-in form and its confirmation deliberately
+// carry no "Last updated" chip — they are not documents whose revision
+// history a reviewer needs, and a version stamp on a sign-up form reads as
+// legalese in the one place the page has to feel like a plain question.
+test("every policy page shows a Last updated date", () => {
+  const policyPages = [
+    renderIndexPage({ profile: LLC_AGENT, ...RENDER_OPTS }),
+    renderPrivacyPolicyPage({ profile: LLC_AGENT, ...RENDER_OPTS }),
+    renderTermsPage({ profile: LLC_AGENT, ...RENDER_OPTS }),
+  ];
+  for (const html of policyPages) {
     assert.ok(html.includes("Last updated July 29, 2026"), "missing or wrong Last updated date");
   }
 });
@@ -504,11 +553,12 @@ test("mobile: viewport meta and a responsive breakpoint are present", () => {
   }
 });
 
-test("compliancePageUrls builds the three canonical URLs and tolerates a trailing slash", () => {
+test("compliancePageUrls builds every canonical URL and tolerates a trailing slash", () => {
   assert.deepEqual(compliancePageUrls("https://trust.producerstackcrm.com/", "acme-agency"), {
     index: "https://trust.producerstackcrm.com/a/acme-agency",
     privacy: "https://trust.producerstackcrm.com/a/acme-agency/privacy-policy",
     terms: "https://trust.producerstackcrm.com/a/acme-agency/terms",
+    smsOptIn: "https://trust.producerstackcrm.com/a/acme-agency/sms-opt-in",
   });
 });
 
@@ -518,12 +568,13 @@ test("compliancePageUrls builds the three canonical URLs and tolerates a trailin
 
 test("opt-in description substitutes vendor and agency, keeps the fixed body", () => {
   const d = buildOptinDescription("Frenkel Financial Agency", ["goatleads", "builtleads"]);
-  assert.ok(d.startsWith("Consumers request life insurance information by completing a web form operated by GoatLeads and Built Leads"));
-  assert.ok(d.includes("prior express written consent"));
-  assert.ok(d.includes("certified by TrustedForm"));
-  assert.ok(d.includes("IP address, session activity, timestamp"));
-  assert.ok(d.includes("does not send messages to any lead without a stored consent record"));
-  assert.ok(d.endsWith("Consumers may reply STOP at any time to opt out."));
+  assert.ok(d.startsWith("Consumers request life insurance information through a web form operated by GoatLeads and Built Leads"));
+  assert.ok(d.includes("Consent to receive text messages is collected separately"));
+  assert.ok(d.includes("tick a single checkbox that is never pre-checked"));
+  assert.ok(d.includes("not behind a link or pop-up"));
+  assert.ok(d.includes("the consumer's IP address, and the page URL"));
+  assert.ok(d.includes("sends no text message to any number without a stored consent record"));
+  assert.ok(d.includes("reply STOP at any time to opt out, or HELP for help"));
 });
 
 test("opt-in description handles a single vendor, the 'other' path, and none at all", () => {
@@ -541,17 +592,283 @@ test("opt-in description carries the compliance URLs when given them", () => {
   const urls = {
     privacy: "https://trust.producerstackcrm.com/a/acme/privacy-policy",
     terms: "https://trust.producerstackcrm.com/a/acme/terms",
+    smsOptIn: "https://trust.producerstackcrm.com/a/acme/sms-opt-in",
   };
   const d = buildOptinDescription("Acme Insurance", ["goatleads"], urls);
+  // All three ride in the text. The privacy and terms URLs arrive inside the
+  // quoted disclosure rather than in a closing sentence of their own — the
+  // duplicate sentence cost ~230 of the 2,048-character budget and told the
+  // reviewer nothing the quote had not already told them.
   assert.ok(d.includes(urls.privacy), "privacy URL missing from opt-in description");
   assert.ok(d.includes(urls.terms), "terms URL missing from opt-in description");
-  assert.ok(d.includes("Acme Insurance's privacy policy is published at"));
+  assert.ok(d.includes(urls.smsOptIn), "the opt-in page URL is what makes this description checkable");
+  assert.ok(!d.includes("is published at"), "the closing URL sentence duplicates the quoted disclosure");
+});
+
+// Belt and braces: when there is no disclosure to carry them, the closing
+// sentence comes back. The URLs are never absent from this field, because it
+// is one of only two routes by which they reach a carrier reviewer at all.
+test("opt-in description falls back to naming the URLs when there is no disclosure to quote", () => {
+  const d = buildOptinDescription("Acme Insurance", ["goatleads"], {
+    privacy: "https://example.com/p",
+    terms: "https://example.com/t",
+  });
+  assert.ok(d.includes("By checking this box"), "a disclosure IS available when privacy+terms are given");
+  // ...so this path is only reachable with neither. Assert that shape directly.
+  const bare = buildOptinDescription("Acme Insurance", ["goatleads"], null);
+  assert.ok(!bare.includes("is published at"));
 });
 
 test("opt-in description omits the URL sentence when no URLs are supplied", () => {
   const d = buildOptinDescription("Acme Insurance", ["goatleads"]);
   assert.ok(!d.includes("is published at"));
-  assert.ok(d.endsWith("Consumers may reply STOP at any time to opt out."));
+  assert.ok(d.endsWith("Consumers may reply STOP at any time to opt out, or HELP for help."));
+  // Without URLs there is no disclosure to quote and no page to name, so the
+  // text must not pretend to either. It describes the page instead.
+  assert.ok(!d.includes("By checking this box"));
+  assert.ok(d.includes("opt-in page hosted by the agency"));
+});
+
+// ------------------------------------------------------------
+// SMS opt-in page
+//
+// This page is the answer to a rejection, so its tests are about the exact
+// properties carrier review scored us down on: is the disclosure visible
+// without interaction, is the box unticked, and does the record we keep match
+// what was on screen.
+// ------------------------------------------------------------
+
+const OPTIN_URLS = {
+  privacy: "https://trust.producerstackcrm.com/a/frenkel-financial-agency/privacy-policy",
+  terms: "https://trust.producerstackcrm.com/a/frenkel-financial-agency/terms",
+};
+
+test("disclosure carries every element carrier review looks for", () => {
+  const d = buildOptInDisclosure("Frenkel Financial Agency", OPTIN_URLS);
+  assert.ok(d.includes("Frenkel Financial Agency"), "the sending agency must be named");
+  assert.ok(d.includes("marketing, customer care, and account notifications"));
+  assert.ok(d.includes("insurance quote, appointments, and application status"));
+  assert.ok(d.includes("Message frequency varies"));
+  assert.ok(d.includes("Message and data rates may apply"));
+  assert.ok(d.includes("Consent is not a condition of purchase"));
+  assert.ok(d.includes("reply STOP"));
+  assert.ok(d.includes("HELP for help"));
+  assert.ok(d.includes(OPTIN_URLS.privacy), "privacy policy URL must be spelled out in the stored text");
+  assert.ok(d.includes(OPTIN_URLS.terms), "terms URL must be spelled out in the stored text");
+});
+
+test("the disclosure on the page is the SAME STRING we store as evidence", () => {
+  // The whole evidence claim rests on this. compliance-page/index.ts stores
+  // buildOptInDisclosure(...) in consent_records.disclosure_text and this
+  // page renders buildOptInDisclosure(...) — if the renderer ever reworded,
+  // truncated, or re-flowed it, the stored record would stop being proof of
+  // what was displayed and nothing else in the system would notice.
+  const html = renderSmsOptInPage({ profile: LLC_AGENT, ...RENDER_OPTS });
+  const stored = buildOptInDisclosure(agencyDisplayName(LLC_AGENT), OPTIN_URLS);
+
+  // The page escapes it and linkifies the two URLs; strip that back out and
+  // what is left must be character-for-character the stored string.
+  const label = html.match(/<label[^>]*class="disclosure"[^>]*>([\s\S]*?)<\/label>/);
+  assert.ok(label, "disclosure label not found on the page");
+  const rendered = label[1]
+    .replace(/<a href="[^"]*"[^>]*>([^<]*)<\/a>/g, "$1")
+    .replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
+    .trim();
+
+  assert.equal(rendered, stored, "the disclosure shown differs from the disclosure stored");
+});
+
+test("the disclosure is inline and visible — not behind a link, popup, or details", () => {
+  const html = renderSmsOptInPage({ profile: LLC_AGENT, ...RENDER_OPTS });
+  const d = buildOptInDisclosure(agencyDisplayName(LLC_AGENT), OPTIN_URLS);
+  // Its opening words are in the raw body, so a fetcher that runs no JS and
+  // clicks nothing still sees the whole thing.
+  assert.ok(html.includes("By checking this box, I agree to receive text messages"));
+  assert.ok(!/<details/i.test(html), "the disclosure must not be collapsed behind a <details>");
+  assert.ok(!/<dialog/i.test(html), "no modal — the reviewer must not have to open anything");
+  // And it is next to the checkbox, not somewhere else on the page.
+  const boxAt = html.indexOf('name="consent"');
+  const discAt = html.indexOf("By checking this box");
+  assert.ok(boxAt > 0 && discAt > boxAt, "disclosure must follow the checkbox in the same block");
+  assert.ok(discAt - boxAt < 400, "disclosure is not adjacent to the checkbox");
+  assert.ok(d.length > 400, "disclosure got shorter — check nothing required was dropped");
+});
+
+test("🔴 the consent checkbox is NEVER pre-checked, including after an error bounce", () => {
+  const pages = [
+    renderSmsOptInPage({ profile: LLC_AGENT, ...RENDER_OPTS }),
+    // The tempting case: they DID tick it, and only the phone number was bad.
+    // Re-ticking it for them would be us asserting consent, not them.
+    renderSmsOptInPage({
+      profile: LLC_AGENT,
+      ...RENDER_OPTS,
+      error: "That does not look like a US mobile number.",
+      values: { first_name: "Jo", last_name: "Ng", phone: "12" },
+    }),
+    renderSmsOptInPage({ profile: SOLE_PROP_AGENT, ...RENDER_OPTS }),
+  ];
+  for (const html of pages) {
+    const box = html.match(/<input[^>]*name="consent"[^>]*>/);
+    assert.ok(box, "consent checkbox missing");
+    assert.ok(!/checked/i.test(box[0]), `checkbox was pre-checked: ${box[0]}`);
+  }
+});
+
+test("an error bounce keeps what they typed but shows the problem", () => {
+  const html = renderSmsOptInPage({
+    profile: LLC_AGENT,
+    ...RENDER_OPTS,
+    error: "Please enter your first name.",
+    values: { first_name: "", last_name: "Ng", phone: "(414) 555-1234" },
+  });
+  assert.ok(html.includes("Please enter your first name."));
+  assert.ok(html.includes('value="Ng"'), "last name was not preserved");
+  assert.ok(html.includes('value="(414) 555-1234"'), "phone was not preserved");
+});
+
+test("the form is a real POST to its own URL, and posts nowhere else", () => {
+  const html = renderSmsOptInPage({ profile: LLC_AGENT, ...RENDER_OPTS });
+  assert.ok(html.includes('method="post"'), "must be a POST — a GET would put the phone number in a URL");
+  assert.ok(html.includes('action="/a/frenkel-financial-agency/sms-opt-in"'));
+  // Behind the raw functions URL the action has to carry the prefix or the
+  // form posts to a 404. This is what pathPrefix exists for.
+  const raw = renderSmsOptInPage({
+    profile: LLC_AGENT,
+    ...RENDER_OPTS,
+    pathPrefix: "/functions/v1/compliance-page",
+  });
+  assert.ok(raw.includes('action="/functions/v1/compliance-page/a/frenkel-financial-agency/sms-opt-in"'));
+});
+
+test("the form asks for exactly the three fields, plus the honeypot", () => {
+  const html = renderSmsOptInPage({ profile: LLC_AGENT, ...RENDER_OPTS });
+  for (const name of ["first_name", "last_name", "phone"]) {
+    assert.ok(html.includes(`name="${name}"`), `missing field: ${name}`);
+  }
+  // The honeypot is off-screen, never focusable, and never announced — a
+  // human cannot fill it in by accident, which is what makes a filled one a
+  // reliable bot signal.
+  assert.ok(html.includes('name="company_website"'));
+  assert.ok(html.includes('tabindex="-1"'));
+  assert.ok(html.includes('aria-hidden="true"'));
+});
+
+test("opt-in page names the agency, not ProducerStack, and links its own policies", () => {
+  const html = renderSmsOptInPage({ profile: LLC_AGENT, ...RENDER_OPTS });
+  assert.ok(html.includes("Frenkel Financial Agency"));
+  assert.ok(html.includes('href="/a/frenkel-financial-agency/privacy-policy"'));
+  assert.ok(html.includes('href="/a/frenkel-financial-agency/terms"'));
+  // Rule 3: ProducerStack appears once, in the footer line, and nowhere else.
+  assert.equal(html.split("ProducerStack").length - 1, 1);
+});
+
+test("the auto-response matches the campaign's registered opt-in keyword reply", () => {
+  const r = buildOptInAutoResponse("Frenkel Financial Agency");
+  assert.ok(r.startsWith("Frenkel Financial Agency: You're subscribed to messages about your life insurance quote"));
+  assert.ok(r.includes("Msg frequency varies"));
+  assert.ok(r.includes("Msg&data rates may apply"));
+  assert.ok(r.includes("Consent is not a condition of purchase"));
+  assert.ok(r.includes("Reply HELP for help, STOP to opt out."));
+});
+
+test("confirmation page tells a DNC'd number the truth instead of claiming success", () => {
+  const ok = renderSmsOptInConfirmedPage({
+    profile: LLC_AGENT, ...RENDER_OPTS, firstName: "Jo", maskedPhone: maskPhoneLast4("0123"),
+  });
+  assert.ok(ok.includes("Thanks, Jo."));
+  assert.ok(ok.includes("A confirmation text is on its way"));
+
+  const stopped = renderSmsOptInConfirmedPage({
+    profile: LLC_AGENT, ...RENDER_OPTS, firstName: "Jo", maskedPhone: maskPhoneLast4("0123"), stopWarning: true,
+  });
+  // A person who texted STOP must not be told a text is coming, because one
+  // is not — we will not send over the top of a verified opt-out.
+  assert.ok(!stopped.includes("A confirmation text is on its way"));
+  assert.ok(stopped.includes("previously replied STOP"));
+  assert.ok(stopped.includes("START"));
+});
+
+test("the confirmation page shows only the last four digits", () => {
+  assert.equal(maskPhoneLast4("0123"), "(•••) •••-0123");
+  assert.equal(maskPhoneLast4("12"), "");
+  const html = renderSmsOptInConfirmedPage({
+    profile: LLC_AGENT, ...RENDER_OPTS, firstName: "Jo", maskedPhone: maskPhoneLast4("0123"),
+  });
+  assert.ok(html.includes("•••-0123"));
+  assert.ok(!/\d{3}[-.\s]?\d{4}(?!<)/.test(html.replace(/\(414\) 555-1234/g, "")) ||
+    !html.includes("5550123"), "an unmasked consumer number reached the page");
+});
+
+test("a hostile name cannot break out of the form or the disclosure", () => {
+  const nasty: AgencyProfile = {
+    ...LLC_AGENT,
+    dba_name: `Evil" onmouseover="alert(1)" x="`,
+  };
+  const html = renderSmsOptInPage({
+    profile: nasty,
+    ...RENDER_OPTS,
+    values: { first_name: `"><script>alert(1)</script>`, last_name: "x", phone: "1" },
+  });
+  assert.ok(!/<script/i.test(html), "script tag survived escaping");
+  assert.ok(html.includes("&lt;script&gt;"), "expected the tag to render as text");
+  // The handler text is present but INERT: every quote that would have closed
+  // the attribute is escaped, so `onmouseover=` never becomes an attribute.
+  // Asserting on the escaped form is the check that actually means something
+  // — a blanket /\son[a-z]+=/ would flag the harmless rendered text too.
+  assert.ok(!html.includes('onmouseover="'), "an event handler attribute was injected");
+  assert.ok(html.includes("onmouseover=&quot;"), "expected the handler to render as escaped text");
+  // And the value attributes they typed into are still closed properly.
+  assert.ok(html.includes('value="&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"'));
+});
+
+// The description quotes a verbatim disclosure and repeats the agency name,
+// so it GROWS with the agency name — an early draft came out at 2,368
+// characters for "Frenkel Financial Agency" alone, over a limit nothing in
+// the code knew about. TCR caps messageFlow at 2,048; past it Telnyx either
+// rejects (a $15 retry) or truncates, which would cut the quoted consent
+// disclosure off mid-sentence. The worst realistic case is a 60-character
+// agency name, which is what compliance_slug allows.
+test("the opt-in description fits TCR's messageFlow limit, worst case included", () => {
+  const cases: Array<[string, string]> = [
+    ["Acme", "acme"],
+    ["Frenkel Financial Agency", "frenkel-financial-agency"],
+    // 60 chars — the maximum a slug can be, so the maximum an agency name
+    // meaningfully contributes here.
+    [
+      "The Extraordinarily Long Life Insurance Agency Of Greater Mil",
+      "the-extraordinarily-long-life-insurance-agency-of-greater-mil",
+    ],
+  ];
+  for (const [name, slug] of cases) {
+    const urls = compliancePageUrls("https://trust.producerstackcrm.com", slug);
+    const d = buildOptinDescription(name, ["goatleads", "builtleads"], urls);
+    assert.ok(
+      d.length <= TCR_MESSAGE_FLOW_MAX,
+      `description is ${d.length} chars for "${name}" — over the ${TCR_MESSAGE_FLOW_MAX} limit. ` +
+        `Shorten the fixed prose, NOT the quoted disclosure.`,
+    );
+    // And the quoted disclosure survived whole — a length fix that trimmed
+    // the quote instead of the prose would still pass the assert above.
+    assert.ok(d.includes(buildOptInDisclosure(name, urls)), "the quoted disclosure was altered or cut");
+  }
+});
+
+test("the campaign's registered opt-in reply is the same text the page sends", () => {
+  // messageFlow tells the reviewer to look at the campaign's opt-in keyword
+  // response instead of quoting it, which only holds if the two are the same
+  // string. buildCampaignInfo() and the compliance-page function both call
+  // buildOptInAutoResponse(), and this is the assertion that keeps it that way.
+  const info = buildCampaignInfo({
+    brandId: "brand_123",
+    brandType: "standard",
+    agencyName: "Frenkel Financial Agency",
+    leadVendors: ["goatleads"],
+    complianceUrls: compliancePageUrls("https://trust.producerstackcrm.com", "frenkel-financial-agency"),
+  });
+  assert.equal(info.optinMessage, buildOptInAutoResponse("Frenkel Financial Agency"));
+  assert.ok(info.messageFlow.includes("registered opt-in confirmation message"));
+  assert.ok(info.messageFlow.length <= TCR_MESSAGE_FLOW_MAX);
 });
 
 test("vendor resolution drops unknown keys and de-duplicates", () => {

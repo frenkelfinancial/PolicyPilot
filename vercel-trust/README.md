@@ -4,9 +4,11 @@ A thin Vercel project whose only job is to serve each agent's 10DLC compliance
 pages on a domain that belongs to us:
 
 ```
-/a/:slug                  ->  compliance-page edge function
+/a/:slug                            ->  compliance-page edge function
 /a/:slug/privacy-policy
 /a/:slug/terms
+/a/:slug/sms-opt-in                 GET (form) and POST (records consent)
+/a/:slug/sms-opt-in/confirmed
 ```
 
 It is a **separate Vercel project** from the repo-root one (`policy-pilot`).
@@ -41,9 +43,29 @@ not something the function can opt out of. Note that `curl -I` hides it —
 which is what makes the pages actually render.
 
 The CSP here is deliberately strict but not `sandbox`: the pages are pure
-server-rendered HTML with one inline `<style>` and no scripts, images, forms,
-or external requests, so `style-src 'unsafe-inline'` plus `img-src data:` is
+server-rendered HTML with one inline `<style>` and no scripts, images, or
+external requests, so `style-src 'unsafe-inline'` plus `img-src data:` is
 everything they need.
+
+### 🔴 `form-action 'self'` — do not put this back to `'none'`
+
+It was `'none'` until the SMS opt-in page shipped, which was correct while
+every page was read-only. It is now load-bearing: `/a/:slug/sms-opt-in` posts
+a real form back to itself, and `form-action 'none'` makes the browser
+**silently refuse to submit it** — no error, no request, no network entry. The
+page looks fine and the button does nothing. Nothing else on the page changes,
+so this is very easy to reintroduce and very hard to spot.
+
+`'self'` is the tightest value that works: the form may post to
+`trust.producerstackcrm.com` and nowhere else, which is exactly the rule we
+want on a page that collects a consumer's phone number.
+
+Verify it after any change to this file:
+
+```bash
+curl -sI https://trust.producerstackcrm.com/a/<slug>/sms-opt-in \
+  | grep -io "form-action [^;]*"          # expect: form-action 'self'
+```
 
 ## Setup
 
@@ -87,6 +109,35 @@ Required:
 curl -s https://trust.producerstackcrm.com/a/<slug>/privacy-policy \
   | grep -c "will not be sold or shared"        # expect 1
 ```
+
+### The opt-in form specifically
+
+A rewrite must forward `POST` with its body intact, which is the one thing
+about this project that was never exercised before the opt-in page. Check it
+end to end rather than assuming:
+
+```bash
+# 1. the form renders, is a real POST form, and the box is NOT pre-checked
+curl -s https://trust.producerstackcrm.com/a/<slug>/sms-opt-in \
+  | grep -o 'method="post"\|name="consent"[^>]*'
+#   expect: method="post"  and  name="consent" value="yes"  with NO `checked`
+
+# 2. a submission redirects (303) rather than rendering the form again
+curl -si -X POST https://trust.producerstackcrm.com/a/<slug>/sms-opt-in \
+  --data-urlencode "first_name=Test" \
+  --data-urlencode "last_name=Person" \
+  --data-urlencode "phone=<a number you own>" \
+  --data-urlencode "consent=yes" \
+  | head -5
+#   expect: HTTP/2 303  +  location: /a/<slug>/sms-opt-in/confirmed?...
+
+# 3. and it wrote an evidence-grade row (SQL editor)
+#   select consent_method, page_url, ip_address, left(disclosure_text, 60)
+#     from consent_records order by captured_at desc limit 1;
+```
+
+A `405` on step 2 means the rewrite is not forwarding POST. A `200` with the
+form HTML means a field was rejected — the error is rendered in the page body.
 
 If `content-type` still comes back `text/plain`, Vercel is passing the origin
 header through instead of overriding it. Fallback: replace the rewrite with a

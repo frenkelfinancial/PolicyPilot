@@ -89,9 +89,10 @@ verify_jwt = false
 # fetch from messaging-broadcast-create for small lists. Both authenticate
 # with the same WALLET_CRON_SECRET bearer token the function checks
 # internally. messaging-broadcast-create, messaging-recipients-import,
-# messaging-consent-record, a2p-assign-number and a2p-verify-otp ARE called by
-# the authenticated browser client (they call sbAuth.auth.getUser()), so they
-# correctly use the platform default and are NOT listed here.
+# messaging-consent-record, messaging-send-optin-invite, a2p-assign-number and
+# a2p-verify-otp ARE called by the authenticated browser client (they call
+# sbAuth.auth.getUser()), so they correctly use the platform default and are
+# NOT listed here.
 [functions.messaging-broadcast-run]
 verify_jwt = false
 
@@ -139,5 +140,14 @@ verify_jwt = false
 # is the query — it selects an explicit column list, and only for rows whose
 # compliance_page_published_at is non-null. An unpublished or unknown slug
 # renders the same static 404 as a typo.
+#
+# SINCE THE SMS OPT-IN PAGE (2026-07-28) IT ALSO TAKES A POST, on exactly one
+# route (/a/<slug>/sms-opt-in), and that POST WRITES consent_records. It is
+# still correct for the function to be public — the entire point is that a
+# consumer with no account can give consent — but it is no longer a read-only
+# surface, so the bounds live in the function instead of in the gateway:
+# published-slug lookup, a honeypot field, a per-IP hourly cap, and a refusal
+# to override an existing dnc_list entry. Read the header of
+# compliance-page/index.ts before changing any of them.
 [functions.compliance-page]
 verify_jwt = false

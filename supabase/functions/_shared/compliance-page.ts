@@ -2,7 +2,10 @@
 // compliance-page.ts — PROMPT_16 Phases 2/3.
 //
 // Slug derivation + the server-side HTML renderers for an agent's public
-// compliance pages (/a/:slug, /a/:slug/privacy-policy, /a/:slug/terms).
+// compliance pages (/a/:slug, /a/:slug/privacy-policy, /a/:slug/terms) and,
+// since the campaign rejection, the hosted SMS opt-in form
+// (/a/:slug/sms-opt-in) that collects our own consent instead of relying on
+// a lead vendor's — see the block above renderSmsOptInPage().
 //
 // WHY THIS FEATURE EXISTS: 10DLC brand + campaign registration requires a
 // publicly reachable privacy policy and terms page belonging to the business
@@ -36,6 +39,13 @@
 // ============================================================
 
 import { joinVendorNames, resolveVendorNames } from "./lead-vendors.ts";
+import { buildOptInAutoResponse, buildOptInDisclosure } from "./sms-optin.ts";
+
+// The disclosure and the confirmation text live in sms-optin.ts because
+// lead-vendors.ts quotes them verbatim inside the campaign description and
+// importing them from here would make a cycle. Re-exported so callers of
+// this module (the compliance-page function, the tests) see one surface.
+export { buildOptInAutoResponse, buildOptInDisclosure };
 
 // ------------------------------------------------------------
 // Types
@@ -59,7 +69,7 @@ export interface AgencyProfile {
   compliance_page_published_at: string | null;
 }
 
-export type CompliancePageKind = "index" | "privacy" | "terms";
+export type CompliancePageKind = "index" | "privacy" | "terms" | "sms-opt-in";
 
 // ------------------------------------------------------------
 // The verbatim paragraph. See rule 2 in the header.
@@ -310,6 +320,28 @@ address{font-style:normal;line-height:1.7}
 .kv{margin:0}
 .kv dt{font-weight:600;margin:14px 0 2px}
 .kv dd{margin:0 0 2px}
+/* Opt-in form. Native controls only — no JS validates anything here, the
+   server re-checks every field, and the required attribute is a browser
+   convenience rather than the check that matters. */
+.field{margin:0 0 16px}
+.field label{display:block;font-weight:600;font-size:14px;margin:0 0 5px}
+.field input[type=text],.field input[type=tel]{width:100%;padding:11px 12px;font:16px/1.4 inherit;
+  color:#1c2024;background:#fff;border:1px solid #b9c0c8;border-radius:6px}
+.field input:focus{outline:2px solid #1a4fa0;outline-offset:1px;border-color:#1a4fa0}
+.hint{margin:5px 0 0;font-size:13px;color:#5b636b}
+.consent{display:flex;align-items:flex-start;gap:12px;background:#fff;border:1px solid #cfd5dc;
+  border-radius:8px;padding:16px 18px;margin:0 0 20px}
+.consent input[type=checkbox]{flex:0 0 auto;width:20px;height:20px;margin:2px 0 0}
+.consent .disclosure{font-size:14px;line-height:1.6;margin:0}
+button.submit{display:inline-block;padding:13px 26px;font:600 16px/1 inherit;color:#fff;
+  background:#1c2024;border:1px solid #1c2024;border-radius:6px;cursor:pointer}
+button.submit:hover{background:#000}
+.errbox{background:#fdecec;border:1px solid #e5a5a5;border-left:4px solid #b62828;
+  border-radius:6px;padding:14px 16px;margin:0 0 22px;color:#7d1d1d}
+.errbox p{margin:0;font-size:15px}
+/* Honeypot: off-screen rather than display:none so a bot reading the DOM
+   still sees a fillable field. Never focusable, never announced. */
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 footer{margin-top:48px;padding-top:18px;border-top:1px solid #dfe3e8;
   font-size:13px;color:#6b737b}
 footer p{margin:0 0 6px;font-size:13px}
@@ -367,11 +399,12 @@ ${email ? `Email: <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>
 </address>`;
 }
 
-function docNav(slug: string, current: CompliancePageKind): string {
+function docNav(slug: string, current: CompliancePageKind, prefix = ""): string {
   const items: Array<{ kind: CompliancePageKind; href: string; label: string }> = [
-    { kind: "index", href: `/a/${slug}`, label: "Overview" },
-    { kind: "privacy", href: `/a/${slug}/privacy-policy`, label: "Privacy Policy" },
-    { kind: "terms", href: `/a/${slug}/terms`, label: "Terms of Service" },
+    { kind: "index", href: `${prefix}/a/${slug}`, label: "Overview" },
+    { kind: "privacy", href: `${prefix}/a/${slug}/privacy-policy`, label: "Privacy Policy" },
+    { kind: "terms", href: `${prefix}/a/${slug}/terms`, label: "Terms of Service" },
+    { kind: "sms-opt-in", href: `${prefix}/a/${slug}/sms-opt-in`, label: "Text Message Opt-In" },
   ];
   return `<ul class="docnav">${
     items
@@ -413,11 +446,20 @@ export interface RenderOptions {
   lastUpdatedIso: string | null;
   /** Public origin, e.g. "https://trust.producerstackcrm.com". Used for canonical URLs. */
   baseUrl: string;
+  /**
+   * Path segment in front of `/a/:slug` for in-page links and the opt-in
+   * form's action. Empty behind the trust.producerstackcrm.com rewrite (the
+   * live shape); "/functions/v1/compliance-page" when the function is hit
+   * directly, which is what `curl` verification and the fallback path do.
+   * Defaults to "" so existing callers and rendered output are unchanged.
+   */
+  pathPrefix?: string;
 }
 
 export function renderIndexPage(o: RenderOptions): string {
   const p = o.profile;
   const slug = p.compliance_slug || "";
+  const pfx = o.pathPrefix || "";
   const agency = agencyDisplayName(p);
   const entity = entityClause(p);
   const legal = legalNameClause(p);
@@ -439,7 +481,7 @@ export function renderIndexPage(o: RenderOptions): string {
 serving individuals and families seeking life insurance coverage. We help clients compare policies from
 multiple insurance carriers, complete applications, and service their coverage after it is issued.</p>
 
-${docNav(slug, "index")}
+${docNav(slug, "index", pfx)}
 
 <div class="card">
 <h2>Contact us</h2>
@@ -470,6 +512,7 @@ ${legal && legal !== agency ? `<p>Legal entity: ${escapeHtml(legal)}.</p>` : ""}
 export function renderPrivacyPolicyPage(o: RenderOptions): string {
   const p = o.profile;
   const slug = p.compliance_slug || "";
+  const pfx = o.pathPrefix || "";
   const agency = agencyDisplayName(p);
   const entity = entityClause(p);
   const updated = formatLongDate(o.lastUpdatedIso ?? p.compliance_page_published_at);
@@ -483,7 +526,7 @@ export function renderPrivacyPolicyPage(o: RenderOptions): string {
 
 <p class="updated">Last updated ${escapeHtml(updated)}</p>
 
-${docNav(slug, "privacy")}
+${docNav(slug, "privacy", pfx)}
 
 <h2 id="who-we-are">Who we are</h2>
 <p>${escapeHtml(agency)} is a licensed life insurance agency${entity ? `, ${escapeHtml(entity)},` : ""}
@@ -495,9 +538,14 @@ ${contactBlock(p)}
 <h2 id="where-information-comes-from">Where your information comes from</h2>
 <p>We receive your contact information when you request life insurance information through a web form
 operated by one of our licensed lead partners (${escapeHtml(vendors)}). Those forms capture your consent
-to be contacted by phone and text message by licensed insurance agents, including ${escapeHtml(agency)}.
+to be contacted by phone and email by licensed insurance agents, including ${escapeHtml(agency)}.
 Consent is certified by TrustedForm, which records your IP address, session activity, timestamp, and the
 exact disclosure shown to you. We retain that certificate for each person we contact.</p>
+<p><strong>Text messages are separate.</strong> We do not text you on the strength of that lead form. To
+receive text messages from us you have to opt in yourself, on
+<a href="${pfx}/a/${escapeHtml(slug)}/sms-opt-in">our own sign-up page</a>, where the full agreement is
+shown to you before you agree to it. We keep a record of exactly what that page said, when you agreed,
+and from what IP address.</p>
 <p>We also collect information you give us directly — during a phone call, by text or email, or on an
 insurance application — including your name, date of birth, address, phone number, email address, and
 the health and financial information an insurance carrier requires to underwrite a policy.</p>
@@ -577,6 +625,7 @@ ${st ? `<p>${escapeHtml(agency)} operates from ${escapeHtml(cityStateZip(p))}.</
 export function renderTermsPage(o: RenderOptions): string {
   const p = o.profile;
   const slug = p.compliance_slug || "";
+  const pfx = o.pathPrefix || "";
   const agency = agencyDisplayName(p);
   const entity = entityClause(p);
   const updated = formatLongDate(o.lastUpdatedIso ?? p.compliance_page_published_at);
@@ -590,7 +639,7 @@ export function renderTermsPage(o: RenderOptions): string {
 
 <p class="updated">Last updated ${escapeHtml(updated)}</p>
 
-${docNav(slug, "terms")}
+${docNav(slug, "terms", pfx)}
 
 <p>These terms govern your communications and dealings with ${escapeHtml(agency)}${
     entity ? `, ${escapeHtml(entity)}` : ""
@@ -669,6 +718,207 @@ ${contactBlock(p)}`;
   });
 }
 
+// ============================================================
+// SMS opt-in page (/a/:slug/sms-opt-in)
+//
+// WHY THIS PAGE EXISTS: the 10DLC campaign was rejected because carrier
+// review would not accept the lead vendor's "…and its licensed agents"
+// wording as opt-in evidence for a campaign sending as the agency. The
+// vendor will not change their form, so we stop leaning on their consent and
+// collect our own, on a page branded to the business that actually sends.
+//
+// THE DISCLOSURE IS ONE STRING. buildOptInDisclosure() returns the exact
+// sentence set the consumer reads, and it is used for BOTH the rendered page
+// and the consent_records.disclosure_text we store. There is deliberately no
+// second copy to drift: "what were they agreeing to?" is answered by a string
+// that provably came from the same function call that drew the page. The HTML
+// version escapes that string and turns the two URLs inside it into links —
+// it never rewords it.
+//
+// THE CHECKBOX IS NEVER PRE-CHECKED. Not on first render, and NOT on an
+// error re-render either, even when the consumer had ticked it and got the
+// phone number wrong. A box we tick for them is not consent, and re-ticking
+// it "helpfully" after a validation bounce is exactly the pattern carrier
+// review rejects. They tick it, every time.
+// ============================================================
+
+/** Values a consumer typed, preserved across a validation bounce (no JS to hold them). */
+export interface OptInFormValues {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+}
+
+export interface OptInRenderOptions extends RenderOptions {
+  /** Plain-English problem to show above the form. Null on first render. */
+  error?: string | null;
+  /** What they typed last time, so a bounce does not make them start over. */
+  values?: OptInFormValues | null;
+}
+
+/**
+ * Escape the disclosure for HTML, then linkify the two URLs it contains.
+ *
+ * Safe because escapeHtml() cannot alter a URL built from our own base URL
+ * and an `isValidSlug()` slug — it contains no &, <, >, quote or apostrophe —
+ * so the escaped string still contains the URL byte-for-byte and the
+ * replacement lands on the same text the consumer reads. The text is the
+ * source of truth; this only decorates it.
+ */
+function disclosureHtml(text: string, urls: { privacy: string; terms: string }): string {
+  let html = escapeHtml(text);
+  for (const url of [urls.privacy, urls.terms]) {
+    html = html.split(url).join(
+      `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(url)}</a>`,
+    );
+  }
+  return html;
+}
+
+export function renderSmsOptInPage(o: OptInRenderOptions): string {
+  const p = o.profile;
+  const slug = p.compliance_slug || "";
+  const pfx = o.pathPrefix || "";
+  const agency = agencyDisplayName(p);
+  const urls = compliancePageUrls(o.baseUrl, slug);
+  const disclosure = buildOptInDisclosure(agency, urls);
+  const v = o.values || {};
+  const action = `${pfx}/a/${escapeHtml(slug)}/sms-opt-in`;
+
+  const body = `<header class="masthead">
+<h1>Text message sign-up</h1>
+<p class="tagline">${escapeHtml(agency)}</p>
+</header>
+
+${docNav(slug, "sms-opt-in", pfx)}
+
+<p>Sign up to get text messages from ${escapeHtml(agency)} about your life insurance quote, your
+appointments, and the status of your application. Fill in your details, read the agreement, and tick the
+box — we will text you once to confirm.</p>
+
+${
+    o.error
+      ? `<div class="errbox" role="alert"><p>${escapeHtml(o.error)}</p></div>`
+      : ""
+  }
+<form method="post" action="${action}">
+<div class="field">
+<label for="first_name">First name</label>
+<input type="text" id="first_name" name="first_name" autocomplete="given-name" maxlength="60" required
+ value="${escapeHtml(v.first_name || "")}">
+</div>
+
+<div class="field">
+<label for="last_name">Last name</label>
+<input type="text" id="last_name" name="last_name" autocomplete="family-name" maxlength="60" required
+ value="${escapeHtml(v.last_name || "")}">
+</div>
+
+<div class="field">
+<label for="phone">Mobile number</label>
+<input type="tel" id="phone" name="phone" autocomplete="tel" maxlength="24" required
+ value="${escapeHtml(v.phone || "")}">
+<p class="hint">A US mobile number, so we can text you. Example: (555) 123-4567</p>
+</div>
+
+<div class="hp" aria-hidden="true"><label for="company_website">Leave this field empty</label>
+<input type="text" id="company_website" name="company_website" tabindex="-1" autocomplete="off"></div>
+
+<div class="consent">
+<input type="checkbox" id="consent" name="consent" value="yes">
+<label for="consent" class="disclosure" style="font-weight:400;font-size:14px">${
+    disclosureHtml(disclosure, urls)
+  }</label>
+</div>
+
+<button type="submit" class="submit">Agree and sign up</button>
+</form>
+
+<h2>What happens next</h2>
+<ul>
+<li>We text the number you gave us once, to confirm you are signed up.</li>
+<li>After that you will hear from us about your quote, your appointments, and your application — nothing else.</li>
+<li>Reply <strong>STOP</strong> to any message and we stop texting you. Reply <strong>HELP</strong> and we
+will tell you how to reach a person.</li>
+<li>You are never required to agree to texts in order to buy insurance from us.</li>
+</ul>
+
+<h2>Questions</h2>
+${contactBlock(p)}`;
+
+  return documentShell({
+    title: `Text message sign-up — ${agency}`,
+    description: `Sign up to receive text messages from ${agency} about your life insurance quote, appointments, and application status.`,
+    bodyHtml: body,
+    agencyName: agency,
+    canonical: `${o.baseUrl}/a/${slug}/sms-opt-in`,
+  });
+}
+
+/**
+ * Plain confirmation, shown after a successful POST (via a redirect, so a
+ * refresh cannot resubmit).
+ *
+ * `stopWarning` is set when the number is on the do-not-contact list. We
+ * still record the consent — they asked for it and that is evidence — but we
+ * do NOT text them, because a web form is unverified and a STOP came from the
+ * handset itself. Telling them plainly to text START is the only honest thing
+ * to put on the page; silently doing nothing would read as success.
+ */
+export function renderSmsOptInConfirmedPage(
+  o: RenderOptions & { firstName?: string | null; maskedPhone?: string | null; stopWarning?: boolean },
+): string {
+  const p = o.profile;
+  const slug = p.compliance_slug || "";
+  const pfx = o.pathPrefix || "";
+  const agency = agencyDisplayName(p);
+  const name = (o.firstName || "").trim();
+
+  const body = `<header class="masthead">
+<h1>You're signed up</h1>
+<p class="tagline">${escapeHtml(agency)}</p>
+</header>
+
+${docNav(slug, "sms-opt-in", pfx)}
+
+<div class="card">
+<h2>${name ? `Thanks, ${escapeHtml(name)}.` : "Thanks."}</h2>
+${
+    o.stopWarning
+      ? `<p>We have recorded your agreement to receive text messages from ${escapeHtml(agency)}${
+        o.maskedPhone ? ` at ${escapeHtml(o.maskedPhone)}` : ""
+      }.</p>
+<p><strong>One more step.</strong> That number previously replied STOP to us, so your phone carrier is
+still blocking our messages — and we cannot lift that from our end, by design. Text the word
+<strong>START</strong> to the number you last heard from us on, and messages will resume.</p>`
+      : `<p>We have recorded your agreement to receive text messages from ${escapeHtml(agency)}${
+        o.maskedPhone ? ` at ${escapeHtml(o.maskedPhone)}` : ""
+      }. A confirmation text is on its way now.</p>`
+  }
+</div>
+
+<h2>What you agreed to</h2>
+<ul>
+<li>Messages about your insurance quote, your appointments, and your application status.</li>
+<li>Message frequency varies. Message and data rates may apply.</li>
+<li>Agreeing to texts is not a condition of buying anything.</li>
+<li>Reply <strong>STOP</strong> to any message to stop them, or <strong>HELP</strong> for help.</li>
+</ul>
+<p>The full detail is in our <a href="${pfx}/a/${escapeHtml(slug)}/privacy-policy">Privacy Policy</a> and
+<a href="${pfx}/a/${escapeHtml(slug)}/terms">Terms of Service</a>.</p>
+
+<h2>Reach us</h2>
+${contactBlock(p)}`;
+
+  return documentShell({
+    title: `You're signed up — ${agency}`,
+    description: `Text message sign-up confirmation for ${agency}.`,
+    bodyHtml: body,
+    agencyName: agency,
+    canonical: `${o.baseUrl}/a/${slug}/sms-opt-in/confirmed`,
+  });
+}
+
 /**
  * 404 body for an unknown or unpublished slug. Plain, self-contained, and
  * deliberately NOT a stack trace or a redirect to our marketing site — a
@@ -717,5 +967,28 @@ export function compliancePageUrls(baseUrl: string, slug: string) {
     index: `${base}/a/${slug}`,
     privacy: `${base}/a/${slug}/privacy-policy`,
     terms: `${base}/a/${slug}/terms`,
+    smsOptIn: `${base}/a/${slug}/sms-opt-in`,
   };
+}
+
+/**
+ * "0123" -> "(•••) •••-0123".
+ *
+ * The confirmation page only ever receives the last four digits — the full
+ * number is deliberately never put in a URL, because that URL ends up in
+ * browser history and in any referrer a linked page sees. Four digits is
+ * enough for a consumer to recognise their own number and not enough to be
+ * anyone's number.
+ */
+export function maskPhoneLast4(last4: string | null | undefined): string {
+  const d = String(last4 || "").replace(/\D/g, "");
+  return d.length === 4 ? `(•••) •••-${d}` : "";
+}
+
+/** "+15555550123" -> "(•••) •••-0123". Same mask, from a whole number. */
+export function maskPhoneDisplay(phone: string | null | undefined): string {
+  const digits = String(phone || "").replace(/\D/g, "");
+  const local = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (local.length !== 10) return "";
+  return maskPhoneLast4(local.slice(6));
 }

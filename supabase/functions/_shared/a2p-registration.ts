@@ -57,7 +57,8 @@ import {
   type CampaignInfo,
   type SoleProprietorInfo,
 } from "./telnyx-10dlc-adapter.ts";
-import { buildOptinDescription } from "./lead-vendors.ts";
+import { buildOptinDescription, TCR_MESSAGE_FLOW_MAX } from "./lead-vendors.ts";
+import { buildOptInAutoResponse } from "./sms-optin.ts";
 import { SOLE_PROP_DAILY_MESSAGE_CAP } from "./messaging-shared.ts";
 
 // deno-lint-ignore no-explicit-any
@@ -249,7 +250,12 @@ export function buildCampaignInfo(opts: {
   brandType: "standard" | "sole_proprietor";
   agencyName: string;
   leadVendors: string[] | null | undefined;
-  complianceUrls: { privacy: string; terms: string };
+  // smsOptIn is what makes the opt-in workflow description checkable — the
+  // reviewer can open the page and compare it against the quoted disclosure.
+  // compliancePageUrls() has returned it since the opt-in page shipped, so
+  // every real caller already passes it; optional only so a test fixture can
+  // build a campaign without one.
+  complianceUrls: { privacy: string; terms: string; smsOptIn?: string };
   overrides?: Partial<CampaignInfo>;
 }): CampaignInfo {
   const optinWorkflow = buildOptinDescription(opts.agencyName, opts.leadVendors, opts.complianceUrls);
@@ -272,8 +278,12 @@ export function buildCampaignInfo(opts: {
     subscriberOptin: true,
     subscriberOptout: true,
     subscriberHelp: true,
-    optinMessage: opts.overrides?.optinMessage
-      || `${agency}: You're subscribed to messages about your life insurance quote, appointments, and application status. Msg frequency varies. Msg&data rates may apply. Consent is not a condition of purchase. Reply HELP for help, STOP to opt out.`,
+    // The SAME string the opt-in page texts a consumer who just signed up
+    // (compliance-page calls buildOptInAutoResponse too). A confirmation that
+    // does not match the campaign's registered opt-in response is a
+    // discrepancy a reviewer can see, and the messageFlow text above tells
+    // them to look at this field for it.
+    optinMessage: opts.overrides?.optinMessage || buildOptInAutoResponse(agency),
     optoutMessage: opts.overrides?.optoutMessage
       || `${agency}: You are unsubscribed and will receive no further messages. Reply START to resubscribe.`,
     helpMessage: opts.overrides?.helpMessage

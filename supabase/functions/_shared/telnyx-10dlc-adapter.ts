@@ -82,6 +82,8 @@
 // See docs/compliance-pages.md § "How the URLs actually reach the carrier".
 // ============================================================
 
+import { TCR_MESSAGE_FLOW_MAX } from "./lead-vendors.ts";
+
 const TELNYX_BASE = "https://api.telnyx.com/v2/10dlc";
 
 function telnyxHeaders(apiKey: string) {
@@ -433,6 +435,21 @@ export interface CampaignSubmitResult {
 export async function submitCampaign(apiKey: string, info: CampaignInfo): Promise<CampaignSubmitResult> {
   if (!info.messageFlow || !info.messageFlow.trim()) {
     return { ok: false, error: "message_flow_required: campaignBuilder rejects a campaign with no opt-in workflow description." };
+  }
+  // TCR caps messageFlow at 2,048 characters. Checked here, before the call,
+  // because the two failure modes on the other side are both bad and neither
+  // is obvious: a rejection that costs $15 to retry, or a silent truncation
+  // that leaves the campaign describing half an opt-in flow — with the quoted
+  // consent disclosure cut off mid-sentence, which is worse than not quoting
+  // it at all. The description grows with the agency name, so this is a real
+  // ceiling for a long agency name, not a theoretical one.
+  if (info.messageFlow.length > TCR_MESSAGE_FLOW_MAX) {
+    return {
+      ok: false,
+      error: `message_flow_too_long: the opt-in workflow description is ${info.messageFlow.length} characters and TCR ` +
+        `accepts at most ${TCR_MESSAGE_FLOW_MAX}. Shorten the fixed prose in buildOptinDescription() — do NOT truncate ` +
+        `the quoted disclosure, which has to match the live opt-in page word for word.`,
+    };
   }
   if (!info.sampleMessages?.[0] || !info.sampleMessages?.[1]) {
     return { ok: false, error: "two_sample_messages_required: campaignBuilder needs at least sample1 and sample2." };
