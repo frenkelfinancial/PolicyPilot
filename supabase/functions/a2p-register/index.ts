@@ -128,6 +128,25 @@ serve(async (req) => {
       detail: "Your registration is already submitted and waiting on carrier review (typically 3-7 business days).",
     });
   }
+  // A rejected/expired registration that already HAS a campaign cannot be
+  // resubmitted by simply calling this again. Telnyx re-vets a brand in
+  // place, but a rejected campaign needs a NEW campaign — another $15, and a
+  // spend decision rather than a retry. The DB refuses to replace campaign_id
+  // without the deliberate unlock, so without this branch the step machine
+  // would resume, find campaign_id already set, skip straight to the end and
+  // flip the row to 'pending' having submitted nothing. Say so instead.
+  if (existing && (existing.status === "rejected" || existing.status === "expired") && existing.campaign_id) {
+    return json({
+      error: "resubmission_requires_new_campaign",
+      detail: `Your 10DLC registration was ${existing.status}. Fixing it means submitting a NEW campaign, which carriers charge ` +
+        `for again — so it is not something we do automatically on a retry. Contact support to review the rejection reason and resubmit.`,
+      status: existing.status,
+      rejection_reason_hint: "See a2p_registrations.rejection_reason.",
+      brand_id: existing.brand_id,
+      campaign_id: existing.campaign_id,
+    }, 409);
+  }
+
   // Changing brand type mid-flight would mean a second brand. Refuse.
   if (existing?.brand_id && existing.brand_type !== brandType) {
     return json({
