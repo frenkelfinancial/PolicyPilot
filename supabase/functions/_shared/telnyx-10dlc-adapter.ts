@@ -112,18 +112,49 @@ export interface CampaignInfo {
   embeddedPhone: boolean;
   ageGated: boolean;
   directLending: boolean;
-  // PROMPT_16: the agent's own generated compliance pages. These are the
-  // links a carrier reviewer opens to check the consent story, so they are
-  // required on every submission — a2p-register refuses to call this without
-  // a published page (error compliance_page_missing).
-  //
-  // FIELD NAMES ARE THE TCR-STANDARD ONES (privacyPolicyLink /
-  // termsAndConditionsLink) and share this file's blanket caveat: unverified
-  // against Telnyx's current campaignBuilder payload. If they differ, only
-  // this file changes — callers pass semantic values, not raw JSON.
-  privacyPolicyLink?: string;
-  termsAndConditionsLink?: string;
 }
+
+// ------------------------------------------------------------
+// CAMPAIGN FIELD NAMES — PROBED AGAINST LIVE TELNYX 2026-07-28.
+//
+// Method: campaignBuilder SILENTLY IGNORES unknown fields (confirmed with a
+// deliberately bogus field name), but type-checks fields it knows. So each
+// candidate was sent with a wrong-typed value; if the validator named it in
+// an error, the field is real. Every probe carried an invalid `usecase`, so
+// nothing was ever created.
+//
+// REAL (validator type-checked them):
+//   termsAndConditions, subscriberOptin, subscriberOptout, subscriberHelp,
+//   embeddedLink, embeddedPhone, ageGated, directLending, numberPool,
+//   autoRenewal            -> booleans
+//   helpMessage, optinMessage, optoutMessage, sample1, sample2,
+//   description, messageFlow -> strings
+//   webhookURL, webhookFailoverURL -> URLs ("Invalid URL" when malformed)
+//
+// NOT REAL — silently dropped, every spelling tried:
+//   privacyPolicyLink, termsAndConditionsLink, privacyPolicyURL,
+//   termsAndConditionsURL, privacyPolicy, privacyPolicyUrl,
+//   termsAndConditionsUrl, affiliateMarketing, optinKeywords,
+//   optoutKeywords, helpKeywords, resellerId, subUsecases, tag, vertical
+//
+// THE CAMPAIGN HAS NO COMPLIANCE-LINK FIELD. An earlier revision of this file
+// sent privacyPolicyLink/termsAndConditionsLink; Telnyx accepted the request
+// and threw them away, so the compliance URLs would never have reached the
+// carrier. They are now carried two ways that ARE verified to land:
+//   1. brand.website — probed real ("Invalid URL"); a2p-register sets it to
+//      the agent's privacy policy URL.
+//   2. the opt-in workflow text (messageFlow / description) — free text the
+//      reviewer actually reads; buildOptinDescription() appends both URLs.
+//
+// `termsAndConditions` is real but it is a BOOLEAN attestation, not a link —
+// do not mistake it for somewhere to put a URL.
+//
+// STILL BROKEN, PRE-EXISTING (PROMPT_15 Phase 2, not fixed here): this
+// function posts to /campaign, but the real create is /campaignBuilder, and
+// `messageFlow` is REQUIRED — the probe returned "Missing required parameter"
+// for brandId, usecase, description, and messageFlow. As written,
+// submitCampaign cannot succeed. Fixing that is Phase 2 work.
+// ------------------------------------------------------------
 
 export interface CampaignSubmitResult {
   ok: boolean;
@@ -150,8 +181,6 @@ export async function submitCampaign(apiKey: string, info: CampaignInfo): Promis
       embeddedPhone:    info.embeddedPhone,
       ageGated:         info.ageGated,
       directLending:    info.directLending,
-      privacyPolicyLink:      info.privacyPolicyLink,
-      termsAndConditionsLink: info.termsAndConditionsLink,
     }),
   });
 

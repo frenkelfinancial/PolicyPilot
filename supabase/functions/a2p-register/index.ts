@@ -147,7 +147,7 @@ serve(async (req) => {
     // to survive carrier review once instead of once per agent. It names the
     // same vendors the generated privacy policy names — a reviewer comparing
     // the two and finding a mismatch is the fastest route to a rejection.
-    description:      body.campaign?.description || buildOptinDescription(agencyName, agency.lead_vendors),
+    description:      body.campaign?.description || buildOptinDescription(agencyName, agency.lead_vendors, complianceUrls),
     sampleMessages:   body.campaign?.sampleMessages?.length ? body.campaign.sampleMessages : [
       "Hi {name}, this is {agent} from {company} confirming our appointment on {date}. Reply STOP to opt out.",
       "Hi {name}, your policy documents are ready for review. Reply STOP to opt out.",
@@ -159,8 +159,10 @@ serve(async (req) => {
     embeddedPhone:    body.campaign?.embeddedPhone ?? false,
     ageGated:         body.campaign?.ageGated ?? false,
     directLending:    body.campaign?.directLending ?? false,
-    privacyPolicyLink:      complianceUrls.privacy,
-    termsAndConditionsLink: complianceUrls.terms,
+    // No compliance-link fields here on purpose: the Telnyx campaign has
+    // none. Probed live 2026-07-28 — privacyPolicyLink/termsAndConditionsLink
+    // are accepted and silently discarded. The URLs travel via the brand's
+    // `website` (verified real) and the opt-in description text above.
   };
 
   const campaignResult = await submitCampaign(TELNYX_API_KEY, campaignInfo);

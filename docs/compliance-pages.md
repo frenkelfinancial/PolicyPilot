@@ -87,8 +87,21 @@ Verify it is genuinely public — **no headers at all**:
 curl -i https://cweiaibjigjwspmshcrj.supabase.co/functions/v1/compliance-page/a/<slug>/privacy-policy
 ```
 
-Expect `200`, `content-type: text/html`, and the mobile-information paragraph
-present in the raw body. A `401` means the flag did not take.
+Expect our own `404` page for an unknown slug (or `200` for a published one),
+**not** `401 UNAUTHORIZED_NO_AUTH_HEADER`. A `401` means the flag did not take.
+Confirmed 2026-07-28: `compliance-page` → 404, `a2p-register` (the control) →
+401.
+
+> **The raw supabase.co URL is not the compliance URL, and cannot be.**
+> Supabase coerces every HTML `GET` on `*.supabase.co` to
+> `Content-Type: text/plain` with `Content-Security-Policy: default-src 'none';
+> sandbox` — anti-phishing protection on their shared domain, applied
+> platform-wide (`summary-unsubscribe` has always behaved this way). A reviewer
+> opening that link sees raw HTML source. `curl -I` hides this: `HEAD` returns
+> the correct `text/html`, only `GET` is coerced, so always test with `curl -i`.
+> Restoring the header is the job of the `headers` block in
+> `vercel-trust/vercel.json`, which makes step 3 load-bearing rather than
+> cosmetic.
 
 ### 2. Apply the migration
 
@@ -200,6 +213,37 @@ anonymous fetch, 404 on an unknown slug, slug lock rejection, regeneration
 writing a revision row, and the `compliance_page_missing` registration gate.
 
 ---
+
+## How the URLs actually reach the carrier
+
+Probed against live Telnyx on 2026-07-28. **The Telnyx campaign has no
+compliance-link field.** `campaignBuilder` silently ignores unknown fields —
+confirmed with a deliberately bogus field name — so an earlier revision that
+sent `privacyPolicyLink` / `termsAndConditionsLink` was a no-op: Telnyx
+accepted the request and discarded them. Every spelling was tried
+(`privacyPolicyURL`, `privacy_policy_link`, `privacyPolicyUrl`, …); all
+ignored. `webhookURL` *is* recognised and errors with "Invalid URL" when
+malformed, which is what proves the silence is real absence and not a lenient
+validator.
+
+So the URLs travel two verified routes instead:
+
+| Route | Field | Verified how |
+|---|---|---|
+| Brand | `website` = the agent's privacy policy URL | errors "Invalid URL" on a bad value → field is real |
+| Campaign | opt-in workflow text names both URLs | free-form string the reviewer reads |
+
+`termsAndConditions` is a real campaign field but it is a **boolean
+attestation**, not a link — do not put a URL in it.
+
+The full probe results (which campaign fields are real, which are ignored) are
+recorded in the field-name block at the top of
+`supabase/functions/_shared/telnyx-10dlc-adapter.ts`.
+
+> **Separate, pre-existing:** `submitCampaign` still posts to `/campaign`, but
+> the real create is `/campaignBuilder`, and `messageFlow` is a required field
+> it never sends. As written it cannot succeed. That is PROMPT_15 Phase 2 work
+> and is not fixed here.
 
 ## Lead vendors
 

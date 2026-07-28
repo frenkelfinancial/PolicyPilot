@@ -533,6 +533,27 @@ test("opt-in description handles a single vendor, the 'other' path, and none at 
   assert.ok(buildOptinDescription("Acme", null).includes("operated by our licensed lead partners,"));
 });
 
+// The Telnyx campaign has NO compliance-link field — privacyPolicyLink and
+// termsAndConditionsLink were probed against live campaignBuilder on
+// 2026-07-28 and are silently discarded. So the URLs have to ride in the
+// opt-in workflow text, which is free-form and IS read by the reviewer.
+test("opt-in description carries the compliance URLs when given them", () => {
+  const urls = {
+    privacy: "https://trust.producerstackcrm.com/a/acme/privacy-policy",
+    terms: "https://trust.producerstackcrm.com/a/acme/terms",
+  };
+  const d = buildOptinDescription("Acme Insurance", ["goatleads"], urls);
+  assert.ok(d.includes(urls.privacy), "privacy URL missing from opt-in description");
+  assert.ok(d.includes(urls.terms), "terms URL missing from opt-in description");
+  assert.ok(d.includes("Acme Insurance's privacy policy is published at"));
+});
+
+test("opt-in description omits the URL sentence when no URLs are supplied", () => {
+  const d = buildOptinDescription("Acme Insurance", ["goatleads"]);
+  assert.ok(!d.includes("is published at"));
+  assert.ok(d.endsWith("Consumers may reply STOP at any time to opt out."));
+});
+
 test("vendor resolution drops unknown keys and de-duplicates", () => {
   assert.deepEqual(resolveVendorNames(["goatleads", "nope", "goatleads", "builtleads"]),
     ["GoatLeads", "Built Leads"]);

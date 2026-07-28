@@ -115,7 +115,19 @@ export function vendorDisclosures(keys: string[] | null | undefined): Array<{ na
  * direct quote, because quoting the actual consumer-facing language is
  * stronger evidence than describing it.
  */
-export function buildOptinDescription(agencyName: string, vendorKeys: string[] | null | undefined): string {
+export function buildOptinDescription(
+  agencyName: string,
+  vendorKeys: string[] | null | undefined,
+  /**
+   * The agent's generated compliance pages. Appended as text because the
+   * Telnyx campaign has NO compliance-link field — privacyPolicyLink and
+   * termsAndConditionsLink were probed against live campaignBuilder on
+   * 2026-07-28 and are silently discarded (see the field-name block in
+   * telnyx-10dlc-adapter.ts). The opt-in workflow text is free-form and IS
+   * read by the reviewer, so this is where the URLs actually land.
+   */
+  complianceUrls?: { privacy: string; terms: string } | null,
+): string {
   const vendors = joinVendorNames(resolveVendorNames(vendorKeys));
   const agency = agencyName.trim() || "the agency";
 
@@ -132,6 +144,11 @@ export function buildOptinDescription(agencyName: string, vendorKeys: string[] |
   if (quoted.length > 0) {
     const parts = quoted.map((q) => `${q.name} displays the following disclosure: "${q.disclosure}"`);
     text += ` ${parts.join(" ")}`;
+  }
+
+  if (complianceUrls?.privacy && complianceUrls?.terms) {
+    text += ` ${agency}'s privacy policy is published at ${complianceUrls.privacy} ` +
+      `and its text messaging terms at ${complianceUrls.terms}.`;
   }
 
   return text;
