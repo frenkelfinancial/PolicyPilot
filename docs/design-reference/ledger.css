@@ -1,0 +1,774 @@
+/* ============================================================================
+   ProducerStack "Ledger" 2a — Design System
+   ----------------------------------------------------------------------------
+   Single source of truth for the Ledger look: tokens + component library.
+
+   Token names and values are IDENTICAL to the --lg-* block already shipping in
+   app.html (lines ~197-230), so this file can be dropped into the app without
+   forking the palette. Tokens added here that app.html does not yet define are
+   marked "NEW" in the token block — see LEDGER_DESIGN_SYSTEM.md for the list.
+
+   Theme model (same as app.html): :root = DARK (default), body.light = LIGHT.
+   Every rule below references tokens only — no theme literals in components.
+
+   Scope: everything is namespaced under .ledger so it can coexist with legacy
+   app CSS. Put class="ledger" on the app shell (or on <body>).
+   ============================================================================ */
+
+/* ---------------------------------------------------------------- 1. TOKENS */
+
+:root{
+  /* --- type ------------------------------------------------------------- */
+  --lg-sans:'Spline Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --lg-mono:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;
+  --lg-fs-micro:10.5px;  /* axis labels, timestamps                          */
+  --lg-fs-label:11px;    /* UPPERCASE labels, status pills, captions         */
+  --lg-fs-meta:11.5px;   /* feed meta                                        */
+  --lg-fs-amt:12px;      /* feed amounts, pager                              */
+  --lg-fs-ctl:12.5px;    /* buttons, chips, inputs                           */
+  --lg-fs-body:13px;     /* body + table cells + nav labels                  */
+  --lg-fs-title:15px;    /* page title                                       */
+  --lg-fs-lg:18px;       /* oversized stat                                   */
+  --lg-fs-kpi:22px;      /* KPI value                                        */
+  --lg-lh:1.45;
+  --lg-ls-caps:.07em;    /* letter-spacing for UPPERCASE labels (.06-.08)    */
+
+  /* --- space / radius --------------------------------------------------- */
+  --lg-sp-1:4px; --lg-sp-2:8px; --lg-sp-3:12px;
+  --lg-sp-4:16px; --lg-sp-5:24px; --lg-sp-6:32px;
+  --lg-r:6px;            /* the ONLY radius in the system                    */
+  --lg-r-bar:3px;        /* chart bar top corners only                       */
+
+  /* --- fixed metrics ---------------------------------------------------- */
+  --lg-topbar-h:50px;
+  --lg-rail-w:68px;
+  --lg-rail-w-open:232px;
+  --lg-row-h:38px;
+  --lg-thead-h:34px;
+  --lg-nav-h:36px;
+  --lg-avatar:26px;
+  --lg-icon:18px;
+
+  /* --- surfaces (DARK default) ------------------------------------------ */
+  --lg-canvas:#0E0E0F; --lg-card:#1A1A1C; --lg-inner:#212124;
+  --lg-border:#2E2E32; --lg-divider:#28282C; --lg-border-strong:#3E3E44;
+
+  /* --- text ------------------------------------------------------------- */
+  --lg-text1:#F2F2F3; --lg-text2:#C9C9CD; --lg-text3:#9A9AA1;
+  --lg-caption:#7C7C84; --lg-faint:#5F5F67;
+
+  /* --- accent (blue = accent ONLY) -------------------------------------- */
+  --lg-blue:#6FA3EC; --lg-blue-deep:#8FB8F0; --lg-blue-border:#3A5578;
+  --lg-blue-soft:#1F2C40; --lg-blue-mark:#6FA3EC;
+
+  /* --- semantic --------------------------------------------------------- */
+  --lg-green:#4FBF7E; --lg-green-border:#2E5C42; --lg-green-soft:#1E3327;
+  --lg-red:#E5766E;   --lg-red-border:#59302D;   --lg-red-soft:#3B2321;
+  --lg-check-border:#45454B; --lg-sold-bg:#16211B; --lg-sold-border:#2C4436;
+
+  /* --- status pills (dark) ---------------------------------------------- */
+  --lg-pill-new-fg:#E5C577;    --lg-pill-new-bg:#3B3320;
+  --lg-pill-called-fg:#B9C0CA; --lg-pill-called-bg:#2A2D31;
+  --lg-pill-noans-fg:#E8A265;  --lg-pill-noans-bg:#3A2B1D;
+  --lg-pill-appt-fg:#8FB8F0;   --lg-pill-appt-bg:#1F2C40;
+  --lg-pill-obj-fg:#EE9089;    --lg-pill-obj-bg:#3B2321;
+  --lg-pill-ni-fg:#B9C0CA;     --lg-pill-ni-bg:#2A2D31;
+  --lg-pill-sold-fg:#7CC79A;   --lg-pill-sold-bg:#1E3327;
+
+  /* --- NEW: sidebar rail (cool-tinted) ---------------------------------- */
+  --lg-rail-bg:#141519; --lg-rail-border:#26272C;
+  --lg-rail-idle:#9A9AA1; --lg-rail-hover-bg:#1E1F24;
+  --lg-rail-active-bg:#1F2C40; --lg-rail-signout:#6E6E77;
+
+  /* --- NEW: chargeback row wash (distinct from the red pill bg) ---------- */
+  --lg-cb-row:#2A1C1B;
+
+  /* --- NEW: feed dots --------------------------------------------------- */
+  --lg-dot-green:#4FBF7E; --lg-dot-amber:#E5C577; --lg-dot-blue:#6FA3EC;
+  --lg-dot-orange:#E8A265; --lg-dot-red:#EE9089;  --lg-dot-gray:#8A8A93;
+
+  /* --- NEW: charts ------------------------------------------------------ */
+  --lg-bar:#5B94E8; --lg-bar-current:#6FA3EC;
+  --lg-bar-muted:#3A3A40; --lg-bar-track:#212124;
+
+  /* --- NEW: elevation + focus ------------------------------------------- */
+  --lg-sh-sm:0 1px 2px rgba(0,0,0,.40);
+  --lg-sh-md:0 1px 2px rgba(0,0,0,.40), 0 4px 12px rgba(0,0,0,.34);
+  --lg-sh-frame:0 1px 2px rgba(0,0,0,.44), 0 8px 24px rgba(0,0,0,.40);
+  --lg-focus:0 0 0 3px rgba(111,163,236,.28);
+}
+
+body.light{
+  /* --- surfaces --------------------------------------------------------- */
+  --lg-canvas:#F5F3F0; --lg-card:#FFFFFF; --lg-inner:#FAF8F5;
+  --lg-border:#E4E0DA; --lg-divider:#F0EDE7; --lg-border-strong:#D8D3CA;
+
+  /* --- text ------------------------------------------------------------- */
+  --lg-text1:#0F1D3D; --lg-text2:#3B372F; --lg-text3:#6B6459;
+  --lg-caption:#948C7F; --lg-faint:#B0A99C;
+
+  /* --- accent ----------------------------------------------------------- */
+  --lg-blue:#3A73C9; --lg-blue-deep:#2A5599; --lg-blue-border:#B8CCEE;
+  --lg-blue-soft:#E7EFFB; --lg-blue-mark:#5B94E8;
+
+  /* --- semantic --------------------------------------------------------- */
+  --lg-green:#1B7A43; --lg-green-border:#9CC7AB; --lg-green-soft:#E4F2E9;
+  --lg-red:#B3261E;   --lg-red-border:#E4B7B4;   --lg-red-soft:#FAE8E7;
+  --lg-check-border:#D8D3CA; --lg-sold-bg:#F2F8F4; --lg-sold-border:#C6E0CF;
+
+  /* --- status pills ----------------------------------------------------- */
+  --lg-pill-new-fg:#8A6116;    --lg-pill-new-bg:#F6EDD8;
+  --lg-pill-called-fg:#5A6472; --lg-pill-called-bg:#ECEEF1;
+  --lg-pill-noans-fg:#A34E0C;  --lg-pill-noans-bg:#FBEBDD;
+  --lg-pill-appt-fg:#2A5599;   --lg-pill-appt-bg:#E7EFFB;
+  --lg-pill-obj-fg:#B3261E;    --lg-pill-obj-bg:#FAE8E7;
+  --lg-pill-ni-fg:#5A6472;     --lg-pill-ni-bg:#ECEEF1;
+  --lg-pill-sold-fg:#1B7A43;   --lg-pill-sold-bg:#E4F2E9;
+
+  /* --- rail ------------------------------------------------------------- */
+  --lg-rail-bg:#EEF2FB; --lg-rail-border:#DFE6F3;
+  --lg-rail-idle:#4C5568; --lg-rail-hover-bg:#E5ECF8;
+  --lg-rail-active-bg:#DCE7F8; --lg-rail-signout:#8A93A6;
+
+  --lg-cb-row:#FCF1F0;
+
+  /* --- feed dots -------------------------------------------------------- */
+  --lg-dot-green:#2E9E5B; --lg-dot-amber:#C9971F; --lg-dot-blue:#5B94E8;
+  --lg-dot-orange:#D97B2A; --lg-dot-red:#D2483F;  --lg-dot-gray:#98A1AE;
+
+  /* --- charts ----------------------------------------------------------- */
+  --lg-bar:#5B94E8; --lg-bar-current:#3A73C9;
+  --lg-bar-muted:#DDD8D0; --lg-bar-track:#F0EDE7;
+
+  /* --- elevation + focus ------------------------------------------------ */
+  --lg-sh-sm:0 1px 2px rgba(15,29,61,.05);
+  --lg-sh-md:0 1px 2px rgba(15,29,61,.05), 0 4px 12px rgba(15,29,61,.05);
+  --lg-sh-frame:0 1px 2px rgba(15,29,61,.06), 0 8px 24px rgba(15,29,61,.06);
+  --lg-focus:0 0 0 3px rgba(58,115,201,.16);
+}
+
+/* ------------------------------------------------------------------ 2. BASE */
+
+.ledger{
+  font-family:var(--lg-sans);
+  font-size:var(--lg-fs-body);
+  line-height:var(--lg-lh);
+  color:var(--lg-text1);
+  background:var(--lg-canvas);
+  -webkit-font-smoothing:antialiased;
+}
+.ledger *,.ledger *::before,.ledger *::after{box-sizing:border-box}
+.ledger ::placeholder{color:var(--lg-faint);opacity:1}
+.ledger ::selection{background:var(--lg-blue-soft);color:var(--lg-text1)}
+.ledger :focus-visible{outline:none;box-shadow:var(--lg-focus);border-color:var(--lg-blue-border)}
+
+/* text utilities */
+.ledger .lg-mono{font-family:var(--lg-mono);font-variant-numeric:tabular-nums}
+.ledger .lg-num{font-family:var(--lg-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.ledger .lg-pos{color:var(--lg-green)}
+.ledger .lg-neg{color:var(--lg-red)}
+.ledger .lg-muted{color:var(--lg-caption)}
+.ledger .lg-faint{color:var(--lg-faint)}
+.ledger .lg-strong{font-weight:600}
+.ledger .lg-caps{
+  font-size:var(--lg-fs-micro);font-weight:600;text-transform:uppercase;
+  letter-spacing:var(--lg-ls-caps);color:var(--lg-caption);
+}
+.ledger a{color:var(--lg-blue);text-decoration:none}
+.ledger a:hover{color:var(--lg-blue-deep);text-decoration:underline}
+
+/* ----------------------------------------------------------------- 3. SHELL */
+/* Fluid by design: no max-width cap, no fixed container widths. Content fills
+   whatever space is left beside the rail at 1280 / 1440 / 1920 / 2560. */
+
+.ledger .lg-app{display:flex;min-height:100vh;background:var(--lg-canvas)}
+.ledger .lg-main{
+  flex:1 1 auto;min-width:0;               /* min-width:0 = tables may scroll */
+  display:flex;flex-direction:column;
+}
+.ledger .lg-content{
+  flex:1 1 auto;min-width:0;
+  padding:20px var(--lg-sp-5);
+  display:flex;flex-direction:column;gap:var(--lg-sp-4);
+}
+
+/* -------------------------------------------------------- 4. SIDEBAR RAIL */
+/* 68px collapsed, hover-expands to 232px over the content (position:sticky +
+   fixed flex-basis on a spacer would jump the layout, so the rail overlays). */
+
+.ledger .lg-railwrap{flex:0 0 var(--lg-rail-w);width:var(--lg-rail-w)}
+.ledger .lg-rail{
+  position:fixed;top:0;left:0;bottom:0;z-index:40;
+  width:var(--lg-rail-w);
+  display:flex;flex-direction:column;
+  padding:var(--lg-sp-3) 10px;
+  background:var(--lg-rail-bg);
+  border-right:1px solid var(--lg-rail-border);
+  overflow:hidden;
+  transition:width .18s ease;
+}
+.ledger .lg-rail:hover,.ledger .lg-rail:focus-within{width:var(--lg-rail-w-open)}
+
+.ledger .lg-rail-brand{
+  display:flex;align-items:center;gap:10px;
+  height:var(--lg-nav-h);padding:0 9px;margin-bottom:var(--lg-sp-3);
+  color:var(--lg-text1);
+}
+.ledger .lg-rail-mark{
+  flex:0 0 auto;width:var(--lg-icon);height:var(--lg-icon);
+  display:grid;place-items:center;border-radius:var(--lg-r);
+  background:var(--lg-blue-soft);color:var(--lg-blue);
+}
+.ledger .lg-rail-name{
+  font-size:var(--lg-fs-body);font-weight:600;white-space:nowrap;
+  opacity:0;transition:opacity .18s ease;
+}
+.ledger .lg-rail:hover .lg-rail-name,
+.ledger .lg-rail:focus-within .lg-rail-name{opacity:1}
+
+.ledger .lg-nav{display:flex;flex-direction:column;gap:3px}
+.ledger .lg-nav-item{
+  display:flex;align-items:center;gap:10px;
+  height:var(--lg-nav-h);padding:0 9px;
+  border:none;background:none;width:100%;
+  border-radius:var(--lg-r);
+  color:var(--lg-rail-idle);
+  font-family:var(--lg-sans);font-size:var(--lg-fs-body);font-weight:500;
+  text-align:left;cursor:pointer;white-space:nowrap;
+  transition:background .14s ease,color .14s ease;
+}
+.ledger .lg-nav-item svg{flex:0 0 auto;width:var(--lg-icon);height:var(--lg-icon)}
+.ledger .lg-nav-item span{opacity:0;transition:opacity .18s ease}
+.ledger .lg-rail:hover .lg-nav-item span,
+.ledger .lg-rail:focus-within .lg-nav-item span{opacity:1}
+.ledger .lg-nav-item:hover{background:var(--lg-rail-hover-bg);color:var(--lg-text1)}
+.ledger .lg-nav-item.active{background:var(--lg-rail-active-bg);color:var(--lg-blue)}
+.ledger .lg-nav-item.active span{color:var(--lg-text1);font-weight:600}
+
+.ledger .lg-rail-div{
+  height:1px;margin:var(--lg-sp-3) 0;
+  background:var(--lg-rail-border);border:none;
+}
+.ledger .lg-rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:3px}
+.ledger .lg-nav-item.lg-signout{color:var(--lg-rail-signout)}
+.ledger .lg-nav-item.lg-signout:hover{color:var(--lg-red)}
+
+/* ---------------------------------------------------------------- 5. TOPBAR */
+
+.ledger .lg-topbar{
+  position:sticky;top:0;z-index:30;
+  flex:0 0 var(--lg-topbar-h);height:var(--lg-topbar-h);
+  display:flex;align-items:center;gap:var(--lg-sp-3);
+  padding:0 var(--lg-sp-5);
+  background:var(--lg-card);
+  border-bottom:1px solid var(--lg-border);
+}
+.ledger .lg-topbar-title{font-size:var(--lg-fs-title);font-weight:600;color:var(--lg-text1)}
+.ledger .lg-topbar-spacer{flex:1 1 auto}
+.ledger .lg-topbar-date{
+  font-family:var(--lg-mono);font-size:var(--lg-fs-ctl);
+  color:var(--lg-text3);white-space:nowrap;
+}
+.ledger .lg-iconbtn{
+  width:28px;height:28px;display:grid;place-items:center;
+  border:1px solid transparent;background:none;border-radius:var(--lg-r);
+  color:var(--lg-caption);cursor:pointer;
+  transition:background .14s ease,color .14s ease,border-color .14s ease;
+}
+.ledger .lg-iconbtn:hover{background:var(--lg-inner);color:var(--lg-text1)}
+.ledger .lg-iconbtn.active{color:var(--lg-blue)}
+.ledger .lg-avatar{
+  flex:0 0 auto;width:var(--lg-avatar);height:var(--lg-avatar);
+  display:grid;place-items:center;border-radius:var(--lg-r);
+  background:#0F1D3D;color:#FFFFFF;
+  font-family:var(--lg-mono);font-size:var(--lg-fs-label);font-weight:600;
+}
+
+/* ----------------------------------------------------------------- 6. CARDS */
+
+.ledger .lg-card{
+  background:var(--lg-card);
+  border:1px solid var(--lg-border);
+  border-radius:var(--lg-r);
+  box-shadow:var(--lg-sh-sm);
+  min-width:0;
+}
+.ledger .lg-card--frame{border-color:var(--lg-border-strong);box-shadow:var(--lg-sh-frame)}
+.ledger .lg-card-head{
+  display:flex;align-items:center;gap:var(--lg-sp-3);
+  padding:var(--lg-sp-3) var(--lg-sp-4);
+  border-bottom:1px solid var(--lg-border);
+}
+.ledger .lg-card-title{font-size:var(--lg-fs-body);font-weight:600;color:var(--lg-text1)}
+.ledger .lg-card-sub{font-size:var(--lg-fs-label);color:var(--lg-caption)}
+.ledger .lg-card-body{padding:var(--lg-sp-4)}
+.ledger .lg-card-head .lg-card-actions{margin-left:auto;display:flex;align-items:center;gap:var(--lg-sp-2)}
+
+.ledger .lg-section-title{
+  font-size:var(--lg-fs-body);font-weight:600;color:var(--lg-text1);
+  display:flex;align-items:center;gap:var(--lg-sp-2);
+}
+
+/* Fluid content grids — extra columns form on wide screens, never a fixed px */
+.ledger .lg-grid{display:grid;gap:var(--lg-sp-4);min-width:0}
+.ledger .lg-grid--2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.ledger .lg-grid--3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.ledger .lg-grid--split{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}
+@media (max-width:1100px){.ledger .lg-grid--split{grid-template-columns:minmax(0,1fr)}}
+
+/* ------------------------------------------------------------- 7. KPI CARDS */
+
+.ledger .lg-kpis{
+  display:grid;gap:14px;min-width:0;
+  grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+}
+.ledger .lg-kpi{
+  background:var(--lg-card);
+  border:1px solid var(--lg-border);
+  border-radius:var(--lg-r);
+  box-shadow:var(--lg-sh-sm);
+  padding:13px var(--lg-sp-4);
+  min-width:0;
+}
+.ledger .lg-kpi-l{
+  font-size:var(--lg-fs-micro);font-weight:600;text-transform:uppercase;
+  letter-spacing:var(--lg-ls-caps);color:var(--lg-caption);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ledger .lg-kpi-v{
+  margin-top:var(--lg-sp-1);
+  font-family:var(--lg-mono);font-size:var(--lg-fs-kpi);font-weight:600;
+  line-height:1.2;color:var(--lg-text1);
+  white-space:nowrap;font-variant-numeric:tabular-nums;
+}
+.ledger .lg-kpi-v.lg-pos{color:var(--lg-green)}
+.ledger .lg-kpi-v.lg-neg{color:var(--lg-red)}
+.ledger .lg-kpi-c{
+  margin-top:2px;font-size:var(--lg-fs-label);color:var(--lg-caption);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ledger .lg-kpi-c .lg-delta{font-family:var(--lg-mono);font-weight:600}
+
+/* KPI strip variant — one bordered card, dividers between cells */
+.ledger .lg-kpistrip{
+  display:grid;gap:0;
+  grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+  background:var(--lg-card);border:1px solid var(--lg-border);
+  border-radius:var(--lg-r);box-shadow:var(--lg-sh-sm);overflow:hidden;
+}
+.ledger .lg-kpistrip .lg-kpi{
+  border:none;border-left:1px solid var(--lg-divider);
+  border-radius:0;box-shadow:none;
+}
+.ledger .lg-kpistrip .lg-kpi:first-child{border-left:none}
+
+/* ------------------------------------------------------------ 8. DATA TABLE */
+/* Every table lives in its own overflow-x wrapper — the page never scrolls
+   horizontally, the table does. */
+
+.ledger .lg-tablewrap{
+  width:100%;min-width:0;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.ledger .lg-table{
+  width:100%;border-collapse:separate;border-spacing:0;
+  font-size:var(--lg-fs-body);
+}
+/* No position:sticky here on purpose. .lg-tablewrap is a scroll container
+   (overflow-x:auto also computes overflow-y to auto), so a sticky thead would
+   stick to the wrapper, not the viewport — i.e. never move. Tables paginate at
+   15 rows, so a sticky header buys nothing anyway. */
+.ledger .lg-table thead th{
+  height:var(--lg-thead-h);
+  padding:0 6px;
+  background:var(--lg-inner);
+  border-bottom:1px solid var(--lg-border);
+  font-size:var(--lg-fs-micro);font-weight:600;text-transform:uppercase;
+  letter-spacing:var(--lg-ls-caps);color:var(--lg-caption);
+  text-align:left;white-space:nowrap;
+}
+/* 16px page gutter on the outer edges, 12px between columns */
+.ledger .lg-table thead th:first-child,
+.ledger .lg-table tbody td:first-child{padding-left:var(--lg-sp-4)}
+.ledger .lg-table thead th:last-child,
+.ledger .lg-table tbody td:last-child{padding-right:var(--lg-sp-4)}
+.ledger .lg-table th.lg-num,.ledger .lg-table td.lg-num{text-align:right}
+
+.ledger .lg-table th.lg-th-sort{cursor:pointer;user-select:none;transition:color .14s ease}
+.ledger .lg-table th.lg-th-sort:hover{color:var(--lg-blue)}
+.ledger .lg-table th.lg-th-sort .lg-sortcaret{opacity:0;margin-left:4px;color:var(--lg-blue)}
+.ledger .lg-table th.lg-th-sort[aria-sort]:not([aria-sort="none"]) .lg-sortcaret{opacity:1}
+.ledger .lg-table th.lg-th-sort[aria-sort="descending"] .lg-sortcaret{transform:rotate(180deg)}
+
+.ledger .lg-table tbody td{
+  height:var(--lg-row-h);
+  padding:0 6px;
+  border-bottom:1px solid var(--lg-divider);
+  color:var(--lg-text2);
+  vertical-align:middle;white-space:nowrap;
+}
+.ledger .lg-table tbody td.lg-cell-primary{color:var(--lg-text1);font-weight:500}
+.ledger .lg-table tbody td.lg-mono,
+.ledger .lg-table tbody td.lg-num{font-family:var(--lg-mono);color:var(--lg-text3)}
+.ledger .lg-table tbody tr{background:var(--lg-card);transition:background .1s ease}
+.ledger .lg-table tbody tr:hover{background:var(--lg-inner)}
+.ledger .lg-table tbody tr:last-child td{border-bottom:none}
+
+/* row states */
+.ledger .lg-table tbody tr.lg-row--cb,
+.ledger .lg-table tbody tr.lg-row--cb:hover{background:var(--lg-cb-row)}
+.ledger .lg-table tbody tr.lg-row--sold{background:var(--lg-sold-bg)}
+.ledger .lg-table tbody tr.lg-row--sel{background:var(--lg-blue-soft)}
+
+/* cell affordances */
+.ledger .lg-cellactions{display:flex;align-items:center;gap:var(--lg-sp-1);justify-content:flex-end}
+.ledger .lg-rowbtn{
+  width:26px;height:26px;display:grid;place-items:center;
+  border:none;background:none;border-radius:var(--lg-r);
+  color:var(--lg-caption);cursor:pointer;
+  transition:background .14s ease,color .14s ease;
+}
+.ledger .lg-rowbtn:hover{background:var(--lg-divider);color:var(--lg-text1)}
+.ledger .lg-rowbtn.lg-rowbtn--edit:hover{background:var(--lg-blue-soft);color:var(--lg-blue)}
+.ledger .lg-rowbtn.lg-rowbtn--del:hover{background:var(--lg-red-soft);color:var(--lg-red)}
+
+.ledger .lg-check{
+  width:15px;height:15px;margin:0;accent-color:var(--lg-blue);
+  border:1px solid var(--lg-check-border);border-radius:3px;cursor:pointer;
+}
+
+/* ---------------------------------------------------------- 9. STATUS PILLS */
+
+.ledger .lg-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:2px var(--lg-sp-2);
+  border-radius:var(--lg-r);
+  font-size:var(--lg-fs-label);font-weight:600;line-height:1.5;
+  white-space:nowrap;
+}
+.ledger .lg-pill--active,
+.ledger .lg-pill--paid{color:var(--lg-pill-sold-fg);background:var(--lg-pill-sold-bg)}
+.ledger .lg-pill--pending{color:var(--lg-pill-new-fg);background:var(--lg-pill-new-bg)}
+.ledger .lg-pill--approved,
+.ledger .lg-pill--sub,
+.ledger .lg-pill--issued{color:var(--lg-pill-appt-fg);background:var(--lg-pill-appt-bg)}
+.ledger .lg-pill--lapsed{color:var(--lg-pill-noans-fg);background:var(--lg-pill-noans-bg)}
+.ledger .lg-pill--chargeback{color:var(--lg-pill-obj-fg);background:var(--lg-pill-obj-bg)}
+.ledger .lg-pill--declined{color:var(--lg-pill-called-fg);background:var(--lg-pill-called-bg)}
+
+/* Inline-editable status: a <select> wearing the pill, with a chevron.
+   The chevron is a mask so it inherits currentColor and stays theme-aware —
+   do NOT bake a hex into an inline SVG data-URI here, it breaks in dark mode. */
+.ledger .lg-pillsel{
+  position:relative;display:inline-flex;align-items:center;
+  border-radius:var(--lg-r);
+}
+.ledger .lg-pillsel::after{
+  content:'';position:absolute;right:7px;top:50%;
+  width:9px;height:6px;margin-top:-3px;pointer-events:none;
+  background:currentColor;
+  -webkit-mask:var(--lg-caret) center/9px 6px no-repeat;
+          mask:var(--lg-caret) center/9px 6px no-repeat;
+}
+/* --lg-caret  = solid-black chevron, used as a MASK (color comes from
+                 currentColor, so it is automatically theme-aware).
+   --lg-caret-img = the same chevron pre-tinted per theme, for the one place a
+                 mask can't be used: background-image on a bare <select>.
+   Both are defined in the token blocks above/below; keep them in sync. */
+:root{
+  --lg-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23000' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --lg-caret-img:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239A9AA1' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+body.light{
+  --lg-caret-img:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236B6459' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.ledger .lg-pillsel > select{
+  appearance:none;-webkit-appearance:none;
+  padding:2px 22px 2px var(--lg-sp-2);
+  border:none;background:transparent;color:inherit;
+  border-radius:var(--lg-r);
+  font-family:var(--lg-sans);font-size:var(--lg-fs-label);font-weight:600;
+  line-height:1.5;cursor:pointer;outline:none;
+}
+.ledger .lg-pillsel > select option{
+  font-weight:500;color:var(--lg-text1);background:var(--lg-card);
+}
+
+/* Small blue mark/badge — counts, "NEW", carrier tags */
+.ledger .lg-badge{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:18px;padding:1px 6px;border-radius:var(--lg-r);
+  font-family:var(--lg-mono);font-size:var(--lg-fs-micro);font-weight:600;
+  color:var(--lg-caption);background:var(--lg-divider);
+}
+.ledger .lg-badge--blue{color:var(--lg-blue-deep);background:var(--lg-blue-soft)}
+
+/* ------------------------------------------------- 10. CHIPS / TOGGLES / TABS */
+
+.ledger .lg-chips{display:flex;align-items:center;gap:var(--lg-sp-2);flex-wrap:wrap;min-width:0}
+.ledger .lg-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 10px;
+  background:var(--lg-card);
+  border:1px solid var(--lg-border);
+  border-radius:var(--lg-r);
+  font-family:var(--lg-sans);font-size:var(--lg-fs-ctl);font-weight:500;
+  color:var(--lg-text2);cursor:pointer;white-space:nowrap;
+  transition:border-color .14s ease,color .14s ease;
+}
+.ledger .lg-chip:hover{border-color:var(--lg-blue-border)}
+.ledger .lg-chip.active{border-color:var(--lg-blue-border);color:var(--lg-blue);font-weight:600}
+.ledger .lg-chip .lg-badge{margin-left:2px}
+.ledger .lg-chip.active .lg-badge{color:var(--lg-blue-deep);background:var(--lg-blue-soft)}
+
+/* Segmented control — Daily / Weekly / Monthly */
+.ledger .lg-seg{
+  display:inline-flex;align-items:center;
+  background:var(--lg-card);
+  border:1px solid var(--lg-border);
+  border-radius:var(--lg-r);
+  overflow:hidden;
+}
+.ledger .lg-seg > button{
+  padding:6px 10px;border:none;background:none;
+  font-family:var(--lg-sans);font-size:var(--lg-fs-ctl);font-weight:500;
+  color:var(--lg-caption);cursor:pointer;white-space:nowrap;
+  border-left:1px solid var(--lg-border);
+  transition:background .14s ease,color .14s ease;
+}
+.ledger .lg-seg > button:first-child{border-left:none}
+.ledger .lg-seg > button:hover{color:var(--lg-text2)}
+.ledger .lg-seg > button.active{background:var(--lg-blue-soft);color:var(--lg-blue);font-weight:600}
+
+.ledger .lg-toolbar{
+  display:flex;align-items:center;gap:var(--lg-sp-2);
+  flex-wrap:wrap;min-width:0;
+}
+.ledger .lg-toolbar-spacer{flex:1 1 auto}
+
+/* ------------------------------------------------------- 11. FORM CONTROLS */
+
+.ledger .lg-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ledger .lg-label{
+  font-size:var(--lg-fs-micro);font-weight:600;text-transform:uppercase;
+  letter-spacing:var(--lg-ls-caps);color:var(--lg-caption);
+}
+.ledger .lg-input,
+.ledger .lg-select,
+.ledger .lg-textarea{
+  width:100%;
+  padding:0 10px;height:32px;
+  background:var(--lg-card);
+  border:1px solid var(--lg-border);
+  border-radius:var(--lg-r);
+  font-family:var(--lg-sans);font-size:var(--lg-fs-ctl);
+  color:var(--lg-text1);
+  outline:none;
+  transition:border-color .14s ease,box-shadow .14s ease;
+}
+.ledger .lg-input.lg-mono{font-family:var(--lg-mono)}
+.ledger .lg-textarea{height:auto;min-height:72px;padding:8px 10px;resize:vertical;line-height:var(--lg-lh)}
+.ledger .lg-select{
+  appearance:none;-webkit-appearance:none;
+  padding-right:28px;cursor:pointer;
+  background-image:var(--lg-caret-img);
+  background-repeat:no-repeat;
+  background-position:right 10px center;
+  background-size:9px 6px;
+}
+.ledger .lg-select::-ms-expand{display:none}
+.ledger .lg-input:focus,
+.ledger .lg-select:focus,
+.ledger .lg-textarea:focus{border-color:var(--lg-blue-border);box-shadow:var(--lg-focus)}
+.ledger .lg-input:disabled,
+.ledger .lg-select:disabled,
+.ledger .lg-textarea:disabled{color:var(--lg-faint);background:var(--lg-inner);cursor:not-allowed}
+
+.ledger .lg-searchwrap{position:relative;flex:1 1 220px;min-width:180px}
+.ledger .lg-searchwrap svg{
+  position:absolute;left:9px;top:50%;margin-top:-9px;
+  width:var(--lg-icon);height:var(--lg-icon);
+  color:var(--lg-faint);pointer-events:none;
+}
+.ledger .lg-searchwrap .lg-input{padding-left:32px}
+
+.ledger .lg-formgrid{
+  display:grid;gap:var(--lg-sp-3);
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+}
+.ledger .lg-help{font-size:var(--lg-fs-label);color:var(--lg-caption)}
+.ledger .lg-error{font-size:var(--lg-fs-label);color:var(--lg-red)}
+.ledger .lg-input.lg-invalid{border-color:var(--lg-red-border)}
+
+/* ---------------------------------------------------------- 12. BUTTONS */
+
+.ledger .lg-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:7px var(--lg-sp-3);
+  border:1px solid transparent;
+  border-radius:var(--lg-r);
+  font-family:var(--lg-sans);font-size:var(--lg-fs-ctl);font-weight:600;
+  line-height:1.2;cursor:pointer;white-space:nowrap;
+  transition:background .14s ease,border-color .14s ease,color .14s ease;
+}
+.ledger .lg-btn svg{width:var(--lg-icon);height:var(--lg-icon)}
+.ledger .lg-btn--primary{background:var(--lg-blue);color:#FFFFFF}
+.ledger .lg-btn--primary:hover{background:var(--lg-blue-deep)}
+.ledger .lg-btn--ghost{
+  background:var(--lg-card);border-color:var(--lg-border);
+  color:var(--lg-text2);font-weight:500;
+}
+.ledger .lg-btn--ghost:hover{border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger .lg-btn--danger{
+  background:var(--lg-card);border-color:var(--lg-border);color:var(--lg-red);font-weight:500;
+}
+.ledger .lg-btn--danger:hover{background:var(--lg-red-soft);border-color:var(--lg-red-border)}
+/* Disabled buttons keep their resting fill — each variant pins its own, so a
+   disabled ghost/danger never picks up the primary blue on hover. */
+.ledger .lg-btn:disabled{opacity:.5;cursor:not-allowed}
+.ledger .lg-btn--primary:disabled:hover{background:var(--lg-blue)}
+.ledger .lg-btn--ghost:disabled:hover{background:var(--lg-card);border-color:var(--lg-border);color:var(--lg-text2)}
+.ledger .lg-btn--danger:disabled:hover{background:var(--lg-card);border-color:var(--lg-border);color:var(--lg-red)}
+
+/* ----------------------------------------------------------- 13. FEED ROWS */
+
+.ledger .lg-feed{display:flex;flex-direction:column}
+.ledger .lg-feed-row{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 0;
+  border-bottom:1px solid var(--lg-divider);
+  min-width:0;
+}
+.ledger .lg-feed-row:last-child{border-bottom:none}
+.ledger .lg-dot{
+  flex:0 0 auto;width:var(--lg-sp-2);height:var(--lg-sp-2);
+  border-radius:50%;background:var(--lg-dot-gray);
+}
+.ledger .lg-dot--green{background:var(--lg-dot-green)}
+.ledger .lg-dot--amber{background:var(--lg-dot-amber)}
+.ledger .lg-dot--blue{background:var(--lg-dot-blue)}
+.ledger .lg-dot--orange{background:var(--lg-dot-orange)}
+.ledger .lg-dot--red{background:var(--lg-dot-red)}
+.ledger .lg-dot--gray{background:var(--lg-dot-gray)}
+.ledger .lg-feed-main{flex:1 1 auto;min-width:0}
+.ledger .lg-feed-title{
+  font-size:var(--lg-fs-ctl);font-weight:500;color:var(--lg-text1);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ledger .lg-feed-meta{
+  font-size:var(--lg-fs-meta);color:var(--lg-caption);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ledger .lg-feed-amt{
+  flex:0 0 auto;
+  font-family:var(--lg-mono);font-size:var(--lg-fs-amt);font-weight:600;
+  color:var(--lg-text1);font-variant-numeric:tabular-nums;
+}
+.ledger .lg-feed-amt.lg-pos{color:var(--lg-green)}
+.ledger .lg-feed-amt.lg-neg{color:var(--lg-red)}
+.ledger .lg-feed-time{
+  flex:0 0 auto;width:52px;text-align:right;
+  font-family:var(--lg-mono);font-size:var(--lg-fs-micro);color:var(--lg-faint);
+}
+
+/* -------------------------------------------------------------- 14. CHARTS */
+/* Pure CSS bars. One blue series + neutral grays — never a rainbow. */
+
+.ledger .lg-chart{display:flex;flex-direction:column;gap:var(--lg-sp-2);min-width:0}
+.ledger .lg-bars{
+  display:grid;align-items:end;gap:var(--lg-sp-2);
+  grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);
+  height:132px;
+}
+.ledger .lg-barcol{display:flex;flex-direction:column;justify-content:flex-end;height:100%;min-width:0}
+.ledger .lg-bar{
+  width:100%;
+  height:var(--h,0%);
+  min-height:2px;
+  background:var(--lg-bar);
+  border-radius:var(--lg-r-bar) var(--lg-r-bar) 0 0;
+  transition:height .2s ease,background .14s ease;
+}
+.ledger .lg-bar--current{background:var(--lg-bar-current)}
+.ledger .lg-bar--muted{background:var(--lg-bar-muted)}
+.ledger .lg-axis{
+  display:grid;gap:var(--lg-sp-2);
+  grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);
+  font-family:var(--lg-mono);font-size:10px;color:var(--lg-caption);
+  text-align:center;
+}
+.ledger .lg-chart-legend{
+  display:flex;align-items:center;gap:var(--lg-sp-3);flex-wrap:wrap;
+  font-size:var(--lg-fs-label);color:var(--lg-caption);
+}
+.ledger .lg-legend-key{
+  display:inline-flex;align-items:center;gap:5px;
+}
+.ledger .lg-legend-swatch{width:9px;height:9px;border-radius:2px;background:var(--lg-bar)}
+.ledger .lg-legend-swatch--current{background:var(--lg-bar-current)}
+.ledger .lg-legend-swatch--muted{background:var(--lg-bar-muted)}
+
+/* horizontal progress/meter — same accent rules */
+.ledger .lg-meter{
+  height:6px;border-radius:var(--lg-r-bar);
+  background:var(--lg-bar-track);overflow:hidden;
+}
+.ledger .lg-meter > span{
+  display:block;height:100%;width:var(--v,0%);
+  background:var(--lg-bar-current);border-radius:var(--lg-r-bar);
+}
+
+/* ---------------------------------------------------- 15. PAGER / EMPTY */
+
+.ledger .lg-pager{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:var(--lg-sp-3);flex-wrap:wrap;
+  padding:10px var(--lg-sp-4);
+  background:var(--lg-card);
+  border-top:1px solid var(--lg-border);
+}
+.ledger .lg-pginfo{font-family:var(--lg-mono);font-size:var(--lg-fs-label);color:var(--lg-caption)}
+.ledger .lg-pgnav{display:flex;align-items:center;gap:var(--lg-sp-1);flex-wrap:wrap}
+.ledger .lg-pgchip{
+  height:28px;min-width:28px;padding:0 var(--lg-sp-2);
+  background:var(--lg-card);border:1px solid var(--lg-border);
+  border-radius:var(--lg-r);
+  font-family:var(--lg-mono);font-size:var(--lg-fs-amt);font-weight:600;
+  color:var(--lg-text2);cursor:pointer;
+  transition:background .14s ease,border-color .14s ease,color .14s ease;
+}
+.ledger .lg-pgchip:hover:not(:disabled){background:var(--lg-inner)}
+.ledger .lg-pgchip.active{border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger .lg-pgbtn{
+  height:28px;padding:0 10px;
+  background:var(--lg-card);border:1px solid var(--lg-border);
+  border-radius:var(--lg-r);
+  font-family:var(--lg-sans);font-size:var(--lg-fs-amt);font-weight:500;
+  color:var(--lg-text2);cursor:pointer;
+  transition:background .14s ease;
+}
+.ledger .lg-pgbtn:hover:not(:disabled){background:var(--lg-inner)}
+.ledger .lg-pgbtn:disabled{color:var(--lg-faint);cursor:default}
+
+.ledger .lg-empty{
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  padding:34px var(--lg-sp-4);text-align:center;
+  font-size:var(--lg-fs-ctl);color:var(--lg-caption);
+}
+.ledger .lg-empty svg{width:22px;height:22px;color:var(--lg-faint)}
+
+/* --------------------------------------------------------- 16. RESPONSIVE */
+/* Tokens do NOT change with width. Only layout reflows: the rail collapses to
+   icons-only below 900px and the topbar drops the date on narrow screens. */
+
+@media (max-width:900px){
+  .ledger .lg-content{padding:var(--lg-sp-4)}
+  .ledger .lg-topbar{padding:0 var(--lg-sp-4)}
+  .ledger .lg-topbar-date{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .ledger *,.ledger *::before,.ledger *::after{
+    transition-duration:.01ms !important;animation-duration:.01ms !important;
+  }
+}

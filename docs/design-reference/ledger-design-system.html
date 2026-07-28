@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProducerStack "Ledger" 2a — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spline+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="ledger.css">
+<style>
+  /* Page reset — the design system itself lives entirely in ledger.css.
+     Nothing here introduces new visual tokens. */
+  html,body{margin:0;padding:0}
+  body{background:var(--lg-canvas)}
+</style>
+</head>
+<body class="light ledger">
+
+<div class="lg-app">
+
+  <!-- ============================ SIDEBAR RAIL ============================ -->
+  <div class="lg-railwrap">
+    <nav class="lg-rail" aria-label="Primary">
+      <div class="lg-rail-brand">
+        <span class="lg-rail-mark" aria-hidden="true">
+          <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 14.5V6M7 14.5V3M11 14.5V8.5M15 14.5v-4"/></svg>
+        </span>
+        <span class="lg-rail-name">ProducerStack</span>
+      </div>
+
+      <div class="lg-nav">
+        <button class="lg-nav-item active" type="button" aria-current="page">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="2.5" width="15" height="15" rx="2"/><path d="M2.5 7.5h15M7.5 7.5v10"/></svg>
+          <span>Summary</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 2.5H5.5A1.5 1.5 0 0 0 4 4v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 16 16V7z"/><path d="M11.5 2.5V7H16"/><path d="M7.2 12.4l1.8 1.8 3.3-3.9"/></svg>
+          <span>Quote + Underwriting</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 5h9M7.5 10h9M7.5 15h9"/><path d="M3 5h.01M3 10h.01M3 15h.01"/></svg>
+          <span>Policy Tracker</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="1.5"/><path d="M2.5 5.5l7.5 5 7.5-5"/></svg>
+          <span>Carrier Mail</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h8v4a4 4 0 0 1-8 0z"/><path d="M6 3.5H3.5v1A2.5 2.5 0 0 0 6 7M14 3.5h2.5v1A2.5 2.5 0 0 1 14 7"/><path d="M10 10.5v3M7 17.5h6M8 13.5h4v4H8z"/></svg>
+          <span>Bonus Tracker</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="6.5" r="2.75"/><path d="M2.5 16.5v-.9A3.6 3.6 0 0 1 6.1 12h2.8a3.6 3.6 0 0 1 3.6 3.6v.9"/><path d="M13.5 4.2a2.75 2.75 0 0 1 0 5.3M14.5 12.2a3.6 3.6 0 0 1 3 3.4v.9"/></svg>
+          <span>Leads</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="13.5" rx="1.5"/><path d="M2.5 8h15M6.5 2.5v3M13.5 2.5v3"/></svg>
+          <span>Calendar</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 2.5h10.5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1.5 1.5 0 0 1-1.5-1.5v-12A1.5 1.5 0 0 1 5 2.5z"/><path d="M3.5 7h2M3.5 10h2M3.5 13h2"/><circle cx="11" cy="8.5" r="1.75"/><path d="M8.25 13.5a2.75 2.75 0 0 1 5.5 0"/></svg>
+          <span>Phone Book</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.2l1.7 3.2-1.6 1.6a10 10 0 0 0 3.9 3.9l1.6-1.6 3.2 1.7v2.6a1.5 1.5 0 0 1-1.7 1.5A13.6 13.6 0 0 1 3.4 5.2 1.5 1.5 0 0 1 4.9 3.5H7z"/></svg>
+          <span>Web Dialer</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5h14M4.5 17.5V4a1.5 1.5 0 0 1 1.5-1.5h5A1.5 1.5 0 0 1 12.5 4v13.5M12.5 8H15a1.5 1.5 0 0 1 1.5 1.5v8"/><path d="M7 6h2.5M7 9.5h2.5M7 13h2.5"/></svg>
+          <span>Agency</span>
+        </button>
+      </div>
+
+      <div class="lg-rail-foot">
+        <hr class="lg-rail-div">
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7.5"/><path d="M7.6 7.8a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.3"/><path d="M10 14.8h.01"/></svg>
+          <span>Support</span>
+        </button>
+        <button class="lg-nav-item" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6h11M16 6h1.5M2.5 14h1.5M6.5 14h11"/><circle cx="15" cy="6" r="1.75"/><circle cx="5" cy="14" r="1.75"/></svg>
+          <span>Settings</span>
+        </button>
+        <button class="lg-nav-item lg-signout" type="button">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 17.5H4.5A1.5 1.5 0 0 1 3 16V4a1.5 1.5 0 0 1 1.5-1.5H8"/><path d="M13 13.5l3.5-3.5L13 6.5M16.5 10h-9"/></svg>
+          <span>Sign out</span>
+        </button>
+      </div>
+    </nav>
+  </div>
+
+  <!-- =============================== MAIN ================================ -->
+  <div class="lg-main">
+
+    <!-- TOPBAR -->
+    <header class="lg-topbar">
+      <h1 class="lg-topbar-title">Design System</h1>
+      <div class="lg-topbar-spacer"></div>
+      <span class="lg-topbar-date" id="today">—</span>
+      <button class="lg-iconbtn" type="button" id="themeBtn" aria-label="Toggle theme">
+        <svg id="themeIcon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M16.5 11.2A6.8 6.8 0 0 1 8.8 3.5a6.8 6.8 0 1 0 7.7 7.7z"/></svg>
+      </button>
+      <span class="lg-avatar" title="Jace Fields">JF</span>
+    </header>
+
+    <main class="lg-content">
+
+      <!-- ========================= KPI CARDS ========================= -->
+      <section>
+        <div class="lg-toolbar" style="margin-bottom:12px">
+          <h2 class="lg-section-title">KPI cards</h2>
+          <div class="lg-toolbar-spacer"></div>
+          <div class="lg-seg" role="group" aria-label="Period">
+            <button type="button">Daily</button>
+            <button type="button">Weekly</button>
+            <button type="button" class="active" aria-pressed="true">Monthly</button>
+          </div>
+        </div>
+
+        <div class="lg-kpis">
+          <div class="lg-kpi">
+            <div class="lg-kpi-l">Submitted AP</div>
+            <div class="lg-kpi-v">$48,320</div>
+            <div class="lg-kpi-c"><span class="lg-delta lg-pos">+12.4%</span> vs. last month</div>
+          </div>
+          <div class="lg-kpi">
+            <div class="lg-kpi-l">Issued AP</div>
+            <div class="lg-kpi-v">$31,905</div>
+            <div class="lg-kpi-c"><span class="lg-delta lg-pos">+4.1%</span> vs. last month</div>
+          </div>
+          <div class="lg-kpi">
+            <div class="lg-kpi-l">Placement Rate</div>
+            <div class="lg-kpi-v">66.0%</div>
+            <div class="lg-kpi-c">42 of 62 policies</div>
+          </div>
+          <div class="lg-kpi">
+            <div class="lg-kpi-l">Commission Paid</div>
+            <div class="lg-kpi-v lg-pos">$22,140</div>
+            <div class="lg-kpi-c">Last paid 07/24</div>
+          </div>
+          <div class="lg-kpi">
+            <div class="lg-kpi-l">Chargebacks</div>
+            <div class="lg-kpi-v lg-neg">-$1,880</div>
+            <div class="lg-kpi-c">3 policies lapsed</div>
+          </div>
+          <div class="lg-kpi">
+            <div class="lg-kpi-l">Pending UW</div>
+            <div class="lg-kpi-v">14</div>
+            <div class="lg-kpi-c">6 need attention</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== KPI STRIP VARIANT ==================== -->
+      <section>
+        <h2 class="lg-section-title" style="margin-bottom:12px">KPI strip</h2>
+        <div class="lg-kpistrip">
+          <div class="lg-kpi"><div class="lg-kpi-l">Policies</div><div class="lg-kpi-v">62</div></div>
+          <div class="lg-kpi"><div class="lg-kpi-l">Avg. Face</div><div class="lg-kpi-v">$18,400</div></div>
+          <div class="lg-kpi"><div class="lg-kpi-l">Avg. Premium</div><div class="lg-kpi-v">$78.90</div></div>
+          <div class="lg-kpi"><div class="lg-kpi-l">Persistency</div><div class="lg-kpi-v">91.2%</div></div>
+          <div class="lg-kpi"><div class="lg-kpi-l">Carriers</div><div class="lg-kpi-v">6</div></div>
+        </div>
+      </section>
+
+      <!-- ======================= CHART + FEED ======================= -->
+      <div class="lg-grid lg-grid--split">
+
+        <section class="lg-card">
+          <div class="lg-card-head">
+            <span class="lg-card-title">Issued AP by month</span>
+            <div class="lg-card-actions">
+              <div class="lg-chart-legend">
+                <span class="lg-legend-key"><span class="lg-legend-swatch"></span>Prior</span>
+                <span class="lg-legend-key"><span class="lg-legend-swatch lg-legend-swatch--current"></span>Current</span>
+                <span class="lg-legend-key"><span class="lg-legend-swatch lg-legend-swatch--muted"></span>Goal</span>
+              </div>
+            </div>
+          </div>
+          <div class="lg-card-body">
+            <div class="lg-chart">
+              <div class="lg-bars" id="bars"></div>
+              <div class="lg-axis" id="axis"></div>
+            </div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:10px">
+              <div>
+                <div class="lg-toolbar" style="margin-bottom:5px">
+                  <span class="lg-caps">Annual goal</span>
+                  <div class="lg-toolbar-spacer"></div>
+                  <span class="lg-mono" style="font-size:12px;font-weight:600">$382,400 / $500,000</span>
+                </div>
+                <div class="lg-meter"><span style="--v:76%"></span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="lg-card">
+          <div class="lg-card-head">
+            <span class="lg-card-title">Activity</span>
+            <div class="lg-card-actions"><a href="#" style="font-size:12.5px">View all</a></div>
+          </div>
+          <div class="lg-card-body" style="padding-top:4px;padding-bottom:4px">
+            <div class="lg-feed">
+              <div class="lg-feed-row">
+                <span class="lg-dot lg-dot--green"></span>
+                <div class="lg-feed-main">
+                  <div class="lg-feed-title">Commission posted — Delores Whitfield</div>
+                  <div class="lg-feed-meta">Mutual of Omaha · Living Promise</div>
+                </div>
+                <span class="lg-feed-amt lg-pos">+$614</span>
+                <span class="lg-feed-time">2m</span>
+              </div>
+              <div class="lg-feed-row">
+                <span class="lg-dot lg-dot--blue"></span>
+                <div class="lg-feed-main">
+                  <div class="lg-feed-title">Policy approved — Marcus Bell</div>
+                  <div class="lg-feed-meta">Americo · Eagle Premier</div>
+                </div>
+                <span class="lg-feed-amt">$1,240</span>
+                <span class="lg-feed-time">28m</span>
+              </div>
+              <div class="lg-feed-row">
+                <span class="lg-dot lg-dot--amber"></span>
+                <div class="lg-feed-main">
+                  <div class="lg-feed-title">Underwriting requirement — Yolanda Reese</div>
+                  <div class="lg-feed-meta">Transamerica · APS requested</div>
+                </div>
+                <span class="lg-feed-amt">—</span>
+                <span class="lg-feed-time">1h</span>
+              </div>
+              <div class="lg-feed-row">
+                <span class="lg-dot lg-dot--orange"></span>
+                <div class="lg-feed-main">
+                  <div class="lg-feed-title">Draft failed — Curtis Nance</div>
+                  <div class="lg-feed-meta">Corebridge · SimpliNow Legacy</div>
+                </div>
+                <span class="lg-feed-amt">$92.40</span>
+                <span class="lg-feed-time">3h</span>
+              </div>
+              <div class="lg-feed-row">
+                <span class="lg-dot lg-dot--red"></span>
+                <div class="lg-feed-main">
+                  <div class="lg-feed-title">Chargeback — Ronald Pike</div>
+                  <div class="lg-feed-meta">American-Amicable · lapsed month 4</div>
+                </div>
+                <span class="lg-feed-amt lg-neg">-$488</span>
+                <span class="lg-feed-time">6h</span>
+              </div>
+              <div class="lg-feed-row">
+                <span class="lg-dot lg-dot--gray"></span>
+                <div class="lg-feed-main">
+                  <div class="lg-feed-title">Application declined — Trisha Hobbs</div>
+                  <div class="lg-feed-meta">Ethos · knockout question</div>
+                </div>
+                <span class="lg-feed-amt">—</span>
+                <span class="lg-feed-time">1d</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================= DATA TABLE ======================== -->
+      <section class="lg-card">
+        <div class="lg-card-head">
+          <span class="lg-card-title">Policy Tracker</span>
+          <span class="lg-card-sub" id="rowCount">—</span>
+          <div class="lg-card-actions">
+            <button class="lg-btn lg-btn--ghost" type="button">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2.5v10M6.5 9l3.5 3.5L13.5 9M3.5 15.5v1a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-1"/></svg>
+              Export
+            </button>
+            <button class="lg-btn lg-btn--primary" type="button">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4.5v11M4.5 10h11"/></svg>
+              Add policy
+            </button>
+          </div>
+        </div>
+
+        <div class="lg-card-body" style="padding-bottom:12px">
+          <div class="lg-toolbar">
+            <div class="lg-searchwrap">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.8" cy="8.8" r="5.3"/><path d="M12.7 12.7l4 4"/></svg>
+              <input class="lg-input" type="search" id="q" placeholder="Search client, policy #, carrier…">
+            </div>
+            <div class="lg-chips" id="chips">
+              <button class="lg-chip active" data-f="all" type="button">All <span class="lg-badge">42</span></button>
+              <button class="lg-chip" data-f="pending" type="button">Pending <span class="lg-badge">9</span></button>
+              <button class="lg-chip" data-f="approved" type="button">Approved <span class="lg-badge">7</span></button>
+              <button class="lg-chip" data-f="issued" type="button">Issued <span class="lg-badge">6</span></button>
+              <button class="lg-chip" data-f="paid" type="button">Paid <span class="lg-badge">13</span></button>
+              <button class="lg-chip" data-f="lapsed" type="button">Lapsed <span class="lg-badge">4</span></button>
+              <button class="lg-chip" data-f="chargeback" type="button">Charge Back <span class="lg-badge">3</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg-tablewrap">
+          <table class="lg-table">
+            <thead>
+              <tr>
+                <th style="width:36px"><input class="lg-check" type="checkbox" aria-label="Select all"></th>
+                <th class="lg-th-sort" data-k="client" aria-sort="none">Client <svg class="lg-sortcaret" viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4.5L5 1l4 3.5"/></svg></th>
+                <th class="lg-th-sort" data-k="carrier" aria-sort="none">Carrier <svg class="lg-sortcaret" viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4.5L5 1l4 3.5"/></svg></th>
+                <th>Policy #</th>
+                <th>Product</th>
+                <th class="lg-num lg-th-sort" data-k="face" aria-sort="none">Face <svg class="lg-sortcaret" viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4.5L5 1l4 3.5"/></svg></th>
+                <th class="lg-num lg-th-sort" data-k="prem" aria-sort="none">Premium <svg class="lg-sortcaret" viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4.5L5 1l4 3.5"/></svg></th>
+                <th>Status</th>
+                <th class="lg-th-sort" data-k="date" aria-sort="none">Submitted <svg class="lg-sortcaret" viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4.5L5 1l4 3.5"/></svg></th>
+                <th class="lg-num lg-th-sort" data-k="comm" aria-sort="none">Commission <svg class="lg-sortcaret" viewBox="0 0 10 6" width="9" height="6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4.5L5 1l4 3.5"/></svg></th>
+                <th style="width:78px"></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+        <div class="lg-pager">
+          <span class="lg-pginfo" id="pgInfo">—</span>
+          <div class="lg-pgnav" id="pgNav"></div>
+        </div>
+      </section>
+
+      <!-- ===================== FORMS + BUTTONS ====================== -->
+      <div class="lg-grid lg-grid--2">
+
+        <section class="lg-card">
+          <div class="lg-card-head"><span class="lg-card-title">Form controls</span></div>
+          <div class="lg-card-body">
+            <div class="lg-formgrid">
+              <div class="lg-field">
+                <label class="lg-label" for="f1">Client name</label>
+                <input class="lg-input" id="f1" value="Delores Whitfield">
+              </div>
+              <div class="lg-field">
+                <label class="lg-label" for="f2">Policy number</label>
+                <input class="lg-input lg-mono" id="f2" value="LP-4471932">
+              </div>
+              <div class="lg-field">
+                <label class="lg-label" for="f3">Carrier</label>
+                <select class="lg-select" id="f3">
+                  <option>Mutual of Omaha</option><option>Americo</option>
+                  <option>Transamerica</option><option>Corebridge</option>
+                  <option>American-Amicable</option><option>Ethos</option>
+                </select>
+              </div>
+              <div class="lg-field">
+                <label class="lg-label" for="f4">Monthly premium</label>
+                <input class="lg-input lg-mono" id="f4" value="78.90">
+              </div>
+              <div class="lg-field">
+                <label class="lg-label" for="f5">Face amount</label>
+                <input class="lg-input lg-mono lg-invalid" id="f5" value="0">
+                <span class="lg-error">Face amount must be greater than zero.</span>
+              </div>
+              <div class="lg-field">
+                <label class="lg-label" for="f6">Draft date</label>
+                <input class="lg-input lg-mono" id="f6" value="2026-08-03" disabled>
+                <span class="lg-help">Set by the carrier at issue.</span>
+              </div>
+            </div>
+            <div class="lg-field" style="margin-top:12px">
+              <label class="lg-label" for="f7">Notes</label>
+              <textarea class="lg-textarea" id="f7">Client requested a call back after 5pm CT. Beneficiary paperwork still outstanding.</textarea>
+            </div>
+            <div class="lg-toolbar" style="margin-top:16px">
+              <button class="lg-btn lg-btn--primary" type="button">Save policy</button>
+              <button class="lg-btn lg-btn--ghost" type="button">Cancel</button>
+              <div class="lg-toolbar-spacer"></div>
+              <button class="lg-btn lg-btn--danger" type="button">Delete</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="lg-card">
+          <div class="lg-card-head"><span class="lg-card-title">Status pills &amp; controls</span></div>
+          <div class="lg-card-body">
+            <div class="lg-caps" style="margin-bottom:8px">Status pills</div>
+            <div class="lg-chips" style="gap:6px">
+              <span class="lg-pill lg-pill--active">Active</span>
+              <span class="lg-pill lg-pill--paid">Paid</span>
+              <span class="lg-pill lg-pill--pending">Pending</span>
+              <span class="lg-pill lg-pill--approved">Approved</span>
+              <span class="lg-pill lg-pill--issued">Issued — Not Paid</span>
+              <span class="lg-pill lg-pill--lapsed">Lapsed</span>
+              <span class="lg-pill lg-pill--chargeback">Charge Back</span>
+              <span class="lg-pill lg-pill--declined">Declined</span>
+            </div>
+
+            <div class="lg-caps" style="margin:20px 0 8px">Inline-editable status</div>
+            <span class="lg-pillsel lg-pill--approved">
+              <select aria-label="Policy status">
+                <option>Pending</option><option selected>Approved</option>
+                <option>Issued — Not Paid</option><option>Paid</option>
+                <option>Lapsed</option><option>Charge Back</option><option>Declined</option>
+              </select>
+            </span>
+
+            <div class="lg-caps" style="margin:20px 0 8px">Filter chips</div>
+            <div class="lg-chips">
+              <button class="lg-chip active" type="button">All carriers</button>
+              <button class="lg-chip" type="button">Americo</button>
+              <button class="lg-chip" type="button">Mutual of Omaha</button>
+              <button class="lg-chip" type="button">Transamerica</button>
+            </div>
+
+            <div class="lg-caps" style="margin:20px 0 8px">Segmented toggle</div>
+            <div class="lg-seg" role="group">
+              <button type="button" class="active">Daily</button>
+              <button type="button">Weekly</button>
+              <button type="button">Monthly</button>
+            </div>
+
+            <div class="lg-caps" style="margin:20px 0 8px">Buttons</div>
+            <div class="lg-chips">
+              <button class="lg-btn lg-btn--primary" type="button">Primary</button>
+              <button class="lg-btn lg-btn--ghost" type="button">Ghost</button>
+              <button class="lg-btn lg-btn--danger" type="button">Danger</button>
+              <button class="lg-btn lg-btn--primary" type="button" disabled>Disabled</button>
+            </div>
+
+            <div class="lg-caps" style="margin:20px 0 8px">Empty state</div>
+            <div class="lg-empty" style="border:1px solid var(--lg-border);border-radius:6px">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="15" height="12" rx="1.5"/><path d="M2.5 8h15M7 12h6"/></svg>
+              No policies match these filters.
+              <button class="lg-btn lg-btn--ghost" type="button">Clear filters</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- ========================== TOKENS ========================== -->
+      <section class="lg-card">
+        <div class="lg-card-head">
+          <span class="lg-card-title">Tokens</span>
+          <span class="lg-card-sub">Values below are live — they follow the theme toggle</span>
+        </div>
+        <div class="lg-card-body">
+
+          <div class="lg-caps" style="margin-bottom:10px">Type scale</div>
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:24px">
+            <div style="font-size:22px;font-weight:600;font-family:var(--lg-mono)">$48,320 <span class="lg-muted" style="font-size:11px;font-family:var(--lg-sans)">— 22px/600 mono · KPI value</span></div>
+            <div style="font-size:18px;font-weight:600">Eighteen <span class="lg-muted" style="font-size:11px">— 18px/600 · oversized stat</span></div>
+            <div style="font-size:15px;font-weight:600">Page title <span class="lg-muted" style="font-size:11px">— 15px/600</span></div>
+            <div style="font-size:13px">Body &amp; table cells <span class="lg-muted" style="font-size:11px">— 13px/400 · line-height 1.45</span></div>
+            <div style="font-size:12.5px;font-weight:500">Controls, chips, buttons <span class="lg-muted" style="font-size:11px">— 12.5px/500–600</span></div>
+            <div style="font-size:11.5px">Feed meta <span class="lg-muted" style="font-size:11px">— 11.5px</span></div>
+            <div class="lg-caps">Uppercase label — 10.5px/600 · .07em</div>
+          </div>
+
+          <div class="lg-caps" style="margin-bottom:10px">Palette</div>
+          <div class="lg-grid lg-grid--3" id="swatches" style="gap:12px;margin-bottom:24px"></div>
+
+          <div class="lg-caps" style="margin-bottom:10px">Radius &amp; elevation</div>
+          <div class="lg-grid lg-grid--3" style="gap:12px">
+            <div class="lg-kpi" style="box-shadow:var(--lg-sh-sm)">
+              <div class="lg-kpi-l">Shadow sm</div>
+              <div class="lg-kpi-c lg-mono" style="margin-top:6px">0 1px 2px</div>
+            </div>
+            <div class="lg-kpi" style="box-shadow:var(--lg-sh-md)">
+              <div class="lg-kpi-l">Shadow md</div>
+              <div class="lg-kpi-c lg-mono" style="margin-top:6px">sm + 0 4px 12px</div>
+            </div>
+            <div class="lg-kpi" style="box-shadow:var(--lg-sh-frame);border-color:var(--lg-border-strong)">
+              <div class="lg-kpi-l">Frame</div>
+              <div class="lg-kpi-c lg-mono" style="margin-top:6px">sm + 0 8px 24px</div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---------------------------------------------------------- theme ----- */
+  var SUN = '<path d="M10 3V1.6M10 18.4V17M3 10H1.6M18.4 10H17M5 5L4 4M15 15l1 1M15 5l1-1M5 15l-1 1"/><circle cx="10" cy="10" r="3.6"/>';
+  var MOON = '<path d="M16.5 11.2A6.8 6.8 0 0 1 8.8 3.5a6.8 6.8 0 1 0 7.7 7.7z"/>';
+  var btn = document.getElementById('themeBtn'), icon = document.getElementById('themeIcon');
+  function paintTheme(){
+    var light = document.body.classList.contains('light');
+    icon.innerHTML = light ? MOON : SUN;
+    btn.setAttribute('aria-label', light ? 'Switch to dark theme' : 'Switch to light theme');
+    renderSwatches();
+  }
+  btn.addEventListener('click', function(){
+    document.body.classList.toggle('light');
+    paintTheme();
+  });
+
+  /* ----------------------------------------------------------- date ----- */
+  var d = new Date();
+  var pad = function(n){ return (n < 10 ? '0' : '') + n; };
+  document.getElementById('today').textContent =
+    pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + '/' + d.getFullYear();
+
+  /* ---------------------------------------------------------- chart ----- */
+  var MONTHS = ['Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May','Jun','Jul'];
+  var VALUES = [58,64,52,71,66,78,74,83,69,88,81,94];
+  var GOAL   = 90;
+  var max = Math.max.apply(null, VALUES.concat([GOAL]));
+  var bars = document.getElementById('bars'), axis = document.getElementById('axis');
+  VALUES.forEach(function(v, i){
+    var col = document.createElement('div');
+    col.className = 'lg-barcol';
+    var bar = document.createElement('div');
+    bar.className = 'lg-bar' + (i === VALUES.length - 1 ? ' lg-bar--current' : '');
+    bar.style.setProperty('--h', Math.round(v / max * 100) + '%');
+    bar.title = MONTHS[i] + ' — $' + (v * 1000).toLocaleString();
+    col.appendChild(bar);
+    bars.appendChild(col);
+    var lbl = document.createElement('div');
+    lbl.textContent = MONTHS[i];
+    axis.appendChild(lbl);
+  });
+
+  /* ---------------------------------------------------------- table ----- */
+  var CARRIERS = ['Americo','Mutual of Omaha','Transamerica','Corebridge','American-Amicable','Ethos'];
+  var PRODUCTS = ['Eagle Premier','Living Promise','Solution 10','SimpliNow Legacy','Home Protector','Term Life'];
+  var STATUSES = [
+    {k:'pending',   label:'Pending'},
+    {k:'approved',  label:'Approved'},
+    {k:'issued',    label:'Issued — Not Paid'},
+    {k:'paid',      label:'Paid'},
+    {k:'lapsed',    label:'Lapsed'},
+    {k:'chargeback',label:'Charge Back'},
+    {k:'declined',  label:'Declined'}
+  ];
+  var FIRST = ['Delores','Marcus','Yolanda','Curtis','Ronald','Trisha','Alvin','Wanda','Terrence','Bernice',
+               'Gerald','Lucille','Dwayne','Ramona','Otis','Charlene','Vernon','Estelle','Marvin','Doreen','Clifton','Juanita'];
+  var LAST  = ['Whitfield','Bell','Reese','Nance','Pike','Hobbs','Crawley','Simmons','Boyd','Talley',
+               'Meadows','Vance','Kirby','Sandoval','Puckett','Ramsey','Ellison','Fontaine','Barlow','Hutchins','Delgado','Prewitt'];
+
+  /* deterministic pseudo-random so the reference renders identically every load */
+  var seed = 20260727;
+  function rnd(){ seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; }
+  function pick(a){ return a[Math.floor(rnd() * a.length)]; }
+
+  var ROWS = [];
+  for (var i = 0; i < 42; i++){
+    var st = STATUSES[Math.floor(rnd() * STATUSES.length)];
+    var face = (Math.floor(rnd() * 38) + 5) * 1000;
+    var prem = Math.round((face / 1000 * 3.9 + rnd() * 22) * 100) / 100;
+    var comm = (st.k === 'chargeback' ? -1 : 1) * Math.round(prem * 9);
+    ROWS.push({
+      client:  pick(FIRST) + ' ' + pick(LAST),
+      carrier: pick(CARRIERS),
+      policy:  'PS-' + (4400000 + Math.floor(rnd() * 99999)),
+      product: pick(PRODUCTS),
+      face:    face,
+      prem:    prem,
+      status:  st,
+      date:    '2026-' + pad(Math.floor(rnd() * 7) + 1) + '-' + pad(Math.floor(rnd() * 28) + 1),
+      comm:    comm
+    });
+  }
+
+  var PER = 15, page = 1, filter = 'all', query = '', sortKey = null, sortDir = 1;
+
+  function money(n){
+    return (n < 0 ? '-$' : '$') + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+  }
+  function money2(n){
+    return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+
+  function visible(){
+    var out = ROWS.filter(function(r){
+      if (filter !== 'all' && r.status.k !== filter) return false;
+      if (!query) return true;
+      var q = query.toLowerCase();
+      return r.client.toLowerCase().indexOf(q) > -1 ||
+             r.carrier.toLowerCase().indexOf(q) > -1 ||
+             r.policy.toLowerCase().indexOf(q) > -1;
+    });
+    if (sortKey){
+      out = out.slice().sort(function(a, b){
+        var x = a[sortKey], y = b[sortKey];
+        if (typeof x === 'string') return x.localeCompare(y) * sortDir;
+        return (x - y) * sortDir;
+      });
+    }
+    return out;
+  }
+
+  var tbody = document.getElementById('tbody');
+
+  function render(){
+    var rows = visible();
+    var pages = Math.max(1, Math.ceil(rows.length / PER));
+    if (page > pages) page = pages;
+    var slice = rows.slice((page - 1) * PER, page * PER);
+
+    tbody.innerHTML = '';
+    if (!slice.length){
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="11"><div class="lg-empty">' +
+        '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="22" height="22">' +
+        '<circle cx="8.8" cy="8.8" r="5.3"/><path d="M12.7 12.7l4 4"/></svg>' +
+        'No policies match these filters.</div></td>';
+      tbody.appendChild(tr);
+    } else {
+      slice.forEach(function(r){
+        var tr = document.createElement('tr');
+        if (r.status.k === 'chargeback') tr.className = 'lg-row--cb';
+        tr.innerHTML =
+          '<td><input class="lg-check" type="checkbox" aria-label="Select ' + r.client + '"></td>' +
+          '<td class="lg-cell-primary">' + r.client + '</td>' +
+          '<td>' + r.carrier + '</td>' +
+          '<td class="lg-mono">' + r.policy + '</td>' +
+          '<td>' + r.product + '</td>' +
+          '<td class="lg-num">' + money(r.face) + '</td>' +
+          '<td class="lg-num">' + money2(r.prem) + '</td>' +
+          '<td><span class="lg-pill lg-pill--' + r.status.k + '">' + r.status.label + '</span></td>' +
+          '<td class="lg-mono">' + r.date + '</td>' +
+          '<td class="lg-num ' + (r.comm < 0 ? 'lg-neg' : '') + '">' + money(r.comm) + '</td>' +
+          '<td><div class="lg-cellactions">' +
+            '<button class="lg-rowbtn lg-rowbtn--edit" type="button" aria-label="Edit">' +
+              '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 3.6l3.2 3.2M4 16.5l.6-3 8.6-8.6 2.9 2.9-8.6 8.6z"/></svg>' +
+            '</button>' +
+            '<button class="lg-rowbtn lg-rowbtn--del" type="button" aria-label="Delete">' +
+              '<svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5h13M8 5.5V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1.5M5.5 5.5l.7 10a1 1 0 0 0 1 .9h5.6a1 1 0 0 0 1-.9l.7-10"/></svg>' +
+            '</button>' +
+          '</div></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('rowCount').textContent = rows.length + ' policies';
+    var from = rows.length ? (page - 1) * PER + 1 : 0;
+    var to = Math.min(page * PER, rows.length);
+    document.getElementById('pgInfo').textContent = from + '–' + to + ' of ' + rows.length;
+
+    var nav = document.getElementById('pgNav');
+    nav.innerHTML = '';
+    var prev = document.createElement('button');
+    prev.className = 'lg-pgbtn'; prev.type = 'button'; prev.textContent = 'Prev';
+    prev.disabled = page === 1;
+    prev.onclick = function(){ if (page > 1){ page--; render(); } };
+    nav.appendChild(prev);
+    for (var p = 1; p <= pages; p++){
+      (function(p){
+        var c = document.createElement('button');
+        c.className = 'lg-pgchip' + (p === page ? ' active' : '');
+        c.type = 'button'; c.textContent = p;
+        c.onclick = function(){ page = p; render(); };
+        nav.appendChild(c);
+      })(p);
+    }
+    var next = document.createElement('button');
+    next.className = 'lg-pgbtn'; next.type = 'button'; next.textContent = 'Next';
+    next.disabled = page === pages;
+    next.onclick = function(){ if (page < pages){ page++; render(); } };
+    nav.appendChild(next);
+  }
+
+  document.getElementById('chips').addEventListener('click', function(e){
+    var chip = e.target.closest('.lg-chip');
+    if (!chip) return;
+    this.querySelectorAll('.lg-chip').forEach(function(c){ c.classList.remove('active'); });
+    chip.classList.add('active');
+    filter = chip.dataset.f; page = 1; render();
+  });
+
+  document.getElementById('q').addEventListener('input', function(){
+    query = this.value.trim(); page = 1; render();
+  });
+
+  document.querySelectorAll('.lg-th-sort').forEach(function(th){
+    th.addEventListener('click', function(){
+      var k = th.dataset.k;
+      if (sortKey === k){ sortDir = -sortDir; } else { sortKey = k; sortDir = 1; }
+      document.querySelectorAll('.lg-th-sort').forEach(function(o){ o.setAttribute('aria-sort','none'); });
+      th.setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending');
+      page = 1; render();
+    });
+  });
+
+  /* ------------------------------------------------------- swatches ----- */
+  var TOKENS = [
+    ['--lg-canvas','Canvas'], ['--lg-card','Card'], ['--lg-inner','Inner / hover'],
+    ['--lg-border-strong','Border strong'], ['--lg-border','Border'], ['--lg-divider','Divider'],
+    ['--lg-text1','Text primary'], ['--lg-text2','Text secondary'], ['--lg-text3','Text mono'],
+    ['--lg-caption','Caption'], ['--lg-faint','Faint'],
+    ['--lg-blue-mark','Blue mark'], ['--lg-blue','Blue interactive'], ['--lg-blue-deep','Blue hover'],
+    ['--lg-blue-border','Blue border'], ['--lg-blue-soft','Blue soft'],
+    ['--lg-green','Green'], ['--lg-red','Red'], ['--lg-cb-row','Chargeback row']
+  ];
+  function renderSwatches(){
+    var wrap = document.getElementById('swatches');
+    var cs = getComputedStyle(document.body);
+    wrap.innerHTML = '';
+    TOKENS.forEach(function(t){
+      var val = cs.getPropertyValue(t[0]).trim();
+      var el = document.createElement('div');
+      el.style.cssText = 'display:flex;align-items:center;gap:10px;min-width:0';
+      el.innerHTML =
+        '<span style="flex:0 0 auto;width:26px;height:26px;border-radius:6px;border:1px solid var(--lg-border);background:' + val + '"></span>' +
+        '<span style="min-width:0"><span style="display:block;font-size:12.5px;color:var(--lg-text1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + t[1] + '</span>' +
+        '<span class="lg-mono" style="display:block;font-size:11px;color:var(--lg-caption)">' + val.toUpperCase() + '</span></span>';
+      wrap.appendChild(el);
+    });
+  }
+
+  paintTheme();
+  render();
+})();
+</script>
+</body>
+</html>

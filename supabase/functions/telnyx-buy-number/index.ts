@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { registerNumberBestEffort } from "../_shared/telnyx-reputation.ts";
+import { ensureNumberOnMessagingProfile } from "../_shared/telnyx-10dlc-adapter.ts";
+import { assignAgentNumberToCampaign } from "../_shared/a2p-assign.ts";
 
 // DEPRECATED (wallet migration): numbers used to get their own dedicated
 // Stripe subscription here (createNumberSubscription), billed monthly and
@@ -62,6 +64,7 @@ serve(async (req) => {
   const ANON_KEY       = Deno.env.get("SUPABASE_ANON_KEY")!;
   const TELNYX_API_KEY = Deno.env.get("TELNYX_API_KEY");
   const TELNYX_CONN_ID = Deno.env.get("TELNYX_CONNECTION_ID");
+  const TELNYX_MSG_PROFILE_ID = Deno.env.get("TELNYX_MESSAGING_PROFILE_ID");
   const DEV_EMAIL      = "jacef8778099@gmail.com";
 
   if (!TELNYX_API_KEY || !TELNYX_CONN_ID) return json({ error: "telnyx_not_configured" }, 500);
@@ -242,5 +245,43 @@ serve(async (req) => {
     console.log(`[telnyx-buy-number] Auto-set ${e164} as primary caller ID for agent ${user.id}`);
   }
 
-  return json({ ok: true, e164, set_as_primary: isFirstNumber });
+  // Attach the number to the account Messaging Profile so it can carry
+  // SMS/MMS and later be assigned to a 10DLC campaign. The connection_id set
+  // at order time above is voice-only; texting needs the messaging profile.
+  // Never blocks the purchase — but the outcome is RECORDED on the number
+  // row (sms_setup_error) instead of swallowed as a log-only warning, so a
+  // failed SMS setup is visible rather than surfacing later as a confusing
+  // assignment error.
+  if (TELNYX_MSG_PROFILE_ID) {
+    const ensured = await ensureNumberOnMessagingProfile(TELNYX_API_KEY, e164, TELNYX_MSG_PROFILE_ID);
+    try {
+      await sb.from("phone_numbers")
+        .update({ sms_setup_error: ensured.ok ? null : (ensured.error ?? "messaging_profile_attach_failed") })
+        .eq("id", insertedRow.id);
+    } catch (e) { console.warn("[telnyx-buy-number] sms_setup_error write failed:", e); }
+    if (!ensured.ok) console.warn(`[telnyx-buy-number] messaging-profile attach failed for ${e164}:`, ensured.error);
+  }
+
+  // Auto-assign (PROMPT_15 Phase 1.5): if the agent's 10DLC campaign is
+  // already carrier-approved, attach this number to it now — the agent
+  // should never have to find an "assign number" button. The outcome may be
+  // ASSIGNED (textable now) or PENDING_ASSIGNMENT (a2p-status-poll confirms
+  // it). Best-effort: any failure here is logged and surfaced in the
+  // response, but never fails the purchase.
+  let smsAutoAssign: string | null = null;
+  try {
+    const { data: reg } = await sb.from("a2p_registrations")
+      .select("status").eq("agent_id", user.id).maybeSingle();
+    if (reg?.status === "approved") {
+      const outcome = await assignAgentNumberToCampaign(
+        sb, TELNYX_API_KEY, TELNYX_MSG_PROFILE_ID, user.id, insertedRow.id,
+      );
+      smsAutoAssign = outcome.ok ? outcome.status : "failed";
+      if (!outcome.ok) console.warn(`[telnyx-buy-number] auto-assign failed for ${e164}:`, outcome.reason);
+    }
+  } catch (e) {
+    console.warn("[telnyx-buy-number] auto-assign error:", e);
+  }
+
+  return json({ ok: true, e164, set_as_primary: isFirstNumber, sms_auto_assign: smsAutoAssign });
 });
