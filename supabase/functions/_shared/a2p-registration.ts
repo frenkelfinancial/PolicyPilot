@@ -44,7 +44,7 @@
 //
 // The fee split is the point of steps 2 and 5 being separate: an agent who
 // starts a sole-proprietor registration and never enters their PIN is
-// charged $4, not $19. We do not charge for a campaign Telnyx has not
+// charged $4, not $18.50. We do not charge for a campaign Telnyx has not
 // accepted.
 // ============================================================
 import {
@@ -416,7 +416,7 @@ export async function advanceRegistration(
   //
   // The machine STOPS here. The campaign is not submitted and the $15 is not
   // charged until the PIN is verified, because an agent who never enters
-  // their PIN must not be charged $19 for nothing.
+  // their PIN must not be charged $18.50 for nothing.
   // ---------------------------------------------------------------
   if (isSoleProp && !isSandbox && row.otp_status !== "verified") {
     if (row.otp_status === "sent" && !isOtpExpired(row.otp_requested_at)) {

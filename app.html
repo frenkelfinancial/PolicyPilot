@@ -6403,7 +6403,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 <!-- ══ A2P REGISTRATION MODAL (PROMPT_15 Phase 4) ══
      One screen of explanation BEFORE anything is submitted, then the EIN
      branch, then only the fields we could not already read from the business
-     profile. Registration is real money ($4 + $15) and a real submission to a
+     profile. Registration is real money ($4 + $14.50) and a real submission to a
      carrier, so it never fires silently off the back of some other action. -->
 <div class="overlay" id="a2pRegModal">
   <div class="modal" style="max-width:620px;width:100%;max-height:92vh;overflow-y:auto">
@@ -6425,7 +6425,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <strong>How long it takes:</strong> the business check is usually 24–48 hours, then carrier approval on the message campaign takes about 3–7 business days. You keep quoting, dialling and tracking policies the whole time — this only gates texting.
         </p>
         <p style="margin:0 0 4px">
-          <strong>What it costs:</strong> $4 when the carriers accept your business, and $15 when your campaign is submitted. Both are the carriers' fees, passed straight through, and they come out of your wallet balance.
+          <strong>What it costs:</strong> $4 when the carriers accept your business, and $14.50 when your campaign is submitted — a $10 application fee plus your first 3 months at $1.50/month. After that it is $1.50/month, with a 3-month minimum. These are the carriers' own fees, passed straight through, and they come out of your wallet balance.
         </p>
       </div>
 
@@ -6502,7 +6502,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 
       <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text2);line-height:1.55;margin-top:14px;text-transform:none;letter-spacing:0">
         <input type="checkbox" id="a2p-f-confirm" style="width:auto;margin:2px 0 0">
-        <span>I confirm these details are accurate and I authorise the $4 registration fee now, and the $15 campaign fee when the campaign is submitted.</span>
+        <span>I confirm these details are accurate and I authorise the $4 registration fee now, and the $14.50 campaign fee when the campaign is submitted.</span>
       </label>
 
       <div id="a2p-reg-err" style="display:none;margin-top:12px"></div>
@@ -22669,7 +22669,7 @@ async function saveAccountPassword() {
 // Two rules this screen is built around:
 //
 //   1. NOTHING BILLABLE HAPPENS WITHOUT A DELIBERATE CLICK. Registration
-//      costs $4 + $15 of real carrier money and cannot be undone once a
+//      costs $4 + $14.50 of real carrier money and cannot be undone once a
 //      reviewer has seen it, so it is never a side effect of finishing some
 //      other flow.
 //   2. THIS SCREEN NEVER BLOCKS THE APP. Quoting, the tracker, the dialer
@@ -22693,8 +22693,9 @@ async function saveAccountPassword() {
 //        vetting), and the sole-prop OTP step is skipped entirely in
 //        sandbox — so neither approval nor the PIN screen can be exercised
 //        here.
-// true:  every registration is REAL. $4 at brand acceptance and $15 when
-//        the campaign submits, per agent, non-refundable, with no undo.
+// true:  every registration is REAL. $4 at brand acceptance and $14.50 when
+//        the campaign submits ($10 application + $4.50 prepaid first 3
+//        months), then $1.50/month, per agent, non-refundable, with no undo.
 //
 // This is deliberately a constant rather than a setting: flipping it is a
 // spend decision, and it should show up in a diff.
@@ -23040,7 +23041,7 @@ function a2pOtpBlockHTML() {
       <div id="a2p-otp-countdown" style="font-size:11.5px;color:var(--text3);margin-top:10px"></div>
       <div id="a2p-otp-msg" style="font-size:12px;margin-top:8px;min-height:16px"></div>
       <div style="font-size:11.5px;color:var(--text3);margin-top:8px;line-height:1.55;padding-top:8px;border-top:1px solid var(--border)">
-        You have been charged the $4 business registration fee. The $15 campaign fee is only taken once you verify — if you never enter this PIN, you are not charged for a campaign that was never submitted.
+        You have been charged the $4 business registration fee. The $14.50 campaign fee is only taken once you verify — if you never enter this PIN, you are not charged for a campaign that was never submitted.
       </div>
     </div>`;
 }
@@ -23584,7 +23585,7 @@ async function a2pShowRegResult(data) {
        </div>
        <div style="font-size:13px;color:var(--text2);line-height:1.65">
          <p style="margin:0 0 10px">We texted a 6-digit PIN to <strong>${escHTML(data.otp_sent_to_masked || 'your mobile')}</strong>. Enter it on the Texting screen to finish — it is good for 24 hours, and we will show you a countdown.</p>
-         <p style="margin:0">You have been charged $4 for the business registration. The $15 campaign fee is only taken once you enter that PIN.</p>
+         <p style="margin:0">You have been charged $4 for the business registration. The $14.50 campaign fee is only taken once you enter that PIN.</p>
        </div>${sandboxNote}`;
   } else if (data && data.already_submitted) {
     out.innerHTML =

@@ -45,7 +45,8 @@ banner whenever `a2p_registrations.telnyx_env = 'sandbox'`, so nobody can
 mistake a sandbox run for a real one.
 
 Flipping it to `true` makes every registration real: **$4 at brand acceptance
-and $15 when the campaign submits, per agent, non-refundable, no undo.** It is
+and $14.50 when the campaign submits, then $1.50/month, per agent,
+non-refundable, no undo.** It is
 a constant rather than a setting deliberately — that is a spend decision and it
 should appear in a diff.
 
@@ -111,8 +112,8 @@ by `brand_id` being non-null, not by a status string.
   explicit note that a failed test send at hour two is expected, not broken.
 - **OTP entry** is inline with a live countdown against the 24-hour window and
   a resend that resets the clock. The block also states plainly that the $4 has
-  been charged and the $15 has not — an agent who abandons before entering
-  their PIN pays $4, never $19.
+  been charged and the $14.50 has not — an agent who abandons before entering
+  their PIN pays $4, never $18.50.
 - **Refresh status** force-polls this agent only (see below).
 - **Texting number card** shows which number carries the campaign, offers a
   picker when an approved agent owns several and none is attached, and for sole
@@ -124,7 +125,7 @@ by `brand_id` being non-null, not by a status string.
 
 `a2p-register` deliberately answers `resubmission_requires_new_campaign` (409)
 for a rejected registration that already has a campaign — a new campaign is
-another $15 and a spend decision, not a retry. The wizard surfaces that
+another $14.50 and a spend decision, not a retry. The wizard surfaces that
 sentence rather than silently doing nothing.
 
 ---
@@ -236,6 +237,47 @@ identity for them — the wizard shows a picker for that case instead.
 so repeated runs cost nothing.
 
 ---
+
+## Local click-through (`serve.ps1`) — the CORS gate
+
+`serve.ps1` serves `http://localhost:8080`, which is not in
+`_shared/cors.ts`'s shipped `ALLOWED_ORIGINS`, so every `functions.invoke`
+would fail its preflight. Reads go through PostgREST and were never affected.
+
+`cors.ts` now carries a **separate, env-gated** `DEV_ORIGINS` set
+(`http://localhost:8080`, `http://127.0.0.1:8080`). It is **off unless
+`ALLOW_DEV_ORIGINS` is explicitly truthy**, and fails closed on a missing or
+unreadable env var. They are deliberately NOT in `ALLOWED_ORIGINS` — that set
+is what ships; allowing a dev origin should always be a deliberate, visible,
+revocable act.
+
+```bash
+supabase secrets set   ALLOW_DEV_ORIGINS=true    # enable for a local pass
+supabase secrets unset ALLOW_DEV_ORIGINS         # turn it back off
+```
+
+There is only ONE Supabase project, so while this is on, localhost origins are
+accepted against production data. **Turn it off when the click-through is
+done.** Responses carry `X-Dev-Origins-Allowed: true` while it is on, so the
+answer to "is it still enabled?" is a curl, not a guess:
+
+```bash
+curl -s -i -X OPTIONS \
+  https://cweiaibjigjwspmshcrj.supabase.co/functions/v1/a2p-register \
+  -H "Origin: http://localhost:8080" -H "Access-Control-Request-Method: POST" \
+  | grep -i "access-control-allow-origin\|x-dev-origins"
+```
+
+Verified live 2026-07-28: localhost reflected on redeployed functions; a stray
+origin (`https://evil.example.com`) **not** reflected, falling back to the
+apex; the apex itself unchanged.
+
+Only the six functions the texting UI invokes were redeployed with the new
+`cors.ts` — `a2p-register`, `a2p-verify-otp`, `a2p-status-poll`,
+`a2p-assign-number`, `messaging-consent-record`, `messaging-send-sms`. The
+other 43 that import `cors.ts` still carry the old allowlist and will reject
+localhost until they are redeployed; that was a deliberate blast-radius
+choice, not an oversight.
 
 ## Deploy
 

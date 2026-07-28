@@ -35,7 +35,7 @@ import {
 //
 // THE $15 IS CHARGED HERE, NOT AT REGISTRATION. An agent who starts a
 // sole-prop registration and never enters their PIN has paid $4 for a brand
-// that exists, and nothing for a campaign that does not. Charging $19 up
+// that exists, and nothing for a campaign that does not. Charging $18.50 up
 // front for a registration that may never complete is the behaviour PROMPT_15
 // explicitly forbids.
 //
@@ -262,7 +262,7 @@ serve(async (req) => {
     .eq("id", 1)
     .maybeSingle();
   const brandFeeMills    = billingConfig?.a2p_brand_fee_mills    ?? 4000;
-  const campaignFeeMills = billingConfig?.a2p_campaign_fee_mills ?? 15000;
+  const campaignFeeMills = billingConfig?.a2p_campaign_fee_mills ?? 14500;
   const monthlyFeeMills  = billingConfig?.a2p_sole_prop_monthly_fee_mills ?? 2000;
 
   const campaign: CampaignInfo = buildCampaignInfo({

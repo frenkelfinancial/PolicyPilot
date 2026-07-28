@@ -385,7 +385,62 @@ interactive work, but it is no longer on the critical path.
 | 2026-07-28T03:57Z | `supabase/migrations/20260716_number_reputation.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped, authorised by Jace | `reputation_config` absent; 0 of 5 `phone_numbers` reputation columns present | `reputation_config` present, RLS **enabled**, **0 policies** (service-role-only, as the file intends), 0 rows; 5 of 5 columns present |
 | 2026-07-28T04:0xZ | `supabase/migrations/20260703c_agents_column_protection.sql` | Claude (Opus 5), `-f`, transaction-wrapped — **security fix, authorised by Jace** | trigger `agents_protect_privileged_columns` ABSENT; live PATCH set own `is_admin=true` (200, persisted) | trigger present + enabled; identical PATCH now returns `is_admin=false` (reverted); admin PII read denied |
 | 2026-07-28T04:1xZ | `supabase/migrations/20260730_phone_numbers_column_protection.sql` | Claude (Opus 5), `-f`, transaction-wrapped — **security fix (same class), authorised by Jace** | `phone_numbers` owner-updatable with no column guard; `renew_from_wallet`/`next_renewal_at`/billing columns self-writable | trigger `phone_numbers_protect_privileged_columns` present + enabled; billing/compliance columns reverted for non-service, non-admin |
+| 2026-07-28T17:xxZ | `supabase/migrations/20260732_a2p_fee_correction.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. **Authorised by Jace** — he read Telnyx's real checkout prices. Column defaults + one UPDATE of the `billing_config` singleton; no DROP, no `auth.*`/`storage.*` | live row `4000 / 15000 / 10000 / 2000`; defaults identical. `a2p_registrations`: **0 rows**, `sum(monthly_fee_mills) = 0` — so no existing registration carried the wrong figure | live row `4000 / **14500** / **1500** / 2000`; defaults updated to match; re-run confirmed a no-op |
 | 2026-07-28T05:0xZ | `supabase/migrations/20260731_a2p_resumable_registration.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. Additive only — no approval needed under the rules above | `a2p_registrations` had no step markers, no uniqueness on `brand_id`/`campaign_id`, no immutability trigger; `wallet_ledger` had no A2P fee-idempotency index. 0 rows in `a2p_registrations`, 0 A2P ledger rows | 9 new columns + `telnyx_env` check constraint; 2 partial unique indexes; function + trigger `a2p_registrations_guard_ids`; `wallet_ledger_a2p_fee_ref_uidx`. **9/9 behavioural checks pass** (see below) |
+
+### Notes on the 2026-07-28T17:xxZ apply — A2P fee correction
+
+**Source: Telnyx's own checkout, read by Jace on 2026-07-28.** Not a published
+price page and not inferred from an invoice — the figures on screen at the
+point of purchase:
+
+```
+ $10.00  application fee        one-off, at submission
+  $4.50  first 3 months         one-off, at submission (3 x $1.50)
+  $1.50  per month thereafter   recurring, 3-month minimum term
+```
+
+| Column | Was | Now |
+|---|---|---|
+| `a2p_campaign_fee_mills` | 15000 ($15.00) | **14500** ($14.50 = $10.00 + $4.50) |
+| `a2p_monthly_fee_mills` | 10000 ($10.00) | **1500** ($1.50) — was **~6.7x** the real price |
+| `a2p_brand_fee_mills` | 4000 | 4000 (unchanged, not part of this checkout) |
+| `a2p_sole_prop_monthly_fee_mills` | 2000 | 2000 — **deliberately unchanged, see below** |
+
+`$14.50` is one column rather than two because Telnyx bills the application fee
+and the prepaid first quarter together at submission, which is exactly when
+`_shared/a2p-registration.ts` STEP 5 takes its single campaign debit. Splitting
+it would add a column nothing reads.
+
+**Timing was lucky.** `a2p_registrations` held **0 rows** at the moment of the
+apply, so no agent was ever stamped with the inflated figure. Had there been
+rows, correcting `billing_config` would NOT have fixed them —
+`monthly_fee_mills` is copied onto each registration at submission and never
+re-read from config.
+
+**Code fallbacks updated in the same commit.** `a2p-register` and
+`a2p-verify-otp` hardcode `?? 15000` / `?? 10000` as the value used if the
+`billing_config` read comes back empty; a stale fallback is what an agent
+actually gets charged in that case. Both now match, and the agent-facing copy
+in `app.html` was corrected from "$15" to "$14.50" in seven places.
+
+#### Two things this apply does NOT fix
+
+1. **`a2p_sole_prop_monthly_fee_mills` stays at $2.00 and is UNVERIFIED.** The
+   checkout Jace read did not identify a brand type. $2.00/mo is Telnyx's
+   published *sole proprietor* price (PROMPT_15 §2.1), and sole-prop campaigns
+   are priced separately from standard ones. Moving it to $1.50 on the
+   assumption they are the same would be inventing a price. Confirm against a
+   sole-prop checkout, then correct it in its own migration.
+2. **Nothing debits the monthly fee. Still.** Verified again during this apply:
+   `a2p_monthly_fee_mills` / `a2p_sole_prop_monthly_fee_mills` are read in
+   exactly three places (`a2p-register` ×2, `a2p-verify-otp` ×1), all of which
+   only stamp the value onto `a2p_registrations.monthly_fee_mills` or echo it
+   in an API response. There is no `wallet_debit`, no cron, no recurring
+   charge anywhere. **The recurring campaign cost is absorbed on every agent**
+   — PROMPT_15's "Fee reconciliation" item remains open. Correcting the number
+   changes what we *record*, not what we *collect*. The good news is the
+   exposure is $1.50/agent/month rather than the $10 the config claimed.
 
 ### Notes on the 2026-07-28T05:0xZ apply — A2P resumable registration
 

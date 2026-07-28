@@ -308,8 +308,16 @@ serve(async (req) => {
   const promotingToProduction = existing?.telnyx_env === "sandbox" && env === "production";
 
   // ------------------------------------------------------------
-  // 5. Fee configuration. Sole prop's recurring fee is $2/mo, NOT the $10
-  //    defaulted for standard brands in billing_config.
+  // 5. Fee configuration. The literals here are FALLBACKS ONLY — the real
+  //    values live in billing_config and were corrected to Telnyx's actual
+  //    checkout prices on 2026-07-28 (20260732_a2p_fee_correction.sql):
+  //      brand    $4.00  one-off
+  //      campaign $14.50 one-off  ($10.00 application + $4.50 first 3 months)
+  //      monthly  $1.50  standard brand (was wrongly $10.00)
+  //      monthly  $2.00  sole proprietor — Telnyx's published sole-prop price,
+  //                      still UNVERIFIED against a sole-prop checkout.
+  //    Keep these in step with the migration; a stale fallback is what an
+  //    agent gets charged if the billing_config read ever comes back empty.
   // ------------------------------------------------------------
   const { data: billingConfig } = await sb.from("billing_config")
     .select("a2p_brand_fee_mills, a2p_campaign_fee_mills, a2p_monthly_fee_mills, a2p_sole_prop_monthly_fee_mills")
@@ -317,10 +325,10 @@ serve(async (req) => {
     .maybeSingle();
 
   const brandFeeMills    = billingConfig?.a2p_brand_fee_mills    ?? 4000;
-  const campaignFeeMills = billingConfig?.a2p_campaign_fee_mills ?? 15000;
+  const campaignFeeMills = billingConfig?.a2p_campaign_fee_mills ?? 14500;
   const monthlyFeeMills  = brandType === "sole_proprietor"
     ? (billingConfig?.a2p_sole_prop_monthly_fee_mills ?? 2000)
-    : (billingConfig?.a2p_monthly_fee_mills ?? 10000);
+    : (billingConfig?.a2p_monthly_fee_mills ?? 1500);
 
   // ------------------------------------------------------------
   // 6. Ensure the row exists BEFORE any Telnyx call, so the step machine
