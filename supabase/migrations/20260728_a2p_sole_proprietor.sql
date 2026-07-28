@@ -89,7 +89,7 @@ begin
     comment on column public.a2p_registrations.tcr_campaign_id is
       'The Campaign Registry (TCR) campaign id, distinct from the Telnyx campaign_id.';
     comment on column public.a2p_registrations.website_url is
-      'Business website OR social-business URL (Facebook/Instagram/LinkedIn). Required for sole-prop registration (Phase 2.5). TODO(PROMPT_16): replaced by the auto-generated producerstack.com/a/<slug> compliance page.';
+      'The agent''s auto-generated compliance page (privacy policy URL), written by a2p-register from agents.compliance_slug — see 20260729_compliance_pages.sql. This satisfies the sole-prop "website or social URL" requirement without the agent needing a website. RESOLVED (PROMPT_16): a client-supplied business/social URL is no longer accepted, because a recruiting site or the lead vendor''s domain describes a different business than the one sending the messages, which is what carrier review rejects.';
     comment on column public.a2p_registrations.max_numbers is
       'Per-brand number cap: 1 for sole_proprietor (Telnyx hard limit), 49 for standard. Enforced when assigning a number.';
 

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/a/:path*",
+      "destination": "https://cweiaibjigjwspmshcrj.supabase.co/functions/v1/compliance-page/a/:path*"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/a/:path*",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "index, follow" }
+      ]
+    }
+  ]
+}

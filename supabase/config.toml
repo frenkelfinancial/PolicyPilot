@@ -95,3 +95,20 @@ verify_jwt = false
 # it correctly uses the platform default (verify_jwt = true).
 [functions.ai-call-webhook]
 verify_jwt = false
+
+# compliance-page: the ONLY function here whose caller is the general public
+# rather than a signed webhook or a cron secret. It server-renders each
+# agent's 10DLC privacy policy / terms at /a/<slug>, and the people who fetch
+# it are carrier compliance reviewers using ordinary browsers and simple
+# fetchers — they have no Supabase JWT and no way to obtain one. A 401 from
+# the platform gate here is not a broken request, it is a failed brand
+# registration and an agent who cannot text.
+#
+# There is correspondingly no internal auth check inside the function (unlike
+# every other entry above, which verifies a signature or a shared secret):
+# the pages are intentionally public documents. What limits exposure instead
+# is the query — it selects an explicit column list, and only for rows whose
+# compliance_page_published_at is non-null. An unpublished or unknown slug
+# renders the same static 404 as a typo.
+[functions.compliance-page]
+verify_jwt = false

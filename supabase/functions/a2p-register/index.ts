@@ -2,6 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { submitBrand, submitCampaign, type BusinessInfo, type CampaignInfo } from "../_shared/telnyx-10dlc-adapter.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import {
+  type AgencyProfile,
+  agencyDisplayName,
+  compliancePageUrls,
+  DEFAULT_COMPLIANCE_BASE_URL,
+  missingComplianceFields,
+} from "../_shared/compliance-page.ts";
+import { buildOptinDescription } from "../_shared/lead-vendors.ts";
 
 // Drives Telnyx 10DLC brand + campaign registration on the agent's behalf.
 // Submits both in one call (brand first, then campaign against the new
@@ -62,6 +70,44 @@ serve(async (req) => {
     return json({ error: "already_registered", detail: `Current status: ${existing.status}` }, 409);
   }
 
+  // ------------------------------------------------------------
+  // PROMPT_16 gate: no published compliance page, no submission.
+  //
+  // 10DLC review requires a publicly reachable privacy policy and terms page
+  // belonging to the messaging business. Submitting without one does not fail
+  // fast — it fails DAYS later as a carrier rejection, after we have already
+  // charged the agent a non-refundable brand + campaign fee below. So the
+  // check happens here, before the first Telnyx call and before any debit.
+  // ------------------------------------------------------------
+  const { data: agentRow } = await sb.from("agents")
+    .select([
+      "dba_name", "business_legal_name", "business_entity_type", "formation_state",
+      "business_street", "business_city", "business_state", "business_postal_code",
+      "business_phone", "business_email", "lead_vendors",
+      "compliance_slug", "compliance_page_published_at",
+    ].join(","))
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const agency = (agentRow ?? {}) as unknown as AgencyProfile;
+
+  if (!agency.compliance_page_published_at || !agency.compliance_slug) {
+    // Name the specific fields, so the UI can say "add your ZIP code" rather
+    // than "something is missing".
+    const missing = missingComplianceFields(agency);
+    return json({
+      error: "compliance_page_missing",
+      detail: missing.length
+        ? `Your compliance page is not published yet. Missing: ${missing.map((m) => m.label).join(", ")}.`
+        : "Your compliance page is not published yet. Open Settings > Business Profile and save your details.",
+      missing_fields: missing,
+    }, 409);
+  }
+
+  const complianceBaseUrl = Deno.env.get("COMPLIANCE_PAGE_BASE_URL") || DEFAULT_COMPLIANCE_BASE_URL;
+  const complianceUrls = compliancePageUrls(complianceBaseUrl, agency.compliance_slug);
+  const agencyName = agencyDisplayName(agency) || info.companyName;
+
   const businessInfo: BusinessInfo = {
     displayName:  info.displayName,
     companyName:  info.companyName,
@@ -75,7 +121,12 @@ serve(async (req) => {
     state:        info.state || "",
     postalCode:   info.postalCode || "",
     country:      info.country || "US",
-    website:      info.website,
+    // The generated privacy policy IS the brand's website. Deliberately not
+    // `info.website`: a client-supplied URL is exactly the mismatch this
+    // whole feature exists to eliminate — a recruiting site aimed at other
+    // agents, or the lead vendor's domain, neither of which describes the
+    // business sending the messages. This URL always does.
+    website:      complianceUrls.privacy,
   };
 
   const brandResult = await submitBrand(TELNYX_API_KEY, businessInfo);
@@ -91,7 +142,12 @@ serve(async (req) => {
   const campaignInfo: CampaignInfo = {
     brandId:          brandResult.brandId,
     usecase:          body.campaign?.usecase || "LOW_VOLUME",
-    description:      body.campaign?.description || `${businessInfo.companyName} — life insurance client communication (policy updates, appointment reminders).`,
+    // PROMPT_16 Phase 5: one shared opt-in workflow description, reused for
+    // every agent with only the vendor + agency name substituted, so it has
+    // to survive carrier review once instead of once per agent. It names the
+    // same vendors the generated privacy policy names — a reviewer comparing
+    // the two and finding a mismatch is the fastest route to a rejection.
+    description:      body.campaign?.description || buildOptinDescription(agencyName, agency.lead_vendors),
     sampleMessages:   body.campaign?.sampleMessages?.length ? body.campaign.sampleMessages : [
       "Hi {name}, this is {agent} from {company} confirming our appointment on {date}. Reply STOP to opt out.",
       "Hi {name}, your policy documents are ready for review. Reply STOP to opt out.",
@@ -103,6 +159,8 @@ serve(async (req) => {
     embeddedPhone:    body.campaign?.embeddedPhone ?? false,
     ageGated:         body.campaign?.ageGated ?? false,
     directLending:    body.campaign?.directLending ?? false,
+    privacyPolicyLink:      complianceUrls.privacy,
+    termsAndConditionsLink: complianceUrls.terms,
   };
 
   const campaignResult = await submitCampaign(TELNYX_API_KEY, campaignInfo);
@@ -124,6 +182,10 @@ serve(async (req) => {
     campaign_fee_mills: campaignFeeMills,
     monthly_fee_mills:  monthlyFeeMills,
     business_info:      businessInfo,
+    // Fulfils the sole-prop "website or social URL" requirement with the
+    // agent's own generated page — this is what replaced the TODO(PROMPT_16)
+    // marker on this column in 20260728_a2p_sole_proprietor.sql.
+    website_url:        complianceUrls.privacy,
     rejection_reason:   null,
     registered_at:      new Date().toISOString(),
   }, { onConflict: "agent_id" });
@@ -154,5 +216,6 @@ serve(async (req) => {
     campaign_id: campaignResult.campaignId,
     status: "pending",
     fees_charged_mills: debitErr ? 0 : totalFeeMills,
+    compliance_urls: complianceUrls,
   });
 });

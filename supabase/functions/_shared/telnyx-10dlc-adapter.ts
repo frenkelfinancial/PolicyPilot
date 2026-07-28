@@ -112,6 +112,17 @@ export interface CampaignInfo {
   embeddedPhone: boolean;
   ageGated: boolean;
   directLending: boolean;
+  // PROMPT_16: the agent's own generated compliance pages. These are the
+  // links a carrier reviewer opens to check the consent story, so they are
+  // required on every submission — a2p-register refuses to call this without
+  // a published page (error compliance_page_missing).
+  //
+  // FIELD NAMES ARE THE TCR-STANDARD ONES (privacyPolicyLink /
+  // termsAndConditionsLink) and share this file's blanket caveat: unverified
+  // against Telnyx's current campaignBuilder payload. If they differ, only
+  // this file changes — callers pass semantic values, not raw JSON.
+  privacyPolicyLink?: string;
+  termsAndConditionsLink?: string;
 }
 
 export interface CampaignSubmitResult {
@@ -139,6 +150,8 @@ export async function submitCampaign(apiKey: string, info: CampaignInfo): Promis
       embeddedPhone:    info.embeddedPhone,
       ageGated:         info.ageGated,
       directLending:    info.directLending,
+      privacyPolicyLink:      info.privacyPolicyLink,
+      termsAndConditionsLink: info.termsAndConditionsLink,
     }),
   });
 
