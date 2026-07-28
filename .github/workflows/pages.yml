@@ -1,0 +1,92 @@
+name: Deploy public site to GitHub Pages
+
+# WHY THIS EXISTS
+# --------------------------------------------------------------------------
+# producerstackcrm.com is GitHub Pages. It used to publish from `main` at the
+# repo ROOT, which served the ENTIRE repository — docs/, supabase/ (schema +
+# RLS + edge-function source), data/, scripts/, every PROMPT_*.md, CLAUDE.md,
+# etc. — as public URLs. This workflow replaces "deploy from branch" with an
+# explicit ALLOWLIST: only the files below are published. Everything else stays
+# in the repo but is never served. Default-deny — a new internal file is
+# private automatically; it only becomes public if it is added to FILES.
+#
+# After merging this, set Settings -> Pages -> Source = "GitHub Actions"
+# (one-time). The custom domain is preserved by shipping the CNAME file in the
+# artifact.
+# --------------------------------------------------------------------------
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Assemble public site (allowlist)
+        run: |
+          set -euo pipefail
+          rm -rf _site && mkdir -p _site
+
+          # ---- ALLOWLIST: the ONLY files served publicly ----
+          # Root HTML pages (marketing + the app shell).
+          FILES=(
+            index.html
+            index-redesign.html
+            app.html
+            features.html
+            how-it-works.html
+            pricing.html
+            privacy-policy.html
+            terms-of-service.html
+            support.html
+            power-dialer.html
+            styles.css
+            manifest.json
+            sw.js
+            CNAME
+            "ChatGPT Image May 8, 2026, 07_49_20 PM.png"
+          )
+          for f in "${FILES[@]}"; do
+            if [ -e "$f" ]; then
+              mkdir -p "_site/$(dirname "$f")"
+              cp -p "$f" "_site/$f"
+            else
+              echo "WARNING: allowlisted file not found: $f"
+            fi
+          done
+
+          # Public asset directory — images/logos only by nature.
+          if [ -d assets ]; then
+            mkdir -p _site/assets
+            cp -pR assets/. _site/assets/
+          fi
+
+          echo "----- Published tree (nothing outside this is served) -----"
+          find _site -type f | sort
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
