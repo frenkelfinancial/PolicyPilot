@@ -21,6 +21,27 @@
 [functions.stripe-webhook]
 verify_jwt = false
 
+# ADDED 2026-07-28 — these two were ALREADY live as verify_jwt = false but were
+# missing from this file, which is precisely the trap it exists to prevent: the
+# next `supabase functions deploy` without `--no-verify-jwt` would have reset
+# them to the platform default and taken them dark, exactly as happened on
+# 2026-07-09. Found by re-checking every function against this file after a
+# deploy. Adding them here changes no live state; it makes the next deploy
+# correct.
+#
+# gmail-oauth-callback: Google redirects the user's BROWSER here with an
+# authorization code and no Authorization header — there is no Supabase JWT to
+# supply. It validates the OAuth `state` parameter itself.
+[functions.gmail-oauth-callback]
+verify_jwt = false
+
+# lead-ingest: lead vendors POST here from their own servers, authenticated by
+# the per-vendor `?token=` in the URL (see loadVendorWebhooks in app.html).
+# They have no Supabase credentials at all. _shared/cors.ts already lists this
+# one as webhook-only.
+[functions.lead-ingest]
+verify_jwt = false
+
 [functions.telnyx-call-status]
 verify_jwt = false
 
@@ -51,6 +72,14 @@ verify_jwt = false
 [functions.messaging-timeout-sweep]
 verify_jwt = false
 
+# a2p-status-poll has TWO callers and must stay verify_jwt = false for the
+# first of them: pg_cron (Bearer WALLET_CRON_SECRET, not a Supabase JWT) and,
+# since the status wizard shipped, the signed-in agent's browser hitting
+# "Refresh status" with their real session JWT. The function tells them apart
+# itself — cron secret match => full sweep, otherwise the JWT is verified with
+# auth.getUser() and the refresh is scoped to that agent's own agent_id. Turning
+# the platform gate back ON here would break the cron sweep; the browser path
+# is safe either way because it re-verifies the JWT internally regardless.
 [functions.a2p-status-poll]
 verify_jwt = false
 
@@ -59,10 +88,10 @@ verify_jwt = false
 # (no body, drains every queued/sending broadcast) and a self-invoked
 # fetch from messaging-broadcast-create for small lists. Both authenticate
 # with the same WALLET_CRON_SECRET bearer token the function checks
-# internally. messaging-broadcast-create, messaging-recipients-import, and
-# a2p-assign-number ARE called by the authenticated browser client (they
-# call sbAuth.auth.getUser()), so they correctly use the platform default
-# and are NOT listed here.
+# internally. messaging-broadcast-create, messaging-recipients-import,
+# messaging-consent-record, a2p-assign-number and a2p-verify-otp ARE called by
+# the authenticated browser client (they call sbAuth.auth.getUser()), so they
+# correctly use the platform default and are NOT listed here.
 [functions.messaging-broadcast-run]
 verify_jwt = false
 

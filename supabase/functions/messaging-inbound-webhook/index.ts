@@ -23,6 +23,13 @@ function last10Digits(num: string | undefined | null): string {
 // reply (also free — no wallet_hold for this reply, it's a compliance
 // obligation, not a billable send).
 //
+// INVARIANT, added 2026-07-28: an opt-out is ALWAYS recorded and always
+// confirmed, whether or not the destination number can be attributed to an
+// agent. It previously was not — see the block at the foot of this file.
+// dnc_list is the single enforcement point (runComplianceGate reads it for
+// every send; nothing reads inbound_messages.is_opt_out), so a STOP that
+// writes no dnc_list row is a STOP we did not hear.
+//
 // verify_jwt = false for this function (see supabase/config.toml) — Telnyx
 // cannot supply a Supabase-signed JWT; signature verified below instead.
 Deno.serve(async (req) => {
@@ -84,21 +91,62 @@ Deno.serve(async (req) => {
     if (existing) return new Response(JSON.stringify({ ok: true, deduped: true }), { status: 200 });
   }
 
-  // Find which agent owns the destination number.
+  const isOptOut = OPT_OUT_KEYWORDS.has(text.toUpperCase());
+
+  // ------------------------------------------------------------
+  // Resolve which agent this inbound belongs to.
+  //
+  // Four passes, cheapest and most exact first. This used to be two, and the
+  // gap was not academic: on 2026-07-28 the Telnyx fleet held 8 DIDs and
+  // public.phone_numbers held 6 of them. +12029703699 (the shared caller ID
+  // leads actually see) and +12625099123 (the dialer host) were in neither
+  // phone_numbers nor agents.signalwire_caller_id — so a STOP sent to either
+  // resolved to NULL, and everything below used to be gated on that.
+  // ------------------------------------------------------------
   const toNorm = last10Digits(toNumber);
+  let agentId: string | null = null;
+  let matchedBy = "none";
+
+  // 1. Exact ownership. e164 carries a UNIQUE index, so this cannot be
+  //    ambiguous and maybeSingle() cannot error on duplicates.
   const { data: numberRow } = await sb.from("phone_numbers")
     .select("agent_id")
     .eq("e164", toNumber)
     .maybeSingle();
-  let agentId: string | null = numberRow?.agent_id ?? null;
+  if (numberRow?.agent_id) { agentId = numberRow.agent_id; matchedBy = "phone_numbers.e164"; }
+
+  // 2. Same number, stored in a different shape (a legacy row written before
+  //    the E.164 rule, or a provider that punctuates differently).
+  if (!agentId) {
+    const { data: allNums } = await sb.from("phone_numbers").select("agent_id, e164");
+    const hit = (allNums || []).find((n) => last10Digits(n.e164) === toNorm);
+    if (hit?.agent_id) { agentId = hit.agent_id; matchedBy = "phone_numbers.last10"; }
+  }
+
+  // 3. THE CONVERSATION ITSELF. A STOP is a reply to something we sent, so
+  //    the outbound leg names the agent even when the number inventory does
+  //    not. Both sides are matched (we texted THIS contact FROM THIS number),
+  //    so this cannot attribute the opt-out to the wrong agent when two
+  //    agents have both messaged the same consumer.
+  if (!agentId) {
+    const { data: recent } = await sb.from("messages")
+      .select("id, agent_id, from_number")
+      .eq("to_address", fromNumber)
+      .in("channel", ["sms", "mms"])
+      .order("created_at", { ascending: false })
+      .limit(25);
+    const hit = (recent || []).find((m) => last10Digits(m.from_number) === toNorm);
+    if (hit?.agent_id) { agentId = hit.agent_id; matchedBy = "prior_outbound_message"; }
+  }
+
+  // 4. Legacy caller-ID assignment (pre-phone_numbers model).
   if (!agentId) {
     const { data: byCallerId } = await sb.from("agents")
       .select("id, signalwire_caller_id")
       .not("signalwire_caller_id", "is", null);
-    agentId = (byCallerId || []).find((a) => last10Digits(a.signalwire_caller_id) === toNorm)?.id ?? null;
+    const hit = (byCallerId || []).find((a) => last10Digits(a.signalwire_caller_id) === toNorm);
+    if (hit?.id) { agentId = hit.id; matchedBy = "agents.signalwire_caller_id"; }
   }
-
-  const isOptOut = OPT_OUT_KEYWORDS.has(text.toUpperCase());
 
   // Best-effort match to the most recent outbound message this agent sent
   // to this contact, so the reply logs against that conversation.
@@ -126,14 +174,56 @@ Deno.serve(async (req) => {
     provider_event_id:       providerEventId,
   });
 
-  if (isOptOut && agentId) {
-    await sb.from("dnc_list").insert({
-      agent_id:      agentId,
-      contact_phone: fromNumber,
-      reason:        `Opted out via "${text}"`,
-      source:        "opt_out_keyword",
-    }).select().maybeSingle(); // unique index may reject a duplicate opt-out — fine, already on the list
+  // ------------------------------------------------------------
+  // OPT-OUT IS PROCESSED WHETHER OR NOT WE KNOW WHOSE NUMBER IT IS.
+  //
+  // This block used to read `if (isOptOut && agentId)`, which meant an
+  // unattributable STOP wrote no dnc_list row and sent no confirmation. The
+  // only trace was inbound_messages.is_opt_out — and NOTHING reads that
+  // column; dnc_list is the single enforcement point, checked by
+  // runComplianceGate() for every 1:1 send and every broadcast recipient. So
+  // a consumer telling us to stop, on a number we own but have not recorded,
+  // was silently not heard.
+  //
+  // When the agent is unknown the row is written GLOBAL (agent_id null),
+  // which runComplianceGate already honours for every agent:
+  //     r.agent_id === null || r.agent_id === agentId
+  // That is deliberately broader than necessary — it stops every agent
+  // texting this one consumer. With four resolution passes above, the
+  // fallback only fires for a number we genuinely cannot attribute, and
+  // over-blocking one contact is the correct side to fail on when the
+  // alternative is ignoring a STOP.
+  // ------------------------------------------------------------
+  if (isOptOut) {
+    if (!agentId) {
+      console.error(
+        `[messaging-inbound-webhook] *** UNATTRIBUTED OPT-OUT *** ${fromNumber} sent "${text}" to ${toNumber}, ` +
+        `which matches no phone_numbers row, no prior outbound message and no agent caller ID. ` +
+        `Recording a GLOBAL do-not-contact entry so the opt-out is honoured anyway. ` +
+        `Fix the inventory: this destination number is in the Telnyx fleet but not in public.phone_numbers.`,
+      );
+    }
 
+    const { error: dncErr } = await sb.from("dnc_list").insert({
+      agent_id:      agentId, // null => global entry, applies to every agent
+      contact_phone: fromNumber,
+      reason: agentId
+        ? `Opted out via "${text}"`
+        : `Opted out via "${text}" — destination ${toNumber} could not be attributed to an agent, recorded globally`,
+      source:        "opt_out_keyword",
+    });
+    // A unique violation means they are already on the list, which is the
+    // desired end state — anything else is a real failure to honour a STOP
+    // and must be loud.
+    if (dncErr && !/duplicate key|23505/i.test(dncErr.message || "")) {
+      console.error(
+        `[messaging-inbound-webhook] *** FAILED TO RECORD OPT-OUT *** ${fromNumber} -> ${toNumber}: ${dncErr.message}`,
+      );
+    }
+
+    // The confirmation is a compliance obligation owed to the consumer, not
+    // to the agent, so it does not depend on knowing who the agent is. Free —
+    // no wallet hold, deliberately bypassing the send path and its gates.
     if (TELNYX_API_KEY && toNumber) {
       await fetch("https://api.telnyx.com/v2/messages", {
         method: "POST",
@@ -151,5 +241,11 @@ Deno.serve(async (req) => {
     }
   }
 
-  return new Response(JSON.stringify({ ok: true, opted_out: isOptOut }), { status: 200 });
+  return new Response(JSON.stringify({
+    ok: true,
+    opted_out: isOptOut,
+    agent_matched: !!agentId,
+    matched_by: matchedBy,
+    ...(isOptOut ? { dnc_scope: agentId ? "agent" : "global" } : {}),
+  }), { status: 200 });
 });

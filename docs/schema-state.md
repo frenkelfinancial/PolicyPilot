@@ -233,6 +233,121 @@ fired end-to-end with no manual step:
 
 ---
 
+## Read-only audit 2026-07-28 — texting UI (PROMPT_15 Phase 4/5 + composer)
+
+**No DDL was run. No apply entry below, because nothing was applied.** The
+A2P/messaging UI needed no schema: every column the three new surfaces read
+already exists in production. Recorded here anyway, because "we checked and
+changed nothing" is exactly the kind of thing this ledger exists to stop
+someone re-deriving.
+
+Method: `supabase db query --linked` against `information_schema.columns` and
+`pg_policies`.
+
+| Object | Checked | Result |
+|---|---|---|
+| `a2p_registrations` | all 27 columns enumerated | present, incl. `brand_type`, `otp_status`, `otp_requested_at`, `otp_verified_at`, `otp_sent_to`, `otp_attempts`, `telnyx_env`, `last_error`, `assignment_status`, `assignment_failure_reason`, `brand_submitted_at`, `campaign_submitted_at`, `business_info` |
+| `phone_numbers` | `sms_capable`, `a2p_campaign_id`, `a2p_assignment_status`, `a2p_assigned_at`, `e164`, `is_primary`, `status` | 7/7 present |
+| `messages` | `id, agent_id, channel, to_address, from_number, body_preview, segments, status, created_at, delivered_at, failed_reason` | 11/11 present |
+| `inbound_messages` | full table | present |
+| `consent_records` | full table | present |
+| `billing_config.sms_require_written_consent` | readable by the browser | `billing_config_select_all` is `SELECT … using (true)` |
+
+### The finding worth keeping
+
+`consent_records`, `messages`, `inbound_messages` and `a2p_registrations` each
+have **SELECT-only** policies (`*_select_own` + `*_select_admin`) and **no**
+INSERT/UPDATE policy for `authenticated`/`anon`. That is correct and should
+stay that way — but it means the browser **cannot write a consent record**, and
+until now the only thing in the entire codebase that ever wrote one was
+`messaging-recipients-import` (the broadcast CSV path). `lead-ingest` does not.
+
+So a fully A2P-approved agent with an assigned texting number would have had
+**every 1:1 text to a lead rejected with `no_consent`** — not because consent
+was missing in reality (it is captured on the vendor's lead form and certified
+by TrustedForm) but because it was never recorded where
+`_shared/messaging-shared.ts` could see it.
+
+Closed with a new service-role edge function, `messaging-consent-record`, not
+with an RLS change. See `docs/texting-ui.md` § "The consent gap this closed".
+
+---
+
+## Behavioural check 2026-07-28 — global do-not-contact rows
+
+Run to verify the `messaging-inbound-webhook` opt-out fix (see
+`docs/texting-ui.md` § "Fixed in this batch"). Executed inside a transaction
+that **rolled back** — no row persisted, confirmed afterwards with a count of
+0, so nothing required approval. No DDL.
+
+The fix records an unattributable STOP as a **global** `dnc_list` row
+(`agent_id null`). Objects existing proves nothing about whether that works, so
+it was exercised:
+
+| Check | Result |
+|---|---|
+| A global row (`agent_id null`, `source='opt_out_keyword'`) inserts at all — if not, the handler throws and the STOP is still dropped | PASS |
+| A duplicate global opt-out is rejected by `dnc_list_agent_phone_idx` (it coalesces null → nil uuid), so Telnyx's webhook retries are a no-op not a crash | PASS (23505, caught) |
+| A per-agent row and a global row coexist for the same phone — an unattributed STOP followed later by an attributable one must not collide | PASS (2 rows) |
+| **The gate itself**: `runComplianceGate`'s predicate (`agent_id is null or agent_id = <agent>`) evaluates true for an agent who never saw the opt-out, i.e. the global row really does block everyone | PASS |
+
+---
+
+## Known gaps — logged 2026-07-28, deliberately NOT built
+
+Both found while building the texting UI. Recorded here rather than fixed in
+that batch, at Jace's direction.
+
+### 1. No full message body is stored anywhere — audit-trail gap, not a UI one
+
+`public.messages.body_preview` and `public.inbound_messages.body_preview` both
+hold **200 characters with an ellipsis appended** (`bodyPreview()` in
+`_shared/messaging-shared.ts`; `text.slice(0, 200)` in
+`messaging-inbound-webhook`). There is **no column anywhere that holds the
+message a consumer actually received or sent.**
+
+This reads as a rendering limitation in the thread view. It is not. A two-
+segment SMS is up to 306 characters, so any message past 200 is permanently
+unrecoverable — including:
+
+- the exact wording of an outbound message a consumer later complains about;
+- an inbound message revoking consent in words other than a bare `STOP`
+  (`"take me off your list"` is a revocation, is longer than 200 chars in a
+  real sentence, and is not an opt-out keyword);
+- anything a regulator or carrier asks us to produce for a specific send.
+
+We keep `consent_id`, `segments`, `hold_ledger_id` and the delivery receipt —
+everything about a message except what it said.
+
+Fixing it is additive (`add column if not exists body text`) plus writes in
+`messaging-send-core.ts` and both inbound webhooks. Left unbuilt so it can be
+scoped with retention and PII questions attached, not bolted on.
+
+### 2. `messaging-consent-record` is an attestation, not evidence
+
+`messaging-consent-record` (added 2026-07-28) unblocks 1:1 sending by letting
+an agent state that a lead gave written consent, storing the provenance as
+`consent_records.source = 'agent_attested: <where>'`.
+
+**That is sufficient for the send gate and insufficient for a dispute.** What
+it records is an agent's assertion about consent, made after the fact, with no
+independent artefact behind it. The real evidence exists — TrustedForm
+certifies the consumer's IP, session activity, timestamp and the exact
+disclosure text shown, and the certificate is delivered with each lead — but
+`lead-ingest` does not capture it and nothing stores it.
+
+**PROMPT_17 should replace the attestation path with the certificate captured
+at ingestion:** persist the TrustedForm certificate URL/ID per lead at
+`lead-ingest` time, write the `consent_records` row from that rather than from
+a checkbox, and keep the attestation only as a manual fallback for leads that
+genuinely arrived outside a vendor form. The privacy policy and the campaign
+opt-in description already both claim we retain that certificate
+(`_shared/lead-vendors.ts`, `_shared/compliance-page.ts`) — so today those two
+carrier-facing documents describe a retention practice the schema does not
+implement. That is the sharpest reason to close it.
+
+---
+
 ## Mechanism — resolved, `psql` is not required
 
 The baseline listed two blockers (`psql` not installed, `SUPABASE_DB_URL`

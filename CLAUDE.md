@@ -19,6 +19,18 @@ Autonomy layer (added 07/2026):
 - **Policies now carry an optional `policyNumber`** (Add/Edit Policy modals, `p-policyNum`/`ep-policyNum`); match-events backfills it from unmasked email matches. This is the primary path to high match accuracy — name+carrier is the fallback.
 - **Summaries must lead with the client's name** (1–3 sentences, amounts/dates/next steps) — enforced in the `SYSTEM` prompt in `_shared/anthropic.ts`. Don't shorten it back to one nameless sentence.
 
+## Texting / A2P 10DLC UI
+- **Read `docs/texting-ui.md` before touching anything named `a2p*` or `sms*` in `app.html`.** Three surfaces: the registration modal (`#a2pRegModal`), the status wizard (Settings → Texting, `#stg-texting`), and the per-lead SMS thread (`#smsThreadModal`, opened by the **Text** button on a lead row).
+- **`const A2P_ALLOW_PRODUCTION = false`** in `app.html` is the money switch. Off = every registration attaches to the shared mock sandbox brand (free, and can never be carrier-approved; the sole-prop OTP step is skipped entirely). On = $4 + $15 of real, non-refundable carrier fees **per agent**. Flip it only as a deliberate spend decision.
+- **Never surface a raw API error in the composer.** Every reason `runComplianceGate()` returns already carries a plain-English `detail`; the UI's job is to add the link that clears it. The gate order in `smsEvaluateGate()` mirrors the server's on purpose — the composer must never look ready for a send the server would refuse.
+- **Quiet hours are deliberately NOT computed in the browser.** The timezone inference lives in `_shared/tcpa.ts`; let the server refuse (it costs nothing) and render its sentence.
+- **`consent_records` is service-role-write-only and nothing but `messaging-recipients-import` and the new `messaging-consent-record` writes it.** `lead-ingest` does not, so a lead has no consent row until an agent attests to one. Do not "fix" this by adding an INSERT policy.
+- **`a2p-status-poll` has two callers**: pg_cron with `WALLET_CRON_SECRET` (full sweep) and the browser with a user JWT (refresh scoped to that agent, resolved from the token, never the body). It must stay `verify_jwt = false`.
+- **An opt-out must NEVER be conditional on resolving the agent.** `dnc_list` is the single enforcement point — `runComplianceGate()` reads it for every send; nothing reads `inbound_messages.is_opt_out`. `messaging-inbound-webhook` resolves the agent in four passes (exact `e164` → last-10 `e164` → the prior outbound message on the same pair → legacy caller ID) and, if all four miss, writes a **global** `dnc_list` row and still sends the confirmation. Restoring an `&& agentId` guard there silently drops consumer STOPs — it did exactly that until 2026-07-28.
+- **The Telnyx fleet is larger than `phone_numbers`.** As of 2026-07-28: 8 DIDs live, 6 rows. `+12029703699` (shared caller ID) and `+12625099123` (dialer host) are in neither `phone_numbers` nor `agents.signalwire_caller_id`. Assume inbound can arrive on a number the DB does not know.
+
+## Carrier email parsing feature — key gotchas
+
 Key gotchas encoded in the map (read its `key_findings`):
 - Transamerica masks policy numbers (`xxxxx76911`) — match on last 5 digits.
 - `noreply@aatx.com` sends two different email types — split on subject regex, match addresses case-insensitively.

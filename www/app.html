@@ -675,6 +675,52 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .alert-i{background:var(--ds-color-info-bg);border:1px solid var(--ds-color-info-bg);color:var(--ds-color-info)}
 .alert-s{background:var(--ds-color-success-bg);border:1px solid var(--ds-color-success-bg);color:var(--ds-color-success)}
 .alert-w{background:var(--ds-color-warning-bg);border:1px solid var(--ds-color-warning-bg);color:var(--ds-color-warning)}
+/* ── A2P texting registration wizard + SMS thread (PROMPT_15 Phase 4/5) ── */
+.a2p-stages{display:flex;flex-direction:column;gap:0}
+.a2p-stage{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.a2p-stage:last-child{border-bottom:none}
+.a2p-stage-rail{display:flex;flex-direction:column;align-items:center;flex:0 0 22px;padding-top:2px}
+.a2p-stage-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.a2p-stage-dot svg{width:11px;height:11px}
+.a2p-stage-line{width:2px;flex:1;background:var(--border);margin-top:4px;min-height:8px}
+.a2p-stage:last-child .a2p-stage-line{display:none}
+.a2p-stage.is-done .a2p-stage-dot{border-color:var(--ds-color-success);background:var(--ds-color-success);color:#fff}
+.a2p-stage.is-active .a2p-stage-dot{border-color:var(--ds-color-info);background:var(--ds-color-info-bg);color:var(--ds-color-info)}
+.a2p-stage.is-failed .a2p-stage-dot{border-color:var(--ds-color-danger);background:var(--ds-color-danger);color:#fff}
+.a2p-stage-body{flex:1;min-width:0}
+.a2p-stage-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.a2p-stage-name{font-size:13px;font-weight:600;color:var(--text)}
+.a2p-stage.is-pending .a2p-stage-name{color:var(--text3);font-weight:500}
+.a2p-stage-note{font-size:11.5px;color:var(--text2);line-height:1.5;margin-top:3px}
+.a2p-stage-time{font-size:11px;color:var(--text3);margin-top:3px;display:flex;align-items:center;gap:5px}
+.a2p-chip{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:20px;border:1px solid transparent;white-space:nowrap}
+.a2p-chip-done{background:var(--ds-color-success-bg);color:var(--ds-color-success);border-color:var(--ds-color-success-bg)}
+.a2p-chip-active{background:var(--ds-color-info-bg);color:var(--ds-color-info);border-color:var(--ds-color-info-bg)}
+.a2p-chip-pending{background:var(--bg3);color:var(--text3);border-color:var(--border)}
+.a2p-chip-failed{background:var(--ds-color-danger-bg);color:var(--ds-color-danger);border-color:var(--ds-color-danger-bg)}
+.a2p-branch{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+.a2p-branch-btn{flex:1 1 210px;text-align:left;padding:14px 16px;border-radius:11px;border:1px solid var(--border);background:var(--bg3);color:var(--text);cursor:pointer;font-family:var(--sans);transition:border-color .14s,background .14s}
+.a2p-branch-btn:hover{border-color:var(--ds-color-info);background:var(--ds-color-info-bg)}
+.a2p-branch-btn.is-on{border-color:var(--ds-color-info);background:var(--ds-color-info-bg)}
+.a2p-branch-t{font-size:13.5px;font-weight:700;margin-bottom:4px}
+.a2p-branch-d{font-size:11.5px;color:var(--text2);line-height:1.5}
+.a2p-otp-input{font-family:var(--mono);font-size:26px;letter-spacing:.34em;text-align:center;width:100%;max-width:260px;padding:10px 12px}
+.a2p-urlrow{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.a2p-urlrow code{flex:1;min-width:200px;font-size:11.5px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:7px 9px;overflow-x:auto;white-space:nowrap}
+/* SMS thread */
+.sms-thread{display:flex;flex-direction:column;gap:10px;padding:4px 2px;overflow-y:auto;flex:1;min-height:180px}
+.sms-row{display:flex;flex-direction:column;max-width:78%}
+.sms-row.out{align-self:flex-end;align-items:flex-end}
+.sms-row.in{align-self:flex-start;align-items:flex-start}
+.sms-bubble{padding:9px 13px;border-radius:14px;font-size:13px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.sms-row.out .sms-bubble{background:var(--ds-color-info-bg);color:var(--text);border-bottom-right-radius:5px}
+.sms-row.in .sms-bubble{background:var(--bg3);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:5px}
+.sms-row.optout .sms-bubble{background:var(--ds-color-danger-bg);color:var(--ds-color-danger);border-color:var(--ds-color-danger-bg)}
+.sms-meta{font-size:10.5px;color:var(--text3);margin-top:3px;display:flex;align-items:center;gap:5px}
+.sms-daysep{align-self:center;font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;padding:2px 0}
+.sms-composer{border-top:1px solid var(--border);padding-top:12px;margin-top:12px}
+.sms-composer textarea{width:100%;min-height:74px;resize:vertical;font-family:var(--sans);font-size:13px;line-height:1.5}
+.sms-from{font-size:11px;color:var(--text3);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 /* support-widget */
 .sf-sub-copy{font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:16px}
 .sf-type-row{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
@@ -803,6 +849,8 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .lead-act-btn.quote-btn:hover{background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.7);filter:brightness(1.1)}
 .lead-act-btn.tps-btn{background:rgba(14,165,233,.12);border-color:rgba(14,165,233,.4);color:#38bdf8;font-weight:600;width:100%;display:block;text-align:center;text-decoration:none}
 .lead-act-btn.tps-btn:hover{background:rgba(14,165,233,.2);border-color:rgba(14,165,233,.7);filter:brightness(1.1)}
+.lead-act-btn.lead-text-btn{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:#34d399;font-weight:600;width:100%}
+.lead-act-btn.lead-text-btn:hover{background:rgba(16,185,129,.2);border-color:rgba(16,185,129,.7);filter:brightness(1.1)}
 .lead-info-line{margin-bottom:6px;line-height:1.4}
 .lead-info-line .lbl{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;font-weight:600;display:block;margin-bottom:1px}
 .lead-info-line .val{font-size:12px;color:var(--text2)}
@@ -3238,6 +3286,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger-leads .lead-act-btn:hover{border-color:var(--lg-border-strong);color:var(--lg-text1);background:var(--lg-card)}
 .ledger-leads .lead-act-btn.sold-btn{background:var(--lg-card);border-color:var(--lg-green-border);color:var(--lg-green)}
 .ledger-leads .lead-act-btn.quote-btn{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger-leads .lead-act-btn.lead-text-btn{background:var(--lg-card);border-color:var(--lg-green-border);color:var(--lg-green)}
 .ledger-leads .lead-act-btn.tps-btn{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue)}
 .ledger-leads .lead-act-btn.sold-btn:hover{background:var(--lg-green-soft);color:var(--lg-green)}
 .ledger-leads .lead-act-btn.quote-btn:hover,.ledger-leads .lead-act-btn.tps-btn:hover{background:var(--lg-blue-soft);color:var(--lg-blue)}
@@ -5019,6 +5068,7 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <button class="tab active" data-stg-tab="account" onclick="settingsTab('account',this)"><span data-ico="user" data-size="14" style="margin-right:6px"></span>Account</button>
         <button class="tab" data-stg-tab="carriers" onclick="settingsTab('carriers',this)"><span data-ico="buildings" data-size="14" style="margin-right:6px"></span>Carriers</button>
         <button class="tab" data-stg-tab="integrations" onclick="settingsTab('integrations',this)"><span data-ico="key" data-size="14" style="margin-right:6px"></span>Integrations</button>
+        <button class="tab" data-stg-tab="texting" onclick="settingsTab('texting',this)"><span data-ico="chat-dots" data-size="14" style="margin-right:6px"></span>Texting</button>
       </div>
 
       <!-- ── ACCOUNT TAB ── -->
@@ -5411,6 +5461,45 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <!-- Populated by loadVendorWebhooks() -->
           <div id="stg-vendor-list"></div>
         </div>
+      </div>
+
+      <!-- ── TEXTING TAB (PROMPT_15 Phase 4 + 5) ──
+           Everything about the agent's right to send a text lives here:
+           starting registration, entering the sole-proprietor PIN, watching
+           carrier review, and seeing which number ended up being the texting
+           number. Nothing in here ever blocks the rest of the app — an agent
+           whose registration is pending keeps quoting, dialling and tracking
+           exactly as before. -->
+      <div id="stg-texting" style="display:none">
+
+        <div class="card">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><span data-ico="chat-dots" data-size="13"></span>Text Messaging Registration</div>
+            <button class="btn btn-s btn-sm" id="a2p-refresh-btn" onclick="a2pRefreshStatus()" style="display:none;align-items:center;gap:6px">
+              <span data-ico="arrows-clockwise" data-size="13"></span>Refresh status
+            </button>
+          </div>
+          <div id="a2p-panel">
+            <div style="font-size:12px;color:var(--text3)">Loading…</div>
+          </div>
+        </div>
+
+        <!-- Texting number — which of your numbers may actually send. -->
+        <div class="card" id="a2p-number-card" style="margin-top:18px;display:none">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="phone" data-size="13"></span>Your Texting Number</div>
+          <div id="a2p-number-body"><div style="font-size:12px;color:var(--text3)">Loading…</div></div>
+        </div>
+
+        <!-- Compliance pages, mirrored here because this is the screen where a
+             carrier reviewer's questions actually come up. -->
+        <div class="card" id="a2p-compliance-card" style="margin-top:18px">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="shield-check" data-size="13"></span>Your Compliance Pages</div>
+          <div style="font-size:11.5px;color:var(--text2);line-height:1.45;margin-bottom:12px">
+            Carriers check these before approving you, and consumers see them if they ask who has their number. We keep them current from your Business Profile — you never have to write one.
+          </div>
+          <div id="a2p-compliance-body"><div style="font-size:12px;color:var(--text3)">Loading…</div></div>
+        </div>
+
       </div>
 
     </div><!-- /sec-settings -->
@@ -6308,6 +6397,161 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
     </div>
 
     <div class="mftr"><button class="btn btn-s btn-sm" onclick="closeIntegrationsModal()">Close</button></div>
+  </div>
+</div>
+
+<!-- ══ A2P REGISTRATION MODAL (PROMPT_15 Phase 4) ══
+     One screen of explanation BEFORE anything is submitted, then the EIN
+     branch, then only the fields we could not already read from the business
+     profile. Registration is real money ($4 + $15) and a real submission to a
+     carrier, so it never fires silently off the back of some other action. -->
+<div class="overlay" id="a2pRegModal">
+  <div class="modal" style="max-width:620px;width:100%;max-height:92vh;overflow-y:auto">
+    <div class="mhdr">
+      <div class="mtitle">Register for text messaging</div>
+      <button class="mclose" onclick="a2pCloseRegModal()" data-ico="x" data-size="14"></button>
+    </div>
+
+    <!-- STEP 1 — explainer + the EIN branch -->
+    <div id="a2p-reg-step1">
+      <div style="font-size:13px;color:var(--text2);line-height:1.65">
+        <p style="margin:0 0 10px">
+          Since 2021 the phone carriers require every business that texts consumers to be registered — it is called <strong>10DLC</strong>, and it is the reason texts from unregistered numbers quietly stop being delivered rather than bouncing.
+        </p>
+        <p style="margin:0 0 10px">
+          We handle the submission for you. You answer one question below, we fill in the rest from your business profile, and we send it to the carriers with the privacy policy and terms pages we already publish for your agency.
+        </p>
+        <p style="margin:0 0 10px">
+          <strong>How long it takes:</strong> the business check is usually 24–48 hours, then carrier approval on the message campaign takes about 3–7 business days. You keep quoting, dialling and tracking policies the whole time — this only gates texting.
+        </p>
+        <p style="margin:0 0 4px">
+          <strong>What it costs:</strong> $4 when the carriers accept your business, and $15 when your campaign is submitted. Both are the carriers' fees, passed straight through, and they come out of your wallet balance.
+        </p>
+      </div>
+
+      <div style="margin-top:18px;font-size:13.5px;font-weight:700;color:var(--text)">Do you have an EIN for your business?</div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.55;margin:5px 0 10px">
+        An EIN is the federal tax ID you would have gotten when you formed an LLC or corporation. <strong>Neither answer is wrong.</strong> Most producers are 1099 individuals with no EIN, and there is a registration path built exactly for that.
+      </div>
+      <div class="a2p-branch">
+        <button type="button" class="a2p-branch-btn" id="a2p-branch-standard" onclick="a2pPickBrandType('standard')">
+          <div class="a2p-branch-t">Yes — I have an EIN</div>
+          <div class="a2p-branch-d">Registers your business entity. Higher daily message limits, and you can text from more than one number.</div>
+        </button>
+        <button type="button" class="a2p-branch-btn" id="a2p-branch-sole" onclick="a2pPickBrandType('sole_proprietor')">
+          <div class="a2p-branch-t">No — it's just me</div>
+          <div class="a2p-branch-d">Sole Proprietor registration. We verify you with a PIN texted to your mobile instead of an EIN. One texting number, about 1,000 texts a day.</div>
+        </button>
+      </div>
+
+      <div id="a2p-reg-profile-warn" style="display:none;margin-top:16px"></div>
+    </div>
+
+    <!-- STEP 2 — the few fields we cannot already answer -->
+    <div id="a2p-reg-step2" style="display:none">
+      <div class="alert alert-i" id="a2p-reg-step2-intro"><span data-ico="info"></span><div></div></div>
+
+      <!-- read-back of what we already know, so nothing is submitted unseen -->
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px">Submitting these details from your business profile</div>
+        <div id="a2p-reg-readback" style="font-size:12.5px;color:var(--text2);line-height:1.7"></div>
+        <a href="#" onclick="a2pCloseRegModal();settingsTab('account',document.querySelector('#sec-settings > .tabs .tab'));return false" style="font-size:11.5px;color:var(--accent);display:inline-block;margin-top:8px">Edit business profile</a>
+      </div>
+
+      <!-- standard-only fields -->
+      <div id="a2p-reg-fields-standard" style="display:none">
+        <div class="frow">
+          <div class="fg">
+            <label>Legal Business Name <span style="color:var(--text3);font-weight:400;font-size:11.5px">(exactly as on your EIN letter)</span></label>
+            <input type="text" id="a2p-f-legalname" placeholder="e.g. Frenkel Financial LLC" autocomplete="organization">
+          </div>
+          <div class="fg">
+            <label>EIN <span style="color:var(--text3);font-weight:400;font-size:11.5px">(9 digits)</span></label>
+            <input type="text" id="a2p-f-ein" placeholder="12-3456789" autocomplete="off" maxlength="10">
+          </div>
+        </div>
+        <div class="fg" style="margin-top:8px">
+          <label>Business Structure</label>
+          <select id="a2p-f-entitytype">
+            <option value="PRIVATE_PROFIT">Private company (LLC, S-corp, corporation, partnership)</option>
+            <option value="PUBLIC_PROFIT">Publicly traded company</option>
+            <option value="NON_PROFIT">Non-profit</option>
+            <option value="GOVERNMENT">Government</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- sole-prop-only fields -->
+      <div id="a2p-reg-fields-sole" style="display:none">
+        <div class="frow">
+          <div class="fg">
+            <label>Legal First Name <span style="color:var(--text3);font-weight:400;font-size:11.5px">(as on your ID)</span></label>
+            <input type="text" id="a2p-f-first" placeholder="Jane" autocomplete="given-name">
+          </div>
+          <div class="fg">
+            <label>Legal Last Name</label>
+            <input type="text" id="a2p-f-last" placeholder="Doe" autocomplete="family-name">
+          </div>
+        </div>
+        <div class="fg" style="margin-top:8px">
+          <label>Your Mobile Number <span style="color:var(--text3);font-weight:400;font-size:11.5px">(a real mobile you answer — the PIN is texted here)</span></label>
+          <input type="tel" id="a2p-f-mobile" placeholder="(414) 555-1234" autocomplete="tel">
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">This is your identity check in place of an EIN. It has to be a mobile that can receive a text, and it stays on file — the carriers allow one mobile to back at most three sole-proprietor registrations.</div>
+        </div>
+      </div>
+
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text2);line-height:1.55;margin-top:14px;text-transform:none;letter-spacing:0">
+        <input type="checkbox" id="a2p-f-confirm" style="width:auto;margin:2px 0 0">
+        <span>I confirm these details are accurate and I authorise the $4 registration fee now, and the $15 campaign fee when the campaign is submitted.</span>
+      </label>
+
+      <div id="a2p-reg-err" style="display:none;margin-top:12px"></div>
+
+      <div class="mftr" style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+        <button class="btn btn-s btn-sm" onclick="a2pRegBack()">← Back</button>
+        <button class="btn btn-p btn-sm" id="a2p-reg-submit" onclick="a2pSubmitRegistration()">Submit registration</button>
+      </div>
+    </div>
+
+    <!-- STEP 3 — outcome -->
+    <div id="a2p-reg-step3" style="display:none">
+      <div id="a2p-reg-result"></div>
+      <div class="mftr" style="display:flex;justify-content:flex-end">
+        <button class="btn btn-p btn-sm" onclick="a2pCloseRegModal()">Done</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SMS THREAD MODAL (per lead) ══
+     A conversation, not a send box: messaging-inbound-webhook already logs
+     replies, so anything the lead sends back has to land somewhere the agent
+     will actually see it. -->
+<div class="overlay" id="smsThreadModal">
+  <div class="modal" style="max-width:560px;width:100%;max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+    <div class="mhdr" style="margin-bottom:12px">
+      <div>
+        <div class="mtitle" id="sms-thread-name">Messages</div>
+        <div style="font-size:11.5px;color:var(--text3);margin-top:2px" id="sms-thread-phone"></div>
+      </div>
+      <button class="mclose" onclick="smsCloseThread()" data-ico="x" data-size="14"></button>
+    </div>
+    <div id="sms-thread-gate"></div>
+    <div class="sms-thread" id="sms-thread-body">
+      <div style="font-size:12px;color:var(--text3);text-align:center;padding:20px 0">Loading…</div>
+    </div>
+    <div class="sms-composer" id="sms-composer" style="display:none">
+      <textarea id="sms-composer-text" placeholder="Write a message…" maxlength="1200" oninput="smsUpdateComposerMeta()"></textarea>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+        <div class="sms-from" id="sms-composer-from"></div>
+        <div style="flex:1"></div>
+        <div style="font-size:11px;color:var(--text3)" id="sms-composer-count">0 characters · 1 segment</div>
+        <button class="btn btn-p btn-sm" id="sms-send-btn" onclick="smsSendMessage()" style="display:inline-flex;align-items:center;gap:6px">
+          <span data-ico="paper-plane-right" data-size="13"></span>Send
+        </button>
+      </div>
+      <div id="sms-composer-err" style="display:none;margin-top:10px"></div>
+    </div>
   </div>
 </div>
 
@@ -14322,6 +14566,7 @@ function renderLeads() {
           <div class="cmpct-actions">
             <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
+            <button class="lead-act-btn lead-text-btn" data-lid="${lid}" title="Text this lead">Text</button>
           </div>
           ${_sfHTML ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : ''}
         </div>
@@ -14366,6 +14611,7 @@ function renderLeads() {
             </div>
             <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote — prefills from this lead">Quote</button>
+            <button class="lead-act-btn lead-text-btn" data-lid="${lid}" title="Text this lead — opens the conversation">Text</button>
           </div>
           <div class="lead-col lead-col-fields">
             <div class="lead-received-icons">
@@ -14426,6 +14672,12 @@ function renderLeads() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       openQuoteForLead(e.currentTarget.dataset.lid);
+    });
+  });
+  container.querySelectorAll('.lead-text-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      smsOpenThread(e.currentTarget.dataset.lid);
     });
   });
   container.querySelectorAll('.lead-edit-info-btn').forEach(btn => {
@@ -19748,8 +20000,23 @@ function settingsTab(id, el) {
   document.getElementById('stg-account').style.display      = id === 'account'      ? '' : 'none';
   document.getElementById('stg-carriers').style.display     = id === 'carriers'     ? '' : 'none';
   document.getElementById('stg-integrations').style.display = id === 'integrations' ? '' : 'none';
+  const stgTx = document.getElementById('stg-texting');
+  if (stgTx) stgTx.style.display = id === 'texting' ? '' : 'none';
+  // The OTP countdown ticks once a second; leaving the tab must stop it.
+  if (id !== 'texting' && typeof _a2pOtpTimer !== 'undefined' && _a2pOtpTimer) {
+    clearInterval(_a2pOtpTimer); _a2pOtpTimer = null;
+  }
   if (id === 'carriers') renderCarrierGrid();
   if (id === 'integrations') renderIntegrationsPanels();
+  if (id === 'texting') a2pRenderTextingTab();
+}
+
+// Deep-link into Settings > Texting from anywhere (the SMS composer's gate
+// banners all point here, so it has to be one call).
+function openTextingSettings() {
+  nav('settings');
+  const btn = document.querySelector('#sec-settings > .tabs [data-stg-tab="texting"]');
+  if (btn) settingsTab('texting', btn);
 }
 
 function renderIntegrationsPanels() {
@@ -22022,6 +22289,8 @@ function initSettingsSection() {
   document.getElementById('stg-account').style.display = '';
   document.getElementById('stg-carriers').style.display = 'none';
   const stgInt = document.getElementById('stg-integrations'); if (stgInt) stgInt.style.display = 'none';
+  const stgTxt = document.getElementById('stg-texting'); if (stgTxt) stgTxt.style.display = 'none';
+  if (_a2pOtpTimer) { clearInterval(_a2pOtpTimer); _a2pOtpTimer = null; }
   const tabs = document.querySelectorAll('#sec-settings > .tabs .tab');
   tabs.forEach((t, i) => t.classList.toggle('active', i === 0));
   mountIcons(document.getElementById('sec-settings'));
@@ -22386,6 +22655,1356 @@ async function saveAccountPassword() {
   document.getElementById('stg-new-pw').value  = '';
   document.getElementById('stg-new-pw2').value = '';
   setTimeout(() => { msg.textContent = ''; }, 4000);
+}
+
+// ============================================================
+// A2P 10DLC TEXT MESSAGING — registration + status wizard
+// (PROMPT_15 Phase 4 & 5)
+//
+// The backend for this has been complete and hardened for a while; none of
+// it had a way in. This is that way in: an explainer, the EIN branch, the
+// sole-proprietor PIN, and a Trust-Center-style view of where the
+// registration actually stands.
+//
+// Two rules this screen is built around:
+//
+//   1. NOTHING BILLABLE HAPPENS WITHOUT A DELIBERATE CLICK. Registration
+//      costs $4 + $15 of real carrier money and cannot be undone once a
+//      reviewer has seen it, so it is never a side effect of finishing some
+//      other flow.
+//   2. THIS SCREEN NEVER BLOCKS THE APP. Quoting, the tracker, the dialer
+//      and everything else keep working while a registration pends. The
+//      only thing gated on approval is sending a text.
+//
+// State is read straight from a2p_registrations + phone_numbers (both
+// select-own under RLS). It is never written from here — every write goes
+// through an edge function, because the columns that matter are
+// service-role-only by design.
+// ============================================================
+
+// ------------------------------------------------------------
+// THE PRODUCTION SWITCH — read this before flipping it.
+//
+// false: a2p-register attaches to the shared MOCK sandbox brand. Free, no
+//        Telnyx brand or campaign is created for the agent, nothing is
+//        debited. Safe for walking the whole UI end to end.
+//        Caveats, both documented in docs/telnyx-10dlc-brands.md: a mock
+//        brand can never be APPROVED (its placeholder EIN fails TCR
+//        vetting), and the sole-prop OTP step is skipped entirely in
+//        sandbox — so neither approval nor the PIN screen can be exercised
+//        here.
+// true:  every registration is REAL. $4 at brand acceptance and $15 when
+//        the campaign submits, per agent, non-refundable, with no undo.
+//
+// This is deliberately a constant rather than a setting: flipping it is a
+// spend decision, and it should show up in a diff.
+// ------------------------------------------------------------
+const A2P_ALLOW_PRODUCTION = false;
+
+// Honest timings. Every one of these came from the carrier/Telnyx docs, not
+// from optimism — an agent who is told "a few minutes" and waits three days
+// files a support ticket that costs more than the truth would have.
+const A2P_TIMING = {
+  brand:    'Carriers usually finish verifying a business in 24–48 hours.',
+  campaign: 'Carrier approval on the message campaign usually takes 3–7 business days.',
+  number:   'Once your number is attached, the carriers take a further 24–72 hours to propagate it across their networks. A test text that fails an hour after assignment is expected, not broken.',
+};
+
+const A2P_STATUS_LABEL = {
+  not_started: 'Not started',
+  awaiting_otp: 'Waiting for your PIN',
+  pending: 'In carrier review',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  suspended: 'Suspended',
+  expired: 'Expired',
+};
+
+let _a2pState = { reg: null, numbers: [], agency: null, loaded: false };
+let _a2pOtpTimer = null;
+let _a2pRegBrandType = null;
+let _a2pRegOutcome = null;   // what the last submit ended as; drives where Done lands
+
+// Pull the JSON body out of a failed sb.functions.invoke(). Every A2P
+// function answers with { error, detail } where detail is already written
+// for an agent to read, so this is what keeps raw API text off the screen.
+async function _a2pErrBody(error) {
+  try {
+    if (error && error.context && typeof error.context.clone === 'function') {
+      return await error.context.clone().json();
+    }
+  } catch (_) { /* not JSON */ }
+  return { error: (error && error.message) || 'network_error' };
+}
+
+function _a2pErrText(bodyOrErr) {
+  if (!bodyOrErr) return 'Something went wrong. Try again in a moment.';
+  return bodyOrErr.detail || bodyOrErr.error || 'Something went wrong. Try again in a moment.';
+}
+
+function _a2pAlert(kind, html) {
+  const cls = kind === 'ok' ? 'alert-s' : kind === 'warn' ? 'alert-w' : kind === 'bad' ? 'alert-w' : 'alert-i';
+  const ico = kind === 'ok' ? 'check-circle' : kind === 'bad' ? 'x-circle' : kind === 'warn' ? 'warning' : 'info';
+  const extra = kind === 'bad' ? 'background:var(--ds-color-danger-bg);border-color:var(--ds-color-danger-bg);color:var(--ds-color-danger)' : '';
+  return `<div class="alert ${cls}" style="margin:0 0 14px;${extra}"><span data-ico="${ico}"></span><div>${html}</div></div>`;
+}
+
+// ------------------------------------------------------------
+// Load. Registration row + the agent's active numbers + the business
+// profile fields the wizard reports on.
+// ------------------------------------------------------------
+async function a2pLoad() {
+  if (!currentAgent || !currentAgent.id) return;
+  const [regRes, numRes, agRes] = await Promise.all([
+    sb.from('a2p_registrations').select('*').eq('agent_id', currentAgent.id).maybeSingle(),
+    sb.from('phone_numbers')
+      .select('id, e164, is_primary, status, sms_capable, a2p_campaign_id, a2p_assignment_status, a2p_assigned_at')
+      .eq('agent_id', currentAgent.id).eq('status', 'active').order('created_at', { ascending: true }),
+    sb.from('agents')
+      // signalwire_caller_id is here for one reason: resolveTextingNumber()
+      // prefers it when it happens to be sms_capable, so the composer has to
+      // apply the same preference or it will name the wrong sender.
+      .select('dba_name, business_legal_name, business_entity_type, business_street, business_city, business_state, business_postal_code, business_phone, business_email, lead_vendors, compliance_slug, compliance_page_published_at, display_name, phone, agent_phone, signalwire_caller_id')
+      .eq('id', currentAgent.id).maybeSingle(),
+  ]);
+  _a2pState.reg     = regRes.data || null;
+  _a2pState.numbers = numRes.data || [];
+  _a2pState.agency  = agRes.data || {};
+  _a2pState.loaded  = true;
+}
+
+async function a2pRenderTextingTab() {
+  const panel = document.getElementById('a2p-panel');
+  if (!panel) return;
+  if (!_a2pState.loaded) panel.innerHTML = '<div style="font-size:12px;color:var(--text3)">Loading…</div>';
+  await a2pLoad();
+  a2pRenderPanel();
+  a2pRenderNumberCard();
+  a2pRenderCompliancePanel();
+}
+
+// ------------------------------------------------------------
+// The stage model. Every chip on screen is derived from the row, never from
+// a local guess — "did the brand get created?" is answered by brand_id being
+// set, the same way the step machine answers it server-side.
+// ------------------------------------------------------------
+function a2pStages() {
+  const reg    = _a2pState.reg;
+  const ag     = _a2pState.agency || {};
+  const isSole = reg && reg.brand_type === 'sole_proprietor';
+  const status = (reg && reg.status) || 'not_started';
+  const started = !!(reg && (reg.brand_id || status !== 'not_started'));
+  const missing = _stgMissingComplianceFields(ag);
+  const lastErr = (reg && reg.last_error) || '';
+
+  const anySms     = _a2pState.numbers.some(n => n.sms_capable);
+  const pendingAsg = _a2pState.numbers.some(n => n.a2p_assignment_status === 'PENDING_ASSIGNMENT');
+  const failedAsg  = _a2pState.numbers.some(n => n.a2p_assignment_status === 'FAILED_ASSIGNMENT');
+
+  const otpExpired = !!(reg && reg.otp_status === 'sent' && reg.otp_requested_at &&
+    (Date.parse(reg.otp_requested_at) + 24 * 3600e3) <= Date.now());
+
+  const stages = [];
+
+  stages.push({
+    key: 'brand_type',
+    name: 'Brand type',
+    state: started ? 'done' : 'active',
+    note: started
+      ? (isSole
+          ? 'Sole Proprietor — verified by a PIN to your mobile instead of an EIN.'
+          : 'Standard business brand, registered against your EIN.')
+      : 'Tell us whether your business has an EIN. Either answer works.',
+  });
+
+  stages.push({
+    key: 'business_info',
+    name: 'Business info',
+    state: missing.length ? 'active' : 'done',
+    note: missing.length
+      ? `Still needed: ${missing.map(m => `<a href="#" onclick="_stgFocusField('${m.el}');return false" style="color:var(--accent)">${escHTML(m.label)}</a>`).join(', ')}. Carriers reject a registration whose business details do not check out, so we do not submit without these.`
+      : 'Name, physical address, phone and email are on file.',
+  });
+
+  stages.push({
+    key: 'compliance',
+    name: 'Compliance page',
+    state: ag.compliance_page_published_at ? 'done' : 'pending',
+    note: ag.compliance_page_published_at
+      ? 'Your privacy policy and terms are published and publicly reachable — this is what a carrier reviewer opens.'
+      : 'Published automatically as soon as your business profile above is complete. You never have to write one.',
+  });
+
+  // last_error is written by the step machine as "<step>: <detail>" and is
+  // cleared the moment that step finally succeeds, so a stale one never
+  // lingers. Match the exact step, and escape it — the detail is Telnyx's
+  // text, not ours.
+  const stepErr = (step) => lastErr.startsWith(step + ':') ? escHTML(lastErr.slice(step.length + 1).trim()) : '';
+  const brandFailed = !!(!reg?.brand_id && stepErr('brand'));
+  stages.push({
+    key: 'brand',
+    name: 'Brand submitted',
+    state: reg && reg.brand_id ? 'done' : brandFailed ? 'failed' : started ? 'active' : 'pending',
+    note: reg && reg.brand_id
+      ? `Submitted${reg.brand_submitted_at ? ' ' + _a2pWhen(reg.brand_submitted_at) : ''}.`
+      : brandFailed ? stepErr('brand') : 'Your business goes to the carriers for verification.',
+    timing: (reg && reg.brand_id && status !== 'approved') ? A2P_TIMING.brand : null,
+    retry: brandFailed ? 'registration' : null,
+  });
+
+  if (isSole) {
+    stages.push({
+      key: 'otp',
+      name: 'Mobile PIN verified',
+      state: reg.otp_status === 'verified' ? 'done'
+           : otpExpired ? 'failed'
+           : reg.otp_status === 'sent' ? 'active'
+           : reg.brand_id ? 'active' : 'pending',
+      note: reg.otp_status === 'verified'
+        ? `Verified${reg.otp_verified_at ? ' ' + _a2pWhen(reg.otp_verified_at) : ''}.`
+        : otpExpired
+          ? 'That PIN expired — they are only good for 24 hours. Send yourself a new one below.'
+          : 'The only step that genuinely needs you: enter the 6-digit PIN we text to your mobile.',
+    });
+  }
+
+  const campFailed = !!(reg && reg.brand_id && !reg.campaign_id && stepErr('campaign'));
+  stages.push({
+    key: 'campaign',
+    name: 'Campaign submitted',
+    state: reg && reg.campaign_id ? 'done'
+         : campFailed ? 'failed'
+         : (reg && reg.brand_id && (!isSole || reg.otp_status === 'verified')) ? 'active' : 'pending',
+    note: reg && reg.campaign_id
+      ? `Submitted${reg.campaign_submitted_at ? ' ' + _a2pWhen(reg.campaign_submitted_at) : ''}. This is the part the carriers read line by line.`
+      : campFailed ? stepErr('campaign')
+      : 'Describes what you send and how people consented. We write it for you from your lead vendors.',
+    retry: campFailed ? 'registration' : null,
+  });
+
+  const badStatus = ['rejected', 'suspended', 'expired'].includes(status);
+  stages.push({
+    key: 'approved',
+    name: 'Carrier approved',
+    state: status === 'approved' ? 'done'
+         : badStatus ? 'failed'
+         : (reg && reg.campaign_id) ? 'active' : 'pending',
+    note: status === 'approved'
+      ? 'Approved. You may send texts from your assigned number.'
+      : badStatus
+        ? escHTML(reg.rejection_reason || `The carriers marked this registration ${status} and did not give a reason.`)
+        : 'The carriers review your campaign. Nothing for you to do here.',
+    timing: (reg && reg.campaign_id && status === 'pending') ? A2P_TIMING.campaign : null,
+    retry: badStatus ? 'registration' : null,
+  });
+
+  stages.push({
+    key: 'number',
+    name: 'Number assigned',
+    state: anySms ? 'done'
+         : failedAsg ? 'failed'
+         : (pendingAsg || status === 'approved') ? 'active' : 'pending',
+    note: anySms
+      ? `Texting from ${_a2pState.numbers.filter(n => n.sms_capable).map(n => escHTML(formatPhone(n.e164) || n.e164)).join(', ')}.`
+      : failedAsg
+        ? escHTML((reg && reg.assignment_failure_reason) || 'The carriers refused to attach this number to your campaign.')
+        : pendingAsg
+          ? 'Submitted to the carriers. We confirm it automatically — no action needed.'
+          : status === 'approved'
+            ? 'Pick which of your numbers becomes the texting number, below.'
+            : 'Happens automatically once you are approved.',
+    timing: (anySms || pendingAsg) ? A2P_TIMING.number : null,
+    retry: failedAsg ? 'assign' : null,
+  });
+
+  return stages;
+}
+
+function _a2pWhen(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' +
+    d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+const _A2P_CHIP = {
+  done:    ['a2p-chip-done',    'Complete'],
+  active:  ['a2p-chip-active',  'In progress'],
+  pending: ['a2p-chip-pending', 'Pending'],
+  failed:  ['a2p-chip-failed',  'Failed'],
+};
+
+function a2pStagesHTML() {
+  return `<div class="a2p-stages">` + a2pStages().map(s => {
+    const [chipCls, chipLbl] = _A2P_CHIP[s.state] || _A2P_CHIP.pending;
+    const mark = s.state === 'done' ? icon('check', { size: 11, stroke: 3 })
+               : s.state === 'failed' ? icon('x', { size: 11, stroke: 3 })
+               : '';
+    return `
+      <div class="a2p-stage is-${s.state}">
+        <div class="a2p-stage-rail">
+          <div class="a2p-stage-dot">${mark}</div>
+          <div class="a2p-stage-line"></div>
+        </div>
+        <div class="a2p-stage-body">
+          <div class="a2p-stage-head">
+            <span class="a2p-stage-name">${escHTML(s.name)}</span>
+            <span class="a2p-chip ${chipCls}">${chipLbl}</span>
+          </div>
+          ${s.note ? `<div class="a2p-stage-note">${s.note}</div>` : ''}
+          ${s.timing ? `<div class="a2p-stage-time">${icon('clock', { size: 11 })}${escHTML(s.timing)}</div>` : ''}
+          ${s.retry ? `<button class="btn btn-s btn-sm" style="margin-top:8px" onclick="a2pRetry('${s.retry}')">Retry</button>` : ''}
+        </div>
+      </div>`;
+  }).join('') + `</div>`;
+}
+
+function a2pRenderPanel() {
+  const panel = document.getElementById('a2p-panel');
+  if (!panel) return;
+  const reg    = _a2pState.reg;
+  const status = (reg && reg.status) || 'not_started';
+  const started = !!(reg && (reg.brand_id || status !== 'not_started'));
+
+  const refreshBtn = document.getElementById('a2p-refresh-btn');
+  if (refreshBtn) refreshBtn.style.display = started ? 'inline-flex' : 'none';
+
+  let head = '';
+
+  if (!started) {
+    head =
+      `<div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+         The phone carriers require every business that texts consumers to be registered before their messages are delivered. We handle the submission — you answer one question and we fill in the rest from your business profile.
+       </div>
+       <button class="btn btn-p" onclick="a2pOpenRegModal()" style="display:inline-flex;align-items:center;gap:7px">
+         <span data-ico="chat-dots" data-size="14"></span>Start registration
+       </button>
+       <div style="font-size:11.5px;color:var(--text3);margin-top:10px;line-height:1.55">
+         Takes about a minute. Nothing is submitted or charged until you confirm on the last screen.
+       </div>
+       <div style="height:18px"></div>`;
+  } else if (status === 'awaiting_otp') {
+    head = a2pOtpBlockHTML();
+  } else if (status === 'approved') {
+    head = _a2pAlert('ok',
+      `<div style="font-weight:600;margin-bottom:3px">You are approved to send text messages.</div>
+       <div>${_a2pState.numbers.some(n => n.sms_capable)
+         ? 'Open any lead and use <strong>Text</strong> to start a conversation.'
+         : 'One step left — pick which of your numbers becomes the texting number, below.'}</div>`);
+  } else if (status === 'pending') {
+    head = _a2pAlert('info',
+      `<div style="font-weight:600;margin-bottom:3px">Submitted — the carriers are reviewing it.</div>
+       <div>${escHTML(A2P_TIMING.campaign)} Nothing is needed from you, and the rest of the app is unaffected. We check for you every half hour.</div>`);
+  } else if (status === 'rejected' || status === 'expired') {
+    head = _a2pAlert('bad',
+      `<div style="font-weight:600;margin-bottom:3px">The carriers turned this registration down.</div>
+       <div>${escHTML(reg.rejection_reason || 'No reason was given.')}</div>
+       <div style="margin-top:6px">Fixing it means submitting a new campaign, which the carriers charge for again — so it is not something we retry automatically. Read the reason above, correct it in your business profile, then use Retry.</div>`);
+  } else if (status === 'suspended') {
+    head = _a2pAlert('bad',
+      `<div style="font-weight:600;margin-bottom:3px">Your registration is suspended.</div>
+       <div>${escHTML(reg.rejection_reason || 'The carriers suspended this campaign and did not give a reason.')} Texting is blocked while it stays this way.</div>`);
+  }
+
+  const envNote = (reg && reg.telnyx_env === 'sandbox')
+    ? `<div class="alert alert-w" style="margin:14px 0 0"><span data-ico="warning"></span><div>
+         <strong>Test registration.</strong> This was submitted against the mock sandbox brand, so nothing was charged and it can never be approved by a carrier. Flip <code>A2P_ALLOW_PRODUCTION</code> to register for real.
+       </div></div>` : '';
+
+  panel.innerHTML = head + a2pStagesHTML() + envNote;
+  mountIcons(panel);
+  a2pStartOtpCountdown();
+}
+
+// ------------------------------------------------------------
+// The sole-proprietor PIN. The one part of registration that genuinely
+// requires the agent, so it gets the top of the screen and a live countdown
+// rather than a line of small print.
+// ------------------------------------------------------------
+function a2pOtpBlockHTML() {
+  const reg = _a2pState.reg || {};
+  const masked = _a2pMaskMobile(reg.otp_sent_to);
+  return `
+    <div style="background:var(--ds-color-info-bg);border:1px solid var(--ds-color-info-bg);border-radius:11px;padding:16px 18px;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:5px">Enter the PIN we texted you</div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:12px">
+        We sent a 6-digit code to <strong>${escHTML(masked)}</strong>. This is how the carriers confirm you are you, in place of an EIN — it is the last thing standing between you and a submitted registration.
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap">
+        <input type="text" id="a2p-otp-input" class="a2p-otp-input" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="6" placeholder="000000" onkeydown="if(event.key==='Enter')a2pVerifyOtp()">
+        <button class="btn btn-p" id="a2p-otp-verify" onclick="a2pVerifyOtp()" style="height:46px">Verify</button>
+        <button class="btn btn-s" id="a2p-otp-resend" onclick="a2pResendOtp()" style="height:46px">Send a new PIN</button>
+      </div>
+      <div id="a2p-otp-countdown" style="font-size:11.5px;color:var(--text3);margin-top:10px"></div>
+      <div id="a2p-otp-msg" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:8px;line-height:1.55;padding-top:8px;border-top:1px solid var(--border)">
+        You have been charged the $4 business registration fee. The $15 campaign fee is only taken once you verify — if you never enter this PIN, you are not charged for a campaign that was never submitted.
+      </div>
+    </div>`;
+}
+
+function _a2pMaskMobile(e164) {
+  const d = String(e164 || '').replace(/\D/g, '');
+  if (d.length < 4) return 'your mobile number';
+  return `(•••) •••-${d.slice(-4)}`;
+}
+
+function a2pStartOtpCountdown() {
+  if (_a2pOtpTimer) { clearInterval(_a2pOtpTimer); _a2pOtpTimer = null; }
+  const el = document.getElementById('a2p-otp-countdown');
+  if (!el) return;
+  const reg = _a2pState.reg || {};
+  const tick = () => {
+    const target = document.getElementById('a2p-otp-countdown');
+    if (!target) { clearInterval(_a2pOtpTimer); _a2pOtpTimer = null; return; }
+    if (!reg.otp_requested_at) { target.textContent = ''; return; }
+    const msLeft = Date.parse(reg.otp_requested_at) + 24 * 3600e3 - Date.now();
+    if (msLeft <= 0) {
+      target.innerHTML = `<span style="color:var(--ds-color-danger)">That PIN has expired.</span> PINs are only good for 24 hours — tap “Send a new PIN” and we will text you another.`;
+      clearInterval(_a2pOtpTimer); _a2pOtpTimer = null;
+      return;
+    }
+    const h = Math.floor(msLeft / 3600e3);
+    const m = Math.floor((msLeft % 3600e3) / 60000);
+    const s = Math.floor((msLeft % 60000) / 1000);
+    target.textContent = `Expires in ${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s.`;
+  };
+  tick();
+  _a2pOtpTimer = setInterval(tick, 1000);
+}
+
+async function a2pVerifyOtp() {
+  const input = document.getElementById('a2p-otp-input');
+  const msg   = document.getElementById('a2p-otp-msg');
+  const btn   = document.getElementById('a2p-otp-verify');
+  const pin   = (input?.value || '').replace(/\D/g, '');
+  if (pin.length < 4) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Enter the 6-digit PIN from the text message.'; }
+    return;
+  }
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+  if (msg) { msg.style.color = 'var(--text3)'; msg.textContent = 'Checking your PIN with the carriers…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('a2p-verify-otp', { body: { action: 'verify', pin } });
+    if (error) {
+      const body = await _a2pErrBody(error);
+      if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = _a2pErrText(body); }
+      return;
+    }
+    if (data && data.ok) {
+      showToast('Mobile verified — campaign submitted', '#10b981');
+      await a2pRenderTextingTab();
+      return;
+    }
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = _a2pErrText(data); }
+  } catch (e) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Could not reach the server. Check your connection and try again.'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Verify'; }
+  }
+}
+
+async function a2pResendOtp() {
+  const msg = document.getElementById('a2p-otp-msg');
+  const btn = document.getElementById('a2p-otp-resend');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('a2p-verify-otp', { body: { action: 'resend' } });
+    if (error) {
+      const body = await _a2pErrBody(error);
+      if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = _a2pErrText(body); }
+      return;
+    }
+    if (msg) { msg.style.color = 'var(--a2)'; msg.textContent = _a2pErrText(data) || 'A new PIN is on its way.'; }
+    // Re-read so the countdown restarts against the new 24-hour window.
+    await a2pLoad();
+    a2pStartOtpCountdown();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send a new PIN'; }
+  }
+}
+
+// ------------------------------------------------------------
+// Refresh status — force-polls THIS agent (a2p-status-poll resolves the
+// caller's agent_id from their JWT, so it can only ever refresh their own
+// registration). Also confirms any number the carriers have finished
+// attaching since the last cron run.
+// ------------------------------------------------------------
+async function a2pRefreshStatus() {
+  const btn = document.getElementById('a2p-refresh-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Checking…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('a2p-status-poll', { body: {} });
+    if (error) {
+      const body = await _a2pErrBody(error);
+      showToast(_a2pErrText(body), '#dc2626');
+      return;
+    }
+    await a2pRenderTextingTab();
+    const changed = data && (data.approved || data.rejected || data.suspended || data.expired || data.assignments_confirmed);
+    showToast(changed ? 'Status updated' : 'Checked — no change yet', changed ? '#10b981' : '#6366f1');
+  } catch (e) {
+    showToast('Could not reach the server', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = `${icon('arrows-clockwise', { size: 13 })}Refresh status`; }
+  }
+}
+
+// ------------------------------------------------------------
+// Texting number card. Owning a number does not make it able to text — only
+// assignment to an approved campaign does, and phone_numbers.sms_capable is
+// the single flag that says so. This card exists so an agent is never left
+// wondering which of their numbers is the texting one.
+// ------------------------------------------------------------
+function a2pRenderNumberCard() {
+  const card = document.getElementById('a2p-number-card');
+  const body = document.getElementById('a2p-number-body');
+  if (!card || !body) return;
+
+  const reg    = _a2pState.reg;
+  const status = (reg && reg.status) || 'not_started';
+  const isSole = reg && reg.brand_type === 'sole_proprietor';
+
+  // Nothing useful to say before there is a registration at all.
+  if (!reg || (status !== 'approved' && !_a2pState.numbers.some(n => n.sms_capable || n.a2p_assignment_status))) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = '';
+
+  const capable = _a2pState.numbers.filter(n => n.sms_capable);
+  const pending = _a2pState.numbers.filter(n => !n.sms_capable && n.a2p_assignment_status === 'PENDING_ASSIGNMENT');
+  const idle    = _a2pState.numbers.filter(n => !n.sms_capable && n.a2p_assignment_status !== 'PENDING_ASSIGNMENT');
+
+  let html = '';
+
+  if (capable.length) {
+    html += capable.map(n => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <span class="a2p-chip a2p-chip-done">Texting</span>
+        <span class="mono" style="font-size:14px;font-weight:600">${escHTML(formatPhone(n.e164) || n.e164)}</span>
+        <span style="font-size:11.5px;color:var(--text3)">${n.a2p_assigned_at ? 'attached ' + escHTML(_a2pWhen(n.a2p_assigned_at)) : ''}</span>
+      </div>`).join('');
+    html += `<div style="font-size:11.5px;color:var(--text2);line-height:1.55;margin-top:10px">${escHTML(A2P_TIMING.number)}</div>`;
+  }
+
+  if (pending.length) {
+    html += pending.map(n => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <span class="a2p-chip a2p-chip-active">Activating</span>
+        <span class="mono" style="font-size:14px;font-weight:600">${escHTML(formatPhone(n.e164) || n.e164)}</span>
+      </div>`).join('');
+    html += `<div style="font-size:11.5px;color:var(--text2);line-height:1.55;margin-top:10px">The carriers are attaching this number. We confirm it automatically — you do not need to do anything.</div>`;
+  }
+
+  // Approved, but no number is carrying the campaign yet. Offer the pick
+  // rather than choosing their public texting identity for them.
+  if (status === 'approved' && !capable.length && !pending.length) {
+    if (!idle.length) {
+      html += `<div style="font-size:12.5px;color:var(--text2);line-height:1.6">
+                 You do not own a phone number yet. Buy one in <a href="#" onclick="nav('phonebook');return false" style="color:var(--accent)">Phone Book</a> and we will attach it to your texting registration automatically.
+               </div>`;
+    } else {
+      html += `<div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:10px">
+                 Choose which number sends your texts. ${isSole ? 'You get one — see below.' : ''}
+               </div>`;
+      html += idle.map(n => `
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+          <span class="mono" style="font-size:14px;font-weight:600;flex:1">${escHTML(formatPhone(n.e164) || n.e164)}</span>
+          ${n.is_primary ? '<span class="a2p-chip a2p-chip-pending">Primary</span>' : ''}
+          <button class="btn btn-p btn-sm" onclick="a2pAssignNumber('${escHTML(n.id)}',this)">Use for texting</button>
+        </div>`).join('');
+    }
+  }
+
+  if (isSole) {
+    html += `
+      <div style="font-size:11.5px;color:var(--text2);line-height:1.6;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <strong style="color:var(--text)">Why only one number?</strong><br>
+        You are registered as a Sole Proprietor, which is what let you register without an EIN. In exchange the carriers allow exactly one texting number per business. That is their rule, not a plan limit, and upgrading will not raise it. You can still own as many numbers as you like for calling — only one of them can send texts.
+      </div>`;
+  }
+
+  body.innerHTML = html || '<div style="font-size:12px;color:var(--text3)">Nothing to show yet.</div>';
+  mountIcons(body);
+}
+
+async function a2pAssignNumber(phoneNumberId, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Attaching…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('a2p-assign-number', { body: { phone_number_id: phoneNumberId } });
+    if (error) {
+      const body = await _a2pErrBody(error);
+      showToast(_a2pErrText(body), '#dc2626');
+      return;
+    }
+    showToast(data && data.status === 'assigned' ? 'Number attached — you can text from it' : 'Submitted to the carriers', '#10b981');
+    await a2pRenderTextingTab();
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Use for texting'; }
+  }
+}
+
+// ------------------------------------------------------------
+// Retry. a2p-register is a resumable step machine, so "retry" really means
+// "carry on from the furthest completed step" — it will not re-create a
+// brand or a campaign that already exists (the database refuses to let it).
+// ------------------------------------------------------------
+async function a2pRetry(kind) {
+  if (kind === 'assign') {
+    const target = _a2pState.numbers.find(n => n.a2p_assignment_status === 'FAILED_ASSIGNMENT') || _a2pState.numbers[0];
+    if (!target) { showToast('No number to attach', '#dc2626'); return; }
+    return a2pAssignNumber(target.id, null);
+  }
+  const body = a2pBodyFromStoredProfile();
+  if (!body) {
+    showToast('Open Start registration again — we no longer have the details to resume from.', '#dc2626');
+    a2pOpenRegModal();
+    return;
+  }
+  showToast('Resuming your registration…', '#6366f1');
+  try {
+    const { data, error } = await sb.functions.invoke('a2p-register', { body });
+    if (error) {
+      const errBody = await _a2pErrBody(error);
+      showToast(_a2pErrText(errBody), '#dc2626');
+      await a2pRenderTextingTab();
+      return;
+    }
+    showToast(_a2pErrText(data) || 'Registration resumed', '#10b981');
+    await a2pRenderTextingTab();
+  } catch (e) {
+    showToast('Could not reach the server', '#dc2626');
+  }
+}
+
+// Rebuild the a2p-register request body from what was stored on the row.
+// a2p-register re-validates the brand inputs on every call (it is stateless
+// about them), so a resume has to send them again — business_info is the
+// snapshot it wrote the first time.
+function a2pBodyFromStoredProfile() {
+  const reg = _a2pState.reg;
+  if (!reg || !reg.business_info) return null;
+  const bi = reg.business_info;
+  if (reg.brand_type === 'sole_proprietor') {
+    if (!bi.firstName || !bi.lastName || !bi.mobilePhone) return null;
+    return {
+      brand_type: 'sole_proprietor',
+      sole_proprietor: bi,
+      ...(A2P_ALLOW_PRODUCTION ? { allow_production: true } : {}),
+    };
+  }
+  if (!bi.ein || !bi.companyName) return null;
+  return {
+    brand_type: 'standard',
+    business_info: bi,
+    ...(A2P_ALLOW_PRODUCTION ? { allow_production: true } : {}),
+  };
+}
+
+// ------------------------------------------------------------
+// Compliance pages, mirrored onto the Texting tab.
+// ------------------------------------------------------------
+function a2pRenderCompliancePanel() {
+  const body = document.getElementById('a2p-compliance-body');
+  if (!body) return;
+  const ag = _a2pState.agency || {};
+  const missing = _stgMissingComplianceFields(ag);
+
+  if (!ag.compliance_page_published_at || !ag.compliance_slug) {
+    const items = missing.length
+      ? missing.map(m => `<li style="margin:0 0 4px"><a href="#" onclick="_stgFocusField('${m.el}');return false" style="color:var(--accent)">${escHTML(m.label)}</a></li>`).join('')
+      : '<li style="margin:0 0 4px">Save your business profile on the Account tab.</li>';
+    body.innerHTML =
+      `<div class="alert alert-w" style="margin:0"><span data-ico="warning"></span><div>
+         <div style="font-weight:600;margin-bottom:4px">Not published yet</div>
+         <div style="margin-bottom:6px">Add ${missing.length === 1 ? 'this detail' : 'these details'} and your pages go live automatically:</div>
+         <ul style="margin:0;padding-left:18px">${items}</ul>
+       </div></div>`;
+    mountIcons(body);
+    return;
+  }
+
+  const privacy = `${COMPLIANCE_BASE_URL}/a/${ag.compliance_slug}/privacy-policy`;
+  const terms   = `${COMPLIANCE_BASE_URL}/a/${ag.compliance_slug}/terms`;
+  const row = (label, url) => `
+    <div style="margin-bottom:10px">
+      <div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px">${escHTML(label)}</div>
+      <div class="a2p-urlrow">
+        <code>${escHTML(url)}</code>
+        <button class="btn btn-s btn-sm" onclick="stgCopyComplianceUrl('${escHTML(url)}',this)" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="copy" data-size="13"></span>Copy</button>
+        <a class="btn btn-s btn-sm" href="${escHTML(url)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px"><span data-ico="arrow-square-out" data-size="13"></span>Open</a>
+      </div>
+    </div>`;
+  body.innerHTML = row('Privacy Policy', privacy) + row('Terms of Service', terms) +
+    `<div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text3);margin-top:8px;padding-top:10px;border-top:1px solid var(--border)">
+       <span data-ico="check-circle" data-size="13" style="color:var(--a2)"></span>
+       Published &middot; updated ${escHTML(new Date(ag.compliance_page_published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }))}
+     </div>`;
+  mountIcons(body);
+}
+
+// ============================================================
+// Registration modal — explainer, EIN branch, the few missing fields.
+// ============================================================
+async function a2pOpenRegModal() {
+  const m = document.getElementById('a2pRegModal');
+  if (!m) return;
+  _a2pRegBrandType = null;
+  _a2pRegOutcome = null;
+  document.getElementById('a2p-reg-step1').style.display = '';
+  document.getElementById('a2p-reg-step2').style.display = 'none';
+  document.getElementById('a2p-reg-step3').style.display = 'none';
+  document.getElementById('a2p-branch-standard').classList.remove('is-on');
+  document.getElementById('a2p-branch-sole').classList.remove('is-on');
+  m.classList.add('open');
+  mountIcons(m);
+
+  if (!_a2pState.loaded) await a2pLoad();
+
+  // Registration is refused server-side without a published compliance page,
+  // and that refusal names fields the agent has to go and fill in. Say so up
+  // front instead of letting them type for a minute and then be rejected.
+  const missing = _stgMissingComplianceFields(_a2pState.agency || {});
+  const warn = document.getElementById('a2p-reg-profile-warn');
+  const btnA = document.getElementById('a2p-branch-standard');
+  const btnB = document.getElementById('a2p-branch-sole');
+  if (missing.length) {
+    warn.style.display = '';
+    warn.innerHTML =
+      `<div class="alert alert-w" style="margin:0"><span data-ico="warning"></span><div>
+         <div style="font-weight:600;margin-bottom:4px">Finish your business profile first</div>
+         <div style="margin-bottom:6px">The carriers check these details, and your privacy policy is built from them. Add ${missing.length === 1 ? 'this' : 'these'} and come back:</div>
+         <ul style="margin:0 0 8px;padding-left:18px">${missing.map(x => `<li style="margin:0 0 4px">${escHTML(x.label)}</li>`).join('')}</ul>
+         <a href="#" onclick="a2pCloseRegModal();settingsTab('account',document.querySelector('#sec-settings > .tabs .tab'));_stgFocusField('${missing[0].el}');return false" style="color:var(--accent);font-weight:600">Open Business Profile</a>
+       </div></div>`;
+    btnA.disabled = true; btnB.disabled = true;
+    btnA.style.opacity = '.5'; btnB.style.opacity = '.5';
+    btnA.style.cursor = 'not-allowed'; btnB.style.cursor = 'not-allowed';
+  } else {
+    warn.style.display = 'none';
+    btnA.disabled = false; btnB.disabled = false;
+    btnA.style.opacity = ''; btnB.style.opacity = '';
+    btnA.style.cursor = ''; btnB.style.cursor = '';
+  }
+  mountIcons(m);
+}
+
+function a2pCloseRegModal() {
+  const m = document.getElementById('a2pRegModal');
+  if (m) m.classList.remove('open');
+
+  // Where the agent lands depends on what is actually left to do.
+  //
+  //   awaiting_otp -> the PIN is the one thing that genuinely needs them, so
+  //                   stay put and put the cursor in the box.
+  //   submitted    -> nothing is left to do and nothing is blocked, so put
+  //                   them back on the dashboard rather than leaving them
+  //                   staring at a progress list for the next three days.
+  const outcome = _a2pRegOutcome;
+  _a2pRegOutcome = null;
+  if (outcome === 'awaiting_otp') {
+    const pin = document.getElementById('a2p-otp-input');
+    if (pin) setTimeout(() => pin.focus(), 60);
+  } else if (outcome === 'submitted') {
+    nav('summary');
+    showToast('Registration submitted — we will let you know when it clears', '#10b981');
+  }
+}
+
+function a2pRegBack() {
+  document.getElementById('a2p-reg-step2').style.display = 'none';
+  document.getElementById('a2p-reg-step1').style.display = '';
+}
+
+function a2pPickBrandType(type) {
+  _a2pRegBrandType = type;
+  document.getElementById('a2p-branch-standard').classList.toggle('is-on', type === 'standard');
+  document.getElementById('a2p-branch-sole').classList.toggle('is-on', type === 'sole_proprietor');
+
+  const ag = _a2pState.agency || {};
+  const isSole = type === 'sole_proprietor';
+
+  document.getElementById('a2p-reg-fields-standard').style.display = isSole ? 'none' : '';
+  document.getElementById('a2p-reg-fields-sole').style.display     = isSole ? '' : 'none';
+
+  const intro = document.querySelector('#a2p-reg-step2-intro div');
+  if (intro) {
+    intro.innerHTML = isSole
+      ? 'Sole Proprietor registration. After you submit, the carriers text a 6-digit PIN to your mobile — entering it is the last step, and until you do, only the $4 business fee is charged.'
+      : 'Standard business registration. We need your EIN exactly as it appears on your IRS letter; a mismatch is the most common reason these get rejected.';
+  }
+
+  const readback = document.getElementById('a2p-reg-readback');
+  if (readback) {
+    const addr = [ag.business_street, [ag.business_city, ag.business_state].filter(Boolean).join(', '), ag.business_postal_code].filter(Boolean).join(' · ');
+    readback.innerHTML = [
+      ['Business name', ag.dba_name || ag.business_legal_name],
+      ['Address', addr],
+      ['Phone', formatPhone(ag.business_phone) || ag.business_phone],
+      ['Email', ag.business_email],
+    ].filter(([, v]) => v).map(([k, v]) =>
+      `<div><span style="color:var(--text3)">${escHTML(k)}:</span> ${escHTML(String(v))}</div>`).join('');
+  }
+
+  // Prefill everything we can already answer. Re-asking for something the
+  // agent typed on another screen is how a one-minute flow becomes a
+  // five-minute one they abandon.
+  if (isSole) {
+    const parts = String(ag.display_name || '').trim().split(/\s+/).filter(Boolean);
+    const f = document.getElementById('a2p-f-first');
+    const l = document.getElementById('a2p-f-last');
+    const mo = document.getElementById('a2p-f-mobile');
+    if (f && !f.value) f.value = parts[0] || '';
+    if (l && !l.value) l.value = parts.length > 1 ? parts.slice(1).join(' ') : '';
+    if (mo && !mo.value) mo.value = formatPhone(ag.agent_phone || ag.phone) || '';
+  } else {
+    const ln = document.getElementById('a2p-f-legalname');
+    if (ln && !ln.value) ln.value = ag.business_legal_name || ag.dba_name || '';
+    const et = document.getElementById('a2p-f-entitytype');
+    // agents.business_entity_type is our own vocabulary; Telnyx wants its
+    // own enum. Everything an insurance producer forms is a private company.
+    if (et) et.value = 'PRIVATE_PROFIT';
+  }
+
+  const err = document.getElementById('a2p-reg-err');
+  if (err) { err.style.display = 'none'; err.innerHTML = ''; }
+  const cb = document.getElementById('a2p-f-confirm');
+  if (cb) cb.checked = false;
+
+  document.getElementById('a2p-reg-step1').style.display = 'none';
+  document.getElementById('a2p-reg-step2').style.display = '';
+  mountIcons(document.getElementById('a2pRegModal'));
+}
+
+async function a2pSubmitRegistration() {
+  const err = document.getElementById('a2p-reg-err');
+  const btn = document.getElementById('a2p-reg-submit');
+  const show = (html) => { if (err) { err.style.display = ''; err.innerHTML = _a2pAlert('bad', html); mountIcons(err); } };
+  if (err) { err.style.display = 'none'; err.innerHTML = ''; }
+
+  const ag = _a2pState.agency || {};
+  const isSole = _a2pRegBrandType === 'sole_proprietor';
+  const val = id => (document.getElementById(id)?.value || '').trim();
+
+  if (!document.getElementById('a2p-f-confirm')?.checked) {
+    show('Tick the confirmation box so we know you have read what is being submitted and what it costs.');
+    return;
+  }
+
+  let body;
+  if (isSole) {
+    const first  = val('a2p-f-first');
+    const last   = val('a2p-f-last');
+    const mobile = toE164(val('a2p-f-mobile'));
+    if (!first || !last) { show('We need your legal first and last name, exactly as they appear on your ID.'); return; }
+    if (!mobile) { show('That mobile number is not a valid 10-digit US number. The verification PIN is texted to it, so it has to be right.'); return; }
+    body = {
+      brand_type: 'sole_proprietor',
+      sole_proprietor: {
+        firstName: first,
+        lastName: last,
+        mobilePhone: mobile,
+        displayName: ag.dba_name || ag.business_legal_name || `${first} ${last}`,
+        email: ag.business_email || '',
+        phone: ag.business_phone || mobile,
+        street: ag.business_street || '',
+        city: ag.business_city || '',
+        state: ag.business_state || '',
+        postalCode: ag.business_postal_code || '',
+        country: 'US',
+        vertical: 'INSURANCE',
+      },
+    };
+  } else {
+    const legal = val('a2p-f-legalname');
+    const ein   = val('a2p-f-ein').replace(/\D/g, '');
+    if (!legal) { show('Enter the legal business name exactly as it appears on your EIN letter.'); return; }
+    if (ein.length !== 9) { show('An EIN is 9 digits. If you do not have one, go back and choose “No — it’s just me”.'); return; }
+    body = {
+      brand_type: 'standard',
+      business_info: {
+        displayName: ag.dba_name || legal,
+        companyName: legal,
+        ein,
+        entityType: val('a2p-f-entitytype') || 'PRIVATE_PROFIT',
+        vertical: 'INSURANCE',
+        email: ag.business_email || '',
+        phone: ag.business_phone || '',
+        street: ag.business_street || '',
+        city: ag.business_city || '',
+        state: ag.business_state || '',
+        postalCode: ag.business_postal_code || '',
+        country: 'US',
+      },
+    };
+  }
+  if (A2P_ALLOW_PRODUCTION) body.allow_production = true;
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('a2p-register', { body });
+    if (error) {
+      const eb = await _a2pErrBody(error);
+      // compliance_page_missing is the one failure with a specific fix, so
+      // it gets a link rather than a sentence.
+      if (eb.error === 'compliance_page_missing') {
+        show(`${escHTML(eb.detail || 'Your compliance page is not published yet.')} <a href="#" onclick="a2pCloseRegModal();settingsTab('account',document.querySelector('#sec-settings > .tabs .tab'));return false" style="color:var(--accent);font-weight:600">Open Business Profile</a>`);
+      } else {
+        show(escHTML(_a2pErrText(eb)));
+      }
+      return;
+    }
+    await a2pShowRegResult(data);
+  } catch (e) {
+    show('Could not reach the server. Nothing was submitted or charged — try again in a moment.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Submit registration'; }
+  }
+}
+
+async function a2pShowRegResult(data) {
+  const out = document.getElementById('a2p-reg-result');
+  document.getElementById('a2p-reg-step2').style.display = 'none';
+  document.getElementById('a2p-reg-step3').style.display = '';
+
+  const sandbox = data && data.telnyx_env === 'sandbox';
+  const sandboxNote = sandbox
+    ? `<div class="alert alert-w" style="margin:14px 0 0"><span data-ico="warning"></span><div><strong>Test mode.</strong> This went to the mock sandbox brand, so nothing was charged and no carrier will ever approve it. Flip <code>A2P_ALLOW_PRODUCTION</code> in app.html to register for real.</div></div>`
+    : '';
+
+  if (data && data.status === 'awaiting_otp') {
+    _a2pRegOutcome = 'awaiting_otp';
+    out.innerHTML =
+      `<div style="text-align:center;padding:6px 0 14px">
+         <div style="font-size:34px;line-height:1">📲</div>
+         <div style="font-size:16px;font-weight:700;margin-top:8px">Check your phone</div>
+       </div>
+       <div style="font-size:13px;color:var(--text2);line-height:1.65">
+         <p style="margin:0 0 10px">We texted a 6-digit PIN to <strong>${escHTML(data.otp_sent_to_masked || 'your mobile')}</strong>. Enter it on the Texting screen to finish — it is good for 24 hours, and we will show you a countdown.</p>
+         <p style="margin:0">You have been charged $4 for the business registration. The $15 campaign fee is only taken once you enter that PIN.</p>
+       </div>${sandboxNote}`;
+  } else if (data && data.already_submitted) {
+    out.innerHTML =
+      `<div style="font-size:13px;color:var(--text2);line-height:1.65">
+         <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px">Already submitted</div>
+         <p style="margin:0">${escHTML(data.detail || 'Your registration is already with the carriers.')}</p>
+       </div>${sandboxNote}`;
+  } else {
+    _a2pRegOutcome = 'submitted';
+    out.innerHTML =
+      `<div style="text-align:center;padding:6px 0 14px">
+         <div style="font-size:34px;line-height:1">✅</div>
+         <div style="font-size:16px;font-weight:700;margin-top:8px">Submitted</div>
+       </div>
+       <div style="font-size:13px;color:var(--text2);line-height:1.65">
+         <p style="margin:0 0 10px">${escHTML(A2P_TIMING.campaign)} There is nothing else for you to do — we check with the carriers automatically and will attach your texting number the moment you are approved.</p>
+         <p style="margin:0">Everything else in ProducerStack keeps working exactly as it does now. Only texting is waiting on this.</p>
+       </div>${sandboxNote}`;
+  }
+  mountIcons(out);
+  await a2pRenderTextingTab();
+}
+
+// ============================================================
+// SMS CONVERSATIONS — per-lead thread + composer
+//
+// A thread, not a send box. messaging-inbound-webhook has been logging
+// replies into inbound_messages for a while with nowhere to show them; a
+// consumer who answers a text and is met with silence is worse than one who
+// was never texted.
+//
+// The two sides live in two tables — outbound in `messages`, inbound in
+// `inbound_messages` — so a thread is the union of both, matched on the
+// contact's E.164 and sorted by time.
+//
+// EVERY GATE IS EXPLAINED, NEVER RAW. The server-side compliance gate
+// (_shared/messaging-shared.ts) returns machine reasons like
+// `a2p_not_approved` / `no_consent` / `quiet_hours`. An agent reading that
+// learns nothing, so each one is translated here, with the action that
+// actually clears it. The checks below mirror the server's ORDER
+// deliberately: the composer must never look ready for a send the server
+// would refuse.
+// ============================================================
+let _smsThread = { leadId: null, lead: null, phone: '', items: [], gate: null, from: null, timers: [] };
+
+// Mirrors countSegments() in _shared/segments.ts — the same rules the wallet
+// bills on, so the count on screen is the count the agent pays for.
+const _GSM7_BASIC = new Set("@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà");
+const _GSM7_EXT   = new Set("^{}\\[~]|€");
+
+function smsCountSegments(text) {
+  const body = text || '';
+  let gsm7 = true;
+  for (const ch of body) { if (!_GSM7_BASIC.has(ch) && !_GSM7_EXT.has(ch)) { gsm7 = false; break; } }
+  if (gsm7) {
+    let len = 0;
+    for (const ch of body) len += _GSM7_EXT.has(ch) ? 2 : 1;
+    return { encoding: 'GSM7', length: len, segments: len <= 160 ? 1 : Math.ceil(len / 153) };
+  }
+  const len = body.length;
+  return { encoding: 'UCS2', length: len, segments: len <= 70 ? 1 : Math.ceil(len / 67) };
+}
+
+async function smsOpenThread(leadId) {
+  const lead = leads.find(l => String(l.id) === String(leadId));
+  if (!lead) return;
+  const phone = toE164(lead.phone || '');
+
+  _smsThread = { leadId: String(leadId), lead, phone: phone || '', items: [], gate: null, from: null, timers: [] };
+
+  const m = document.getElementById('smsThreadModal');
+  document.getElementById('sms-thread-name').textContent = lead.name || [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Lead';
+  document.getElementById('sms-thread-phone').textContent = phone ? (formatPhone(phone) || phone) : 'No mobile number on file';
+  document.getElementById('sms-thread-body').innerHTML = '<div style="font-size:12px;color:var(--text3);text-align:center;padding:20px 0">Loading…</div>';
+  document.getElementById('sms-thread-gate').innerHTML = '';
+  document.getElementById('sms-composer').style.display = 'none';
+  const ta = document.getElementById('sms-composer-text');
+  if (ta) ta.value = '';
+  m.classList.add('open');
+  mountIcons(m);
+
+  await smsLoadThread();
+}
+
+function smsCloseThread() {
+  const m = document.getElementById('smsThreadModal');
+  if (m) m.classList.remove('open');
+  (_smsThread.timers || []).forEach(t => clearTimeout(t));
+  _smsThread.timers = [];
+}
+
+async function smsLoadThread() {
+  const phone = _smsThread.phone;
+  if (!currentAgent || !currentAgent.id) return;
+
+  if (!phone) {
+    _smsThread.gate = { ok: false, kind: 'no_phone' };
+    smsRenderGate();
+    document.getElementById('sms-thread-body').innerHTML =
+      '<div style="font-size:12px;color:var(--text3);text-align:center;padding:24px 0">No conversation — this lead has no mobile number.</div>';
+    return;
+  }
+
+  // The A2P + number state is shared with the Settings wizard; the thread can
+  // be the first place it is ever needed, so load it on demand.
+  if (!_a2pState.loaded) await a2pLoad();
+
+  const [outRes, inRes, consentRes, dncRes, cfgRes] = await Promise.all([
+    sb.from('messages')
+      .select('id, channel, to_address, from_number, body_preview, segments, status, created_at, delivered_at, failed_reason')
+      .eq('agent_id', currentAgent.id).eq('to_address', phone).in('channel', ['sms', 'mms'])
+      .order('created_at', { ascending: true }).limit(200),
+    sb.from('inbound_messages')
+      .select('id, channel, from_address, to_address, body_preview, is_opt_out, created_at')
+      .eq('agent_id', currentAgent.id).eq('from_address', phone).in('channel', ['sms', 'mms'])
+      .order('created_at', { ascending: true }).limit(200),
+    sb.from('consent_records')
+      .select('id, consent_type, revoked_at, captured_at, source')
+      .eq('agent_id', currentAgent.id).eq('contact_phone', phone)
+      .order('captured_at', { ascending: false }).limit(1).maybeSingle(),
+    sb.from('dnc_list').select('agent_id, reason, source').eq('contact_phone', phone),
+    // Read the operator's consent-strictness flag rather than assuming it.
+    // The gate accepts plain 'express' consent when this is false; hardcoding
+    // "written only" here would block sends the server would happily make.
+    sb.from('billing_config').select('sms_require_written_consent').eq('id', 1).maybeSingle(),
+  ]);
+
+  // NOTE: both tables store body_preview, not the full body — 200 chars with
+  // an ellipsis appended by bodyPreview()/the inbound webhook. Nothing in the
+  // schema keeps the whole text, so a long message renders truncated. The
+  // ellipsis is the honest tell; storing full bodies is a schema decision,
+  // not something to paper over here.
+  const items = [
+    ...(outRes.data || []).map(r => ({ dir: 'out', at: r.created_at, text: r.body_preview || '', status: r.status, failed: r.failed_reason, id: 'o' + r.id })),
+    ...(inRes.data  || []).map(r => ({ dir: 'in',  at: r.created_at, text: r.body_preview || '', optOut: r.is_opt_out, id: 'i' + r.id })),
+  ].sort((a, b) => new Date(a.at) - new Date(b.at));
+  _smsThread.items = items;
+
+  const consent = consentRes.data || null;
+  const onDnc = (dncRes.data || []).some(r => r.agent_id === null || r.agent_id === currentAgent.id);
+  const requireWritten = cfgRes.data ? cfgRes.data.sms_require_written_consent !== false : true;
+  _smsThread.gate = smsEvaluateGate({ consent, onDnc, requireWritten });
+
+  smsRenderThread();
+  smsRenderGate();
+}
+
+// Mirrors the ORDER of runComplianceGate() so what the agent sees and what
+// the server does cannot disagree. Quiet hours are deliberately NOT
+// pre-computed here: the timezone inference lives in _shared/tcpa.ts and
+// duplicating it in the browser would drift. If a send lands outside the
+// window the server refuses it for free and we render its own sentence.
+function smsEvaluateGate({ consent, onDnc, requireWritten }) {
+  const reg    = _a2pState.reg;
+  const status = (reg && reg.status) || 'not_started';
+  const capable = _a2pState.numbers.filter(n => n.sms_capable);
+  const acceptable = requireWritten ? ['express_written'] : ['express_written', 'express'];
+
+  if (status !== 'approved') return { ok: false, kind: 'a2p', status };
+  if (!capable.length) return { ok: false, kind: 'no_number', owns: _a2pState.numbers.length > 0 };
+  if (onDnc) return { ok: false, kind: 'dnc' };
+  if (!consent || consent.revoked_at) return { ok: false, kind: 'no_consent' };
+  if (!acceptable.includes(consent.consent_type)) return { ok: false, kind: 'weak_consent', consent };
+
+  // Same preference order as resolveTextingNumber() in
+  // _shared/messaging-shared.ts: the configured caller ID when it is itself
+  // textable, then the primary, then the only one. Diverging here would print
+  // a "Sending from" that is not the number the text actually goes out on.
+  const preferred = ((_a2pState.agency || {}).signalwire_caller_id || '').trim();
+  const match = preferred && capable.find(n => n.e164 === preferred);
+  const from = match || capable.find(n => n.is_primary) || capable[0];
+  return { ok: true, from: from.e164 };
+}
+
+function smsRenderGate() {
+  const el = document.getElementById('sms-thread-gate');
+  const composer = document.getElementById('sms-composer');
+  const gate = _smsThread.gate || {};
+  if (!el || !composer) return;
+
+  if (gate.ok) {
+    el.innerHTML = '';
+    composer.style.display = '';
+    _smsThread.from = gate.from;
+    const fromEl = document.getElementById('sms-composer-from');
+    if (fromEl) fromEl.innerHTML = `${icon('phone', { size: 11 })}Sending from <strong style="color:var(--text2)">${escHTML(formatPhone(gate.from) || gate.from)}</strong>`;
+    smsUpdateComposerMeta();
+    mountIcons(composer);
+    return;
+  }
+
+  composer.style.display = 'none';
+  let html = '';
+
+  if (gate.kind === 'no_phone') {
+    html = _a2pAlert('warn', 'This lead has no mobile number, so there is nothing to text. Add one with the pencil icon on their row.');
+  } else if (gate.kind === 'a2p') {
+    const map = {
+      not_started: 'Your business is not registered for text messaging yet. The carriers require it before any text you send will be delivered — it takes about a minute to start and we handle the submission.',
+      awaiting_otp: 'Your registration is waiting on the 6-digit PIN we texted to your mobile. Enter it and your campaign goes to the carriers.',
+      pending: 'Your registration is with the carriers. Approval usually takes 3–7 business days; texting switches on by itself the moment it lands.',
+      rejected: 'The carriers turned your registration down, so texting is blocked. The reason and what to do about it are on the Texting screen.',
+      suspended: 'Your text messaging registration is suspended, so sends are blocked. The reason is on the Texting screen.',
+      expired: 'Your text messaging registration expired, so sends are blocked. See the Texting screen to sort it out.',
+    };
+    html = _a2pAlert(gate.status === 'pending' || gate.status === 'awaiting_otp' ? 'info' : 'warn',
+      `<div style="font-weight:600;margin-bottom:3px">Texting is not switched on yet</div>
+       <div>${escHTML(map[gate.status] || map.not_started)}</div>
+       <div style="margin-top:7px"><a href="#" onclick="smsCloseThread();openTextingSettings();return false" style="color:inherit;font-weight:700;text-decoration:underline">Open text messaging setup →</a></div>`);
+  } else if (gate.kind === 'no_number') {
+    html = _a2pAlert('warn',
+      `<div style="font-weight:600;margin-bottom:3px">No number is set up to text yet</div>
+       <div>${gate.owns
+         ? 'You are approved, but none of your numbers has been attached to your campaign yet. Buying a number does not make it textable — only attaching it does, and that can take 24–72 hours to finish propagating.'
+         : 'You do not own a phone number yet. Buy one and we will attach it to your texting registration automatically.'}</div>
+       <div style="margin-top:7px"><a href="#" onclick="smsCloseThread();${gate.owns ? 'openTextingSettings()' : "nav('phonebook')"};return false" style="color:inherit;font-weight:700;text-decoration:underline">${gate.owns ? 'Open text messaging setup →' : 'Open Phone Book →'}</a></div>`);
+  } else if (gate.kind === 'dnc') {
+    html = _a2pAlert('bad',
+      `<div style="font-weight:600;margin-bottom:3px">This person has opted out</div>
+       <div>They are on your do-not-contact list — usually because they replied STOP. We cannot text them again unless they text START back themselves. This is not something we can override, and ignoring it is what TCPA penalties are for.</div>`);
+  } else if (gate.kind === 'no_consent' || gate.kind === 'weak_consent') {
+    html = smsConsentPromptHTML(gate.kind === 'weak_consent');
+  }
+
+  el.innerHTML = html;
+  mountIcons(el);
+}
+
+// ------------------------------------------------------------
+// Consent. Nothing in the app has ever written consent_records for a lead —
+// `lead-ingest` does not, and the table is service-role-write-only — so an
+// otherwise perfectly registered agent hits `no_consent` on their first
+// text. The consent is real (it is captured on the vendor's form and
+// certified by TrustedForm); it was simply never recorded where the gate can
+// see it. This records it, as an explicit attestation the agent makes, with
+// the provenance stored verbatim for audit.
+//
+// Only WRITTEN consent is offered. billing_config.sms_require_written_consent
+// defaults to true, so an "they told me on the phone" record would be
+// accepted here and then rejected at send time — a worse experience than
+// saying plainly that verbal consent is not enough for texting.
+// ------------------------------------------------------------
+function smsConsentPromptHTML(weak) {
+  const vendors = Array.isArray((_a2pState.agency || {}).lead_vendors) ? _a2pState.agency.lead_vendors : [];
+  const vendorLabel = v => v.toLowerCase().startsWith('other:') ? v.slice(6)
+    : v === 'goatleads' ? 'GoatLeads' : v === 'builtleads' ? 'Built Leads' : v;
+  const opts = vendors.map(v => `<option value="${escHTML(vendorLabel(v))}">${escHTML(vendorLabel(v))} lead form</option>`).join('')
+    + '<option value="__other">Another lead form or web form</option>';
+
+  return `
+    <div class="alert alert-w" style="margin:0 0 14px"><span data-ico="warning"></span><div style="width:100%">
+      <div style="font-weight:600;margin-bottom:4px">${weak ? 'We only have verbal consent on file' : 'No consent on file for this number'}</div>
+      <div style="line-height:1.6;margin-bottom:10px">
+        ${weak
+          ? 'Texting requires <strong>written</strong> consent specifically — a verbal or implied opt-in is enough to call, but not to text. If they also agreed in writing on a lead form, record that below.'
+          : 'The carriers require a record of how this person agreed to be texted before we send anything. If they came from a lead form where they agreed to be contacted by text, record it here — that is exactly the consent the rule is asking about.'}
+      </div>
+      <div class="fg" style="margin-bottom:9px">
+        <label style="color:inherit">Where did they agree?</label>
+        <select id="sms-consent-source" style="width:100%" onchange="smsOnConsentSourceChange()">${opts}</select>
+      </div>
+      <input type="text" id="sms-consent-other" placeholder="Name the form or site" style="width:100%;display:${vendors.length ? 'none' : ''};margin-bottom:9px">
+      <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.55;text-transform:none;letter-spacing:0;margin-bottom:10px">
+        <input type="checkbox" id="sms-consent-confirm" style="width:auto;margin:2px 0 0">
+        <span>I confirm this person gave written consent to be contacted by text message, and I can produce the record of it if asked.</span>
+      </label>
+      <button class="btn btn-p btn-sm" id="sms-consent-btn" onclick="smsRecordConsent()">Record consent</button>
+      <div id="sms-consent-msg" style="font-size:12px;margin-top:8px;min-height:16px"></div>
+    </div></div>`;
+}
+
+function smsOnConsentSourceChange() {
+  const sel = document.getElementById('sms-consent-source');
+  const oth = document.getElementById('sms-consent-other');
+  if (sel && oth) oth.style.display = sel.value === '__other' ? '' : 'none';
+}
+
+async function smsRecordConsent() {
+  const sel  = document.getElementById('sms-consent-source');
+  const oth  = document.getElementById('sms-consent-other');
+  const cb   = document.getElementById('sms-consent-confirm');
+  const msg  = document.getElementById('sms-consent-msg');
+  const btn  = document.getElementById('sms-consent-btn');
+
+  if (sel && sel.value === '__other' && oth) oth.style.display = '';
+  if (!cb || !cb.checked) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Tick the confirmation — this is the record a regulator would ask to see.'; }
+    return;
+  }
+  let where = sel ? sel.value : '';
+  if (where === '__other') {
+    where = (oth?.value || '').trim();
+    if (!where) {
+      if (oth) oth.style.display = '';
+      if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Name the form they filled in.'; }
+      return;
+    }
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Recording…'; }
+  try {
+    const { error } = await sb.functions.invoke('messaging-consent-record', {
+      body: {
+        contact_phone: _smsThread.phone,
+        consent_type:  'express_written',
+        source:        `agent_attested: ${where}`,
+      },
+    });
+    if (error) {
+      const body = await _a2pErrBody(error);
+      if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = _a2pErrText(body); }
+      return;
+    }
+    showToast('Consent recorded', '#10b981');
+    await smsLoadThread();
+  } catch (e) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Could not reach the server. Try again in a moment.'; }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Record consent'; }
+  }
+}
+
+const _SMS_STATUS = {
+  queued:      ['Sending…',    'var(--text3)'],
+  sent:        ['Sent',        'var(--text3)'],
+  delivered:   ['Delivered',   'var(--ds-color-success)'],
+  failed:      ['Failed',      'var(--ds-color-danger)'],
+  undelivered: ['Not delivered', 'var(--ds-color-danger)'],
+};
+
+function smsRenderThread() {
+  const body = document.getElementById('sms-thread-body');
+  if (!body) return;
+  const items = _smsThread.items || [];
+
+  if (!items.length) {
+    body.innerHTML =
+      `<div style="font-size:12.5px;color:var(--text3);text-align:center;padding:26px 14px;line-height:1.6">
+         No messages yet.<br>Anything they text back lands here automatically.
+       </div>`;
+    return;
+  }
+
+  let lastDay = '';
+  body.innerHTML = items.map(it => {
+    const d = new Date(it.at);
+    const day = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const sep = day !== lastDay ? `<div class="sms-daysep">${escHTML(day)}</div>` : '';
+    lastDay = day;
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    let meta;
+    if (it.dir === 'out') {
+      const [lbl, colour] = _SMS_STATUS[it.status] || ['—', 'var(--text3)'];
+      meta = `${escHTML(time)} · <span style="color:${colour}">${escHTML(lbl)}</span>` +
+        (it.failed ? ` · ${escHTML(String(it.failed).slice(0, 90))}` : '');
+    } else {
+      meta = escHTML(time) + (it.optOut ? ' · opted out' : '');
+    }
+    return sep + `
+      <div class="sms-row ${it.dir}${it.optOut ? ' optout' : ''}">
+        <div class="sms-bubble">${escHTML(it.text)}</div>
+        <div class="sms-meta">${meta}</div>
+      </div>`;
+  }).join('');
+  body.scrollTop = body.scrollHeight;
+}
+
+function smsUpdateComposerMeta() {
+  const ta = document.getElementById('sms-composer-text');
+  const out = document.getElementById('sms-composer-count');
+  if (!ta || !out) return;
+  const { length, segments, encoding } = smsCountSegments(ta.value);
+  out.textContent = `${length} character${length === 1 ? '' : 's'} · ${segments} segment${segments === 1 ? '' : 's'}` +
+    (encoding === 'UCS2' ? ' (emoji/special characters shorten each segment)' : '');
+}
+
+async function smsSendMessage() {
+  const ta  = document.getElementById('sms-composer-text');
+  const btn = document.getElementById('sms-send-btn');
+  const err = document.getElementById('sms-composer-err');
+  const text = (ta?.value || '').trim();
+  const show = (html, kind = 'bad') => { if (err) { err.style.display = ''; err.innerHTML = _a2pAlert(kind, html); mountIcons(err); } };
+  if (err) { err.style.display = 'none'; err.innerHTML = ''; }
+
+  if (!text) return;
+  if (!_smsThread.phone) { show('This lead has no mobile number.'); return; }
+
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Sending…'; }
+  try {
+    const { error } = await sb.functions.invoke('messaging-send-sms', {
+      body: { to: _smsThread.phone, body: text },
+    });
+    if (error) {
+      const b = await _a2pErrBody(error);
+      // The server's own sentence is already written for an agent to read —
+      // every reason in runComplianceGate carries a `detail`. Adding a link
+      // where there is something to click is all this needs to do.
+      const linkable = ['a2p_not_approved', 'no_sms_capable_number', 'daily_limit_reached'].includes(b.error);
+      show(escHTML(_a2pErrText(b)) +
+        (linkable ? ' <a href="#" onclick="smsCloseThread();openTextingSettings();return false" style="color:inherit;font-weight:700;text-decoration:underline">Open text messaging setup →</a>' : ''));
+      // The gate may have moved under us (approval revoked, number
+      // unassigned) — re-read rather than leaving a composer that lies.
+      await smsLoadThread();
+      return;
+    }
+    if (ta) ta.value = '';
+    smsUpdateComposerMeta();
+    await smsLoadThread();
+    // Delivery receipts arrive from the carrier a beat later; refresh twice
+    // so "Sending…" turns into "Delivered" without the agent doing anything.
+    (_smsThread.timers || []).forEach(t => clearTimeout(t));
+    _smsThread.timers = [
+      setTimeout(() => { if (document.getElementById('smsThreadModal')?.classList.contains('open')) smsLoadThread(); }, 5000),
+      setTimeout(() => { if (document.getElementById('smsThreadModal')?.classList.contains('open')) smsLoadThread(); }, 15000),
+    ];
+  } catch (e) {
+    show('Could not reach the server. Nothing was sent or charged.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = `${icon('paper-plane-right', { size: 13 })}Send`; }
+  }
 }
 
 // ============================================================
