@@ -94,10 +94,11 @@ serve(async (req) => {
     outcome: string | null;
     answered_at: string | null;
     started_at: string | null;
+    error_detail: string | null;
   };
   async function loadAiCall(): Promise<AiCallRow | null> {
     const { data } = await sb.from("ai_calls")
-      .select("id, agent_id, lead_id, phone_e164, outcome, answered_at, started_at")
+      .select("id, agent_id, lead_id, phone_e164, outcome, answered_at, started_at, error_detail")
       .eq(idCol, idVal)
       .maybeSingle();
     return (data as AiCallRow | null) ?? null;
@@ -145,29 +146,47 @@ serve(async (req) => {
           `lead_type: ${vars.lead_type || ""}; agent: ${vars.agent_name || ""}; ` +
           `agency: ${vars.agency_name || ""}.`;
 
-        // Only assistant.id is required; greeting + message_history override
-        // the assistant's stored config for this call, and any field omitted
-        // falls back to that stored config. `voice` (when the agent picked
-        // one — client_state.vars.voice, from agents.ai_voice) overrides the
+        // Only assistant.id is required; greeting overrides the assistant's
+        // stored config for this call, and any field omitted falls back to
+        // that stored config. `voice` (when the agent picked one —
+        // client_state.vars.voice, from agents.ai_voice) overrides the
         // assistant's Mission Control voice for this call only.
-        const startBody: Record<string, unknown> = {
-          assistant:       { id: TELNYX_ASSISTANT },
+        const baseBody: Record<string, unknown> = {
+          assistant: { id: TELNYX_ASSISTANT },
           greeting,
-          message_history: [{ role: "system", content: systemContext }],
-          command_id:      crypto.randomUUID(),
         };
-        if (vars.voice) startBody.voice = vars.voice;
+        if (vars.voice) baseBody.voice = vars.voice;
 
-        const startRes = await fetch(
-          `https://api.telnyx.com/v2/calls/${callControlId}/actions/ai_assistant_start`,
-          {
+        const attemptStart = (body: Record<string, unknown>) =>
+          fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/ai_assistant_start`, {
             method: "POST",
             headers: telnyxHeaders,
-            body: JSON.stringify(startBody),
-          },
-        );
+            body: JSON.stringify({ ...body, command_id: crypto.randomUUID() }),
+          });
+
+        // Telnyx's production validator 422-rejects {role:"system"} entries in
+        // message_history ("Invalid message format", pointer /message_history)
+        // even though the API reference lists System messages as allowed — hit
+        // live on 2026-07-27. So: attempt WITH the lead-context message first
+        // (in case the validator is fixed / differs by account), and on a 422
+        // that points at message_history retry once WITHOUT it. The greeting
+        // already carries the essential context (lead name, agent, agency,
+        // lead type), so a context-less start loses almost nothing, while a
+        // failed start loses the whole call.
+        let startRes = await attemptStart({
+          ...baseBody,
+          message_history: [{ role: "system", content: systemContext }],
+        });
+        let failText = "";
         if (!startRes.ok) {
-          const failText = await startRes.text().catch(() => "");
+          failText = await startRes.text().catch(() => "");
+          if (startRes.status === 422 && failText.includes("message_history")) {
+            console.warn("[ai-call-webhook] message_history rejected (422) — retrying without it:", failText);
+            startRes = await attemptStart(baseBody);
+            failText = startRes.ok ? "" : await startRes.text().catch(() => "");
+          }
+        }
+        if (!startRes.ok) {
           console.error("[ai-call-webhook] ai_assistant_start failed:", startRes.status, failText);
           // Make the failure VISIBLE (the "answered but silent" bug): store
           // the Telnyx response on the row so the test rig can display it...
@@ -242,7 +261,14 @@ serve(async (req) => {
       const durationSecs = answeredAt
         ? Math.max(0, Math.floor((endTime.getTime() - answeredAt.getTime()) / 1000))
         : 0;
-      const billed = computeBilledMinutes(durationSecs);
+      // Don't charge the agent for OUR failures. error_detail is written only
+      // by this webhook's own failure paths (ai_assistant_start rejected,
+      // assistant secret missing) — the AI never joined the call, so the
+      // minimum-1-minute rounding would bill a real minute for a few seconds
+      // of dead air we caused. Legit answered calls that merely failed
+      // outcome-classification have no error_detail and still bill normally.
+      const ourFault = !!row.error_detail;
+      const billed = ourFault ? 0 : computeBilledMinutes(durationSecs);
 
       // Debit exactly once. Pre-check the ledger by ref_id; the partial unique
       // index on wallet_ledger is the race-safe backstop (23505 -> no-op).
