@@ -122,20 +122,43 @@ vercel domains add trust.producerstackcrm.com
 ```
 
 Then add the DNS record Vercel prints, at whatever registrar holds
-`producerstackcrm.com`:
+`producerstackcrm.com`. **Vercel issues a PROJECT-SPECIFIC CNAME target now, not
+the generic `cname.vercel-dns.com`** — use exactly what the dashboard shows for
+this project. For the current trust project it is:
 
 ```
-trust    CNAME    cname.vercel-dns.com
+trust    CNAME    2518311f49185490.vercel-dns-017.com
 ```
+
+(An older generic `cname.vercel-dns.com` also resolves for many projects, but
+Vercel printed the project-specific `…vercel-dns-017.com` target here; that is
+what is live.) Also note `producerstackcrm.com` runs a **wildcard** record that
+catches every unset subdomain and 302s it to a registrar parking page
+(`producerstackcrm-com.l.ink`) — the explicit `trust` CNAME above overrides the
+wildcard for that one name. If `trust` ever regresses to the parking redirect,
+the explicit record was dropped.
 
 The apex `A`/`ALIAS` records pointing at GitHub Pages are untouched — this only
 adds a subdomain.
 
 ### 4. Confirm end to end
 
+Live as of 2026-07-28 — all three routes return `200` with
+`content-type: text/html; charset=utf-8` (the Vercel header override defeating
+Supabase's `text/plain` coercion), and an unknown slug returns `404`:
+
 ```bash
-curl -sS https://trust.producerstackcrm.com/a/<slug>/privacy-policy | grep -c "will not be sold or shared"
-# expect: 1
+for p in "" /privacy-policy /terms; do
+  curl -s -o /dev/null -w "%{http_code} %{content_type}\n" \
+    "https://trust.producerstackcrm.com/a/frenkel-financial-agency$p"
+done
+# → 200 text/html; charset=utf-8   (×3)
+
+curl -s "https://trust.producerstackcrm.com/a/frenkel-financial-agency/privacy-policy" \
+  | grep -c "will not be sold or shared"          # expect: 1
+
+curl -s -o /dev/null -w "%{http_code}\n" \
+  "https://trust.producerstackcrm.com/a/bogus-slug/privacy-policy"   # expect: 404
 ```
 
 ---

@@ -55,14 +55,18 @@ vercel domains add trust.producerstackcrm.com
 ```
 
 Then add the DNS record Vercel prints at the registrar holding
-`producerstackcrm.com` — normally:
+`producerstackcrm.com`. Vercel now issues a **project-specific** CNAME target,
+not the generic `cname.vercel-dns.com`. For this project it is (live, verified
+2026-07-28):
 
 ```
-trust    CNAME    cname.vercel-dns.com
+trust    CNAME    2518311f49185490.vercel-dns-017.com
 ```
 
-The apex records pointing at GitHub Pages are untouched; this only adds a
-subdomain.
+`producerstackcrm.com` also runs a wildcard record that 302s every unset
+subdomain to a registrar parking page; the explicit `trust` record above wins
+for that one name. The apex records pointing at GitHub Pages are untouched;
+this only adds a subdomain.
 
 ## Verify after DNS propagates
 
