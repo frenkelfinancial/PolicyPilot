@@ -399,12 +399,12 @@ ${email ? `Email: <a href="mailto:${escapeHtml(email)}">${escapeHtml(email)}</a>
 </address>`;
 }
 
-function docNav(slug: string, current: CompliancePageKind, prefix = ""): string {
+function docNav(slug: string, current: CompliancePageKind): string {
   const items: Array<{ kind: CompliancePageKind; href: string; label: string }> = [
-    { kind: "index", href: `${prefix}/a/${slug}`, label: "Overview" },
-    { kind: "privacy", href: `${prefix}/a/${slug}/privacy-policy`, label: "Privacy Policy" },
-    { kind: "terms", href: `${prefix}/a/${slug}/terms`, label: "Terms of Service" },
-    { kind: "sms-opt-in", href: `${prefix}/a/${slug}/sms-opt-in`, label: "Text Message Opt-In" },
+    { kind: "index", href: `/a/${slug}`, label: "Overview" },
+    { kind: "privacy", href: `/a/${slug}/privacy-policy`, label: "Privacy Policy" },
+    { kind: "terms", href: `/a/${slug}/terms`, label: "Terms of Service" },
+    { kind: "sms-opt-in", href: `/a/${slug}/sms-opt-in`, label: "Text Message Opt-In" },
   ];
   return `<ul class="docnav">${
     items
@@ -444,22 +444,32 @@ export interface RenderOptions {
   profile: AgencyProfile;
   /** Latest compliance_page_revisions.rendered_at (falls back to published_at). */
   lastUpdatedIso: string | null;
-  /** Public origin, e.g. "https://trust.producerstackcrm.com". Used for canonical URLs. */
-  baseUrl: string;
   /**
-   * Path segment in front of `/a/:slug` for in-page links and the opt-in
-   * form's action. Empty behind the trust.producerstackcrm.com rewrite (the
-   * live shape); "/functions/v1/compliance-page" when the function is hit
-   * directly, which is what `curl` verification and the fallback path do.
-   * Defaults to "" so existing callers and rendered output are unchanged.
+   * Public origin, e.g. "https://trust.producerstackcrm.com". Used for
+   * canonical URLs AND — see below — for the opt-in form's action.
+   *
+   * 🔴 THE FORM ACTION IS ABSOLUTE, DERIVED FROM HERE, AND MUST STAY THAT WAY.
+   *
+   * An earlier revision tried to derive a path prefix from the incoming
+   * request so links would work both behind the trust.producerstackcrm.com
+   * rewrite and at the raw functions URL. That cannot work: Supabase's
+   * gateway forwards the path as `/compliance-page/a/<slug>/…` in BOTH
+   * cases, so the function sees a prefix that the client cannot see. The
+   * form rendered `action="/compliance-page/a/…"`, which is a 404 on the
+   * trust domain — caught in live verification 2026-07-28, before any
+   * consumer met it.
+   *
+   * A function behind a rewrite cannot know its client-visible path. So the
+   * form does not guess: it posts to the same origin we already publish as
+   * `page_url` on the consent record and as the canonical URL. The two
+   * cannot disagree, because they are the same constant.
    */
-  pathPrefix?: string;
+  baseUrl: string;
 }
 
 export function renderIndexPage(o: RenderOptions): string {
   const p = o.profile;
   const slug = p.compliance_slug || "";
-  const pfx = o.pathPrefix || "";
   const agency = agencyDisplayName(p);
   const entity = entityClause(p);
   const legal = legalNameClause(p);
@@ -481,7 +491,7 @@ export function renderIndexPage(o: RenderOptions): string {
 serving individuals and families seeking life insurance coverage. We help clients compare policies from
 multiple insurance carriers, complete applications, and service their coverage after it is issued.</p>
 
-${docNav(slug, "index", pfx)}
+${docNav(slug, "index")}
 
 <div class="card">
 <h2>Contact us</h2>
@@ -512,7 +522,6 @@ ${legal && legal !== agency ? `<p>Legal entity: ${escapeHtml(legal)}.</p>` : ""}
 export function renderPrivacyPolicyPage(o: RenderOptions): string {
   const p = o.profile;
   const slug = p.compliance_slug || "";
-  const pfx = o.pathPrefix || "";
   const agency = agencyDisplayName(p);
   const entity = entityClause(p);
   const updated = formatLongDate(o.lastUpdatedIso ?? p.compliance_page_published_at);
@@ -526,7 +535,7 @@ export function renderPrivacyPolicyPage(o: RenderOptions): string {
 
 <p class="updated">Last updated ${escapeHtml(updated)}</p>
 
-${docNav(slug, "privacy", pfx)}
+${docNav(slug, "privacy")}
 
 <h2 id="who-we-are">Who we are</h2>
 <p>${escapeHtml(agency)} is a licensed life insurance agency${entity ? `, ${escapeHtml(entity)},` : ""}
@@ -543,7 +552,7 @@ Consent is certified by TrustedForm, which records your IP address, session acti
 exact disclosure shown to you. We retain that certificate for each person we contact.</p>
 <p><strong>Text messages are separate.</strong> We do not text you on the strength of that lead form. To
 receive text messages from us you have to opt in yourself, on
-<a href="${pfx}/a/${escapeHtml(slug)}/sms-opt-in">our own sign-up page</a>, where the full agreement is
+<a href="/a/${escapeHtml(slug)}/sms-opt-in">our own sign-up page</a>, where the full agreement is
 shown to you before you agree to it. We keep a record of exactly what that page said, when you agreed,
 and from what IP address.</p>
 <p>We also collect information you give us directly — during a phone call, by text or email, or on an
@@ -625,7 +634,6 @@ ${st ? `<p>${escapeHtml(agency)} operates from ${escapeHtml(cityStateZip(p))}.</
 export function renderTermsPage(o: RenderOptions): string {
   const p = o.profile;
   const slug = p.compliance_slug || "";
-  const pfx = o.pathPrefix || "";
   const agency = agencyDisplayName(p);
   const entity = entityClause(p);
   const updated = formatLongDate(o.lastUpdatedIso ?? p.compliance_page_published_at);
@@ -639,7 +647,7 @@ export function renderTermsPage(o: RenderOptions): string {
 
 <p class="updated">Last updated ${escapeHtml(updated)}</p>
 
-${docNav(slug, "terms", pfx)}
+${docNav(slug, "terms")}
 
 <p>These terms govern your communications and dealings with ${escapeHtml(agency)}${
     entity ? `, ${escapeHtml(entity)}` : ""
@@ -778,19 +786,20 @@ function disclosureHtml(text: string, urls: { privacy: string; terms: string }):
 export function renderSmsOptInPage(o: OptInRenderOptions): string {
   const p = o.profile;
   const slug = p.compliance_slug || "";
-  const pfx = o.pathPrefix || "";
   const agency = agencyDisplayName(p);
   const urls = compliancePageUrls(o.baseUrl, slug);
   const disclosure = buildOptInDisclosure(agency, urls);
   const v = o.values || {};
-  const action = `${pfx}/a/${escapeHtml(slug)}/sms-opt-in`;
+  // Absolute, from baseUrl. See the note on RenderOptions.baseUrl for why
+  // this must never be derived from the incoming request path.
+  const action = `${o.baseUrl}/a/${escapeHtml(slug)}/sms-opt-in`;
 
   const body = `<header class="masthead">
 <h1>Text message sign-up</h1>
 <p class="tagline">${escapeHtml(agency)}</p>
 </header>
 
-${docNav(slug, "sms-opt-in", pfx)}
+${docNav(slug, "sms-opt-in")}
 
 <p>Sign up to get text messages from ${escapeHtml(agency)} about your life insurance quote, your
 appointments, and the status of your application. Fill in your details, read the agreement, and tick the
@@ -870,7 +879,6 @@ export function renderSmsOptInConfirmedPage(
 ): string {
   const p = o.profile;
   const slug = p.compliance_slug || "";
-  const pfx = o.pathPrefix || "";
   const agency = agencyDisplayName(p);
   const name = (o.firstName || "").trim();
 
@@ -879,7 +887,7 @@ export function renderSmsOptInConfirmedPage(
 <p class="tagline">${escapeHtml(agency)}</p>
 </header>
 
-${docNav(slug, "sms-opt-in", pfx)}
+${docNav(slug, "sms-opt-in")}
 
 <div class="card">
 <h2>${name ? `Thanks, ${escapeHtml(name)}.` : "Thanks."}</h2>
@@ -904,8 +912,8 @@ still blocking our messages — and we cannot lift that from our end, by design.
 <li>Agreeing to texts is not a condition of buying anything.</li>
 <li>Reply <strong>STOP</strong> to any message to stop them, or <strong>HELP</strong> for help.</li>
 </ul>
-<p>The full detail is in our <a href="${pfx}/a/${escapeHtml(slug)}/privacy-policy">Privacy Policy</a> and
-<a href="${pfx}/a/${escapeHtml(slug)}/terms">Terms of Service</a>.</p>
+<p>The full detail is in our <a href="/a/${escapeHtml(slug)}/privacy-policy">Privacy Policy</a> and
+<a href="/a/${escapeHtml(slug)}/terms">Terms of Service</a>.</p>
 
 <h2>Reach us</h2>
 ${contactBlock(p)}`;

@@ -304,6 +304,67 @@ There is deliberately **no INSERT policy** on `consent_records`. The write goes
 through the service key inside the function, so PostgREST cannot be used to
 skip any of the above.
 
+### 🔴 Two defects found in live verification, 2026-07-28
+
+Both were caught deploying, not by the unit tests, and both are the same
+shape: **a function behind a rewrite cannot know what the browser sees.**
+
+#### 1. The form posted to a 404
+
+The form action was built from a prefix derived from the incoming request
+path. Supabase's gateway forwards `/compliance-page/a/<slug>/…` *even when the
+browser asked for* `https://trust.producerstackcrm.com/a/<slug>/…`, so the page
+rendered:
+
+```html
+<form method="post" action="/compliance-page/a/frenkel-financial-agency/sms-opt-in">
+```
+
+which is a **404 on the trust domain** — verified with a live `curl`. Every
+submission would have died there. The same defect was in the post-submit
+`Location` header.
+
+**Fix:** the form action and the redirect are now absolute, built from
+`BASE_URL` — the same constant already published as `page_url` on the consent
+record and as the canonical URL, so they cannot disagree. In-page nav links
+stay root-relative. `pathPrefix` is gone; it was an idea that could not work.
+Two regression tests now assert the action is absolute and that no
+function-internal path leaks into any link.
+
+#### 2. `ip_address` records the proxy, not the consumer — and it throttled everyone
+
+A live opt-in from a machine whose real egress IP was `65.27.120.2` recorded
+`3.133.139.170`, an AWS host in Ohio. The chain is
+**consumer → Vercel edge → Cloudflare → Supabase** (the `__cf_bm` cookie on
+responses gives the Cloudflare hop away), and a Vercel *rewrite to an external
+origin* issues a fresh request rather than forwarding the caller's address, so
+`X-Forwarded-For` arrives naming the proxy and nothing else.
+
+Weak evidence was the smaller half of this. The larger half:
+**`OPTIN_IP_HOURLY_CAP` counted every row sharing that IP, across all
+agents.** Since every consumer on the platform shares the proxy address, the
+ninth opt-in in any hour — anywhere, for any agency — would have been told
+"too many sign-ups from your connection" and turned away. A rate limiter that
+cannot distinguish callers must not be able to lock out the world.
+
+**Fixed now:**
+
+- the IP cap is scoped to `agent_id`, bounding the blast radius to one agency;
+- a **repeat-submission check keyed on the phone number** does the anti-abuse
+  work IP no longer can: an existing unrevoked `express_written` row for that
+  number short-circuits to the confirmation page and writes nothing. A
+  *revoked* prior row deliberately does not short-circuit — re-consenting
+  after a revoke is a new grant and gets its own row;
+- `clientIp()` tries `x-vercel-forwarded-for` first, and the value is still
+  recorded honestly even when it is a proxy hop, because it remains a true
+  fact about the request.
+
+**Still open, and it needs a Vercel-side change:** making `ip_address` the
+consumer's address requires the rewrite to forward the client address. Until
+that lands, treat `ip_address` on a `web_form` row as "the hop we saw", not as
+identifying. Everything else on the row — the disclosure, the page URL, the
+timestamp, the name — is unaffected and is the substance of the evidence.
+
 ### The `form-action` trap in the Vercel CSP
 
 `vercel-trust/vercel.json` carried `form-action 'none'`, which was correct

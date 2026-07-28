@@ -727,18 +727,40 @@ test("an error bounce keeps what they typed but shows the problem", () => {
   assert.ok(html.includes('value="(414) 555-1234"'), "phone was not preserved");
 });
 
-test("the form is a real POST to its own URL, and posts nowhere else", () => {
+// 🔴 REGRESSION TEST — this shipped broken and was caught in live verification
+// on 2026-07-28, not by this suite.
+//
+// The action used to be built from a prefix derived from the incoming request
+// path. Supabase's gateway forwards `/compliance-page/a/<slug>/…` even when
+// the browser asked for `https://trust.producerstackcrm.com/a/<slug>/…`, so
+// the form rendered `action="/compliance-page/a/…"` — a 404 on the trust
+// domain. A function behind a rewrite cannot know its client-visible path, so
+// the action does not guess: it is absolute, from the same baseUrl we publish
+// as page_url and canonical.
+test("the form action is ABSOLUTE and matches the URL we store as page_url", () => {
   const html = renderSmsOptInPage({ profile: LLC_AGENT, ...RENDER_OPTS });
   assert.ok(html.includes('method="post"'), "must be a POST — a GET would put the phone number in a URL");
-  assert.ok(html.includes('action="/a/frenkel-financial-agency/sms-opt-in"'));
-  // Behind the raw functions URL the action has to carry the prefix or the
-  // form posts to a 404. This is what pathPrefix exists for.
-  const raw = renderSmsOptInPage({
+
+  const action = html.match(/<form[^>]*action="([^"]*)"/);
+  assert.ok(action, "form action missing");
+  assert.equal(action[1], compliancePageUrls(RENDER_OPTS.baseUrl, "frenkel-financial-agency").smsOptIn);
+  assert.ok(action[1].startsWith("https://"), "action must be absolute, not path-relative");
+  assert.ok(!action[1].includes("/compliance-page/"), "the function-internal path leaked into the action");
+
+  // A different origin must follow baseUrl, not be hardcoded.
+  const staging = renderSmsOptInPage({
     profile: LLC_AGENT,
     ...RENDER_OPTS,
-    pathPrefix: "/functions/v1/compliance-page",
+    baseUrl: "https://staging.example.com",
   });
-  assert.ok(raw.includes('action="/functions/v1/compliance-page/a/frenkel-financial-agency/sms-opt-in"'));
+  assert.ok(staging.includes('action="https://staging.example.com/a/frenkel-financial-agency/sms-opt-in"'));
+});
+
+test("in-page nav links stay root-relative and never carry the function path", () => {
+  for (const html of allPages(LLC_AGENT)) {
+    assert.ok(!html.includes('href="/compliance-page/'), "function-internal path leaked into a link");
+    assert.ok(!html.includes('href="/functions/v1/'), "function-internal path leaked into a link");
+  }
 });
 
 test("the form asks for exactly the three fields, plus the honeypot", () => {

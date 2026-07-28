@@ -82,9 +82,9 @@ const TELNYX_MSG_PROFILE_ID = Deno.env.get("TELNYX_MESSAGING_PROFILE_ID");
 // host can change without a code edit:
 //   supabase secrets set COMPLIANCE_PAGE_BASE_URL=https://trust.producerstackcrm.com
 // Used for <link rel="canonical">, for the URLs quoted inside the stored
-// disclosure text, and for consent_records.page_url. In-page links stay
-// prefix-relative so the pages work identically behind the subdomain rewrite
-// and at the raw functions URL.
+// disclosure text, for consent_records.page_url, for the opt-in form's
+// action and for its post-submit redirect. In-page nav links stay
+// root-relative; anything that must not silently 404 is absolute from here.
 const BASE_URL = (Deno.env.get("COMPLIANCE_PAGE_BASE_URL") || DEFAULT_COMPLIANCE_BASE_URL)
   .replace(/\/+$/, "");
 
@@ -149,25 +149,28 @@ function notFound(): Response {
 type PageKind = "index" | "privacy" | "terms" | "optin" | "optin_confirmed";
 
 /**
- * Normalize the request path to `/a/:slug[/:page]`, and report the prefix
- * that was stripped.
+ * Normalize the request path to `/a/:slug[/:page]`.
  *
  * The same deployment answers on two shapes and both must work:
  *   - behind the trust.producerstackcrm.com rewrite:  /a/:slug/privacy-policy
  *   - at the raw functions URL:  /functions/v1/compliance-page/a/:slug/...
  * The second is what `curl` hits during verification and what we fall back to
  * if the subdomain is ever misconfigured, so it is a supported path, not a
- * debugging accident. The prefix is handed to the renderers so the opt-in
- * form posts back to the URL it was actually served from — a hardcoded
- * root-relative action would post to a 404 on the raw functions host.
+ * debugging accident.
+ *
+ * The stripped prefix is deliberately NOT returned. It is what the FUNCTION
+ * sees, not what the BROWSER sees: Supabase's gateway forwards
+ * `/compliance-page/a/<slug>/…` even when the request arrived at
+ * `https://trust.producerstackcrm.com/a/<slug>/…`. An earlier revision fed
+ * that prefix back into the opt-in form's action and produced
+ * `action="/compliance-page/a/…"`, a 404 on the trust domain. In-page links
+ * are root-relative and the form action is absolute from BASE_URL.
  */
-function parseRoute(pathname: string): { slug: string; page: PageKind; prefix: string } | null {
+function parseRoute(pathname: string): { slug: string; page: PageKind } | null {
   let path = decodeURIComponent(pathname);
-  let prefix = "";
 
   for (const candidate of ["/functions/v1/compliance-page", "/compliance-page"]) {
     if (path.startsWith(candidate)) {
-      prefix = candidate;
       path = path.slice(candidate.length);
       break;
     }
@@ -181,30 +184,47 @@ function parseRoute(pathname: string): { slug: string; page: PageKind; prefix: s
   const slug = parts[1].toLowerCase();
   if (!isValidSlug(slug)) return null;
 
-  if (parts.length === 2) return { slug, page: "index", prefix };
+  if (parts.length === 2) return { slug, page: "index" };
   if (parts.length === 3) {
-    if (parts[2] === "privacy-policy") return { slug, page: "privacy", prefix };
-    if (parts[2] === "terms") return { slug, page: "terms", prefix };
-    if (parts[2] === "sms-opt-in") return { slug, page: "optin", prefix };
+    if (parts[2] === "privacy-policy") return { slug, page: "privacy" };
+    if (parts[2] === "terms") return { slug, page: "terms" };
+    if (parts[2] === "sms-opt-in") return { slug, page: "optin" };
   }
   if (parts.length === 4 && parts[2] === "sms-opt-in" && parts[3] === "confirmed") {
-    return { slug, page: "optin_confirmed", prefix };
+    return { slug, page: "optin_confirmed" };
   }
   return null;
 }
 
 /**
- * First hop of X-Forwarded-For. Two proxies sit in front of this function
- * (Vercel, then the Supabase gateway), so the header is a list and the
- * left-most entry is the client. Stored as text — see the ip_address note in
- * 20260733_sms_optin_consent.sql for why this is deliberately not INET.
+ * Best available client IP.
+ *
+ * 🔴 MEASURED 2026-07-28, AND IT IS NOT THE CONSUMER'S IP TODAY.
+ *
+ * A live opt-in submitted from a machine whose real egress IP was
+ * 65.27.120.2 recorded 3.133.139.170 — an AWS host in Ohio, i.e. a proxy
+ * hop. The request path is consumer -> Vercel edge -> Cloudflare -> Supabase
+ * (the `__cf_bm` cookie on responses gives the Cloudflare hop away), and a
+ * Vercel *rewrite to an external origin* issues a fresh request rather than
+ * forwarding the caller's address, so X-Forwarded-For arrives naming the
+ * proxy and nothing else.
+ *
+ * `x-vercel-forwarded-for` is tried first because that is the header Vercel
+ * uses to carry the original address; it is unverified here, and if it is
+ * absent the value below is a proxy IP. THAT IS RECORDED HONESTLY rather
+ * than nulled: it is still a true fact about the request, and a null would
+ * lose the timestamped hop as well. What must NOT happen is treating it as
+ * identifying — see the rate-limit block, which no longer does.
+ *
+ * Fixing this properly is a Vercel-side change (forward the client address
+ * on the rewrite), which is why it is written up rather than worked around.
  */
 function clientIp(req: Request): string | null {
-  const xff = req.headers.get("x-forwarded-for") || "";
-  const first = xff.split(",")[0].trim();
-  if (first) return first.slice(0, 64);
-  const real = (req.headers.get("x-real-ip") || "").trim();
-  return real ? real.slice(0, 64) : null;
+  for (const h of ["x-vercel-forwarded-for", "x-forwarded-for", "x-real-ip"]) {
+    const v = (req.headers.get(h) || "").split(",")[0].trim();
+    if (v) return v.slice(0, 64);
+  }
+  return null;
 }
 
 async function loadProfile(slug: string): Promise<{ profile: AgencyProfile; lastUpdatedIso: string | null } | null> {
@@ -311,7 +331,7 @@ async function sendOptInConfirmation(agentId: string, toNumber: string, text: st
  */
 async function handleOptInPost(
   req: Request,
-  route: { slug: string; prefix: string },
+  route: { slug: string },
   loaded: { profile: AgencyProfile; lastUpdatedIso: string | null },
 ): Promise<Response> {
   const { profile, lastUpdatedIso } = loaded;
@@ -328,7 +348,6 @@ async function handleOptInPost(
         profile,
         lastUpdatedIso,
         baseUrl: BASE_URL,
-        pathPrefix: route.prefix,
         error: "We could not read that submission. Please fill the form in again.",
       }),
       400,
@@ -352,7 +371,6 @@ async function handleOptInPost(
         profile,
         lastUpdatedIso,
         baseUrl: BASE_URL,
-        pathPrefix: route.prefix,
         error,
         values,
       }),
@@ -365,7 +383,7 @@ async function handleOptInPost(
   if (str("company_website")) {
     console.warn("[compliance-page] opt-in honeypot tripped for slug", route.slug, "ip", clientIp(req));
     return privateHtmlResponse(
-      renderSmsOptInPage({ profile, lastUpdatedIso, baseUrl: BASE_URL, pathPrefix: route.prefix }),
+      renderSmsOptInPage({ profile, lastUpdatedIso, baseUrl: BASE_URL }),
       200,
     );
   }
@@ -391,14 +409,27 @@ async function handleOptInPost(
 
   const ip = clientIp(req);
 
-  // Per-IP hourly cap. Deliberately vague in the message: a submitter who
-  // learns the exact limit learns how to sit just under it.
+  // Per-IP hourly cap, SCOPED TO THIS AGENT.
+  //
+  // 🔴 It used to count every row sharing the IP, across all agents. With a
+  // trustworthy client IP that is what you want. With the proxy IP we
+  // actually receive (see clientIp above) it is a self-inflicted outage:
+  // every consumer on the platform shares one address, so the ninth opt-in
+  // in any hour — anywhere, for any agency — would have been told "too many
+  // sign-ups from your connection" and turned away. A rate limiter that
+  // cannot distinguish callers must not be able to lock out the world.
+  //
+  // Scoping to agent_id bounds the blast radius to one agency, and the
+  // same-phone check below does the anti-abuse work that IP no longer can.
+  // Deliberately vague in the message: a submitter who learns the exact
+  // limit learns how to sit just under it.
   if (ip) {
     const since = new Date(Date.now() - 3600_000).toISOString();
     const { count } = await sb
       .from("consent_records")
       .select("id", { count: "exact", head: true })
       .eq("ip_address", ip)
+      .eq("agent_id", agentId)
       .gte("captured_at", since);
     if ((count ?? 0) >= OPTIN_IP_HOURLY_CAP) {
       console.warn("[compliance-page] opt-in rate limit hit for ip", ip, "slug", route.slug);
@@ -406,16 +437,15 @@ async function handleOptInPost(
     }
   }
 
-  // THE disclosure — the same call the page rendered, so what we store is
-  // provably the text that was on screen above the box they ticked.
-  const disclosure = buildOptInDisclosure(agency, urls);
-
   // A do-not-contact entry outranks this form. The consumer asking again is
   // worth recording — it is evidence, and it is what they intended — but a
   // web form is unverified and a STOP came from the handset itself, so the
   // dnc_list row stays exactly where it is and we send no confirmation text.
   // The confirmation page tells them to reply START, which is the one path
   // that can actually clear it (messaging-inbound-webhook).
+  //
+  // Resolved BEFORE the repeat-submission branch below, because that branch
+  // returns early and still has to render the right confirmation page.
   const { data: dncRows } = await sb
     .from("dnc_list")
     .select("agent_id")
@@ -423,6 +453,48 @@ async function handleOptInPost(
   const onDnc = (dncRows || []).some(
     (r: { agent_id: string | null }) => r.agent_id === null || r.agent_id === agentId,
   );
+
+  /** The confirmation redirect. Identical for a fresh opt-in and a repeat. */
+  const confirmedRedirect = () => {
+    const params = new URLSearchParams({ n: values.first_name || "", p: phone.slice(-4) });
+    if (onDnc) params.set("s", "1");
+    return new Response(null, {
+      status: 303,
+      headers: {
+        "Location": `${BASE_URL}/a/${route.slug}/sms-opt-in/confirmed?${params.toString()}`,
+        "Cache-Control": "no-store",
+      },
+    });
+  };
+
+  // Already consented? Treat a repeat submission as success rather than
+  // writing a second row. A consumer who double-taps, refreshes a cached
+  // form, or opts in again months later should not multiply the audit trail
+  // — the gate reads the most recent unrevoked row and a duplicate changes
+  // nothing. This is also the check that survives the IP problem above: it
+  // is keyed on the phone number, which is the thing actually being
+  // protected, and unlike the IP it cannot be shared by every consumer.
+  //
+  // A REVOKED prior row deliberately does NOT short-circuit: re-consenting
+  // after a revoke is a new grant and gets its own row, exactly as
+  // consent_records' append-only design intends.
+  const { data: priorConsent } = await sb
+    .from("consent_records")
+    .select("id, revoked_at, consent_type")
+    .eq("agent_id", agentId)
+    .eq("contact_phone", phone)
+    .order("captured_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (priorConsent && !priorConsent.revoked_at && priorConsent.consent_type === "express_written") {
+    console.log("[compliance-page] repeat opt-in for an already-consented number — no new row written");
+    return confirmedRedirect();
+  }
+
+  // THE disclosure — the same call the page rendered, so what we store is
+  // provably the text that was on screen above the box they ticked.
+  const disclosure = buildOptInDisclosure(agency, urls);
 
   const { error: insertErr } = await sb.from("consent_records").insert({
     agent_id: agentId,
@@ -463,15 +535,13 @@ async function handleOptInPost(
   // second consent row. The name and masked number ride in the query string
   // rather than a cookie so the page stays stateless and JS-free; neither is
   // trusted for anything, they are only echoed back after escaping.
-  const params = new URLSearchParams({ n: values.first_name || "", p: phone.slice(-4) });
-  if (onDnc) params.set("s", "1");
-  return new Response(null, {
-    status: 303,
-    headers: {
-      "Location": `${route.prefix}/a/${route.slug}/sms-opt-in/confirmed?${params.toString()}`,
-      "Cache-Control": "no-store",
-    },
-  });
+  //
+  // The Location is ABSOLUTE, from BASE_URL — see confirmedRedirect(). A
+  // relative Location built from the incoming path resolved to
+  // /compliance-page/a/<slug>/… on the trust domain, which is a 404: the
+  // gateway forwards the function name in the path, so the prefix the
+  // function sees is not the prefix the browser sees.
+  return confirmedRedirect();
 }
 
 serve(async (req) => {
@@ -497,7 +567,6 @@ serve(async (req) => {
     profile: loaded.profile,
     lastUpdatedIso: loaded.lastUpdatedIso,
     baseUrl: BASE_URL,
-    pathPrefix: route.prefix,
   };
 
   if (route.page === "optin") {
