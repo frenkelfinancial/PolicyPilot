@@ -2167,6 +2167,55 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 .wd-floating-close:hover{ background:rgba(255,255,255,.06); color:var(--text); }
 #sec-webdialer.dialer-floating .wd-floating-close{ display:flex; }
 
+/* ── Floating popup: dark theme ──────────────────────────────────────────
+   The full Web Dialer PAGE keeps its deliberately-white "device" card in both
+   themes (see .wd-dial-card below). The floating popup, however, sits over the
+   app's dark chrome, so in dark mode it should read as part of the app — same
+   dark card, tokens, DM Sans font and spacing as the Leads tab, not a white
+   rectangle. Scoped to the floating widget only, and only when NOT in light
+   mode. Higher specificity than the base #sec-webdialer rules, so these win
+   regardless of source order. */
+body:not(.light) #sec-webdialer.dialer-floating .wd-dial-card{
+  background:linear-gradient(180deg,#101f38,#0c1a30);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:10px;
+  font-family:var(--sans);
+  box-shadow:0 1px 2px rgba(0,0,0,.25), 0 16px 40px -18px rgba(0,0,0,.55);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg label{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg input,
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg select{
+  background:var(--bg3); border-color:var(--border); color:var(--text);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg input::placeholder{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg input:focus,
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg select:focus{ border-color:var(--accent); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-cs-timer{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-display{
+  background:var(--bg3); border-color:var(--border);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-number-prefix,
+body:not(.light) #sec-webdialer.dialer-floating .wd-number-input{ color:var(--text); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-number-input::placeholder{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-backspace{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-backspace:hover{ background:var(--bg3); color:var(--text); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-key{
+  background:var(--bg3); border-color:var(--border); color:var(--text);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-key:hover{ background:var(--bg2); border-color:var(--border2); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-key-num{ color:var(--text); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-key-sub{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-cs-btn{
+  background:var(--bg3); border-color:var(--border); color:var(--text2);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-cs-btn:hover{ background:var(--bg2); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-cs-outcome-lbl{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-out-btn{
+  background:var(--bg3); border-color:var(--border); color:var(--text);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-out-btn:hover{ background:var(--bg2); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-out-btn-skip{ color:var(--text3); }
+
 /* Post-call outcome picker — inline in the dial card, same footprint style
    as the rest of the Web Dialer widget. */
 #sec-webdialer .wd-cs-outcome{ width:100%; }
