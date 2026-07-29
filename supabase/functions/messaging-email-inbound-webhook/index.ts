@@ -5,6 +5,7 @@ import {
   captureStatus,
   captureError,
   base64ToBytes,
+  fetchAttachmentBytes,
 } from "../_shared/statement-email.ts";
 
 // ============================================================
@@ -247,9 +248,30 @@ async function handleCommissionEmail(
   const statementIds: string[] = [];
   const failures: string[] = [];
 
+  // Resend's inbound event carries attachment METADATA ONLY, so the bytes are
+  // fetched here. A full-access Resend key is required; the stored
+  // RESEND_API_KEY is send-only and returns 401 for every read endpoint, which
+  // is why RESEND_FULL_API_KEY is looked for first and the failure is recorded
+  // in plain English rather than thrown.
+  const RESEND_KEY = Deno.env.get("RESEND_FULL_API_KEY") ?? Deno.env.get("RESEND_API_KEY") ?? "";
+
   for (const att of email.ingestible) {
     try {
-      const bytes = base64ToBytes(att.contentBase64);
+      let b64 = att.contentBase64;
+      if (!b64) {
+        if (!email.emailId || !att.remoteId) {
+          failures.push(`${att.filename}: no attachment id to download by`);
+          continue;
+        }
+        if (!RESEND_KEY) {
+          failures.push(`${att.filename}: no Resend API key configured to download it`);
+          continue;
+        }
+        const got = await fetchAttachmentBytes(email.emailId, att.remoteId, RESEND_KEY);
+        if (!got.ok) { failures.push(`${att.filename}: ${got.reason}`); continue; }
+        b64 = got.base64;
+      }
+      const bytes = base64ToBytes(b64);
       const res = await fetch(`${SUPABASE_URL}/functions/v1/statement-upload`, {
         method: "POST",
         headers: {

@@ -1,14 +1,14 @@
 // ============================================================
 // statement-email.test.ts — run with:  npm run test:statementemail
 //
-// Back Office Phase 1b. The Resend `email.received` payload shape is still
-// UNOBSERVED — no webhook has ever delivered to this app — so these tests do
-// not assert a shape. They assert the two things that must hold whatever the
-// shape turns out to be:
+// Back Office Phase 1b. The Resend `email.received` shape is now OBSERVED,
+// from a real delivery on 2026-07-29, and the fixture below is that real
+// payload's structure — metadata-only attachments, `received_for`, `email_id`.
 //
-//   1. token extraction is exact (a near-miss domain must NEVER resolve), and
-//   2. an unrecognised shape degrades to a stored, explained, re-runnable row
-//      rather than to a guess or a crash.
+// The first guess (that inbound would mirror Resend's OUTBOUND
+// `{filename, content}`) was WRONG. These tests pin the observed shape so it
+// cannot silently regress, and keep the tolerant paths covered so a provider
+// that starts inlining bytes does not break us.
 // ============================================================
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -27,6 +27,7 @@ import {
   base64ToBytes,
   isIngestibleFilename,
   parseInboundStatementEmail,
+  fetchAttachmentBytes,
   captureStatus,
   captureError,
 } from "./statement-email.ts";
@@ -235,4 +236,108 @@ test("every capture status is one the check constraint allows", () => {
   });
   [captureStatus(null, null), captureStatus(e, null), captureStatus(e, "x")].forEach((s) =>
     assert.ok(allowed.includes(s), `${s} is not an allowed status`));
+});
+
+
+// ============================================================
+// THE OBSERVED RESEND SHAPE — captured from a real delivery, 2026-07-29
+// ============================================================
+
+/** Exactly the structure a real `email.received` carried. */
+const REAL = (to = `${TOK}@ouintiicri.resend.app`) => ({
+  type: "email.received",
+  data: {
+    cc: [],
+    to: [to],
+    bcc: [],
+    from: "ProducerStack <noreply@producerstackcrm.com>",
+    subject: "Americo Commission Statement 07/24/2026",
+    email_id: "497d02c1-84f1-4bca-ae64-dbf28830e9a7",
+    created_at: "2026-07-29T22:40:00.000Z",
+    message_id: "<abc@resend>",
+    // METADATA ONLY. There is no content field — this is the finding.
+    attachments: [{
+      id: "8aa60296-3c06-4d8b-a616-abfd7893d796",
+      filename: "americo-commissions-20260724.csv",
+      content_id: "",
+      content_type: "text/csv",
+      content_disposition: "attachment",
+    }],
+    received_for: JSON.stringify([to]),
+  },
+});
+
+test("the REAL Resend shape parses: token, email_id and a fetchable attachment", () => {
+  const e = parseInboundStatementEmail(REAL())!;
+  assert.equal(e.token, TOK);
+  assert.equal(e.emailId, "497d02c1-84f1-4bca-ae64-dbf28830e9a7");
+  assert.equal(e.ingestible.length, 1);
+  const a = e.ingestible[0];
+  assert.equal(a.filename, "americo-commissions-20260724.csv");
+  assert.equal(a.contentBase64, null, "inbound carries NO bytes — they are fetched");
+  assert.equal(a.remoteId, "8aa60296-3c06-4d8b-a616-abfd7893d796");
+  assert.equal(a.via, "attachments[].id(fetch)");
+});
+
+test("`received_for` is honoured, and it is a JSON-encoded string", () => {
+  // It is authoritative: present even when our address is only in bcc, which
+  // is how a forwarded carrier email often reaches us.
+  const p = REAL();
+  p.data.to = ["someone-else@carrier.com"];
+  p.data.received_for = JSON.stringify([`${TOK}@ouintiicri.resend.app`]);
+  const e = parseInboundStatementEmail(p)!;
+  assert.equal(e.token, TOK, "received_for must resolve the address");
+});
+
+test("a real event with a resolvable agent is `received`, not an error", () => {
+  const e = parseInboundStatementEmail(REAL());
+  assert.equal(captureStatus(e, "agent-uuid"), "received");
+  assert.equal(captureError(e, "agent-uuid"), null);
+});
+
+test("the send-only key failure is reported in words an agent can act on", async () => {
+  const orig = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(
+    JSON.stringify({ statusCode: 401, name: "restricted_api_key" }),
+    { status: 401, headers: { "content-type": "application/json" } },
+  )) as typeof fetch;
+  try {
+    const r = await fetchAttachmentBytes("e1", "a1", "re_sendonly");
+    assert.equal(r.ok, false);
+    assert.match((r as { reason: string }).reason, /send-only/);
+    assert.match((r as { reason: string }).reason, /RESEND_FULL_API_KEY/);
+  } finally { globalThis.fetch = orig; }
+});
+
+test("attachment bytes are read from a raw body, and from a JSON content field", async () => {
+  const orig = globalThis.fetch;
+  const payload = new TextEncoder().encode("Policy,Amount\nX1,10.00");
+  globalThis.fetch = (async () => new Response(payload, {
+    status: 200, headers: { "content-type": "text/csv" },
+  })) as typeof fetch;
+  try {
+    const r = await fetchAttachmentBytes("e1", "a1", "k");
+    assert.equal(r.ok, true);
+    assert.equal(new TextDecoder().decode(base64ToBytes((r as { base64: string }).base64)),
+      "Policy,Amount\nX1,10.00");
+  } finally { globalThis.fetch = orig; }
+
+  globalThis.fetch = (async () => new Response(
+    JSON.stringify({ content: base64FromBytes(payload) }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  )) as typeof fetch;
+  try {
+    const r = await fetchAttachmentBytes("e1", "a1", "k");
+    assert.equal(r.ok, true);
+  } finally { globalThis.fetch = orig; }
+});
+
+test("a download failure NEVER throws — it returns a reason", async () => {
+  const orig = globalThis.fetch;
+  globalThis.fetch = (async () => { throw new Error("network down"); }) as typeof fetch;
+  try {
+    const r = await fetchAttachmentBytes("e1", "a1", "k");
+    assert.equal(r.ok, false);
+    assert.match((r as { reason: string }).reason, /Could not reach Resend/);
+  } finally { globalThis.fetch = orig; }
 });

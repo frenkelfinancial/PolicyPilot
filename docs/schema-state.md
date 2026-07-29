@@ -2006,3 +2006,55 @@ configuration or delivery state can be read from here.
 
 Nothing in this migration depends on that resolution; the schema is correct and
 inert until mail actually arrives.
+
+---
+
+## Apply 2026-07-29 — `20260749_commission_token_issue_fix.sql`
+
+Phase 1b fix. Two `CREATE OR REPLACE FUNCTION`, one `GRANT`. No table, no
+column, no data, no policy. Re-running is a no-op.
+
+### The bug, found by the first real inbound email
+
+`issue_commission_email_token()` is SECURITY DEFINER and so is allowed to write
+`agents.commission_email_token`. But `auth.role()` reads the JWT **claim**,
+which is still `authenticated` inside a definer function invoked from a
+browser — so `agents_protect_commission_token` reverted the definer's own
+UPDATE.
+
+The function then returned the token it had just generated, so the caller saw a
+plausible address. **Nothing was persisted.** The first real email to that
+address resolved to nobody and was filed `unresolved`.
+
+`20260736` records this exact trap, in this exact schema, about
+`set_my_agency_profile`: *"auth.role() reads the JWT claim, so it is still
+'authenticated' inside a SECURITY DEFINER RPC invoked from the browser — a
+blanket freeze would also revert the UPDATE that set_my_agency_profile itself
+performs."*
+
+### The fix — gate, do not freeze
+
+The guard now passes when a transaction-local `app.commission_token_issue`
+flag is on, which the issuing function opens immediately before its UPDATE and
+closes immediately after. Same idiom as `20260731`'s
+`app.a2p_allow_id_change`. It cannot be set from PostgREST (no SQL there) and
+is `is_local`, so it cannot outlive the statement.
+
+`issue_commission_email_token` also now **reads the value back** and returns
+what is actually stored rather than what it meant to write. That is the
+assertion that would have caught this the first time: a reverted write returns
+null instead of a confident, non-existent address.
+
+### Verified live
+
+| Check | Result |
+|---|---|
+| minting persists the token | PASS (`select` confirms the same value the RPC returned) |
+| re-minting is idempotent | PASS |
+| rotation issues a different token and stamps `rotated_at` | PASS |
+| the OLD token stops resolving after a rotation | PASS |
+| a client PATCH of `commission_email_token` is reverted | PASS |
+| an agent who never opens Integrations has no token minted | PASS |
+
+17/17 in a real browser against production; every account and row deleted
+afterwards.

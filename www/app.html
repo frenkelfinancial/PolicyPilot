@@ -5901,6 +5901,15 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
           <div>Connect external services to your dashboard. Each integration is one click — no API keys to paste.</div>
         </div>
 
+        <!-- Commission forwarding address (Back Office Phase 1b). Rendered by
+             ceRender(); the address is minted server-side on first view. -->
+        <div class="card" id="ce-card">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px">
+            <span data-ico="envelope-simple" data-size="14"></span>Forward commission statements
+          </div>
+          <div id="ce-body"><div style="font-size:12.5px;color:var(--text3)">Loading…</div></div>
+        </div>
+
         <div class="card">
           <div class="card-title" style="display:flex;align-items:center;gap:8px">
             <span data-ico="calendar-check" data-size="14"></span>Google Calendar &amp; Gmail
@@ -24888,7 +24897,131 @@ function stgPanels() {
   return document.querySelectorAll('#sec-settings > [id^="stg-"]');
 }
 
+// ============================================================
+// COMMISSION FORWARDING ADDRESS (Back Office Phase 1b)
+//
+// The address is minted server-side by issue_commission_email_token(), which
+// is idempotent — an agent who reloads this page must not get a new address,
+// because they may already have given the old one to a carrier.
+//
+// The recent-forwards list is not decoration. Forwarding is a fire-and-forget
+// action: an agent who sends a statement and hears nothing has no way to tell
+// whether it worked. Every inbound is captured with a status and a
+// plain-English error, so this list can always answer "did it arrive, and if
+// not, why".
+// ============================================================
+const CE_DOMAIN = 'ouintiicri.resend.app';
+let _ceToken = null;
+
+async function ceRender() {
+  const body = document.getElementById('ce-body');
+  if (!body || !currentAgent) return;
+  try {
+    if (!_ceToken) {
+      const { data, error } = await sb.rpc('issue_commission_email_token', { p_rotate: false });
+      if (error) throw error;
+      _ceToken = data;
+    }
+  } catch (e) {
+    body.innerHTML = '<div style="font-size:12.5px;color:var(--ds-color-danger)">Could not set up your ' +
+      'forwarding address: ' + escHTML((e && e.message) || e) + '</div>';
+    return;
+  }
+  if (!_ceToken) {
+    body.innerHTML = '<div style="font-size:12.5px;color:var(--text3)">No address yet.</div>';
+    return;
+  }
+  const addr = _ceToken + '@' + CE_DOMAIN;
+
+  let recent = [];
+  try {
+    const r = await sb.from('inbound_statement_emails')
+      .select('subject,from_address,status,error,attachment_count,created_at')
+      .order('created_at', { ascending: false }).limit(5);
+    if (!r.error) recent = r.data || [];
+  } catch (e) { /* the address still renders without the list */ }
+
+  body.innerHTML =
+    '<div style="font-size:12.5px;color:var(--text3);line-height:1.55;margin-bottom:10px">' +
+      'Forward a carrier commission statement to this address and it is read, matched to your ' +
+      'policies and filed — the same pipeline as dropping the file into Back Office.' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' +
+      '<code id="ce-addr" style="font-family:\'Spline Sans Mono\',ui-monospace,monospace;font-size:12.5px;' +
+        'background:var(--bg2);padding:7px 10px;border-radius:6px;user-select:all;word-break:break-all">' +
+        escHTML(addr) + '</code>' +
+      '<button class="btn btn-sm" onclick="ceCopy()">Copy</button>' +
+      '<button class="btn btn-sm" onclick="ceRotate()" title="Issues a new address. The old one stops working.">Rotate</button>' +
+    '</div>' +
+    '<div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-bottom:14px">' +
+      'Treat it like a password: anyone who knows it can file a statement into your book. ' +
+      'Rotating issues a new address and stops the old one.' +
+    '</div>' +
+    ceRecentHTML(recent);
+}
+
+function ceRecentHTML(rows) {
+  const head = '<div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;' +
+    'color:var(--text3);margin-bottom:6px">Recently forwarded</div>';
+  if (!rows.length) {
+    return head + '<div style="font-size:12px;color:var(--text3)">Nothing yet. ' +
+      'Forward a statement and it shows up here with what happened to it.</div>';
+  }
+  const label = {
+    ingested: ['Filed', 'var(--ds-color-success)'],
+    received: ['Reading…', 'var(--text3)'],
+    no_attachment: ['No statement attached', 'var(--ds-color-warning)'],
+    unresolved: ['Wrong address', 'var(--ds-color-warning)'],
+    failed: ['Could not read it', 'var(--ds-color-danger)'],
+  };
+  return head + rows.map(r => {
+    const [txt, col] = label[r.status] || [r.status, 'var(--text3)'];
+    return '<div style="display:flex;gap:8px;align-items:flex-start;padding:7px 0;' +
+        'border-top:1px solid var(--border);font-size:12px">' +
+      '<div style="flex:1;min-width:0">' +
+        '<div style="color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+          escHTML(r.subject || '(no subject)') + '</div>' +
+        '<div style="color:var(--text3);font-size:11px;margin-top:1px">' +
+          escHTML(r.from_address || '') + ' · ' + String(r.created_at || '').slice(0, 10) + '</div>' +
+        (r.error ? '<div style="color:var(--ds-color-danger);font-size:11px;margin-top:2px;line-height:1.45">' +
+          escHTML(r.error) + '</div>' : '') +
+      '</div>' +
+      '<div style="color:' + col + ';font-weight:600;white-space:nowrap">' + escHTML(txt) + '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function ceCopy() {
+  const el = document.getElementById('ce-addr');
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent.trim())
+    .then(() => showToast('Address copied', '#10b981'))
+    .catch(() => showToast('Could not copy — select it by hand', '#f87171'));
+}
+
+async function ceRotate() {
+  if (!confirm('Issue a new forwarding address?\n\nThe current one stops working immediately. ' +
+               'If you have given it to a carrier, update it there too.')) return;
+  try {
+    const { data, error } = await sb.rpc('issue_commission_email_token', { p_rotate: true });
+    if (error) throw error;
+    _ceToken = data;
+    await ceRender();
+    showToast('New address issued', '#10b981');
+  } catch (e) {
+    showToast('Could not rotate: ' + ((e && e.message) || e), '#f87171');
+  }
+}
+
 function settingsTab(id, el) {
+  // The forwarding address is minted on first view of Integrations, so an
+  // agent who never opens this tab never has one issued.
+  //
+  // The parameter is `id`, not `name`. Written as `name` this read the BROWSER
+  // GLOBAL `window.name`, was silently always false, and passed the linter
+  // because window.name is a legitimate global. Only clicking the tab found it.
+  if (id === 'integrations' && typeof ceRender === 'function') ceRender();
+
   if (el) {
     el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     el.classList.add('active');

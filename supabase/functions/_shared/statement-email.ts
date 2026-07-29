@@ -4,18 +4,26 @@
 // Back Office Phase 1b: turning a forwarded carrier email into ingested
 // commission statements.
 //
-// CAPTURE FIRST, PARSE SECOND. The Resend `email.received` payload shape has
-// never been seen by this codebase — messaging-email-inbound-webhook says so
-// in its own header, because it was written before the inbound MX existed. So
-// every event is written VERBATIM to `inbound_statement_emails` before a
-// single field is read out of it. If the adapter below reads the wrong key for
-// attachments, no statement is lost: the emails are all still there and can be
-// re-run without asking an agent to forward anything again.
+// THE PAYLOAD SHAPE IS NOW OBSERVED, from a real delivery on 2026-07-29:
 //
-// This module is deliberately TOLERANT about field names and STRICT about
-// what it claims. It tries the shapes Resend plausibly uses, records which one
-// matched, and when none match it stores the email with status
-// 'no_attachment' and an error saying exactly that — rather than guessing.
+//   data: { cc, to, bcc, from, subject, email_id, created_at, message_id,
+//           attachments, received_for }
+//   data.attachments[]: { id, filename, content_id, content_type,
+//                         content_disposition }
+//
+// **There is NO content field.** Resend's inbound webhook carries attachment
+// METADATA ONLY; the bytes are fetched separately from
+//   GET /emails/{email_id}/attachments/{attachment_id}
+// The first guess — that inbound would mirror Resend's OUTBOUND
+// `{filename, content}` shape — was wrong, and CAPTURE-FIRST is what made that
+// a one-function fix rather than a lost statement.
+//
+// Capture-first remains the rule: every event is written VERBATIM to
+// `inbound_statement_emails` before a single field is read out of it, so an
+// unforeseen shape stays recoverable and re-runnable.
+//
+// The inline shapes are still accepted. They cost nothing, and a provider that
+// starts inlining small attachments should not break us.
 // ============================================================
 
 /**
@@ -28,8 +36,7 @@
  *
  * The branded domain stays in this list, dormant. Its MX record is live and
  * correct, so the day the plan is upgraded it starts working with NO code
- * change: mail to either address resolves the same token the same way. That
- * is the whole reason it is a list and not a constant.
+ * change. That is the whole reason it is a list and not a constant.
  */
 export const COMMISSION_EMAIL_PRIMARY = "ouintiicri.resend.app";
 export const COMMISSION_EMAIL_BRANDED = "commissions.producerstackcrm.com";
@@ -49,17 +56,19 @@ export function isCommissionAddress(to: string): boolean {
 }
 
 /**
- * `<token>@commissions.producerstackcrm.com` -> token.
+ * `<token>@<one of our domains>` -> token.
  *
  * Plus-addressing is stripped (`abc+anything@` -> `abc`) so an agent can tag a
  * forward without breaking the lookup, and the token is lower-cased because
- * the local part of an address is case-insensitive in every mail client an
- * agent will actually use.
+ * the local part is case-insensitive in every mail client an agent will use.
+ *
+ * The domain check is EXACT. Resolving a token is what grants write access to
+ * an agent's book, so `evil-ouintiicri.resend.app` and
+ * `ouintiicri.resend.app.evil.com` must both fail.
  */
 export function extractCommissionToken(to: unknown): string | null {
   const raw = String(to ?? "").trim().toLowerCase();
   if (!raw) return null;
-  // Accept a bare address or a display-name form: "Name <addr@host>".
   const angle = raw.match(/<([^>]+)>/);
   const addr = angle ? angle[1] : raw;
   const at = addr.lastIndexOf("@");
@@ -70,29 +79,45 @@ export function extractCommissionToken(to: unknown): string | null {
   return /^[a-z0-9]{8,64}$/.test(local) ? local : null;
 }
 
-/** Every recipient on the event, across the shapes Resend might use. */
+/** Every recipient on the event, across the shapes a provider might use. */
 export function collectRecipients(data: Record<string, unknown>): string[] {
   const out: string[] = [];
   const push = (v: unknown) => {
     if (!v) return;
     if (typeof v === "string") { out.push(v); return; }
     if (Array.isArray(v)) { v.forEach(push); return; }
-    const e = (v as { email?: unknown; address?: unknown });
+    const e = v as { email?: unknown; address?: unknown };
     if (typeof e.email === "string") out.push(e.email);
     else if (typeof e.address === "string") out.push(e.address);
   };
+
+  // `received_for` is Resend's own record of the address it accepted the mail
+  // FOR — authoritative, and present even when our address is only in bcc
+  // (which is how a forwarded carrier email often reaches us). It arrives
+  // JSON-encoded: a string holding an array.
+  const rf = data.received_for;
+  if (typeof rf === "string" && rf.trim().startsWith("[")) {
+    try { push(JSON.parse(rf)); } catch { push(rf); }
+  } else {
+    push(rf);
+  }
+
   push(data.to);
   push(data.cc);
-  push((data as Record<string, unknown>).recipient);
-  push((data as Record<string, unknown>).recipients);
+  push(data.bcc);
+  push(data.recipient);
+  push(data.recipients);
   return out;
 }
 
 export interface InboundAttachment {
   filename: string;
-  contentBase64: string;
+  /** Bytes, when the provider inlined them. Null means "fetch by remoteId". */
+  contentBase64: string | null;
+  /** Resend's attachment id — how the bytes are actually retrieved. */
+  remoteId: string | null;
   contentType?: string | null;
-  /** Which payload shape this came from — recorded so the real one is learned. */
+  /** Which payload shape this came from, so drift is visible in the capture. */
   via: string;
 }
 
@@ -101,15 +126,10 @@ const CONTENT_KEYS = ["content", "data", "content_base64", "contentBase64", "bas
 const NAME_KEYS = ["filename", "file_name", "fileName", "name"];
 
 /**
- * Pull attachments out of whatever shape arrived.
+ * Pull attachments out of the event.
  *
- * Resend's documented outbound attachment shape is
- * `{ filename, content }` with content base64, and the inbound event is
- * expected to mirror it — but "expected" is not "verified", so several
- * plausible key names are tried and the one that worked is recorded on each
- * attachment as `via`. That string goes into the capture row, which is how the
- * real shape gets learned from the first genuine delivery instead of from a
- * guess.
+ * Handles BOTH the observed Resend shape (metadata + an `id` to fetch by) and
+ * the inline shapes, and records which one applied in `via`.
  */
 export function extractAttachments(data: Record<string, unknown>): InboundAttachment[] {
   const out: InboundAttachment[] = [];
@@ -119,26 +139,33 @@ export function extractAttachments(data: Record<string, unknown>): InboundAttach
     for (const item of list) {
       if (!item || typeof item !== "object") continue;
       const o = item as Record<string, unknown>;
+
       let name = "";
       for (const nk of NAME_KEYS) {
         if (typeof o[nk] === "string" && o[nk]) { name = o[nk] as string; break; }
       }
-      let content = "";
+      if (!name) continue;
+
+      let content: string | null = null;
       let via = "";
       for (const ck of CONTENT_KEYS) {
         const v = o[ck];
         if (typeof v === "string" && v.length > 0) { content = v; via = `${ak}[].${ck}`; break; }
-        // Some providers nest as { data: { data: "..." } } or send a byte array.
-        if (v && typeof v === "object" && Array.isArray(v)) {
+        if (v && Array.isArray(v)) {
           content = base64FromBytes(new Uint8Array(v as number[]));
           via = `${ak}[].${ck}(bytes)`;
           break;
         }
       }
-      if (!name || !content) continue;
+
+      const remoteId = typeof o.id === "string" && o.id ? o.id : null;
+      if (!content && !remoteId) continue;
+      if (!content) via = `${ak}[].id(fetch)`;
+
       out.push({
         filename: name,
-        contentBase64: stripDataUrl(content),
+        contentBase64: content ? stripDataUrl(content) : null,
+        remoteId,
         contentType: typeof o.content_type === "string" ? o.content_type
           : typeof o.contentType === "string" ? o.contentType
           : typeof o.type === "string" ? o.type : null,
@@ -148,6 +175,60 @@ export function extractAttachments(data: Record<string, unknown>): InboundAttach
     if (out.length) break;
   }
   return out;
+}
+
+/**
+ * Fetch attachment bytes from Resend.
+ *
+ * Needs a FULL-ACCESS Resend API key. The key this app has stored is send-only
+ * restricted, and every read endpoint returns `401 restricted_api_key` —
+ * verified against all four plausible paths on 2026-07-29. A full-access key
+ * is a free dashboard action, not a plan change.
+ *
+ * Returns a plain-English reason instead of throwing: the caller records it on
+ * the capture row and still answers Resend 200. An email we have stored but
+ * cannot yet read is recoverable; a retry storm is not.
+ */
+export async function fetchAttachmentBytes(
+  emailId: string,
+  attachmentId: string,
+  apiKey: string,
+): Promise<{ ok: true; base64: string } | { ok: false; reason: string }> {
+  const url = `https://api.resend.com/emails/${emailId}/attachments/${attachmentId}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+  } catch (e) {
+    return { ok: false, reason: `Could not reach Resend to download the attachment: ${String((e as Error).message ?? e)}` };
+  }
+  if (res.status === 401 || res.status === 403) {
+    return {
+      ok: false,
+      reason: "Resend refused the attachment download: the stored API key is send-only. " +
+        "A full-access Resend API key (free) is needed in RESEND_FULL_API_KEY.",
+    };
+  }
+  if (!res.ok) return { ok: false, reason: `Resend returned ${res.status} for the attachment download.` };
+
+  const ct = res.headers.get("content-type") || "";
+  try {
+    if (ct.includes("json")) {
+      const j = await res.json() as Record<string, unknown>;
+      for (const k of CONTENT_KEYS) {
+        const v = j[k];
+        if (typeof v === "string" && v) return { ok: true, base64: stripDataUrl(v) };
+      }
+      if (typeof j.url === "string") {
+        const r2 = await fetch(j.url);
+        if (!r2.ok) return { ok: false, reason: `The attachment download URL returned ${r2.status}.` };
+        return { ok: true, base64: base64FromBytes(new Uint8Array(await r2.arrayBuffer())) };
+      }
+      return { ok: false, reason: "Resend returned JSON with no attachment content in it." };
+    }
+    return { ok: true, base64: base64FromBytes(new Uint8Array(await res.arrayBuffer())) };
+  } catch (e) {
+    return { ok: false, reason: `The attachment download could not be read: ${String((e as Error).message ?? e)}` };
+  }
 }
 
 /** `data:text/csv;base64,AAAA` -> `AAAA`. Left alone when already bare. */
@@ -163,14 +244,13 @@ export function base64FromBytes(bytes: Uint8Array): string {
 }
 
 export function base64ToBytes(b64: string): Uint8Array {
-  const clean = b64.replace(/\s+/g, "");
-  const bin = atob(clean);
+  const bin = atob(b64.replace(/\s+/g, ""));
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
 
-/** The filenames the ingestion pipeline can actually read. */
+/** The formats the ingestion pipeline can actually read. */
 export const INGESTIBLE_EXT = ["pdf", "xlsx", "xls", "csv", "zip"];
 
 export function isIngestibleFilename(name: string): boolean {
@@ -178,14 +258,10 @@ export function isIngestibleFilename(name: string): boolean {
   return INGESTIBLE_EXT.includes(ext);
 }
 
-/**
- * The normalized view of an inbound event.
- *
- * Returns `null` only when there is no recipient at all — which is not a
- * commission email, it is a malformed event.
- */
 export interface InboundEmail {
   eventId: string | null;
+  /** Resend's inbound email id — needed to fetch attachment bytes. */
+  emailId: string | null;
   from: string;
   recipients: string[];
   token: string | null;
@@ -196,6 +272,12 @@ export interface InboundEmail {
   skipped: { filename: string; reason: string }[];
 }
 
+/**
+ * The normalized view of an inbound event.
+ *
+ * Returns `null` only when there is no recipient at all — which is not a
+ * commission email, it is a malformed event.
+ */
 export function parseInboundStatementEmail(payload: Record<string, unknown>): InboundEmail | null {
   const data = (payload?.data ?? payload) as Record<string, unknown>;
   if (!data || typeof data !== "object") return null;
@@ -214,9 +296,7 @@ export function parseInboundStatementEmail(payload: Record<string, unknown>): In
   }
 
   const fromRaw = data.from;
-  const from = typeof fromRaw === "string"
-    ? fromRaw
-    : (fromRaw as { email?: string })?.email ?? "";
+  const from = typeof fromRaw === "string" ? fromRaw : (fromRaw as { email?: string })?.email ?? "";
 
   const attachments = extractAttachments(data);
   const ingestible: InboundAttachment[] = [];
@@ -228,6 +308,7 @@ export function parseInboundStatementEmail(payload: Record<string, unknown>): In
 
   return {
     eventId: typeof payload?.id === "string" ? payload.id as string : null,
+    emailId: typeof data.email_id === "string" ? data.email_id as string : null,
     from: String(from),
     recipients,
     token,
@@ -249,7 +330,6 @@ export function captureStatus(email: InboundEmail | null, agentId: string | null
 
 /**
  * The one-line explanation stored on a capture row that produced nothing.
- *
  * Written for a human reading the row six weeks later, not for a log.
  */
 export function captureError(email: InboundEmail | null, agentId: string | null): string | null {
