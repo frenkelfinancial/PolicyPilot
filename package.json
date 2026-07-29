@@ -12,6 +12,8 @@
     "test:compliance": "node --test \"supabase/functions/_shared/compliance-page.test.ts\"",
     "test:a2p": "node --test \"supabase/functions/_shared/a2p-registration.test.ts\"",
     "test:leadtransfer": "node --test \"supabase/functions/_shared/lead-transfer.test.ts\"",
+    "test:team": "node --test \"test/team-roster.test.mjs\"",
+    "test": "npm run test:email && npm run test:messaging && npm run test:ai && npm run test:compliance && npm run test:a2p && npm run test:leadtransfer && npm run test:team && npm run check",
     "prebuild": "node scripts/prebuild.js",
     "build": "npx cap sync",
     "cap:sync": "npm run prebuild && npx cap sync",

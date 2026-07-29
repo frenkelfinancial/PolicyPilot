@@ -775,3 +775,106 @@ silently take dark.
 
 Confirmed live: no `Authorization` header → our `401 unauthorized`; a malformed
 bearer → platform `UNAUTHORIZED_INVALID_JWT_FORMAT` before our code runs.
+
+---
+
+## Apply 2026-07-29 — `20260738_team_roster.sql`
+
+Phase B of the Team Leader work: one merged leader home screen, and one data
+source behind both team surfaces. Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Feature doc: `docs/agency-team-screen.md`.
+
+**This file contains a `DROP FUNCTION`, and that was authorised explicitly.**
+Jace approved it on 2026-07-29 in answer to question 7 of the build brief
+("Replace the existing function in place"). A return-type change cannot be
+done with `CREATE OR REPLACE`, so the function is dropped and recreated inside
+the same transaction. No table, no column, no row is read, moved or deleted by
+it. Everything else in the file is additive: one `ADD COLUMN IF NOT EXISTS`,
+one guarded `UPDATE` backfill, one `CREATE OR REPLACE FUNCTION`, one trigger.
+Nothing touches `auth.*` or `storage.*`. Re-running is a no-op.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `agency_invites.accepted_at` | **absent** |
+| triggers on `agency_invites` | **none** |
+| `get_team_summary` signature | `(timestamptz, timestamptz)`, 7-column result |
+| rows in `agency_invites` | **0** — so the backfill was a guaranteed no-op |
+| `policies` / `calls` / `leads` | 23 / 1,282 / 1,329 |
+| agents holding an `agency_code` | 1 |
+
+### What changed
+
+- **`agency_invites.accepted_at`** + `agency_invites_stamp_accepted` trigger.
+  The table only ever recorded when an invite was *sent*. "Joined" on a roster
+  means joined the agency, and the date feeds the 30-day at-risk grace period,
+  so a wrong date is not cosmetic. The trigger covers both accept paths (the
+  browser's `UPDATE` and `process_agency_code_join`'s `INSERT … ON CONFLICT`)
+  and is **write-once for client callers** — a leader cannot backdate a join to
+  suppress an at-risk badge. Trusted contexts keep the usual carve-out.
+- **`get_team_summary` replaced**: 8 optional time-bound parameters (NULL =
+  unbounded, which is how "Lifetime" is expressed) and 22 result columns —
+  adding plan, email, joined/last-activity/last-dial timestamps, the previous
+  comparable period, the fixed calendar-month pair the at-risk rule reads, and
+  lifetime totals. Authorization is **unchanged**: still `SECURITY DEFINER`,
+  still anchored on `ai.leader_id = auth.uid()`, and still with **no parameter
+  naming a leader** — there is nothing to point at someone else's downline.
+- **AP is now regex-guarded before the numeric cast.** Previously one policy
+  with a non-numeric `ap` would throw and take down the team rollup for *every*
+  agent on the screen. Unparseable AP now counts as 0.
+
+### Post-apply audit
+
+| Probe | Result |
+|---|---|
+| `accepted_at` | present, `timestamptz`, nullable |
+| `get_team_summary` | exactly **one** signature (the 2-arg version is gone), 8 params, `prosecdef = true` |
+| grants | `postgres/anon/authenticated/service_role = X` — identical to before the drop |
+| trigger | `agency_invites_stamp_accepted` present and enabled |
+| `get_agency_stats` | still present (nothing dropped), now uncalled by the app |
+| row counts | 23 / 1,282 / 1,329 / 0 invites — unchanged |
+
+### Behavioural verification — 13/13
+
+Run inside a transaction that **rolled back**; row counts re-confirmed
+identical afterwards, and the one fixture policy left nothing behind.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | a leader sees self + downline | PASS (2 rows) |
+| 2 | **a downline calling it cannot see the leader or siblings** | PASS (team of one) |
+| 3 | an unrelated third party sees only themselves | PASS |
+| 4 | `anon` (no `auth.uid()`) resolves to nobody | PASS (0 identified agents) |
+| 5 | `accepted_at` auto-stamped on an accepted insert | PASS |
+| 6 | `accepted_at` is write-once for a client caller | PASS (backdate refused) |
+| 7 | lifetime AP == raw sum (no cartesian inflation) | PASS ($5,472) |
+| 8 | lifetime dials == raw call count | PASS (335) |
+| 9 | a bounded window scopes AP+dials while lifetime stays whole | PASS |
+| 10 | `month_ap` uses the **client-passed** calendar month | PASS (Jul $3,254.04, Jun $2,641.20) |
+| 11 | `joined_at` set for the downline, null for the leader's own row | PASS |
+| 12 | `last_activity_at` present and >= `last_dial_at` | PASS |
+| 13 | an unparseable AP no longer errors the whole rollup | PASS |
+
+Checks 2–4 are the leader-only guarantee, exercised rather than asserted.
+
+### No edge function changed
+
+Nothing was deployed. The whole feature is one RPC plus `app.html`, so
+`supabase functions list` was not disturbed and no `verify_jwt` flag moved.
+
+### End-to-end, against production
+
+Two throwaway accounts driven through the real invite → accept flow with
+synthetic at-risk data: **59/59 assertions passed**, including the
+cross-screen check that the Agency tab and the Summary mini-card report the
+same team AP. Both accounts and all their rows were deleted; `agency_invites`
+0, `lead_transfers` 0, QA leads/policies/calls 0, and no throwaway auth user
+remains. Full step-by-step in `docs/agency-team-screen.md`.
+
+One observation, not from this run: `sectest+1785212287@frenkelfinancial.com`
+is still present in `auth.users`. It appears to be a leftover from the
+2026-07-28 privilege-escalation testing, which this ledger records as having
+deleted its throwaway account. Left alone — deleting an account is destructive
+and it is not this build's to remove.

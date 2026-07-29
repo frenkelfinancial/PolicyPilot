@@ -3186,6 +3186,57 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 @media(max-width:900px){.ledger .pt-status{padding-right:20px}}
 </style>
 <!-- ============================================================
+     TEAM ROSTER styles — the ONE team table, rendered by
+     teamTableHTML() into two different surfaces: the Agency tab and
+     the Summary mini-card. Deliberately NOT scoped to either.
+
+     The palette is indirected through --tm-* so the same markup takes
+     the app's tokens on the Agency tab and the Ledger tokens inside
+     .ledger, without the renderer knowing where it is. Duplicating the
+     table per surface is exactly how the two screens drifted before.
+     ============================================================ -->
+<style id="team-roster-styles">
+.tm{
+  --tm-card:var(--card); --tm-inner:var(--bg2); --tm-border:var(--border);
+  --tm-divider:var(--border); --tm-t1:var(--text); --tm-t2:var(--text2);
+  --tm-t3:var(--text3); --tm-faint:var(--text3);
+  --tm-blue:#3b82f6; --tm-blue-soft:rgba(59,130,246,.12); --tm-blue-border:rgba(59,130,246,.3);
+}
+.ledger .tm{
+  --tm-card:var(--lg-card); --tm-inner:var(--lg-inner); --tm-border:var(--lg-border);
+  --tm-divider:var(--lg-divider); --tm-t1:var(--lg-text1); --tm-t2:var(--lg-text2);
+  --tm-t3:var(--lg-text3); --tm-faint:var(--lg-faint);
+  --tm-blue:var(--lg-blue); --tm-blue-soft:var(--lg-blue-soft); --tm-blue-border:var(--lg-blue-border);
+}
+.tm *{box-sizing:border-box}
+.tm-m{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace}
+.tm-table{background:var(--tm-card);border:1px solid var(--tm-border);border-radius:8px;overflow:hidden}
+.tm-scroll{overflow-x:auto}
+.tm-min{min-width:var(--tm-min,1080px)}
+.tm-row{display:grid;grid-template-columns:var(--tm-cols);align-items:center;padding:0 14px;font-size:12.5px;color:var(--tm-t1)}
+.tm-head{height:34px;background:var(--tm-inner);font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--tm-t3)}
+.tm-body{min-height:42px;padding-top:5px;padding-bottom:5px;border-top:1px solid var(--tm-divider);cursor:pointer;transition:background .1s ease}
+.tm-body:hover{background:var(--tm-inner)}
+.tm-tot{min-height:40px;border-top:1px solid var(--tm-border);background:var(--tm-inner);font-weight:600}
+.tm-th{cursor:pointer;user-select:none;white-space:nowrap}
+.tm-th:hover{color:var(--tm-blue)}
+.tm-r{text-align:right}
+.tm-ag{display:flex;align-items:center;gap:7px;min-width:0}
+.tm-nm{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tm-you{font-weight:600;font-size:10px;color:var(--tm-blue);background:var(--tm-blue-soft);border:1px solid var(--tm-blue-border);padding:1px 5px;border-radius:5px;flex-shrink:0}
+.tm-risk{font-weight:700;font-size:9.5px;letter-spacing:.06em;color:#b3261e;background:rgba(179,38,30,.12);border:1px solid rgba(179,38,30,.32);padding:1px 5px;border-radius:5px;flex-shrink:0;white-space:nowrap}
+body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-color:rgba(229,118,110,.34)}
+.tm-bar{height:4px;border-radius:3px;background:var(--tm-divider);overflow:hidden;margin-top:4px}
+.tm-bar>i{display:block;height:100%;background:var(--tm-blue)}
+.tm-chip{padding:6px 11px;font-weight:500;font-size:12.5px;background:var(--tm-card);border:1px solid var(--tm-border);color:var(--tm-t2);border-radius:7px;cursor:pointer;transition:border-color .14s ease}
+.tm-chip:hover{border-color:var(--tm-blue-border)}
+.tm-chip.on{border-color:var(--tm-blue-border);color:var(--tm-blue)}
+.tm-empty{padding:26px 16px;text-align:center;font-size:12.5px;color:var(--tm-t3)}
+.tm-note{font-size:10.5px;color:var(--tm-faint);line-height:1.5;margin-top:8px}
+.tm-skel{height:12px;background:var(--tm-divider);border-radius:6px;animation:lg-pulse 1.4s ease-in-out infinite}
+@media(max-width:760px){.tm-min{--tm-min:900px}}
+</style>
+<!-- ============================================================
      LEDGER LEADS styles — warm-gray "Ledger 2a" reskin of the
      Leads page, scoped to #sec-leads.ledger-leads. Theme-aware
      (light + dark via --lg-* tokens). RESTYLE ONLY: every existing
@@ -13256,6 +13307,501 @@ function guardedOpenPreviewDialer() {
 // ────────────────────────────────────────────────────────────────────────────
 
 // ============================================================
+// TEAM ROSTER — one definition, two surfaces.
+//
+// Read docs/agency-team-screen.md before changing anything named team*
+// or tm*. The Agency tab and the Summary team mini-card are two VIEWS of
+// ONE view-model, and that is deliberate: when they were two independent
+// queries with two status filters, the same agent's AP differed between
+// them by 8,610x (see the 20260736 apply note in docs/schema-state.md).
+//
+// The invariants that keep them from drifting again — all three are
+// asserted by test/team-roster.test.mjs against this file:
+//
+//   1. exactly ONE sb.rpc('get_team_summary') call site  (loadTeamRoster)
+//   2. exactly ONE period engine                          (teamPeriodRange)
+//   3. exactly ONE table renderer                         (teamTableHTML)
+//
+// get_agency_stats is deliberately no longer called from anywhere. It is
+// still in the database (nothing is dropped) but it computes lifetime-only
+// numbers with its own filters, which is precisely the second opinion this
+// screen must not have.
+// ============================================================
+
+// <team-core>
+// Everything between these two sentinels is PURE — no DOM, no network, no
+// storage, no app globals — and is extracted verbatim and executed by
+// test/team-roster.test.mjs. That is why the tests cannot drift from the
+// shipped code: they run this exact text. Keep it pure.
+
+const TEAM_PERIODS = [
+  { key: 'week',     label: 'This week' },
+  { key: 'month',    label: 'This month' },
+  { key: 'quarter',  label: 'This quarter' },
+  { key: 'lifetime', label: 'Lifetime' },
+];
+const TEAM_PERIOD_DEFAULT = 'month';
+
+// ---- AT-RISK thresholds -----------------------------------------------
+// Chosen by Jace 2026-07-29. An agent is flagged only when BOTH halves are
+// true: production has fallen AND they have stopped dialling. Either alone
+// is a bad week; together it is someone who has quietly stopped working.
+// Rationale for each number is in docs/agency-team-screen.md.
+const AT_RISK_AP_DROP_PCT     = 0.40;  // AP down >= 40% this month vs last
+const AT_RISK_NO_DIAL_DAYS    = 7;     // and no dial for >= 7 days
+const AT_RISK_MIN_PRIOR_AP    = 1;     // you cannot fall from zero
+const AT_RISK_MIN_TENURE_DAYS = 30;    // a new joiner has no month to fall from
+
+/**
+ * The one period engine. Returns every window the RPC needs.
+ *
+ * The at-risk pair (monthStart..prevMonthEnd) is ALWAYS the calendar month
+ * and the one before it, whatever period is on screen. That is a deliberate
+ * choice: the badge means one fixed thing, so it cannot blink on and off as
+ * a leader clicks between "this week" and "this quarter".
+ *
+ * 'lifetime' leaves start/end/prev null — unbounded, and with no comparable
+ * preceding period the trend is hidden rather than invented.
+ */
+function teamPeriodRange(key, today) {
+  const pk = TEAM_PERIODS.some(p => p.key === key) ? key : TEAM_PERIOD_DEFAULT;
+  const now = (today instanceof Date) ? today : new Date(today || Date.now());
+  const t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const def = TEAM_PERIODS.find(p => p.key === pk);
+
+  const monthStart     = new Date(t.getFullYear(), t.getMonth(), 1);
+  const monthEnd       = new Date(t.getFullYear(), t.getMonth() + 1, 1);
+  const prevMonthStart = new Date(t.getFullYear(), t.getMonth() - 1, 1);
+  const prevMonthEnd   = monthStart;
+
+  let start = null, end = null, prevStart = null, prevEnd = null;
+  if (pk === 'week') {
+    const dow = (t.getDay() + 6) % 7;            // Monday = 0, matching summaryPeriodRange
+    start = new Date(t); start.setDate(start.getDate() - dow);
+    end   = new Date(start); end.setDate(end.getDate() + 7);
+    prevStart = new Date(start); prevStart.setDate(prevStart.getDate() - 7);
+    prevEnd = start;
+  } else if (pk === 'month') {
+    start = monthStart; end = monthEnd; prevStart = prevMonthStart; prevEnd = monthStart;
+  } else if (pk === 'quarter') {
+    const q = Math.floor(t.getMonth() / 3);
+    start     = new Date(t.getFullYear(), q * 3, 1);
+    end       = new Date(t.getFullYear(), q * 3 + 3, 1);
+    prevStart = new Date(t.getFullYear(), q * 3 - 3, 1);
+    prevEnd   = start;
+  }
+  return {
+    key: pk, label: def ? def.label : '', start, end, prevStart, prevEnd,
+    monthStart, monthEnd, prevMonthStart, prevMonthEnd,
+  };
+}
+
+/** Maps a range onto the RPC's eight optional bounds. null = unbounded. */
+function teamRpcArgs(range) {
+  const iso = d => (d instanceof Date && isFinite(d.getTime())) ? d.toISOString() : null;
+  return {
+    p_start:            iso(range.start),
+    p_end:              iso(range.end),
+    p_prev_start:       iso(range.prevStart),
+    p_prev_end:         iso(range.prevEnd),
+    p_month_start:      iso(range.monthStart),
+    p_month_end:        iso(range.monthEnd),
+    p_prev_month_start: iso(range.prevMonthStart),
+    p_prev_month_end:   iso(range.prevMonthEnd),
+  };
+}
+
+/** One RPC row -> the shape every renderer reads. */
+function teamNormalizeRow(r) {
+  const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
+  const dt  = v => { if (!v) return null; const d = new Date(v); return isFinite(d.getTime()) ? d : null; };
+  const sales = num(r.sales), dials = num(r.dials);
+  return {
+    id: r.agent_id || null,
+    name: r.agent_name || r.agent_email || '—',
+    email: r.agent_email || '',
+    plan: r.agent_plan || '',
+    you: !!r.is_leader,
+    joinedAt: dt(r.joined_at),
+    lastActivityAt: dt(r.last_activity_at),
+    lastDialAt: dt(r.last_dial_at),
+    ap: num(r.ap), sales, dials, time: num(r.call_time_sec),
+    ratio: (sales > 0 && dials > 0) ? Math.max(1, Math.round(dials / sales)) : null,
+    prevAp: num(r.prev_ap), prevSales: num(r.prev_sales),
+    prevDials: num(r.prev_dials), prevTime: num(r.prev_call_time_sec),
+    monthAp: num(r.month_ap), prevMonthAp: num(r.prev_month_ap),
+    lifetimeAp: num(r.lifetime_ap), lifetimeSales: num(r.lifetime_sales),
+    lifetimeDials: num(r.lifetime_dials), lifetimeTime: num(r.lifetime_call_time_sec),
+    share: 0, risk: null,
+  };
+}
+
+/**
+ * The AT-RISK predicate. Returns the verdict AND the sentence that explains
+ * it, so the badge and the drill-down can never disagree about why.
+ *
+ * "Never dialled at all" counts as quiet — it is the quietest state there
+ * is. Note that team dials come from the `calls` table only, so an agent who
+ * works entirely off-platform reads as quiet here; the tenure and prior-AP
+ * guards are what stop that from being noisy.
+ */
+function teamAtRisk(row, now) {
+  const nowT = ((now instanceof Date) ? now : new Date(now || Date.now())).getTime();
+  const daysSince = d => (d && isFinite(d.getTime())) ? Math.floor((nowT - d.getTime()) / 86400000) : null;
+
+  const monthAp = Number(row.monthAp) || 0;
+  const priorAp = Number(row.prevMonthAp) || 0;
+  const dropPct = priorAp > 0 ? Math.max(0, (priorAp - monthAp) / priorAp) : 0;
+  const daysSinceDial = daysSince(row.lastDialAt);
+  const tenureDays    = daysSince(row.joinedAt);
+
+  const productionDown = priorAp >= AT_RISK_MIN_PRIOR_AP && dropPct >= AT_RISK_AP_DROP_PCT;
+  const quiet          = daysSinceDial === null || daysSinceDial >= AT_RISK_NO_DIAL_DAYS;
+  // The leader's own row is never badged — you do not flag yourself on your
+  // own dashboard — and someone who joined this month has no prior month.
+  const eligible = !row.you && tenureDays !== null && tenureDays >= AT_RISK_MIN_TENURE_DAYS;
+
+  const atRisk = eligible && productionDown && quiet;
+  const apPhrase   = 'AP down ' + Math.round(dropPct * 100) + '% vs last month';
+  const dialPhrase = daysSinceDial === null
+    ? 'no dials on record'
+    : 'no dials in ' + daysSinceDial + ' day' + (daysSinceDial === 1 ? '' : 's');
+
+  return {
+    atRisk, dropPct, daysSinceDial, tenureDays,
+    productionDown, quiet, eligible,
+    apPhrase, dialPhrase,
+    reason: atRisk ? (apPhrase + ', ' + dialPhrase) : '',
+  };
+}
+
+/**
+ * Each agent's whole-number share of team AP for the period.
+ *
+ * Largest-remainder, so the displayed integers add up to exactly 100 and a
+ * leader is never shown a column that sums to 99% or 101%. Returns all
+ * zeroes when the team wrote nothing — 0/0 is not 100%.
+ */
+function teamShares(rows) {
+  const vals  = (rows || []).map(r => Math.max(0, Number(r && r.ap) || 0));
+  const total = vals.reduce((s, v) => s + v, 0);
+  if (!(total > 0)) return vals.map(() => 0);
+  const exact = vals.map(v => v / total * 100);
+  const out   = exact.map(Math.floor);
+  let remainder = 100 - out.reduce((s, v) => s + v, 0);
+  const byFrac = exact
+    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+    .sort((a, b) => (b.frac - a.frac) || (vals[b.i] - vals[a.i]) || (a.i - b.i));
+  for (let n = 0; n < byFrac.length && remainder > 0; n++) { out[byFrac[n].i]++; remainder--; }
+  return out;
+}
+
+const TEAM_SORT_COLS = ['name', 'plan', 'joined', 'activity', 'ap', 'share', 'sales', 'dials', 'time', 'ratio'];
+
+function teamSortKey(row, col) {
+  switch (col) {
+    case 'name':     return (row.name || '').toLowerCase();
+    case 'plan':     return (row.plan || '').toLowerCase();
+    case 'joined':   return row.joinedAt ? row.joinedAt.getTime() : 0;
+    case 'activity': return row.lastActivityAt ? row.lastActivityAt.getTime() : 0;
+    case 'share':    return Number(row.share) || 0;
+    case 'sales':    return Number(row.sales) || 0;
+    case 'dials':    return Number(row.dials) || 0;
+    case 'time':     return Number(row.time) || 0;
+    // A LOWER call-to-close is better, and "no sales yet" is not a good
+    // ratio — it is the absence of one. Sorting it as the largest value
+    // keeps it from winning the ascending "best ratio first" sort.
+    case 'ratio':    return row.ratio == null ? Number.POSITIVE_INFINITY : row.ratio;
+    default:         return Number(row.ap) || 0;
+  }
+}
+
+function teamSortRows(rows, col, dir) {
+  const c = TEAM_SORT_COLS.indexOf(col) >= 0 ? col : 'ap';
+  const d = dir === 'asc' ? 1 : -1;
+  return (rows || []).slice().sort((a, b) => {
+    const ka = teamSortKey(a, c), kb = teamSortKey(b, c);
+    if (typeof ka === 'string' || typeof kb === 'string') return String(ka).localeCompare(String(kb)) * d;
+    if (ka === kb) return String(a.name || '').localeCompare(String(b.name || ''));
+    return (ka < kb ? -1 : 1) * d;
+  });
+}
+
+/** Raw RPC rows -> the complete view-model both surfaces render. */
+function buildTeamView(rawRows, nowDate) {
+  const now  = (nowDate instanceof Date) ? nowDate : new Date(nowDate || Date.now());
+  const rows = (rawRows || []).map(teamNormalizeRow);
+  const shares = teamShares(rows);
+  rows.forEach((r, i) => { r.share = shares[i]; r.risk = teamAtRisk(r, now); });
+
+  const totals = rows.reduce((s, r) => ({
+    ap: s.ap + r.ap, sales: s.sales + r.sales, dials: s.dials + r.dials,
+    time: s.time + r.time, prevAp: s.prevAp + r.prevAp, prevDials: s.prevDials + r.prevDials,
+  }), { ap: 0, sales: 0, dials: 0, time: 0, prevAp: 0, prevDials: 0 });
+  totals.ratio = (totals.sales > 0 && totals.dials > 0) ? Math.max(1, Math.round(totals.dials / totals.sales)) : null;
+
+  const n = rows.length || 1;
+  return {
+    rows, totals, count: rows.length,
+    avg: { ap: totals.ap / n, sales: totals.sales / n, dials: totals.dials / n, time: totals.time / n, ratio: totals.ratio },
+    you: rows.find(r => r.you) || null,
+    atRisk: rows.filter(r => r.risk && r.risk.atRisk),
+  };
+}
+
+// ---- pure formatters (shared by both surfaces) ----
+function tmMoney(n) { n = Math.round(Number(n) || 0); return '$' + n.toLocaleString('en-US'); }
+function tmMoneyK(n) { n = Number(n) || 0; return Math.abs(n) >= 1000 ? '$' + (n / 1000).toFixed(1) + 'k' : '$' + Math.round(n); }
+function tmDur(sec) { sec = Math.max(0, Math.floor(Number(sec) || 0)); const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60); return h ? (h + 'h ' + m + 'm') : (m + 'm'); }
+function tmRatio(r) { return r ? (r + ':1') : '—'; }
+function tmDate(d) {
+  if (!d) return '—';
+  const x = (d instanceof Date) ? d : new Date(d);
+  return isFinite(x.getTime()) ? x.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : '—';
+}
+function tmAgo(d, now) {
+  if (!d) return 'never';
+  const nowT = ((now instanceof Date) ? now : new Date(now || Date.now())).getTime();
+  const x = (d instanceof Date) ? d : new Date(d);
+  if (!isFinite(x.getTime())) return 'never';
+  const days = Math.floor((nowT - x.getTime()) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 30) return days + 'd ago';
+  if (days < 365) return Math.round(days / 30) + 'mo ago';
+  return Math.round(days / 365) + 'y ago';
+}
+/** Period-over-period movement. Returns null when there is no prior period. */
+function tmDelta(cur, prev, hasPrior) {
+  if (hasPrior === false) return null;
+  const c = Number(cur) || 0, p = Number(prev) || 0;
+  if (p === 0) return c > 0 ? { pct: null, dir: 'up', text: 'new this period' } : { pct: 0, dir: 'flat', text: 'nothing either period' };
+  const pct = (c - p) / p * 100;
+  return {
+    pct,
+    dir: pct > 0.5 ? 'up' : (pct < -0.5 ? 'down' : 'flat'),
+    text: (pct >= 0 ? '+' : '−') + Math.abs(Math.round(pct)) + '% vs prior period',
+  };
+}
+// </team-core>
+
+// ---- state (persisted the way ledgerPeriod is: plain keys, set at load) ----
+const TEAM_ROSTER_TTL_MS = 45000;
+let _teamPeriod = (function () {
+  try { const v = localStorage.getItem('pp_team_period'); return TEAM_PERIODS.some(p => p.key === v) ? v : TEAM_PERIOD_DEFAULT; }
+  catch (e) { return TEAM_PERIOD_DEFAULT; }
+})();
+let _teamCardOpen = (function () {
+  try { return localStorage.getItem('pp_team_card_open') === '1'; } catch (e) { return false; }
+})();
+let _teamSort = { col: 'ap', dir: 'desc' };
+const _teamCache   = {};   // periodKey -> { at, state, range, view }
+const _teamLoading = {};   // periodKey -> true while a fetch is in flight
+let _agRosterOpen  = false;
+let _agPendingProfile = null;
+// The leader's raw agency_invites rows, cached by _agRenderLeaderView so the
+// profile view can find the invite id behind a "Remove" without re-querying.
+let _agInvites = [];
+
+/**
+ * THE ONLY sb.rpc('get_team_summary') CALL SITE IN THIS APP.
+ *
+ * Both surfaces come through here, so both get the same status filter, the
+ * same window arithmetic and the same at-risk inputs by construction rather
+ * than by two people remembering to keep two queries in step. Never throws.
+ */
+async function loadTeamRoster(periodKey, force) {
+  const pk = TEAM_PERIODS.some(p => p.key === periodKey) ? periodKey : TEAM_PERIOD_DEFAULT;
+  const cached = _teamCache[pk];
+  if (!force && cached && cached.state && (Date.now() - cached.at) < TEAM_ROSTER_TTL_MS) return cached;
+  const range = teamPeriodRange(pk, new Date());
+  if (typeof sb === 'undefined' || !sb || !currentAgent) {
+    _teamCache[pk] = { at: Date.now(), state: 'error', range };
+    return _teamCache[pk];
+  }
+  try {
+    const { data, error } = await sb.rpc('get_team_summary', teamRpcArgs(range));
+    if (error) {
+      const missing = error.code === 'PGRST202' || /get_team_summary/.test(error.message || '');
+      if (!missing) console.warn('[team] roster rpc', error.message);
+      _teamCache[pk] = { at: Date.now(), state: missing ? 'unavailable' : 'error', range };
+    } else {
+      _teamCache[pk] = { at: Date.now(), state: 'ok', range, view: buildTeamView(Array.isArray(data) ? data : [], new Date()) };
+    }
+  } catch (e) {
+    console.warn('[team] roster rpc', e);
+    _teamCache[pk] = { at: Date.now(), state: 'error', range };
+  }
+  return _teamCache[pk];
+}
+
+/** Synchronous read for renderSummary(), which cannot await. */
+function teamEnsure(periodKey, onDone) {
+  const pk = TEAM_PERIODS.some(p => p.key === periodKey) ? periodKey : TEAM_PERIOD_DEFAULT;
+  const cached = _teamCache[pk];
+  if (cached && cached.state && (Date.now() - cached.at) < TEAM_ROSTER_TTL_MS) return cached;
+  if (_teamLoading[pk]) return { state: 'loading' };
+  _teamLoading[pk] = true;
+  loadTeamRoster(pk, true).then(() => {
+    _teamLoading[pk] = false;
+    if (typeof onDone === 'function') onDone();
+  }, () => { _teamLoading[pk] = false; });
+  return { state: 'loading' };
+}
+
+/** Anything that changes the roster (invite, accept, remove) drops the cache. */
+function teamInvalidate() { Object.keys(_teamCache).forEach(key => { delete _teamCache[key]; }); }
+
+function teamRerender(surface) {
+  if (surface === 'summary') { if (typeof renderSummary === 'function') renderSummary(); }
+  else if (typeof renderAgencySection === 'function') renderAgencySection();
+}
+
+function teamSetPeriod(key, surface) {
+  if (!TEAM_PERIODS.some(p => p.key === key)) return;
+  _teamPeriod = key;
+  try { localStorage.setItem('pp_team_period', key); } catch (e) { /* private mode */ }
+  teamRerender(surface);
+}
+
+function teamSetSort(col, surface) {
+  if (TEAM_SORT_COLS.indexOf(col) < 0) return;
+  if (_teamSort.col === col) _teamSort.dir = _teamSort.dir === 'desc' ? 'asc' : 'desc';
+  else _teamSort = { col, dir: (col === 'name' || col === 'plan') ? 'asc' : 'desc' };
+  teamRerender(surface);
+}
+
+function teamCardToggle() {
+  _teamCardOpen = !_teamCardOpen;
+  try { localStorage.setItem('pp_team_card_open', _teamCardOpen ? '1' : '0'); } catch (e) { /* private mode */ }
+  if (typeof renderSummary === 'function') renderSummary();
+}
+
+/** Row click. From Summary it hops to the Agency tab and lands on the profile. */
+async function teamOpenAgent(agentId, surface) {
+  if (!agentId) return;
+  if (surface === 'summary') {
+    // nav() fires renderAgencySection() without awaiting it, so handing the
+    // id over as pending state is the only way the profile is not overwritten
+    // by the leader view finishing a moment later.
+    _agPendingProfile = agentId;
+    if (typeof nav === 'function') nav('agency');
+    return;
+  }
+  await agOpenAgentProfile(agentId);
+}
+
+// ---- the one table renderer -------------------------------------------
+const TEAM_GRID_COLS = '1.7fr .85fr .72fr .8fr 1.05fr 1fr .58fr .68fr .8fr .85fr';
+
+function teamTh(col, label, surface, right) {
+  const on = _teamSort.col === col;
+  const arrow = on ? (_teamSort.dir === 'desc' ? ' ▾' : ' ▴') : '';
+  return '<span class="tm-th' + (right ? ' tm-r' : '') + '" onclick="event.stopPropagation();teamSetSort(\'' + col + '\',\'' + surface + '\')">' + label + arrow + '</span>';
+}
+
+/**
+ * The team table. Identical markup on the Agency tab and inside the Summary
+ * mini-card — the palette adapts via --tm-* (see #team-roster-styles), the
+ * numbers do not adapt at all, which is the entire point.
+ */
+function teamTableHTML(view, surface, now) {
+  const rows = teamSortRows(view.rows, _teamSort.col, _teamSort.dir);
+  const st = ' style="--tm-cols:' + TEAM_GRID_COLS + '"';
+  let h = '<div class="tm-table"><div class="tm-scroll"><div class="tm-min">' +
+    '<div class="tm-row tm-head"' + st + '>' +
+      teamTh('name', 'Agent', surface) +
+      teamTh('plan', 'Plan', surface) +
+      teamTh('joined', 'Joined', surface) +
+      teamTh('activity', 'Last activity', surface) +
+      teamTh('ap', 'AP', surface, true) +
+      teamTh('share', '% of team', surface, true) +
+      teamTh('sales', 'Sales', surface, true) +
+      teamTh('dials', 'Dials', surface, true) +
+      teamTh('time', 'Call time', surface, true) +
+      teamTh('ratio', 'Call-to-close', surface, true) +
+    '</div>';
+
+  if (!rows.length) {
+    h += '<div class="tm-empty">No agents in this team yet.</div>';
+  } else {
+    h += rows.map(r => {
+      const flagged = !!(r.risk && r.risk.atRisk);
+      return '<div class="tm-row tm-body"' + st + ' title="Open ' + escapeHTML(r.name) + '" ' +
+        'onclick="teamOpenAgent(\'' + escapeHTML(r.id || '') + '\',\'' + surface + '\')">' +
+        '<span class="tm-ag"><span class="tm-nm">' + escapeHTML(r.name) + '</span>' +
+          (r.you ? '<span class="tm-you">You</span>' : '') +
+          (flagged ? '<span class="tm-risk" title="' + escapeHTML(r.risk.reason) + '">AT RISK</span>' : '') +
+        '</span>' +
+        '<span style="color:var(--tm-t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHTML(r.plan || '—') + '</span>' +
+        '<span class="tm-m" style="color:var(--tm-t3)">' + (r.you ? '—' : tmDate(r.joinedAt)) + '</span>' +
+        '<span class="tm-m" style="color:var(--tm-t3)">' + escapeHTML(tmAgo(r.lastActivityAt, now)) + '</span>' +
+        '<span class="tm-m tm-r" style="font-weight:600">' + tmMoney(r.ap) + '</span>' +
+        '<span class="tm-r"><span class="tm-m">' + r.share + '%</span><span class="tm-bar"><i style="width:' + r.share + '%"></i></span></span>' +
+        '<span class="tm-m tm-r">' + r.sales + '</span>' +
+        '<span class="tm-m tm-r">' + r.dials + '</span>' +
+        '<span class="tm-m tm-r" style="color:var(--tm-t3)">' + tmDur(r.time) + '</span>' +
+        '<span class="tm-m tm-r" style="color:var(--tm-t3)">' + tmRatio(r.ratio) + '</span>' +
+      '</div>';
+    }).join('');
+
+    h += '<div class="tm-row tm-tot"' + st + '>' +
+      '<span>Team total</span><span></span><span></span>' +
+      '<span class="tm-m" style="color:var(--tm-t3);font-weight:400">' + view.count + ' agent' + (view.count === 1 ? '' : 's') + '</span>' +
+      '<span class="tm-m tm-r">' + tmMoney(view.totals.ap) + '</span>' +
+      '<span class="tm-m tm-r">' + (view.totals.ap > 0 ? '100%' : '—') + '</span>' +
+      '<span class="tm-m tm-r">' + view.totals.sales + '</span>' +
+      '<span class="tm-m tm-r">' + view.totals.dials + '</span>' +
+      '<span class="tm-m tm-r">' + tmDur(view.totals.time) + '</span>' +
+      '<span class="tm-m tm-r">' + tmRatio(view.totals.ratio) + '</span>' +
+    '</div>';
+  }
+  return h + '</div></div></div>';
+}
+
+/** Period chips. Same control, both surfaces, one persisted value. */
+function teamPeriodChipsHTML(surface) {
+  return '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">' +
+    TEAM_PERIODS.map(p =>
+      '<button class="tm-chip' + (_teamPeriod === p.key ? ' on' : '') + '" ' +
+      'onclick="event.stopPropagation();teamSetPeriod(\'' + p.key + '\',\'' + surface + '\')">' + p.label + '</button>'
+    ).join('') + '</div>';
+}
+
+/** "You vs team average" — period-scoped, identical maths on both surfaces. */
+function teamVsHTML(view) {
+  const you = view.you || { ap: 0, dials: 0, ratio: null };
+  const cell = (label, big, sub) =>
+    '<div><div style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--tm-t3)">' + label + '</div>' +
+    '<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px">' +
+      '<span class="tm-m" style="font-weight:600;font-size:21px;color:var(--tm-t1)">' + big + '</span>' +
+      '<span style="font-size:11.5px;color:var(--tm-t3)">' + sub + '</span></div></div>';
+  return '<div style="background:var(--tm-card);border:1px solid var(--tm-border);border-radius:8px;padding:14px 16px;' +
+    'display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr))">' +
+    cell('AP — you vs team avg', tmMoney(you.ap), 'team avg <span class="tm-m">' + tmMoney(view.avg.ap) + '</span>') +
+    cell('Dials — you vs team avg', String(you.dials), 'team avg <span class="tm-m">' + Math.round(view.avg.dials) + '</span>') +
+    cell('Call-to-close — you vs team', tmRatio(you.ratio), 'team-wide <span class="tm-m">' + tmRatio(view.totals.ratio) + '</span>') +
+    '</div>';
+}
+
+function teamPrivacyNoteHTML() {
+  return '<div class="tm-note">Downline rows show production and calling totals only — no client names, ' +
+    'policy details, or commission amounts. Dials count calls placed through the dialer.</div>';
+}
+
+function teamUnavailableHTML(state) {
+  return '<div class="tm-table"><div class="tm-empty">' + (state === 'unavailable'
+    ? 'Team rollups are unavailable — apply <span class="tm-m">supabase/migrations/20260738_team_roster.sql</span> to enable this.'
+    : 'Could not load team data right now. Please try again.') + '</div></div>';
+}
+
+function teamSkeletonHTML() {
+  return '<div class="tm-table" style="padding:16px;display:flex;flex-direction:column;gap:10px">' +
+    '<div class="tm-skel" style="width:38%"></div><div class="tm-skel" style="width:92%"></div>' +
+    '<div class="tm-skel" style="width:88%"></div><div class="tm-skel" style="width:90%"></div></div>';
+}
+
+// ============================================================
 // LEDGER SUMMARY (tiered: basic / pro / leader) — 2026-07-16
 // Rewrites the Summary section in the "Ledger" design language.
 // Every metric derives from user-entered policies (`policies`), leads
@@ -13266,9 +13812,11 @@ function guardedOpenPreviewDialer() {
 
 const LG_PERIODS = ['daily','weekly','monthly'];
 let ledgerPeriod = (function(){ try { const v = localStorage.getItem('pp_summary_period'); return LG_PERIODS.includes(v) ? v : 'monthly'; } catch(e){ return 'monthly'; } })();
-let _lgTeamSort = { col:'ap', dir:'desc' };
 const _lgCalls = {};   // period -> {dials,contacts,callTime} | 'loading'
-const _lgTeam  = {};   // period -> rows[] | 'loading' | {unavailable:true} | {error:true}
+// Team state deliberately does NOT live here — see the TEAM ROSTER block
+// above. _lgTeam/_lgTeamSort/_lgFetchTeam were this file's second, private
+// copy of the team query, and having two is what let the Agency tab and the
+// Summary table report different numbers for the same agent.
 
 // ---- tier + formatters ----
 function _lgTier(){ const t=(typeof _planTier==='function')?_planTier():null; return t==='leader'?'leader':t==='pro'?'pro':'basic'; }
@@ -13292,7 +13840,6 @@ function _lgAdvComm(p){ const ap=Number(p.ap)||0; return Number(p.advComm) || +(
 
 // ---- controls (global — referenced from inline onclick) ----
 function setLedgerPeriod(p){ if(!LG_PERIODS.includes(p))return; ledgerPeriod=p; try{localStorage.setItem('pp_summary_period',p);}catch(e){} renderSummary(); }
-function ledgerSortTeam(col){ if(_lgTeamSort.col===col){ _lgTeamSort.dir = _lgTeamSort.dir==='desc'?'asc':'desc'; } else { _lgTeamSort={col,dir:'desc'}; } renderSummary(); }
 function lgUpgrade(tier){ if(typeof showUpgradeGate==='function'){ showUpgradeGate(tier==='leader'?'Team Summary':'Pro Summary', tier); } else if(typeof pbOpenUpgradeModal==='function'){ pbOpenUpgradeModal(); } }
 
 // ---- async: calling stats for the period (dialer calls ∪ logged dials) ----
@@ -13324,22 +13871,18 @@ async function _lgFetchCalls(range, period){
   if (ledgerPeriod === period && document.getElementById('sum-ledger')) renderSummary();
 }
 
-// ---- async: team rollup via security-definer RPC (leader only) ----
-async function _lgFetchTeam(range, period){
+// ---- async: the agency's own name/code, for the team card header ----
+// The team ROLLUP no longer has a fetcher here on purpose; loadTeamRoster()
+// in the TEAM ROSTER block is the only thing that queries it.
+async function _lgFetchAgencyIdentity(){
+  if (window._myAgencyName !== undefined) return;
+  if (typeof sb === 'undefined' || !sb || !currentAgent || !currentAgent.id) return;
   try {
-    if (window._myAgencyName === undefined && typeof sb!=='undefined' && sb && currentAgent && currentAgent.id) {
-      try { const { data:myRow } = await sb.from('agents').select('agency_code, agency_name').eq('id', currentAgent.id).maybeSingle();
-        window._myAgencyCode = (myRow && myRow.agency_code) || null; window._myAgencyName = (myRow && myRow.agency_name) || null; } catch(_e){}
-    }
-    const { data, error } = await sb.rpc('get_team_summary', { p_start: range.start.toISOString(), p_end: range.end.toISOString() });
-    if (error) {
-      if (error.code === 'PGRST202' || /get_team_summary/.test(error.message||'')) _lgTeam[period] = { unavailable:true };
-      else { console.warn('[summary] team rpc', error.message); _lgTeam[period] = { error:true }; }
-    } else {
-      _lgTeam[period] = Array.isArray(data) ? data : [];
-    }
-  } catch (e) { console.warn('[summary] team rpc', e); _lgTeam[period] = { error:true }; }
-  if (ledgerPeriod === period && document.getElementById('sum-ledger')) renderSummary();
+    const { data:myRow } = await sb.from('agents').select('agency_code, agency_name').eq('id', currentAgent.id).maybeSingle();
+    window._myAgencyCode = (myRow && myRow.agency_code) || null;
+    window._myAgencyName = (myRow && myRow.agency_name) || null;
+    if (document.getElementById('sum-ledger')) renderSummary();
+  } catch(_e){ window._myAgencyName = null; }
 }
 
 // ---- shared widget builders ----
@@ -13800,78 +14343,66 @@ function renderSummary(){
     H += _lgCard(_lgHead('Free-look watchlist','policies inside the 30-day free-look window','Book-wide')+flBody);
   }
 
-  // ================= LEADER: TEAM =================
+  // ================= LEADER: TEAM MINI-CARD =================
+  // Collapsed by default; the open/minimized choice persists in
+  // localStorage the same way ledgerPeriod does. Expanded, it renders the
+  // SAME teamTableHTML() the Agency tab renders, from the SAME cache entry.
+  // The full team screen lives under Agency — this is the glance version.
   if(tier==='leader'){
-    let teamData=_lgTeam[period];
-    if(teamData===undefined){ _lgTeam[period]='loading'; _lgFetchTeam(range, period); teamData='loading'; }
+    _lgFetchAgencyIdentity();
     const agencyName=(window._myAgencyName)||'Your Team';
-    const agencyCode=(window._myAgencyCode)||'&mdash;';
+    const entry = teamEnsure(_teamPeriod, function(){ if(document.getElementById('sum-ledger')) renderSummary(); });
+    const teamRange = teamPeriodRange(_teamPeriod, now);
+    const teamTag = teamRange.label;
+    const arrow = _teamCardOpen ? '&#9652;' : '&#9662;';
 
-    if(teamData==='loading' || teamData===undefined){
-      const skelRow='<div style="height:12px;width:88%;background:var(--lg-divider);border-radius:6px" class="lg-skel"></div>';
-      H += '<div style="display:flex;align-items:baseline;gap:10px;margin-top:8px">'+
+    const cardHead = function(right){
+      return '<div class="lg-click" onclick="teamCardToggle()" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
         '<div style="font-weight:600;font-size:13px;color:var(--lg-text1)">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
-        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-faint)">'+periodTag+'</span></div>'+
-        _lgCard('<div style="display:flex;flex-direction:column;gap:10px"><div style="height:12px;width:38%;background:var(--lg-divider);border-radius:6px" class="lg-skel"></div>'+skelRow+skelRow+skelRow+skelRow+
+        '<span style="font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-faint)">'+_lgEsc(teamTag)+'</span>'+
+        '<span style="margin-left:auto;display:flex;align-items:center;gap:10px">'+(right||'')+
+        '<span style="font-size:11.5px;color:var(--lg-blue)">'+(_teamCardOpen?'Minimize':'Expand')+' '+arrow+'</span></span></div>';
+    };
+
+    if(entry.state==='loading'){
+      H += _lgCard(cardHead()+'<div style="display:flex;flex-direction:column;gap:10px;margin-top:12px">'+
+        '<div class="lg-skel" style="height:12px;width:38%;background:var(--lg-divider);border-radius:6px"></div>'+
+        '<div class="lg-skel" style="height:12px;width:88%;background:var(--lg-divider);border-radius:6px"></div>'+
         '<div style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">Loading team aggregates &mdash; your personal stats above are already live.</div></div>');
-    } else if(teamData && teamData.unavailable){
-      H += _lgCard(_lgHead('Team summary','','Team Leader')+_lgEmpty('Team rollups are unavailable &mdash; run the <span class="lgm">get_team_summary</span> migration (supabase/migrations/20260716b_team_summary.sql) in the Supabase SQL editor to enable this.'));
-    } else if(teamData && teamData.error){
-      H += _lgCard(_lgHead('Team summary','','Team Leader')+_lgEmpty('Could not load team data right now. Please try again.'));
+    } else if(entry.state!=='ok'){
+      H += _lgCard(cardHead()+'<div class="tm" style="margin-top:12px">'+teamUnavailableHTML(entry.state)+'</div>');
     } else {
-      const rows=(Array.isArray(teamData)?teamData:[]).map(r=>({
-        agent_id:r.agent_id, name:r.agent_name||'&mdash;', you:(currentAgent&&r.agent_id===currentAgent.id)||!!r.is_leader,
-        ap:Number(r.ap)||0, sales:Number(r.sales)||0, dials:Number(r.dials)||0, time:Number(r.call_time_sec)||0,
-        ratio:(Number(r.sales)>0&&Number(r.dials)>0)?Math.max(1,Math.round(Number(r.dials)/Number(r.sales))):null
-      }));
-      const n=rows.length||1;
-      const tot=rows.reduce((s,r)=>({ap:s.ap+r.ap,sales:s.sales+r.sales,dials:s.dials+r.dials,time:s.time+r.time}),{ap:0,sales:0,dials:0,time:0});
-      const you=rows.find(r=>r.you)||{ap:0,dials:0,sales:0,time:0,ratio:null};
-      const teamRatio=tot.sales>0?Math.max(1,Math.round(tot.dials/tot.sales))+':1':'&mdash;';
-      const youRatio=you.ratio?you.ratio+':1':'&mdash;';
+      const view = entry.view;
+      const riskN = view.atRisk.length;
+      const riskChip = riskN
+        ? '<span class="tm-risk" title="'+_lgEsc(view.atRisk.map(function(r){return r.name+' — '+r.risk.reason;}).join(' · '))+'">'+riskN+' AT RISK</span>'
+        : '';
+      // Collapsed strip: team AP, team dials, at-risk count.
+      const strip = '<div style="display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-top:10px">'+
+        '<div><span class="lgm" style="font-weight:600;font-size:19px;color:var(--lg-text1)">'+_lg$(view.totals.ap)+'</span>'+
+          '<span style="font-size:11.5px;color:var(--lg-caption);margin-left:6px">team AP</span></div>'+
+        '<div><span class="lgm" style="font-weight:600;font-size:19px;color:var(--lg-text1)">'+view.totals.dials+'</span>'+
+          '<span style="font-size:11.5px;color:var(--lg-caption);margin-left:6px">team dials</span></div>'+
+        '<div><span class="lgm" style="font-weight:600;font-size:19px;color:'+(riskN?'#E5766E':'var(--lg-text1)')+'">'+riskN+'</span>'+
+          '<span style="font-size:11.5px;color:var(--lg-caption);margin-left:6px">at risk</span></div>'+
+        '<div style="margin-left:auto;font-size:11.5px;color:var(--lg-caption)">'+view.count+' agent'+(view.count===1?'':'s')+'</div>'+
+      '</div>';
 
-      H += '<div style="display:flex;align-items:baseline;gap:10px;margin-top:8px">'+
-        '<div style="font-weight:600;font-size:13px;color:var(--lg-text1)">Team &mdash; '+_lgEsc(agencyName)+'</div>'+
-        '<span class="lgm" style="font-weight:400;font-size:11px;color:var(--lg-faint)">AGENCY CODE '+_lgEsc(agencyCode)+' &middot; '+rows.length+' agent'+(rows.length===1?'':'s')+'</span>'+
-        '<span style="margin-left:auto;font-weight:600;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-faint)">'+periodTag+'</span></div>';
-
-      // Team vs You strip
-      H += _lgCard('<div class="lg-af" style="--lg-min:190px;--lg-gap:14px">'+
-        '<div>'+_lgLbl('AP &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1)">'+_lg$(you.ap)+'</span><span style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">team avg <span class="lgm">'+_lg$(tot.ap/n)+'</span></span></div></div>'+
-        '<div>'+_lgLbl('Dials &mdash; you vs team avg')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1)">'+you.dials+'</span><span style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">team avg <span class="lgm">'+Math.round(tot.dials/n)+'</span></span></div></div>'+
-        '<div>'+_lgLbl('Call-to-close &mdash; you vs team')+'<div style="display:flex;align-items:baseline;gap:8px;margin-top:6px"><span class="lgm" style="font-weight:600;font-size:22px;color:var(--lg-text1)">'+youRatio+'</span><span style="font-weight:400;font-size:11.5px;color:var(--lg-caption)">team-wide <span class="lgm">'+teamRatio+'</span></span></div></div>'+
-      '</div>');
-
-      // Sortable table
-      const dir=_lgTeamSort.dir==='desc'?-1:1; const col=_lgTeamSort.col;
-      const keyf=t=>col==='name'?t.name:col==='ap'?t.ap:col==='sales'?t.sales:col==='dials'?t.dials:col==='time'?t.time:(t.sales>0?t.dials/t.sales:Infinity);
-      const sorted=rows.slice().sort((a,b)=>{ const ka=keyf(a),kb=keyf(b); if(typeof ka==='string') return ka.localeCompare(kb)*dir; return (ka===kb?0:ka<kb?-1:1)*dir; });
-      const ar=c=>_lgTeamSort.col===c?(_lgTeamSort.dir==='desc'?' &#9662;':' &#9652;'):'';
-      const th=(c,lbl,align)=>'<span class="lg-th" onclick="ledgerSortTeam(\''+c+'\')"'+(align?' style="text-align:'+align+'"':'')+'>'+lbl+ar(c)+'</span>';
-      const gcols='grid-template-columns:1.7fr 1fr .7fr .9fr 1fr 1fr';
-      let tbl='<div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden">'+
-        '<div class="lg-tscroll"><div class="lg-tmin" style="--lg-tmin:660px">'+
-        '<div style="display:grid;'+gcols+';align-items:center;height:34px;background:var(--lg-inner);padding:0 16px;font-weight:600;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-caption)">'+
-          th('name','Agent')+th('ap','AP (period)','right')+th('sales','Sales','right')+th('dials','Total dials','right')+th('time','Call time','right')+th('ratio','Call-to-close','right')+'</div>';
-      tbl+=sorted.map(t=>'<div class="lg-rowh" style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid var(--lg-divider);font-weight:400;font-size:13px;color:var(--lg-text1)">'+
-        '<span style="font-weight:500;display:flex;align-items:center;gap:8px">'+_lgEsc(t.name)+(t.you?'<span style="font-weight:600;font-size:10.5px;color:var(--lg-blue-deep);background:var(--lg-blue-soft);padding:1px 6px;border-radius:6px">You</span>':'')+'</span>'+
-        '<span class="lgm" style="text-align:right;font-weight:600">'+_lg$(t.ap)+'</span>'+
-        '<span class="lgm" style="text-align:right">'+t.sales+'</span>'+
-        '<span class="lgm" style="text-align:right">'+t.dials+'</span>'+
-        '<span class="lgm" style="text-align:right;color:var(--lg-text3)">'+_lgDur(t.time)+'</span>'+
-        '<span class="lgm" style="text-align:right;color:var(--lg-text3)">'+(t.ratio?t.ratio+':1':'&mdash;')+'</span></div>').join('');
-      tbl+='<div style="display:grid;'+gcols+';align-items:center;height:38px;padding:0 16px;border-top:1px solid var(--lg-border);background:var(--lg-inner);font-weight:600;font-size:13px;color:var(--lg-text1)">'+
-        '<span>Team total</span>'+
-        '<span class="lgm" style="text-align:right">'+_lg$(tot.ap)+'</span>'+
-        '<span class="lgm" style="text-align:right">'+tot.sales+'</span>'+
-        '<span class="lgm" style="text-align:right">'+tot.dials+'</span>'+
-        '<span class="lgm" style="text-align:right">'+_lgDur(tot.time)+'</span>'+
-        '<span class="lgm" style="text-align:right">'+teamRatio+'</span></div>';
-      tbl+='</div></div></div>';
-      H += tbl;
-      H += '<div style="font-weight:400;font-size:10.5px;color:var(--lg-faint);margin-top:-6px">Downline rows show production and calling totals only &mdash; no client names, policy details, or commission amounts.</div>';
+      let body = strip;
+      if(_teamCardOpen){
+        body += '<div class="tm" style="display:flex;flex-direction:column;gap:12px;margin-top:14px">'+
+          teamPeriodChipsHTML('summary')+
+          teamVsHTML(view)+
+          teamTableHTML(view, 'summary', now)+
+          teamPrivacyNoteHTML()+
+          '<div style="font-size:11.5px;color:var(--lg-caption)">Manage invites, your agency code and the full roster on the '+
+            '<span class="lg-click" onclick="nav(\'agency\')" style="color:var(--lg-blue);text-decoration:underline">Agency</span> tab.</div>'+
+        '</div>';
+      }
+      H += _lgCard(cardHead(riskChip)+body);
     }
   }
+
 
   // ================= TEASERS =================
   if(tier==='basic'){
@@ -21944,8 +22475,17 @@ function closeStatesPanel() {
 async function renderAgencySection() {
   const root = document.getElementById('ag-root');
   if (!root || !currentAgent) return;
-  root.innerHTML = '<div class="pb-empty" style="padding:40px">Loading…</div>';
   const tier = _planTier();
+  // A row clicked on the Summary mini-card asks for a specific agent's
+  // profile. nav('agency') calls this function without awaiting it, so the
+  // request is handed over as state rather than raced against.
+  const pending = _agPendingProfile;
+  _agPendingProfile = null;
+  if (pending && tier === 'leader') {
+    try { await agOpenAgentProfile(pending); return; }
+    catch (e) { /* fall through to the normal view */ }
+  }
+  root.innerHTML = '<div class="pb-empty" style="padding:40px">Loading…</div>';
   try {
     if (tier === 'leader') {
       await _agRenderLeaderView(root);
@@ -22008,15 +22548,17 @@ async function _agRenderLeaderView(root) {
     return;
   }
 
-  const accepted = (invites || []).filter(i => i.status === 'accepted');
-  const pending  = (invites || []).filter(i => i.status === 'pending');
-  const declined = (invites || []).filter(i => i.status === 'declined');
+  _agInvites = invites || [];
+  const accepted = _agInvites.filter(i => i.status === 'accepted');
+  const pending  = _agInvites.filter(i => i.status === 'pending');
+  const declined = _agInvites.filter(i => i.status === 'declined');
 
-  let statsMap = {};
-  if (accepted.length) {
-    const { data: statsRows } = await sb.rpc('get_agency_stats', { p_leader_id: currentAgent.id });
-    if (statsRows) statsRows.forEach(r => { statsMap[r.agent_id] = r; });
-  }
+  // The team numbers come from loadTeamRoster() — the same cache entry the
+  // Summary mini-card renders. get_agency_stats is deliberately NOT called:
+  // it is a second opinion computed with its own filters, and two opinions
+  // is the bug this screen was built to end.
+  const entry = await loadTeamRoster(_teamPeriod);
+  const now   = new Date();
 
   // --- Agency Profile Card (custom code + name) ---
   if (window._myAgencyCode === undefined) {
@@ -22026,13 +22568,16 @@ async function _agRenderLeaderView(root) {
   }
   const codeVal = window._myAgencyCode || "";
   const nameVal = window._myAgencyName || "";
+  // Agency identity + invite controls. These live INSIDE the "Manage roster"
+  // panel now: a leader reads their team's numbers daily and edits the roster
+  // monthly, so the numbers get the top of the page.
   const agCodeCard = `
-    <div class="card" style="margin-bottom:22px">
-      <div class="card-title" style="display:flex;align-items:center;gap:8px">
-        <span data-ico="key" data-size="13"></span>Your Agency
+    <div style="padding-bottom:18px;border-bottom:1px solid var(--border);margin-bottom:18px">
+      <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span data-ico="key" data-size="13"></span>Your agency name &amp; code
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
-        Set your agency name and a custom code. Share the code with agents when they sign up — they'll be automatically added to your agency and get <strong>30% off</strong> their Basic or Pro plan for as long as they stay connected to you.
+        Share the code with agents when they sign up — they'll be automatically added to your agency and get <strong>30% off</strong> their Basic or Pro plan for as long as they stay connected to you.
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
         <div style="flex:1;min-width:180px">
@@ -22054,14 +22599,60 @@ async function _agRenderLeaderView(root) {
       </div>
       <div id="ag-code-gen-msg" style="font-size:12px;color:var(--ds-color-success);margin-top:10px;display:none"></div>
     </div>`;
-  let h = discountCard + agCodeCard + `
 
-    <div class="ag-header">
+  // ============================================================
+  // 1. The team — period selector, you-vs-team, the sortable roster.
+  // ============================================================
+  const agencyTitle = nameVal ? escapeHTML(nameVal) : 'My Agency';
+  const subBits = [];
+  if (accepted.length) subBits.push(`${accepted.length} connected agent${accepted.length === 1 ? '' : 's'}`);
+  if (codeVal) subBits.push(`agency code <span style="font-family:var(--mono);letter-spacing:.06em">${escapeHTML(codeVal)}</span>`);
+  if (!subBits.length) subBits.push('Invite downline agents to share their performance data with you.');
+
+  let h = discountCard + `
+    <div class="ag-header" style="margin-bottom:16px">
       <div>
-        <div class="ag-header-title">${nameVal ? escapeHTML(nameVal) : 'My Agency'}</div>
-        <div class="ag-header-sub">Invite downline agents to share their performance data with you.</div>
+        <div class="ag-header-title">${agencyTitle}</div>
+        <div class="ag-header-sub">${subBits.join(' &middot; ')}</div>
       </div>
-    </div>
+      <div class="tm">${teamPeriodChipsHTML('agency')}</div>
+    </div>`;
+
+  if (entry.state !== 'ok') {
+    h += `<div class="tm">${teamUnavailableHTML(entry.state)}</div>`;
+  } else {
+    const view = entry.view;
+
+    // AT-RISK banner. In-app only — nothing is emailed to anyone, by design.
+    // Each name opens that agent's profile, where the reason is spelled out.
+    if (view.atRisk.length) {
+      h += `<div class="tm" style="margin-bottom:14px">
+        <div style="background:rgba(179,38,30,.07);border:1px solid rgba(179,38,30,.28);border-radius:8px;padding:12px 14px">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:8px">
+            <span class="tm-risk">AT RISK</span>
+            ${view.atRisk.length} agent${view.atRisk.length === 1 ? '' : 's'} slipping
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            ${view.atRisk.map(r => `<div style="font-size:12px;color:var(--text2);cursor:pointer" onclick="teamOpenAgent('${escapeHTML(r.id || '')}','agency')">
+              <strong style="color:var(--text)">${escapeHTML(r.name)}</strong> — ${escapeHTML(r.risk.reason)}</div>`).join('')}
+          </div>
+        </div>
+      </div>`;
+    }
+
+    h += `<div class="tm" style="display:flex;flex-direction:column;gap:14px">
+      ${teamVsHTML(view)}
+      ${teamTableHTML(view, 'agency', now)}
+      ${teamPrivacyNoteHTML()}
+    </div>`;
+  }
+
+  // ============================================================
+  // 2. Manage roster — invites, code, connections. Collapsed by default;
+  //    its open state survives the re-render that every action triggers.
+  // ============================================================
+  let roster = agCodeCard + `
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Invite an agent</div>
     <div class="ag-invite-row">
       <input class="ag-invite-input" id="ag-invite-email" type="email" placeholder="Agent's email address…"
         onkeydown="if(event.key==='Enter')agSendInvite()">
@@ -22072,9 +22663,9 @@ async function _agRenderLeaderView(root) {
     </div>`;
 
   if (pending.length) {
-    h += `<div class="ag-section-lbl">Pending Invites (${pending.length})</div>`;
+    roster += `<div class="ag-section-lbl">Pending Invites (${pending.length})</div>`;
     pending.forEach(inv => {
-      h += `<div class="ag-pending-card">
+      roster += `<div class="ag-pending-card">
         <span data-ico="clock" data-size="18" style="color:#f59e0b;flex-shrink:0"></span>
         <div class="ag-pending-info">
           <div>${escapeHTML(inv.invitee_email)}</div>
@@ -22087,9 +22678,9 @@ async function _agRenderLeaderView(root) {
   }
 
   if (declined.length) {
-    h += `<div class="ag-section-lbl" style="margin-top:18px">Declined</div>`;
+    roster += `<div class="ag-section-lbl" style="margin-top:18px">Declined</div>`;
     declined.forEach(inv => {
-      h += `<div class="ag-pending-card declined">
+      roster += `<div class="ag-pending-card declined">
         <span data-ico="x-circle" data-size="18" style="color:#ef4444;flex-shrink:0"></span>
         <div class="ag-pending-info">
           <div>${escapeHTML(inv.invitee_email)}</div>
@@ -22101,39 +22692,44 @@ async function _agRenderLeaderView(root) {
   }
 
   if (accepted.length) {
-    h += `<div class="ag-section-lbl" style="margin-top:${(pending.length||declined.length)?20:0}px">Connected Agents (${accepted.length})</div>`;
+    // Names/plans come from the roster view so this list and the table above
+    // cannot disagree about who is on the team.
+    const byId = {};
+    if (entry.state === 'ok') entry.view.rows.forEach(r => { if (r.id) byId[r.id] = r; });
+    roster += `<div class="ag-section-lbl" style="margin-top:${(pending.length || declined.length) ? 20 : 18}px">Connected Agents (${accepted.length})</div>`;
     accepted.forEach(inv => {
-      const s = statsMap[inv.invitee_id] || {};
-      const initials = (s.agent_name || inv.invitee_email || '?').slice(0,2).toUpperCase();
-      const ap = (s.total_ap || 0);
-      const apFmt = ap >= 1000 ? '$' + (ap/1000).toFixed(1) + 'k' : '$' + Math.round(ap);
-      const planBadge = s.agent_plan ? `<span class="ag-agent-plan">${escapeHTML(s.agent_plan)}</span>` : '';
-      // Whole card opens the agent's profile (where "Send Leads" lives). The
-      // Remove button stops propagation so it can't be hit by accident.
-      h += `<div class="ag-agent-card" style="cursor:pointer" title="Open ${escapeHTML(s.agent_name || inv.invitee_email)}"
-             onclick="agOpenAgentProfile('${escapeHTML(inv.invitee_id || '')}')">
-        <div class="ag-agent-avatar">${escapeHTML(initials)}</div>
-        <div class="ag-agent-info">
-          <div class="ag-agent-name">${escapeHTML(s.agent_name || inv.invitee_email)}</div>
-          <div class="ag-agent-email">${escapeHTML(inv.invitee_email)}</div>
-          ${planBadge}
+      const r = byId[inv.invitee_id] || {};
+      const label = r.name || inv.invitee_email;
+      const initials = (label || '?').slice(0, 2).toUpperCase();
+      roster += `<div class="ag-access-row">
+        <div class="ag-agent-avatar" style="width:32px;height:32px;font-size:12px;flex-shrink:0">${escapeHTML(initials)}</div>
+        <div class="ag-access-info" style="flex:1;min-width:0">
+          <strong>${escapeHTML(label)}</strong>
+          <span style="color:var(--text3);font-size:12px;margin-left:8px">${escapeHTML(inv.invitee_email)}</span>
+          ${r.plan ? `<span style="color:var(--text3);font-size:12px;margin-left:8px">· ${escapeHTML(r.plan)}</span>` : ''}
         </div>
-        <div class="ag-stats">
-          <div class="ag-stat"><div class="ag-stat-val">${(s.policy_count||0).toLocaleString()}</div><div class="ag-stat-lbl">Policies</div></div>
-          <div class="ag-stat"><div class="ag-stat-val">${apFmt}</div><div class="ag-stat-lbl">Prem AP</div></div>
-          <div class="ag-stat"><div class="ag-stat-val">${(s.call_count||0).toLocaleString()}</div><div class="ag-stat-lbl">Dials</div></div>
-          <div class="ag-stat"><div class="ag-stat-val">${(s.lead_count||0).toLocaleString()}</div><div class="ag-stat-lbl">Leads</div></div>
-        </div>
-        <button class="btn btn-s btn-sm" onclick="event.stopPropagation();agRemoveConnection('${inv.id}')"
-          style="margin-left:4px;color:var(--ds-color-danger)">Remove</button>
+        <button class="btn btn-s btn-sm" onclick="agOpenAgentProfile('${escapeHTML(inv.invitee_id || '')}')">Open</button>
+        <button class="btn btn-s btn-sm" onclick="agRemoveConnection('${inv.id}')"
+          style="color:var(--ds-color-danger)">Remove</button>
       </div>`;
     });
   } else if (!pending.length && !declined.length) {
-    h += `<div class="ag-empty-state">
+    roster += `<div class="ag-empty-state" style="padding:32px 16px">
       <h3>No agents connected yet</h3>
       <p>Enter an agent's email above to invite them. They'll receive a notification in their Agency tab and can accept or decline.</p>
     </div>`;
   }
+
+  const rosterCount = pending.length + declined.length;
+  h += `<details class="card" id="ag-roster-panel" ${_agRosterOpen ? 'open' : ''}
+          ontoggle="_agRosterOpen=this.open" style="margin-top:22px;padding:0;overflow:hidden">
+    <summary style="cursor:pointer;list-style:none;padding:15px 20px;display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--text);user-select:none">
+      <span data-ico="users-three" data-size="15"></span>Manage roster
+      <span style="font-weight:400;font-size:12px;color:var(--text3)">agency code, invites, connected agents${rosterCount ? ` · ${rosterCount} awaiting` : ''}</span>
+      <span style="margin-left:auto;font-size:11.5px;color:var(--text3)">${_agRosterOpen ? 'Hide' : 'Show'}</span>
+    </summary>
+    <div style="padding:0 20px 20px">${roster}</div>
+  </details>`;
 
   root.innerHTML = h;
 }
@@ -22333,6 +22929,7 @@ async function agSendInvite() {
     return;
   }
   if (input) input.value = '';
+  teamInvalidate(); _agencyMembers = null;
   showToast('Invite sent to ' + email, '#10b981');
   await renderAgencySection();
 }
@@ -22340,6 +22937,7 @@ async function agSendInvite() {
 async function agCancelInvite(id) {
   const { error } = await sb.from('agency_invites').delete().eq('id', id).eq('leader_id', currentAgent.id);
   if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
   showToast('Invite removed', '#10b981');
   await renderAgencySection();
 }
@@ -22367,6 +22965,7 @@ async function agRemoveConnection(id) {
   try {
     await _agUnlink(id, 'remove');
   } catch (e) { showToast('Failed: ' + e.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
   showToast('Agent removed', '#10b981');
   await renderAgencySection();
 }
@@ -22376,6 +22975,7 @@ async function agAcceptInvite(id) {
     .update({ status: 'accepted', invitee_id: currentAgent.id })
     .eq('id', id).eq('invitee_email', currentAgent.email);
   if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
   showToast('Access granted', '#10b981');
   await renderAgencySection();
 }
@@ -22385,6 +22985,7 @@ async function agDeclineInvite(id) {
     .update({ status: 'declined' })
     .eq('id', id).eq('invitee_email', currentAgent.email);
   if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
   showToast('Invite declined', '#10b981');
   await renderAgencySection();
 }
@@ -22394,6 +22995,7 @@ async function agRevokeAccess(id) {
   try {
     await _agUnlink(id, 'revoke');
   } catch (e) { showToast('Failed: ' + e.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
   showToast('Access revoked', '#10b981');
   await renderAgencySection();
 }
@@ -22597,53 +23199,151 @@ async function sltPick(recipientId) {
 
 let _alp = { recipientId: null, recipientName: '', selected: new Set(), page: 1, perPage: 50 };
 
-/** Opens the connected-agent profile view inside the Agency tab. */
+/**
+ * The connected-agent profile, inside the Agency tab.
+ *
+ * Extended for the merged team screen, NOT rebuilt: the "Send Leads" button
+ * and openAgLeadPicker() are exactly as lead distribution left them (see
+ * docs/lead-distribution.md, entry point B).
+ *
+ * Numbers come from the same loadTeamRoster() cache the table above it
+ * renders, so a row and the profile you opened from it cannot disagree.
+ * get_agency_stats is no longer consulted anywhere.
+ */
 async function agOpenAgentProfile(agentId) {
-  await loadAgencyMembers();
-  const member = (_agencyMembers || []).find(m => m.agent_id === agentId);
   const root = document.getElementById('ag-root');
-  if (!root || !member) return;
+  if (!root || !agentId) return;
 
-  let stats = {};
-  try {
-    const { data } = await sb.rpc('get_agency_stats', { p_leader_id: currentAgent.id });
-    (data || []).forEach(r => { if (r.agent_id === agentId) stats = r; });
-  } catch (_e) {}
+  const [ , entry ] = await Promise.all([ loadAgencyMembers(), loadTeamRoster(_teamPeriod) ]);
+  const member = (_agencyMembers || []).find(m => m.agent_id === agentId) || null;
+  const row = (entry.state === 'ok' ? entry.view.rows.find(r => r.id === agentId) : null) || null;
+  // Neither source knowing this agent means they are not on the team at all.
+  if (!member && !row) { await renderAgencySection(); return; }
 
-  const initials = (member.agent_name || member.agent_email || '?').slice(0, 2).toUpperCase();
-  const ap = Number(stats.total_ap || 0);
-  const apFmt = ap >= 1000 ? '$' + (ap / 1000).toFixed(1) + 'k' : '$' + Math.round(ap);
+  const now = new Date();
+  const range = teamPeriodRange(_teamPeriod, now);
+  const hasPrior = !!range.prevStart;
+  const name = (row && row.name) || (member && (member.agent_name || member.agent_email)) || 'Agent';
+  const email = (row && row.email) || (member && member.agent_email) || '';
+  const plan = (row && row.plan) || (member && member.agent_plan) || '';
+  const initials = (name || '?').slice(0, 2).toUpperCase();
   const relLabel = { upline: 'Your leader', downline: 'Your downline', sibling: 'Teammate' };
+  const rel = member ? (relLabel[member.relationship] || 'Agency') : 'Your downline';
+  const invite = (_agInvites || []).find(i => i.invitee_id === agentId && i.status === 'accepted');
+
+  const stat = (label, value, sub, color) =>
+    `<div><div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3)">${label}</div>
+      <div style="font-family:var(--mono);font-weight:600;font-size:20px;color:${color || 'var(--text)'};margin-top:5px;white-space:nowrap">${value}</div>
+      <div style="font-size:11.5px;color:var(--text3);margin-top:2px">${sub}</div></div>`;
+
+  const grid = inner => `<div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(160px,100%),1fr))">${inner}</div>`;
+
+  const deltaSub = (cur, prev) => {
+    const d = tmDelta(cur, prev, hasPrior);
+    if (!d) return 'no prior period to compare';
+    const col = d.dir === 'up' ? 'var(--ds-color-success)' : d.dir === 'down' ? 'var(--ds-color-danger)' : 'var(--text3)';
+    return `<span style="color:${col}">${d.text}</span>`;
+  };
+
+  let body = '';
+
+  // ---- AT-RISK explanation. The badge on the row says WHAT; this says WHY.
+  if (row && row.risk && row.risk.atRisk) {
+    body += `<div class="card" style="margin-bottom:16px;border-color:rgba(179,38,30,.35);background:rgba(179,38,30,.05)">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+        <span class="tm-risk">AT RISK</span>
+        <span style="font-size:13px;font-weight:600;color:var(--text)">${escapeHTML(row.risk.reason)}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);line-height:1.55">
+        Flagged because both halves are true at once: ${escapeHTML(row.risk.apPhrase)}
+        (this calendar month <span style="font-family:var(--mono)">${tmMoney(row.monthAp)}</span> against
+        <span style="font-family:var(--mono)">${tmMoney(row.prevMonthAp)}</span> last month, a drop of at least
+        ${Math.round(AT_RISK_AP_DROP_PCT * 100)}%), and ${escapeHTML(row.risk.dialPhrase)}
+        (the threshold is ${AT_RISK_NO_DIAL_DAYS} days). Production alone is a slow month; silence alone is a holiday.
+        This is nobody's scoreboard — it is a prompt to call them.
+      </div>
+    </div>`;
+  } else if (row && row.risk && !row.risk.eligible && !row.you) {
+    body += `<div style="font-size:11.5px;color:var(--text3);margin-bottom:14px;line-height:1.5">
+      Not eligible for the at-risk check yet — an agent needs ${AT_RISK_MIN_TENURE_DAYS} days on the team
+      before there is a prior month to fall from.
+    </div>`;
+  }
+
+  if (row) {
+    // ---- This period, with period-over-period movement.
+    body += `<div class="card" style="margin-bottom:14px">
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">${escapeHTML(range.label)}</div>
+        <span style="font-size:11.5px;color:var(--text3)">${row.share}% of team AP this period</span>
+      </div>
+      ${grid(
+        stat('AP', tmMoney(row.ap), deltaSub(row.ap, row.prevAp)) +
+        stat('Sales', String(row.sales), deltaSub(row.sales, row.prevSales)) +
+        stat('Dials', String(row.dials), deltaSub(row.dials, row.prevDials)) +
+        stat('Call time', tmDur(row.time), deltaSub(row.time, row.prevTime)) +
+        stat('Call-to-close', tmRatio(row.ratio), row.ratio ? `1 sale per ${row.ratio} dials` : 'no sales this period')
+      )}
+    </div>`;
+
+    // ---- Activity summary.
+    body += `<div class="card" style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px">Activity</div>
+      ${grid(
+        stat('Joined the agency', row.joinedAt ? tmDate(row.joinedAt) : '—',
+             row.joinedAt ? `${tmAgo(row.joinedAt, now)} · ${row.risk && row.risk.tenureDays != null ? row.risk.tenureDays + ' days' : ''}` : 'not recorded') +
+        stat('Last activity', tmAgo(row.lastActivityAt, now),
+             row.lastActivityAt ? tmDate(row.lastActivityAt) : 'no dial, policy or lead yet') +
+        stat('Last dial', tmAgo(row.lastDialAt, now),
+             row.lastDialAt ? tmDate(row.lastDialAt) : 'none on record')
+      )}
+      <div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5">
+        Activity means work done — a dial placed, a policy added, or a lead added. Signing in is not activity.
+      </div>
+    </div>`;
+
+    // ---- Lifetime.
+    body += `<div class="card" style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:14px">Lifetime</div>
+      ${grid(
+        stat('AP', tmMoney(row.lifetimeAp), 'all time, excludes lapsed &amp; chargeback') +
+        stat('Sales', String(row.lifetimeSales), 'policies submitted') +
+        stat('Dials', String(row.lifetimeDials), 'calls through the dialer') +
+        stat('Call time', tmDur(row.lifetimeTime), 'total talk time')
+      )}
+    </div>`;
+  } else {
+    body += `<div class="card" style="margin-bottom:14px"><div style="font-size:12.5px;color:var(--text3)">
+      Production figures are unavailable for this agent right now.</div></div>`;
+  }
 
   root.innerHTML = `
     <button class="btn btn-s btn-sm" onclick="renderAgencySection()" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:18px">
       <span data-ico="arrow-left" data-size="13"></span>Back to Agency
     </button>
-    <div class="card" style="margin-bottom:18px">
+    <div class="card" style="margin-bottom:16px">
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
         <div class="ag-agent-avatar" style="width:52px;height:52px;font-size:18px">${escapeHTML(initials)}</div>
         <div style="flex:1;min-width:180px">
-          <div style="font-size:19px;font-weight:600;color:var(--text)">${escapeHTML(member.agent_name || member.agent_email)}</div>
-          <div style="font-size:12.5px;color:var(--text2);margin-top:2px">${escapeHTML(member.agent_email || '')}</div>
+          <div style="font-size:19px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:9px;flex-wrap:wrap">
+            ${escapeHTML(name)}
+            ${row && row.risk && row.risk.atRisk ? '<span class="tm-risk">AT RISK</span>' : ''}
+          </div>
+          <div style="font-size:12.5px;color:var(--text2);margin-top:2px">${escapeHTML(email)}</div>
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-top:6px">
-            ${escapeHTML(relLabel[member.relationship] || 'Agency')}${member.agent_plan ? ' · ' + escapeHTML(member.agent_plan) : ''}
+            ${escapeHTML(rel)}${plan ? ' · ' + escapeHTML(plan) : ''}
           </div>
         </div>
-        <button class="btn btn-p btn-sm" onclick="openAgLeadPicker('${escapeHTML(member.agent_id)}')" style="display:inline-flex;align-items:center;gap:7px">
-          <span data-ico="paper-plane-right" data-size="14"></span>Send Leads
-        </button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${member ? `<button class="btn btn-p btn-sm" onclick="openAgLeadPicker('${escapeHTML(member.agent_id)}')" style="display:inline-flex;align-items:center;gap:7px">
+            <span data-ico="paper-plane-right" data-size="14"></span>Send Leads
+          </button>` : ''}
+          ${invite ? `<button class="btn btn-s btn-sm" onclick="agRemoveConnection('${escapeHTML(invite.id)}')" style="color:var(--ds-color-danger)">Remove</button>` : ''}
+        </div>
       </div>
     </div>
-    ${Object.keys(stats).length ? `
-    <div class="ag-agent-card" style="cursor:default">
-      <div class="ag-stats" style="width:100%">
-        <div class="ag-stat"><div class="ag-stat-val">${(stats.policy_count || 0).toLocaleString()}</div><div class="ag-stat-lbl">Policies</div></div>
-        <div class="ag-stat"><div class="ag-stat-val">${apFmt}</div><div class="ag-stat-lbl">Prem AP</div></div>
-        <div class="ag-stat"><div class="ag-stat-val">${(stats.call_count || 0).toLocaleString()}</div><div class="ag-stat-lbl">Dials</div></div>
-        <div class="ag-stat"><div class="ag-stat-val">${(stats.lead_count || 0).toLocaleString()}</div><div class="ag-stat-lbl">Leads</div></div>
-      </div>
-    </div>` : ''}
-    <div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-top:14px">
+    ${body}
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.5">
       Production totals only &mdash; no client names, policy details, or commission amounts.
     </div>`;
   if (typeof mountIcons === 'function') mountIcons(root);
