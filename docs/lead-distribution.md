@@ -209,3 +209,67 @@ before and after):
 
 Plus 27 unit tests over the authorization matrix, duplicate handling, the cap,
 `client_id` reassignment, and the consent/DNC rules.
+
+---
+
+## End-to-end run against production — 2026-07-29
+
+Two throwaway accounts (a Leader-plan "QA Leader" and a Basic "QA Downline")
+were created, connected through the **real** invite → accept flow, and driven
+headless against `https://producerstackcrm.com/app.html`. Test leads used the
+reserved fictional `+1 555 555 01xx` range — no real consumer was involved.
+**30 of 30 assertions passed** on the final run. Both accounts and every row
+they touched were deleted afterwards; `leads` returned to exactly its pre-test
+count of 1,329, with 0 invites, 0 transfers, and 0 rows carrying provenance.
+
+It found two real bugs, both now fixed.
+
+### Bug 1 — a downline could not reach the Agency tab at all
+
+`nav()` carried its own leader gate on `'agency'`, separate from
+`_applyPlanGating`:
+
+```js
+if (id === 'agency' && _navTier !== 'leader') { showUpgradeGate(...); return; }
+```
+
+So a non-leader clicking **Agency** got an upgrade modal and never reached
+`_agRenderAgentView` — the only surface where an invitee can accept an invite
+or revoke a leader's access. **Every emailed invite was unacceptable**, which
+means the invite path could never connect anybody. The invite row was being
+written correctly; the invitee simply could not see it.
+
+`renderAgencySection()` already branches on tier, so leader-only content was
+never exposed by the gate. It is gone. If you re-add a tier check to `nav()`
+for `'agency'`, you break invite acceptance again.
+
+### Bug 2 — the "Received from" chip rendered nowhere
+
+The chip was added to the `metaChips` array, which is composed into `metaHTML`
+and then **never interpolated into any template**. Dead code. The provenance
+was stamped on every transferred lead and shown to no one.
+
+There are two live card templates and it has to be in both:
+
+- **compact view** — an entry in `_pf` (primary, not behind ▼ More)
+- **standard view** (the default) — an explicit `allFields` entry, which cannot
+  rely on the generic `Object.entries(lead)` sweep because `_skipInPanel` hides
+  the raw `receivedFrom` / `receivedFromId` / `receivedAt` keys
+
+The lesson generalises: **assert on the rendered DOM, not on the payload.**
+The payload assertion passed the whole time.
+
+### What the run confirmed
+
+| | |
+|---|---|
+| invite → accept through the real UI | works; both sides then resolve each other via `get_agency_members()` (`upline` / `downline`) |
+| leader → downline (entry point A) | `1 sent, 1 skipped — already in their book` |
+| downline → leader (entry point A) | `1 sent` |
+| entry point B | agent card opens the profile; picker renders with all four filters; "Select all (filtered)" produces `Send 5 Leads`; Clear disables the button |
+| duplicate skip | the duplicate stayed with the sender, was not copied |
+| the `saveLeads()` hazard | moved lead did **not** reappear after a status change forced a full upsert, nor after a reload |
+| consent reset | recipient's Text button read *"No text consent on file yet"* (`lead-text-btn--needs_optin`) while the **sender kept** their `consent_records` row |
+| audit trail | both parties see the same two rows; nobody else can |
+| negative — stranger | `403 not_in_your_agency` |
+| negative — someone else's lead ids | `0 sent, refused: 2` (`not_yours`) |
