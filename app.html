@@ -3289,6 +3289,37 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .cm-note{font-size:11.5px;line-height:1.5;color:var(--lg-caption);background:var(--lg-inner);border:1px dashed var(--lg-border);border-radius:6px;padding:8px 11px;margin-bottom:14px}
 .cm-bartrack{height:6px;border-radius:3px;background:var(--lg-divider);overflow:hidden}
 .cm-barfill{height:100%;background:var(--lg-red)}
+/* ---- Persistency (Phase 5) ---- */
+.ps-windows{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:10px;margin-bottom:14px}
+.ps-win{background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:12px 14px}
+.ps-win-l{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--lg-caption)}
+.ps-win-v{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:24px;font-weight:600;line-height:1.15;margin-top:3px}
+.ps-win-s{font-size:11px;color:var(--lg-text3);margin-top:3px}
+/* The three bands are the ones carrier bonus programmes are written against. */
+.ps-green{color:var(--lg-green)}
+.ps-yellow{color:#B8860B}
+.ps-red{color:var(--lg-red)}
+.ps-none{color:var(--lg-faint)}
+.ps-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.ps-dot-green{background:var(--lg-green)}
+.ps-dot-yellow{background:#B8860B}
+.ps-dot-red{background:var(--lg-red)}
+.ps-dot-none{background:var(--lg-faint)}
+.ps-track{height:6px;border-radius:3px;background:var(--lg-divider);overflow:hidden;margin-top:7px}
+.ps-fill{height:100%}
+.ps-fill-green{background:var(--lg-green)}
+.ps-fill-yellow{background:#B8860B}
+.ps-fill-red{background:var(--lg-red)}
+.ps-out{border-radius:6px;padding:10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:10px;
+  background:var(--lg-red-soft);border:1px solid var(--lg-red-border);color:var(--lg-text1)}
+.ps-out-h{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--lg-red);margin-bottom:3px}
+.ps-row{display:grid;grid-template-columns:1.6fr .7fr 1.2fr 1fr;gap:10px;padding:10px 14px;align-items:center;
+  border-bottom:1px solid var(--lg-divider);font-size:12.5px;color:var(--lg-text2)}
+.ps-row:last-child{border-bottom:none}
+.ps-row:hover{background:var(--lg-inner)}
+.ps-thin{font-size:10.5px;color:var(--lg-caption);font-weight:500}
+.ps-gate{font-size:12px;line-height:1.55;color:var(--lg-caption);background:var(--lg-inner);
+  border:1px dashed var(--lg-border);border-radius:6px;padding:12px 14px;margin:0}
 .bo-table{background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;overflow:hidden}
 .bo-scroll{overflow-x:auto}
 .bo-min{min-width:960px}
@@ -4713,6 +4744,7 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
           <div class="tracker-tabs" id="bo-areas" style="margin-bottom:16px">
             <button class="tracker-tab active" data-boarea="ingest" onclick="boArea('ingest')">Ingest</button>
             <button class="tracker-tab" data-boarea="commissions" onclick="boArea('commissions')">Commissions</button>
+            <button class="tracker-tab" data-boarea="persistency" onclick="boArea('persistency')">Persistency</button>
           </div>
 
           <div id="bopanel-ingest">
@@ -4745,6 +4777,17 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
             <div id="cm-cards"></div>
             <div id="cm-note"></div>
             <div id="cm-panel"></div>
+          </div>
+
+          <!-- ========== PERSISTENCY (Phase 5) ========== -->
+          <div id="bopanel-persistency" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+              <div class="tracker-tabs" id="ps-views"></div>
+              <div class="tracker-tabs" id="ps-basis"></div>
+            </div>
+            <div id="ps-windows"></div>
+            <div id="ps-outliers"></div>
+            <div id="ps-panel"></div>
           </div>
         </div>
       </div>
@@ -10503,28 +10546,34 @@ const PERSIST_BENCH_13M = 0.85;
 const PERSIST_BENCH_25M = 0.75;
 const IN_FORCE = new Set(['issued','placed','paid']);
 
-function _polsIssuedMonthsAgo(pols, monthsAgo){
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - monthsAgo);
-  return pols.filter(p => {
-    if (!p.issueDate) return false;
-    const d = new Date(p.issueDate);
-    return Number.isFinite(d.getTime()) && d <= cutoff;
-  });
-}
-
+// Both delegate to the persist-core block (Back Office Phase 5), so this app
+// has ONE definition of persistency rather than two that drift.
+//
+// The sentinel is deliberately NOT written out in full here: the test harness
+// extracts each core with a lazy match from its opening sentinel, so a mention
+// of one ABOVE the real block captures everything in between and the extracted
+// code no longer parses. A test asserts each sentinel appears exactly once.
+//
+// Two things changed when they were unified, and both are fixes:
+//
+//   1. The cohort date is now issueDate -> draft -> dateSubmitted, not
+//      issueDate alone. issueDate is OPTIONAL on the Add Policy form; in
+//      production 8 of 23 policies carry one while all 23 carry a draft date.
+//      This widget was therefore computing a rate over a third of the book and
+//      presenting it as the book's persistency.
+//   2. A policy that never issued (pending/approved/denied/withdrawn) is no
+//      longer in the cohort, and a death CLAIM no longer counts as a lapse.
+//
+// The rate is still returned as a 0-1 fraction, because that is what the
+// Summary rings and the FFL bonus card already multiply by 100.
 function persistency13mo(pols){
-  const cohort = _polsIssuedMonthsAgo(pols, 13);
-  if (!cohort.length) return { rate: null, cohort: 0, kept: 0 };
-  const kept = cohort.filter(p => IN_FORCE.has(p.status)).length;
-  return { rate: kept / cohort.length, cohort: cohort.length, kept };
+  const r = persistRate(persistCohort(pols, 13, new Date()), false);
+  return { rate: r.rate === null ? null : r.rate / 100, cohort: r.cohort, kept: r.kept };
 }
 
 function persistency25mo(pols){
-  const cohort = _polsIssuedMonthsAgo(pols, 25);
-  if (!cohort.length) return { rate: null, cohort: 0, kept: 0 };
-  const kept = cohort.filter(p => IN_FORCE.has(p.status)).length;
-  return { rate: kept / cohort.length, cohort: cohort.length, kept };
+  const r = persistRate(persistCohort(pols, 25, new Date()), false);
+  return { rate: r.rate === null ? null : r.rate / 100, cohort: r.cohort, kept: r.kept };
 }
 
 /** Policies with issueDate within the last 30 days AND in-force — the free-look watch. */
@@ -12465,7 +12514,7 @@ function resetTrackerFilters() {
 
 // ============================================================
 // BOOK OF BUSINESS — status tabs, data-driven filters, timeline
-// (Back Office Phase 3. Pure logic lives in the // <bob-core> block.)
+// (Back Office Phase 3. Pure logic lives in the bob-core block above.)
 // ============================================================
 
 /**
@@ -21338,6 +21387,248 @@ function commDebtRanked(rows) {
 }
 // </comm-core>
 
+// <persist-core>
+// Persistency (Back Office Phase 5) — pure logic. No DOM, no network, no
+// storage, no app globals. Extracted verbatim and executed by
+// test/persistency.test.mjs. Keep it pure.
+
+/** The four windows the industry actually quotes. */
+const PERSIST_WINDOWS = [4, 9, 13, 25];
+
+/**
+ * Green / yellow / red, from the brief. These are the bands carrier bonus
+ * programmes are written against — `data/carrier_bonuses.json` is full of
+ * "13-mo persistency >= 85%" — so they are not arbitrary.
+ */
+const PERSIST_BANDS = [
+  { key: 'green',  min: 85, label: 'Healthy' },
+  { key: 'yellow', min: 70, label: 'Watch' },
+  { key: 'red',    min: 0,  label: 'At risk' },
+];
+
+/**
+ * A policy that reached issue. Statuses that never issued are NOT in the
+ * cohort: a policy the carrier declined was never at risk of lapsing, and
+ * counting it as a lapse would punish an agent for underwriting.
+ */
+const PERSIST_COHORT_EXCLUDED = ['pending', 'approved', 'denied', 'withdrawn'];
+
+/**
+ * Still in force.
+ *
+ * A CLAIM IS NOT A LAPSE. The policy stayed in force until the insured died,
+ * which is the policy doing its job; counting it against the agent is both
+ * wrong and, on a final-expense book, common enough to matter. `placed` is a
+ * legacy status some older policies still carry.
+ */
+const PERSIST_KEPT = ['issued', 'paid', 'placed', 'claim'];
+
+function persistBand(pct) {
+  if (pct === null || pct === undefined || Number.isNaN(pct)) return null;
+  return (PERSIST_BANDS.find(b => pct >= b.min) || PERSIST_BANDS[PERSIST_BANDS.length - 1]).key;
+}
+
+function persistBandLabel(pct) {
+  const k = persistBand(pct);
+  const b = PERSIST_BANDS.find(x => x.key === k);
+  return b ? b.label : '—';
+}
+
+/**
+ * When a policy started counting.
+ *
+ * issueDate -> draft -> dateSubmitted. `issueDate` is OPTIONAL on the Add
+ * Policy form and most policies do not carry one — in production, 8 of 23. The
+ * pre-existing persistency widget keyed on issueDate alone, so it silently
+ * ignored two thirds of the book and reported a rate over whatever was left.
+ * A persistency figure computed from a third of the policies is worse than no
+ * figure, because it looks like a figure.
+ *
+ * The same chain, in the same order, is in 20260743's `pol` CTE.
+ */
+function persistStartDate(p) {
+  if (!p) return null;
+  const pick = v => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v)) ? v.slice(0, 10) : null;
+  return pick(p.issueDate) || pick(p.draft) || pick(p.dateSubmitted) || null;
+}
+
+/** ISO date `months` before `now`, on the local calendar. */
+function persistCutoff(months, now) {
+  const d = new Date(now || new Date());
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() - months);
+  // Clamp for short months: 31 Mar minus 1 month is 28/29 Feb, not 3 Mar.
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, last));
+  const z = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+}
+
+/** Policies old enough for the window AND that reached issue. */
+function persistCohort(policies, months, now) {
+  const cutoff = persistCutoff(months, now);
+  return (Array.isArray(policies) ? policies : []).filter(p => {
+    if (!p || PERSIST_COHORT_EXCLUDED.includes(p.status)) return false;
+    const started = persistStartDate(p);
+    return !!started && started <= cutoff;
+  });
+}
+
+function persistIsKept(p) {
+  return !!p && PERSIST_KEPT.includes(p.status);
+}
+
+/**
+ * Flat vs Weighted.
+ *
+ * FLAT counts policies: 9 of 10 kept is 90%.
+ * WEIGHTED counts annualised premium: keeping nine $300 policies and losing
+ * one $6,000 policy is 90% flat and 31% weighted. Carriers measure the second
+ * one, which is why the toggle exists rather than a single number.
+ *
+ * Returns `rate: null` for an empty cohort — 0/0 is not 0%, and rendering it
+ * as 0% would paint a red band on an agent who has simply not been writing
+ * long enough.
+ */
+function persistRate(cohort, weighted) {
+  const list = Array.isArray(cohort) ? cohort : [];
+  const kept = list.filter(persistIsKept);
+  if (!list.length) return { rate: null, cohort: 0, kept: 0, lost: 0, basis: weighted ? 'ap' : 'count' };
+  if (!weighted) {
+    return { rate: (kept.length / list.length) * 100, cohort: list.length, kept: kept.length,
+             lost: list.length - kept.length, basis: 'count' };
+  }
+  const ap = arr => arr.reduce((s, p) => s + (Number(p.ap) || 0), 0);
+  const total = ap(list);
+  if (total <= 0) {
+    // Every policy in the cohort has zero or missing AP. Weighted is
+    // undefined, not zero — say so rather than paint a red band.
+    return { rate: null, cohort: list.length, kept: kept.length,
+             lost: list.length - kept.length, basis: 'ap', noPremium: true };
+  }
+  return { rate: (ap(kept) / total) * 100, cohort: list.length, kept: kept.length,
+           lost: list.length - kept.length, basis: 'ap', cohortAp: total, keptAp: ap(kept) };
+}
+
+/** The four headline windows at once. */
+function persistWindows(policies, weighted, now) {
+  return PERSIST_WINDOWS.map(m => {
+    const r = persistRate(persistCohort(policies, m, now), weighted);
+    return { months: m, ...r, band: persistBand(r.rate) };
+  });
+}
+
+/**
+ * The lead a policy came from.
+ *
+ * `submitAsSold()` writes both `soldLeadId` and `leadSource`; a policy added
+ * by hand carries neither. `leadsById` is consulted first because the lead's
+ * own source is the live value — `leadSource` is a snapshot taken at sale.
+ * Returns null when there is no link at all, which is what drives the
+ * "link policies to leads to populate" message rather than a fake bucket.
+ */
+function persistLeadSource(p, leadsById) {
+  if (!p) return null;
+  if (p.soldLeadId && leadsById) {
+    const lead = leadsById.get ? leadsById.get(String(p.soldLeadId)) : leadsById[String(p.soldLeadId)];
+    const s = lead && (lead.source || lead.lead_source);
+    if (s) return String(s);
+  }
+  return p.leadSource ? String(p.leadSource) : null;
+}
+
+/**
+ * Persistency broken out by a segment key, ranked worst first.
+ *
+ * `minCohort` exists because a segment of one policy is not a rate — one
+ * lapse makes it 0% and it would top every "worst" list forever. Small
+ * segments are still returned, flagged `thin`, so nothing is hidden; the
+ * outlier picker is what ignores them.
+ */
+function persistBySegment(policies, months, weighted, keyFn, now, minCohort) {
+  const min = minCohort === undefined ? 3 : minCohort;
+  const cohort = persistCohort(policies, months, now);
+  const groups = new Map();
+  let unlinked = 0;
+  cohort.forEach(p => {
+    const k = keyFn(p);
+    if (k === null || k === undefined || k === '') { unlinked++; return; }
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(p);
+  });
+  const rows = [...groups.entries()].map(([key, list]) => {
+    const r = persistRate(list, weighted);
+    return { key, ...r, band: persistBand(r.rate), thin: list.length < min };
+  });
+  rows.sort((a, b) => {
+    // Worst first, but a segment with no rate sorts last rather than to the
+    // top where it would read as the worst thing in the book.
+    if (a.rate === null && b.rate === null) return b.cohort - a.cohort;
+    if (a.rate === null) return 1;
+    if (b.rate === null) return -1;
+    if (a.rate !== b.rate) return a.rate - b.rate;
+    return b.cohort - a.cohort;
+  });
+  return { rows, unlinked, cohortSize: cohort.length };
+}
+
+/**
+ * The outlier, with a sentence saying why.
+ *
+ * Only fires when the segment is materially worse than the book — a "worst
+ * carrier" that is one point below average is noise, and a screen that always
+ * accuses somebody trains an agent to ignore it.
+ */
+function persistOutlier(segment, overallRate, label, gapPoints) {
+  const gap = gapPoints === undefined ? 10 : gapPoints;
+  if (!segment || !segment.rows || overallRate === null || overallRate === undefined) return null;
+  const eligible = segment.rows.filter(r => !r.thin && r.rate !== null);
+  if (!eligible.length) return null;
+  const worst = eligible[0];
+  if (worst.rate >= overallRate - gap) return null;
+  const behind = Math.round(overallRate - worst.rate);
+  return {
+    key: worst.key,
+    rate: worst.rate,
+    band: worst.band,
+    reason: label + ' ' + worst.key + ' persists at ' + Math.round(worst.rate) + '%, ' +
+      behind + ' points below your book — ' + worst.lost + ' of ' + worst.cohort +
+      ' policies did not stay on the books.',
+  };
+}
+
+/** "13-month" / "4-month". */
+function persistWindowLabel(months) {
+  return months + '-month';
+}
+
+/** Per-agent rows from get_downline_persistency, folded into one row each. */
+function persistAgentRows(rpcRows, months, weighted) {
+  const byAgent = new Map();
+  (Array.isArray(rpcRows) ? rpcRows : []).forEach(r => {
+    if (Number(r.window_months) !== Number(months)) return;
+    const cohort = weighted ? Number(r.cohort_ap || 0) : Number(r.cohort_count || 0);
+    const kept = weighted ? Number(r.kept_ap || 0) : Number(r.kept_count || 0);
+    byAgent.set(r.agent_id, {
+      agentId: r.agent_id,
+      name: r.agent_name || r.agent_email || 'Agent',
+      isSelf: !!r.is_self,
+      cohortCount: Number(r.cohort_count || 0),
+      keptCount: Number(r.kept_count || 0),
+      rate: cohort > 0 ? (kept / cohort) * 100 : null,
+      band: cohort > 0 ? persistBand((kept / cohort) * 100) : null,
+    });
+  });
+  return [...byAgent.values()].sort((a, b) => {
+    if (a.rate === null && b.rate === null) return a.name.localeCompare(b.name);
+    if (a.rate === null) return 1;
+    if (b.rate === null) return -1;
+    return a.rate - b.rate;
+  });
+}
+// </persist-core>
+
 let _boCache = { statements: [], summary: null, loadedAt: 0 };
 let _boPollTimer = null;
 let _boBusy = false;
@@ -21370,22 +21661,25 @@ function boArea(key, silent) {
   host.querySelectorAll('#bo-areas .tracker-tab').forEach(t => {
     t.classList.toggle('active', t.dataset.boarea === key);
   });
+  const SUBTITLES = {
+    ingest: 'Drop a carrier commission statement in and it is read, matched to your policies, and filed. PDF, Excel, CSV, or a ZIP of them.',
+    commissions: 'What your ingested statements add up to. Every figure here comes from a commission line you uploaded — nothing is estimated.',
+    persistency: 'How much of what you wrote stayed on the books. Carrier bonus programmes are written against these numbers.',
+  };
   const sub = document.getElementById('bo-subtitle');
-  if (sub) {
-    sub.textContent = key === 'commissions'
-      ? 'What your ingested statements add up to. Every figure here comes from a commission line you uploaded — nothing is estimated.'
-      : 'Drop a carrier commission statement in and it is read, matched to your policies, and filed. PDF, Excel, CSV, or a ZIP of them.';
-  }
+  if (sub) sub.textContent = SUBTITLES[key] || SUBTITLES.ingest;
+  const REFRESH = { ingest: () => boRefresh(true), commissions: () => cmRender(true), persistency: () => psRender(true) };
   const refresh = document.getElementById('bo-refresh');
-  if (refresh) refresh.onclick = () => (key === 'commissions' ? cmRender(true) : boRefresh(true));
+  if (refresh) refresh.onclick = REFRESH[key] || REFRESH.ingest;
   if (silent) return;
   if (key === 'commissions') cmRender();
+  else if (key === 'persistency') psRender();
   else boRefresh(false);
 }
 
 // ============================================================
 // COMMISSIONS DASHBOARD (Back Office Phase 4)
-// Pure logic lives in the // <comm-core> block above.
+// Pure logic lives in the comm-core block above.
 // ============================================================
 let _cmTab = 'trends';
 let _cmRange = 'mtd';
@@ -21730,6 +22024,221 @@ async function cmOpenDebt(carrier) {
 function cmCloseDebt() {
   const m = document.getElementById('cmDebtModal');
   if (m) m.classList.remove('open');
+}
+
+// ============================================================
+// PERSISTENCY (Back Office Phase 5)
+// Pure logic lives in the persist-core block above.
+// ============================================================
+let _psView = 'policy';      // policy | agent
+let _psWeighted = false;     // flat | weighted
+let _psWindow = 13;          // the window the segment tables break out
+try {
+  if (localStorage.getItem('pp_ps_view') === 'agent') _psView = 'agent';
+  if (localStorage.getItem('pp_ps_weighted') === '1') _psWeighted = true;
+  const w = parseInt(localStorage.getItem('pp_ps_window'), 10);
+  if (PERSIST_WINDOWS.includes(w)) _psWindow = w;
+} catch (e) { /* private mode */ }
+
+let _psCache = { agents: [], loadedAt: 0 };
+
+function psSetView(v) {
+  _psView = (v === 'agent') ? 'agent' : 'policy';
+  try { localStorage.setItem('pp_ps_view', _psView); } catch (e) {}
+  psPaint();
+}
+function psSetWeighted(w) {
+  _psWeighted = !!w;
+  try { localStorage.setItem('pp_ps_weighted', _psWeighted ? '1' : '0'); } catch (e) {}
+  psPaint();
+}
+function psSetWindow(m) {
+  const n = Number(m);
+  if (!PERSIST_WINDOWS.includes(n)) return;
+  _psWindow = n;
+  try { localStorage.setItem('pp_ps_window', String(n)); } catch (e) {}
+  psPaint();
+}
+
+async function psRender(force) {
+  if (!currentAgent) return;
+  const fresh = !force && _psCache.loadedAt && (Date.now() - _psCache.loadedAt) < 45000;
+  if (!fresh) {
+    try {
+      // The AGENT view is the only thing that needs the server: the policy
+      // view is computed from the local `policies` array, which is already
+      // loaded and is the agent's own book.
+      const { data, error } = await sb.rpc('get_downline_persistency', { p_now: null });
+      _psCache = { agents: (!error && data) || [], loadedAt: Date.now() };
+    } catch (e) {
+      _psCache = { agents: [], loadedAt: Date.now() };
+    }
+  }
+  psPaint();
+  if (force) showToast('Persistency refreshed', '#10b981');
+}
+
+/** A leads lookup for the lead-source join, built once per paint. */
+function psLeadsById() {
+  const m = new Map();
+  (Array.isArray(typeof leads !== 'undefined' ? leads : null) ? leads : [])
+    .forEach(l => m.set(String(l.id), l));
+  return m;
+}
+
+function psPaint() {
+  const viewsEl = document.getElementById('ps-views');
+  const basisEl = document.getElementById('ps-basis');
+  const winEl = document.getElementById('ps-windows');
+  const outEl = document.getElementById('ps-outliers');
+  const panelEl = document.getElementById('ps-panel');
+  if (!winEl) return;
+
+  if (viewsEl) {
+    viewsEl.innerHTML =
+      '<button class="tracker-tab' + (_psView === 'policy' ? ' active' : '') +
+        '" onclick="psSetView(\'policy\')" title="By carrier and by lead source">Policy</button>' +
+      '<button class="tracker-tab' + (_psView === 'agent' ? ' active' : '') +
+        '" onclick="psSetView(\'agent\')" title="By agent">Agent</button>';
+  }
+  if (basisEl) {
+    basisEl.innerHTML =
+      '<button class="tracker-tab' + (!_psWeighted ? ' active' : '') +
+        '" onclick="psSetWeighted(false)" title="Count of policies">Flat</button>' +
+      '<button class="tracker-tab' + (_psWeighted ? ' active' : '') +
+        '" onclick="psSetWeighted(true)" title="Weighted by annualised premium">Weighted</button>';
+  }
+
+  const pols = Array.isArray(typeof policies !== 'undefined' ? policies : null) ? policies : [];
+  const wins = persistWindows(pols, _psWeighted, new Date());
+
+  // ---- the four windows ----
+  winEl.innerHTML = '<div class="ps-windows">' + wins.map(w => {
+    const has = w.rate !== null;
+    const cls = has ? 'ps-' + w.band : 'ps-none';
+    const pct = has ? Math.round(w.rate) + '%' : '—';
+    const sub = !has
+      ? (w.cohort === 0 ? 'no cohort yet' : (w.noPremium ? 'no premium recorded' : 'no cohort yet'))
+      : w.kept + ' of ' + w.cohort + ' still on the books';
+    return '<div class="ps-win' + (w.months === _psWindow ? '' : '') + '" ' +
+        'style="cursor:pointer' + (w.months === _psWindow ? ';border-color:var(--lg-blue-border)' : '') + '" ' +
+        'onclick="psSetWindow(' + w.months + ')" title="Break the tables below out at ' + w.months + ' months">' +
+      '<div class="ps-win-l">' + escHTML(persistWindowLabel(w.months)) + '</div>' +
+      '<div class="ps-win-v ' + cls + '">' + pct + '</div>' +
+      '<div class="ps-win-s">' + escHTML(sub) + '</div>' +
+      (has ? '<div class="ps-track"><div class="ps-fill ps-fill-' + w.band +
+             '" style="width:' + Math.min(100, Math.max(0, w.rate)).toFixed(1) + '%"></div></div>' : '') +
+    '</div>';
+  }).join('') + '</div>' +
+  '<div style="font-size:11.5px;color:var(--lg-caption);margin:-4px 0 14px">' +
+    'Green &ge;85% &middot; Yellow 70&ndash;84% &middot; Red &lt;70%. ' +
+    (_psWeighted ? 'Weighted by annualised premium.' : 'Flat count of policies.') +
+    ' A policy that never issued is not in the cohort, and a death claim is not a lapse.' +
+  '</div>';
+
+  if (_psView === 'agent') {
+    if (outEl) outEl.innerHTML = '';
+    if (panelEl) panelEl.innerHTML = psAgentHTML();
+    return;
+  }
+
+  // ---- policy view: by carrier, by lead source ----
+  const leadsById = psLeadsById();
+  const overall = wins.find(w => w.months === _psWindow) || { rate: null };
+  const byCarrier = persistBySegment(pols, _psWindow, _psWeighted, p => p.carrier || null, new Date());
+  const byLead = persistBySegment(pols, _psWindow, _psWeighted,
+    p => persistLeadSource(p, leadsById), new Date());
+
+  if (outEl) {
+    const outs = [
+      persistOutlier(byCarrier, overall.rate, 'Carrier'),
+      persistOutlier(byLead, overall.rate, 'Lead source'),
+    ].filter(Boolean);
+    outEl.innerHTML = outs.length
+      ? outs.map(o => '<div class="ps-out"><div class="ps-out-h">Worth a look</div>' +
+          escHTML(o.reason) + '</div>').join('')
+      : '';
+  }
+
+  if (panelEl) {
+    panelEl.innerHTML =
+      psSegmentHTML('By carrier', byCarrier, overall.rate, null) +
+      psSegmentHTML('By lead source', byLead, overall.rate,
+        'Link policies to leads to populate this. A policy created with ' +
+        '<strong>Submit as Sold</strong> from a lead carries its source; one typed straight into ' +
+        'the tracker does not.');
+  }
+}
+
+function psSegmentHTML(title, segment, overallRate, emptyNote) {
+  const head = '<div class="cm-panel-h"><div class="cm-panel-t">' + escHTML(title) + '</div>' +
+    '<div class="cm-panel-s">' + persistWindowLabel(_psWindow) + ' &middot; ' +
+    (_psWeighted ? 'weighted by premium' : 'flat count') +
+    (segment.unlinked ? ' &middot; ' + segment.unlinked + ' not linked' : '') + '</div></div>';
+  if (!segment.rows.length) {
+    return '<div class="cm-panel">' + head + '<div class="cm-empty">' +
+      (emptyNote || 'No policies old enough for this window yet.') + '</div></div>';
+  }
+  const rows = segment.rows.map(r => {
+    const has = r.rate !== null;
+    const cls = has ? 'ps-' + r.band : 'ps-none';
+    const delta = (has && overallRate !== null)
+      ? (r.rate >= overallRate ? '+' : '') + Math.round(r.rate - overallRate) + ' pts vs book'
+      : '';
+    return '<div class="ps-row">' +
+      '<div class="cm-strong"><span class="ps-dot ps-dot-' + (has ? r.band : 'none') + '"></span>' +
+        escHTML(r.key) + (r.thin ? ' <span class="ps-thin">· thin cohort</span>' : '') + '</div>' +
+      '<div class="bo-num ' + cls + '" style="font-weight:600">' + (has ? Math.round(r.rate) + '%' : '—') + '</div>' +
+      '<div>' + (has
+        ? '<div class="ps-track"><div class="ps-fill ps-fill-' + r.band + '" style="width:' +
+          Math.min(100, Math.max(0, r.rate)).toFixed(1) + '%"></div></div>'
+        : '<span class="ps-thin">no rate</span>') + '</div>' +
+      '<div style="font-size:11.5px;color:var(--lg-text3)">' + r.kept + ' of ' + r.cohort +
+        (delta ? ' &middot; ' + escHTML(delta) : '') + '</div>' +
+    '</div>';
+  }).join('');
+  const note = (segment.unlinked && emptyNote)
+    ? '<div class="ps-gate" style="margin:10px 14px 12px">' + emptyNote +
+      ' <strong>' + segment.unlinked + '</strong> of the ' + segment.cohortSize +
+      ' policies in this window are not linked to a lead.</div>'
+    : '';
+  return '<div class="cm-panel">' + head +
+    '<div class="ps-row cm-thead"><div>Segment</div><div>Rate</div><div></div><div>Kept</div></div>' +
+    rows + note + '</div>';
+}
+
+function psAgentHTML() {
+  const rows = persistAgentRows(_psCache.agents, _psWindow, _psWeighted);
+  const head = '<div class="cm-panel-h"><div class="cm-panel-t">By agent</div>' +
+    '<div class="cm-panel-s">' + persistWindowLabel(_psWindow) + ' &middot; ' +
+    (_psWeighted ? 'weighted by premium' : 'flat count') + ' &middot; worst first</div></div>';
+  if (!rows.length) {
+    return '<div class="cm-panel">' + head +
+      '<div class="cm-empty">No policies old enough for this window yet.</div></div>';
+  }
+  const solo = rows.length === 1;
+  const body = rows.map(r => {
+    const has = r.rate !== null;
+    return '<div class="ps-row">' +
+      '<div class="cm-strong"><span class="ps-dot ps-dot-' + (has ? r.band : 'none') + '"></span>' +
+        escHTML(r.name) + (r.isSelf ? ' <span class="ps-thin">· You</span>' : '') + '</div>' +
+      '<div class="bo-num ' + (has ? 'ps-' + r.band : 'ps-none') + '" style="font-weight:600">' +
+        (has ? Math.round(r.rate) + '%' : '—') + '</div>' +
+      '<div>' + (has
+        ? '<div class="ps-track"><div class="ps-fill ps-fill-' + r.band + '" style="width:' +
+          Math.min(100, Math.max(0, r.rate)).toFixed(1) + '%"></div></div>'
+        : '<span class="ps-thin">no cohort</span>') + '</div>' +
+      '<div style="font-size:11.5px;color:var(--lg-text3)">' + r.keptCount + ' of ' + r.cohortCount + '</div>' +
+    '</div>';
+  }).join('');
+  const note = solo
+    ? '<div class="ps-gate" style="margin:10px 14px 12px">This is your own book. Connect agents ' +
+      'through <a href="#" onclick="nav(\'agency\');return false;" style="color:var(--lg-blue)">Agency</a> ' +
+      'and their persistency appears here too — as a rate, never as their client list.</div>'
+    : '';
+  return '<div class="cm-panel">' + head +
+    '<div class="ps-row cm-thead"><div>Agent</div><div>Rate</div><div></div><div>Kept</div></div>' +
+    body + note + '</div>';
 }
 
 /** One pass: summary RPC + statement list, then paint. */

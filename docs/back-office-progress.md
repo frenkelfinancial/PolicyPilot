@@ -18,18 +18,20 @@ seven independently-shippable phases. Started 2026-07-29.
 | 2 | Producer codes + retroactive attribution | ✅ **shipped 2026-07-29** |
 | 3 | Book of Business upgrades | ✅ **shipped 2026-07-29** |
 | 4 | Commissions dashboard | ✅ **shipped 2026-07-29** |
-| 5 | Persistency upgrades | not started |
+| 5 | Persistency upgrades | ✅ **shipped 2026-07-29** |
 | 6 | Reconciliation screen | not started |
 | 7 | Close the loop (auto-referral, chargeback at-risk, carriers) | not started |
 
-**Exact resume point:** Phase 5 — Persistency upgrades. Nothing from Phases 1–4
-is outstanding. Phase 5 works over `public.policies` (for the in-force test and
-the lead join) plus `commission_rows` (for the chargeback signal), and needs no
-new table if the lead join is made through the existing
-`policies.data.soldLeadId` — which `submitAsSold()` already writes and which is
-the join the "by lead source" segment depends on. Where it is absent, the
-screen must say *"link policies to leads to populate"* rather than showing a
-figure computed from nothing.
+**Exact resume point:** Phase 6 — Reconciliation. Nothing from Phases 1–5 is
+outstanding. Phase 6 has everything it needs already in data: `commission_rows`
+carries `review_status` ('auto' | 'needs_review' | 'approved' | 'rejected'),
+`review_reason`, `match_method` and `match_confidence`; `commission_statements`
+carries the `failed` state and its `error`. The open decision is whether to
+build on the existing `public.review_queue` (the carrier-mail pipeline's) or to
+replace it deliberately — the brief asks for that call to be made and
+documented. **Writes must go through a service-role path**: `commission_rows`
+is SELECT-only and stays that way, so approving or correcting a match needs a
+new edge function, not an RLS policy.
 
 **Waiting on Jace:** one decision — see *"Forwarding email address"* below.
 Nothing is blocked by it; Phase 1 shipped upload-only as planned.
@@ -601,19 +603,102 @@ Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
 
 ---
 
-## Phases 5–7
+## Phase 5 — Persistency ✅ SHIPPED
+
+Feature doc: **`docs/back-office-persistency.md`**.
+Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
+`20260743_persistency.sql`*.
+
+### What shipped
+
+- **Schema `20260743`** — one function, `get_downline_persistency()`. No table,
+  no column, no data change.
+- **A third Back Office area, Persistency**: four windows (4 / 9 / 13 / 25
+  month) with band colours and bars, a **Flat vs Weighted** toggle, a **Policy
+  vs Agent** toggle, breakouts **by carrier** and **by lead source**, and an
+  outlier banner with a plain-language reason.
+- **`persistency13mo()` / `persistency25mo()` now delegate to the shared
+  core**, so the Summary rings and the FFL bonus card read the same definition
+  the new screen does.
+
+### Decisions taken without asking
+
+1. **The cohort date is a fallback chain — and that is a bug fix, not a
+   preference.** `issueDate` is optional and only 8 of 23 production policies
+   carry one, while all 23 carry a draft date. The existing widget keyed on
+   `issueDate` alone and was therefore reporting a rate over a third of the
+   book. Now `issueDate → draft → dateSubmitted`, in the browser and in SQL.
+
+2. **A policy that never issued is not in the cohort.** It was never at risk of
+   lapsing; counting a declined application as a lapse punishes an agent for
+   underwriting.
+
+3. **A death claim is not a lapse.** The policy stayed in force until the
+   insured died. On a final-expense book this is common enough to matter.
+
+4. **An empty cohort has NO rate, not a zero rate.** 0/0 is not 0%, and
+   painting a red band on an agent who has not been writing long enough is the
+   most misleading thing this screen could do. Segments with no rate sort last,
+   never to the top as “the worst”.
+
+5. **A thin segment is flagged, not hidden, and never accused.** One policy is
+   not a rate. It stays in the table; the outlier picker ignores it.
+
+6. **The outlier only fires at a material gap** (10 points). A screen that
+   always accuses somebody trains an agent to ignore it.
+
+7. **The policy view needs no RPC** — it is the agent’s own book, already
+   loaded. Only the agent view goes to the server, because `policies` RLS is
+   owner-only and “which of my agents writes business that sticks” is exactly
+   what a leader cannot compute in the browser.
+
+8. **Unlinked policies are counted and named**, never put in a fake bucket, and
+   the panel says how to link them.
+
+### Verification
+
+| Layer | Result |
+|---|---|
+| Schema behavioural checks (rolled back) | **16/16** |
+| Unit tests (`npm run test:persistency`) | **44** |
+| Full suite (`npm test`) | **589 tests + `npm run check` clean** |
+| Headless click-through | **31/31** |
+| Residue | **zero** |
+
+### Surprises worth recording
+
+- **The test harness had a trap laid three times over.** Each core block is
+  extracted from `app.html` by a lazy match from its opening sentinel, so a
+  comment merely *mentioning* `<persist-core>` above the real block made the
+  match start at the comment and swallow ten thousand lines. Two more copies
+  sat below their blocks — harmless that day, the same trap the next. All four
+  are cleaned and a test now asserts **every core sentinel appears exactly once
+  in `app.html`**.
+- **The click-through’s “worst first” assertion was wrong, not the code.** A 0%
+  carrier with one policy legitimately outranks a 25% carrier with four; being
+  a thin cohort excludes it from the outlier, not from the table.
+
+---
+
+## Phases 6–7
 
 Not started. Each will get its own decisions + work log section here as it
 begins.
 
-### Phase 5 notes carried forward
+### Phase 6 notes carried forward
 
-The lead join the "persistency by lead source" segment needs already exists:
-`submitAsSold()` writes `policies.data.soldLeadId` and `leadSource`. Where
-neither is present the screen must say **"link policies to leads to
-populate"** rather than computing a figure from nothing — that sentence is in
-the brief for a reason.
+Everything Phase 6 reads already exists. `commission_rows.review_status` is
+already `'auto' | 'needs_review' | 'approved' | 'rejected'` with a check
+constraint, and `review_reason` already carries the plain-English sentence the
+Phase 1 drill-down renders. `commission_statements.status = 'failed'` plus
+`error` and `attempts` is the "stuck uploads" queue.
 
-The in-force test should reuse `BOB_ENDED` from the `// <bob-core>` block
-rather than a fourth hand-written status set; Phase 3 records what happens
-otherwise.
+Two decisions the brief asks for explicitly:
+
+1. **`public.review_queue` — build on it or replace it.** It belongs to the
+   carrier-mail pipeline (`20260708_review_queue.sql`) and is keyed to
+   `parsed_events`, not to commission rows. Make the call and write it down.
+2. **The write path.** `commission_rows` is SELECT-only for `authenticated` and
+   must stay so — approve / correct / reject needs a service-role edge
+   function that takes the agent from the JWT, in the same shape as
+   `statement-upload` / `statement-parse`. Do not add an INSERT/UPDATE policy.

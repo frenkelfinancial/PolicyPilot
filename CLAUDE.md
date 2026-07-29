@@ -33,6 +33,27 @@ Autonomy layer (added 07/2026):
 - **`nav()` highlights by section name, not by position.** The positional index map (duplicated in `restoreSectionFromCache()`) had to be hand-corrected every time the sidebar grew; a test asserts it does not come back.
 - **Inbound forwarding addresses are NOT built and need one DNS record.** Resend is already signed up, paid for and wired (`messaging-email-inbound-webhook` verifies its signature); only the inbound MX is missing. Exact plan in `docs/back-office-progress.md` § "Forwarding email address".
 
+### Persistency (Phase 5) — `docs/back-office-persistency.md`
+
+- **The cohort date is `issueDate → draft → dateSubmitted`, and that chain is a
+  bug fix.** `issueDate` is optional and only 8 of 23 production policies carry
+  one; the old widget keyed on it alone and reported a rate over a third of the
+  book. Never narrow it back.
+- **A policy that never issued is not in the cohort** (`pending`, `approved`,
+  `denied`, `withdrawn`), and **a death claim is NOT a lapse** — `claim` is in
+  `PERSIST_KEPT`. `20260743` carries the same two lists and a test asserts the
+  browser and the SQL agree.
+- **An empty cohort has NO rate, not 0%.** `persistBand(null)` is `null`.
+  Painting red on an agent who has not been writing long enough is the most
+  misleading thing this screen can do; segments with no rate sort LAST.
+- **A thin segment (<3 policies) is shown and flagged, never made the
+  outlier**, and the outlier only fires at a material gap (10 points).
+- **`persistency13mo()`/`persistency25mo()` delegate to persist-core** and
+  still return a 0–1 fraction, because the Summary rings multiply by 100.
+- **Each core sentinel must appear EXACTLY ONCE in `app.html`** — the test
+  harness extracts by lazy match, so a comment mentioning `// <x-core>` above
+  the real block swallows the file. A test enforces this for all six cores.
+
 ### Commissions dashboard (Phase 4) — `docs/back-office-commissions.md`
 
 - **`get_commission_buckets()` returns BUCKETS, not answers**, and every

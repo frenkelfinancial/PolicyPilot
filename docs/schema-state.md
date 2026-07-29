@@ -1514,3 +1514,143 @@ above it.
 
 Both runs deleted every account, invite and row they created; the residue sweep
 returned **0**.
+
+---
+
+## Apply 2026-07-29 — `20260743_persistency.sql`
+
+Phase 5 of the Back Office mission: persistency. Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Feature doc: `docs/back-office-persistency.md`.
+
+**One `CREATE OR REPLACE FUNCTION` and one `GRANT EXECUTE`.** No table, no
+column, no index, no policy, no data change. Nothing in `auth.*` or
+`storage.*`. Re-running it is a no-op by construction.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `get_downline_persistency` | **absent** |
+| `policies` with an `issueDate` | **8 of 23** |
+| `policies` with a `draft` date | **23 of 23** |
+| `policies` linked to a lead (`soldLeadId`) | 5 of 23 |
+
+That second row is the reason this phase exists in the shape it does — see
+below.
+
+### Post-apply audit
+
+| Probe | Result |
+|---|---|
+| `get_downline_persistency` | present, `prosecdef = true`, `authenticated` may execute |
+| `policies` | 23 — unchanged |
+
+### Why it is SECURITY DEFINER when the commissions equivalents are not
+
+The **policy** view of persistency (by carrier, by lead source) is computed in
+the browser from the agent's own `policies` array — no RPC is needed or wanted.
+
+The **agent** view is the one that needs the server: for a solo agent it is one
+row, and for an agency owner it is the entire point. "Which of my agents writes
+business that sticks" cannot be answered from the browser because `policies`
+RLS is owner-only.
+
+Same three guarantees as `get_team_summary`, `apply_producer_codes` and
+`get_downline_commission_rollup`, all exercised below:
+
+1. **No parameter names a leader** — the only argument is a date. The downline
+   is scoped solely by `ai.leader_id = auth.uid()`.
+2. **It returns four counts per (agent, window)** — cohort and kept, by policy
+   count and by premium, so Flat vs Weighted costs one round trip. No client
+   name, no policy number, no carrier, no lead source, not even a status.
+3. **A stranger sees a team of one; a downline agent cannot see up the tree.**
+
+### The bug this migration's date logic fixes
+
+`_polsIssuedMonthsAgo()` in `app.html` keyed the persistency cohort on
+`issueDate` **alone**. `issueDate` is an OPTIONAL field on the Add Policy form,
+and in production only **8 of 23 policies carry one** while **all 23 carry a
+draft date**.
+
+Every policy without one was invisible to persistency — not counted as lapsed,
+simply absent — so the Summary's persistency rings were reporting a rate over
+roughly a third of the book and presenting it as the book's persistency. A
+figure computed from a third of the policies is worse than no figure, because
+it looks like a figure.
+
+Both this function and the browser core now use
+`issueDate -> draft -> dateSubmitted`, each regex-guarded before the cast (the
+lesson `get_team_summary` learned on AP). `persistency13mo()` and
+`persistency25mo()` were rewritten to delegate to the shared core, so the app
+has one definition instead of two.
+
+### The two definitions, which the browser must match
+
+```
+COHORT  status NOT IN ('pending','approved','denied','withdrawn')
+KEPT    status IN ('issued','paid','placed','claim')
+```
+
+A policy that never issued was never at risk of lapsing, and counting a
+declined application as a lapse punishes an agent for underwriting. **A death
+claim is not a lapse** — the policy stayed in force until the insured died,
+which on a final-expense book is common enough to matter.
+
+`PERSIST_COHORT_EXCLUDED` and `PERSIST_KEPT` in the `// <persist-core>` block
+are the same two lists, and a test parses this file to assert it. A figure an
+agent computes for themselves and a figure their leader sees, computed
+differently, is the worst kind of disagreement this app could ship.
+
+### Behavioural verification — 16/16
+
+Run inside a transaction that **rolled back**; `agency_invites` and `policies`
+re-confirmed at 0 / 23 afterwards. The RLS checks genuinely
+`SET LOCAL ROLE authenticated`.
+
+Fixture: a leader with 7 policies (paid, issued, **claim**, lapsed, **denied**,
+one with **only a draft date**, one **too young**), an accepted downline with
+1 kept and 3 lapsed, and an unconnected stranger with a large book.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | four windows per agent, for the caller and their downline | PASS (8 rows) |
+| 2 | **THE FIX: a policy with only a draft date is still in the cohort** | PASS (5, not 4) |
+| 3 | a DENIED policy is not in the cohort — it was never at risk | PASS |
+| 4 | **A DEATH CLAIM IS NOT A LAPSE** | PASS (kept = 4) |
+| 5 | a policy younger than the window is not in it | PASS |
+| 6 | the window bound is applied per window | PASS |
+| 7 | premium is returned so Flat vs Weighted costs one round trip | PASS |
+| 8 | the denied policy's AP is not in the cohort premium either | PASS |
+| 9 | a leader sees their downline's cohort | PASS |
+| 10 | …and their kept count | PASS |
+| 11 | **a stranger never appears in the leader's rollup** | PASS |
+| 12 | an unconnected stranger gets a team of ONE | PASS |
+| 13 | …and sees only their own book | PASS |
+| 14 | a **downline** agent cannot see up the tree | PASS |
+| 15 | …and sees only their own policies | PASS |
+| 16 | `anon` gets no cohort at all | PASS |
+
+### No edge function changed
+
+The whole feature is one migration plus `app.html`; the fleet was not disturbed
+(still 72 functions, 16 `verify_jwt = false`).
+
+### Headless click-through — 31/31
+
+Real browser, real rendered DOM, an 11-policy book built to trip every rule at
+once (a claim, a denied policy, a draft-date-only policy, a one-policy carrier,
+two lead sources, a surrender).
+
+The assertion worth naming: **the Agent view (computed by this function on the
+server) and the window cards (computed by the browser core) both report 50%**
+on the same book. That is the browser/SQL agreement checked end to end rather
+than by reading both definitions.
+
+Two assertions in the harness were wrong rather than the code — a 0% carrier
+with one policy legitimately outranks a 25% carrier with four in a "worst
+first" sort; being a thin cohort excludes it from the **outlier**, not from the
+table, and the very next assertion confirmed it was not accused.
+
+The run deleted every account, policy and lead it created; the residue sweep
+returned **0**.
