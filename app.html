@@ -19434,10 +19434,14 @@ function nav(id) {
     showUpgradeGate('Bonus Tracker', 'pro');
     return;
   }
-  if (id === 'agency' && _navTier !== 'leader') {
-    showUpgradeGate('Agency Management', 'leader');
-    return;
-  }
+  // NO leader gate on 'agency'. renderAgencySection() already branches:
+  // leaders get _agRenderLeaderView (agency code, downline stats, invites),
+  // everyone else gets _agRenderAgentView — which is the ONLY place a
+  // downline agent can accept an invite or revoke a leader's access to their
+  // data. Gating the tab here made every emailed invite unacceptable: the
+  // invitee clicked Agency and got an upgrade modal instead of the request.
+  // Found by driving the real signup->invite->accept flow end to end.
+  // (_applyPlanGating keeps the nav item visible for the same reason.)
   // A floating Web Dialer widget persists across page navigation (e.g. a
   // call stays visible while the agent browses Leads) — unless they're
   // navigating to the Web Dialer tab itself, in which case it "maximizes"
