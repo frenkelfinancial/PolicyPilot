@@ -33,6 +33,16 @@ Autonomy layer (added 07/2026):
 - **`nav()` highlights by section name, not by position.** The positional index map (duplicated in `restoreSectionFromCache()`) had to be hand-corrected every time the sidebar grew; a test asserts it does not come back.
 - **Inbound forwarding addresses are NOT built and need one DNS record.** Resend is already signed up, paid for and wired (`messaging-email-inbound-webhook` verifies its signature); only the inbound MX is missing. Exact plan in `docs/back-office-progress.md` § "Forwarding email address".
 
+### Producer codes (Phase 2) — `docs/back-office-producer-codes.md`
+
+- **The retroactivity IS the feature.** `apply_producer_codes()` walks *every* one of the caller's commission rows, not just new ones, so saving a writing number attributes the statements uploaded last month. A version that only worked going forward would not be worth having — an agent's first act is to upload six months of history.
+- **It is `SECURITY DEFINER` with NO parameter naming an agent** (anchored on `auth.uid()`), because `commission_rows` is SELECT-only for `authenticated` and must stay that way. Same shape and reasoning as `get_team_summary`.
+- **It is a full reconcile, not a one-way stamp.** Deleting a mistyped code and re-running *clears* what it attributed; without that, a typo leaves the wrong agent on months of commission with no way back. It only ever clears rows whose `attribution_method = 'producer_code'`, so a manual correction survives.
+- **`producer_codes` IS owner-writable** (it holds the agent's own identifiers, not money) — but `subject_agent_id` is guarded by a trigger to self-or-accepted-downline, and `code_key` is *derived* by a trigger, never accepted from the client. A client-supplied key could file `QA-777` under `SOMETHINGELSE` and make the reconcile match the wrong rows.
+- **`pcNormalizeCode()` (browser) and `pc_normalize_code()` (SQL) must keep agreeing.** A test re-implements the SQL from the migration text and compares. If they drift, the bulk-load preview shows one thing and the database does another.
+- **`carrier_key` is load-bearing, not decoration.** PostgREST's `on_conflict` can only name columns, and the uniqueness rule folds a NULL carrier to `''`. `producer_codes_key_uidx` is the index that must survive any tidy-up of the redundant expression index.
+- **Settings panels are resolved structurally** (`#sec-settings > [id^="stg-"]`), never from a hand-written list. Naming them one by one meant a new tab had to be added in two places, and missing the second shipped a panel rendering *on top of* Account.
+
 ## Agency / team reporting
 - **Read `docs/agency-team-screen.md` before touching anything named `team*`, `tm*`, `_ag*`, or `get_team_summary`.** The Agency tab and the Summary team mini-card are two VIEWS of one view-model.
 - **Three invariants, all asserted by `test/team-roster.test.mjs` against `app.html` as source text:** exactly one `sb.rpc('get_team_summary')` call site (`loadTeamRoster`), exactly one period engine (`teamPeriodRange`), exactly one table renderer (`teamTableHTML`). Two independent team queries is what produced the 8,610× AP overstatement fixed in `20260736`.

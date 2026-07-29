@@ -1071,3 +1071,125 @@ headless-browser click-through against the real UI passed **22/22**. Both runs
 deleted every account and row they created; the residue sweep returned **0**,
 and production row counts were unchanged afterwards (`policies` 23, `leads`
 1,331, `agents` 7).
+
+---
+
+## Apply 2026-07-29 — `20260740_producer_codes.sql`
+
+Phase 2 of the Back Office mission: producer codes and retroactive
+attribution. Applied via `supabase db query --linked -f <wrapped>` with
+`begin;`/`commit;` around the committed file. Feature doc:
+`docs/back-office-producer-codes.md`.
+
+**Additive only, no approval needed under the rules above.** One
+`create table if not exists`, one `add column if not exists` (a generated
+column), four `create index if not exists`, four `create policy`, three
+triggers, five `create or replace function`, two check constraints behind an
+`if not exists` guard. No `DROP` of a table, column or row; nothing in
+`auth.*` or `storage.*`. Re-running the file was confirmed a clean no-op
+(row counts and index list identical).
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `producer_codes` | **absent** |
+| `pc_normalize_code` / `apply_producer_codes` / `get_producer_code_coverage` / `producer_codes_guard_subject` | **all absent** |
+| `commission_rows` with an attribution | **0** |
+
+### Post-apply audit
+
+| Probe | Result |
+|---|---|
+| `producer_codes` | present, RLS enabled |
+| Policies | 4 — `SELECT`, `INSERT`, `UPDATE`, `DELETE`, every one `agent_id = auth.uid()` |
+| Triggers | `producer_codes_derive_key`, `producer_codes_guard_subject`, `producer_codes_touch_updated_at` |
+| Indexes | 5 (pkey, two unique, two lookup) |
+| Check constraints | `producer_codes_kind_check`, `producer_codes_code_not_blank` |
+| Functions | `apply_producer_codes` **SECURITY DEFINER**, `producer_codes_guard_subject` **SECURITY DEFINER**, `pc_normalize_code` / `get_producer_code_coverage` / `producer_codes_derive_key` SECURITY INVOKER |
+| `pc_normalize_code('qa-777 a')` | `QA777A` |
+| `policies` | 23 — **unchanged** |
+
+### Why this table IS owner-writable, unlike the Phase 1 four
+
+`producer_codes` holds the agent's own identifiers, not money — the same
+posture as `policies` and `leads`. The privileged column is
+`subject_agent_id`, and it has **its own trigger** rather than relying on the
+write path being polite: `producer_codes_guard_subject` refuses any subject
+that is not the caller or an agent connected by an **accepted**
+`agency_invites` row. Protect the column, not only the function that sets it —
+the lesson `20260703c`, `20260730` and `20260736` each cost this schema once.
+
+`code_key` is likewise **derived by a trigger**, never accepted from the
+client: a client-supplied key could file `QA-777` under `SOMETHINGELSE` and
+make the reconcile match the wrong rows.
+
+### Why `apply_producer_codes()` is SECURITY DEFINER with no parameters
+
+`commission_rows` is deliberately SELECT-only for `authenticated` (Phase 1), so
+the browser cannot update it and must not be able to. The reconcile is
+therefore a definer function — and it takes **no parameter naming an agent**,
+anchored solely on `auth.uid()`, so there is nothing to point at somebody
+else's book. Same shape and reasoning as `get_team_summary`.
+
+### Behavioural verification — 16/16
+
+Run inside a transaction that **rolled back**; `producer_codes`,
+`commission_rows` and `commission_statements` re-confirmed at 0 afterwards,
+`policies` unchanged at 23.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | `pc_normalize_code` folds case and separators | PASS |
+| 2 | `code_key` is derived, never trusted from the client | PASS |
+| 3 | a duplicate code for the same carrier is refused | PASS |
+| 4 | a blank code is refused | PASS |
+| 5 | **RETROACTIVE — rows ingested before the code existed are attributed** | PASS (3 attributed) |
+| 6 | a row whose code was never recorded stays unattributed | PASS |
+| 7 | a row with no producer code at all stays unattributed | PASS |
+| 8 | re-running the reconcile changes nothing | PASS |
+| 9 | a carrier-specific code beats the carrier-agnostic one | PASS |
+| 10 | deleting a mistyped code UNDOES its attribution | PASS |
+| 11 | a manual attribution is never clobbered by the reconcile | PASS |
+| 12 | an authenticated agent may record their own code | PASS |
+| 13 | a code cannot be claimed for an agent outside your agency | PASS |
+| 14 | an agent sees their own codes | PASS |
+| 15 | another agent sees none of them | PASS |
+| 16 | coverage separates recorded codes from ones only seen on statements | PASS |
+
+Checks 5, 10 and 13 are the ones that matter: the retroactivity is the feature,
+the reversibility is what makes a typo survivable, and the guard is what makes
+`subject_agent_id` trustworthy for Phase 4's rollups.
+
+### `carrier_key` — a generated column, added for a real reason
+
+The uniqueness rule is "one code per (tenant, carrier)", where a NULL carrier
+means *all carriers*. Expressed as an expression index
+(`coalesce(carrier,'')`) it is correct but **unusable as a PostgREST
+`on_conflict` target**, which can only name columns — so the agency bulk load
+failed the moment a sheet contained one code already recorded, which is the
+normal case for a re-upload. `carrier_key text generated always as
+(coalesce(carrier,'')) stored` plus `producer_codes_key_uidx` over
+`(agent_id, carrier_key, code_key)` makes the same rule expressible as columns.
+
+The original expression index is left in place — removing it is a schema DROP
+this build has no need to take. If a later migration tidies it up,
+**`producer_codes_key_uidx` is the one that must survive.**
+
+### No edge function changed
+
+The whole feature is one migration plus `app.html`, so `supabase functions
+list` was not disturbed and no `verify_jwt` flag moved (still 72 functions, 16
+`verify_jwt = false`).
+
+### End-to-end, against production
+
+Three throwaway accounts (a leader, an accepted downline, and an unconnected
+stranger), a real statement ingested through the Phase 1 pipeline so the
+producer code arrived the way it actually arrives: **22/22 assertions passed**,
+including that a leader may record a code for their downline, that the same
+attempt for a stranger is refused with the trigger's own message, that an agent
+cannot write into another agent's book at all, and that a reconcile run by
+another agent leaves the leader's attributions untouched. A separate
+headless-browser click-through passed **23/23**. Both runs deleted every
+account, invite and row they created; the residue sweep returned **0**.

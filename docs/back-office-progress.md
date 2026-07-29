@@ -15,18 +15,19 @@ seven independently-shippable phases. Started 2026-07-29.
 | Phase | What | State |
 |---|---|---|
 | 1 | Ingestion engine (upload → parse → persist → match) | ✅ **shipped 2026-07-29** |
-| 2 | Producer codes + retroactive attribution | not started |
+| 2 | Producer codes + retroactive attribution | ✅ **shipped 2026-07-29** |
 | 3 | Book of Business upgrades | not started |
 | 4 | Commissions dashboard | not started |
 | 5 | Persistency upgrades | not started |
 | 6 | Reconciliation screen | not started |
 | 7 | Close the loop (auto-referral, chargeback at-risk, carriers) | not started |
 
-**Exact resume point:** Phase 2 — Producer Codes + retroactive attribution.
-Nothing from Phase 1 is outstanding. `commission_rows` already carries the
-`producer_code`, `attributed_agent_id` and `attribution_method` columns Phase 2
-needs, so Phase 2's schema is purely additive (a `producer_codes` table plus a
-backfill RPC).
+**Exact resume point:** Phase 3 — Book of Business upgrades. Nothing from
+Phases 1 or 2 is outstanding. Phase 3 needs a `policy_status_history` table
+(additive; `policy_events` from the carrier-mail pipeline is the adjacent
+precedent but records only what the *parser* did, so the new table generalises
+it to manual edits and statement ingestion too), plus `app.html` work on the
+existing `#sec-tracker`.
 
 **Waiting on Jace:** one decision — see *"Forwarding email address"* below.
 Nothing is blocked by it; Phase 1 shipped upload-only as planned.
@@ -266,17 +267,103 @@ uses — plus a per-agent token column and the address shown in the UI.
 
 ---
 
-## Phases 2–7
+## Phase 2 — Producer codes + retroactive attribution ✅ SHIPPED
+
+Feature doc: **`docs/back-office-producer-codes.md`**.
+Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
+`20260740_producer_codes.sql`*.
+
+### What shipped
+
+- **Schema `20260740`**: `public.producer_codes` (owner-writable, with a
+  subject guard trigger and a derived `code_key`), `pc_normalize_code()`,
+  `apply_producer_codes()` (the reconcile), `get_producer_code_coverage()`.
+- **Settings → Producer Codes**: add/remove an NPN or a per-carrier writing
+  number; a coverage table of every code seen on ingested statements, with
+  one-click **Record as mine** for the ones not yet recorded; and an
+  agency-owner **bulk load** (sheet → preview → Apply).
+- No edge function changed; the fleet is untouched at 72 / 16.
+
+### Decisions taken without asking
+
+1. **The reconcile is a full reconcile, not a one-way stamp.** Deleting a
+   mistyped code and re-running *clears* what it attributed. A stamp-only
+   version leaves the wrong agent's name on months of commission with no way
+   back. It never clears an attribution made any other way, so Phase 6's manual
+   corrections will survive it.
+
+2. **No parameter naming an agent.** `apply_producer_codes()` is anchored
+   solely on `auth.uid()` — the same shape, and the same reasoning, as
+   `get_team_summary`. It must be `SECURITY DEFINER` because `commission_rows`
+   is SELECT-only for `authenticated` and must stay that way.
+
+3. **`producer_codes` IS owner-writable**, unlike the four Phase 1 tables. It
+   holds the agent's own identifiers, not money — the same posture as
+   `policies` and `leads`. The privileged column (`subject_agent_id`) gets its
+   own trigger rather than relying on the write path being polite, and
+   `code_key` is derived by a trigger so a client cannot file a code under a
+   key of its choosing.
+
+4. **A carrier-specific code beats a carrier-agnostic one.** An NPN recorded
+   once covers everything; a writing number for one carrier overrides it there.
+
+5. **Bulk load is parsed in the BROWSER with SheetJS, not by the AI.** The
+   sheet is one the agency owner wrote; its columns are agent identifiers
+   rather than carrier prose, and a preview the owner confirms is a better
+   guarantee than a model's confidence score. It is also instant and free.
+
+6. **Nothing is written until Apply.** `pcBulkPick()` plans, `pcBulkApply()`
+   writes, and a test asserts the planner contains no write. The preview names
+   every code it would create *and* every row it is skipping, with the reason.
+
+7. **`carrier_key` (a generated column) was added mid-build** because
+   PostgREST's `on_conflict` can only name real columns and the uniqueness rule
+   folds a NULL carrier to `''`. Without it the bulk upsert fails the moment
+   one code in the sheet is already recorded — the normal case for a re-upload.
+   The original expression index is left in place rather than dropped.
+
+8. **Settings panels are now resolved structurally**
+   (`#sec-settings > [id^="stg-"]`) in both `settingsTab()` and
+   `initSettingsSection()`, instead of two hand-written lists that both had to
+   be edited for every new tab.
+
+### Verification
+
+| Layer | Result |
+|---|---|
+| Schema behavioural checks (rolled back) | **16/16** |
+| Unit + structure tests (`npm run test:producercodes`) | **33** |
+| Full suite (`npm test`) | **443 tests + `npm run check` clean** |
+| End-to-end against production | **22/22** (leader + downline + unconnected stranger) |
+| Headless click-through | **23/23** |
+| Residue after both live runs | **zero** |
+
+### Surprises worth recording
+
+- **The bulk upsert could not name its conflict target.** An expression index
+  is not a valid `on_conflict` target for PostgREST, so Apply silently failed
+  whenever the sheet contained a code already recorded. Found by the
+  click-through, fixed with the generated column.
+- **Adding a Settings tab was a two-place edit, and missing the second place
+  shipped a broken screen** — the Producer Codes panel rendered on top of
+  Account instead of replacing it, because `initSettingsSection()` hid four
+  panels by name and knew nothing about the fifth. Both call sites are now
+  structural, with a test asserting neither enumerates panels and that every
+  tab has a panel and every panel a tab.
+- Neither was caught by unit tests. Both were caught by driving a real browser.
+
+---
+
+## Phases 3–7
 
 Not started. Each will get its own decisions + work log section here as it
 begins.
 
-### Phase 2 notes carried forward
+### Phase 3 notes carried forward
 
-`commission_rows` already has `producer_code`, `attributed_agent_id` and
-`attribution_method`, and `producer_code` is already populated from statements
-that carry a writing number (the live CSV fixture exercised this). Phase 2 is
-therefore additive: a `producer_codes` table, a Settings screen, and a
-retroactive-attribution RPC that stamps `attributed_agent_id` on rows already
-ingested under a code — with the retroactivity explicitly tested, since that is
-the detail that makes the feature worth having.
+The existing policy tracker (`#sec-tracker`, `policies.data` jsonb) has seven
+statuses; Phase 3 needs ten, including **Approved Not Paid** as a first-class
+one. `public.policy_events` already exists but records only what the
+carrier-mail parser did — Phase 3's history has to cover manual edits and
+statement ingestion too, so it wants its own additive table with a `source`
+column, and the existing statuses migrate in as each policy's first entry.

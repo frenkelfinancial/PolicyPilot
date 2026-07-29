@@ -3265,6 +3265,27 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 @media (max-width:760px){
   .bo-min{min-width:820px}
 }
+
+/* Producer Codes (Settings tab) — plain app palette, not the ledger one, since
+   it lives inside Settings rather than inside .ledger. */
+.pc-table{border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.pc-grid{display:grid;grid-template-columns:1.2fr 1.2fr 1.4fr .8fr;gap:10px;padding:9px 12px;align-items:center}
+.pc-grid-cov{grid-template-columns:1fr 1.4fr .6fr .8fr 1fr}
+.pc-thead{background:var(--bg2);border-bottom:1px solid var(--border);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.pc-row{border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text2)}
+.pc-row:last-child{border-bottom:none}
+.pc-row:hover{background:var(--bg2)}
+.pc-unknown{background:var(--ds-color-warning-bg,rgba(245,158,11,.08))}
+.pc-mono{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;font-size:12px;color:var(--text)}
+.pc-any{color:var(--text3);font-style:italic}
+.pc-empty{padding:22px 14px;text-align:center;color:var(--text3);font-size:12.5px;border:1px dashed var(--border);border-radius:8px}
+.pc-cov-line{font-size:12.5px;color:var(--text);font-weight:600}
+.pc-drop{
+  border:1.5px dashed var(--border2,var(--border));border-radius:10px;background:var(--bg2);
+  padding:18px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;
+  transition:border-color .14s,background .14s;color:var(--accent);
+}
+.pc-drop:hover,.pc-drop:focus-visible{border-color:var(--accent);outline:none}
 </style>
 
 <style id="team-roster-styles">
@@ -5268,6 +5289,7 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
         <button class="tab" data-stg-tab="carriers" onclick="settingsTab('carriers',this)"><span data-ico="buildings" data-size="14" style="margin-right:6px"></span>Carriers</button>
         <button class="tab" data-stg-tab="integrations" onclick="settingsTab('integrations',this)"><span data-ico="key" data-size="14" style="margin-right:6px"></span>Integrations</button>
         <button class="tab" data-stg-tab="texting" onclick="settingsTab('texting',this)"><span data-ico="chat-dots" data-size="14" style="margin-right:6px"></span>Texting</button>
+        <button class="tab" data-stg-tab="codes" onclick="settingsTab('codes',this)"><span data-ico="tag" data-size="14" style="margin-right:6px"></span>Producer Codes</button>
       </div>
 
       <!-- ── ACCOUNT TAB ── -->
@@ -5698,6 +5720,70 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
             Carriers check these before approving you, and consumers see them if they ask who has their number. We keep them current from your Business Profile — you never have to write one.
           </div>
           <div id="a2p-compliance-body"><div style="font-size:12px;color:var(--text3)">Loading…</div></div>
+        </div>
+
+      </div>
+
+      <!-- ========== PRODUCER CODES ==========
+           Docs: docs/back-office-producer-codes.md. Everything inside the
+           three bodies below is rendered by pcRender*(). -->
+      <div id="stg-codes" style="display:none">
+
+        <div class="card">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="tag" data-size="13"></span>Your Producer Codes</div>
+          <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:14px">
+            Carrier commission statements identify you by a code, not by your name — your NPN, or a per-carrier writing number.
+            Record them here and <strong>every statement already ingested under that code attributes itself to you</strong>, not just the ones that arrive next.
+          </div>
+
+          <div class="frow" style="align-items:flex-end">
+            <div class="fg" style="flex:1 1 180px">
+              <label for="pc-carrier">Carrier</label>
+              <select id="pc-carrier" class="pt-input">
+                <option value="">All carriers (NPN)</option>
+              </select>
+            </div>
+            <div class="fg" style="flex:1 1 180px">
+              <label for="pc-code">Code</label>
+              <input type="text" id="pc-code" class="pt-input" placeholder="e.g. 12345678 or AGT-4471" autocomplete="off"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();pcAddCode(this);}">
+            </div>
+            <div class="fg" style="flex:0 0 auto">
+              <label>&nbsp;</label>
+              <button class="btn btn-p btn-sm" onclick="pcAddCode(this)">Add code</button>
+            </div>
+          </div>
+          <div id="pc-msg" style="font-size:12px;margin-top:4px;min-height:18px"></div>
+
+          <div id="pc-list" style="margin-top:12px"></div>
+        </div>
+
+        <!-- What the statements have actually seen, whether or not it is recorded. -->
+        <div class="card" style="margin-top:18px">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="magnifying-glass" data-size="13"></span>Codes Seen On Your Statements</div>
+          <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:12px">
+            Every producer code that appears on a commission line you have ingested. A screen that only listed the codes you
+            already typed in could never tell you the one you are missing.
+          </div>
+          <div id="pc-coverage"></div>
+        </div>
+
+        <!-- Agency-owner bulk load. Hidden unless the agent has agency members. -->
+        <div class="card" id="pc-bulk-card" style="margin-top:18px;display:none">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="users" data-size="13"></span>Bulk Load — One Row Per Agent</div>
+          <div style="font-size:12.5px;color:var(--text2);line-height:1.6;margin-bottom:12px">
+            Upload a sheet with one row per agent — an email column, an NPN column, and one column per carrier.
+            The columns are detected automatically. <strong>Nothing is written until you review the preview and press Apply.</strong>
+          </div>
+          <div class="pc-drop" id="pc-drop" tabindex="0"
+               onclick="document.getElementById('pc-file').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('pc-file').click();}">
+            <input type="file" id="pc-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="pcBulkPick(this.files); this.value='';">
+            <span data-ico="file-arrow-up" data-size="18"></span>
+            <span style="font-size:12.5px;font-weight:600;color:var(--text)">Drop an agent sheet, or click to choose</span>
+            <span style="font-size:11px;color:var(--text3)">CSV · XLSX · XLS</span>
+          </div>
+          <div id="pc-bulk-body" style="margin-top:12px"></div>
         </div>
 
       </div>
@@ -19722,6 +19808,528 @@ async function cmSyncParse(btn) {
 }
 
 // ============================================================
+// PRODUCER CODES — Settings → Producer Codes (Back Office Phase 2)
+//
+// Read docs/back-office-producer-codes.md before changing anything named `pc*`.
+//
+// A carrier statement identifies the writing agent by a code, not by a name.
+// Phase 1 already captures whatever code a line carries; this screen records
+// which code belongs to whom, and calls `apply_producer_codes()` — a
+// SECURITY DEFINER reconcile anchored on auth.uid() — which stamps
+// `commission_rows.attributed_agent_id` on rows that were ingested BEFORE the
+// code was ever entered. The retroactivity is the whole feature.
+//
+// `producer_codes` is owner-writable (it holds the agent's own identifiers,
+// not money), so this screen writes it directly. `commission_rows` is not, and
+// must not be — hence the RPC.
+// ============================================================
+
+// <producer-codes-core>
+// Pure logic — no DOM, no network, no storage, no app globals. Extracted
+// verbatim and executed by test/producer-codes.test.mjs.
+
+/**
+ * The one definition of "the same code" on the browser side.
+ *
+ * MUST stay identical to `public.pc_normalize_code()` in
+ * `supabase/migrations/20260740_producer_codes.sql`: carriers print the same
+ * writing number as `QA-777`, `QA 777` and `qa777`, and if the two sides
+ * disagree about which of those are equal, the preview shows one thing and the
+ * database does another. A test asserts the SQL and this agree.
+ */
+function pcNormalizeCode(s) {
+  return String(s == null ? '' : s).toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/** An NPN is a National Producer Number: digits, up to ten of them. */
+function pcLooksLikeNpn(s) {
+  return /^\d{1,10}$/.test(String(s == null ? '' : s).trim());
+}
+
+const PC_EMAIL_HEADERS = ['email', 'e-mail', 'agent email', 'email address', 'agent_email'];
+const PC_NAME_HEADERS = ['name', 'agent', 'agent name', 'producer', 'producer name', 'full name'];
+const PC_NPN_HEADERS = ['npn', 'national producer number', 'producer number', 'national producer #'];
+
+const pcHeaderKey = (h) => String(h == null ? '' : h).trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * Work out what a bulk agent sheet's columns mean.
+ *
+ * Deliberately NOT an AI call: this sheet is one the agency owner made, its
+ * columns are agent identifiers rather than carrier prose, and a preview the
+ * owner confirms is a better guarantee than a model's confidence score.
+ *
+ * `carriers` is the list of known carrier labels to match column headers
+ * against, so an unrecognised column is reported rather than silently loaded
+ * as somebody's writing number.
+ */
+function pcDetectBulkColumns(headers, carriers) {
+  const hs = (headers || []).map(pcHeaderKey);
+  const out = { email: -1, name: -1, npn: -1, carrierCols: [], ignored: [] };
+
+  hs.forEach((h, i) => {
+    if (h === '') return;
+    if (out.email < 0 && PC_EMAIL_HEADERS.includes(h)) { out.email = i; return; }
+    if (out.npn < 0 && PC_NPN_HEADERS.includes(h)) { out.npn = i; return; }
+    if (out.name < 0 && PC_NAME_HEADERS.includes(h)) { out.name = i; return; }
+    const hit = (carriers || []).find(c => {
+      const label = pcHeaderKey(c.label);
+      return label === h || h === pcHeaderKey(c.key) ||
+        // "Americo writing number" / "Americo code" / "Americo #"
+        h.replace(/\s*(writing\s*)?(number|no\.?|code|#|id)\s*$/, '').trim() === label;
+    });
+    if (hit) out.carrierCols.push({ index: i, carrier: hit.label });
+    else out.ignored.push(headers[i]);
+  });
+  return out;
+}
+
+/**
+ * Turn a bulk sheet into the rows we would write, plus the reasons we would
+ * skip the rest. Nothing here writes anything — this is what the preview
+ * renders and what Apply then acts on, so what you confirm is what happens.
+ *
+ * `members` is the caller's agency (from get_agency_members()) plus
+ * themselves; a row naming somebody who is not in it is reported, never
+ * guessed at, because the database would refuse it anyway.
+ */
+function pcPlanBulk(grid, carriers, members, selfEmail) {
+  const rows = (grid || []).filter(r => (r || []).some(c => String(c == null ? '' : c).trim() !== ''));
+  if (rows.length < 2) {
+    return { columns: null, entries: [], problems: [{ row: 0, reason: 'the sheet has no rows under its header' }] };
+  }
+  const headers = rows[0].map(h => String(h == null ? '' : h).trim());
+  const columns = pcDetectBulkColumns(headers, carriers);
+
+  const problems = [];
+  if (columns.email < 0 && columns.name < 0) {
+    problems.push({ row: 1, reason: 'no email or name column was found, so the rows cannot be matched to agents' });
+    return { columns, entries: [], problems };
+  }
+  if (columns.npn < 0 && columns.carrierCols.length === 0) {
+    problems.push({ row: 1, reason: 'no NPN column and no carrier columns were found, so there is nothing to load' });
+    return { columns, entries: [], problems };
+  }
+
+  const byEmail = new Map();
+  const byName = new Map();
+  (members || []).forEach(m => {
+    if (m.agent_email) byEmail.set(String(m.agent_email).trim().toLowerCase(), m);
+    if (m.agent_name) byName.set(String(m.agent_name).trim().toLowerCase(), m);
+  });
+
+  const entries = [];
+  const seen = new Set();
+  for (let i = 1; i < rows.length; i++) {
+    const cells = rows[i];
+    const at = (idx) => (idx >= 0 ? String(cells[idx] == null ? '' : cells[idx]).trim() : '');
+    const email = at(columns.email).toLowerCase();
+    const name = at(columns.name);
+    const who = (email && byEmail.get(email)) || (name && byName.get(name.toLowerCase())) || null;
+    const label = email || name || `row ${i + 1}`;
+
+    if (!who) {
+      problems.push({ row: i + 1, reason: `${label} is not you and is not an agent in your agency` });
+      continue;
+    }
+
+    const codes = [];
+    const npn = at(columns.npn);
+    if (npn) {
+      if (pcLooksLikeNpn(npn)) codes.push({ carrier: null, code: npn, kind: 'npn' });
+      else problems.push({ row: i + 1, reason: `"${npn}" does not look like an NPN (digits only), so it was left out` });
+    }
+    columns.carrierCols.forEach(c => {
+      const v = at(c.index);
+      if (v) codes.push({ carrier: c.carrier, code: v, kind: 'writing_number' });
+    });
+
+    if (codes.length === 0) {
+      problems.push({ row: i + 1, reason: `${label} has no codes on this row` });
+      continue;
+    }
+
+    codes.forEach(c => {
+      // Two rows claiming the same (carrier, code) would collide on the unique
+      // index; say so once rather than letting the second insert error.
+      const key = (c.carrier || '') + '|' + pcNormalizeCode(c.code);
+      if (seen.has(key)) {
+        problems.push({ row: i + 1, reason: `${c.carrier || 'NPN'} code ${c.code} appears more than once in this sheet` });
+        return;
+      }
+      seen.add(key);
+      entries.push({
+        row: i + 1,
+        subjectId: who.agent_id,
+        subjectLabel: who.agent_name || who.agent_email || label,
+        isSelf: !!who.is_self,
+        carrier: c.carrier,
+        code: c.code,
+        kind: c.kind,
+      });
+    });
+  }
+  return { columns, entries, problems };
+}
+
+/** "3 codes for 2 agents · 1 row skipped" — the sentence above the Apply button. */
+function pcBulkSummary(plan) {
+  const entries = (plan && plan.entries) || [];
+  const problems = (plan && plan.problems) || [];
+  const agents = new Set(entries.map(e => e.subjectId)).size;
+  const a = entries.length === 1 ? '1 code' : entries.length + ' codes';
+  const b = agents === 1 ? '1 agent' : agents + ' agents';
+  const c = problems.length === 0 ? '' : ' · ' + (problems.length === 1 ? '1 row skipped' : problems.length + ' rows skipped');
+  return `${a} for ${b}${c}`;
+}
+
+/** "142 lines carry a code you have not recorded" — or nothing to say. */
+function pcCoverageLine(coverage) {
+  const unknown = (coverage || []).filter(c => !c.known);
+  if (unknown.length === 0) {
+    return (coverage || []).length === 0
+      ? 'No commission line you have ingested carries a producer code yet.'
+      : 'Every producer code on your statements is recorded.';
+  }
+  const lines = unknown.reduce((n, c) => n + Number(c.row_count || 0), 0);
+  const codes = unknown.length === 1 ? '1 code' : unknown.length + ' codes';
+  const l = lines === 1 ? '1 commission line' : lines.toLocaleString('en-US') + ' commission lines';
+  return `${l} carry ${codes} you have not recorded.`;
+}
+// </producer-codes-core>
+
+let _pcCache = { codes: [], coverage: [], members: [], loadedAt: 0 };
+let _pcBulkPlan = null;
+
+async function pcRenderTab() {
+  if (!currentAgent) return;
+  pcMsg('');
+  await pcLoad();
+}
+
+async function pcLoad() {
+  const list = document.getElementById('pc-list');
+  if (list && !_pcCache.loadedAt) list.innerHTML = '<div style="font-size:12px;color:var(--text3)">Loading…</div>';
+  try {
+    const [codesRes, covRes, memRes] = await Promise.all([
+      sb.from('producer_codes').select('id,subject_agent_id,carrier,code,code_key,kind,created_at').order('carrier', { ascending: true, nullsFirst: true }),
+      sb.rpc('get_producer_code_coverage'),
+      sb.rpc('get_agency_members'),
+    ]);
+    if (codesRes.error) throw codesRes.error;
+    _pcCache.codes = codesRes.data || [];
+    _pcCache.coverage = covRes.data || [];
+    _pcCache.members = memRes.data || [];
+    _pcCache.loadedAt = Date.now();
+  } catch (e) {
+    if (list) list.innerHTML = '<div style="font-size:12px;color:var(--ds-color-danger,#ef4444)">Could not load your codes: ' + escHTML((e && e.message) || e) + '</div>';
+    return;
+  }
+  pcFillCarrierSelect();
+  pcPaintCodes();
+  pcPaintCoverage();
+  pcPaintBulkCard();
+}
+
+/** Self + agency peers, in the shape the pure planner expects. */
+function pcMembers() {
+  const me = {
+    agent_id: currentAgent && currentAgent.id,
+    agent_email: (currentAgent && currentAgent.email) || '',
+    agent_name: (currentAgent && ((currentAgent.user_metadata && currentAgent.user_metadata.display_name) || currentAgent.display_name || currentAgent.email)) || 'You',
+    is_self: true,
+  };
+  return [me].concat((_pcCache.members || []).map(m => ({ ...m, is_self: false })));
+}
+
+function pcCarrierOptions() {
+  return (typeof CARRIER_REGISTRY !== 'undefined' ? CARRIER_REGISTRY : []).map(c => ({ key: c.key, label: c.label }));
+}
+
+function pcFillCarrierSelect() {
+  const sel = document.getElementById('pc-carrier');
+  if (!sel || sel.dataset.filled === '1') return;
+  sel.dataset.filled = '1';
+  pcCarrierOptions().forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.label; o.textContent = c.label;
+    sel.appendChild(o);
+  });
+}
+
+function pcMsg(text, kind) {
+  const el = document.getElementById('pc-msg');
+  if (!el) return;
+  const colour = kind === 'err' ? 'var(--ds-color-danger,#ef4444)' : kind === 'ok' ? 'var(--ds-color-success,#10b981)' : 'var(--text3)';
+  el.innerHTML = text ? '<span style="color:' + colour + '">' + escHTML(text) + '</span>' : '';
+}
+
+function pcPaintCodes() {
+  const el = document.getElementById('pc-list');
+  if (!el) return;
+  const codes = _pcCache.codes || [];
+  if (codes.length === 0) {
+    el.innerHTML = '<div class="pc-empty">No codes recorded yet. Add your NPN first — it is the one most carriers print.</div>';
+    return;
+  }
+  const members = pcMembers();
+  const whoFor = (id) => {
+    const m = members.find(x => x.agent_id === id);
+    return m ? (m.is_self ? 'You' : (m.agent_name || m.agent_email)) : 'An agent no longer in your agency';
+  };
+  el.innerHTML =
+    '<div class="pc-table"><div class="pc-grid pc-thead"><div>Carrier</div><div>Code</div><div>Belongs to</div><div></div></div>' +
+    codes.map(c =>
+      '<div class="pc-grid pc-row">' +
+        '<div>' + (c.carrier ? escHTML(c.carrier) : '<span class="pc-any">All carriers' + (c.kind === 'npn' ? ' · NPN' : '') + '</span>') + '</div>' +
+        '<div class="pc-mono">' + escHTML(c.code) + '</div>' +
+        '<div>' + escHTML(whoFor(c.subject_agent_id)) + '</div>' +
+        '<div style="text-align:right"><button class="bo-link" onclick="pcDeleteCode(\'' + c.id + '\',this)">Remove</button></div>' +
+      '</div>').join('') +
+    '</div>';
+}
+
+function pcPaintCoverage() {
+  const el = document.getElementById('pc-coverage');
+  if (!el) return;
+  const cov = _pcCache.coverage || [];
+  const line = '<div class="pc-cov-line">' + escHTML(pcCoverageLine(cov)) + '</div>';
+  if (cov.length === 0) { el.innerHTML = line; return; }
+  el.innerHTML = line +
+    '<div class="pc-table" style="margin-top:10px"><div class="pc-grid pc-grid-cov pc-thead"><div>Code</div><div>Carriers</div><div>Lines</div><div>Total</div><div></div></div>' +
+    cov.map(c =>
+      '<div class="pc-grid pc-grid-cov pc-row' + (c.known ? '' : ' pc-unknown') + '">' +
+        '<div class="pc-mono">' + escHTML(c.producer_code) + '</div>' +
+        '<div>' + escHTML(c.carriers || '—') + '</div>' +
+        '<div class="pc-mono">' + Number(c.row_count || 0).toLocaleString('en-US') + '</div>' +
+        '<div class="pc-mono">' + boFmtMoney(c.total_cents) + '</div>' +
+        '<div style="text-align:right">' + (c.known
+          ? '<span class="bo-pill bo-pill-ingested">Recorded</span>'
+          : '<button class="bo-link" onclick="pcClaimCode(' + JSON.stringify(c.producer_code).replace(/"/g, '&quot;') + ',this)">Record as mine</button>') +
+        '</div>' +
+      '</div>').join('') +
+    '</div>';
+}
+
+function pcPaintBulkCard() {
+  const card = document.getElementById('pc-bulk-card');
+  if (!card) return;
+  // Bulk load is meaningless without agency members to load codes FOR.
+  card.style.display = (_pcCache.members || []).length > 0 ? '' : 'none';
+}
+
+// ------------------------------------------------------------
+// Add / remove — each followed by the reconcile, which is the point
+// ------------------------------------------------------------
+
+async function pcAddCode(btn, presetCarrier, presetCode) {
+  const carrierEl = document.getElementById('pc-carrier');
+  const codeEl = document.getElementById('pc-code');
+  const carrier = presetCarrier !== undefined ? presetCarrier : (carrierEl ? carrierEl.value : '');
+  const code = (presetCode !== undefined ? presetCode : (codeEl ? codeEl.value : '')).trim();
+
+  if (!code) { pcMsg('Enter the code as the carrier prints it.', 'err'); return; }
+  if (!currentAgent) return;
+  if (!carrier && !pcLooksLikeNpn(code)) {
+    pcMsg('An all-carriers code is your NPN, which is digits only. Pick a carrier for a writing number.', 'err');
+    return;
+  }
+
+  if (btn) btn.disabled = true;
+  pcMsg('Saving…');
+  try {
+    const { error } = await sb.from('producer_codes').insert({
+      agent_id: currentAgent.id,
+      subject_agent_id: currentAgent.id,
+      carrier: carrier || null,
+      code,
+      code_key: pcNormalizeCode(code),
+      kind: carrier ? 'writing_number' : 'npn',
+    });
+    if (error) {
+      // 23505 is the unique index doing its job, not a failure the agent caused.
+      pcMsg(error.code === '23505'
+        ? 'That code is already recorded for ' + (carrier || 'all carriers') + '.'
+        : 'Could not save that code: ' + error.message, 'err');
+      return;
+    }
+    if (codeEl) codeEl.value = '';
+    await pcReconcile('Code saved');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+/** "Record as mine" straight from the coverage table — the shortest path. */
+async function pcClaimCode(code, btn) {
+  const carrierEl = document.getElementById('pc-carrier');
+  if (carrierEl) carrierEl.value = '';
+  await pcAddCode(btn, pcLooksLikeNpn(code) ? '' : (pcGuessCarrierFor(code) || ''), code);
+}
+
+/** If a code has only ever been seen under one carrier, that is the carrier. */
+function pcGuessCarrierFor(code) {
+  const hit = (_pcCache.coverage || []).find(c => pcNormalizeCode(c.producer_code) === pcNormalizeCode(code));
+  if (!hit || !hit.carriers) return null;
+  const list = String(hit.carriers).split(',').map(s => s.trim()).filter(s => s && s !== '—');
+  return list.length === 1 ? list[0] : null;
+}
+
+async function pcDeleteCode(id, btn) {
+  if (btn) btn.disabled = true;
+  pcMsg('Removing…');
+  const { error } = await sb.from('producer_codes').delete().eq('id', id);
+  if (error) { pcMsg('Could not remove that code: ' + error.message, 'err'); if (btn) btn.disabled = false; return; }
+  // The reconcile CLEARS what the removed code had attributed, so a mistyped
+  // code does not leave the wrong agent's name on months of commission.
+  await pcReconcile('Code removed');
+}
+
+/**
+ * Run the retroactive reconcile and say plainly what it did.
+ *
+ * "Saved" on its own would hide the entire value of the feature — the agent
+ * needs to see that the statements they uploaded last month just attributed
+ * themselves.
+ */
+async function pcReconcile(prefix) {
+  const { data, error } = await sb.rpc('apply_producer_codes');
+  if (error) { pcMsg((prefix || 'Saved') + ', but the attribution pass failed: ' + error.message, 'err'); await pcLoad(); return; }
+  const r = (Array.isArray(data) ? data[0] : data) || {};
+  const attributed = Number(r.attributed || 0);
+  const cleared = Number(r.cleared || 0);
+  const bits = [];
+  if (attributed) bits.push(attributed === 1 ? '1 commission line attributed' : attributed.toLocaleString('en-US') + ' commission lines attributed');
+  if (cleared) bits.push(cleared === 1 ? '1 commission line un-attributed' : cleared.toLocaleString('en-US') + ' commission lines un-attributed');
+  pcMsg((prefix || 'Saved') + (bits.length ? ' — ' + bits.join(', ') + '.' : ' — no commission lines matched it yet.'), 'ok');
+  await pcLoad();
+}
+
+// ------------------------------------------------------------
+// Bulk load
+// ------------------------------------------------------------
+
+function pcBulkPick(fileList) {
+  const f = (fileList || [])[0];
+  if (!f) return;
+  const body = document.getElementById('pc-bulk-body');
+  if (body) body.innerHTML = '<div style="font-size:12px;color:var(--text3)">Reading ' + escHTML(f.name) + '…</div>';
+
+  const reader = new FileReader();
+  reader.onerror = () => { if (body) body.innerHTML = '<div class="bo-msg bo-msg-err"><div>' + escHTML(f.name) + ' could not be read.</div></div>'; };
+  reader.onload = () => {
+    let grid;
+    try {
+      // SheetJS is already loaded for the leads importer, so the preview is
+      // instant and costs nothing — no API call for a sheet the owner wrote.
+      const wb = XLSX.read(new Uint8Array(reader.result), { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      grid = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+    } catch (e) {
+      if (body) body.innerHTML = '<div class="bo-msg bo-msg-err"><div>' + escHTML(f.name) + ' is not a readable sheet: ' + escHTML((e && e.message) || e) + '</div></div>';
+      return;
+    }
+    _pcBulkPlan = pcPlanBulk(grid, pcCarrierOptions(), pcMembers());
+    pcPaintBulkPreview(f.name);
+  };
+  reader.readAsArrayBuffer(f);
+}
+
+function pcPaintBulkPreview(filename) {
+  const body = document.getElementById('pc-bulk-body');
+  if (!body) return;
+  const plan = _pcBulkPlan || { entries: [], problems: [] };
+
+  const problems = plan.problems.length
+    ? '<div class="bo-msg bo-msg-warn"><span data-ico="info" data-size="14"></span><div>' +
+      plan.problems.slice(0, 8).map(p => 'Row ' + p.row + ' — ' + escHTML(p.reason)).join('<br>') +
+      (plan.problems.length > 8 ? '<br>…and ' + (plan.problems.length - 8) + ' more.' : '') +
+      '</div></div>'
+    : '';
+
+  if (plan.entries.length === 0) {
+    body.innerHTML = '<div style="font-size:12.5px;color:var(--text2);margin-bottom:8px">' + escHTML(filename) + ' — nothing to load.</div>' + problems;
+    if (typeof mountIcons === 'function') mountIcons(body);
+    return;
+  }
+
+  const ignored = plan.columns && plan.columns.ignored.length
+    ? '<div style="font-size:11.5px;color:var(--text3);margin-top:8px">Columns not recognised as a carrier and left alone: ' +
+      escHTML(plan.columns.ignored.slice(0, 8).join(', ')) + '</div>'
+    : '';
+
+  body.innerHTML =
+    '<div style="font-size:12.5px;color:var(--text);font-weight:600;margin-bottom:8px">' +
+      escHTML(filename) + ' — ' + escHTML(pcBulkSummary(plan)) + '</div>' +
+    problems +
+    '<div class="pc-table" style="margin-top:8px;max-height:320px;overflow:auto">' +
+      '<div class="pc-grid pc-thead"><div>Agent</div><div>Carrier</div><div>Code</div><div></div></div>' +
+      plan.entries.map(e =>
+        '<div class="pc-grid pc-row">' +
+          '<div>' + escHTML(e.subjectLabel) + (e.isSelf ? ' <span class="pc-any">(you)</span>' : '') + '</div>' +
+          '<div>' + (e.carrier ? escHTML(e.carrier) : '<span class="pc-any">All carriers · NPN</span>') + '</div>' +
+          '<div class="pc-mono">' + escHTML(e.code) + '</div>' +
+          '<div style="text-align:right;font-size:11px;color:var(--text3)">row ' + e.row + '</div>' +
+        '</div>').join('') +
+    '</div>' + ignored +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">' +
+      '<button class="btn btn-s btn-sm" onclick="pcBulkCancel()">Cancel</button>' +
+      '<button class="btn btn-p btn-sm" id="pc-bulk-apply" onclick="pcBulkApply(this)">Apply ' + plan.entries.length + ' code' + (plan.entries.length === 1 ? '' : 's') + '</button>' +
+    '</div>' +
+    '<div id="pc-bulk-msg" style="font-size:12px;margin-top:8px;min-height:18px"></div>';
+  if (typeof mountIcons === 'function') mountIcons(body);
+}
+
+function pcBulkCancel() {
+  _pcBulkPlan = null;
+  const body = document.getElementById('pc-bulk-body');
+  if (body) body.innerHTML = '';
+}
+
+async function pcBulkApply(btn) {
+  const plan = _pcBulkPlan;
+  const msg = document.getElementById('pc-bulk-msg');
+  if (!plan || plan.entries.length === 0 || !currentAgent) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Applying…'; }
+
+  const rows = plan.entries.map(e => ({
+    agent_id: currentAgent.id,
+    subject_agent_id: e.subjectId,
+    carrier: e.carrier,
+    code: e.code,
+    code_key: pcNormalizeCode(e.code),
+    kind: e.kind,
+  }));
+
+  // Codes already recorded are not an error — the owner re-uploading last
+  // month's sheet with one new agent on it is the normal case.
+  const { data, error } = await sb.from('producer_codes')
+    // carrier_key, not carrier: the uniqueness rule folds a NULL carrier to ''
+    // (see the migration), and PostgREST can only name real columns here.
+    .upsert(rows, { onConflict: 'agent_id,carrier_key,code_key', ignoreDuplicates: true })
+    .select('id');
+
+  if (error) {
+    if (msg) msg.innerHTML = '<span style="color:var(--ds-color-danger,#ef4444)">' + escHTML('Nothing was applied: ' + error.message) + '</span>';
+    if (btn) { btn.disabled = false; btn.textContent = 'Apply ' + plan.entries.length + ' codes'; }
+    return;
+  }
+
+  const added = (data || []).length;
+  const already = rows.length - added;
+  _pcBulkPlan = null;
+  const body = document.getElementById('pc-bulk-body');
+  if (body) {
+    body.innerHTML = '<div class="bo-msg bo-msg-ok"><span data-ico="check-circle" data-size="14"></span><div>' +
+      escHTML(added === 1 ? '1 code added' : added + ' codes added') +
+      (already ? escHTML(' · ' + already + ' were already recorded') : '') +
+      '</div></div>';
+    if (typeof mountIcons === 'function') mountIcons(body);
+  }
+  await pcReconcile('Bulk load applied');
+}
+
+// ============================================================
 // BACK OFFICE — commission statement ingestion (Phase 1)
 //
 // Read docs/back-office-progress.md before changing anything named `bo*`.
@@ -21315,14 +21923,22 @@ function updateCommTotalPreview(prefix) {
 // checklist (see renderMyCarriersChecklist), not tab visibility.
 function filterBonusTabs() {}
 
+// Every Settings panel is a direct `#stg-<tab>` child of #sec-settings, and
+// this shows one and hides the rest BY THAT RULE rather than by a hand-written
+// list. The list version had to be edited in two places for every new tab
+// (here and in initSettingsSection), and the Producer Codes tab was live with
+// exactly that bug — the panel appeared while Account stayed on screen
+// underneath it — until a click-through caught it.
+function stgPanels() {
+  return document.querySelectorAll('#sec-settings > [id^="stg-"]');
+}
+
 function settingsTab(id, el) {
-  el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('stg-account').style.display      = id === 'account'      ? '' : 'none';
-  document.getElementById('stg-carriers').style.display     = id === 'carriers'     ? '' : 'none';
-  document.getElementById('stg-integrations').style.display = id === 'integrations' ? '' : 'none';
-  const stgTx = document.getElementById('stg-texting');
-  if (stgTx) stgTx.style.display = id === 'texting' ? '' : 'none';
+  if (el) {
+    el.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+  stgPanels().forEach(p => { p.style.display = p.id === 'stg-' + id ? '' : 'none'; });
   // The OTP countdown ticks once a second; leaving the tab must stop it.
   if (id !== 'texting' && typeof _a2pOtpTimer !== 'undefined' && _a2pOtpTimer) {
     clearInterval(_a2pOtpTimer); _a2pOtpTimer = null;
@@ -21330,6 +21946,7 @@ function settingsTab(id, el) {
   if (id === 'carriers') renderCarrierGrid();
   if (id === 'integrations') renderIntegrationsPanels();
   if (id === 'texting') a2pRenderTextingTab();
+  if (id === 'codes') pcRenderTab();
 }
 
 // Deep-link into Settings > Texting from anywhere (the SMS composer's gate
@@ -24182,11 +24799,11 @@ function initSettingsSection() {
   const pwm = document.getElementById('stg-pw-msg');
   if (pm) pm.textContent = '';
   if (pwm) pwm.textContent = '';
-  // Ensure account tab is active
-  document.getElementById('stg-account').style.display = '';
-  document.getElementById('stg-carriers').style.display = 'none';
-  const stgInt = document.getElementById('stg-integrations'); if (stgInt) stgInt.style.display = 'none';
-  const stgTxt = document.getElementById('stg-texting'); if (stgTxt) stgTxt.style.display = 'none';
+  // Ensure the account tab is active. Panels are resolved from the DOM (see
+  // stgPanels) rather than named one by one — a hand-written list here is how
+  // a newly added tab ends up rendering on top of Account instead of
+  // replacing it.
+  stgPanels().forEach(p => { p.style.display = p.id === 'stg-account' ? '' : 'none'; });
   if (_a2pOtpTimer) { clearInterval(_a2pOtpTimer); _a2pOtpTimer = null; }
   const tabs = document.querySelectorAll('#sec-settings > .tabs .tab');
   tabs.forEach((t, i) => t.classList.toggle('active', i === 0));
