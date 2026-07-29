@@ -33,6 +33,34 @@ Autonomy layer (added 07/2026):
 - **`nav()` highlights by section name, not by position.** The positional index map (duplicated in `restoreSectionFromCache()`) had to be hand-corrected every time the sidebar grew; a test asserts it does not come back.
 - **Inbound forwarding addresses are NOT built and need one DNS record.** Resend is already signed up, paid for and wired (`messaging-email-inbound-webhook` verifies its signature); only the inbound MX is missing. Exact plan in `docs/back-office-progress.md` § "Forwarding email address".
 
+### Commissions dashboard (Phase 4) — `docs/back-office-commissions.md`
+
+- **`get_commission_buckets()` returns BUCKETS, not answers**, and every
+  headline figure is derived from them in the pure `// <comm-core>` block. Do
+  not "simplify" this into six SQL expressions: it would put the definition of
+  net commission somewhere no test runs, and fetching the rows instead of
+  grouping them hits PostgREST's 1,000-row ceiling and returns a **wrong total
+  rather than an error**.
+- **Everything attributes on `coalesce(attributed_agent_id, agent_id)`.** An
+  unattributed line falls back to the uploader and is counted, never dropped.
+- **`get_downline_commission_rollup` is the ONLY cross-agent read of commission
+  data.** SECURITY DEFINER, no parameter naming a leader, aggregates only, and
+  bounded by `cr.agent_id in (team)` — that predicate is what stops a
+  stranger's row entering a leader's rollup, and it is not the same thing as
+  the attribution fallback beside it. Never add an INSERT/UPDATE policy to
+  `commission_rows`, and never widen this function's `RETURNS TABLE` to carry a
+  client name, insured name, policy number or carrier.
+- **A row whose attribution points outside the team falls back to the uploader
+  — it must never be excluded.** Excluding it made a leader's totals silently
+  shrink whenever an agent left the agency. Money vanishing from a total with
+  nothing on screen to say so is the worst failure this schema can produce.
+- **Debt is `chargeback` + `adjustment` only, and is NEVER range-filtered.** An
+  advance is not debt. A positive adjustment is a repayment. An unmatched debt
+  line still counts.
+- **Back Office areas are resolved structurally** (`[id^="bopanel-"]`). Adding
+  a Phase 5/6/7 panel is one edit, not two.
+- **Bonuses is a link to the existing tracker, not a panel here.**
+
 ### Book of Business (Phase 3) — `docs/back-office-book-of-business.md`
 
 - **A status set written out by hand in more than one place is this feature's

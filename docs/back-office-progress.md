@@ -17,19 +17,19 @@ seven independently-shippable phases. Started 2026-07-29.
 | 1 | Ingestion engine (upload → parse → persist → match) | ✅ **shipped 2026-07-29** |
 | 2 | Producer codes + retroactive attribution | ✅ **shipped 2026-07-29** |
 | 3 | Book of Business upgrades | ✅ **shipped 2026-07-29** |
-| 4 | Commissions dashboard | not started |
+| 4 | Commissions dashboard | ✅ **shipped 2026-07-29** |
 | 5 | Persistency upgrades | not started |
 | 6 | Reconciliation screen | not started |
 | 7 | Close the loop (auto-referral, chargeback at-risk, carriers) | not started |
 
-**Exact resume point:** Phase 4 — Commissions dashboard. Nothing from Phases
-1–3 is outstanding. Phase 4 needs the first deliberate **cross-agent aggregate
-RPC** in this schema (`SECURITY DEFINER`, anchored on `auth.uid()`, same shape
-as `get_team_summary`) so a leader can see rolled-up downline debt without
-`commission_rows` ever becoming readable across tenants — that is the piece
-Phase 1's ledger entry explicitly deferred to Phase 4. Everything else it needs
-(`commission_rows.transaction_date`, `attributed_agent_id`, the transaction
-types) is already in place.
+**Exact resume point:** Phase 5 — Persistency upgrades. Nothing from Phases 1–4
+is outstanding. Phase 5 works over `public.policies` (for the in-force test and
+the lead join) plus `commission_rows` (for the chargeback signal), and needs no
+new table if the lead join is made through the existing
+`policies.data.soldLeadId` — which `submitAsSold()` already writes and which is
+the join the "by lead source" segment depends on. Where it is absent, the
+screen must say *"link policies to leads to populate"* rather than showing a
+figure computed from nothing.
 
 **Waiting on Jace:** one decision — see *"Forwarding email address"* below.
 Nothing is blocked by it; Phase 1 shipped upload-only as planned.
@@ -496,21 +496,124 @@ Both live runs are re-runnable: `node <scratchpad>/e2e-bob.mjs` and
 
 ---
 
-## Phases 4–7
+## Phase 4 — Commissions dashboard ✅ SHIPPED
+
+Feature doc: **`docs/back-office-commissions.md`**.
+Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
+`20260742_commissions_dashboard.sql`*.
+
+### What shipped
+
+- **Schema `20260742`** — three functions, nothing else. No table, no column,
+  no data change, no RLS change.
+  `get_commission_buckets` and `get_commission_debt` are SECURITY INVOKER (they
+  read through the caller's own RLS); `get_downline_commission_rollup` is the
+  first deliberate cross-agent read in this schema and closes checklist #100.
+- **Back Office grew an area strip** — `Ingest · Commissions` — with panels
+  resolved structurally, ready for Phases 5–7.
+- **Six headline cards**, each with its definition rendered underneath; range
+  chips MTD / YTD / All time; sub-tabs Trends · Payouts · Debt, with Bonuses
+  linking out to the existing tracker.
+- **Weekly trend chart** (commission above the line, debt below, personal and
+  override as lines) and a **personal-vs-override mix**, both hand-built SVG.
+- **Debt per carrier, drillable to the underlying lines**, plus the agency
+  rollup for a leader.
+
+### Decisions taken without asking
+
+1. **The RPC returns BUCKETS, not answers.** Six SQL expressions returning six
+   numbers would put the definition of "net commission" somewhere no test runs
+   and make each card a round trip. SQL groups by week and transaction type;
+   every figure is derived in the pure `// <comm-core>` block the tests
+   execute. Grouping is also what keeps the result bounded — fetching the rows
+   would hit PostgREST's 1,000-row ceiling and return a **wrong total rather
+   than an error**.
+
+2. **Everything attributes on `coalesce(attributed_agent_id, agent_id)`.** An
+   unattributed line falls back to the uploader rather than being dropped, and
+   the dashboard says how many there are with a link to Producer Codes. The
+   coalesce is also what makes the rollup double-count-proof.
+
+3. **Total, Gross and Net are three genuinely different questions**, and they
+   coincide on a book with no bonus and no adjustment. Rather than invent a
+   difference or ship two cards showing the same number, the definitions say
+   exactly what separates them, and a test asserts all six differ and that
+   Total and Net *can* diverge.
+
+4. **Debt is chargeback + adjustment only.** An advance is not debt; treating
+   unearned advance as a carrier balance would invent a number the carrier
+   never reported. A positive adjustment reduces the balance, which is how a
+   repayment appears.
+
+5. **Debt is never range-filtered.** You owe a carrier what you owe them; a
+   balance that shrank because someone clicked "MTD" is a number nobody could
+   act on. The range chips govern the commission figures only, and the panel
+   says so.
+
+6. **An unmatched debt line still counts.** It is real money owed. It shows in
+   the total, is findable in the drill-down, and the row count says how many
+   are unmatched.
+
+7. **Bonuses is a LINK, not a fourth panel.** `data/carrier_bonuses.json` is 45
+   carriers deep and already has a screen; a second copy here would be a second
+   thing to keep correct.
+
+8. **Back Office panels are resolved structurally** (`[id^="bopanel-"]`),
+   applying the Phase 2 lesson before it could cost anything a second time.
+
+9. **Switching sub-tab never re-queries.** The data does not depend on the tab,
+   so a tab click costs nothing.
+
+10. **Empty weeks are filled in on a bounded range.** A chart that skips quiet
+    weeks compresses a bad month to the same width as a good one and reads as
+    steady production.
+
+11. **A downline agent still cannot see rows their leader uploaded and
+    attributed to them.** That is a real gap; it is recorded in the feature doc
+    and *pinned by a behavioural check* rather than closed here, because
+    closing it means a second reader on the most sensitive table in the app.
+
+### Verification
+
+| Layer | Result |
+|---|---|
+| Schema behavioural checks (rolled back) | **28/28** |
+| Unit tests (`npm run test:commissions`) | **47** |
+| Full suite (`npm test`) | **545 tests + `npm run check` clean** |
+| End-to-end against production | **29/29** (leader + downline + stranger, real statement) |
+| Headless click-through | **35/35** |
+| Residue after both live runs | **zero** |
+
+### Surprises worth recording
+
+- **The rollup made money disappear.** It originally required the *effective
+  agent* to be on the team as well as the uploader, so a line whose attribution
+  pointed outside the team was excluded entirely. In production that fires the
+  moment an agent leaves an agency: their invite flips to `declined` and every
+  line the leader's statements had attributed to them silently drops out of the
+  leader's totals. Now the attribution applies only when it lands inside the
+  team and otherwise falls back to the uploader. **The security bound was never
+  the thing being relaxed** — `cr.agent_id in (team)` was always doing that
+  work.
+- **It was caught by an assertion that looked like paranoia**: checking a
+  *stranger's own* figures, not just the leader's. The leader's numbers were
+  right the whole time.
+
+---
+
+## Phases 5–7
 
 Not started. Each will get its own decisions + work log section here as it
 begins.
 
-### Phase 4 notes carried forward
+### Phase 5 notes carried forward
 
-The debt rollup needs the **first deliberate cross-agent aggregate RPC** over
-`commission_rows` — `SECURITY DEFINER`, no parameter naming an agent, anchored
-on `auth.uid()` and scoped by `agency_invites.leader_id = auth.uid()`, exactly
-the shape of `get_team_summary`. Phase 1's ledger entry (`docs/schema-state.md`
-§ "Why `get_ingestion_summary()` is SECURITY INVOKER") deferred it here on
-purpose. `commission_rows` must stay SELECT-only and per-tenant; the rollup
-returns figures, never rows.
+The lead join the "persistency by lead source" segment needs already exists:
+`submitAsSold()` writes `policies.data.soldLeadId` and `leadSource`. Where
+neither is present the screen must say **"link policies to leads to
+populate"** rather than computing a figure from nothing — that sentence is in
+the brief for a reason.
 
-Everything else Phase 4 reads already exists: `transaction_date` (with its
-paid-date/effective-date fallback), `transaction_type`, `amount_cents`,
-`attributed_agent_id` and `attribution_method`. Checklist #100 closes here.
+The in-force test should reuse `BOB_ENDED` from the `// <bob-core>` block
+rather than a fourth hand-written status set; Phase 3 records what happens
+otherwise.

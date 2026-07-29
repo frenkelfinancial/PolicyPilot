@@ -1367,3 +1367,150 @@ returned **0**. Production afterwards: `agents` 7, `auth.users` 7, `policies`
 23, `policy_status_history` 23. `leads` moved 1,333 → 1,335 during the window —
 both genuine webhook-ingested production leads (`wh_` prefix, source `VRC`) on
 Jace's own account, correctly left alone.
+
+---
+
+## Apply 2026-07-29 — `20260742_commissions_dashboard.sql`
+
+Phase 4 of the Back Office mission: the commissions dashboard. Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Feature doc: `docs/back-office-commissions.md`.
+
+**Three `CREATE OR REPLACE FUNCTION` statements and three `GRANT EXECUTE`.
+That is the whole file.** No table, no column, no index, no policy, no data
+change — everything the dashboard reads already exists on
+`public.commission_rows`. Nothing in `auth.*` or `storage.*`. Re-running it is
+a no-op by construction.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `get_commission_buckets` / `get_commission_debt` / `get_downline_commission_rollup` | **all absent** |
+| `commission_rows` RLS policies | 1, `SELECT` only (unchanged by this file) |
+
+### Post-apply audit
+
+| Function | `prosecdef` | `authenticated` may execute |
+|---|---|---|
+| `get_commission_buckets` | **false** (SECURITY INVOKER) | yes |
+| `get_commission_debt` | **false** (SECURITY INVOKER) | yes |
+| `get_downline_commission_rollup` | **true** (SECURITY DEFINER) | yes |
+
+`commission_rows` policies unchanged: still exactly one, still `SELECT`, still
+`agent_id = auth.uid()`.
+
+### Why two are INVOKER and one is DEFINER
+
+The two that return the **caller's own** figures read through
+`commission_rows_select_own`, so they cannot return another agent's numbers
+even by accident — and there is no parameter that could be added to make them,
+because RLS would refuse the rows regardless.
+
+`get_downline_commission_rollup` is the **first deliberate cross-agent read of
+commission data in this schema**, deferred here on purpose by Phase 1's ledger
+entry (§ "Why `get_ingestion_summary()` is SECURITY INVOKER"). It closes
+checklist #100. Three things make it safe, all asserted behaviourally below:
+
+1. **No parameter names a leader.** Both are time bounds; the downline is
+   scoped solely by `ai.leader_id = auth.uid()`. Verified live over PostgREST:
+   passing an invented `p_leader_id` returns HTTP 4xx rather than being
+   ignored.
+2. **It returns aggregates, never rows** — money totals and a row count. No
+   client name, no insured name, no policy number, no carrier, no statement id.
+   Enforced by the `RETURNS TABLE`, not by the UI's restraint.
+3. **The scan is bounded by the UPLOADER** (`cr.agent_id in (team)`). Without
+   it, a row a **complete stranger** attributed to this leader's downline would
+   enter the rollup. `producer_codes.subject_agent_id` is guarded to
+   self-or-downline, but that guard governs who may *claim* a code, not whose
+   rollup the result may appear in.
+
+### The defect the behavioural check found
+
+The rollup originally *also* required the effective agent to be on the team.
+Check 22 — a **stranger's** own figures, the assertion that looked like
+paranoia — came back `0` instead of their own row: a line whose attribution
+points outside the caller's team was being **excluded entirely**.
+
+That is money disappearing from a total with nothing on screen to say so. In
+production it fires the moment an agent leaves an agency: their invite flips to
+`declined`, and every line the leader's own statements had attributed to them
+silently drops out of the leader's figures. "Nothing is discarded" is the rule
+the whole Back Office is built on.
+
+Fixed by applying the attribution only when it lands inside the team and
+otherwise falling back to the uploader. **The security bound is unchanged** —
+`cr.agent_id in (team)` was always the thing doing the security, and the
+excluded-row predicate was never load-bearing for it. A test pins the old
+predicate out.
+
+### Behavioural verification — 28/28
+
+Run inside a transaction that **rolled back**; `agency_invites`,
+`commission_rows` and `commission_statements` re-confirmed at 0 afterwards.
+The RLS checks genuinely `SET LOCAL ROLE authenticated`.
+
+Fixture: a leader with six lines (advance, renewal, chargeback, override,
+adjustment, plus one attributed to their downline), an accepted downline with
+two of their own, and an unconnected stranger whose single line is attributed —
+impossibly, via the service role — to the leader's downline.
+
+| # | Check | Result |
+|---|---|---|
+| 1–4 | buckets return; net / gross / chargebacks are the three distinct sums | PASS |
+| 5 | a line **attributed to a downline agent is not the leader's own** | PASS |
+| 6 | personal sales = own advance+renewal net of chargebacks | PASS |
+| 7 | override income is separable | PASS |
+| 8–9 | rows bucket into distinct ISO weeks, every bucket a Monday | PASS |
+| 10 | a bounded window excludes rows outside it | PASS |
+| 11 | debt = chargeback + adjustment only | PASS |
+| 12 | debt is broken out per carrier | PASS |
+| 13 | **an advance is never counted as carrier debt** | PASS |
+| 14 | a carrier that owes you nothing is not listed | PASS |
+| 15 | a leader sees themselves and their downline | PASS |
+| 16 | a downline agent's rollup combines both sources | PASS |
+| 17 | **rollup debt across the downline is visible to the leader** | PASS |
+| 18 | **a stranger's row attributed to my downline never enters my rollup** | PASS |
+| 19 | every line is counted exactly once — no double counting | PASS |
+| 20 | the leader's own personal excludes what they wrote for a downline | PASS |
+| 21 | an unconnected stranger gets a team of ONE | PASS |
+| 22 | **…and their own money is still there, not excluded** | PASS (after the fix) |
+| 23 | a stranger's own buckets contain only their own rows | PASS |
+| 24 | a **downline** agent calling the rollup sees only themselves | PASS |
+| 25 | …and cannot see up the tree at their leader's book | PASS |
+| 26 | **KNOWN GAP** pinned: a downline agent cannot see rows their LEADER uploaded for them | PASS |
+| 27 | `anon` resolves to nobody | PASS |
+| 28 | `anon` gets no commission buckets | PASS |
+
+Checks 18, 21, 24, 25 and 27 are the boundary, exercised rather than asserted.
+Check 26 pins a **known gap** so that changing it has to be deliberate:
+`commission_rows` RLS is keyed on the uploader, so a downline agent whose
+leader ingests the consolidated statement sees none of it in their own
+dashboard. Closing that means a second reader on the most sensitive table in
+the app and deserves its own decision.
+
+### No edge function changed
+
+The whole feature is one migration plus `app.html`, so `supabase functions
+list` was not disturbed and no `verify_jwt` flag moved (still 72 functions, 16
+`verify_jwt = false`).
+
+### End-to-end, against production
+
+Three throwaway accounts (leader, accepted downline, unconnected stranger), a
+**real** CSV statement pushed through the deployed `statement-upload` /
+`statement-parse`, and a producer code recorded so one line attributes to the
+downline agent the way it actually does: **29/29 assertions passed**, every
+figure read back over the same PostgREST RPC path the browser uses.
+
+Includes: the rollup carries no client name or policy number; a downline agent
+cannot see up the tree; a stranger's buckets are empty (RLS, not the function,
+doing it); an invented `p_leader_id` is refused; and `commission_rows` is still
+SELECT-only for the browser.
+
+A separate headless click-through passed **35/35**, reading the rendered SVG
+geometry back to confirm debt is drawn below the zero line and commission
+above it.
+
+Both runs deleted every account, invite and row they created; the residue sweep
+returned **0**.

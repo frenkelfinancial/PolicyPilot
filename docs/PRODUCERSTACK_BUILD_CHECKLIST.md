@@ -136,10 +136,10 @@ Companion doc: `docs/ORION_GAP_ANALYSIS.md` (full detail on each item).
 - [x] **86. "Approved Not Paid" as a first-class status.** Also add Surrendered and Claim to your status set. Shipped 2026-07-29 — ten statuses, ten tabs with counts; Denied and Withdrawn added too.
 - [x] **87. Per-policy status-history timeline.** Every state change, when, and from what source. Shipped 2026-07-29 — `policy_status_history` (append-only, provenance-guarded), merged with the older `policy_events`.
 - [x] **88. Product filter on the book.** Final expense · Term · IUL · Whole life · Annuity. Shipped 2026-07-29 — data-driven, and the carrier filter with it.
-- [ ] **89. Commission dashboard with defined metrics.** Total, Gross, Net ("what actually hits the bank"), Personal Sales, Override Income, Outstanding Debt — each with a plain-English definition on the card.
-- [ ] **90. Outstanding debt tracking, drillable.** Carrier-reported balance at individual and rollup level. This is the number agency owners actually worry about.
-- [ ] **91. Commission trend chart** with commission / personal / override above the line and debt below it.
-- [ ] **92. Personal vs override stacked mix.**
+- [x] **89. Commission dashboard with defined metrics.** Total, Gross, Net ("what actually hits the bank"), Personal Sales, Override Income, Outstanding Debt — each with a plain-English definition on the card. Shipped 2026-07-29 (Back Office Phase 4) — `docs/back-office-commissions.md`.
+- [x] **90. Outstanding debt tracking, drillable.** Carrier-reported balance at individual and rollup level. Shipped 2026-07-29 — per carrier, drillable to the lines, never range-filtered.
+- [x] **91. Commission trend chart** with commission / personal / override above the line and debt below it. Shipped 2026-07-29 — hand-built SVG, empty weeks filled in.
+- [x] **92. Personal vs override stacked mix.** Shipped 2026-07-29 — largest-remainder rounding, so the two integers always total 100.
 - [ ] **93. Reconciliation triage queues.** Policy Match Review, Unlinked Policies, stuck uploads. Priority high/medium/low, status filter, match-% sort, needs-review flag. You have a `review_queue` in `match-events` — this is the screen for it.
 - [ ] **94. Persistency at 4 / 9 / 13 / 25-month windows** (you have 13).
 - [ ] **95. Flat vs weighted persistency toggle.**
@@ -147,7 +147,7 @@ Companion doc: `docs/ORION_GAP_ANALYSIS.md` (full detail on each item).
 - [ ] **97. Persistency by lead source.** Link policies to leads and report retention by where the lead came from. You already have both halves of this data — nobody else is showing it.
 - [ ] **98. Persistency outlier spotlighting** with green ≥85% / yellow 70–84% / red <70% bands.
 - [ ] **99. Team hierarchy (Team Tree).** Personal and rollup production, volume %, MTD. Gates downline reporting.
-- [ ] **100. Rollup debt by downline.**
+- [x] **100. Rollup debt by downline.** Shipped 2026-07-29 — `get_downline_commission_rollup`, SECURITY DEFINER with no parameter naming a leader, aggregates only.
 - [ ] **101. Comp ladder UI.** Tier progression, progress to the next bump, carrier-specific structures — built on top of your existing 45-carrier `carrier_bonuses.json`, which is better data than Orion's.
 - [ ] **102. Bonus progress tracking.** Fast Start, Producer Club, and carrier bonus thresholds with current position.
 - [ ] **103. Appointed carriers list,** derived from ingested statements.

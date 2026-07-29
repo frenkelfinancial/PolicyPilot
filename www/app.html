@@ -3254,6 +3254,41 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .bo-msg-ok{background:var(--lg-green-soft);border:1px solid var(--lg-green-border);color:var(--lg-text1)}
 .bo-msg-warn{background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-text1)}
 .bo-msg-err{background:var(--lg-red-soft);border:1px solid var(--lg-red-border);color:var(--lg-text1)}
+/* ---- Commissions dashboard (Phase 4) ---- */
+.cm-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:10px;margin-bottom:14px}
+.cm-card{background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.cm-card-l{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--lg-caption)}
+.cm-card-v{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:var(--lg-text1);line-height:1.15}
+.cm-card-v.cm-neg{color:var(--lg-red)}
+.cm-card-v.cm-pos{color:var(--lg-green)}
+/* The definition is the point of the card, not a tooltip. It is always on. */
+.cm-card-d{font-size:11px;line-height:1.45;color:var(--lg-text3);margin-top:2px}
+.cm-panel{background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin-bottom:14px}
+.cm-panel-h{padding:11px 14px;border-bottom:1px solid var(--lg-divider);display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.cm-panel-t{font-size:12.5px;font-weight:600;color:var(--lg-text1)}
+.cm-panel-s{font-size:11.5px;color:var(--lg-caption)}
+.cm-chart{padding:12px 14px;overflow-x:auto}
+.cm-legend{display:flex;gap:14px;flex-wrap:wrap;padding:0 14px 12px;font-size:11.5px;color:var(--lg-text3)}
+.cm-key{display:inline-flex;align-items:center;gap:6px}
+.cm-swatch{width:10px;height:10px;border-radius:2px;display:inline-block}
+.cm-zero{stroke:var(--lg-border);stroke-width:1}
+.cm-bar-up{fill:var(--lg-blue)}
+.cm-bar-down{fill:var(--lg-red)}
+.cm-line-personal{fill:none;stroke:var(--lg-green);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.cm-line-override{fill:none;stroke:#B8945A;stroke-width:2;stroke-dasharray:4 3;stroke-linejoin:round;stroke-linecap:round}
+.cm-xlab{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:9px;fill:var(--lg-caption)}
+.cm-mix{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--lg-divider);margin:0 14px 10px}
+.cm-mix-p{background:var(--lg-green)}
+.cm-mix-o{background:#B8945A}
+.cm-row{display:grid;grid-template-columns:1.6fr .8fr 1fr .9fr 100px;gap:10px;padding:10px 14px;align-items:center;border-bottom:1px solid var(--lg-divider);font-size:12.5px;color:var(--lg-text2)}
+.cm-row:last-child{border-bottom:none}
+.cm-row:hover{background:var(--lg-inner)}
+.cm-thead{background:var(--lg-inner);border-bottom:1px solid var(--lg-border);font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-caption)}
+.cm-strong{font-weight:600;color:var(--lg-text1)}
+.cm-empty{padding:26px 14px;text-align:center;font-size:12.5px;color:var(--lg-caption);line-height:1.55}
+.cm-note{font-size:11.5px;line-height:1.5;color:var(--lg-caption);background:var(--lg-inner);border:1px dashed var(--lg-border);border-radius:6px;padding:8px 11px;margin-bottom:14px}
+.cm-bartrack{height:6px;border-radius:3px;background:var(--lg-divider);overflow:hidden}
+.cm-barfill{height:100%;background:var(--lg-red)}
 .bo-table{background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;overflow:hidden}
 .bo-scroll{overflow-x:auto}
 .bo-min{min-width:960px}
@@ -4667,11 +4702,20 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
             <div>
               <div style="font-size:15px;font-weight:600;color:var(--lg-text1)">Back Office</div>
-              <div style="font-size:12px;color:var(--lg-caption);margin-top:2px">Drop a carrier commission statement in and it is read, matched to your policies, and filed. PDF, Excel, CSV, or a ZIP of them.</div>
+              <div style="font-size:12px;color:var(--lg-caption);margin-top:2px" id="bo-subtitle">Drop a carrier commission statement in and it is read, matched to your policies, and filed. PDF, Excel, CSV, or a ZIP of them.</div>
             </div>
             <button class="pt-btn pt-btn-ghost" id="bo-refresh" onclick="boRefresh(true)">Refresh</button>
           </div>
 
+          <!-- Back Office areas. Panels are resolved STRUCTURALLY by their
+               id prefix (see boArea()), never from a hand-written list — the
+               Settings tabs cost a shipped broken screen for exactly that. -->
+          <div class="tracker-tabs" id="bo-areas" style="margin-bottom:16px">
+            <button class="tracker-tab active" data-boarea="ingest" onclick="boArea('ingest')">Ingest</button>
+            <button class="tracker-tab" data-boarea="commissions" onclick="boArea('commissions')">Commissions</button>
+          </div>
+
+          <div id="bopanel-ingest">
           <!-- Drop zone -->
           <div id="bo-drop" class="bo-drop" tabindex="0"
                onclick="document.getElementById('bo-file').click()"
@@ -4690,7 +4734,33 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
           </div>
 
           <div id="bo-body"></div>
+          </div><!-- /bopanel-ingest -->
+
+          <!-- ========== COMMISSIONS (Phase 4) ========== -->
+          <div id="bopanel-commissions" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px">
+              <div class="tracker-tabs" id="cm-tabs"></div>
+              <div class="tracker-tabs" id="cm-ranges"></div>
+            </div>
+            <div id="cm-cards"></div>
+            <div id="cm-note"></div>
+            <div id="cm-panel"></div>
+          </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Debt drill-down: the lines behind one carrier's balance -->
+    <div class="overlay" id="cmDebtModal">
+      <div class="modal modal-wide">
+        <div class="mhdr">
+          <div>
+            <div class="mtitle" id="cm-debt-title">Carrier debt</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:3px" id="cm-debt-sub"></div>
+          </div>
+          <button class="mclose" onclick="cmCloseDebt()" data-ico="x" data-size="14" aria-label="Close"></button>
+        </div>
+        <div id="cm-debt-body"></div>
       </div>
     </div>
 
@@ -11554,6 +11624,7 @@ document.addEventListener('click', e => {
   if (e.target.id === 'editPolModal') closeEditModal();
   if (e.target.id === 'soldModal') closeSoldModal();
   if (e.target.id === 'leadApiQuoteModal') closeLeadApiQuote();
+  if (e.target.id === 'cmDebtModal') cmCloseDebt();
   const statesField = document.getElementById('stg-states-field');
   if (statesField && !statesField.contains(e.target)) closeStatesPanel();
 });
@@ -11563,6 +11634,8 @@ document.addEventListener('keydown', e => {
   if (sp && sp.classList.contains('open')) { closeStatesPanel(); return; }
   const lq = document.getElementById('leadApiQuoteModal');
   if (lq && lq.classList.contains('open')) { closeLeadApiQuote(); return; }
+  const cd = document.getElementById('cmDebtModal');
+  if (cd && cd.classList.contains('open')) { cmCloseDebt(); return; }
   const ap = document.getElementById('addPolModal');
   if (ap && ap.classList.contains('open')) { closeModal(); return; }
   const ep = document.getElementById('editPolModal');
@@ -21009,13 +21082,654 @@ function boFilenameHeader(name) {
 }
 // </backoffice-core>
 
+// <comm-core>
+// Commissions dashboard (Back Office Phase 4) — pure logic. No DOM, no
+// network, no storage, no app globals. Extracted verbatim and executed by
+// test/commissions.test.mjs, so the tests run the code that ships. Keep pure.
+//
+// EVERY figure on this screen is derived here, from the buckets
+// get_commission_buckets() returns. The SQL groups; the definitions live in
+// tested code. That is the whole reason the RPC returns buckets rather than
+// six numbers — six SQL expressions would put the definition of "net
+// commission" somewhere no test runs.
+
+/** MTD / YTD / All time. `null` bounds mean unbounded, as the RPC expects. */
+const COMM_RANGES = [
+  { key: 'mtd', label: 'MTD',      sub: 'This month' },
+  { key: 'ytd', label: 'YTD',      sub: 'This year' },
+  { key: 'all', label: 'All time', sub: 'Everything ingested' },
+];
+
+const COMM_TABS = [
+  { key: 'trends',  label: 'Trends' },
+  { key: 'payouts', label: 'Payouts' },
+  { key: 'debt',    label: 'Debt' },
+];
+
+/** Which transaction types are commission on business the agent wrote. */
+const COMM_PERSONAL_TYPES = ['advance', 'renewal', 'chargeback'];
+/** Which are a carrier balance rather than earnings. */
+const COMM_DEBT_TYPES = ['chargeback', 'adjustment'];
+
+/** [start, end) as ISO dates for a range key. Local calendar, not UTC. */
+function commRange(key, today) {
+  const t = today || new Date();
+  const iso = d => {
+    const z = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+  };
+  if (key === 'mtd') {
+    const s = new Date(t.getFullYear(), t.getMonth(), 1);
+    const e = new Date(t.getFullYear(), t.getMonth() + 1, 1);
+    return { start: iso(s), end: iso(e) };
+  }
+  if (key === 'ytd') {
+    return { start: iso(new Date(t.getFullYear(), 0, 1)), end: iso(new Date(t.getFullYear() + 1, 0, 1)) };
+  }
+  return { start: null, end: null };   // all time
+}
+
+/**
+ * The six headline cards, from the buckets.
+ *
+ * Three of these could collapse into one number on a book with no bonus and no
+ * adjustment lines, and that is deliberate rather than a bug: they answer
+ * different questions and only coincide when nothing separates them. The
+ * definitions rendered under each card say exactly that.
+ *
+ *   gross      every positive line          "what the carriers credited you"
+ *   chargebacks every negative line          (not a card; feeds the others)
+ *   total      advance+renewal+override      "what your book earned"
+ *              net of chargebacks
+ *   net        every line added up           "what actually reached the bank"
+ *   personal   own advance+renewal net of    "business you wrote"
+ *              chargebacks on your own lines
+ *   override   override lines                "from agents in your hierarchy"
+ */
+function commTotals(buckets) {
+  const rows = Array.isArray(buckets) ? buckets : [];
+  const n = v => Number(v || 0);
+  let gross = 0, chargebacks = 0, net = 0, total = 0, personal = 0, override = 0;
+  let rowCount = 0, notOwnRows = 0;
+  rows.forEach(b => {
+    const amt = n(b.amount_cents);
+    gross += n(b.positive_cents);
+    chargebacks += Math.abs(n(b.negative_cents));
+    net += amt;
+    rowCount += n(b.row_count);
+    if (!b.is_own) notOwnRows += n(b.row_count);
+    if (['advance', 'renewal', 'override', 'chargeback'].includes(b.transaction_type)) total += amt;
+    if (b.is_own && COMM_PERSONAL_TYPES.includes(b.transaction_type)) personal += amt;
+    if (b.transaction_type === 'override') override += amt;
+  });
+  return { gross, chargebacks, net, total, personal, override, rowCount, notOwnRows };
+}
+
+/** The plain-English definition rendered under each card. Not decoration. */
+const COMM_CARD_DEFS = {
+  total:    'Advance, renewal and override lines for this period, with chargebacks subtracted. What your book earned.',
+  gross:    'Every positive line, before anything was taken back. What the carriers credited you.',
+  net:      'Every line added up, including bonuses and adjustments. What actually reached your bank.',
+  personal: 'Advance and renewal on business you wrote, less anything charged back on it.',
+  override: 'Override lines — commission from agents in your hierarchy, not from your own sales.',
+  debt:     'What carriers have taken back and not yet been repaid. A positive adjustment reduces it.',
+};
+
+/** The six cards, in render order, with their values. */
+function commCards(totals, debtCents) {
+  const t = totals || {};
+  return [
+    { key: 'total',    label: 'Total Commission',  cents: t.total    || 0, def: COMM_CARD_DEFS.total },
+    { key: 'gross',    label: 'Gross Commission',  cents: t.gross    || 0, def: COMM_CARD_DEFS.gross },
+    { key: 'net',      label: 'Net Commission',    cents: t.net      || 0, def: COMM_CARD_DEFS.net },
+    { key: 'personal', label: 'Personal Sales',    cents: t.personal || 0, def: COMM_CARD_DEFS.personal },
+    { key: 'override', label: 'Override Income',   cents: t.override || 0, def: COMM_CARD_DEFS.override },
+    { key: 'debt',     label: 'Outstanding Debt',  cents: Number(debtCents || 0), def: COMM_CARD_DEFS.debt, invert: true },
+  ];
+}
+
+/**
+ * Collapse buckets to one entry per week, with the four series the trend chart
+ * draws: commission and personal and override above the line, debt below it.
+ *
+ * Weeks with no rows are FILLED IN when a range is bounded. A chart that skips
+ * empty weeks compresses a quiet month into the same width as a busy one and
+ * reads as steady production.
+ */
+function commWeekly(buckets, range) {
+  const byWeek = new Map();
+  const touch = k => {
+    if (!byWeek.has(k)) byWeek.set(k, { week: k, commission: 0, personal: 0, override: 0, debt: 0 });
+    return byWeek.get(k);
+  };
+  (Array.isArray(buckets) ? buckets : []).forEach(b => {
+    if (!b.week_start) return;
+    const w = touch(String(b.week_start).slice(0, 10));
+    const amt = Number(b.amount_cents || 0);
+    if (['advance', 'renewal', 'override', 'chargeback'].includes(b.transaction_type)) w.commission += amt;
+    if (b.is_own && COMM_PERSONAL_TYPES.includes(b.transaction_type)) w.personal += amt;
+    if (b.transaction_type === 'override') w.override += amt;
+    if (COMM_DEBT_TYPES.includes(b.transaction_type) && amt < 0) w.debt += -amt;
+  });
+
+  if (range && range.start && range.end) {
+    // Monday of the week containing `start`, then every Monday up to `end`.
+    const d = new Date(range.start + 'T00:00:00');
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    const stop = new Date(range.end + 'T00:00:00');
+    const z = n => String(n).padStart(2, '0');
+    let guard = 0;
+    while (d < stop && guard++ < 400) {
+      touch(d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()));
+      d.setDate(d.getDate() + 7);
+    }
+  }
+  return [...byWeek.values()].sort((a, b) => a.week < b.week ? -1 : a.week > b.week ? 1 : 0);
+}
+
+/**
+ * Geometry for the trend chart: bars above a zero line for commission, a line
+ * for personal and one for override, and bars below for debt.
+ *
+ * Returned as plain numbers so the shape is testable without a DOM. The zero
+ * line sits where the data puts it — a period with no debt has it at the
+ * bottom, not floating in the middle of an empty half.
+ */
+function commTrendGeometry(weeks, opts) {
+  const o = opts || {};
+  const W = o.width || 720, H = o.height || 190, padL = 4, padR = 4, padT = 10, padB = 16;
+  const list = Array.isArray(weeks) ? weeks : [];
+  if (list.length === 0) return { width: W, height: H, zeroY: H - padB, bars: [], lines: {}, empty: true };
+
+  const maxUp = Math.max(0, ...list.map(w => Math.max(w.commission, w.personal, w.override)));
+  const maxDown = Math.max(0, ...list.map(w => w.debt));
+  const span = (maxUp + maxDown) || 1;
+  const plotH = H - padT - padB;
+  const zeroY = padT + (maxUp / span) * plotH;
+  const scale = v => (v / span) * plotH;
+
+  const n = list.length;
+  const slot = (W - padL - padR) / n;
+  const barW = Math.max(2, Math.min(26, slot * 0.55));
+  const cx = i => padL + slot * i + slot / 2;
+
+  const bars = list.map((w, i) => ({
+    week: w.week,
+    x: cx(i) - barW / 2,
+    barW,
+    up: w.commission > 0 ? { y: zeroY - scale(w.commission), h: scale(w.commission) } : null,
+    down: w.debt > 0 ? { y: zeroY, h: scale(w.debt) } : null,
+    commission: w.commission, debt: w.debt, personal: w.personal, override: w.override,
+  }));
+
+  const series = key => list.map((w, i) => ({ x: cx(i), y: zeroY - scale(Math.max(0, w[key])) }));
+  return {
+    width: W, height: H, zeroY, bars,
+    lines: { personal: series('personal'), override: series('override') },
+    maxUp, maxDown, empty: maxUp === 0 && maxDown === 0,
+  };
+}
+
+/**
+ * Personal vs override mix, as percentages that total exactly 100.
+ *
+ * Largest-remainder rounding, the same rule the team roster uses, so the two
+ * printed integers never read 49 / 50. Both zero is 0/0, not 100/0 — an agent
+ * who earned nothing has no mix.
+ */
+function commMix(totals) {
+  const p = Math.max(0, Number((totals || {}).personal || 0));
+  const o = Math.max(0, Number((totals || {}).override || 0));
+  const sum = p + o;
+  if (sum <= 0) return { personalPct: 0, overridePct: 0, personal: p, override: o, hasData: false };
+  const exact = (p / sum) * 100;
+  const personalPct = Math.round(exact);
+  return { personalPct, overridePct: 100 - personalPct, personal: p, override: o, hasData: true };
+}
+
+/**
+ * "3 lines are not attributed to an agent" — with a link to Producer Codes.
+ *
+ * Returns null when there is nothing to say. An unattributed line still counts
+ * in gross and net; it is only Personal Sales and the downline rollup that
+ * cannot place it, so this is a prompt rather than a warning.
+ */
+function commAttributionNote(totals, isLeader) {
+  const n = Number((totals || {}).notOwnRows || 0);
+  if (!isLeader || n <= 0) return null;
+  return n === 1
+    ? '1 line on your statements is attributed to another agent in your agency, so it is not counted in your Personal Sales.'
+    : n + ' lines on your statements are attributed to other agents in your agency, so they are not counted in your Personal Sales.';
+}
+
+/** Signed dollars from integer cents. Negative is real money going the other way. */
+function commMoney(cents) {
+  const v = Number(cents || 0) / 100;
+  const s = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (v < 0 ? '-$' : '$') + s;
+}
+
+/** "Jul 6" for a week-start key. */
+function commWeekLabel(iso) {
+  if (!iso) return '';
+  const d = new Date(String(iso).slice(0, 10) + 'T12:00:00Z');
+  if (isNaN(d)) return String(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+/** Rank carriers by debt, largest first, with each one's share. */
+function commDebtRanked(rows) {
+  const list = (Array.isArray(rows) ? rows : []).filter(r => Number(r.debt_cents || 0) > 0);
+  const total = list.reduce((s, r) => s + Number(r.debt_cents || 0), 0);
+  return {
+    total,
+    carriers: list
+      .slice()
+      .sort((a, b) => Number(b.debt_cents || 0) - Number(a.debt_cents || 0))
+      .map(r => ({
+        carrier: r.carrier || 'Unnamed carrier',
+        cents: Number(r.debt_cents || 0),
+        pct: total > 0 ? (Number(r.debt_cents || 0) / total) * 100 : 0,
+        rowCount: Number(r.row_count || 0),
+        unmatched: Number(r.unmatched_rows || 0),
+        lastAt: r.last_at || null,
+      })),
+  };
+}
+// </comm-core>
+
 let _boCache = { statements: [], summary: null, loadedAt: 0 };
 let _boPollTimer = null;
 let _boBusy = false;
 
 async function renderBackOffice() {
   boBindDropZone();
-  await boRefresh(false);
+  boArea(_boArea, true);
+  if (_boArea === 'ingest') await boRefresh(false);
+  else await cmRender();
+}
+
+// ---- Back Office areas -------------------------------------------------
+//
+// Panels are resolved STRUCTURALLY, by id prefix, exactly like the Settings
+// tabs are since Phase 2. A hand-written list meant adding a panel was a
+// two-place edit, and missing the second place shipped a screen that rendered
+// on top of another one.
+let _boArea = 'ingest';
+
+function boArea(key, silent) {
+  const host = document.getElementById('sec-backoffice');
+  if (!host) return;
+  const panels = host.querySelectorAll('[id^="bopanel-"]');
+  if (!panels.length) return;
+  const want = 'bopanel-' + key;
+  const known = [...panels].some(p => p.id === want);
+  if (!known) key = 'ingest';
+  _boArea = key;
+  panels.forEach(p => { p.style.display = (p.id === 'bopanel-' + key) ? '' : 'none'; });
+  host.querySelectorAll('#bo-areas .tracker-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.boarea === key);
+  });
+  const sub = document.getElementById('bo-subtitle');
+  if (sub) {
+    sub.textContent = key === 'commissions'
+      ? 'What your ingested statements add up to. Every figure here comes from a commission line you uploaded — nothing is estimated.'
+      : 'Drop a carrier commission statement in and it is read, matched to your policies, and filed. PDF, Excel, CSV, or a ZIP of them.';
+  }
+  const refresh = document.getElementById('bo-refresh');
+  if (refresh) refresh.onclick = () => (key === 'commissions' ? cmRender(true) : boRefresh(true));
+  if (silent) return;
+  if (key === 'commissions') cmRender();
+  else boRefresh(false);
+}
+
+// ============================================================
+// COMMISSIONS DASHBOARD (Back Office Phase 4)
+// Pure logic lives in the // <comm-core> block above.
+// ============================================================
+let _cmTab = 'trends';
+let _cmRange = 'mtd';
+try {
+  const r = localStorage.getItem('pp_comm_range');
+  if (COMM_RANGES.some(x => x.key === r)) _cmRange = r;
+  const t = localStorage.getItem('pp_comm_tab');
+  if (COMM_TABS.some(x => x.key === t)) _cmTab = t;
+} catch (e) { /* private mode */ }
+
+let _cmCache = { buckets: [], debt: [], rollup: [], statements: [], loadedAt: 0, rangeKey: null };
+
+function cmSetRange(k) {
+  if (!COMM_RANGES.some(x => x.key === k)) return;
+  _cmRange = k;
+  try { localStorage.setItem('pp_comm_range', k); } catch (e) {}
+  cmRender(true);
+}
+
+function cmSetTab(k) {
+  if (!COMM_TABS.some(x => x.key === k)) return;
+  _cmTab = k;
+  try { localStorage.setItem('pp_comm_tab', k); } catch (e) {}
+  cmPaint();   // the data does not depend on the tab, so this never re-queries
+}
+
+/** Is the caller an agency leader? Decides whether the rollup is even fetched. */
+function cmIsLeader() {
+  return !!(currentAgent && (currentAgent.agency_code || currentAgent.agency_name));
+}
+
+async function cmRender(force) {
+  const cards = document.getElementById('cm-cards');
+  if (!currentAgent) return;
+  const range = commRange(_cmRange, new Date());
+  const fresh = !force && _cmCache.loadedAt && _cmCache.rangeKey === _cmRange
+    && (Date.now() - _cmCache.loadedAt) < 45000;
+  if (!fresh) {
+    if (cards && !_cmCache.loadedAt) cards.innerHTML = '<div class="cm-panel"><div class="cm-empty">Loading…</div></div>';
+    try {
+      // Debt is deliberately ALL-TIME, not range-bounded: an agent owes a
+      // carrier what they owe them, and a balance that shrank because you
+      // clicked "MTD" would be a number nobody could act on.
+      const calls = [
+        sb.rpc('get_commission_buckets', { p_start: range.start, p_end: range.end }),
+        sb.rpc('get_commission_debt', { p_start: null, p_end: null }),
+        sb.from('commission_statements')
+          .select('id,filename,carrier,period_start,period_end,row_count,matched_count,review_count,total_amount_cents,ingested_at,status')
+          .eq('status', 'ingested').order('ingested_at', { ascending: false }).limit(100),
+      ];
+      if (cmIsLeader()) {
+        calls.push(sb.rpc('get_downline_commission_rollup', { p_start: range.start, p_end: range.end }));
+      }
+      const res = await Promise.all(calls);
+      const [bk, dbt, st, roll] = res;
+      if (bk.error) throw bk.error;
+      _cmCache = {
+        buckets: bk.data || [],
+        debt: (dbt && !dbt.error && dbt.data) || [],
+        statements: (st && !st.error && st.data) || [],
+        rollup: (roll && !roll.error && roll.data) || [],
+        loadedAt: Date.now(),
+        rangeKey: _cmRange,
+      };
+    } catch (e) {
+      if (cards) cards.innerHTML = '<div class="cm-panel"><div class="cm-empty">Could not load commissions: ' +
+        escHTML((e && e.message) || e) + '</div></div>';
+      return;
+    }
+  }
+  cmPaint();
+  if (force) showToast('Commissions refreshed', '#10b981');
+}
+
+function cmPaint() {
+  const rangesEl = document.getElementById('cm-ranges');
+  const tabsEl = document.getElementById('cm-tabs');
+  const cardsEl = document.getElementById('cm-cards');
+  const noteEl = document.getElementById('cm-note');
+  const panelEl = document.getElementById('cm-panel');
+  if (!cardsEl) return;
+
+  if (rangesEl) {
+    rangesEl.innerHTML = COMM_RANGES.map(r =>
+      '<button class="tracker-tab' + (r.key === _cmRange ? ' active' : '') +
+      '" title="' + escHTML(r.sub) + '" onclick="cmSetRange(\'' + r.key + '\')">' +
+      escHTML(r.label) + '</button>').join('');
+  }
+  if (tabsEl) {
+    // Bonuses is a LINK to the existing tracker, not a fourth panel. That
+    // feature is built, researched and 45 carriers deep; a second copy of it
+    // here would be a second thing to keep correct.
+    tabsEl.innerHTML = COMM_TABS.map(t =>
+      '<button class="tracker-tab' + (t.key === _cmTab ? ' active' : '') +
+      '" onclick="cmSetTab(\'' + t.key + '\')">' + escHTML(t.label) + '</button>').join('') +
+      '<button class="tracker-tab" onclick="nav(\'bonuses\')" title="Carrier bonus programs">Bonuses ↗</button>';
+  }
+
+  const totals = commTotals(_cmCache.buckets);
+  const debt = commDebtRanked(_cmCache.debt);
+  cardsEl.innerHTML = '<div class="cm-cards">' + commCards(totals, debt.total).map(c => {
+    const cls = c.invert ? (c.cents > 0 ? ' cm-neg' : '') : (c.cents < 0 ? ' cm-neg' : '');
+    return '<div class="cm-card">' +
+      '<div class="cm-card-l">' + escHTML(c.label) + '</div>' +
+      '<div class="cm-card-v' + cls + '">' + escHTML(commMoney(c.cents)) + '</div>' +
+      '<div class="cm-card-d">' + escHTML(c.def) + '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+
+  if (noteEl) {
+    const note = commAttributionNote(totals, cmIsLeader());
+    noteEl.innerHTML = note
+      ? '<div class="cm-note">' + escHTML(note) +
+        ' <a href="#" onclick="nav(\'settings\');settingsTab(\'codes\');return false;" style="color:var(--lg-blue)">Producer Codes</a></div>'
+      : '';
+  }
+
+  if (!panelEl) return;
+  if (_cmTab === 'debt') panelEl.innerHTML = cmDebtHTML(debt);
+  else if (_cmTab === 'payouts') panelEl.innerHTML = cmPayoutsHTML();
+  else panelEl.innerHTML = cmTrendsHTML(totals);
+}
+
+// ---- Trends ------------------------------------------------------------
+
+function cmTrendsHTML(totals) {
+  const range = commRange(_cmRange, new Date());
+  const weeks = commWeekly(_cmCache.buckets, range);
+  const g = commTrendGeometry(weeks, { width: Math.max(720, weeks.length * 34), height: 190 });
+  const mix = commMix(totals);
+
+  let chart;
+  if (g.empty) {
+    chart = '<div class="cm-empty">No commission lines in this period yet. Upload a statement on the ' +
+      '<a href="#" onclick="boArea(\'ingest\');return false;" style="color:var(--lg-blue)">Ingest</a> tab and it will appear here.</div>';
+  } else {
+    // Every fifth week is labelled; labelling all of them on a year view
+    // produces a solid grey smear rather than an axis.
+    const step = Math.max(1, Math.ceil(g.bars.length / 14));
+    const labels = g.bars.map((b, i) => i % step === 0
+      ? '<text class="cm-xlab" x="' + (b.x + b.barW / 2) + '" y="' + (g.height - 4) + '" text-anchor="middle">' +
+        escHTML(commWeekLabel(b.week)) + '</text>' : '').join('');
+    const upBars = g.bars.filter(b => b.up).map(b =>
+      '<rect class="cm-bar-up" x="' + b.x + '" y="' + b.up.y + '" width="' + b.barW + '" height="' + b.up.h +
+      '" rx="2"><title>' + escHTML(commWeekLabel(b.week) + ' — commission ' + commMoney(b.commission)) + '</title></rect>').join('');
+    const downBars = g.bars.filter(b => b.down).map(b =>
+      '<rect class="cm-bar-down" x="' + b.x + '" y="' + b.down.y + '" width="' + b.barW + '" height="' + b.down.h +
+      '" rx="2"><title>' + escHTML(commWeekLabel(b.week) + ' — debt ' + commMoney(b.debt)) + '</title></rect>').join('');
+    const path = pts => pts.length ? 'M ' + pts.map(p => p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' L ') : '';
+    chart =
+      '<div class="cm-chart"><svg width="' + g.width + '" height="' + g.height + '" role="img" ' +
+        'aria-label="Weekly commission above the line, carrier debt below">' +
+        upBars + downBars +
+        '<line class="cm-zero" x1="0" y1="' + g.zeroY + '" x2="' + g.width + '" y2="' + g.zeroY + '"/>' +
+        '<path class="cm-line-personal" d="' + path(g.lines.personal) + '"/>' +
+        '<path class="cm-line-override" d="' + path(g.lines.override) + '"/>' +
+        labels +
+      '</svg></div>' +
+      '<div class="cm-legend">' +
+        '<span class="cm-key"><span class="cm-swatch" style="background:var(--lg-blue)"></span>Commission</span>' +
+        '<span class="cm-key"><span class="cm-swatch" style="background:var(--lg-green)"></span>Personal</span>' +
+        '<span class="cm-key"><span class="cm-swatch" style="background:#B8945A"></span>Override</span>' +
+        '<span class="cm-key"><span class="cm-swatch" style="background:var(--lg-red)"></span>Debt (below the line)</span>' +
+      '</div>';
+  }
+
+  const mixBody = mix.hasData
+    ? '<div class="cm-mix">' +
+        '<div class="cm-mix-p" style="width:' + mix.personalPct + '%"></div>' +
+        '<div class="cm-mix-o" style="width:' + mix.overridePct + '%"></div>' +
+      '</div>' +
+      '<div class="cm-legend">' +
+        '<span class="cm-key"><span class="cm-swatch" style="background:var(--lg-green)"></span>Personal ' +
+          mix.personalPct + '% · ' + escHTML(commMoney(mix.personal)) + '</span>' +
+        '<span class="cm-key"><span class="cm-swatch" style="background:#B8945A"></span>Override ' +
+          mix.overridePct + '% · ' + escHTML(commMoney(mix.override)) + '</span>' +
+      '</div>'
+    : '<div class="cm-empty">No personal or override commission in this period, so there is no mix to show.</div>';
+
+  return '<div class="cm-panel">' +
+      '<div class="cm-panel-h"><div class="cm-panel-t">Weekly trend</div>' +
+        '<div class="cm-panel-s">Commission, personal and override above the line · carrier debt below it</div></div>' +
+      chart +
+    '</div>' +
+    '<div class="cm-panel">' +
+      '<div class="cm-panel-h"><div class="cm-panel-t">Personal vs override</div>' +
+        '<div class="cm-panel-s">Where this period&rsquo;s money came from</div></div>' +
+      mixBody +
+    '</div>' +
+    (cmIsLeader() ? cmRollupHTML() : '');
+}
+
+// ---- Payouts -----------------------------------------------------------
+
+function cmPayoutsHTML() {
+  const list = _cmCache.statements || [];
+  if (!list.length) {
+    return '<div class="cm-panel"><div class="cm-empty">No statements ingested yet. ' +
+      'A payout here is one statement — what it paid, what it took back, and how much of it matched a policy.</div></div>';
+  }
+  const head = '<div class="cm-row cm-thead"><div>Statement</div><div>Carrier</div><div>Period</div>' +
+    '<div>Lines</div><div style="text-align:right">Net</div></div>';
+  const rows = list.map(s => {
+    const period = s.period_start || s.period_end
+      ? (s.period_start || '?') + ' → ' + (s.period_end || '?')
+      : (s.ingested_at ? String(s.ingested_at).slice(0, 10) : '—');
+    const review = Number(s.review_count || 0);
+    return '<div class="cm-row">' +
+      '<div class="cm-strong" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHTML(s.filename) + '</div>' +
+      '<div>' + escHTML(s.carrier || '—') + '</div>' +
+      '<div class="bo-num" style="font-size:11.5px">' + escHTML(period) + '</div>' +
+      '<div>' + Number(s.row_count || 0) + (review ? ' <span style="color:var(--lg-red)">(' + review + ' to review)</span>' : '') + '</div>' +
+      '<div class="bo-num" style="text-align:right;font-weight:600;color:' +
+        (Number(s.total_amount_cents || 0) < 0 ? 'var(--lg-red)' : 'var(--lg-text1)') + '">' +
+        escHTML(commMoney(s.total_amount_cents)) + '</div>' +
+    '</div>';
+  }).join('');
+  return '<div class="cm-panel">' +
+    '<div class="cm-panel-h"><div class="cm-panel-t">Payouts</div>' +
+      '<div class="cm-panel-s">One row per ingested statement, newest first. Not range-filtered &mdash; a payout belongs to the statement that carried it.</div></div>' +
+    head + rows + '</div>';
+}
+
+// ---- Debt --------------------------------------------------------------
+
+function cmDebtHTML(debt) {
+  const head = '<div class="cm-panel-h"><div class="cm-panel-t">Outstanding debt by carrier</div>' +
+    '<div class="cm-panel-s">All time, never range-filtered &mdash; you owe a carrier what you owe them</div></div>';
+  if (!debt.carriers.length) {
+    return '<div class="cm-panel">' + head +
+      '<div class="cm-empty">No carrier is reporting a balance against you. ' +
+      'Debt appears here when an ingested statement carries a chargeback or a negative adjustment.</div></div>' +
+      (cmIsLeader() ? cmRollupHTML(true) : '');
+  }
+  const rows = debt.carriers.map(c =>
+    '<div class="cm-row" style="grid-template-columns:1.4fr 1fr 1.2fr .9fr 110px;cursor:pointer" ' +
+      'onclick="cmOpenDebt(' + JSON.stringify(c.carrier).replace(/"/g, '&quot;') + ')" ' +
+      'title="See the lines behind this balance">' +
+      '<div class="cm-strong">' + escHTML(c.carrier) + '</div>' +
+      '<div class="bo-num">' + c.pct.toFixed(0) + '%</div>' +
+      '<div><div class="cm-bartrack"><div class="cm-barfill" style="width:' + c.pct.toFixed(1) + '%"></div></div></div>' +
+      '<div>' + c.rowCount + ' line' + (c.rowCount === 1 ? '' : 's') +
+        (c.unmatched ? ' <span style="color:var(--lg-caption)">· ' + c.unmatched + ' unmatched</span>' : '') + '</div>' +
+      '<div class="bo-num" style="text-align:right;font-weight:600;color:var(--lg-red)">' +
+        escHTML(commMoney(c.cents)) + '</div>' +
+    '</div>').join('');
+  return '<div class="cm-panel">' + head +
+      '<div class="cm-row cm-thead" style="grid-template-columns:1.4fr 1fr 1.2fr .9fr 110px">' +
+        '<div>Carrier</div><div>Share</div><div></div><div>Lines</div><div style="text-align:right">Balance</div></div>' +
+      rows +
+      '<div class="cm-row" style="grid-template-columns:1.4fr 1fr 1.2fr .9fr 110px;background:var(--lg-inner)">' +
+        '<div class="cm-strong">Total</div><div></div><div></div><div></div>' +
+        '<div class="bo-num" style="text-align:right;font-weight:600;color:var(--lg-red)">' +
+          escHTML(commMoney(debt.total)) + '</div></div>' +
+    '</div>' +
+    (cmIsLeader() ? cmRollupHTML(true) : '');
+}
+
+/**
+ * The downline rollup. AGGREGATES ONLY — that is enforced by what
+ * get_downline_commission_rollup selects, not by what this renders.
+ */
+function cmRollupHTML(debtFirst) {
+  const rows = _cmCache.rollup || [];
+  if (!rows.length) return '';
+  const totalDebt = rows.reduce((s, r) => s + Number(r.debt_cents || 0), 0);
+  const totalNet = rows.reduce((s, r) => s + Number(r.net_cents || 0), 0);
+  const body = rows.map(r =>
+    '<div class="cm-row" style="grid-template-columns:1.6fr 1fr 1fr 1fr 110px">' +
+      '<div class="cm-strong">' + escHTML(r.agent_name || r.agent_email || 'Agent') +
+        (r.is_self ? ' <span style="font-weight:500;color:var(--lg-caption)">· You</span>' : '') + '</div>' +
+      '<div class="bo-num">' + escHTML(commMoney(r.personal_cents)) + '</div>' +
+      '<div class="bo-num">' + escHTML(commMoney(r.override_cents)) + '</div>' +
+      '<div class="bo-num">' + escHTML(commMoney(r.net_cents)) + '</div>' +
+      '<div class="bo-num" style="text-align:right;font-weight:600;color:' +
+        (Number(r.debt_cents || 0) > 0 ? 'var(--lg-red)' : 'var(--lg-text3)') + '">' +
+        escHTML(commMoney(r.debt_cents)) + '</div>' +
+    '</div>').join('');
+  return '<div class="cm-panel">' +
+    '<div class="cm-panel-h"><div class="cm-panel-t">Your agency' + (debtFirst ? ' — rollup debt' : '') + '</div>' +
+      '<div class="cm-panel-s">Totals only. No client names, no policy detail.</div></div>' +
+    '<div class="cm-row cm-thead" style="grid-template-columns:1.6fr 1fr 1fr 1fr 110px">' +
+      '<div>Agent</div><div>Personal</div><div>Override</div><div>Net</div><div style="text-align:right">Debt</div></div>' +
+    body +
+    '<div class="cm-row" style="grid-template-columns:1.6fr 1fr 1fr 1fr 110px;background:var(--lg-inner)">' +
+      '<div class="cm-strong">Agency total</div><div></div><div></div>' +
+      '<div class="bo-num cm-strong">' + escHTML(commMoney(totalNet)) + '</div>' +
+      '<div class="bo-num" style="text-align:right;font-weight:600;color:' +
+        (totalDebt > 0 ? 'var(--lg-red)' : 'var(--lg-text3)') + '">' + escHTML(commMoney(totalDebt)) + '</div>' +
+    '</div></div>';
+}
+
+/** Drill from a carrier balance into the lines that produced it. */
+async function cmOpenDebt(carrier) {
+  const modal = document.getElementById('cmDebtModal');
+  const body = document.getElementById('cm-debt-body');
+  const title = document.getElementById('cm-debt-title');
+  const sub = document.getElementById('cm-debt-sub');
+  if (!modal || !body) return;
+  if (title) title.textContent = carrier + ' — carrier balance';
+  if (sub) sub.textContent = 'Every chargeback and adjustment line behind this number.';
+  body.innerHTML = '<div class="cm-empty">Loading…</div>';
+  modal.classList.add('open');
+
+  let q = sb.from('commission_rows')
+    .select('carrier,policy_number,insured_name,transaction_type,amount_cents,transaction_date,matched_policy_id,review_reason')
+    .in('transaction_type', COMM_DEBT_TYPES)
+    .order('transaction_date', { ascending: false })
+    .limit(500);
+  // 'Unnamed carrier' is the label the RPC gives a null/blank carrier, so the
+  // drill-down has to ask for exactly that rather than for the label.
+  if (carrier === 'Unnamed carrier') q = q.or('carrier.is.null,carrier.eq.');
+  else q = q.eq('carrier', carrier);
+
+  const { data, error } = await q;
+  if (error) { body.innerHTML = '<div class="cm-empty">Could not load the lines: ' + escHTML(error.message) + '</div>'; return; }
+  const rows = data || [];
+  if (!rows.length) { body.innerHTML = '<div class="cm-empty">No lines found for this carrier.</div>'; return; }
+  const net = rows.reduce((s, r) => s + Number(r.amount_cents || 0), 0);
+  body.innerHTML =
+    '<div class="cm-panel" style="margin:0">' +
+      '<div class="cm-row cm-thead" style="grid-template-columns:1.1fr 1.4fr .9fr .9fr 110px">' +
+        '<div>Date</div><div>Insured</div><div>Policy #</div><div>Type</div>' +
+        '<div style="text-align:right">Amount</div></div>' +
+      rows.map(r =>
+        '<div class="cm-row" style="grid-template-columns:1.1fr 1.4fr .9fr .9fr 110px">' +
+          '<div class="bo-num" style="font-size:11.5px">' + escHTML(r.transaction_date || '—') + '</div>' +
+          '<div>' + escHTML(r.insured_name || '—') +
+            (r.matched_policy_id ? '' : ' <span style="color:var(--lg-caption);font-size:11px">· unmatched</span>') + '</div>' +
+          '<div class="bo-num" style="font-size:11.5px">' + escHTML(r.policy_number || '—') + '</div>' +
+          '<div>' + escHTML(r.transaction_type) + '</div>' +
+          '<div class="bo-num" style="text-align:right;color:' +
+            (Number(r.amount_cents || 0) < 0 ? 'var(--lg-red)' : 'var(--lg-green)') + '">' +
+            escHTML(commMoney(r.amount_cents)) + '</div>' +
+        '</div>').join('') +
+      '<div class="cm-row" style="grid-template-columns:1.1fr 1.4fr .9fr .9fr 110px;background:var(--lg-inner)">' +
+        '<div class="cm-strong">Balance</div><div></div><div></div><div></div>' +
+        '<div class="bo-num" style="text-align:right;font-weight:600">' + escHTML(commMoney(net)) + '</div></div>' +
+    '</div>';
+}
+
+function cmCloseDebt() {
+  const m = document.getElementById('cmDebtModal');
+  if (m) m.classList.remove('open');
 }
 
 /** One pass: summary RPC + statement list, then paint. */
