@@ -55,6 +55,23 @@ deliberately, not as part of routine dev testing.
 - **Brand status field:** `identityStatus` (`VERIFIED`). Ignore the secondary `status`=`OK`.
 - **Campaign status field:** `campaignStatus` (`TCR_PENDING`/`TCR_FAILED`/`TCR_ACCEPTED`/`ACTIVE`). `TCR_FAILED` = rejected.
 - **Messaging profile:** the account has ONE — "Jarvis" `40019edb-acf4-47da-ae79-9a712deda81a` (`TELNYX_MESSAGING_PROFILE_ID`). A number's `messaging_profile_id` is on the **base** `/v2/phone_numbers` object; set it via `PATCH /v2/phone_numbers/{id}/messaging {messaging_profile_id}`.
+- **Brand update is `PUT`, NOT `PATCH`.** `PATCH /v2/10dlc/brand/{id}` returns
+  `404 Resource not found` (probed live 2026-07-28). The update verb is `PUT`,
+  and `PUT` replaces — a partial body nulls the fields it omits, on a
+  **VERIFIED** brand. Safe procedure: `GET` the brand, echo back every
+  currently-set field except the server-managed ones (`brandId`,
+  `tcrBrandId`, `cspId`, `identityStatus`, `status`, `createdAt`, `updatedAt`,
+  `mock`, `failureReasons`, `assignedCampaignsCount`,
+  `businessContactEmailVerifiedDate`, `universalEin`), change the one field you
+  mean to, `PUT` that, then diff before/after to prove nothing else moved.
+  Changing `website` this way did **not** re-trigger vetting —
+  `identityStatus` stayed `VERIFIED`.
+- **Carrier review feedback lives on the CAMPAIGN, in `failureReasons[]`, and
+  a campaign can carry it while still being `ACTIVE`.** `GET
+  /v2/10dlc/campaign?brandId=<id>` returns `{records:[…]}`; each record has
+  `status`, `tcrCampaignId`, `billedDate` and `failureReasons[].description`.
+  Do not read `status: ACTIVE` as "no problems" — `CD2166Q` is `ACTIVE` with
+  three unresolved review items. Read `failureReasons` explicitly.
 - **`/10dlc` list filters use plain query params** (`?brandId=…`), NOT the `filter[brandId]` JSON:API style used elsewhere in Telnyx v2.
 - **Campaign creation** is `POST /v2/10dlc/campaignBuilder` (needs `messageFlow` + opt-in/opt-out/help keyword+message fields) — NOT `POST /v2/10dlc/campaign`. **Implemented and verified live 2026-07-28** — see below.
 

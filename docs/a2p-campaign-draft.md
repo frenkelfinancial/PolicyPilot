@@ -1,9 +1,27 @@
-# A2P 10DLC campaign — prepared draft (NOT SUBMITTED)
+# A2P 10DLC campaign — LIVE, `CD2166Q`, with open review items
 
-**Status: REJECTED once, rebuilt, not yet resubmitted.** See "Rejection and
-what changed" at the foot of this file. The old blocker — waiting on GoatLeads'
-verbatim consent wording — is **closed**, not because the wording arrived but
-because it turned out to be the wrong thing to wait for.
+**Status as of 2026-07-28T21:xxZ: the campaign EXISTS, is `ACTIVE`, and has
+already been paid for.** It is not a draft and not a dead rejected record.
+Three review items came back from the carrier; **one is fixed, two are open.**
+
+| | |
+|---|---|
+| Telnyx campaign ID | `4b30019f-a9df-e17b-3529-70677db27ec4` |
+| TCR campaign ID | `CD2166Q` |
+| Status | `ACTIVE` |
+| Billed | `2026-07-28` — the $14.50 is **already spent** |
+| Use case | `LOW_VOLUME` · `CUSTOMER_CARE`, `MARKETING`, `ACCOUNT_NOTIFICATION` |
+| Brand | `4b20019f-a5df-2721-e3c1-cea9522125a0` (`BBTQ508`), `identityStatus: VERIFIED` |
+
+> 🔴 **Do not create a second campaign without checking whether this one can be
+> updated.** A new campaign is another $14.50 AND leaves two campaigns on one
+> brand. `CD2166Q` is `ACTIVE`, so the fields the carrier objected to
+> (`optinMessage`, `messageFlow`) are candidates for an in-place update, which
+> is normally free. That has NOT been tested yet — see "What to do next".
+
+Read this whole file before touching the campaign. Sections "Carrier review
+items" and "🔴 The vendor in this repo is the wrong company" are the two that
+change what you would otherwise do.
 
 This is the campaign prepared for our own verified production brand. It existed
 only in a chat transcript until now; it is recorded here so the exact approved
@@ -46,7 +64,12 @@ rule that all dev/test traffic goes to the **sandbox** brand, never this one.
 
 ### Keyword responses
 
-**Opt-in message**
+> 🔴 **The opt-in message below is the one the carrier objected to (review
+> items 2 and 3).** It is reproduced as the CURRENT live value, not as a
+> target. It never mentions marketing or promotional messages while the
+> campaign declares `MARKETING`. Do not copy it forward — rewrite it first.
+
+**Opt-in message** — ❌ live value, needs replacing
 
 > Frenkel Financial Agency: You're subscribed to messages about your life insurance quote, appointments, and application status. Msg frequency varies. Msg&data rates may apply. Consent is not a condition of purchase. Reply HELP for help, STOP to opt out.
 
@@ -113,7 +136,12 @@ the carrier", and the field-name block at the top of
 
 ## Opt-in workflow description (`messageFlow`)
 
-**This is the field the rejection was about.** It is generated, not hand-typed:
+> 🔴 **The text below names GoatLeads and Built Leads, which are the WRONG
+> vendors** — see "The vendor in this repo is the wrong company". It is kept
+> here as the record of what this repo currently generates, NOT as text to
+> submit. Regenerating after the vendor fix will change it (and its length).
+
+**This is the field review item 1 was about.** It is generated, not hand-typed:
 `buildOptinDescription()` in `supabase/functions/_shared/lead-vendors.ts`
 builds it, quoting `buildOptInDisclosure()` from `_shared/sms-optin.ts`
 verbatim. Reproduced here so the exact submitted wording survives outside a
@@ -149,80 +177,216 @@ from `buildOptInAutoResponse()`, so they cannot disagree.
 
 ---
 
-## Rejection and what changed
+## Carrier review items — verbatim
 
-**The first submission was rejected.** The ground: carrier review would not
-accept a lead vendor's "and its licensed agents" language as opt-in evidence
-for a campaign sending as Frenkel Financial Agency. A generic reference to
-unnamed downstream agents is not consent for a specific named sender.
+Retrieved live from `GET /v2/10dlc/campaign?brandId=…` on 2026-07-28. This is
+the carrier's own text, reproduced exactly. Do not paraphrase it when acting on
+it — the wording is the specification.
 
-The previous blocker on this file was a request to GoatLeads for their exact
-on-form wording, on the theory that quoting it verbatim would beat
-paraphrasing it. **That theory is dead.** The problem was never the fidelity of
-our quote; it was that the consent is not ours to rely on. GoatLeads will not
-change their form, and no amount of exact quotation turns a generic
-downstream-agent clause into named-sender consent.
+> Who is the perceived sender of the messages? If it's a business using your
+> platform, then each business will need a brand and campaign created
+> specifically for them.
+>
+> Note: The live opt-in disclosure and SMS Terms are for The Veteran Resource
+> Center and its licensed agents, while this campaign sends as Frenkel
+> Financial Agency. The opt-in evidence must clearly identify Frenkel Financial
+> Agency as the sender/perceived sender or otherwise establish direct
+> Frenkel-branded consent at the point of opt-in.
+>
+> Subscriber/Auto-response Opt-in Message needs updating with information
+> provided here -
+> https://support.telnyx.com/en/articles/10645338-10dlc-keywords-and-confirmation-messages
+>
+> Note: MARKETING is selected, but the START/opt-in auto-response does not
+> explicitly mention marketing or promotional messages.
 
-### What replaced it
+### Which of the three are fixed
 
-Frenkel Financial Agency now collects its own SMS consent, on its own page:
+| # | Item | State |
+|---|---|---|
+| 1 | Opt-in evidence must identify **Frenkel** as the sender | ✅ **FIXED** |
+| 2 | Opt-in auto-response needs updating per Telnyx's keywords article | ❌ **OPEN** |
+| 3 | `MARKETING` selected but the opt-in auto-response never mentions marketing or promotional messages | ❌ **OPEN** |
+
+**Item 1** is what the hosted opt-in page was built for. Consent is now
+collected on `/a/frenkel-financial-agency/sms-opt-in`, a page branded to
+Frenkel, whose disclosure names Frenkel as the sender and is stored verbatim
+per submission. Live and verified — see `docs/compliance-pages.md`.
+
+**Items 2 and 3 are untouched, and item 3 is the dangerous one.**
+`buildOptInAutoResponse()` in `supabase/functions/_shared/sms-optin.ts`
+produces a string that is **character-identical** to the live `optinMessage`
+the carrier just objected to (verified by direct comparison, 2026-07-28):
 
 ```
-https://trust.producerstackcrm.com/a/frenkel-financial-agency/sms-opt-in
+Frenkel Financial Agency: You're subscribed to messages about your life
+insurance quote, appointments, and application status. Msg frequency varies.
+Msg&data rates may apply. Consent is not a condition of purchase. Reply HELP
+for help, STOP to opt out.
 ```
 
-Server-rendered, no JavaScript, a single never-pre-checked checkbox, and the
-full disclosure inline beside it. Every submission stores the exact disclosure
-displayed, the page URL, the IP, the user agent, the timestamp, and the name
-typed. Built in `docs/compliance-pages.md` § "The SMS opt-in page".
+It contains no marketing or promotional language. Resubmitting as-is
+reproduces the exact defect that was cited. **That string has to change before
+anything is submitted**, and because it is quoted verbatim inside the campaign
+`messageFlow`, changing it changes both.
 
-The lead vendor still explains where the lead came from — it is still named in
-the privacy policy, and the description above still says the consumer
-consented there **to telephone and email**. That is accurate, and it is all
-that consent ever supported.
+---
 
-### Before resubmitting
+## 🔴 The vendor in this repo is the wrong company
 
-**All complete as of 2026-07-28T21:xxZ.** Everything below was verified against
-production, not assumed.
+**The carrier's file says the opt-in disclosure belongs to *The Veteran
+Resource Center*.** The live campaign's `messageFlow` names
+`https://theveteranresourcecenter.com/vrc-v4` as the lead form.
 
-- [x] `supabase/migrations/20260733_sms_optin_consent.sql` applied — 4/4
-      behavioural checks, see `docs/schema-state.md`
-- [x] `compliance-page` deployed with `--no-verify-jwt` (and four other
-      functions, each individually; all 16 `verify_jwt` flags re-audited
-      against `supabase/config.toml`)
-- [x] `vercel-trust` redeployed — live CSP now reads `form-action 'self'`.
-      With `'none'` the browser silently refuses to submit and nothing logs
-      anywhere, which is why this is verified with a real browser below
-- [x] All four URLs return `200 text/html`: `""`, `/privacy-policy`,
-      `/terms`, `/sms-opt-in`; an unknown slug returns `404`
-- [x] A real POST to `/sms-opt-in` returns `303` and wrote a
-      `consent_method='web_form'` row with `disclosure_text`, `page_url`,
-      `ip_address` and `captured_at` all populated
-- [x] **Submitted through headless Chromium, not curl** — checkbox unchecked
-      on load, POST issued, `303`, landed on `/confirmed`, no CSP console
-      violation. A second submission of the same number wrote **no second
-      row**, confirming the phone-keyed repeat check
-- [x] The disclosure on the live page matches the quote above **word for
-      word** — compared programmatically, 641 chars, byte-for-byte identical
-- [x] Brand `website` field set to the privacy policy URL — was
-      `https://frenkelfinancial.com`, an **agent-recruiting site** ("Build
-      Your Career With Us"), which is one of the mismatches carrier review
-      rejects. `PUT` diff touched only `website` + `updatedAt`;
-      `identityStatus: VERIFIED` and the EIN were preserved
-- [x] At least one real opt-in captured — 1 row, for a number the agency owns
+**This repo says GoatLeads and Built Leads, everywhere, and that is wrong.**
+`LEAD_VENDORS` in `supabase/functions/_shared/lead-vendors.ts` lists those two;
+the generated privacy policy's "Where your information comes from" section
+names them; the generated campaign description names them. Confirmed
+2026-07-28: the description this repo generates says "operated by GoatLeads and
+Built Leads" and never mentions The Veteran Resource Center.
 
-**One caveat carried forward:** `ip_address` currently records the proxy hop,
-not the consumer, because a Vercel rewrite to an external origin does not
-forward the caller's address. The disclosure, page URL, timestamp and name are
-unaffected — see `docs/compliance-pages.md` § "Two defects found in live
-verification". Not a blocker for resubmission; the consent evidence does not
-rest on the IP.
+**Decision (Jace, 2026-07-28): GoatLeads and Built Leads were wrong and are
+being removed.** The Veteran Resource Center is the real source.
 
-### 🔴 Still requires an explicit go from Jace
+Why this matters more than a name: the privacy policy and the campaign opt-in
+description are required to tell the *same* story, and the carrier already has
+the true one on file. Submitting a description naming two companies the
+reviewer has never seen — while the disclosure they inspected belongs to a
+third — is a fresh mismatch of exactly the kind that produced item 1.
 
-Resubmission is **$15**, and one rejection has already been paid for. Nothing
-above submits anything.
+### Not yet changed in code
 
-**$15 per submission, and resubmission after a rejection is another $15.** One
-rejection has already been paid for.
+The vendor correction is **documented here but NOT applied**. It was left
+deliberately: editing `LEAD_VENDORS` changes the live generated privacy policy
+and the campaign description together, and both are carrier-facing, so it
+should be one deliberate change followed by a redeploy and a re-read — not a
+side effect of a documentation pass.
+
+Files that carry the wrong vendor and need it:
+
+- `supabase/functions/_shared/lead-vendors.ts` — `LEAD_VENDORS` (source of truth)
+- `supabase/functions/_shared/compliance-page.test.ts` — fixtures + assertions
+- `supabase/functions/_shared/a2p-registration.test.ts` — fixtures
+- `app.html` — the composer's vendor dropdown labels (`vendorLabel`)
+- `public.agents.lead_vendors` for the Frenkel agent row (data, not code)
+- `scripts/a2p-phase2-smoke.ts` — fixture
+
+---
+
+## What to do next
+
+In order. Nothing below has been done.
+
+1. **Rewrite the opt-in auto-response** to name marketing/promotional messages
+   explicitly, following
+   <https://support.telnyx.com/en/articles/10645338-10dlc-keywords-and-confirmation-messages>.
+   One string, `buildOptInAutoResponse()`. Closes items 2 and 3. Free.
+2. **Correct the vendor** to The Veteran Resource Center across the files
+   listed above, so the policy, the page and the description agree with the
+   carrier's file. Free.
+3. **Redeploy** `compliance-page` and re-verify the live opt-in page still
+   matches the quoted disclosure byte for byte (there is a check for this).
+4. **Establish whether `CD2166Q` can be updated in place** — `PUT`/`PATCH` on
+   `/v2/10dlc/campaign/{id}` with the new `optinMessage` and `messageFlow`.
+   If it can, the fix is **$0**. Only if it cannot does a new campaign at
+   **$14.50** become necessary.
+5. Re-run the `messageFlow` length check (`TCR_MESSAGE_FLOW_MAX`) and confirm
+   both compliance URLs return `200 text/html` before any submission.
+
+### Pre-flight results, 2026-07-28 (both passed, recorded so they are not re-derived)
+
+| Check | Result |
+|---|---|
+| Generated `messageFlow` length | **1783 / 2048** — pass |
+| `/a/frenkel-financial-agency/privacy-policy` | `200 text/html; charset=utf-8` |
+| `/a/frenkel-financial-agency/terms` | `200 text/html; charset=utf-8` |
+
+These passed against the description that still names the **wrong vendors**, so
+step 2 will change the length. Re-run it.
+
+---
+
+## 🔴 Nothing in the app is watching this campaign
+
+`a2p-status-poll` will **not** pick up status changes for `CD2166Q`. Verified
+2026-07-28.
+
+The poller sweeps `public.a2p_registrations`:
+
+```ts
+sb.from("a2p_registrations")
+  .select("agent_id, brand_id, campaign_id, status")
+  .in("status", ["pending", "approved"])
+  .not("brand_id", "is", null)
+  .not("campaign_id", "is", null)
+```
+
+**`a2p_registrations` has 0 rows.** `CD2166Q` was created outside this system —
+through the Telnyx portal, not through `a2p-register` — so no registration row
+exists for it, and the poller has nothing to match on. The campaign could be
+approved, suspended or expired and the app would never notice.
+
+Two consequences:
+
+1. **Status changes must be checked by hand** (`GET /v2/10dlc/campaign?brandId=…`)
+   until a registration row exists.
+2. **Texting is blocked regardless of the campaign's state.**
+   `runComplianceGate()` refuses every SMS unless
+   `a2p_registrations.status = 'approved'` for the sending agent. With zero
+   rows, that check can never pass — so even a fully approved `CD2166Q` would
+   not enable a single text. A number also has to be attached
+   (`phone_numbers.sms_capable`), and both of Frenkel's active numbers are
+   currently `sms_capable = false`.
+
+So the campaign being fixed is necessary but **not sufficient**. Closing the
+loop needs an `a2p_registrations` row for the Frenkel agent carrying
+`brand_id` + `campaign_id` + `status`, and a number assigned to the campaign.
+Deciding whether to backfill that row by hand or re-run registration through
+`a2p-register` is a separate call — note that `a2p-register` would try to
+create a NEW brand/campaign and bill for it, which is not what is wanted here.
+
+---
+
+## Brand `website` — changed 2026-07-28, and why it mattered
+
+The brand's `website` was `https://frenkelfinancial.com`. That is a **live
+agent-recruiting site**, titled *"Frenkel Financial Agency | Build Your Career
+With Us"*. `docs/compliance-pages.md` names that exact case as one that fails
+carrier review — a recruiting site describes a different business from the one
+sending consumer texts — and the brand `website` field is one of only **two**
+verified routes by which a compliance URL reaches a reviewer.
+
+Now set to:
+
+```
+https://trust.producerstackcrm.com/a/frenkel-financial-agency/privacy-policy
+```
+
+**Telnyx has no `PATCH` on `/v2/10dlc/brand/{id}`** — it returns `404`. The
+update is a `PUT`, and a `PUT` with a partial body would null the fields it
+omits on a **VERIFIED** brand. The safe procedure, used here: `GET` the brand,
+echo back every currently-set field except the server-managed ones
+(`brandId`, `tcrBrandId`, `cspId`, `identityStatus`, `status`, `createdAt`,
+`updatedAt`, `mock`, `failureReasons`, `assignedCampaignsCount`,
+`businessContactEmailVerifiedDate`, `universalEin`), change only `website`,
+`PUT` that.
+
+A whole-object before/after diff showed **exactly two fields changed**:
+`website` and `updatedAt`. `identityStatus: VERIFIED`, `status: OK`,
+`tcrBrandId` and the EIN were all preserved — no re-vetting triggered.
+
+---
+
+## Superseded: the GoatLeads blocker
+
+Earlier revisions of this file blocked submission on obtaining GoatLeads'
+verbatim on-form consent wording, to quote it in the opt-in description. That
+is closed twice over:
+
+1. the premise was wrong — a lead vendor's "…and its licensed agents" language
+   is not opt-in evidence for a named sender no matter how exactly it is
+   quoted, which is review item 1; and
+2. **GoatLeads was never the vendor.** See above.
+
+`lead-vendors.ts::disclosure` is therefore irrelevant to the SMS consent story.
+Consent comes from the hosted opt-in page.

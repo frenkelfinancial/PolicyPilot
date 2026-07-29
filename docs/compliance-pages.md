@@ -484,6 +484,16 @@ recorded in the field-name block at the top of
 
 ## Lead vendors
 
+> 🔴 **The vendor list in this repo is the wrong company.** `LEAD_VENDORS`
+> says GoatLeads and Built Leads. The carrier's review file for campaign
+> `CD2166Q`, and the live campaign's `messageFlow`, both say **The Veteran
+> Resource Center** (`theveteranresourcecenter.com/vrc-v4`). Decided
+> 2026-07-28 that GoatLeads/Built Leads were wrong and are being removed;
+> **not yet applied in code.** Everything below still describes the mechanism
+> correctly — only the names are wrong. See
+> `docs/a2p-campaign-draft.md` § "The vendor in this repo is the wrong
+> company" for the file list.
+
 `supabase/functions/_shared/lead-vendors.ts` holds the vendor list and builds
 the campaign opt-in workflow description. One well-written description is
 reused for every agent, with only the vendor and agency name substituted, so

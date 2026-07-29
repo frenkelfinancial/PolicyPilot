@@ -324,6 +324,15 @@ supabase secrets set   ALLOW_DEV_ORIGINS=true    # enable for a local pass
 supabase secrets unset ALLOW_DEV_ORIGINS         # turn it back off
 ```
 
+> **It was found ON and has been turned OFF (2026-07-28T21:xxZ.)** A check
+> during the opt-in deploy showed `Access-Control-Allow-Origin:
+> http://localhost:8080` and `x-dev-origins-allowed: true` still being
+> reflected against production, days after the click-through it was enabled
+> for. `supabase secrets unset ALLOW_DEV_ORIGINS` was run; localhost now falls
+> back to the apex and the `x-dev-origins-allowed` header is gone, with the
+> apex origin still allowed. **This is the failure mode the env gate exists to
+> make visible — check it, do not assume it.**
+
 There is only ONE Supabase project, so while this is on, localhost origins are
 accepted against production data. **Turn it off when the click-through is
 done.** Responses carry `X-Dev-Origins-Allowed: true` while it is on, so the

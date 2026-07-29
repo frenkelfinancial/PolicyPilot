@@ -72,6 +72,23 @@ curl -sI https://trust.producerstackcrm.com/a/<slug>/sms-opt-in \
   | grep -io "form-action [^;]*"          # expect: form-action 'self'
 ```
 
+## Logging in — device code, not an email link
+
+`vercel login <email>` is **deprecated**; the email argument prints a warning
+and is ignored. The current CLI (58.x) uses an OAuth **device flow**: it prints
+
+```
+Visit https://vercel.com/oauth/device?user_code=XXXX-XXXX
+Waiting for authentication...
+```
+
+and polls until someone approves that code in a browser already signed in to
+Vercel. **No verification email is sent.** Run it backgrounded so it keeps
+polling while the code is approved; codes expire in roughly 15 minutes.
+
+The account here is the `frenkelfinancial` user, team
+`frenkelfinancials-projects`. (`vercel whoami` confirms.)
+
 ## Setup
 
 **The project already exists: `producerstack-trust`, under the team

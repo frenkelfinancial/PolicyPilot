@@ -46,6 +46,25 @@ export interface LeadVendor {
   disclosure: string | null;
 }
 
+// ============================================================
+// 🔴 THESE TWO ENTRIES ARE THE WRONG COMPANY. Found 2026-07-28.
+//
+// The carrier's review file for campaign CD2166Q, and the live campaign's own
+// messageFlow, both say the consumer opt-in disclosure belongs to
+// **The Veteran Resource Center** (https://theveteranresourcecenter.com/vrc-v4).
+// Nothing named GoatLeads or Built Leads appears anywhere on the carrier side.
+//
+// Decided 2026-07-28: GoatLeads and Built Leads were wrong and are being
+// removed; The Veteran Resource Center is the real source.
+//
+// NOT YET APPLIED, deliberately. This array feeds BOTH the generated privacy
+// policy's "Where your information comes from" section AND the campaign
+// opt-in description, and both are carrier-facing. Changing it should be one
+// deliberate change followed by a redeploy and a re-read of the live page —
+// not a side effect of an unrelated edit. The full file list and the reasoning
+// are in docs/a2p-campaign-draft.md § "The vendor in this repo is the wrong
+// company".
+// ============================================================
 export const LEAD_VENDORS: LeadVendor[] = [
   {
     key: "goatleads",
