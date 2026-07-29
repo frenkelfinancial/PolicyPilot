@@ -19,10 +19,14 @@ import { assignAgentNumberToCampaign } from "../_shared/a2p-assign.ts";
 // go stale by the time they click Buy, so re-search the exact number
 // immediately before ordering — this re-primes Telnyx's cache and confirms
 // the number wasn't bought by someone else in the meantime.
-async function telnyxConfirmAvailable(apiKey: string, e164: string): Promise<boolean> {
+async function telnyxConfirmAvailable(apiKey: string, e164: string, numberType: string): Promise<boolean> {
+  // Mirror the filters the picker search uses so this re-search behaves the
+  // same way (country + type), not a bare starts_with that can misbehave.
   const params = new URLSearchParams({
     "filter[phone_number][starts_with]": e164,
-    "filter[limit]": "1",
+    "filter[country_code]":              "US",
+    "filter[phone_number_type]":         numberType === "tollfree" ? "toll_free" : "local",
+    "filter[limit]":                     "1",
   });
   const res = await fetch(`https://api.telnyx.com/v2/available_phone_numbers?${params}`, {
     headers: { "Authorization": `Bearer ${apiKey}` },
@@ -123,14 +127,16 @@ serve(async (req) => {
     }
   }
 
-  // Re-search the exact number so Telnyx will accept the order (error 10027
-  // otherwise) and verify it's still available.
-  const available = await telnyxConfirmAvailable(TELNYX_API_KEY, e164);
-  if (!available) {
-    return json({
-      ok: false,
-      error: `${e164} is no longer available — it may have just been purchased by someone else. Please search again and pick a different number.`,
-    }, 409);
+  // Re-search the exact number to re-prime Telnyx's order cache (avoids error
+  // 10027 when the picker search has gone stale). ADVISORY ONLY: Telnyx briefly
+  // holds numbers it just returned in a search, so an immediate re-search for
+  // that exact number can legitimately come back empty even though the number
+  // is perfectly orderable. We therefore never block on this — the
+  // number_orders response below is the single source of truth for
+  // availability. (Blocking here was rejecting every purchase.)
+  const stillListed = await telnyxConfirmAvailable(TELNYX_API_KEY, e164, numberType);
+  if (!stillListed) {
+    console.log(`[telnyx-buy-number] ${e164} not returned by pre-order re-search (advisory only) — attempting order anyway`);
   }
 
   // Purchase the number from Telnyx and assign it to the connection
@@ -148,6 +154,15 @@ serve(async (req) => {
 
   if (!orderRes.ok) {
     const err = await orderRes.text();
+    // Distinguish a genuinely unavailable/stale number (show the friendly
+    // "pick another" message) from a real backend failure (surface the error).
+    const lc = err.toLowerCase();
+    if (lc.includes("10027") || lc.includes("not available") || lc.includes("unavailable") || lc.includes("no longer")) {
+      return json({
+        ok: false,
+        error: `${e164} is no longer available — please search again and pick a different number.`,
+      }, 409);
+    }
     return json({ ok: false, error: `Telnyx purchase failed: ${err}` }, 502);
   }
 
