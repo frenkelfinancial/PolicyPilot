@@ -11,6 +11,7 @@
     "test:ai": "node --test \"supabase/functions/_shared/ai-minute-billing.test.ts\" \"supabase/functions/_shared/ai-call-billing.test.ts\"",
     "test:compliance": "node --test \"supabase/functions/_shared/compliance-page.test.ts\"",
     "test:a2p": "node --test \"supabase/functions/_shared/a2p-registration.test.ts\"",
+    "test:leadtransfer": "node --test \"supabase/functions/_shared/lead-transfer.test.ts\"",
     "prebuild": "node scripts/prebuild.js",
     "build": "npx cap sync",
     "cap:sync": "npm run prebuild && npx cap sync",

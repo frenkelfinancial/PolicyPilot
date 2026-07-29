@@ -4706,6 +4706,9 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
         <div class="js-desktop-only-dialer" style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
         <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="3" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/><rect x="7.5" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
+        <!-- Agency lead distribution — hidden entirely unless the agent has agency peers (see updateBulkBar) -->
+        <div style="width:1px;height:22px;background:var(--border);display:none" id="lead-send-to-sep"></div>
+        <button class="btn btn-sm" id="lead-send-to-btn" style="display:none;background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);align-items:center;gap:6px" onclick="openSendLeadsTo()"><span data-ico="paper-plane-right" data-size="14"></span>Send leads to</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm" style="background:var(--lg-card);border:1px solid var(--lg-red-border);color:var(--lg-red);display:inline-flex;align-items:center;gap:6px" onclick="bulkDelete()"><span data-ico="trash" data-size="14"></span>Delete Selected</button>
         <button class="btn btn-s btn-sm" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px" onclick="clearBulkSelection()"><span data-ico="x" data-size="14"></span>Clear Selection</button>
@@ -5612,6 +5615,61 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
   </div>
 </div>
 <!-- /support-widget -->
+
+<!-- ═══ SEND LEADS — pick a recipient (entry point A: Leads tab bulk bar) ═══ -->
+<div class="overlay" id="sendLeadsToModal" onclick="if(event.target===this)closeSendLeadsTo()">
+  <div class="modal pb-modal" style="max-width:480px">
+    <div class="mhdr">
+      <div class="mtitle">Send leads to</div>
+      <button class="mclose" onclick="closeSendLeadsTo()" data-ico="x" data-size="14"></button>
+    </div>
+    <div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:14px" id="slt-sub"></div>
+    <input type="text" id="slt-search" placeholder="Search your agency…" autocomplete="off"
+      oninput="sltRenderMembers()"
+      style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;outline:none;margin-bottom:12px;display:none">
+    <div id="slt-member-list" style="max-height:320px;overflow-y:auto;margin:0 -4px;padding:0 4px"></div>
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+      Transferred leads move out of your book into theirs. Text-message consent does not transfer &mdash; the
+      recipient has to collect their own opt-in before texting.
+    </div>
+    <div class="flex gap8" style="justify-content:flex-end;margin-top:14px">
+      <button class="btn btn-s btn-sm" onclick="closeSendLeadsTo()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ SEND LEADS — pick the leads (entry point B: Agency agent profile) ═══ -->
+<div class="overlay" id="agLeadPickerModal" onclick="if(event.target===this)closeAgLeadPicker()">
+  <div class="modal pb-modal modal-wide" style="max-width:900px">
+    <div class="mhdr">
+      <div class="mtitle" id="alp-title">Send Leads</div>
+      <button class="mclose" onclick="closeAgLeadPicker()" data-ico="x" data-size="14"></button>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <input type="text" id="alp-search" placeholder="Search name, phone, email…" autocomplete="off" oninput="alpRender()"
+        style="flex:2;min-width:180px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;outline:none">
+      <select id="alp-status" onchange="alpRender()" style="flex:1;min-width:130px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;outline:none"></select>
+      <select id="alp-source" onchange="alpRender()" style="flex:1;min-width:130px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;outline:none"></select>
+      <select id="alp-state" onchange="alpRender()" style="flex:1;min-width:110px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg2);color:var(--text);font-size:13px;outline:none"></select>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:10px">
+      <span style="font-size:12.5px;color:var(--text2)" id="alp-count-lbl">0 selected</span>
+      <button class="btn btn-s btn-sm" onclick="alpSelectAllFiltered()">Select all (filtered)</button>
+      <button class="btn btn-s btn-sm" onclick="alpClear()">Clear</button>
+      <span style="margin-left:auto;font-size:11.5px;color:var(--text3)" id="alp-filtered-lbl"></span>
+    </div>
+    <div id="alp-list" style="max-height:46vh;overflow-y:auto;border:1px solid var(--border);border-radius:8px"></div>
+    <div id="alp-pager" style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px"></div>
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      Leads move out of your book. Duplicates already in their book are skipped automatically. Text-message
+      consent does not transfer.
+    </div>
+    <div class="flex gap8" style="justify-content:flex-end;margin-top:12px">
+      <button class="btn btn-s btn-sm" onclick="closeAgLeadPicker()">Cancel</button>
+      <button class="btn btn-p btn-sm" id="alp-send-btn" onclick="alpSend()" disabled>Send Leads</button>
+    </div>
+  </div>
+</div>
 
 <!-- PHONE BOOK — BUY NUMBER MODAL -->
 <div class="overlay" id="pbBuyModal">
@@ -14515,6 +14573,10 @@ function renderLeads() {
       lead.military_branch   && `<div class="lead-meta-chip"><div class="lbl">Mil. Branch</div><div class="val">${escapeHTML(lead.military_branch)}</div></div>`,
       lead.beneficiary       && `<div class="lead-meta-chip"><div class="lbl">Beneficiary</div><div class="val" title="${escapeHTML(lead.beneficiary)}">${escapeHTML(lead.beneficiary)}</div></div>`,
       lead.coverage_wanted   && `<div class="lead-meta-chip"><div class="lbl">Coverage Wanted</div><div class="val">${escapeHTML(lead.coverage_wanted)}</div></div>`,
+      // Provenance for a lead handed over by an agency colleague (transfer-leads).
+      // Text consent does NOT come with it — leadTextingState() will read
+      // needs_optin for the recipient because consent_records is per-agent.
+      lead.receivedFrom      && `<div class="lead-meta-chip wide"><div class="lbl">Received from</div><div class="val" title="Transferred to you${lead.receivedAt ? ' on ' + escapeHTML(new Date(lead.receivedAt).toLocaleDateString()) : ''}">${escapeHTML(lead.receivedFrom)}</div></div>`,
       ...((lead.customFields||lead.custom_fields)||[]).map(cf => `<div class="lead-meta-chip"><div class="lbl">${escapeHTML(cf.label)}</div><div class="val">${escapeHTML(cf.value)}</div></div>`),
     ].filter(Boolean).join('');
     const metaHTML = metaChips ? `<div class="lead-row-meta">${metaChips}</div>` : '';
@@ -14540,6 +14602,9 @@ function renderLeads() {
       'sale_amount','commission',  // handled as fixed items above
       'call_count','quote',
       'customFields','custom_fields',
+      // Transfer provenance — rendered as its own meta chip above, and the
+      // raw id/timestamp are plumbing the agent should never be shown.
+      'receivedFrom','receivedFromId','receivedAt',
     ]);
     const allFields = [
       {lbl:'Received on', val:receivedStr||new Date().toLocaleDateString('en-US'), key:null},
@@ -16309,6 +16374,8 @@ function updateBulkBar() {
   } else {
     bar.classList.remove('visible');
   }
+  // "Send leads to" only exists for agents who are actually in an agency.
+  if (typeof syncSendLeadsControl === 'function') syncSendLeadsControl();
   syncBulkBarFloat();
 }
 
@@ -22032,7 +22099,10 @@ async function _agRenderLeaderView(root) {
       const ap = (s.total_ap || 0);
       const apFmt = ap >= 1000 ? '$' + (ap/1000).toFixed(1) + 'k' : '$' + Math.round(ap);
       const planBadge = s.agent_plan ? `<span class="ag-agent-plan">${escapeHTML(s.agent_plan)}</span>` : '';
-      h += `<div class="ag-agent-card">
+      // Whole card opens the agent's profile (where "Send Leads" lives). The
+      // Remove button stops propagation so it can't be hit by accident.
+      h += `<div class="ag-agent-card" style="cursor:pointer" title="Open ${escapeHTML(s.agent_name || inv.invitee_email)}"
+             onclick="agOpenAgentProfile('${escapeHTML(inv.invitee_id || '')}')">
         <div class="ag-agent-avatar">${escapeHTML(initials)}</div>
         <div class="ag-agent-info">
           <div class="ag-agent-name">${escapeHTML(s.agent_name || inv.invitee_email)}</div>
@@ -22045,7 +22115,7 @@ async function _agRenderLeaderView(root) {
           <div class="ag-stat"><div class="ag-stat-val">${(s.call_count||0).toLocaleString()}</div><div class="ag-stat-lbl">Dials</div></div>
           <div class="ag-stat"><div class="ag-stat-val">${(s.lead_count||0).toLocaleString()}</div><div class="ag-stat-lbl">Leads</div></div>
         </div>
-        <button class="btn btn-s btn-sm" onclick="agRemoveConnection('${inv.id}')"
+        <button class="btn btn-s btn-sm" onclick="event.stopPropagation();agRemoveConnection('${inv.id}')"
           style="margin-left:4px;color:var(--ds-color-danger)">Remove</button>
       </div>`;
     });
@@ -22317,6 +22387,409 @@ async function agRevokeAccess(id) {
   } catch (e) { showToast('Failed: ' + e.message, '#dc2626'); return; }
   showToast('Access revoked', '#10b981');
   await renderAgencySection();
+}
+
+// ============================================================
+// LEAD DISTRIBUTION — "Send Leads" between agency members
+//
+// Two entry points, one transport:
+//   A. Leads tab -> select leads -> "Send leads to" -> pick a colleague
+//   B. Agency tab -> click a connected agent -> "Send Leads" -> pick leads
+//
+// Both call transferLeadsTo(), which posts to the `transfer-leads` edge
+// function. The browser NEVER writes another agent's leads — it cannot:
+// there is no RLS policy that would allow it, and adding one is exactly
+// what the design refuses. The function re-derives the agency link from
+// the caller's JWT before it touches a row.
+//
+// Membership comes from get_agency_members() (20260737), which mirrors the
+// server's authorization rule. If the RPC is missing or returns nothing,
+// every surface in here stays hidden — an agent with no agency never sees
+// that this feature exists.
+// ============================================================
+
+const TRANSFER_MAX_PER_REQUEST = 250;   // mirrors _shared/lead-transfer.ts
+
+let _agencyMembers = null;    // null = never loaded; [] = loaded, none
+
+/** Loads (and caches) the caller's agency peers. Never throws. */
+async function loadAgencyMembers(force) {
+  if (_agencyMembers !== null && !force) return _agencyMembers;
+  if (typeof sb === 'undefined' || !sb || !currentAgent) { _agencyMembers = []; return _agencyMembers; }
+  try {
+    const { data, error } = await sb.rpc('get_agency_members');
+    if (error) {
+      // PGRST202 = migration not applied yet. Stay silent and stay hidden.
+      if (error.code !== 'PGRST202') console.warn('[leads] agency members', error.message);
+      _agencyMembers = [];
+    } else {
+      _agencyMembers = Array.isArray(data) ? data : [];
+    }
+  } catch (e) {
+    console.warn('[leads] agency members', e);
+    _agencyMembers = [];
+  }
+  return _agencyMembers;
+}
+
+function hasAgencyMembers() {
+  return Array.isArray(_agencyMembers) && _agencyMembers.length > 0;
+}
+
+/** Shows/hides the bulk-bar "Send leads to" control. Called from updateBulkBar(). */
+function syncSendLeadsControl() {
+  const btn = document.getElementById('lead-send-to-btn');
+  const sep = document.getElementById('lead-send-to-sep');
+  const show = hasAgencyMembers() && selectedLeadIds.size > 0;
+  if (btn) btn.style.display = show ? 'inline-flex' : 'none';
+  if (sep) sep.style.display = show ? 'block' : 'none';
+}
+
+// ------------------------------------------------------------
+// The one transport both entry points use.
+// ------------------------------------------------------------
+
+/**
+ * Posts a transfer and reconciles local state.
+ *
+ * On success the moved leads are removed from the local `leads` array
+ * BEFORE anything else can run. That ordering is load-bearing: saveLeads()
+ * upserts the whole local array under the current agent, so a lead left in
+ * the array after it has been handed over would be re-created in the
+ * sender's book on the next save — resurrecting a transferred lead.
+ */
+async function transferLeadsTo(recipientId, clientIds, recipientName) {
+  const ids = (clientIds || []).map(String).filter(Boolean);
+  if (!recipientId || !ids.length) return null;
+
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showToast('Please sign in again', '#dc2626'); return null; }
+
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/transfer-leads`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ recipient_id: recipientId, lead_client_ids: ids }),
+    });
+    const result = await resp.json().catch(() => ({}));
+
+    if (!resp.ok) {
+      showToast(result.detail || result.error || 'Transfer failed', '#dc2626');
+      return null;
+    }
+
+    // Reconcile locally, immediately.
+    const movedFrom = new Set((result.moved || []).map(m => String(m.from)));
+    if (movedFrom.size) {
+      leads = leads.filter(l => !movedFrom.has(String(l.id)));
+      movedFrom.forEach(id => selectedLeadIds.delete(id));
+      saveLeads();
+      renderLeads();
+    }
+
+    const who = recipientName ? ` to ${recipientName}` : '';
+    const sent = result.sent || 0;
+    showToast(
+      (result.summary || `${sent} sent`) + who,
+      sent > 0 ? '#10b981' : '#f59e0b'
+    );
+    return result;
+  } catch (e) {
+    showToast('Transfer failed: ' + (e.message || e), '#dc2626');
+    return null;
+  }
+}
+
+// ------------------------------------------------------------
+// Entry point A — Leads tab bulk bar -> pick a recipient
+// ------------------------------------------------------------
+
+async function openSendLeadsTo() {
+  const n = selectedLeadIds.size;
+  if (!n) { showToast('Select at least one lead first', '#f59e0b'); return; }
+  await loadAgencyMembers();
+  if (!hasAgencyMembers()) {
+    showToast('Nobody in your agency to send leads to yet', '#f59e0b');
+    return;
+  }
+  const sub = document.getElementById('slt-sub');
+  if (sub) {
+    const capped = n > TRANSFER_MAX_PER_REQUEST;
+    sub.innerHTML = `Sending <strong>${n}</strong> selected lead${n !== 1 ? 's' : ''}. Pick who gets them.` +
+      (capped ? ` <span style="color:#f59e0b">Only the first ${TRANSFER_MAX_PER_REQUEST} will be sent — send the rest in a second batch.</span>` : '');
+  }
+  const search = document.getElementById('slt-search');
+  if (search) {
+    search.value = '';
+    search.style.display = _agencyMembers.length > 6 ? '' : 'none';
+  }
+  sltRenderMembers();
+  const m = document.getElementById('sendLeadsToModal');
+  if (m) m.classList.add('open');
+}
+
+function closeSendLeadsTo() {
+  const m = document.getElementById('sendLeadsToModal');
+  if (m) m.classList.remove('open');
+}
+
+function sltRenderMembers() {
+  const list = document.getElementById('slt-member-list');
+  if (!list) return;
+  const q = (document.getElementById('slt-search')?.value || '').trim().toLowerCase();
+  const rows = (_agencyMembers || []).filter(m => !q ||
+    (m.agent_name || '').toLowerCase().includes(q) ||
+    (m.agent_email || '').toLowerCase().includes(q));
+
+  if (!rows.length) {
+    list.innerHTML = `<div style="padding:22px 4px;text-align:center;font-size:12.5px;color:var(--text3)">No agency members match “${escapeHTML(q)}”.</div>`;
+    return;
+  }
+
+  const relLabel = { upline: 'Your leader', downline: 'Your downline', sibling: 'Teammate' };
+  list.innerHTML = rows.map(m => {
+    const initials = (m.agent_name || m.agent_email || '?').slice(0, 2).toUpperCase();
+    return `<div class="slt-member" onclick="sltPick('${escapeHTML(m.agent_id)}')"
+      style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:border-color .14s"
+      onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#6366f1);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${escapeHTML(initials)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(m.agent_name || m.agent_email)}</div>
+        <div style="font-size:11.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(m.agent_email || '')}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">${escapeHTML(relLabel[m.relationship] || 'Agency')}</div>
+        ${m.agent_plan ? `<div style="font-size:11px;color:var(--text2);margin-top:2px">${escapeHTML(m.agent_plan)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function sltPick(recipientId) {
+  const member = (_agencyMembers || []).find(m => m.agent_id === recipientId);
+  if (!member) return;
+  const ids = [...selectedLeadIds].slice(0, TRANSFER_MAX_PER_REQUEST);
+  const name = member.agent_name || member.agent_email || 'them';
+  if (!window.confirm(
+    `Send ${ids.length} lead${ids.length !== 1 ? 's' : ''} to ${name}?\n\n` +
+    `They move out of your book into theirs. Text-message consent does not transfer.`
+  )) return;
+  closeSendLeadsTo();
+  await transferLeadsTo(recipientId, ids, name);
+}
+
+// ------------------------------------------------------------
+// Entry point B — Agency tab -> agent profile -> pick leads
+// ------------------------------------------------------------
+
+let _alp = { recipientId: null, recipientName: '', selected: new Set(), page: 1, perPage: 50 };
+
+/** Opens the connected-agent profile view inside the Agency tab. */
+async function agOpenAgentProfile(agentId) {
+  await loadAgencyMembers();
+  const member = (_agencyMembers || []).find(m => m.agent_id === agentId);
+  const root = document.getElementById('ag-root');
+  if (!root || !member) return;
+
+  let stats = {};
+  try {
+    const { data } = await sb.rpc('get_agency_stats', { p_leader_id: currentAgent.id });
+    (data || []).forEach(r => { if (r.agent_id === agentId) stats = r; });
+  } catch (_e) {}
+
+  const initials = (member.agent_name || member.agent_email || '?').slice(0, 2).toUpperCase();
+  const ap = Number(stats.total_ap || 0);
+  const apFmt = ap >= 1000 ? '$' + (ap / 1000).toFixed(1) + 'k' : '$' + Math.round(ap);
+  const relLabel = { upline: 'Your leader', downline: 'Your downline', sibling: 'Teammate' };
+
+  root.innerHTML = `
+    <button class="btn btn-s btn-sm" onclick="renderAgencySection()" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:18px">
+      <span data-ico="arrow-left" data-size="13"></span>Back to Agency
+    </button>
+    <div class="card" style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div class="ag-agent-avatar" style="width:52px;height:52px;font-size:18px">${escapeHTML(initials)}</div>
+        <div style="flex:1;min-width:180px">
+          <div style="font-size:19px;font-weight:600;color:var(--text)">${escapeHTML(member.agent_name || member.agent_email)}</div>
+          <div style="font-size:12.5px;color:var(--text2);margin-top:2px">${escapeHTML(member.agent_email || '')}</div>
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-top:6px">
+            ${escapeHTML(relLabel[member.relationship] || 'Agency')}${member.agent_plan ? ' · ' + escapeHTML(member.agent_plan) : ''}
+          </div>
+        </div>
+        <button class="btn btn-p btn-sm" onclick="openAgLeadPicker('${escapeHTML(member.agent_id)}')" style="display:inline-flex;align-items:center;gap:7px">
+          <span data-ico="paper-plane-right" data-size="14"></span>Send Leads
+        </button>
+      </div>
+    </div>
+    ${Object.keys(stats).length ? `
+    <div class="ag-agent-card" style="cursor:default">
+      <div class="ag-stats" style="width:100%">
+        <div class="ag-stat"><div class="ag-stat-val">${(stats.policy_count || 0).toLocaleString()}</div><div class="ag-stat-lbl">Policies</div></div>
+        <div class="ag-stat"><div class="ag-stat-val">${apFmt}</div><div class="ag-stat-lbl">Prem AP</div></div>
+        <div class="ag-stat"><div class="ag-stat-val">${(stats.call_count || 0).toLocaleString()}</div><div class="ag-stat-lbl">Dials</div></div>
+        <div class="ag-stat"><div class="ag-stat-val">${(stats.lead_count || 0).toLocaleString()}</div><div class="ag-stat-lbl">Leads</div></div>
+      </div>
+    </div>` : ''}
+    <div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-top:14px">
+      Production totals only &mdash; no client names, policy details, or commission amounts.
+    </div>`;
+  if (typeof mountIcons === 'function') mountIcons(root);
+}
+
+async function openAgLeadPicker(recipientId) {
+  await loadAgencyMembers();
+  const member = (_agencyMembers || []).find(m => m.agent_id === recipientId);
+  if (!member) { showToast('That agent is no longer in your agency', '#dc2626'); return; }
+
+  _alp = {
+    recipientId,
+    recipientName: member.agent_name || member.agent_email || 'them',
+    selected: new Set(), page: 1, perPage: 50,
+  };
+
+  const title = document.getElementById('alp-title');
+  if (title) title.textContent = `Send Leads to ${_alp.recipientName}`;
+
+  // Same filter vocabulary as the Leads tab.
+  const statusSel = document.getElementById('alp-status');
+  if (statusSel) {
+    statusSel.innerHTML = '<option value="">All statuses</option>' +
+      Object.entries(STATUS_CONFIG).map(([k, c]) => `<option value="${k}">${escapeHTML(c.label)}</option>`).join('');
+  }
+  const sourceSel = document.getElementById('alp-source');
+  if (sourceSel) {
+    const sources = [...new Set(leads.map(l => l.source).filter(Boolean))].sort();
+    sourceSel.innerHTML = '<option value="">All sources</option>' +
+      sources.map(s => `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join('');
+  }
+  const stateSel = document.getElementById('alp-state');
+  if (stateSel) {
+    const states = [...new Set(leads.map(l => (l.state || '').toUpperCase()).filter(Boolean))].sort();
+    stateSel.innerHTML = '<option value="">All states</option>' +
+      states.map(s => `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join('');
+  }
+  const search = document.getElementById('alp-search');
+  if (search) search.value = '';
+
+  alpRender();
+  const m = document.getElementById('agLeadPickerModal');
+  if (m) m.classList.add('open');
+}
+
+function closeAgLeadPicker() {
+  const m = document.getElementById('agLeadPickerModal');
+  if (m) m.classList.remove('open');
+}
+
+/** The picker's own filter pass — same fields the Leads tab filters on. */
+function alpFiltered() {
+  const q = (document.getElementById('alp-search')?.value || '').trim().toLowerCase();
+  const status = document.getElementById('alp-status')?.value || '';
+  const source = document.getElementById('alp-source')?.value || '';
+  const state = document.getElementById('alp-state')?.value || '';
+  return leads.filter(l => {
+    const matchQ = !q ||
+      (l.name || '').toLowerCase().includes(q) ||
+      (l.phone || '').includes(q) ||
+      (l.email || '').toLowerCase().includes(q) ||
+      (l.city || '').toLowerCase().includes(q);
+    const matchStatus = !status || (l.status || 'new') === status;
+    const matchSource = !source || (l.source || '') === source;
+    const matchState = !state || (l.state || '').toUpperCase() === state;
+    return matchQ && matchStatus && matchSource && matchState;
+  });
+}
+
+function alpRender() {
+  const list = document.getElementById('alp-list');
+  if (!list) return;
+  const rows = alpFiltered();
+  const totalPages = Math.max(1, Math.ceil(rows.length / _alp.perPage));
+  if (_alp.page > totalPages) _alp.page = totalPages;
+  const start = (_alp.page - 1) * _alp.perPage;
+  const page = rows.slice(start, start + _alp.perPage);
+
+  if (!rows.length) {
+    list.innerHTML = `<div style="padding:30px;text-align:center;font-size:12.5px;color:var(--text3)">No leads match these filters.</div>`;
+  } else {
+    list.innerHTML = page.map(l => {
+      const id = String(l.id);
+      const checked = _alp.selected.has(id) ? 'checked' : '';
+      const st = STATUS_CONFIG[l.status || 'new'] || STATUS_CONFIG.new;
+      return `<label style="display:flex;align-items:center;gap:11px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer">
+        <input type="checkbox" class="lead-check" ${checked} onchange="alpToggle('${escapeHTML(id)}',this.checked)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(l.name || 'Unnamed lead')}</div>
+          <div style="font-size:11.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(formatPhone(l.phone) || l.email || '—')}${l.state ? ' · ' + escapeHTML(String(l.state).toUpperCase()) : ''}${l.source ? ' · ' + escapeHTML(l.source) : ''}</div>
+        </div>
+        <span style="flex-shrink:0;font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:6px;color:${st.color};background:${st.bg}">${escapeHTML(st.label)}</span>
+      </label>`;
+    }).join('');
+  }
+
+  const pager = document.getElementById('alp-pager');
+  if (pager) {
+    pager.innerHTML = totalPages > 1 ? `
+      <button class="btn btn-s btn-sm" ${_alp.page <= 1 ? 'disabled' : ''} onclick="alpPage(${_alp.page - 1})">Prev</button>
+      <span style="font-size:12px;color:var(--text3)">Page ${_alp.page} / ${totalPages}</span>
+      <button class="btn btn-s btn-sm" ${_alp.page >= totalPages ? 'disabled' : ''} onclick="alpPage(${_alp.page + 1})">Next</button>` : '';
+  }
+
+  const filteredLbl = document.getElementById('alp-filtered-lbl');
+  if (filteredLbl) filteredLbl.textContent = `${rows.length} lead${rows.length !== 1 ? 's' : ''} match`;
+  alpSyncCount();
+}
+
+function alpPage(n) { _alp.page = Math.max(1, n); alpRender(); }
+
+function alpToggle(id, on) {
+  if (on) _alp.selected.add(String(id)); else _alp.selected.delete(String(id));
+  alpSyncCount();
+}
+
+function alpSelectAllFiltered() {
+  alpFiltered().forEach(l => _alp.selected.add(String(l.id)));
+  alpRender();
+}
+
+function alpClear() { _alp.selected.clear(); alpRender(); }
+
+function alpSyncCount() {
+  const n = _alp.selected.size;
+  const lbl = document.getElementById('alp-count-lbl');
+  if (lbl) lbl.textContent = `${n} selected`;
+  const btn = document.getElementById('alp-send-btn');
+  if (btn) {
+    const capped = Math.min(n, TRANSFER_MAX_PER_REQUEST);
+    btn.disabled = n === 0;
+    btn.textContent = n === 0 ? 'Send Leads'
+      : `Send ${capped} Lead${capped !== 1 ? 's' : ''}${n > TRANSFER_MAX_PER_REQUEST ? ` (of ${n})` : ''}`;
+  }
+}
+
+async function alpSend() {
+  const ids = [..._alp.selected].slice(0, TRANSFER_MAX_PER_REQUEST);
+  if (!ids.length) return;
+  const name = _alp.recipientName;
+  if (!window.confirm(
+    `Send ${ids.length} lead${ids.length !== 1 ? 's' : ''} to ${name}?\n\n` +
+    `They move out of your book into theirs. Text-message consent does not transfer.`
+  )) return;
+
+  const btn = document.getElementById('alp-send-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  const result = await transferLeadsTo(_alp.recipientId, ids, name);
+  if (btn) btn.disabled = false;
+
+  if (result) {
+    closeAgLeadPicker();
+  } else {
+    alpSyncCount();
+  }
 }
 
 // ============================================================
@@ -25696,6 +26169,11 @@ async function bootDashboard() {
     // correcting themselves — the flash reads as "you can text them", which
     // is the one thing the button must never say when it isn't true.
     if (typeof smsLoadLeadConsent === 'function') await smsLoadLeadConsent();
+
+    // Agency peers, for the "Send leads to" control. Awaited for the same
+    // reason as the consent load: the bulk bar decides whether the control
+    // exists at all, and an agent with no agency must never see it flicker in.
+    if (typeof loadAgencyMembers === 'function') await loadAgencyMembers();
 
     // Re-render with fresh remote data.
     renderPolicies();

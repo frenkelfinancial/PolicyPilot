@@ -692,3 +692,86 @@ There is no non-admin Team Leader account in production, and
 *leader-writes-a-valid-code* branch was exercised only through the admin
 carve-out. The non-leader block (the security-relevant half) is verified
 directly.
+
+---
+
+## Apply 2026-07-28 — `20260737_lead_transfers.sql`
+
+Lead distribution between agency members. Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Additive only: one `CREATE TABLE IF NOT EXISTS`, three
+`CREATE INDEX IF NOT EXISTS`, one `ALTER TABLE … ENABLE ROW LEVEL SECURITY`,
+one policy, one `CREATE OR REPLACE FUNCTION`. No `DROP`, no data change,
+nothing in `auth.*` or `storage.*`. Re-running is a no-op.
+
+Feature doc: `docs/lead-distribution.md`.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `lead_transfers` table | absent |
+| `get_agency_members()` | absent |
+| `public.leads` rows | 1,329 |
+| `agency_invites` rows | 0 |
+
+### What was added
+
+- **`public.lead_transfers`** — append-only audit of every handoff: lead id,
+  sender, recipient, both `client_id`s, and denormalized name/phone snapshots.
+  `lead_id` is `ON DELETE SET NULL`, not `CASCADE`: deleting a lead must not
+  erase the record that it was handed over.
+- **RLS: SELECT-only, both parties** (`sender_id = auth.uid() OR
+  recipient_id = auth.uid()`), and **no INSERT/UPDATE/DELETE policy at all** —
+  RLS-enabled-with-no-write-policy is how "service-role only" is expressed,
+  same as `reputation_config`.
+- **`public.get_agency_members()`** — the caller's agency peers (upline /
+  downline / sibling) with name, email, plan. No parameter, anchored solely on
+  `auth.uid()`, so there is nothing to tamper with. It exists because a
+  downline agent *cannot* enumerate their own siblings from the browser:
+  `agency_invites` RLS is `leader_id = auth.uid() OR invitee_email =
+  auth.email()`, which does not cover "other invitees of my leader".
+
+### Deliberately NOT added
+
+**No RLS policy letting one agent write another agent's leads.** A transfer
+sets `leads.agent_id` to somebody else, and the only PostgREST policy that
+could permit that from the browser is broad enough to permit every write this
+schema defends against. The move runs in the `transfer-leads` edge function
+under the service role, which re-derives the agency link from the caller's JWT
+and re-asserts ownership in the `WHERE` clause of the update itself.
+
+### Post-apply verification — behavioural
+
+Table, 9 columns, 3 indexes, `relrowsecurity = true`, one `r` (SELECT) policy,
+and `get_agency_members()` callable (returns 0 rows — production has no
+accepted invites yet).
+
+Then a full transfer was exercised against a **real** lead inside a transaction
+terminated by `RAISE EXCEPTION`:
+
+| Check | Result |
+|---|---|
+| lead moves to the recipient / leaves the sender | pass |
+| `consent_records` row still belongs to the SENDER | pass — not re-attributed |
+| recipient has **no** consent row for that phone | pass — renders `needs_optin` |
+| `tcpa_consent` / `_source` / `_at` reset on the moved lead | pass |
+| `dnc_list` rows for that phone | unchanged — the transfer writes none |
+| audit row written, provenance stamped | pass |
+| re-running the same transfer touches 0 rows | pass — idempotent |
+
+Rollback re-confirmed afterwards: `agency_invites` 0, `lead_transfers` 0,
+fixture consent rows 0, `leads` 1,329 with the test lead still owned by its
+original agent.
+
+### Edge function
+
+`transfer-leads` deployed **individually** (never a batch — see the header of
+`supabase/config.toml`), `verify_jwt = true`, version 1, ACTIVE. Diffed the
+whole fleet before and after: 69 → 70 functions, the 16 `verify_jwt = false`
+functions are the same 16, none flipped. `config.toml` and live state agree
+16/16 in both directions, so there is no function that a future deploy would
+silently take dark.
+
+Confirmed live: no `Authorization` header → our `401 unauthorized`; a malformed
+bearer → platform `UNAUTHORIZED_INVALID_JWT_FORMAT` before our code runs.
