@@ -187,6 +187,14 @@ to consent and the row got written. **That is no longer the primary path.**
 
 ## 🔴 The campaign rejection, and what replaced the attestation
 
+> ✅ **All three review items are now closed and `CD2166Q` reads
+> `campaignStatus: TCR_ACCEPTED`** (2026-07-29). The `a2p_registrations` row
+> that the send gate needs now exists and polls as `approved`. **Texting is
+> still off**, because no number is `sms_capable` yet — see
+> `docs/a2p-campaign-draft.md` § "What still blocks an actual text". The
+> history below is why the opt-in page exists and is still the reason the
+> attestation path is second.
+
 **The 10DLC campaign was rejected.** Carrier review would not accept the lead
 vendor's "…and its licensed agents" language as opt-in evidence for a campaign
 sending as Frenkel Financial Agency. The vendor will not change their form.
@@ -249,6 +257,13 @@ behind a sentence explaining that a vendor form naming partners generally is
 what carrier review already rejected. `messaging-consent-record` labels its
 rows `consent_method = 'agent_attested'` so the two grades are distinguishable
 forever after.
+
+**"Where did they agree?" is a free-text field, not a dropdown** (changed
+2026-07-29). It used to be pre-filled from `agents.lead_vendors`, which held
+company names. That column holds lead *source categories* now, and a category
+is not an answer to this question — "third-party lead vendors" is not a
+document anyone can produce. The agent names the actual record they hold,
+which is the only thing worth storing in `consent_records.source`.
 
 ### What `messaging-consent-record` still does
 

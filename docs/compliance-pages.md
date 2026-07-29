@@ -482,36 +482,53 @@ recorded in the field-name block at the top of
 > route described in the table above is not just the intended one, it is the
 > observed one. See `docs/telnyx-10dlc-brands.md`.
 
-## Lead vendors
+## Lead sources — by category, never by company name
 
-> 🔴 **The vendor list in this repo is the wrong company.** `LEAD_VENDORS`
-> says GoatLeads and Built Leads. The carrier's review file for campaign
-> `CD2166Q`, and the live campaign's `messageFlow`, both say **The Veteran
-> Resource Center** (`theveteranresourcecenter.com/vrc-v4`). Decided
-> 2026-07-28 that GoatLeads/Built Leads were wrong and are being removed;
-> **not yet applied in code.** Everything below still describes the mechanism
-> correctly — only the names are wrong. See
-> `docs/a2p-campaign-draft.md` § "The vendor in this repo is the wrong
-> company" for the file list.
+> ✅ **Applied 2026-07-29.** `LEAD_VENDORS` is gone. No lead company is named
+> on any carrier-facing surface, and two unit tests sweep every rendered page
+> and the campaign description to keep it that way.
 
-`supabase/functions/_shared/lead-vendors.ts` holds the vendor list and builds
-the campaign opt-in workflow description. One well-written description is
-reused for every agent, with only the vendor and agency name substituted, so
-it has to survive carrier review once rather than once per agent.
+`supabase/functions/_shared/lead-vendors.ts` holds `LEAD_SOURCE_CATEGORIES`
+and builds the campaign opt-in workflow description. One well-written
+description is reused for every agent with only the agency name substituted,
+so it has to survive carrier review once rather than once per agent.
 
-The privacy policy's "Where your information comes from" section and the
-campaign opt-in description both read from this file. **They must always name
-the same vendors** — a reviewer comparing the two and finding a mismatch is the
-fastest route to a rejection.
+| Key (stored in `agents.lead_vendors[]`) | Renders as |
+|---|---|
+| `lead_partners` | a web form operated by a third-party lead generation company |
+| `own_forms` | a form on our own website or landing pages |
+| `referrals` | a referral from a client or business partner |
 
-Each vendor has a `disclosure` field, currently `null`. When we obtain a
-vendor's exact on-form consent wording (screenshot or TrustedForm certificate
-replay), paste it in verbatim. Do not fill it with an approximation.
+### Why no names
 
-> **It is no longer the SMS consent basis.** Until 2026-07-28 the campaign
-> description quoted the vendor disclosure, on the theory that quoting their
-> real language beat paraphrasing it. Carrier review rejected that entire
-> premise: a vendor form naming "licensed agents" generally is not opt-in
-> evidence for a named sender, however exactly we quote it. The description
-> now describes the hosted opt-in page instead, and filling `disclosure` in
-> improves the privacy policy's provenance story and nothing else.
+1. **Naming a lead company in an SMS-consent document points the reviewer at
+   that company's disclosure**, which is exactly the document carrier review
+   item 1 refused ("the live opt-in disclosure and SMS Terms are for [the lead
+   company] and its licensed agents, while this campaign sends as Frenkel
+   Financial Agency").
+2. **The names this repo carried were the wrong companies** — neither appears
+   anywhere on the carrier side.
+3. **It does not scale and it decays.** Every agent buys from someone
+   different and they switch suppliers; a company name on a published
+   compliance page is wrong the day that happens.
+
+The privacy policy says on the page why it lists no companies, and tells the
+consumer to ask if they want to know exactly where their information came
+from. That is a better answer than a list that is out of date.
+
+### Rules
+
+- **`resolveLeadSourceLabels()` is a strict whitelist.** Unknown keys are
+  dropped — including the retired `goatleads`/`builtleads` and the withdrawn
+  `other:<free text>` path. A row still holding legacy values renders the
+  generic fallback, never a stale company name, which is why the data
+  migration (`20260734_lead_source_categories.sql`) was safe to run after the
+  code rather than before it.
+- **There is deliberately no free-text path.** A box an agent can type into is
+  a box a company name ends up in.
+- **`buildOptinDescription()` takes no lead-source argument at all.** It was
+  removed rather than left unused, so a name cannot be reintroduced without a
+  signature change somebody has to mean.
+- The Settings checkbox IDs in `app.html` are `stg-lv-<key>`; a key renamed in
+  one place and not the other silently stops resolving. A unit test pins the
+  key list.

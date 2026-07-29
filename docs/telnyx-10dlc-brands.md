@@ -70,8 +70,40 @@ deliberately, not as part of routine dev testing.
   a campaign can carry it while still being `ACTIVE`.** `GET
   /v2/10dlc/campaign?brandId=<id>` returns `{records:[…]}`; each record has
   `status`, `tcrCampaignId`, `billedDate` and `failureReasons[].description`.
-  Do not read `status: ACTIVE` as "no problems" — `CD2166Q` is `ACTIVE` with
+  Do not read `status: ACTIVE` as "no problems" — `CD2166Q` was `ACTIVE` with
   three unresolved review items. Read `failureReasons` explicitly.
+- **🔴 A campaign has THREE status fields and only one of them is the review
+  status.** Observed on `CD2166Q`, 2026-07-29:
+  `status: ACTIVE` (lifecycle/billing) while `campaignStatus: TELNYX_FAILED`
+  (Telnyx's own vetting had failed) and `submissionStatus: CREATED`. The
+  adapter reads `campaignStatus`, which is correct; anything reading `status`
+  would have called a failed campaign healthy. `isTMobileRegistered` is a
+  fourth, separate fact — it was `false` throughout and still is.
+- **`failureReasons` is NOT cleared when the objection is resolved.** After the
+  update that moved `campaignStatus` to `TCR_ACCEPTED`, the original
+  three-item text was still on the record verbatim. Treat it as history and
+  read `campaignStatus` for state.
+- **Campaign update is `PUT /v2/10dlc/campaign/{id}`; `PATCH` returns 404**
+  (`10005 Resource not found`) — the same asymmetry as the brand endpoint, and
+  verified live 2026-07-29 on a real production campaign. `PUT` replaces, so
+  use the brand procedure: `GET`, echo back every set field except the
+  server-managed ones, change one thing, `PUT`, diff before/after. **It is
+  free** — `billedDate`, `nextRenewalOrExpirationDate` and `autoRenewal` did
+  not move, and no wallet debit occurred. Server-managed fields to omit:
+  `campaignId`, `tcrCampaignId`, `tcrBrandId`, `cspId`, `status`,
+  `campaignStatus`, `submissionStatus`, `createDate`, `billedDate`,
+  `nextRenewalOrExpirationDate`, `mock`, `failureReasons`,
+  `isTMobileRegistered`, `isTMobileSuspended`, `isTMobileNumberPoolingEnabled`,
+  `referenceId`, `resellerId`, `brandDisplayName`.
+- **A correcting `PUT` can clear a `TELNYX_FAILED`.** The update that fixed
+  `messageFlow` + `optinMessage` moved `campaignStatus` straight to
+  `TCR_ACCEPTED` — no resubmission, no second campaign, no fee.
+- **`privacyPolicyLink` / `termsAndConditionsLink` ARE real, settable fields —
+  just not through `campaignBuilder`.** The live portal-created `CD2166Q`
+  carries both, populated, and they survived a `PUT`. What the 2026-07-28 probe
+  actually established is narrower than "the campaign has no link field":
+  **`POST /campaignBuilder` discards them**. Keep putting the URLs in
+  `messageFlow` — that route works on both creation paths.
 - **`/10dlc` list filters use plain query params** (`?brandId=…`), NOT the `filter[brandId]` JSON:API style used elsewhere in Telnyx v2.
 - **Campaign creation** is `POST /v2/10dlc/campaignBuilder` (needs `messageFlow` + opt-in/opt-out/help keyword+message fields) — NOT `POST /v2/10dlc/campaign`. **Implemented and verified live 2026-07-28** — see below.
 

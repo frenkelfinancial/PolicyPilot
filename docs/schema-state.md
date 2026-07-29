@@ -401,7 +401,37 @@ interactive work, but it is no longer on the critical path.
 | 2026-07-28T04:1xZ | `supabase/migrations/20260730_phone_numbers_column_protection.sql` | Claude (Opus 5), `-f`, transaction-wrapped — **security fix (same class), authorised by Jace** | `phone_numbers` owner-updatable with no column guard; `renew_from_wallet`/`next_renewal_at`/billing columns self-writable | trigger `phone_numbers_protect_privileged_columns` present + enabled; billing/compliance columns reverted for non-service, non-admin |
 | 2026-07-28T17:xxZ | `supabase/migrations/20260732_a2p_fee_correction.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. **Authorised by Jace** — he read Telnyx's real checkout prices. Column defaults + one UPDATE of the `billing_config` singleton; no DROP, no `auth.*`/`storage.*` | live row `4000 / 15000 / 10000 / 2000`; defaults identical. `a2p_registrations`: **0 rows**, `sum(monthly_fee_mills) = 0` — so no existing registration carried the wrong figure | live row `4000 / **14500** / **1500** / 2000`; defaults updated to match; re-run confirmed a no-op |
 | 2026-07-28T19:1xZ | `supabase/migrations/20260733_sms_optin_consent.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. Additive only — no approval needed under the rules above | 0 of 7 evidence columns present; **0 rows** in `consent_records` (so the backfill was a guaranteed no-op and no existing row could violate the new constraints); 2 check constraints; 3 indexes; 2 policies, both `SELECT` | 7 of 7 columns present; `consent_records_method_check` + `consent_records_web_form_evidence_check` added; `consent_records_ip_captured_idx` added; **policies unchanged — still SELECT-only, no INSERT policy**; 0 rows. **4/4 behavioural checks pass** (see below); re-run confirmed a no-op |
+| 2026-07-29T02:3xZ | `supabase/migrations/20260734_lead_source_categories.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. **Data only, no DDL** — one `UPDATE` of the `lead_vendors` array on agent rows still holding a retired vendor key. Additive under the rules (no DROP/DELETE/TRUNCATE, nothing in `auth.*`/`storage.*`) | 1 published agent row, `lead_vendors = {goatleads}`; 1 row in `compliance_page_revisions` | `lead_vendors = {lead_partners}`; verification block passed (0 rows still holding a legacy value); `agents_sync_compliance_page` fired and appended revision #2, as intended — the policy text genuinely changed. Re-run is a no-op |
+| 2026-07-29T02:4xZ | `supabase/migrations/20260735_backfill_frenkel_a2p_registration.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. **Data only, no DDL** — one `INSERT … on conflict do nothing`. **Authorised by Jace** ("create the a2p_registrations row … without calling a2p-register") | `a2p_registrations`: **0 rows**. `wallet_ledger` a2p rows: **0**. Texting blocked at the gate for want of any row at all | 1 row: `status='pending'`, `telnyx_env='production'`, brand `4b20019f-…`/`BBTQ508`, campaign `4b30019f-…`/`CD2166Q`, both `*_fee_charged_at` set. `wallet_ledger` a2p rows still **0** — nothing charged. `a2p-status-poll` then promoted it to `approved` off live Telnyx (`{"approved":1}`) |
 | 2026-07-28T05:0xZ | `supabase/migrations/20260731_a2p_resumable_registration.sql` | Claude (Opus 5), `supabase db query --linked -f`, transaction-wrapped. Additive only — no approval needed under the rules above | `a2p_registrations` had no step markers, no uniqueness on `brand_id`/`campaign_id`, no immutability trigger; `wallet_ledger` had no A2P fee-idempotency index. 0 rows in `a2p_registrations`, 0 A2P ledger rows | 9 new columns + `telnyx_env` check constraint; 2 partial unique indexes; function + trigger `a2p_registrations_guard_ids`; `wallet_ledger_a2p_fee_ref_uidx`. **9/9 behavioural checks pass** (see below) |
+
+### Notes on the 2026-07-29T02:4xZ apply — backfilling the A2P registration
+
+**The fee-guard columns are the reason this file is more than an INSERT.**
+`advanceRegistration()` decides whether to call `wallet_debit` by checking
+`brand_fee_charged_at` / `campaign_fee_charged_at` for NULL (steps 2 and 5 in
+`_shared/a2p-registration.ts`). Backfilling a row with those NULL would leave a
+loaded gun: the next press of Retry on the status wizard, or any future
+`a2p-register` call for this agent, would debit $4 + $14.50 from Jace's wallet
+for a brand and campaign he had already paid Telnyx for directly.
+
+They are set to Telnyx's own `createdAt` / `billedDate`, and `business_info`
+records in as many words that the money moved on Telnyx's invoice rather than
+through the ProducerStack wallet. `wallet_ledger` held 0 rows with `ref_type in
+('a2p_brand','a2p_campaign')` before and after, and still does.
+
+**`status` was inserted as `'pending'`, never `'approved'`.** `'approved'` is
+the single value `runComplianceGate()` allowlists, so writing it from a SQL
+file would be asserting a carrier outcome instead of observing one. `'pending'`
+is the state that means "ask Telnyx", and `a2p-status-poll` — which selects
+exactly `status in ('pending','approved')` with non-null brand and campaign ids
+— read live Telnyx (`identityStatus: VERIFIED`, `campaignStatus:
+TCR_ACCEPTED`) and promoted it itself on the next run.
+
+The auto-assign pass in that same run **skipped** (`auto_assign_skipped: 1`),
+correctly: it only acts for an agent owning exactly one active number, and this
+agent owns two. No number was assigned, so nothing became `sms_capable` and
+texting remains gated on that.
 
 ### Notes on the 2026-07-28T19:1xZ apply — SMS opt-in consent evidence
 
