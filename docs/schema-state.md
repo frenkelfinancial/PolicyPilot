@@ -1858,3 +1858,68 @@ construction rather than by care.
 | Full suite | **661 tests + `npm run check` clean** |
 | Headless click-through | **26/26** |
 | Residue | **zero** |
+
+---
+
+## Apply 2026-07-29 — `20260747_agency_join_requests.sql` (applied by Jace, recorded after the fact)
+
+**Recorded retrospectively.** This migration was written and applied from Jace's
+MacBook alongside commit `55102b7` and pushed without a ledger entry. The
+ledger's rule is that it is updated in the SAME commit as the apply; this entry
+closes that gap rather than pretending it was followed. The apply itself is
+sound — audited below — and **nothing was re-run**: this is a record, not an
+apply.
+
+Numbering note: it took `20260747`, skipping `20260746`. The Back Office
+mission used `20260741`–`20260745`, so there is no collision, and `20260746`
+is simply unused.
+
+### Audit — 2026-07-29, after merging `origin/main`
+
+| Probe | Result |
+|---|---|
+| `agency_invites.initiated_by` | **present**, `text NOT NULL DEFAULT 'leader'` |
+| CHECK constraints on `agency_invites` | 2 (including `initiated_by IN ('leader','agent')`) |
+| `request_agency_join(text)` | present, **`prosecdef = true`** |
+| `get_agency_join_requests()` | present, **`prosecdef = true`** |
+| `agency_invites` rows | **2**, of which **1** is `initiated_by = 'agent'` |
+
+That last row matters: the flow is not merely applied, it has been **exercised
+in production** — there is a real agent-initiated join request on file.
+
+### What it does, and why it needed no new table
+
+It reuses `public.agency_invites` rather than adding a table, which is the
+right call: a join request and an invite are the same relationship approached
+from opposite ends, and the existing `UNIQUE (leader_id, invitee_email)` is
+exactly the constraint that should stop a leader invite and an agent request
+coexisting as two contradictory rows for one pair.
+
+`initiated_by` defaults to `'leader'`, so the browser's existing
+`agSendInvite()` insert — which does not name the column — keeps writing a
+leader invite exactly as before. Only `request_agency_join()` ever writes
+`'agent'`.
+
+### The security shape is the one this schema already uses
+
+`request_agency_join()` is `SECURITY DEFINER` because the row it writes has
+`leader_id = SOMEONE ELSE`, which the "leaders manage their invites" RLS policy
+refuses from the browser. It carries the same guards as
+`process_agency_code_join` (the code must resolve, it cannot be your own
+agency, and the code's owner must **currently** qualify as a Team Leader) with
+one deliberate difference: **it writes `status='pending'`, never
+`'accepted'`.** The leader approves in-app, and this path grants no discount —
+which is what keeps it from becoming a way around the `is_agency_leader` gate
+that `20260736` was written to close.
+
+### Not verified by this entry
+
+This is a retrospective record, so it carries **no before/after diff and no
+behavioural checks** — the two things this ledger normally insists on. The
+objects exist and one real request has flowed through, but nobody has
+exercised, for example, whether a pending LEADER invite is correctly converted
+rather than duplicated when the agent then types the code. `test/team-roster.test.mjs`
+covers the four new cache invalidations and nothing further.
+
+**If the join-request flow is going to carry real recruiting traffic, it wants
+the same behavioural pass every other function in this ledger got.**

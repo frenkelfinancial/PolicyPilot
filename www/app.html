@@ -805,6 +805,52 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .cmpct-more-btn:hover{color:var(--text2);border-color:var(--border2)}
 .cmpct-extra{display:none;grid-template-columns:1fr 1fr;gap:3px 8px;margin-top:7px;padding-top:7px;border-top:1px solid var(--border)}
 .compact-card.cmpct-open .cmpct-extra{display:grid}
+/* ── 2-col compact: condensed echo of the wide single-lead row —
+   info | (status pill + big notes box) | vertical action stack. ── */
+#lead-list-container.view-compact2 .compact-card{padding:14px 16px}
+.view-compact2 .cmpct2-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) 104px;gap:14px;align-items:stretch}
+.view-compact2 .cmpct2-info{display:flex;flex-direction:column;min-width:0}
+.view-compact2 .cmpct2-info .cmpct-hdr{margin-bottom:6px}
+/* Fields auto-fit by content width, wrapping to fill the column; tight gaps,
+   no forced two-column split. Long values (Email) claim a full row. */
+.view-compact2 .cmpct2-info .cmpct-fields{display:flex;flex-wrap:wrap;gap:7px 16px;margin:4px 0}
+.view-compact2 .cmpct2-info .cmpct-field{flex:0 1 auto;min-width:0;max-width:100%}
+.view-compact2 .cmpct2-info .cmpct-field.full{flex-basis:100%}
+.view-compact2 .cmpct2-info .cmpct-fv{white-space:normal;overflow-wrap:anywhere}
+.view-compact2 .cmpct2-info .cmpct-more-btn{align-self:flex-start;margin-top:7px}
+.view-compact2 .cmpct2-info .cmpct-extra{display:none;flex-wrap:wrap;gap:7px 16px;margin-top:7px;padding-top:7px;border-top:1px solid var(--border);grid-template-columns:none}
+.view-compact2 .compact-card.cmpct-open .cmpct2-info .cmpct-extra{display:flex}
+/* Middle region: status pill sits at the top; the notes box fills the rest,
+   stretching the full height of the card. */
+.view-compact2 .cmpct2-mid{display:flex;flex-direction:column;gap:8px;min-width:0}
+.view-compact2 .cmpct2-mid .cmpct-status-btn{align-self:flex-start;max-width:150px}
+.view-compact2 .cmpct2-notes{flex:1 1 auto;height:auto;min-height:120px;margin:0;resize:none}
+.view-compact2 .cmpct2-actions{display:flex;flex-direction:column;gap:6px}
+.view-compact2 .cmpct2-actions .cmpct-call-wrap{width:100%}
+.view-compact2 .cmpct2-actions .cmpct-call{width:100%;justify-content:center;padding:7px 8px}
+.view-compact2 .cmpct2-actions .lead-act-btn{width:100%;padding:7px 8px;text-align:center}
+@media(max-width:560px){
+  /* Stack again when the card is full-width and too narrow for three columns. */
+  .view-compact2 .cmpct2-grid{grid-template-columns:1fr;gap:9px}
+  .view-compact2 .cmpct2-notes{flex:none;min-height:70px}
+  .view-compact2 .cmpct2-actions{flex-direction:row;flex-wrap:wrap}
+  .view-compact2 .cmpct2-actions .cmpct-call-wrap{flex:1;min-width:70px}
+  .view-compact2 .cmpct2-actions .lead-act-btn{flex:1;width:auto;min-width:70px}
+}
+/* ── 4-col compact: header on top, body split into lead info | notepad,
+   actions in a row underneath. ── */
+.view-compact4 .cmpct4-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:stretch;margin:6px 0}
+.view-compact4 .cmpct4-info{display:flex;flex-direction:column;min-width:0}
+/* Narrow half-width column — stack fields one per line so labels/values fit. */
+.view-compact4 .cmpct4-info .cmpct-fields{grid-template-columns:1fr;gap:3px 0;margin:6px 0 0}
+.view-compact4 .cmpct4-info .cmpct-fv{white-space:normal;overflow-wrap:anywhere}
+/* Notepad fills the right half, stretching to the info column's height. */
+.view-compact4 .cmpct4-notes{height:auto;min-height:100%;margin:0;resize:none}
+@media(max-width:520px){
+  /* One card per row here — go back to a stacked info-then-notepad body. */
+  .view-compact4 .cmpct4-body{grid-template-columns:1fr;gap:6px}
+  .view-compact4 .cmpct4-notes{min-height:56px}
+}
 /* ── View switcher ── */
 .vsw-group{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:2px;gap:1px;flex-shrink:0}
 .vsw-btn{padding:5px 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--text3);display:flex;align-items:center;justify-content:center;transition:all .13s;line-height:1}
@@ -2120,6 +2166,55 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 }
 .wd-floating-close:hover{ background:rgba(255,255,255,.06); color:var(--text); }
 #sec-webdialer.dialer-floating .wd-floating-close{ display:flex; }
+
+/* ── Floating popup: dark theme ──────────────────────────────────────────
+   The full Web Dialer PAGE keeps its deliberately-white "device" card in both
+   themes (see .wd-dial-card below). The floating popup, however, sits over the
+   app's dark chrome, so in dark mode it should read as part of the app — same
+   dark card, tokens, DM Sans font and spacing as the Leads tab, not a white
+   rectangle. Scoped to the floating widget only, and only when NOT in light
+   mode. Higher specificity than the base #sec-webdialer rules, so these win
+   regardless of source order. */
+body:not(.light) #sec-webdialer.dialer-floating .wd-dial-card{
+  background:linear-gradient(180deg,#101f38,#0c1a30);
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:10px;
+  font-family:var(--sans);
+  box-shadow:0 1px 2px rgba(0,0,0,.25), 0 16px 40px -18px rgba(0,0,0,.55);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg label{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg input,
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg select{
+  background:var(--bg3); border-color:var(--border); color:var(--text);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg input::placeholder{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg input:focus,
+body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg select:focus{ border-color:var(--accent); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-cs-timer{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-display{
+  background:var(--bg3); border-color:var(--border);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-number-prefix,
+body:not(.light) #sec-webdialer.dialer-floating .wd-number-input{ color:var(--text); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-number-input::placeholder{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-backspace{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-backspace:hover{ background:var(--bg3); color:var(--text); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-key{
+  background:var(--bg3); border-color:var(--border); color:var(--text);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-key:hover{ background:var(--bg2); border-color:var(--border2); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-key-num{ color:var(--text); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-key-sub{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-cs-btn{
+  background:var(--bg3); border-color:var(--border); color:var(--text2);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-cs-btn:hover{ background:var(--bg2); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-cs-outcome-lbl{ color:var(--text3); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-out-btn{
+  background:var(--bg3); border-color:var(--border); color:var(--text);
+}
+body:not(.light) #sec-webdialer.dialer-floating .wd-out-btn:hover{ background:var(--bg2); }
+body:not(.light) #sec-webdialer.dialer-floating .wd-out-btn-skip{ color:var(--text3); }
 
 /* Post-call outcome picker — inline in the dial card, same footprint style
    as the rest of the Web Dialer widget. */
@@ -16323,22 +16418,82 @@ function renderLeads() {
         `<div class="cmpct-field"><span class="cmpct-fl">${escapeHTML(lbl)}</span><span class="cmpct-fv">${escapeHTML(String(val))}</span></div>`
       ).join('');
 
-      div.innerHTML = `
-        <div class="cmpct-hdr">
-          <input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead" style="flex-shrink:0">
-          <div class="cmpct-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
-          <select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb lead-pill--${status}" data-lid="${lid}" title="Set status">
+      // Shared bits used by both compact layouts.
+      const _cbHTML = `<input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead" style="flex-shrink:0">`;
+      const _nameHTML = `<div class="cmpct-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>`;
+      const _statusHTML = `<select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb lead-pill--${status}" data-lid="${lid}" title="Set status">
             ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
             ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
-          </select>
-          <div class="cmpct-call-wrap">
+          </select>`;
+      const _callHTML = `<div class="cmpct-call-wrap">
             <button class="cmpct-call lead-call-btn lead-click-to-call" data-lid="${lid}" data-phone-href="${callHref}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${icon('phone',{size:11})}&thinsp;Call</button>
             ${callCount > 0 ? `<span class="lead-call-badge" style="top:-4px;right:-4px">${callCount}</span>` : ''}
+          </div>`;
+      const _moreHTML = _sfHTML ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : '';
+
+      if (leadView === 'compact2') {
+        // ── 2-column: condensed take on the wide row — lead info | (status +
+        // big notes box) | vertical action stack — so each card reads
+        // left-to-right like the single-lead view. The info column shows as
+        // many fields as fit (auto-wrapping by content width); the overflow
+        // goes behind ▼ More. The notes box fills the whole middle region. ──
+        const _fld2 = ([lbl, val, full]) => {
+          const dv = lbl === 'Email'
+            ? `<a href="mailto:${escapeHTML(String(val))}" onclick="event.stopPropagation()">${escapeHTML(String(val))}</a>`
+            : escapeHTML(String(val));
+          return `<div class="cmpct-field${full?' full':''}"><span class="cmpct-fl">${escapeHTML(lbl)}</span><span class="cmpct-fv">${dv}</span></div>`;
+        };
+        // Pull primary + secondary into one list so the wide info column is
+        // filled; anything past the cap stays collapsed under More.
+        const _all2 = [..._pf, ..._sf];
+        const _CAP2 = 8;
+        const _vis2 = _all2.slice(0, _CAP2), _hid2 = _all2.slice(_CAP2);
+        div.innerHTML = `
+        <div class="cmpct2-grid">
+          <div class="cmpct2-info">
+            <div class="cmpct-hdr">
+              ${_cbHTML}
+              ${_nameHTML}
+            </div>
+            ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
+            ${_vis2.length ? `<div class="cmpct-fields">${_vis2.map(_fld2).join('')}</div>` : ''}
+            ${_hid2.length ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : ''}
+            ${_hid2.length ? `<div class="cmpct-extra">${_hid2.map(_fld2).join('')}</div>` : ''}
+          </div>
+          <div class="cmpct2-mid">
+            ${_statusHTML}
+            <textarea class="cmpct-notes cmpct2-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes…">${escapeHTML(lead.notes||'')}</textarea>
+          </div>
+          <div class="cmpct2-actions">
+            ${_callHTML}
+            <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
+            <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
+            ${_txBtn}
+            ${_optInBtn}
           </div>
         </div>
-        ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
-        ${_pfHTML ? `<div class="cmpct-fields">${_pfHTML}</div>` : ''}
-        <textarea class="cmpct-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes…">${escapeHTML(lead.notes||'')}</textarea>
+        `;
+        container.appendChild(div);
+        return; // skip standard template below
+      }
+
+      // ── 4-column: header (name · status · Call) on top, then a two-column
+      // body — lead info on the left, notepad on the right — and the action
+      // buttons in a row underneath. ──
+      div.innerHTML = `
+        <div class="cmpct-hdr">
+          ${_cbHTML}
+          ${_nameHTML}
+          ${_statusHTML}
+          ${_callHTML}
+        </div>
+        <div class="cmpct4-body">
+          <div class="cmpct4-info">
+            ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
+            ${_pfHTML ? `<div class="cmpct-fields">${_pfHTML}</div>` : ''}
+          </div>
+          <textarea class="cmpct-notes cmpct4-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes…">${escapeHTML(lead.notes||'')}</textarea>
+        </div>
         <div class="cmpct-bottom">
           <div class="cmpct-actions">
             <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
@@ -16346,7 +16501,7 @@ function renderLeads() {
             ${_txBtn}
             ${_optInBtn}
           </div>
-          ${_sfHTML ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : ''}
+          ${_moreHTML}
         </div>
         ${_sfHTML ? `<div class="cmpct-extra">${_sfHTML}</div>` : ''}
       `;
@@ -26688,6 +26843,11 @@ async function _agRenderLeaderView(root) {
       <div class="tm">${teamPeriodChipsHTML('agency')}</div>
     </div>`;
 
+  // Agents who typed this leader's code and asked to join. Shown up top with
+  // the requester's name, plan, comp level and NPN so the leader can decide.
+  const joinRequests = await _agLoadJoinRequests();
+  if (joinRequests.length) h += _agJoinRequestsHTML(joinRequests);
+
   if (entry.state !== 'ok') {
     h += `<div class="tm">${teamUnavailableHTML(entry.state)}</div>`;
   } else {
@@ -26815,19 +26975,62 @@ async function _agRenderAgentView(root) {
     return;
   }
 
-  const pending  = pendRes.data || [];
-  const accepted = accRes.data  || [];
+  const pendingAll = pendRes.data || [];
+  const accepted   = accRes.data  || [];
+  // The same table carries two kinds of pending row. `initiated_by` may be
+  // absent until 20260747 is applied — a legacy row is always a leader invite.
+  const invitesToMe = pendingAll.filter(i => (i.initiated_by || 'leader') === 'leader'); // a leader invited me
+  const myRequests  = pendingAll.filter(i => i.initiated_by === 'agent');                // I asked to join one
+
+  // "Request to join" is a paid-plan feature: it needs an active Basic or Pro
+  // plan (leaders never reach this view — they get _agRenderLeaderView).
+  const tier    = _planTier();
+  const canJoin = (tier === 'basic' || tier === 'pro');
 
   let h = `<div class="ag-header">
     <div>
       <div class="ag-header-title">Agency</div>
-      <div class="ag-header-sub">Agency leaders can request access to view your performance data. You control who sees your information.</div>
+      <div class="ag-header-sub">Join your team leader's agency, or manage who can view your performance data. You control who sees your information.</div>
     </div>
   </div>`;
 
-  if (pending.length) {
-    h += `<div class="ag-section-lbl">Access Requests (${pending.length})</div>`;
-    pending.forEach(inv => {
+  if (canJoin) {
+    h += `<div class="card" style="margin-bottom:18px;padding:18px 20px">
+      <div style="font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span data-ico="users-three" data-size="15"></span>Join an agency
+      </div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:14px">
+        Have an agency code from your team leader? Enter it below to send a request to join. Your leader will see your name, plan, comp level and NPN, and can approve or decline.
+      </div>
+      <div class="ag-invite-row">
+        <input class="ag-invite-input" id="ag-join-code" type="text" maxlength="20" placeholder="Agency code…"
+          style="text-transform:uppercase;font-family:var(--mono);letter-spacing:.06em"
+          onkeydown="if(event.key==='Enter')agRequestJoin()">
+        <button class="btn btn-p btn-sm" onclick="agRequestJoin()" style="display:inline-flex;align-items:center;gap:7px">
+          <span data-ico="paper-plane-right" data-size="14"></span>Request to Join
+        </button>
+      </div>
+    </div>`;
+  }
+
+  if (myRequests.length) {
+    h += `<div class="ag-section-lbl">Your Join Requests (${myRequests.length})</div>`;
+    myRequests.forEach(inv => {
+      h += `<div class="ag-pending-card">
+        <span data-ico="clock" data-size="18" style="color:#f59e0b;flex-shrink:0"></span>
+        <div class="ag-pending-info">
+          <div>Request to join <strong>${escapeHTML(inv.leader_name || inv.leader_email || 'an agency')}</strong></div>
+          <div class="ag-pending-sub">Awaiting approval · Sent ${new Date(inv.created_at).toLocaleDateString()}</div>
+        </div>
+        <button class="btn btn-s btn-sm" onclick="agCancelJoinRequest('${inv.id}')"
+          style="color:var(--ds-color-danger)">Cancel</button>
+      </div>`;
+    });
+  }
+
+  if (invitesToMe.length) {
+    h += `<div class="ag-section-lbl"${myRequests.length ? ' style="margin-top:20px"' : ''}>Access Requests (${invitesToMe.length})</div>`;
+    invitesToMe.forEach(inv => {
       h += `<div class="ag-pending-card info">
         <span data-ico="info" data-size="18" style="color:#3b82f6;flex-shrink:0"></span>
         <div class="ag-pending-info">
@@ -26843,7 +27046,7 @@ async function _agRenderAgentView(root) {
   }
 
   if (accepted.length) {
-    h += `<div class="ag-section-lbl" style="margin-top:${pending.length?20:0}px">Sharing Your Data With</div>`;
+    h += `<div class="ag-section-lbl" style="margin-top:${(myRequests.length||invitesToMe.length)?20:0}px">Sharing Your Data With</div>`;
     accepted.forEach(inv => {
       h += `<div class="ag-access-row">
         <span data-ico="eye" data-size="16" style="color:var(--ds-color-success);flex-shrink:0"></span>
@@ -26857,10 +27060,12 @@ async function _agRenderAgentView(root) {
     });
   }
 
-  if (!pending.length && !accepted.length) {
+  if (!myRequests.length && !invitesToMe.length && !accepted.length) {
     h += `<div class="ag-empty-state">
-      <h3>No access requests</h3>
-      <p>When an agency leader invites you, their request will appear here. You control exactly who can view your data — and you can revoke access at any time.</p>
+      <h3>${canJoin ? 'Not connected to an agency yet' : 'No access requests'}</h3>
+      <p>${canJoin
+        ? 'Enter your team leader\'s agency code above to request to join. Invites a leader sends you will also appear here — you control who can view your data and can revoke access at any time.'
+        : 'When an agency leader invites you, their request will appear here. You control exactly who can view your data — and you can revoke access at any time.'}</p>
     </div>`;
   }
 
@@ -27067,6 +27272,123 @@ async function agRevokeAccess(id) {
   } catch (e) { showToast('Failed: ' + e.message, '#dc2626'); return; }
   teamInvalidate(); _agencyMembers = null;
   showToast('Access revoked', '#10b981');
+  await renderAgencySection();
+}
+
+// ---- Request to join an agency (agent side, Basic/Pro) ----
+// Sends a pending request the LEADER approves. Writes through the
+// request_agency_join RPC (SECURITY DEFINER) because the browser cannot
+// insert a row whose leader_id is someone else under agency_invites RLS.
+async function agRequestJoin() {
+  const input = document.getElementById('ag-join-code');
+  const code  = (input ? input.value : '').trim().toUpperCase();
+  if (!code || code.length < 4) { showToast('Enter the agency code (at least 4 characters)', '#dc2626'); return; }
+  const btn = document.querySelector('#ag-root button[onclick="agRequestJoin()"]');
+  if (btn) { btn.disabled = true; }
+  // Best-effort: surface the agent's current NPN (kept in settings/localStorage)
+  // to the leader by syncing it into auth metadata, which the leader's
+  // get_agency_join_requests() reads. Never blocks the request.
+  try {
+    const npn = (localStorage.getItem(k('stg_npn')) || '').trim();
+    if (npn) await sb.auth.updateUser({ data: { npn } });
+  } catch (_) {}
+  try {
+    const { data, error } = await sb.rpc('request_agency_join', { p_code: code });
+    if (error) {
+      if (error.code === 'PGRST202' || (error.message || '').includes('request_agency_join')) {
+        showToast('Join requests need a one-time database update — run migration 20260747', '#dc2626');
+        return;
+      }
+      throw error;
+    }
+    if (!data || !data.ok) { showToast((data && data.error) || 'Could not send request', '#dc2626'); return; }
+    if (input) input.value = '';
+    teamInvalidate(); _agencyMembers = null;
+    if (data.auto_accepted) showToast(`Joined ${data.leader_name || 'the agency'}!`, '#10b981');
+    else                    showToast(`Request sent to ${data.leader_name || 'the agency'} — awaiting approval`, '#10b981');
+    await renderAgencySection();
+  } catch (e) {
+    showToast(e.message || 'Could not send request', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+// Withdraw a request the agent sent. Uses the "invitees respond to invites"
+// RLS policy (invitee_email = auth.email()) to mark it declined — the agent
+// cannot delete the row, and a withdrawn request drops out of the leader's
+// get_agency_join_requests() list (which is pending-only).
+async function agCancelJoinRequest(id) {
+  const { error } = await sb.from('agency_invites')
+    .update({ status: 'declined' })
+    .eq('id', id).eq('invitee_email', currentAgent.email);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
+  showToast('Request withdrawn', '#10b981');
+  await renderAgencySection();
+}
+
+// ---- Approve / deny join requests (leader side) ----
+// Reads the requester's profile through the get_agency_join_requests RPC.
+// Returns [] (feature hidden) if the migration has not been applied yet.
+async function _agLoadJoinRequests() {
+  try {
+    const { data, error } = await sb.rpc('get_agency_join_requests');
+    if (error) return [];
+    return data || [];
+  } catch (_) { return []; }
+}
+
+function _agJoinRequestsHTML(reqs) {
+  const cards = reqs.map(r => {
+    const name = [r.first_name, r.last_name].filter(Boolean).join(' ').trim()
+      || r.display_name || r.email || 'Agent';
+    const initials = (name || '?').slice(0, 2).toUpperCase();
+    const chips = [];
+    chips.push(`Plan: ${r.plan_name ? escapeHTML(r.plan_name) : '—'}`);
+    chips.push(`Comp: ${r.comp_level ? escapeHTML(r.comp_level) + '%' : '—'}`);
+    if (r.npn) chips.push(`NPN: ${escapeHTML(r.npn)}`);
+    return `<div class="ag-access-row" style="align-items:flex-start;flex-wrap:wrap;gap:10px">
+      <div class="ag-agent-avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0">${escapeHTML(initials)}</div>
+      <div style="flex:1;min-width:150px">
+        <strong>${escapeHTML(name)}</strong>
+        <div style="color:var(--text3);font-size:12px">${escapeHTML(r.email || '')}</div>
+        <div style="color:var(--text2);font-size:12px;margin-top:4px;display:flex;gap:12px;flex-wrap:wrap">
+          ${chips.map(c => `<span>${c}</span>`).join('')}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-p btn-sm" onclick="agAcceptJoinRequest('${escapeHTML(r.invite_id)}')">Accept</button>
+        <button class="btn btn-s btn-sm" onclick="agDenyJoinRequest('${escapeHTML(r.invite_id)}')"
+          style="color:var(--ds-color-danger)">Deny</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="card" style="margin-bottom:16px;padding:16px 18px;border:1px solid rgba(59,130,246,.35);background:rgba(59,130,246,.06)">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:12px">
+      <span data-ico="users-three" data-size="15" style="color:#3b82f6"></span>Join Requests (${reqs.length})
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">${cards}</div>
+  </div>`;
+}
+
+async function agAcceptJoinRequest(id) {
+  const { error } = await sb.from('agency_invites')
+    .update({ status: 'accepted' })
+    .eq('id', id).eq('leader_id', currentAgent.id);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
+  showToast('Agent added to your agency', '#10b981');
+  await renderAgencySection();
+}
+
+async function agDenyJoinRequest(id) {
+  const { error } = await sb.from('agency_invites')
+    .update({ status: 'declined' })
+    .eq('id', id).eq('leader_id', currentAgent.id);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
+  showToast('Request declined', '#10b981');
   await renderAgencySection();
 }
 
