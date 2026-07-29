@@ -90,7 +90,7 @@ comment on column public.agents.business_phone is
 comment on column public.agents.business_email is
   'Public business email, printed in the contact block. Must be a real monitored mailbox: carrier reviewers and consumers both use it.';
 comment on column public.agents.lead_vendors is
-  'Lead vendor keys from _shared/lead-vendors.ts (e.g. {goatleads,builtleads}), or "other:<name>" for a free-text vendor. Drives BOTH the privacy policy''s "Where your information comes from" section AND the campaign opt-in description. Those two must always name the same vendors — a reviewer comparing them and finding a mismatch is a rejection.';
+  'Lead SOURCE CATEGORY keys from LEAD_SOURCE_CATEGORIES in _shared/lead-vendors.ts: {lead_partners,own_forms,referrals}. Drives the privacy policy''s "Where your information comes from" section, which describes sources by TYPE and names no company. Unknown keys are dropped by resolveLeadSourceLabels(), so legacy values (the old vendor names, and the withdrawn "other:<name>" free-text path) render the generic sentence rather than a stale company name. The campaign opt-in description reads this column not at all — naming a lead company in a carrier-facing document is what produced review item 1 on campaign CD2166Q. Column name kept for compatibility; it no longer holds vendors.';
 comment on column public.agents.compliance_slug is
   'URL segment for the agent''s public pages: /a/<slug>, /a/<slug>/privacy-policy, /a/<slug>/terms. Derived, never user-entered (see agents_protect_compliance_columns) and FROZEN once A2P registration starts (see agents_lock_compliance_slug).';
 comment on column public.agents.compliance_page_published_at is

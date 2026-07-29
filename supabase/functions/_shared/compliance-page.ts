@@ -38,7 +38,7 @@
 // under `node --test` — see compliance-page.test.ts.
 // ============================================================
 
-import { joinVendorNames, resolveVendorNames } from "./lead-vendors.ts";
+import { joinLeadSourceLabels, resolveLeadSourceLabels } from "./lead-vendors.ts";
 import { buildOptInAutoResponse, buildOptInDisclosure } from "./sms-optin.ts";
 
 // The disclosure and the confirmation text live in sms-optin.ts because
@@ -525,7 +525,7 @@ export function renderPrivacyPolicyPage(o: RenderOptions): string {
   const agency = agencyDisplayName(p);
   const entity = entityClause(p);
   const updated = formatLongDate(o.lastUpdatedIso ?? p.compliance_page_published_at);
-  const vendors = joinVendorNames(resolveVendorNames(p.lead_vendors));
+  const sources = joinLeadSourceLabels(resolveLeadSourceLabels(p.lead_vendors));
   const st = stateName(p.business_state);
 
   const body = `<header class="masthead">
@@ -545,13 +545,16 @@ information we collect by phone, by text message, by email, and through the lead
 ${contactBlock(p)}
 
 <h2 id="where-information-comes-from">Where your information comes from</h2>
-<p>We receive your contact information when you request life insurance information through a web form
-operated by one of our licensed lead partners (${escapeHtml(vendors)}). Those forms capture your consent
-to be contacted by phone and email by licensed insurance agents, including ${escapeHtml(agency)}.
-Consent is certified by TrustedForm, which records your IP address, session activity, timestamp, and the
-exact disclosure shown to you. We retain that certificate for each person we contact.</p>
-<p><strong>Text messages are separate.</strong> We do not text you on the strength of that lead form. To
-receive text messages from us you have to opt in yourself, on
+<p>We receive your contact information when you ask for life insurance information — through
+${escapeHtml(sources)}. Where that form is operated by a third-party lead generation company, the form
+captures your consent to be contacted by phone and email by licensed insurance agents, including
+${escapeHtml(agency)}, and a record is kept of the disclosure you were shown, the date and time, and the
+IP address you submitted it from.</p>
+<p>We describe these sources by type rather than listing companies by name, because the companies we work
+with change over time and a list published here would go out of date. If you want to know exactly where
+we obtained your information, ask us using the contact details on this page and we will tell you.</p>
+<p><strong>Text messages are separate.</strong> We do not text you on the strength of any of those forms.
+To receive text messages from us you have to opt in yourself, on
 <a href="/a/${escapeHtml(slug)}/sms-opt-in">our own sign-up page</a>, where the full agreement is
 shown to you before you agree to it. We keep a record of exactly what that page said, when you agreed,
 and from what IP address.</p>

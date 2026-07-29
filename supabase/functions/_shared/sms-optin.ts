@@ -67,18 +67,63 @@ export function buildOptInDisclosure(
 }
 
 /**
+ * TCR's cap on a campaign keyword-response field (`optinMessage`,
+ * `optoutMessage`, `helpMessage`).
+ *
+ * The auto-response below is submitted as the campaign's `optinMessage` AND
+ * texted to the consumer, and it grows with the agency name, so a long agency
+ * name is the way it goes over. Exported so a unit test can prove the worst
+ * realistic case still fits — the failure mode otherwise is a rejected
+ * submission, and a rejected submission is $15 a try.
+ */
+export const TCR_KEYWORD_MESSAGE_MAX = 320;
+
+/**
  * The auto-response texted to the number that just opted in.
  *
  * Kept in lockstep with the campaign's registered opt-in keyword response —
  * a consumer whose confirmation text does not match what the campaign told
- * the carrier it would say is a discrepancy a reviewer can see. Same sentence
- * shape, agency name substituted.
+ * the carrier it would say is a discrepancy a reviewer can see. Same string,
+ * agency name substituted.
+ *
+ * ------------------------------------------------------------------
+ * 🔴 REWRITTEN 2026-07-28 AFTER CARRIER REVIEW. READ BEFORE EDITING.
+ * ------------------------------------------------------------------
+ * Campaign CD2166Q came back with two items against the previous version of
+ * this string, and they were the same defect stated twice:
+ *
+ *   "Subscriber/Auto-response Opt-in Message needs updating with information
+ *    provided here - https://support.telnyx.com/en/articles/10645338-…"
+ *   "Note: MARKETING is selected, but the START/opt-in auto-response does not
+ *    explicitly mention marketing or promotional messages."
+ *
+ * The old text said only "messages about your life insurance quote,
+ * appointments, and application status" while the campaign declares MARKETING,
+ * CUSTOMER_CARE and ACCOUNT_NOTIFICATION. A confirmation that under-declares
+ * what we will send is the consumer being told they signed up for less than
+ * they did.
+ *
+ * Telnyx's article requires SEVEN elements. Every one is present below, and
+ * removing any of them reopens the item:
+ *
+ *   1. brand name .................... `${agency}:`
+ *   2. the use case(s) subscribed to . marketing and promotional messages,
+ *                                      customer care, and account notifications
+ *   3. message frequency ............. "Msg frequency varies."
+ *   4. rates ......................... "Msg&data rates may apply."
+ *   5. consent is not a condition .... "Consent is not a condition of purchase."
+ *   6. HELP .......................... "Reply HELP for help"
+ *   7. STOP .......................... "STOP to opt out."
+ *
+ * Element 2 must keep naming marketing/promotional for as long as the campaign
+ * declares the MARKETING use case. If the use cases are ever narrowed, narrow
+ * this sentence in the same commit — they are one statement, not two.
  */
 export function buildOptInAutoResponse(agencyName: string): string {
   const agency = (agencyName || "").trim() || "Your insurance agency";
   return (
-    `${agency}: You're subscribed to messages about your life insurance quote, appointments, and ` +
-    `application status. Msg frequency varies. Msg&data rates may apply. Consent is not a condition of ` +
-    `purchase. Reply HELP for help, STOP to opt out.`
+    `${agency}: You're subscribed to marketing and promotional messages, customer care, and account ` +
+    `notifications about your insurance. Msg frequency varies. Msg&data rates may apply. Consent is ` +
+    `not a condition of purchase. Reply HELP for help, STOP to opt out.`
   );
 }

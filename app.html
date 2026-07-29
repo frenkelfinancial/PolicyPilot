@@ -5244,19 +5244,20 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
           <div class="fg" style="margin-top:12px">
             <label>Where your leads come from</label>
             <div style="font-size:11.5px;color:var(--text2);line-height:1.45;margin-bottom:6px">
-              Named on your privacy policy and on your 10DLC registration. These two must match, so pick every vendor you actually buy from.
+              Described on your privacy policy by <em>type</em>, never by company name — the companies you buy
+              from change, and a name published on a compliance page goes stale the day you switch. Tick every
+              route that applies.
             </div>
             <div id="stg-lead-vendors" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center">
               <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;text-transform:none;letter-spacing:0;color:var(--text)">
-                <input type="checkbox" id="stg-lv-goatleads" value="goatleads" style="width:auto;margin:0"> GoatLeads
+                <input type="checkbox" id="stg-lv-lead_partners" value="lead_partners" style="width:auto;margin:0"> Third-party lead vendors
               </label>
               <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;text-transform:none;letter-spacing:0;color:var(--text)">
-                <input type="checkbox" id="stg-lv-builtleads" value="builtleads" style="width:auto;margin:0"> Built Leads
+                <input type="checkbox" id="stg-lv-own_forms" value="own_forms" style="width:auto;margin:0"> Our own website or forms
               </label>
               <label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;text-transform:none;letter-spacing:0;color:var(--text)">
-                <input type="checkbox" id="stg-lv-other" style="width:auto;margin:0" onchange="stgOnOtherVendorToggle()"> Other
+                <input type="checkbox" id="stg-lv-referrals" value="referrals" style="width:auto;margin:0"> Referrals
               </label>
-              <input type="text" id="stg-lv-other-name" placeholder="Vendor name" autocomplete="off" style="display:none;max-width:220px">
             </div>
           </div>
 
@@ -22454,11 +22455,15 @@ function stgOnEntityTypeChange() {
   if (wrap) wrap.style.display = (type && type !== 'sole_proprietor') ? '' : 'none';
 }
 
-function stgOnOtherVendorToggle() {
-  const on = document.getElementById('stg-lv-other')?.checked;
-  const inp = document.getElementById('stg-lv-other-name');
-  if (inp) { inp.style.display = on ? '' : 'none'; if (on) inp.focus(); }
-}
+// Lead SOURCE CATEGORIES, keyed to LEAD_SOURCE_CATEGORIES in
+// supabase/functions/_shared/lead-vendors.ts. The privacy policy renders
+// these by type and names no company — see that file's header for why
+// (short version: the names in this repo were the wrong companies, and
+// naming any lead company in a carrier-facing document is what produced
+// review item 1 on campaign CD2166Q). There is deliberately no free-text
+// "Other" box: a box an agent can type into is a box a company name ends
+// up in.
+const LEAD_SOURCE_KEYS = ['lead_partners', 'own_forms', 'referrals'];
 
 async function _stgLoadBusinessProfile() {
   _stgFillStateSelect(document.getElementById('stg-biz-state'), 'Select…');
@@ -22491,19 +22496,17 @@ async function _stgLoadBusinessProfile() {
   set('stg-biz-phone',       formatPhone(row.business_phone));
   set('stg-biz-email',       row.business_email);
 
-  const vendors = Array.isArray(row.lead_vendors) ? row.lead_vendors : [];
-  const goat  = document.getElementById('stg-lv-goatleads');
-  const built = document.getElementById('stg-lv-builtleads');
-  const other = document.getElementById('stg-lv-other');
-  const otherName = document.getElementById('stg-lv-other-name');
-  if (goat)  goat.checked  = vendors.includes('goatleads');
-  if (built) built.checked = vendors.includes('builtleads');
-  const custom = vendors.find(v => typeof v === 'string' && v.toLowerCase().startsWith('other:'));
-  if (other) other.checked = !!custom;
-  if (otherName) otherName.value = custom ? custom.slice('other:'.length) : '';
+  // Legacy rows may still hold the old vendor keys or an `other:<name>`
+  // entry. Neither matches a category key, so nothing ticks and the policy
+  // falls back to its generic sentence — the same whitelist behaviour as
+  // resolveLeadSourceLabels() server-side.
+  const sources = Array.isArray(row.lead_vendors) ? row.lead_vendors : [];
+  for (const key of LEAD_SOURCE_KEYS) {
+    const box = document.getElementById('stg-lv-' + key);
+    if (box) box.checked = sources.includes(key);
+  }
 
   stgOnEntityTypeChange();
-  stgOnOtherVendorToggle();
   _stgRenderCompliancePanel(row);
 }
 
@@ -22623,18 +22626,7 @@ async function saveBusinessProfile() {
     return;
   }
 
-  const vendors = [];
-  if (document.getElementById('stg-lv-goatleads')?.checked)  vendors.push('goatleads');
-  if (document.getElementById('stg-lv-builtleads')?.checked) vendors.push('builtleads');
-  if (document.getElementById('stg-lv-other')?.checked) {
-    const name = val('stg-lv-other-name');
-    if (!name) {
-      msg.style.color = 'var(--a4)';
-      msg.textContent = 'Name the other lead vendor, or untick "Other".';
-      return;
-    }
-    vendors.push('other:' + name);
-  }
+  const vendors = LEAD_SOURCE_KEYS.filter(k => document.getElementById('stg-lv-' + k)?.checked);
 
   const payload = {
     dba_name:             val('stg-dba-name')   || null,
@@ -24034,11 +24026,12 @@ function smsConsentPromptHTML(weak) {
   const lead = _smsThread.lead || {};
   const hasEmail = !!lead.email;
 
-  const vendors = Array.isArray(ag.lead_vendors) ? ag.lead_vendors : [];
-  const vendorLabel = v => v.toLowerCase().startsWith('other:') ? v.slice(6)
-    : v === 'goatleads' ? 'GoatLeads' : v === 'builtleads' ? 'Built Leads' : v;
-  const opts = vendors.map(v => `<option value="${escHTML(vendorLabel(v))}">${escHTML(vendorLabel(v))} lead form</option>`).join('')
-    + '<option value="__other">Another lead form or web form</option>';
+  // "Where did they agree?" used to be a dropdown pre-filled from
+  // agents.lead_vendors. That column holds lead SOURCE CATEGORIES now, not
+  // company names (see LEAD_SOURCE_KEYS), and a category is not an answer to
+  // this question — "third-party lead vendors" is not a document anybody can
+  // produce. It is a free-text field instead: the agent names the actual
+  // record they hold, which is the only thing worth storing here.
 
   // The opt-in page block. Absent only when the agent's compliance pages
   // have not published yet — in which case completing the business profile
@@ -24082,9 +24075,8 @@ function smsConsentPromptHTML(weak) {
           </div>
           <div class="fg" style="margin-bottom:9px">
             <label style="color:inherit">Where did they agree?</label>
-            <select id="sms-consent-source" style="width:100%" onchange="smsOnConsentSourceChange()">${opts}</select>
+            <input type="text" id="sms-consent-source" placeholder="Name the form, site, or document" style="width:100%">
           </div>
-          <input type="text" id="sms-consent-other" placeholder="Name the form or site" style="width:100%;display:${vendors.length ? 'none' : ''};margin-bottom:9px">
           <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.55;text-transform:none;letter-spacing:0;margin-bottom:10px">
             <input type="checkbox" id="sms-consent-confirm" style="width:auto;margin:2px 0 0">
             <span>I confirm this person gave written consent to be contacted by text message, and I can produce the record of it if asked.</span>
@@ -24103,32 +24095,20 @@ async function smsSendOptInLinkFromThread(btn) {
   await smsLoadThread();
 }
 
-function smsOnConsentSourceChange() {
-  const sel = document.getElementById('sms-consent-source');
-  const oth = document.getElementById('sms-consent-other');
-  if (sel && oth) oth.style.display = sel.value === '__other' ? '' : 'none';
-}
-
 async function smsRecordConsent() {
   const sel  = document.getElementById('sms-consent-source');
-  const oth  = document.getElementById('sms-consent-other');
   const cb   = document.getElementById('sms-consent-confirm');
   const msg  = document.getElementById('sms-consent-msg');
   const btn  = document.getElementById('sms-consent-btn');
 
-  if (sel && sel.value === '__other' && oth) oth.style.display = '';
   if (!cb || !cb.checked) {
     if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Tick the confirmation — this is the record a regulator would ask to see.'; }
     return;
   }
-  let where = sel ? sel.value : '';
-  if (where === '__other') {
-    where = (oth?.value || '').trim();
-    if (!where) {
-      if (oth) oth.style.display = '';
-      if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Name the form they filled in.'; }
-      return;
-    }
+  const where = (sel?.value || '').trim();
+  if (!where) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Name the form they filled in.'; }
+    return;
   }
 
   if (btn) { btn.disabled = true; btn.textContent = 'Recording…'; }

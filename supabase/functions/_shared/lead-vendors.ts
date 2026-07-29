@@ -1,136 +1,118 @@
 // ============================================================
 // lead-vendors.ts — PROMPT_16 Phase 5.
 //
-// The lead vendors our agents buy from, and the ONE opt-in workflow
-// description we submit to every carrier review.
+// Lead SOURCE CATEGORIES, and the ONE opt-in workflow description we submit
+// to every carrier review.
 //
-// WHY THIS IS SHARED, NOT PER-AGENT FREE TEXT:
-// The campaign's opt-in description is the single field a carrier reviewer
-// reads to decide whether our agents' consent story is real. If every agent
-// writes their own, every agent's registration is a fresh coin flip. One
-// well-written description, reused verbatim with only the vendor + agency
-// name substituted, has to survive review exactly once — and every
-// subsequent agent inherits that outcome.
+// ------------------------------------------------------------------
+// 🔴 NO LEAD COMPANY IS NAMED ANYWHERE IN THIS FILE, ON PURPOSE.
+// ------------------------------------------------------------------
+// Until 2026-07-28 this held a list of named vendors (GoatLeads, Built Leads)
+// which were rendered into BOTH the generated privacy policy and the campaign
+// opt-in description. Three things were wrong with that:
 //
-// The same vendor list drives the "Where your information comes from"
-// section of the generated privacy policy (_shared/compliance-page.ts).
-// THOSE TWO MUST AGREE: a reviewer comparing the campaign's opt-in
-// description against the linked privacy policy and finding different
-// vendors named is the fastest way to a rejection. Both read from here.
+//   1. THE NAMES WERE WRONG. The carrier's review file for campaign CD2166Q,
+//      and the live campaign's own messageFlow, name a different company
+//      entirely. Nothing called GoatLeads or Built Leads appears anywhere on
+//      the carrier side. We were about to resubmit a description naming two
+//      companies the reviewer has never seen.
+//   2. NAMING ANY OF THEM POINTS THE REVIEWER AT THE WRONG DISCLOSURE. Review
+//      item 1 on CD2166Q was, verbatim, that "the live opt-in disclosure and
+//      SMS Terms are for [the lead company] and its licensed agents, while
+//      this campaign sends as Frenkel Financial Agency". Naming a lead company
+//      in a field about SMS consent invites the reviewer to go and read that
+//      company's disclosure — which is the exact document that got us the
+//      rejection. The remedy is not a better name, it is no name.
+//   3. IT DOES NOT SCALE AND IT DECAYS. Every agent buys from someone
+//      different, and they switch. A privacy policy that names companies is
+//      wrong the first time an agent changes supplier, and a privacy policy
+//      that is wrong is worse than one that is general.
 //
-// DISCLOSURE WORDING: `disclosure` is null until we have the vendor's exact
-// on-form consent language in hand (screenshot or TrustedForm certificate
-// replay). Do NOT invent or approximate this text.
+// So the categories below describe lead sources by KIND. They are true for
+// every agent, they stay true when an agent switches supplier, and they never
+// point a carrier reviewer at a third party's consent language.
 //
-// 🔴 IT IS NO LONGER THE SMS CONSENT BASIS. As of 2026-07-28 the campaign
-// opt-in description does NOT quote it, because a vendor form's "…and its
-// licensed agents" wording is precisely what carrier review rejected as
-// evidence for a campaign sending as the agency. Filling `disclosure` in now
-// improves the privacy policy's provenance story and nothing else — the SMS
-// consent story is the hosted opt-in page. See buildOptinDescription below.
+// The categories drive the "Where your information comes from" section of the
+// generated privacy policy (_shared/compliance-page.ts) and NOTHING ELSE. The
+// campaign opt-in description below names no source at all — see
+// buildOptinDescription.
 // ============================================================
 
 import { buildOptInAutoResponse, buildOptInDisclosure } from "./sms-optin.ts";
 
-export interface LeadVendor {
+export interface LeadSourceCategory {
   /** Stable key stored in agents.lead_vendors[]. Never rename — it's persisted. */
   key: string;
-  /** Display name, as it appears in the privacy policy and opt-in description. */
-  name: string;
-  /** Public URL of the vendor's consumer-facing lead form, when we know it. */
-  formUrl: string | null;
   /**
-   * The vendor's EXACT on-form consent disclosure, verbatim, once we have it.
-   * null = not yet captured. Never fill this with an approximation.
+   * How the category reads inside the privacy policy sentence
+   * "…when you ask for life insurance information — through ${…}."
+   *
+   * Deliberately free of internal commas so two or three of them compose into
+   * a readable "A, B, or C" list.
    */
-  disclosure: string | null;
+  label: string;
+  /** Short label for the Settings checkbox. */
+  short: string;
 }
 
-// ============================================================
-// 🔴 THESE TWO ENTRIES ARE THE WRONG COMPANY. Found 2026-07-28.
-//
-// The carrier's review file for campaign CD2166Q, and the live campaign's own
-// messageFlow, both say the consumer opt-in disclosure belongs to
-// **The Veteran Resource Center** (https://theveteranresourcecenter.com/vrc-v4).
-// Nothing named GoatLeads or Built Leads appears anywhere on the carrier side.
-//
-// Decided 2026-07-28: GoatLeads and Built Leads were wrong and are being
-// removed; The Veteran Resource Center is the real source.
-//
-// NOT YET APPLIED, deliberately. This array feeds BOTH the generated privacy
-// policy's "Where your information comes from" section AND the campaign
-// opt-in description, and both are carrier-facing. Changing it should be one
-// deliberate change followed by a redeploy and a re-read of the live page —
-// not a side effect of an unrelated edit. The full file list and the reasoning
-// are in docs/a2p-campaign-draft.md § "The vendor in this repo is the wrong
-// company".
-// ============================================================
-export const LEAD_VENDORS: LeadVendor[] = [
+export const LEAD_SOURCE_CATEGORIES: LeadSourceCategory[] = [
   {
-    key: "goatleads",
-    name: "GoatLeads",
-    formUrl: "https://goatleads.com",
-    disclosure: null,
+    key: "lead_partners",
+    label: "a web form operated by a third-party lead generation company",
+    short: "Third-party lead vendors",
   },
   {
-    key: "builtleads",
-    name: "Built Leads",
-    formUrl: "https://builtleads.com",
-    disclosure: null,
+    key: "own_forms",
+    label: "a form on our own website or landing pages",
+    short: "Our own website or forms",
+  },
+  {
+    key: "referrals",
+    label: "a referral from a client or business partner",
+    short: "Referrals",
   },
 ];
 
-/** "other" is a free-text path: the agent names their vendor, we store it as `other:<name>`. */
-export const OTHER_VENDOR_PREFIX = "other:";
-
 /**
- * Resolve the stored `agents.lead_vendors[]` array into display names.
- * Unknown keys are dropped; `other:Acme Leads` becomes "Acme Leads".
+ * Resolve the stored `agents.lead_vendors[]` array into policy-ready labels.
+ *
+ * STRICT WHITELIST, and that is the point. Anything that is not a known
+ * category key is dropped — including the legacy `goatleads` / `builtleads`
+ * keys and the legacy `other:<free text>` path, which is how a company name
+ * used to get into the privacy policy. A row still carrying old values renders
+ * the generic sentence rather than a stale company name, so no data migration
+ * has to run before this is safe.
+ *
+ * There is deliberately no free-text path back in. A box an agent can type
+ * into is a box a company name ends up in, and that is the defect this file
+ * exists to prevent.
  */
-export function resolveVendorNames(keys: string[] | null | undefined): string[] {
+export function resolveLeadSourceLabels(keys: string[] | null | undefined): string[] {
   if (!Array.isArray(keys)) return [];
-  const names: string[] = [];
+  const labels: string[] = [];
   for (const raw of keys) {
     if (typeof raw !== "string") continue;
-    const key = raw.trim();
-    if (!key) continue;
-    if (key.toLowerCase().startsWith(OTHER_VENDOR_PREFIX)) {
-      const custom = key.slice(OTHER_VENDOR_PREFIX.length).trim();
-      if (custom) names.push(custom);
-      continue;
-    }
-    const known = LEAD_VENDORS.find((v) => v.key === key.toLowerCase());
-    if (known) names.push(known.name);
+    const known = LEAD_SOURCE_CATEGORIES.find((c) => c.key === raw.trim().toLowerCase());
+    if (known) labels.push(known.label);
   }
-  // De-dupe, preserving order.
-  return names.filter((n, i) => names.indexOf(n) === i);
+  // De-dupe, preserving the order the categories are declared in.
+  return labels.filter((n, i) => labels.indexOf(n) === i);
 }
 
 /**
- * Join names into prose: "A", "A and B", "A, B, and C".
- * Used in both the privacy policy and the opt-in description, so the two
- * read identically.
+ * Join labels into prose: "A", "A or B", "A, B, or C".
+ *
+ * "or" rather than "and": these are alternative routes by which one consumer
+ * reached us, not a list of things that all happened to them.
+ *
+ * The empty fallback still has to be TRUE for an agent who has ticked nothing,
+ * so it names the two routes every agent in this business actually has.
  */
-export function joinVendorNames(names: string[]): string {
-  if (names.length === 0) return "our licensed lead partners";
-  if (names.length === 1) return names[0];
-  if (names.length === 2) return `${names[0]} and ${names[1]}`;
-  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
-}
-
-/**
- * Look up captured verbatim disclosures for the given vendor keys.
- * Returns [] until we've recorded at least one — see the file header.
- */
-export function vendorDisclosures(keys: string[] | null | undefined): Array<{ name: string; disclosure: string }> {
-  if (!Array.isArray(keys)) return [];
-  const out: Array<{ name: string; disclosure: string }> = [];
-  for (const raw of keys) {
-    if (typeof raw !== "string") continue;
-    const v = LEAD_VENDORS.find((x) => x.key === raw.trim().toLowerCase());
-    if (v?.disclosure) out.push({ name: v.name, disclosure: v.disclosure });
-  }
-  return out;
+export function joinLeadSourceLabels(labels: string[]): string {
+  if (labels.length === 0) return "a web form you completed or a referral";
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} or ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, or ${labels[labels.length - 1]}`;
 }
 
 /**
@@ -147,27 +129,29 @@ export function vendorDisclosures(keys: string[] | null | undefined): Array<{ na
  * specific sender, and the vendor will not change their wording for us.
  *
  * So the description no longer claims the vendor's consent covers texting.
- * It describes what is now actually true: the vendor form is how we come to
- * have an email address, and TEXT consent is collected separately on the
- * agency's OWN page at /a/<slug>/sms-opt-in.
+ * It describes what is now actually true: TEXT consent is collected on the
+ * agency's OWN page at /a/<slug>/sms-opt-in, and nowhere else.
+ *
+ * 🔴 IT NAMES NO LEAD COMPANY, AND TAKES NO PARAMETER THAT COULD MAKE IT.
+ * The vendorKeys argument was removed on 2026-07-28 rather than left unused,
+ * so reintroducing a company name here is a signature change somebody has to
+ * mean. Review item 1 was that our opt-in evidence pointed at a third party's
+ * disclosure; a lead company named in this field points the reviewer straight
+ * back at it. See the file header.
  *
  * THREE RULES FOR ANYONE EDITING THIS:
  *
- *   1. The disclosure and the confirmation message are QUOTED VERBATIM from
- *      sms-optin.ts, never retyped here. A reviewer opens the live page and
- *      compares. Identical text is not a nicety, it is the evidence.
- *   2. Do not reintroduce the vendor's consent language as the basis for
- *      SMS. `vendorDisclosures()` still exists and the privacy policy still
- *      names the vendors — because that IS where the lead came from — but
- *      putting the vendor's text back in this field puts the exact wording
- *      that was rejected back in front of the reviewer.
+ *   1. The disclosure is QUOTED VERBATIM from sms-optin.ts, never retyped
+ *      here. A reviewer opens the live page and compares. Identical text is
+ *      not a nicety, it is the evidence.
+ *   2. Do not reintroduce any third party's consent language as the basis for
+ *      SMS, named or unnamed. It is the exact wording that was rejected.
  *   3. Every sentence must survive being checked. If the page stops asking
  *      for a last name, or stops storing the IP, this text becomes false and
  *      a reviewer who tests it will find that out before we do.
  */
 export function buildOptinDescription(
   agencyName: string,
-  vendorKeys: string[] | null | undefined,
   /**
    * The agent's generated compliance pages. Appended as text because the
    * Telnyx campaign has NO compliance-link field — privacyPolicyLink and
@@ -178,7 +162,6 @@ export function buildOptinDescription(
    */
   complianceUrls?: { privacy: string; terms: string; smsOptIn?: string } | null,
 ): string {
-  const vendors = joinVendorNames(resolveVendorNames(vendorKeys));
   const agency = agencyName.trim() || "the agency";
 
   // The opt-in URL is what makes this description checkable. Without it the
@@ -194,10 +177,11 @@ export function buildOptinDescription(
     : "";
 
   let text =
-    `Consumers request life insurance information through a web form operated by ${vendors}, a licensed ` +
-    `lead provider, and consent there to be contacted by telephone and email. That form is NOT the basis ` +
-    `for text messages. Consent to receive text messages is collected separately, on ${agency}'s own ` +
-    `opt-in page ${pageRef}, which the agency sends to the consumer by email or reads to them by phone.`;
+    `Consumers request life insurance information through web forms and referrals, and consent there to ` +
+    `be contacted by telephone and email. Those forms are NOT the basis for text messages. Consent to ` +
+    `receive text messages is collected only on ${agency}'s own opt-in page ${pageRef}, which the agency ` +
+    `sends to the consumer by email or reads to them by phone. It is the sole way a mobile number enters ` +
+    `this campaign.`;
 
   text += ` On that page the consumer enters their first name, last name, and mobile number, and must ` +
     `tick a single checkbox that is never pre-checked. The full disclosure is displayed inline beside ` +

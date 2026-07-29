@@ -10,6 +10,14 @@
 
 10DLC brand and campaign registration requires a publicly reachable privacy policy and terms page belonging to **the business sending the messages**. Not the lead vendor's — the vendor's policy describes what the vendor does with the data, and doesn't mention the agency at all. A carrier reviewer is answering one question: *"if I'm the consumer receiving this text, where do I learn who has my number and how to stop it?"*
 
+> ⚠️ **HISTORICAL SPEC — superseded 2026-07-28. Do not implement the vendor
+> parts of this document.** Two premises below turned out to be wrong: the
+> named vendors were the wrong companies, and the lead vendor's consent is NOT
+> a valid basis for text messages (carrier review item 1 on campaign CD2166Q
+> refused it). `agents.lead_vendors` now holds lead source *categories* and no
+> lead company is named on any carrier-facing surface. See `CLAUDE.md` and
+> `docs/a2p-campaign-draft.md`.
+
 Our agents are life insurance producers. They buy leads from vendors like GoatLeads and Built Leads, where the consumer gave prior express written consent certified by TrustedForm. Their consent story is fine. What they don't have — and reasonably never will — is a consumer-facing website. They're producers, not marketers. Most have no website at all, or a recruiting site aimed at other agents.
 
 So ProducerStack generates the page. This is the difference between an agent registering for A2P in one click and an agent giving up.

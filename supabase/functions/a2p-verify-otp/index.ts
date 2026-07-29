@@ -269,7 +269,6 @@ serve(async (req) => {
     brandId: row.brand_id,
     brandType: "sole_proprietor",
     agencyName,
-    leadVendors: agency.lead_vendors,
     complianceUrls,
   });
 

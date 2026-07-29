@@ -30,7 +30,6 @@ const URLS = {
 const baseOpts = {
   brandId: "brand-123",
   agencyName: "Frenkel Financial Agency",
-  leadVendors: ["goatleads"],
   complianceUrls: URLS,
 };
 
@@ -113,11 +112,18 @@ test("messageFlow carries BOTH compliance URLs — the campaign has no link fiel
   assert.ok(info.messageFlow.includes(URLS.terms), "terms URL missing from messageFlow");
 });
 
-test("messageFlow names the lead vendor, matching the privacy policy", () => {
-  // A reviewer comparing the campaign description against the linked privacy
-  // policy and finding different vendors is the fastest route to a rejection.
+// Inverted 2026-07-28. This test used to assert messageFlow NAMED the lead
+// vendor. Carrier review item 1 on campaign CD2166Q was that our opt-in
+// evidence pointed at a third party's disclosure while the campaign sends as
+// the agency — naming a lead company in this field is what sends the reviewer
+// to that document. The vendor names in this repo were also the wrong
+// companies. So the requirement is now the opposite one.
+test("messageFlow names NO lead company, and says the opt-in page is the only route in", () => {
   const info = buildCampaignInfo({ ...baseOpts, brandType: "standard" });
-  assert.ok(info.messageFlow.includes("GoatLeads"));
+  for (const name of ["GoatLeads", "Built Leads", "The Veteran Resource Center", "TrustedForm"]) {
+    assert.ok(!info.messageFlow.includes(name), `"${name}" is named in messageFlow`);
+  }
+  assert.ok(info.messageFlow.includes("sole way a mobile number enters this campaign"));
 });
 
 test("NO compliance-link fields are ever emitted — they are silently discarded by Telnyx", () => {

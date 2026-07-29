@@ -37,10 +37,12 @@ import {
 
 import {
   buildOptinDescription,
-  joinVendorNames,
-  resolveVendorNames,
+  joinLeadSourceLabels,
+  LEAD_SOURCE_CATEGORIES,
+  resolveLeadSourceLabels,
   TCR_MESSAGE_FLOW_MAX,
 } from "./lead-vendors.ts";
+import { TCR_KEYWORD_MESSAGE_MAX } from "./sms-optin.ts";
 import { buildCampaignInfo } from "./a2p-registration.ts";
 
 import { readFileSync } from "node:fs";
@@ -62,7 +64,7 @@ const LLC_AGENT: AgencyProfile = {
   business_postal_code: "53202",
   business_phone: "+14145551234",
   business_email: "hello@frenkelfinancial.com",
-  lead_vendors: ["goatleads", "builtleads"],
+  lead_vendors: ["lead_partners", "referrals"],
   compliance_slug: "frenkel-financial-agency",
   compliance_page_published_at: "2026-07-29T12:00:00Z",
 };
@@ -78,7 +80,7 @@ const SOLE_PROP_AGENT: AgencyProfile = {
   business_postal_code: "78701",
   business_phone: "5125559876",
   business_email: "maria@example.com",
-  lead_vendors: ["goatleads"],
+  lead_vendors: ["lead_partners"],
   compliance_slug: "maria-alvarez-insurance",
   compliance_page_published_at: "2026-07-29T12:00:00Z",
 };
@@ -343,23 +345,65 @@ test("terms page contains every required section", () => {
   assert.ok(html.includes("may be monitored or recorded"));
 });
 
-test("the opt-in source section names the same vendors as the campaign description", () => {
+test("the privacy policy describes lead sources by category and names no company", () => {
   const html = renderPrivacyPolicyPage({ profile: LLC_AGENT, ...RENDER_OPTS });
-  const optin = buildOptinDescription(agencyDisplayName(LLC_AGENT), LLC_AGENT.lead_vendors);
-  // A reviewer comparing the two must see the same vendors. Divergence here
-  // is a rejection.
-  assert.ok(html.includes("GoatLeads and Built Leads"));
-  assert.ok(optin.includes("GoatLeads and Built Leads"));
-  assert.ok(html.includes("TrustedForm"));
+  assert.ok(html.includes("a web form operated by a third-party lead generation company"));
+  assert.ok(html.includes("a referral from a client or business partner"));
+  // The reason the categories exist, stated on the page itself, so a consumer
+  // is not left thinking we are hiding the answer.
+  assert.ok(html.includes("rather than listing companies by name"));
+  assert.ok(html.includes("ask us using the contact details on this page"));
+});
+
+// 🔴 The regression that matters most in this file.
+//
+// Naming a lead company in either surface is what produced carrier review
+// item 1 on CD2166Q: our opt-in evidence pointed at a third party's
+// disclosure while the campaign sends as the agency. The names that were in
+// this repo were also the WRONG companies. Both surfaces are now company-free
+// and this test is what keeps them that way.
+const FORBIDDEN_COMPANY_NAMES = [
+  "GoatLeads", "goatleads", "Built Leads", "builtleads",
+  "The Veteran Resource Center", "theveteranresourcecenter", "TrustedForm",
+];
+
+test("no lead company is named on any rendered page or in the campaign description", () => {
+  const urls = compliancePageUrls("https://trust.producerstackcrm.com", "frenkel-financial-agency");
+  const surfaces = [
+    ...allPages(LLC_AGENT),
+    ...allPages(SOLE_PROP_AGENT),
+    buildOptinDescription(agencyDisplayName(LLC_AGENT), urls),
+    buildOptinDescription(agencyDisplayName(LLC_AGENT)),
+  ];
+  for (const s of surfaces) {
+    for (const name of FORBIDDEN_COMPANY_NAMES) {
+      assert.ok(!s.includes(name), `"${name}" is named on a carrier-facing surface`);
+    }
+  }
+});
+
+// Legacy rows still hold the old vendor keys, and a free-text `other:<name>`
+// was once storable. Neither may render. Dropping unknown keys rather than
+// echoing them is what makes the data migration optional instead of urgent.
+test("legacy vendor keys and the old free-text path render nothing", () => {
+  const legacy: AgencyProfile = {
+    ...LLC_AGENT,
+    lead_vendors: ["goatleads", "builtleads", "other:Some Lead Company LLC"],
+  };
+  const html = renderPrivacyPolicyPage({ profile: legacy, ...RENDER_OPTS });
+  assert.ok(!html.includes("Some Lead Company LLC"), "free-text vendor name reached the policy");
+  assert.ok(!html.includes("GoatLeads"));
+  // ...and it falls back to a sentence that is still true.
+  assert.ok(html.includes("a web form you completed or a referral"));
 });
 
 // The rejection this whole feature exists because of. Both surfaces must say
-// the vendor form covers PHONE AND EMAIL, and that texting is opted into
-// separately. If either one drifts back to claiming the vendor form covers
-// SMS, we are resubmitting the exact assertion carrier review already refused.
-test("neither the policy nor the campaign description claims the vendor form covers texting", () => {
+// the lead form covers PHONE AND EMAIL, and that texting is opted into
+// separately. If either one drifts back to claiming a lead form covers SMS,
+// we are resubmitting the exact assertion carrier review already refused.
+test("neither the policy nor the campaign description claims a lead form covers texting", () => {
   const html = renderPrivacyPolicyPage({ profile: LLC_AGENT, ...RENDER_OPTS });
-  const optin = buildOptinDescription(agencyDisplayName(LLC_AGENT), LLC_AGENT.lead_vendors, {
+  const optin = buildOptinDescription(agencyDisplayName(LLC_AGENT), {
     privacy: "https://trust.producerstackcrm.com/a/x/privacy-policy",
     terms: "https://trust.producerstackcrm.com/a/x/terms",
     smsOptIn: "https://trust.producerstackcrm.com/a/x/sms-opt-in",
@@ -368,7 +412,10 @@ test("neither the policy nor the campaign description claims the vendor form cov
   assert.ok(!html.includes("by phone and text message by licensed insurance agents"));
   assert.ok(html.includes("Text messages are separate"));
   assert.ok(optin.includes("consent there to be contacted by telephone and email"));
-  assert.ok(optin.includes("That form is NOT the basis for text messages"));
+  assert.ok(optin.includes("Those forms are NOT the basis for text messages"));
+  // The campaign description must state the opt-in page is the ONLY route in.
+  assert.ok(optin.includes("collected only on"));
+  assert.ok(optin.includes("sole way a mobile number enters this campaign"));
 });
 
 // Policy documents only. The opt-in form and its confirmation deliberately
@@ -566,22 +613,15 @@ test("compliancePageUrls builds every canonical URL and tolerates a trailing sla
 // Opt-in description (Phase 5)
 // ------------------------------------------------------------
 
-test("opt-in description substitutes vendor and agency, keeps the fixed body", () => {
-  const d = buildOptinDescription("Frenkel Financial Agency", ["goatleads", "builtleads"]);
-  assert.ok(d.startsWith("Consumers request life insurance information through a web form operated by GoatLeads and Built Leads"));
-  assert.ok(d.includes("Consent to receive text messages is collected separately"));
+test("opt-in description substitutes the agency and keeps the fixed body", () => {
+  const d = buildOptinDescription("Frenkel Financial Agency");
+  assert.ok(d.startsWith("Consumers request life insurance information through web forms and referrals"));
+  assert.ok(d.includes("Consent to receive text messages is collected only on Frenkel Financial Agency's own"));
   assert.ok(d.includes("tick a single checkbox that is never pre-checked"));
   assert.ok(d.includes("not behind a link or pop-up"));
   assert.ok(d.includes("the consumer's IP address, and the page URL"));
   assert.ok(d.includes("sends no text message to any number without a stored consent record"));
   assert.ok(d.includes("reply STOP at any time to opt out, or HELP for help"));
-});
-
-test("opt-in description handles a single vendor, the 'other' path, and none at all", () => {
-  assert.ok(buildOptinDescription("Acme", ["goatleads"]).includes("operated by GoatLeads,"));
-  assert.ok(buildOptinDescription("Acme", ["other:Redwood Leads"]).includes("operated by Redwood Leads,"));
-  assert.ok(buildOptinDescription("Acme", []).includes("operated by our licensed lead partners,"));
-  assert.ok(buildOptinDescription("Acme", null).includes("operated by our licensed lead partners,"));
 });
 
 // The Telnyx campaign has NO compliance-link field — privacyPolicyLink and
@@ -594,7 +634,7 @@ test("opt-in description carries the compliance URLs when given them", () => {
     terms: "https://trust.producerstackcrm.com/a/acme/terms",
     smsOptIn: "https://trust.producerstackcrm.com/a/acme/sms-opt-in",
   };
-  const d = buildOptinDescription("Acme Insurance", ["goatleads"], urls);
+  const d = buildOptinDescription("Acme Insurance", urls);
   // All three ride in the text. The privacy and terms URLs arrive inside the
   // quoted disclosure rather than in a closing sentence of their own — the
   // duplicate sentence cost ~230 of the 2,048-character budget and told the
@@ -609,18 +649,18 @@ test("opt-in description carries the compliance URLs when given them", () => {
 // sentence comes back. The URLs are never absent from this field, because it
 // is one of only two routes by which they reach a carrier reviewer at all.
 test("opt-in description falls back to naming the URLs when there is no disclosure to quote", () => {
-  const d = buildOptinDescription("Acme Insurance", ["goatleads"], {
+  const d = buildOptinDescription("Acme Insurance", {
     privacy: "https://example.com/p",
     terms: "https://example.com/t",
   });
   assert.ok(d.includes("By checking this box"), "a disclosure IS available when privacy+terms are given");
   // ...so this path is only reachable with neither. Assert that shape directly.
-  const bare = buildOptinDescription("Acme Insurance", ["goatleads"], null);
+  const bare = buildOptinDescription("Acme Insurance", null);
   assert.ok(!bare.includes("is published at"));
 });
 
 test("opt-in description omits the URL sentence when no URLs are supplied", () => {
-  const d = buildOptinDescription("Acme Insurance", ["goatleads"]);
+  const d = buildOptinDescription("Acme Insurance");
   assert.ok(!d.includes("is published at"));
   assert.ok(d.endsWith("Consumers may reply STOP at any time to opt out, or HELP for help."));
   // Without URLs there is no disclosure to quote and no page to name, so the
@@ -787,7 +827,10 @@ test("opt-in page names the agency, not ProducerStack, and links its own policie
 
 test("the auto-response matches the campaign's registered opt-in keyword reply", () => {
   const r = buildOptInAutoResponse("Frenkel Financial Agency");
-  assert.ok(r.startsWith("Frenkel Financial Agency: You're subscribed to messages about your life insurance quote"));
+  assert.ok(r.startsWith("Frenkel Financial Agency: You're subscribed to marketing and promotional messages"));
+  // The string carrier review objected to, pinned so it cannot come back by
+  // way of a revert or a copy-paste from the old campaign record.
+  assert.ok(!r.includes("You're subscribed to messages about your life insurance quote"));
   assert.ok(r.includes("Msg frequency varies"));
   assert.ok(r.includes("Msg&data rates may apply"));
   assert.ok(r.includes("Consent is not a condition of purchase"));
@@ -864,7 +907,7 @@ test("the opt-in description fits TCR's messageFlow limit, worst case included",
   ];
   for (const [name, slug] of cases) {
     const urls = compliancePageUrls("https://trust.producerstackcrm.com", slug);
-    const d = buildOptinDescription(name, ["goatleads", "builtleads"], urls);
+    const d = buildOptinDescription(name, urls);
     assert.ok(
       d.length <= TCR_MESSAGE_FLOW_MAX,
       `description is ${d.length} chars for "${name}" — over the ${TCR_MESSAGE_FLOW_MAX} limit. ` +
@@ -885,7 +928,6 @@ test("the campaign's registered opt-in reply is the same text the page sends", (
     brandId: "brand_123",
     brandType: "standard",
     agencyName: "Frenkel Financial Agency",
-    leadVendors: ["goatleads"],
     complianceUrls: compliancePageUrls("https://trust.producerstackcrm.com", "frenkel-financial-agency"),
   });
   assert.equal(info.optinMessage, buildOptInAutoResponse("Frenkel Financial Agency"));
@@ -893,15 +935,81 @@ test("the campaign's registered opt-in reply is the same text the page sends", (
   assert.ok(info.messageFlow.length <= TCR_MESSAGE_FLOW_MAX);
 });
 
-test("vendor resolution drops unknown keys and de-duplicates", () => {
-  assert.deepEqual(resolveVendorNames(["goatleads", "nope", "goatleads", "builtleads"]),
-    ["GoatLeads", "Built Leads"]);
-  assert.deepEqual(resolveVendorNames(null), []);
+// ------------------------------------------------------------
+// The opt-in auto-response — carrier review items 2 and 3 on CD2166Q
+// ------------------------------------------------------------
+
+// Item 3 verbatim: "MARKETING is selected, but the START/opt-in auto-response
+// does not explicitly mention marketing or promotional messages." The campaign
+// declares MARKETING, CUSTOMER_CARE and ACCOUNT_NOTIFICATION, so all three
+// have to appear. This test is the thing that stops the old string coming back.
+test("the opt-in auto-response names every declared use case, including marketing", () => {
+  const m = buildOptInAutoResponse("Frenkel Financial Agency");
+  assert.ok(/marketing/i.test(m), "MARKETING is declared on the campaign and must be named here");
+  assert.ok(/promotional/i.test(m));
+  assert.ok(/customer care/i.test(m));
+  assert.ok(/account notification/i.test(m));
 });
 
-test("joinVendorNames uses an Oxford list for three or more", () => {
-  assert.equal(joinVendorNames(["A"]), "A");
-  assert.equal(joinVendorNames(["A", "B"]), "A and B");
-  assert.equal(joinVendorNames(["A", "B", "C"]), "A, B, and C");
-  assert.equal(joinVendorNames([]), "our licensed lead partners");
+// Item 2 verbatim: the auto-response "needs updating with information provided
+// here", linking Telnyx's keywords article. The article lists seven required
+// elements; each assertion below is one of them.
+test("the opt-in auto-response carries all seven elements Telnyx's article requires", () => {
+  const m = buildOptInAutoResponse("Frenkel Financial Agency");
+  assert.ok(m.startsWith("Frenkel Financial Agency:"), "1. brand name");
+  assert.ok(/marketing and promotional messages, customer care, and account notifications/.test(m), "2. use cases");
+  assert.ok(m.includes("Msg frequency varies."), "3. message frequency");
+  assert.ok(m.includes("Msg&data rates may apply."), "4. rates");
+  assert.ok(m.includes("Consent is not a condition of purchase."), "5. consent is not a condition");
+  assert.ok(m.includes("Reply HELP for help"), "6. HELP");
+  assert.ok(m.includes("STOP to opt out."), "7. STOP");
+});
+
+// The auto-response is submitted as the campaign's optinMessage AND texted to
+// the consumer, and it grows with the agency name. Over TCR's 320-character
+// keyword-response cap is a rejected submission at $15 a try — the same
+// failure mode TCR_MESSAGE_FLOW_MAX guards on the description.
+test("the opt-in auto-response fits TCR's keyword limit, worst case included", () => {
+  for (const name of [
+    "Acme",
+    "Frenkel Financial Agency",
+    "The Extraordinarily Long Life Insurance Agency Of Greater Mil", // 60 chars, the slug maximum
+  ]) {
+    const m = buildOptInAutoResponse(name);
+    assert.ok(
+      m.length <= TCR_KEYWORD_MESSAGE_MAX,
+      `auto-response is ${m.length} chars for "${name}" — over the ${TCR_KEYWORD_MESSAGE_MAX} limit`,
+    );
+  }
+});
+
+test("lead source resolution whitelists known categories and de-duplicates", () => {
+  assert.deepEqual(
+    resolveLeadSourceLabels(["lead_partners", "nope", "lead_partners", "referrals"]),
+    [
+      "a web form operated by a third-party lead generation company",
+      "a referral from a client or business partner",
+    ],
+  );
+  assert.deepEqual(resolveLeadSourceLabels(null), []);
+  // The two ways a company name used to get in. Both drop.
+  assert.deepEqual(resolveLeadSourceLabels(["goatleads", "other:Redwood Leads"]), []);
+});
+
+test("joinLeadSourceLabels reads as alternatives, and its empty fallback is still true", () => {
+  assert.equal(joinLeadSourceLabels(["A"]), "A");
+  assert.equal(joinLeadSourceLabels(["A", "B"]), "A or B");
+  assert.equal(joinLeadSourceLabels(["A", "B", "C"]), "A, B, or C");
+  assert.equal(joinLeadSourceLabels([]), "a web form you completed or a referral");
+});
+
+// The Settings checkboxes in app.html are hand-written HTML keyed on these
+// values. A key renamed here and not there silently stops resolving, and the
+// policy quietly falls back to the generic sentence for every agent.
+test("the lead source category keys are the ones app.html stores", () => {
+  assert.deepEqual(LEAD_SOURCE_CATEGORIES.map((c) => c.key),
+    ["lead_partners", "own_forms", "referrals"]);
+  for (const c of LEAD_SOURCE_CATEGORIES) {
+    assert.ok(!c.label.includes(","), `"${c.key}" has an internal comma and will not compose into a list`);
+  }
 });

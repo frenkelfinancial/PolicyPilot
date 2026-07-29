@@ -381,7 +381,6 @@ serve(async (req) => {
     brandId: row.brand_id || sandboxBrandId || "",
     brandType,
     agencyName,
-    leadVendors: agency.lead_vendors,
     complianceUrls,
     overrides: body.campaign,
   });

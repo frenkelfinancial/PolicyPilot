@@ -249,7 +249,8 @@ export function buildCampaignInfo(opts: {
   brandId: string;
   brandType: "standard" | "sole_proprietor";
   agencyName: string;
-  leadVendors: string[] | null | undefined;
+  // No lead-source argument, deliberately. The opt-in workflow description
+  // names no lead company — see the header of _shared/lead-vendors.ts.
   // smsOptIn is what makes the opt-in workflow description checkable — the
   // reviewer can open the page and compare it against the quoted disclosure.
   // compliancePageUrls() has returned it since the opt-in page shipped, so
@@ -258,7 +259,7 @@ export function buildCampaignInfo(opts: {
   complianceUrls: { privacy: string; terms: string; smsOptIn?: string };
   overrides?: Partial<CampaignInfo>;
 }): CampaignInfo {
-  const optinWorkflow = buildOptinDescription(opts.agencyName, opts.leadVendors, opts.complianceUrls);
+  const optinWorkflow = buildOptinDescription(opts.agencyName, opts.complianceUrls);
   const agency = opts.agencyName || "our agency";
 
   return {

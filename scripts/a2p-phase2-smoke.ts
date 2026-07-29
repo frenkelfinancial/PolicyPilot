@@ -86,7 +86,6 @@ const noFlow = await submitCampaign(apiKey, {
     brandId: sandboxBrandId,
     brandType: "standard",
     agencyName: "ProducerStack Smoke Test",
-    leadVendors: ["goatleads"],
     complianceUrls: URLS,
   }),
   messageFlow: "",
@@ -106,7 +105,6 @@ const probe = await submitCampaign(apiKey, {
     brandId: sandboxBrandId,
     brandType: "standard",
     agencyName: "ProducerStack Smoke Test",
-    leadVendors: ["goatleads"],
     complianceUrls: URLS,
   }),
   usecase: "DEFINITELY_NOT_A_REAL_USECASE",
@@ -124,7 +122,6 @@ if (createCampaign) {
     brandId: sandboxBrandId,
     brandType: "standard",
     agencyName: "ProducerStack Smoke Test",
-    leadVendors: ["goatleads"],
     complianceUrls: URLS,
   });
   const created = await submitCampaign(apiKey, info);
