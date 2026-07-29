@@ -38,6 +38,9 @@ import {
   matchRowToPolicy,
   sniffCarrier,
   tooLargeMessage,
+  nextPolicyStatusFromStatement,
+  planStatementStatusChanges,
+  STATEMENT_AUTHORITATIVE_STATUSES,
   MAX_FILE_BYTES,
   type Sheet,
   type ColumnMapping,
@@ -890,4 +893,119 @@ test("a ZIP of statements yields each member for its own pass", () => {
   assert.equal(detectFileKind(members[0].name, members[0].bytes), "csv");
   assert.equal(detectFileKind(members[1].name, members[1].bytes), "xlsx");
   assert.equal(readXlsx(members[1].bytes)[0].rows[1][0], "TA1");
+});
+
+// ============================================================
+// Statement-authoritative policy status (Back Office Phase 3)
+// ============================================================
+
+test("a statement may only move a policy into paid or chargeback", () => {
+  assert.deepEqual(STATEMENT_AUTHORITATIVE_STATUSES, ["paid", "chargeback"]);
+});
+
+test("a commission payment promotes a policy that was waiting to be paid", () => {
+  assert.equal(nextPolicyStatusFromStatement("pending", "advance", 12345), "paid");
+  assert.equal(nextPolicyStatusFromStatement("approved", "advance", 12345), "paid");
+  assert.equal(nextPolicyStatusFromStatement("issued", "renewal", 500), "paid");
+  // No current status at all reads as pending, which is the tracker's default.
+  assert.equal(nextPolicyStatusFromStatement(null, "advance", 100), "paid");
+});
+
+test("a payment never resurrects a policy that has already ended", () => {
+  for (const ended of ["lapsed", "chargeback", "denied", "withdrawn", "surrendered", "claim"]) {
+    assert.equal(nextPolicyStatusFromStatement(ended, "advance", 5000), null,
+      `${ended} must not be promoted to paid by a trailing commission line`);
+  }
+  // Already paid is not a change either.
+  assert.equal(nextPolicyStatusFromStatement("paid", "renewal", 5000), null);
+});
+
+test("a chargeback wins from any status except itself", () => {
+  for (const cur of ["pending", "approved", "issued", "paid", "lapsed", "denied", "claim"]) {
+    assert.equal(nextPolicyStatusFromStatement(cur, "chargeback", -5000), "chargeback");
+  }
+  assert.equal(nextPolicyStatusFromStatement("chargeback", "chargeback", -5000), null);
+});
+
+test("a LAPSE is never inferred from a debit — that would kill live business", () => {
+  // An adjustment, a bonus, an override and an unknown line all leave the
+  // tracker alone however they point. The carrier-email parser is what reads a
+  // carrier actually saying a policy lapsed.
+  for (const t of ["adjustment", "bonus", "override", "unknown"]) {
+    assert.equal(nextPolicyStatusFromStatement("issued", t, -9999), null);
+    assert.equal(nextPolicyStatusFromStatement("issued", t, 9999), null);
+  }
+});
+
+test("a zero or negative amount is not a payment", () => {
+  assert.equal(nextPolicyStatusFromStatement("pending", "advance", 0), null);
+  // A negative "advance" is normalized to a chargeback upstream, but if one
+  // reaches here it must not read as a payment.
+  assert.equal(nextPolicyStatusFromStatement("pending", "renewal", -100), null);
+});
+
+test("a statement produces at most one status change per policy", () => {
+  const lines = [
+    { matched_policy_id: "p1", transaction_type: "advance", amount_cents: 10000 },
+    { matched_policy_id: "p1", transaction_type: "renewal", amount_cents: 500 },
+    { matched_policy_id: "p2", transaction_type: "advance", amount_cents: 20000 },
+  ];
+  const plan = planStatementStatusChanges(lines, new Map([["p1", "pending"], ["p2", "approved"]]));
+  assert.equal(plan.length, 2);
+  assert.deepEqual(plan.map(p => p.policyId).sort(), ["p1", "p2"]);
+  assert.equal(plan.find(p => p.policyId === "p1").to, "paid");
+  assert.equal(plan.find(p => p.policyId === "p1").from, "pending");
+});
+
+test("a chargeback later in the same statement beats an earlier payment", () => {
+  const lines = [
+    { matched_policy_id: "p1", transaction_type: "advance", amount_cents: 10000 },
+    { matched_policy_id: "p1", transaction_type: "chargeback", amount_cents: -10000 },
+  ];
+  const plan = planStatementStatusChanges(lines, new Map([["p1", "pending"]]));
+  assert.equal(plan.length, 1);
+  assert.equal(plan[0].to, "chargeback");
+  assert.equal(plan[0].from, "pending");
+});
+
+test("a payment AFTER a chargeback in the same statement does not undo it", () => {
+  // Order matters and chargeback is sticky: once the fold reaches 'chargeback'
+  // the advance line evaluates against that, not against the original status.
+  const lines = [
+    { matched_policy_id: "p1", transaction_type: "chargeback", amount_cents: -10000 },
+    { matched_policy_id: "p1", transaction_type: "advance", amount_cents: 10000 },
+  ];
+  const plan = planStatementStatusChanges(lines, new Map([["p1", "pending"]]));
+  assert.equal(plan[0].to, "chargeback");
+});
+
+test("re-parsing an ingested statement plans NO further status change", () => {
+  const lines = [{ matched_policy_id: "p1", transaction_type: "advance", amount_cents: 10000 }];
+  const first = planStatementStatusChanges(lines, new Map([["p1", "pending"]]));
+  assert.equal(first.length, 1);
+  // Second pass sees the status the first pass produced.
+  const second = planStatementStatusChanges(lines, new Map([["p1", first[0].to]]));
+  assert.equal(second.length, 0, "a re-parse must be a no-op on policy status too");
+});
+
+test("an unmatched line changes no policy at all", () => {
+  const plan = planStatementStatusChanges(
+    [{ matched_policy_id: null, transaction_type: "chargeback", amount_cents: -100 }],
+    new Map(),
+  );
+  assert.deepEqual(plan, []);
+});
+
+test("every planned change carries a plain-English reason", () => {
+  const plan = planStatementStatusChanges(
+    [
+      { matched_policy_id: "p1", transaction_type: "advance", amount_cents: 100 },
+      { matched_policy_id: "p2", transaction_type: "chargeback", amount_cents: -100 },
+    ],
+    new Map([["p1", "pending"], ["p2", "paid"]]),
+  );
+  plan.forEach(p => {
+    assert.ok(p.reason && p.reason.length > 8, "a status change must explain itself");
+    assert.ok(!/null|undefined/.test(p.reason));
+  });
 });

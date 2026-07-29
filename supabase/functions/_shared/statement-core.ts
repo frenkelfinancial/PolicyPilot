@@ -1320,3 +1320,103 @@ export function previewToText(p: SheetPreview): string {
     .join("\n");
   return `Sheet: ${p.sheetName}\nTotal data rows: ${p.totalRows}\nHeader columns (index:name):\n${head}\n\nSample rows:\n${body}`;
 }
+
+// ============================================================
+// 12. Statement-authoritative policy status (Back Office Phase 3).
+//
+// A carrier's own commission statement is better evidence about two things
+// than anything else the app holds: that a policy PAID, and that a policy was
+// CHARGED BACK. Both are facts about money that already moved, reported by the
+// party that moved it. So statement ingestion is allowed to advance a policy's
+// status — but only into those two, only forward, and only through
+// policy_status_history so the agent can see what changed it and why.
+//
+// Deliberately NOT inferred: a LAPSE. Our seven transaction types have no
+// "lapse", and the shapes that might imply one — a negative adjustment, a
+// missing renewal — are also what an ordinary fee or a timing difference looks
+// like. Guessing a lapse from a debit would mark live business dead on the
+// strength of a bookkeeping line. A lapse still arrives through the
+// carrier-email parser, which reads a carrier SAYING the policy lapsed.
+// ============================================================
+
+/** The statuses a policy is allowed to reach because a statement said so. */
+export const STATEMENT_AUTHORITATIVE_STATUSES = ["paid", "chargeback"];
+
+/** Statuses a "this paid" line may promote FROM. Never from an ended one. */
+const PAYABLE_FROM = new Set(["pending", "approved", "issued"]);
+
+/**
+ * The status one statement line implies, or null for "leave the policy alone".
+ *
+ * A chargeback wins from any status except itself: money taken back is a
+ * carrier fact, and refusing to record it because the tracker says "lapsed"
+ * would hide a debt the agent owes. A payment only promotes from a status that
+ * was still waiting to be paid, so a policy that has already lapsed or charged
+ * back is never quietly resurrected by a trailing renewal line.
+ */
+export function nextPolicyStatusFromStatement(
+  current: string | null | undefined,
+  txnType: string,
+  amountCents: number,
+): string | null {
+  const cur = current || "pending";
+  if (txnType === "chargeback") return cur === "chargeback" ? null : "chargeback";
+  if ((txnType === "advance" || txnType === "renewal") && amountCents > 0) {
+    return PAYABLE_FROM.has(cur) ? "paid" : null;
+  }
+  return null;
+}
+
+export interface StatementStatusChange {
+  policyId: string;
+  from: string | null;
+  to: string;
+  reason: string;
+}
+
+/**
+ * Fold a statement's matched lines into at most one status change per policy.
+ *
+ * Lines are applied in the order they appear, each against the status the
+ * previous line left behind, which is what makes a chargeback sticky without a
+ * special case: once a policy reads `chargeback`, a later advance line
+ * evaluates to null rather than promoting it back to paid.
+ *
+ * Re-parsing an already-ingested statement produces NO changes, because every
+ * line is evaluated against the status it already produced. That is the same
+ * property the row-grain dedupe key gives the commission rows.
+ */
+export function planStatementStatusChanges(
+  lines: Array<{ matched_policy_id?: string | null; transaction_type?: string; amount_cents?: number; policy_number?: string | null; insured_name?: string | null }>,
+  currentStatusByPolicyId: Map<string, string | null>,
+): StatementStatusChange[] {
+  const started = new Map<string, string | null>();
+  const working = new Map<string, string | null>();
+  const reason = new Map<string, string>();
+
+  for (const l of lines || []) {
+    const id = l.matched_policy_id;
+    if (!id) continue;
+    if (!working.has(id)) {
+      const cur = currentStatusByPolicyId.get(id) ?? null;
+      started.set(id, cur);
+      working.set(id, cur);
+    }
+    const next = nextPolicyStatusFromStatement(
+      working.get(id), String(l.transaction_type || "unknown"), Number(l.amount_cents || 0),
+    );
+    if (!next) continue;
+    working.set(id, next);
+    reason.set(id, next === "chargeback"
+      ? "A chargeback line on this statement"
+      : "A commission payment on this statement");
+  }
+
+  const out: StatementStatusChange[] = [];
+  for (const [id, end] of working) {
+    const from = started.get(id) ?? null;
+    if (!end || end === from) continue;
+    out.push({ policyId: id, from, to: end, reason: reason.get(id) || "This statement" });
+  }
+  return out;
+}

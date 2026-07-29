@@ -132,10 +132,10 @@ Companion doc: `docs/ORION_GAP_ANALYSIS.md` (full detail on each item).
 - [ ] **82. Ingestion pipeline status.** Live counters: Queued / Parsing / Persisting / Matching / Ingested / Failed, plus a recent-uploads list.
 - [ ] **83. Agent identity sheet bulk load.** One row per agent with NPN and per-carrier writing numbers, auto-detected on upload.
 - [ ] **84. Producer Codes screen.** NPN plus per-carrier writing codes, with **retroactive attribution** — saving a code back-fills any already-imported policies written under it.
-- [ ] **85. Book of Business browser.** Master policy list with status pills and BoB-authoritative dates.
-- [ ] **86. "Approved Not Paid" as a first-class status.** Also add Surrendered and Claim to your status set.
-- [ ] **87. Per-policy status-history timeline.** Every state change, when, and from what source.
-- [ ] **88. Product filter on the book.** Final expense · Term · IUL · Whole life · Annuity.
+- [x] **85. Book of Business browser.** Master policy list with status pills and BoB-authoritative dates. Shipped 2026-07-29 (Back Office Phase 3) — `docs/back-office-book-of-business.md`.
+- [x] **86. "Approved Not Paid" as a first-class status.** Also add Surrendered and Claim to your status set. Shipped 2026-07-29 — ten statuses, ten tabs with counts; Denied and Withdrawn added too.
+- [x] **87. Per-policy status-history timeline.** Every state change, when, and from what source. Shipped 2026-07-29 — `policy_status_history` (append-only, provenance-guarded), merged with the older `policy_events`.
+- [x] **88. Product filter on the book.** Final expense · Term · IUL · Whole life · Annuity. Shipped 2026-07-29 — data-driven, and the carrier filter with it.
 - [ ] **89. Commission dashboard with defined metrics.** Total, Gross, Net ("what actually hits the bank"), Personal Sales, Override Income, Outstanding Debt — each with a plain-English definition on the card.
 - [ ] **90. Outstanding debt tracking, drillable.** Carrier-reported balance at individual and rollup level. This is the number agency owners actually worry about.
 - [ ] **91. Commission trend chart** with commission / personal / override above the line and debt below it.

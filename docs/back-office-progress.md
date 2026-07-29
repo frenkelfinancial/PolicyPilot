@@ -16,18 +16,20 @@ seven independently-shippable phases. Started 2026-07-29.
 |---|---|---|
 | 1 | Ingestion engine (upload → parse → persist → match) | ✅ **shipped 2026-07-29** |
 | 2 | Producer codes + retroactive attribution | ✅ **shipped 2026-07-29** |
-| 3 | Book of Business upgrades | not started |
+| 3 | Book of Business upgrades | ✅ **shipped 2026-07-29** |
 | 4 | Commissions dashboard | not started |
 | 5 | Persistency upgrades | not started |
 | 6 | Reconciliation screen | not started |
 | 7 | Close the loop (auto-referral, chargeback at-risk, carriers) | not started |
 
-**Exact resume point:** Phase 3 — Book of Business upgrades. Nothing from
-Phases 1 or 2 is outstanding. Phase 3 needs a `policy_status_history` table
-(additive; `policy_events` from the carrier-mail pipeline is the adjacent
-precedent but records only what the *parser* did, so the new table generalises
-it to manual edits and statement ingestion too), plus `app.html` work on the
-existing `#sec-tracker`.
+**Exact resume point:** Phase 4 — Commissions dashboard. Nothing from Phases
+1–3 is outstanding. Phase 4 needs the first deliberate **cross-agent aggregate
+RPC** in this schema (`SECURITY DEFINER`, anchored on `auth.uid()`, same shape
+as `get_team_summary`) so a leader can see rolled-up downline debt without
+`commission_rows` ever becoming readable across tenants — that is the piece
+Phase 1's ledger entry explicitly deferred to Phase 4. Everything else it needs
+(`commission_rows.transaction_date`, `attributed_agent_id`, the transaction
+types) is already in place.
 
 **Waiting on Jace:** one decision — see *"Forwarding email address"* below.
 Nothing is blocked by it; Phase 1 shipped upload-only as planned.
@@ -354,16 +356,161 @@ Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
 
 ---
 
-## Phases 3–7
+## Phase 3 — Book of Business ✅ SHIPPED
+
+Feature doc: **`docs/back-office-book-of-business.md`**.
+Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
+`20260741_book_of_business.sql`*.
+
+### What shipped
+
+- **Schema `20260741`**: `public.policy_status_history` (append-only, with a
+  provenance guard trigger), a genesis backfill of all 23 production policies,
+  and `get_team_summary` replaced with one predicate change.
+- **Four new statuses** — `denied`, `withdrawn`, `surrendered`, `claim` — plus
+  `approved` relabelled **Approved Not Paid**. No change to `public.policies`:
+  the status is a string in a jsonb column.
+- **Status tabs with counts** replacing the Status dropdown; **per-policy
+  status-history timeline** merging `policy_status_history` and the older
+  `policy_events`; **product filter**; **carrier filter now data-driven**;
+  **agent filter gated** with the hierarchy explanation.
+- **`statement-parse` writes back policy status** for the two things a
+  statement is authoritative about (paid, chargeback), always through the
+  trail. Deployed individually, v3, `verify_jwt` unchanged; fleet still 72 / 16.
+
+### Decisions taken without asking
+
+1. **The six original status KEYS are unchanged.** They are stored verbatim in
+   `policies.data.status` for every policy in production and are read by
+   `get_team_summary`, `match-events`' `STATUS_MAP`, the Summary charts and the
+   bonus tracker. Renaming one is a data migration; nothing here needed one.
+   Only the `approved` LABEL changed.
+
+2. **Issued and Paid share ONE tab.** The brief names ten tabs and this app has
+   ten statuses, but `issued` and `paid` are separate here (`issued` is the
+   carrier's decision, `paid` is the draft-date advance) while "Issued Paid" is
+   one thing to an agent. The compound tab rides the `'+'`-joined filter the
+   Summary drill-in already used. The per-row dropdown still offers both
+   separately, so nothing is lost.
+
+3. **The tabs REPLACED the Status dropdown rather than joining it.** Two
+   controls for one filter is how a filter and its count start disagreeing.
+   `summaryDrillTo()` now writes `ptFilter.status` directly, because there is
+   no longer a `#ptf-status` element for it to set.
+
+4. **Tab counts span the whole book, never the filtered view**, and selecting a
+   tab preserves the carrier / product / date filters.
+
+5. **A new table rather than widening `policy_events`.** `policy_events` is the
+   carrier-mail pipeline's, keyed to `parsed_events`, service-role-write-only
+   and with no concept of a manual edit. Widening it risked changing what
+   `match-events` writes. The timeline reads **both** rather than migrating one
+   into the other, so no existing history is lost or rewritten.
+
+6. **`policy_status_history` IS owner-appendable**, unlike the four Phase 1
+   commission tables — because the policy write path is the browser, and a
+   table the browser could not write would record nothing for the source that
+   produces most entries. There is **no UPDATE and no DELETE policy**: the
+   trail is append-only. A trigger stops a client claiming `statement` or
+   `carrier_email` provenance, which is the claim Phase 6 has to be able to
+   trust.
+
+7. **The browser's history write is best effort and never blocks the status
+   change.** The tracker works offline; a policy that would not change status
+   because an audit row failed to write is a worse product than a visible gap.
+   The two authoritative writers run server-side, where there is no trade-off.
+
+8. **A statement may set `paid` and `chargeback` and nothing else — a LAPSE is
+   never inferred.** There is no "lapse" transaction type, and a negative
+   adjustment looks exactly like an ordinary fee. Guessing would mark live
+   business dead on a bookkeeping line.
+
+9. **The history row is written BEFORE the status update.** PostgREST cannot
+   make them atomic; an unexplained status change is worse than a recorded one
+   that failed to apply, because the second is visible and re-runnable.
+
+10. **`get_team_summary` was replaced to exclude `denied` and `withdrawn`.**
+    Both mean the policy never issued, so counting either as team production
+    would overstate a downline's AP the moment an agent used them.
+    `surrendered` and `claim` are deliberately still counted — the predicate is
+    about whether a sale ever happened, not whether it is still in force. The
+    file is byte-identical to 20260738's apart from that one list, and the
+    team test now resolves the predicate from whichever migration most recently
+    defines the function rather than naming a file that goes stale.
+
+11. **Final Expense and Annuity are recognised only from text that says so.**
+    Deriving Final Expense from COMP keys (`mutual_fe`, `aflac_final_ex`, …)
+    would re-label as FE a policy the agent recorded as Whole Life, moving
+    counts they recognise. The filter is data-driven, so when Add Policy gains
+    those categories it picks them up with no further change.
+
+12. **The agent filter is GATED, not built** — per the mission's own
+    instruction to note §10.5's hierarchy gates rather than build them.
+    Filtering by agent means showing a leader another agent's client names and
+    premiums, which needs both the deferred hierarchy and a decision to break
+    the aggregates-only rule `docs/agency-team-screen.md` records. Shown only
+    to a leader, with the reason and a pointer to the Agency tab.
+
+13. **The carrier filter is now data-driven too** (the brief asked only that it
+    be, and it was not). 24 options for an agent appointed with three is 21
+    that can only return nothing.
+
+### Verification
+
+| Layer | Result |
+|---|---|
+| Schema behavioural checks (inside a rolled-back transaction) | **22/22** |
+| Unit + `app.html` invariant tests (`npm run test:bob`) | **42** |
+| Added to `statement-core` | **12** |
+| Full suite (`npm test`) | **498 tests + `npm run check` clean** |
+| End-to-end against production (real edge functions, real Haiku, throwaway accounts) | **31/31** |
+| Headless click-through (real browser, rendered DOM) | **40/40** |
+| Residue after both live runs | **zero** |
+
+Both live runs are re-runnable: `node <scratchpad>/e2e-bob.mjs` and
+`node <scratchpad>/ui-bob.mjs` with `PP_ROOT` set.
+
+### Surprises worth recording
+
+- **Every backfilled genesis entry was dated one day early for any agent west
+  of UTC.** `dateSubmitted` is a calendar date; casting it lands on midnight
+  UTC, and the browser renders a `timestamptz` in the reader's local zone. All
+  23 production entries were affected. Fixed to noon, plus a tightly-scoped
+  corrective `UPDATE` so the fix reaches a database that had already applied
+  the file. **Only the headless browser could have found this** — the bug is in
+  how an instant renders, not in any value.
+- **The draft-date auto-advance would have marked DENIED policies paid.**
+  `autoSetPaidOnDraftDate()` flipped anything not in
+  `['paid','lapsed','chargeback']` with a past draft date to `paid`. A denied
+  policy normally *has* a past draft date, so it would have been silently
+  marked paid on the next render — on the screen the agent reads to find out
+  what they earned.
+- **The Summary status bar would have stopped summing to 100%**, since a policy
+  in any new status counted toward the total but appeared in no segment.
+- Those two are one bug class — **a status set written out by hand in more than
+  one place** — which is why `BOB_NOT_A_SALE` / `BOB_ENDED` exist and why
+  `PT_STATUS_ORDER` is now derived. Looking for more instances found a fourth:
+  **the Add and Edit modals already shipped different status lists** (five
+  options vs six), so a policy could hold a status one modal could not display.
+  Both are now generated.
+
+---
+
+## Phases 4–7
 
 Not started. Each will get its own decisions + work log section here as it
 begins.
 
-### Phase 3 notes carried forward
+### Phase 4 notes carried forward
 
-The existing policy tracker (`#sec-tracker`, `policies.data` jsonb) has seven
-statuses; Phase 3 needs ten, including **Approved Not Paid** as a first-class
-one. `public.policy_events` already exists but records only what the
-carrier-mail parser did — Phase 3's history has to cover manual edits and
-statement ingestion too, so it wants its own additive table with a `source`
-column, and the existing statuses migrate in as each policy's first entry.
+The debt rollup needs the **first deliberate cross-agent aggregate RPC** over
+`commission_rows` — `SECURITY DEFINER`, no parameter naming an agent, anchored
+on `auth.uid()` and scoped by `agency_invites.leader_id = auth.uid()`, exactly
+the shape of `get_team_summary`. Phase 1's ledger entry (`docs/schema-state.md`
+§ "Why `get_ingestion_summary()` is SECURITY INVOKER") deferred it here on
+purpose. `commission_rows` must stay SELECT-only and per-tenant; the rollup
+returns figures, never rows.
+
+Everything else Phase 4 reads already exists: `transaction_date` (with its
+paid-date/effective-date fallback), `transaction_type`, `amount_cents`,
+`attributed_agent_id` and `attribution_method`. Checklist #100 closes here.

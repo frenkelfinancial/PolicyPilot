@@ -1193,3 +1193,177 @@ cannot write into another agent's book at all, and that a reconcile run by
 another agent leaves the leader's attributions untouched. A separate
 headless-browser click-through passed **23/23**. Both runs deleted every
 account, invite and row they created; the residue sweep returned **0**.
+
+---
+
+## Apply 2026-07-29 — `20260741_book_of_business.sql`
+
+Phase 3 of the Back Office mission: the Book of Business. Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Feature doc: `docs/back-office-book-of-business.md`. Progress
+ledger: `docs/back-office-progress.md`.
+
+**Additive, no approval needed under the rules above.** One `create table if
+not exists`, four `create index if not exists`, two check constraints behind an
+`if not exists` guard, one `create or replace function` + trigger, two `create
+policy`, one guarded `INSERT` backfill, one tightly-scoped `UPDATE` of rows
+this same file created (see below), and one `CREATE OR REPLACE FUNCTION` on
+`get_team_summary`. **No `DROP` of a table, column, function or row; nothing in
+`auth.*` or `storage.*`.** Re-running the whole file was confirmed a clean
+no-op.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `policy_status_history` | **absent** |
+| `policy_status_history_guard` | **absent** |
+| `get_team_summary` signatures | 1 |
+| `policies` / `policy_events` / `agents` | 23 / 2 / 7 |
+| `commission_rows` / `commission_statements` | 0 / 0 |
+| distinct `policies.data->>'status'` values | `paid` 12, `approved` 6, `chargeback` 2, `pending` 2, `lapsed` 1 — all 23 recognised, all 23 dated |
+
+That last row is why the backfill was predictable: 23 policies in, 23 genesis
+entries out, none skipped by the status filter.
+
+### Post-apply audit
+
+| Probe | Result |
+|---|---|
+| Table | present, RLS **enabled** |
+| Policies | exactly **2 — `SELECT` and `INSERT`**, no UPDATE, no DELETE |
+| Indexes | 5 |
+| Check constraints | `policy_status_history_source_check`, `policy_status_history_status_check` |
+| Triggers | `policy_status_history_guard` (BEFORE INSERT, `prosecdef = true`) |
+| Backfilled rows | **23**, one per policy, every `old_status` null |
+| `get_team_summary` | still exactly **one** signature, `prosecdef = true`, grants untouched |
+| `policies` / `agents` | 23 / 7 — **unchanged** |
+| Re-run of the file | clean no-op |
+
+### Why this table is owner-APPENDABLE when the Phase 1 four are SELECT-only
+
+The policy write path is the browser. `public.policies` is written directly
+from the client under an owner RLS policy and there is no edge function
+anywhere in that path, so a history table the browser could not write would
+record nothing at all for the source that produces most of the entries.
+
+The trade that makes it safe is that there is **no UPDATE policy and no DELETE
+policy** — the trail is append-only — and that a client cannot forge
+PROVENANCE. `policy_status_history_guard` forces `agent_id` to `auth.uid()` and
+**rejects any `source` other than `manual` or `system`** from an
+`authenticated`/`anon` caller. `service_role` keeps the usual carve-out, which
+is how `statement-parse` records `source='statement'`.
+
+A row claiming `source='statement'` asserts that a carrier's own document said
+something, and Phase 6's triage screen will treat it that way. Protect the
+column, not only the function that sets it — the lesson `20260703c`,
+`20260730`, `20260736` and `20260740` each cost this schema once.
+
+### Why `get_team_summary` was replaced
+
+Phase 3 introduces four statuses, two of which (`denied`, `withdrawn`) mean the
+policy never issued. The sale predicate excluded only `lapsed`/`chargeback`, so
+either would have counted as team production the moment an agent used one.
+
+The replacement is **byte-identical to 20260738's definition apart from that
+one list** (extracted from the committed file programmatically and substituted,
+rather than retyped). Same signature, same 22-column `RETURNS TABLE`, so
+`CREATE OR REPLACE` sufficed — nothing dropped, grants unchanged, authorization
+unchanged (`SECURITY DEFINER`, anchored solely on `ai.leader_id = auth.uid()`,
+still with no parameter naming a leader).
+
+`surrendered` and `claim` are deliberately **not** excluded: both describe
+business that WAS written and later ended, and the predicate is about whether a
+sale ever happened, not whether it is still in force.
+
+`test/book-of-business.test.mjs` now resolves the predicate from whichever
+migration most recently defines the function, so the assertion cannot go stale
+by pointing at 20260738 forever.
+
+### The corrective `UPDATE`, and why it is in an additive migration
+
+The first apply stamped each genesis entry at **midnight UTC**, cast straight
+from the `dateSubmitted` calendar date. `changed_at` is a `timestamptz` and the
+browser renders it in the reader's **local** zone, so all 23 entries displayed
+as the **previous day** for every agent west of UTC. Found by the headless
+click-through; no unit test would have caught it, because the bug is in how an
+instant renders rather than in any stored value.
+
+The expression now adds 12 hours — correct from UTC-11 to UTC+11, and what
+`bobRecordPolicyCreated()` in `app.html` already did. That alone would only
+help a database that had not yet applied the file, so the migration also
+carries an `UPDATE` scoped to rows **it wrote itself**: `source = 'migration'`,
+`changed_at` exactly `date_trunc('day', changed_at)`, and the policy's own date
+confirming which day was meant. The corrected expression cannot produce a
+midnight instant, so there is nothing else it can hit, and re-running it is a
+no-op.
+
+Verified after the re-apply: **23 of 23 at 12:00:00 UTC, 0 still at midnight,
+and every entry's rendered date equal to the `dateSubmitted` the agent typed**
+(the one policy with an empty `dateSubmitted` correctly fell through to
+`draft`).
+
+### Behavioural verification — 22/22
+
+Run inside a transaction that **rolled back**; row counts re-confirmed
+afterwards (`policies` 23, `policy_status_history` 23, no QA fixtures). The RLS
+checks genuinely `SET LOCAL ROLE authenticated` — running them as `postgres`
+would bypass RLS entirely and prove nothing.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | a client may append a manual entry | PASS |
+| 2 | **a client CANNOT forge `source='statement'`** | PASS (42501) |
+| 3 | **a client CANNOT forge `source='carrier_email'`** | PASS (42501) |
+| 4 | a client-supplied `agent_id` is overwritten with `auth.uid()` | PASS |
+| 5 | **a client cannot UPDATE history** (append-only) | PASS |
+| 6 | **a client cannot DELETE history** (append-only) | PASS |
+| 7 | the owner reads their own entries | PASS |
+| 8 | **another agent sees NONE of them** | PASS |
+| 9 | another agent sees none of the 23 backfilled entries either | PASS |
+| 10 | a trusted context MAY record `source='statement'` | PASS |
+| 11 | an invented status is refused | PASS |
+| 12 | an invented source is refused | PASS |
+| 13 | every genesis entry is dated from the policy, not from the apply | PASS (23/23) |
+| 14 | exactly one genesis entry per policy, with no prior status | PASS (23/23) |
+| 15 | re-running the backfill writes nothing | PASS |
+| 16 | a null `changed_at` is stamped by the guard | PASS |
+| 17 | **a DENIED policy is not counted as team production** | PASS |
+| 18 | **a WITHDRAWN policy is not counted as team production** | PASS |
+| 19 | a SURRENDERED policy still counts (it was a sale) | PASS |
+| 20 | a CLAIM still counts (it was a sale) | PASS |
+| 21 | `lapsed` is still excluded (no regression) | PASS |
+| 22 | `get_team_summary` still returns the caller's own row | PASS |
+
+Checks 2, 3, 5, 6 and 8 are the guarantees that make this table's write policy
+defensible, exercised rather than asserted.
+
+### Edge function
+
+`statement-parse` redeployed **individually** (never a batch), version 2 → 3,
+ACTIVE. It now writes back the two things a commission statement is
+authoritative about — `paid` and `chargeback` — always through
+`policy_status_history` with `source='statement'` and `source_ref_id` naming
+the statement. A lapse is deliberately never inferred.
+
+Fleet diffed before and after: **72 → 72 functions**, and the **16**
+`verify_jwt = false` functions are the same 16 — none flipped.
+`statement-parse` remains `verify_jwt = true` and therefore deliberately absent
+from `config.toml`.
+
+### End-to-end, against production
+
+Two throwaway accounts, a real CSV statement pushed through the **real**
+deployed `statement-upload` / `statement-parse` (real Haiku call):
+**31/31 assertions passed**, including that a browser session is refused a
+forged `statement` provenance, that another agent sees none of the trail, that
+a chargeback line moves a policy and a later payment does **not** resurrect it,
+that a re-parse appends no duplicate history, and that deleting a policy nulls
+the FK rather than cascading the trail away. A separate headless-browser
+click-through passed **40/40**.
+
+Both runs deleted every account and row they created; the residue sweep
+returned **0**. Production afterwards: `agents` 7, `auth.users` 7, `policies`
+23, `policy_status_history` 23. `leads` moved 1,333 → 1,335 during the window —
+both genuine webhook-ingested production leads (`wh_` prefix, source `VRC`) on
+Jace's own account, correctly left alone.

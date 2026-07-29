@@ -47,6 +47,7 @@ import {
   normalizeTxnType,
   parseAmountCents,
   parseDateISO,
+  planStatementStatusChanges,
   sniffCarrier,
   MAX_ROWS_PER_STATEMENT,
 } from "../_shared/statement-core.ts";
@@ -282,7 +283,7 @@ serve(async (req) => {
 
       // ---- match ----
       const { data: policyRows } = await sb
-        .from("policies").select("id, data").eq("agent_id", st.agent_id);
+        .from("policies").select("id, client_id, data").eq("agent_id", st.agent_id);
       const candidates: PolicyCandidate[] = (policyRows ?? []).map((p) => {
         const d = (p.data ?? {}) as Record<string, unknown>;
         return {
@@ -292,6 +293,12 @@ serve(async (req) => {
           carrier: (d.carrier as string) ?? null,
         };
       });
+      const policyById = new Map(
+        (policyRows ?? []).map((p) => [
+          p.id as string,
+          { clientId: p.client_id as number, data: { ...(p.data ?? {}) } as Record<string, unknown> },
+        ]),
+      );
 
       await setStatus("matching", { status_detail: `Matching against ${candidates.length} policies` });
 
@@ -336,6 +343,53 @@ serve(async (req) => {
         inserted += (data ?? []).length;
       }
 
+      // ---- apply what the statement is authoritative about ----
+      //
+      // A carrier's own statement is the best evidence the app has that a
+      // policy PAID or was CHARGED BACK, so it may advance the tracker. Every
+      // such change is appended to policy_status_history with source
+      // 'statement' — never a silent overwrite — and `source_ref_id` names the
+      // statement, which is what the drill-down opens.
+      //
+      // The status write and the history append are separate statements
+      // rather than one transaction (PostgREST has no transaction across
+      // calls). The history row is written FIRST for that reason: an
+      // unexplained status change is worse than a recorded change that then
+      // failed to apply, because the second one is visible and re-runnable and
+      // the first is not.
+      let statusChanges = 0;
+      try {
+        const plan = planStatementStatusChanges(
+          payload,
+          new Map([...policyById].map(([id, p]) => [id, (p.data.status as string) ?? null])),
+        );
+        for (const change of plan) {
+          const pol = policyById.get(change.policyId);
+          if (!pol) continue;
+          const { error: histErr } = await sb.from("policy_status_history").insert({
+            agent_id: st.agent_id,
+            policy_client_id: pol.clientId,
+            policy_id: change.policyId,
+            old_status: change.from,
+            new_status: change.to,
+            source: "statement",
+            source_detail: `${change.reason} (${st.filename})`,
+            source_ref_id: st.id,
+          });
+          if (histErr) { console.error("history insert failed", change.policyId, histErr.message); continue; }
+
+          pol.data.status = change.to;
+          const { error: upErr } = await sb.from("policies")
+            .update({ data: pol.data }).eq("id", change.policyId);
+          if (upErr) { console.error("policy status update failed", change.policyId, upErr.message); continue; }
+          statusChanges++;
+        }
+      } catch (e) {
+        // A status write-back failure must never fail the ingestion: the
+        // commission rows are already saved and are the primary product here.
+        console.error("status write-back failed", String((e as Error).message || e));
+      }
+
       const matched = payload.filter((p) => p.matched_policy_id).length;
       const review = payload.length - matched;
       const total = payload.reduce((n, p) => n + (p.amount_cents ?? 0), 0);
@@ -363,6 +417,7 @@ serve(async (req) => {
         rows: payload.length, inserted, matched, needs_review: review,
         // A re-run reports 0 new rows rather than pretending to have done work.
         already_present: payload.length - inserted,
+        status_changes: statusChanges,
       });
     } catch (e) {
       await fail(String((e as Error).message || e));

@@ -33,6 +33,45 @@ Autonomy layer (added 07/2026):
 - **`nav()` highlights by section name, not by position.** The positional index map (duplicated in `restoreSectionFromCache()`) had to be hand-corrected every time the sidebar grew; a test asserts it does not come back.
 - **Inbound forwarding addresses are NOT built and need one DNS record.** Resend is already signed up, paid for and wired (`messaging-email-inbound-webhook` verifies its signature); only the inbound MX is missing. Exact plan in `docs/back-office-progress.md` § "Forwarding email address".
 
+### Book of Business (Phase 3) — `docs/back-office-book-of-business.md`
+
+- **A status set written out by hand in more than one place is this feature's
+  bug class.** It shipped four instances before Phase 3 caught them. There is
+  now ONE list — `BOB_STATUSES` in the `// <bob-core>` block — and
+  `PT_STATUS_ORDER`, `PT_STATUS_LABELS`, the Add modal and the Edit modal are
+  all **derived** from it. `BOB_NOT_A_SALE` and `BOB_ENDED` are the two derived
+  subsets; use them, never a literal `['lapsed','chargeback']`.
+- **The six original status KEYS are unchanged and must stay so.** They are
+  stored verbatim in `policies.data.status` for every policy in production and
+  are read by `get_team_summary`, `match-events`' `STATUS_MAP`, the Summary
+  charts and the bonus tracker. Only the `approved` LABEL changed, to
+  "Approved Not Paid". The four new keys (`denied`, `withdrawn`, `surrendered`,
+  `claim`) needed no change to `public.policies` — but they ARE in
+  `policy_status_history`'s check constraint, and a test asserts that list and
+  `BOB_STATUSES` are the same ten.
+- **`policy_status_history` is owner-APPENDABLE with NO update and NO delete
+  policy.** That is different from the four Phase 1 commission tables and the
+  reason is the write path: the policy tracker is a browser-side app with no
+  edge function in it. What keeps it safe is that the trail cannot be
+  rewritten, and that `policy_status_history_guard` **refuses any `source`
+  other than `manual`/`system` from a client** — a row claiming `statement`
+  asserts a carrier said something. Do not relax either half.
+- **The timeline reads BOTH `policy_status_history` and the older
+  `policy_events`.** `policy_events` belongs to the carrier-mail pipeline and
+  was deliberately not migrated or widened.
+- **A statement may set `paid` and `chargeback` and nothing else. A LAPSE is
+  never inferred** — there is no lapse transaction type and a negative
+  adjustment looks exactly like a fee. `statement-parse` writes the history row
+  **before** the status update, because PostgREST cannot make them atomic and
+  an unexplained change is worse than a recorded one that failed to apply.
+- **Dates derived from a calendar date are stamped at NOON UTC, never
+  midnight.** `changed_at` is a `timestamptz` rendered in the reader's local
+  zone; midnight shows the previous day for every agent west of UTC. This hit
+  all 23 production rows once already.
+- **The agent filter is deliberately GATED, not built** — it needs the deferred
+  team hierarchy, and building it would break the aggregates-only rule in
+  `docs/agency-team-screen.md`.
+
 ### Producer codes (Phase 2) — `docs/back-office-producer-codes.md`
 
 - **The retroactivity IS the feature.** `apply_producer_codes()` walks *every* one of the caller's commission rows, not just new ones, so saving a writing number attributes the statements uploaded last month. A version that only worked going forward would not be worth having — an agent's first act is to upload six months of history.
