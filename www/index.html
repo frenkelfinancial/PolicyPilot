@@ -14573,10 +14573,6 @@ function renderLeads() {
       lead.military_branch   && `<div class="lead-meta-chip"><div class="lbl">Mil. Branch</div><div class="val">${escapeHTML(lead.military_branch)}</div></div>`,
       lead.beneficiary       && `<div class="lead-meta-chip"><div class="lbl">Beneficiary</div><div class="val" title="${escapeHTML(lead.beneficiary)}">${escapeHTML(lead.beneficiary)}</div></div>`,
       lead.coverage_wanted   && `<div class="lead-meta-chip"><div class="lbl">Coverage Wanted</div><div class="val">${escapeHTML(lead.coverage_wanted)}</div></div>`,
-      // Provenance for a lead handed over by an agency colleague (transfer-leads).
-      // Text consent does NOT come with it — leadTextingState() will read
-      // needs_optin for the recipient because consent_records is per-agent.
-      lead.receivedFrom      && `<div class="lead-meta-chip wide"><div class="lbl">Received from</div><div class="val" title="Transferred to you${lead.receivedAt ? ' on ' + escapeHTML(new Date(lead.receivedAt).toLocaleDateString()) : ''}">${escapeHTML(lead.receivedFrom)}</div></div>`,
       ...((lead.customFields||lead.custom_fields)||[]).map(cf => `<div class="lead-meta-chip"><div class="lbl">${escapeHTML(cf.label)}</div><div class="val">${escapeHTML(cf.value)}</div></div>`),
     ].filter(Boolean).join('');
     const metaHTML = metaChips ? `<div class="lead-row-meta">${metaChips}</div>` : '';
@@ -14608,6 +14604,11 @@ function renderLeads() {
     ]);
     const allFields = [
       {lbl:'Received on', val:receivedStr||new Date().toLocaleDateString('en-US'), key:null},
+      // Transfer provenance. Explicit rather than falling out of the
+      // Object.entries() sweep below, because _skipInPanel hides the raw
+      // receivedFrom/receivedFromId/receivedAt keys (an agent should see a
+      // name, not a uuid and an ISO timestamp).
+      ...(lead.receivedFrom ? [{lbl:'Received from', val:String(lead.receivedFrom), key:null}] : []),
       {lbl:'Sale amount', val:lead.sale_amount?String(lead.sale_amount):'Not set', notset:!lead.sale_amount, key:'sale_amount'},
       {lbl:'Commission',  val:lead.commission ?String(lead.commission) :'Not set', notset:!lead.commission,  key:'commission'},
       ...(dobVal ? [{lbl:'Date of Birth', val:dobVal, key:'dob'}] : []),
@@ -14634,6 +14635,10 @@ function renderLeads() {
         lead.coverage_wanted  && ['Coverage', lead.coverage_wanted],
         lead.source           && ['Source',   lead.source],
         localTime             && ['Local',    localTime],
+        // Handed over by an agency colleague (transfer-leads). Primary, not
+        // behind "More": whose lead this was is context you need before you
+        // dial, not a detail. Text consent did NOT come with it.
+        lead.receivedFrom     && ['Received from', lead.receivedFrom],
       ].filter(Boolean);
 
       // Secondary fields — shown in ▼ More dropdown

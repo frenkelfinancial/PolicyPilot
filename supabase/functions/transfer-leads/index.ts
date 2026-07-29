@@ -208,6 +208,10 @@ serve(async (req) => {
   });
 
   if (!plan.moves.length) {
+    // `detail` is included here too. The zero-move case is precisely when the
+    // caller most needs to know WHY nothing moved — every lead a duplicate, or
+    // every id refused — and an earlier version of this early return omitted
+    // it, so the one response that was pure explanation carried none.
     return json({
       ok: true,
       sent: 0,
@@ -215,6 +219,7 @@ serve(async (req) => {
       refused: plan.refused.length,
       summary: summarizeTransfer(plan),
       moved: [],
+      detail: { skipped: plan.skipped, refused: plan.refused },
     });
   }
 
