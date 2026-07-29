@@ -1654,3 +1654,133 @@ table, and the very next assertion confirmed it was not accused.
 
 The run deleted every account, policy and lead it created; the residue sweep
 returned **0**.
+
+---
+
+## Apply 2026-07-29 — `20260744_reconciliation.sql`
+
+Phase 6 of the Back Office mission: reconciliation. Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Feature doc: `docs/back-office-reconciliation.md`.
+
+**Additive only.** Three `add column if not exists` on `commission_rows`, two
+`create index if not exists`, one `create or replace function`, one
+`grant execute`. No table, no policy, no data change. Nothing in `auth.*` or
+`storage.*`. Re-running it is a no-op.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `commission_rows.reviewed_at` / `reviewed_by` / `review_note` | **0 of 3 present** |
+| `get_reconciliation_summary` | **absent** |
+| `public.review_queue` rows | **30** — live, and written by `match-events` on a cron |
+
+### Post-apply audit
+
+| Probe | Result |
+|---|---|
+| New columns | **3 of 3 present** |
+| `commission_rows` policies | **1, `SELECT`** — unchanged |
+| Indexes on `commission_rows` | 8 → **10** |
+| `get_reconciliation_summary` | present, **`prosecdef = false`** (SECURITY INVOKER) |
+
+### The decision the brief asked for — `review_queue`
+
+**Neither built on nor replaced. Left exactly as it is, and not used.**
+
+It is `parsed_event_id uuid NOT NULL references public.parsed_events(id)` with
+`unique (parsed_event_id)` on top, and its `reason` vocabulary
+(`pdf_unreadable`, `ambiguous_match`, …) is the carrier-mail pipeline's. A
+commission row has no parsed event, so filing one there means inventing a fake
+parent row or dropping the constraint that makes the table correct for its real
+owner.
+
+The 30-row count above is what settled it: this is not a dormant table. It is
+live and `match-events` writes it twice a day. Rewriting a running pipeline's
+queue to serve a screen it does not feed is a change with no upside.
+
+And it was not needed — **`commission_rows` already IS the queue**. Phase 1 gave
+it `review_status` (check-constrained to `auto | needs_review | approved |
+rejected`), a plain-English `review_reason`, `match_method` and
+`match_confidence`. A second table pointing at those rows would be a second
+place to keep in sync.
+
+So this migration adds only what was genuinely missing: **who** resolved a row,
+**when**, and **why**. Without them an approved row is indistinguishable from
+one the parser matched by itself, and "who decided this $4,000 chargeback was
+mine?" has no answer. `reviewed_by` is `ON DELETE SET NULL` — removing an
+account must not erase the record that a decision was made.
+
+### The write path is unchanged, and that is the point
+
+`commission_rows` stays **SELECT-only for `authenticated`**. A test asserts
+this migration adds no policy at all.
+
+An UPDATE policy wide enough to let the browser set `review_status` is wide
+enough to let it set `matched_policy_id`, and pointing a commission row at
+another agent's policy is exactly what this schema is built to prevent. Every
+resolution goes through the new `statement-review` edge function under the
+service role, with the agent taken **from the JWT** — there is no agent id in
+the request body.
+
+`get_reconciliation_summary()` is SECURITY INVOKER: it reads only through the
+caller's own RLS on `commission_rows`, `commission_statements` and `policies`,
+so it cannot count anybody else's work even by accident. There is deliberately
+**no cross-agent reconciliation view** — resolving a match means seeing a
+client name, which is the line `docs/agency-team-screen.md` draws.
+
+### Edge function
+
+`statement-review` deployed **individually** (never a batch), version 1,
+ACTIVE, **`verify_jwt = true`** and therefore deliberately **absent from
+`config.toml`** — a test asserts that absence, because listing it there would
+take it to `verify_jwt = false`.
+
+Fleet diffed before and after: **72 → 73 functions**, and the **16**
+`verify_jwt = false` functions are the same 16 — none flipped.
+
+### End-to-end, against production — 29/29
+
+Two throwaway accounts and a real statement carrying one matchable line and two
+unmatchable ones, every resolution driven through the **real deployed**
+function.
+
+The assertions that matter:
+
+| Check | Result |
+|---|---|
+| the unmatchable lines are queued, not dropped | PASS |
+| **REJECT NEVER DELETES** — row, amount, statement all still there | PASS |
+| …and it records who decided, when, and the note they left | PASS |
+| approving a line that was never matched is **refused with a reason** | PASS |
+| a manual match is recorded as `manual` at confidence 1 | PASS |
+| **an agent CANNOT link a line to another agent's policy** (404, row unchanged) | PASS |
+| **a stranger CANNOT resolve my rows** (updated 0, skipped 1) | PASS |
+| a body-supplied `agent_id` changes nothing | PASS |
+| an unmatch returns the line to `needs_review` with a reason | PASS |
+| the statement's review counter stays honest | PASS |
+| no `Authorization` header → 401; unknown action → 400; empty batch → 400 | PASS |
+| a bulk resolution empties the queue and counts as work done | PASS |
+| **`commission_rows` is STILL SELECT-only for the browser** | PASS |
+
+A separate headless click-through passed **31/31**, driving the real edge
+function from a real browser. Both runs deleted everything they created; the
+residue sweep returned **0**.
+
+### Two things the run found
+
+**An existing invariant caught a real duplication in this phase's code.**
+`test/back-office.test.mjs` asserts *exactly one `statement-parse` call site* —
+"two ways to parse is two places for the auth header and the reporting to drift
+apart". The stuck-upload **Try again** button had added a second. Fixed by
+calling `boParseNow()`, which already owns all three, rather than
+re-implementing it. The test was right; the code changed.
+
+**The click-through could not reach the edge function at first.** The CORS
+allowlist covers the production origins plus `http://localhost:8080` behind the
+`ALLOW_DEV_ORIGINS` secret, and the harness serves from a random `127.0.0.1`
+port. Rather than flip a production secret for a test, web security was relaxed
+**inside the throwaway Chrome profile only** — the same choice this ledger
+records for the `transfer-leads` run. Nothing server-side was altered, and the
+end-to-end run exercises the same calls with real CORS.

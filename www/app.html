@@ -3320,6 +3320,28 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ps-thin{font-size:10.5px;color:var(--lg-caption);font-weight:500}
 .ps-gate{font-size:12px;line-height:1.55;color:var(--lg-caption);background:var(--lg-inner);
   border:1px dashed var(--lg-border);border-radius:6px;padding:12px 14px;margin:0}
+/* ---- Reconciliation (Phase 6) ---- */
+.rc-row{display:grid;grid-template-columns:26px 1.5fr .8fr .8fr .9fr 1.5fr;gap:10px;padding:10px 14px;
+  align-items:center;border-bottom:1px solid var(--lg-divider);font-size:12.5px;color:var(--lg-text2)}
+.rc-row:last-child{border-bottom:none}
+.rc-row:hover{background:var(--lg-inner)}
+.rc-pri{display:inline-flex;align-items:center;gap:5px;padding:1px 7px;border-radius:999px;
+  font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.rc-pri-high{background:var(--lg-red-soft);color:var(--lg-red)}
+.rc-pri-med{background:var(--lg-pill-noans-bg);color:var(--lg-pill-noans-fg)}
+.rc-pri-low{background:var(--lg-divider);color:var(--lg-text3)}
+.rc-acts{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.rc-btn{height:26px;padding:0 9px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;
+  font-family:'Spline Sans',sans-serif;border:1px solid var(--lg-border);background:var(--lg-card);
+  color:var(--lg-text2);white-space:nowrap;transition:background .14s,border-color .14s}
+.rc-btn:hover{background:var(--lg-inner)}
+.rc-btn-ok{border-color:var(--lg-green-border);color:var(--lg-green)}
+.rc-btn-no{border-color:var(--lg-red-border);color:var(--lg-red)}
+.rc-btn:disabled{opacity:.5;cursor:default}
+.rc-reason{font-size:11px;color:var(--lg-caption);margin-top:2px;line-height:1.4}
+.rc-bulk{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 12px;margin-bottom:12px;
+  background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);border-radius:6px;font-size:12.5px}
+.rc-conf{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:11.5px}
 .bo-table{background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;overflow:hidden}
 .bo-scroll{overflow-x:auto}
 .bo-min{min-width:960px}
@@ -4745,6 +4767,7 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
             <button class="tracker-tab active" data-boarea="ingest" onclick="boArea('ingest')">Ingest</button>
             <button class="tracker-tab" data-boarea="commissions" onclick="boArea('commissions')">Commissions</button>
             <button class="tracker-tab" data-boarea="persistency" onclick="boArea('persistency')">Persistency</button>
+            <button class="tracker-tab" data-boarea="reconciliation" onclick="boArea('reconciliation')">Reconciliation</button>
           </div>
 
           <div id="bopanel-ingest">
@@ -4788,6 +4811,30 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
             <div id="ps-windows"></div>
             <div id="ps-outliers"></div>
             <div id="ps-panel"></div>
+          </div>
+
+          <!-- ========== RECONCILIATION (Phase 6) ========== -->
+          <div id="bopanel-reconciliation" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+              <div class="tracker-tabs" id="rc-queues"></div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                <select id="rc-status" class="pt-input" style="height:30px;width:auto" onchange="rcSetStatus(this.value)">
+                  <option value="needs_review">Needs review</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="">All statuses</option>
+                </select>
+                <select id="rc-sort" class="pt-input" style="height:30px;width:auto" onchange="rcSetSort(this.value)">
+                  <option value="priority">Priority</option>
+                  <option value="confidence">Match %</option>
+                  <option value="amount">Amount</option>
+                  <option value="at">Date</option>
+                </select>
+              </div>
+            </div>
+            <div class="bo-pipeline-note" id="rc-headline" style="border:1px solid var(--lg-border);border-radius:6px;margin-bottom:12px">&mdash;</div>
+            <div id="rc-bulk"></div>
+            <div id="rc-panel"></div>
           </div>
         </div>
       </div>
@@ -21629,6 +21676,238 @@ function persistAgentRows(rpcRows, months, weighted) {
 }
 // </persist-core>
 
+// <recon-core>
+// Reconciliation (Back Office Phase 6) — pure logic. No DOM, no network, no
+// storage, no app globals. Extracted verbatim and executed by
+// test/reconciliation.test.mjs. Keep it pure.
+//
+// ONE declared dependency: `commMoney` from the comm-core block, which is
+// itself pure. The test loads both blocks together. Duplicating a money
+// formatter so that each core is standalone would give this app two ways to
+// print a dollar amount, which is exactly the drift these blocks exist to
+// stop — so the dependency is stated rather than avoided.
+
+/** The three queues. Orion's names, because they are the right ones. */
+const RECON_QUEUES = [
+  { key: 'match',    label: 'Policy Match Review' },
+  { key: 'unlinked', label: 'Unlinked Policies' },
+  { key: 'stuck',    label: 'Stuck Uploads' },
+];
+
+const RECON_STATUSES = [
+  { key: 'needs_review', label: 'Needs review' },
+  { key: 'approved',     label: 'Approved' },
+  { key: 'rejected',     label: 'Rejected' },
+];
+
+const RECON_PRIORITIES = ['high', 'med', 'low'];
+
+/**
+ * Priority for an unmatched commission line.
+ *
+ * Money at stake, not age. A $4,000 chargeback nobody has looked at is the
+ * most urgent thing on this screen; a $12 renewal line that matched nothing is
+ * the least, however long it has sat there. A CHARGEBACK is always at least
+ * medium even when small, because it is money already taken back and it is the
+ * one an agent will be asked about.
+ */
+function reconRowPriority(row) {
+  const cents = Math.abs(Number((row && row.amount_cents) || 0));
+  const isChargeback = !!row && row.transaction_type === 'chargeback';
+  if (cents >= 50000 || (isChargeback && cents >= 10000)) return 'high';
+  if (cents >= 10000 || isChargeback) return 'med';
+  return 'low';
+}
+
+/**
+ * Priority for a policy nothing has ever paid on.
+ *
+ * Scaled by premium and by how long it has been waiting: a $2,400 AP policy
+ * whose draft date passed four months ago is a real problem, a $300 one that
+ * drafted last month is probably just early.
+ */
+function reconUnlinkedPriority(policy, daysWaiting) {
+  const ap = Number((policy && policy.ap) || 0);
+  const days = Number(daysWaiting || 0);
+  if (ap >= 1800 && days >= 60) return 'high';
+  if (ap >= 600 || days >= 90) return 'med';
+  return 'low';
+}
+
+/**
+ * A failed upload is always HIGH. Nothing was ingested at all, so every figure
+ * on every other screen is missing that statement and no total says so.
+ */
+function reconStuckPriority(statement) {
+  return (statement && statement.status === 'failed') ? 'high' : 'med';
+}
+
+/** Sort by priority, then by whatever the caller ranks within it. */
+function reconSort(items, key, dir) {
+  const rank = { high: 0, med: 1, low: 2 };
+  const d = dir === 'asc' ? 1 : -1;
+  return (Array.isArray(items) ? items.slice() : []).sort((a, b) => {
+    const pr = (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3);
+    if (key !== 'confidence' && pr !== 0) return pr;
+    if (key === 'confidence') {
+      // Match-% sort is the one the brief names. A row with NO confidence is
+      // not a zero-confidence row — it never matched at all — so it sorts to
+      // the end whichever direction is chosen, rather than pretending to be
+      // the worst match.
+      const av = a.confidence, bv = b.confidence;
+      if (av === null && bv === null) return 0;
+      if (av === null) return 1;
+      if (bv === null) return -1;
+      if (av !== bv) return (av - bv) * d;
+      return (rank[a.priority] ?? 3) - (rank[b.priority] ?? 3);
+    }
+    if (key === 'amount') {
+      return (Math.abs(Number(a.amountCents || 0)) - Math.abs(Number(b.amountCents || 0))) * d;
+    }
+    const at = a.at || '', bt = b.at || '';
+    return at < bt ? d : at > bt ? -d : 0;
+  });
+}
+
+/** Commission rows -> queue items. */
+function reconMatchItems(rows) {
+  return (Array.isArray(rows) ? rows : []).map(r => ({
+    id: r.id,
+    kind: 'match',
+    priority: reconRowPriority(r),
+    status: r.review_status || 'needs_review',
+    amountCents: Number(r.amount_cents || 0),
+    confidence: (r.match_confidence === null || r.match_confidence === undefined)
+      ? null : Number(r.match_confidence),
+    matched: !!r.matched_policy_id,
+    matchedPolicyId: r.matched_policy_id || null,
+    reason: r.review_reason || null,
+    carrier: r.carrier || null,
+    insured: r.insured_name || null,
+    policyNumber: r.policy_number || null,
+    type: r.transaction_type || 'unknown',
+    at: r.transaction_date || r.created_at || null,
+    reviewedAt: r.reviewed_at || null,
+    statementId: r.statement_id || null,
+  }));
+}
+
+/**
+ * Policies that should have been paid by now and never were.
+ *
+ * `matchedPolicyIds` is the set of `policies.id` (uuid) any non-rejected
+ * commission row points at; `uuidByClientId` maps the browser's own policy id
+ * onto it. A policy is only in this queue if it is IN FORCE — a lapsed policy
+ * that was never paid is not a reconciliation problem, it is a lapse.
+ */
+function reconUnlinkedItems(policies, matchedPolicyIds, uuidByClientId, now, unpaidDays) {
+  const days = unpaidDays === undefined ? 45 : unpaidDays;
+  const today = now || new Date();
+  const inForce = ['issued', 'paid', 'placed'];
+  const out = [];
+  (Array.isArray(policies) ? policies : []).forEach(p => {
+    if (!p || !inForce.includes(p.status)) return;
+    const draft = (typeof p.draft === 'string' && /^\d{4}-\d{2}-\d{2}/.test(p.draft))
+      ? p.draft.slice(0, 10) : null;
+    if (!draft) return;
+    const waited = Math.floor((today - new Date(draft + 'T12:00:00Z')) / 86400000);
+    if (waited < days) return;
+    const uuid = uuidByClientId && (uuidByClientId.get
+      ? uuidByClientId.get(String(p.id)) : uuidByClientId[String(p.id)]);
+    if (uuid && matchedPolicyIds && matchedPolicyIds.has(uuid)) return;
+    out.push({
+      id: String(p.id),
+      kind: 'unlinked',
+      priority: reconUnlinkedPriority(p, waited),
+      status: 'needs_review',
+      client: p.client || '—',
+      carrier: p.carrier || null,
+      policyNumber: p.policyNumber || null,
+      ap: Number(p.ap || 0),
+      amountCents: Math.round(Number(p.ap || 0) * 100),
+      confidence: null,
+      daysWaiting: waited,
+      at: draft,
+    });
+  });
+  return out;
+}
+
+/** Failed (and long-stalled) statements. */
+function reconStuckItems(statements, now, stallMinutes) {
+  const stall = (stallMinutes === undefined ? 60 : stallMinutes) * 60000;
+  const t = (now || new Date()).getTime();
+  const inFlight = ['queued', 'parsing', 'persisting', 'matching'];
+  return (Array.isArray(statements) ? statements : []).filter(s => {
+    if (!s) return false;
+    if (s.status === 'failed') return true;
+    if (!inFlight.includes(s.status)) return false;
+    const started = new Date(s.created_at || 0).getTime();
+    return Number.isFinite(started) && (t - started) > stall;
+  }).map(s => ({
+    id: s.id,
+    kind: 'stuck',
+    priority: reconStuckPriority(s),
+    status: 'needs_review',
+    filename: s.filename || 'statement',
+    error: s.error || null,
+    state: s.status,
+    attempts: Number(s.attempts || 0),
+    amountCents: 0,
+    confidence: null,
+    at: s.created_at || null,
+  }));
+}
+
+/** "3 high · 12 medium · 40 low" */
+function reconPriorityCounts(items) {
+  const out = { high: 0, med: 0, low: 0 };
+  (Array.isArray(items) ? items : []).forEach(i => {
+    if (Object.prototype.hasOwnProperty.call(out, i.priority)) out[i.priority]++;
+  });
+  return out;
+}
+
+/** Match confidence as a percentage, or null when there was never a match. */
+function reconConfidencePct(confidence) {
+  if (confidence === null || confidence === undefined) return null;
+  const n = Number(confidence);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100);
+}
+
+/**
+ * The one-line headline. Leads with money, because that is what makes an agent
+ * open the screen — "6 lines" is a chore, "$4,312 across 6 lines" is a task.
+ */
+function reconHeadline(summary) {
+  const s = summary || {};
+  const n = Number(s.match_review || 0);
+  const cents = Number(s.review_amount_cents || 0);
+  const unlinked = Number(s.unlinked_policies || 0);
+  const stuck = Number(s.stuck_uploads || 0);
+  if (!n && !unlinked && !stuck) return 'Nothing needs your attention. Every ingested line is matched.';
+  const parts = [];
+  if (n) {
+    parts.push(commMoney(cents) + ' across ' + n + ' line' + (n === 1 ? '' : 's') + ' to review');
+  }
+  if (unlinked) parts.push(unlinked + ' polic' + (unlinked === 1 ? 'y' : 'ies') + ' never paid');
+  if (stuck) parts.push(stuck + ' upload' + (stuck === 1 ? '' : 's') + ' stuck');
+  return parts.join(' · ');
+}
+
+/** What a resolution did, said back to the agent. Never a bare "Saved". */
+function reconResultMessage(action, res) {
+  const n = Number((res && res.updated) || 0);
+  const skipped = Number((res && res.skipped) || 0);
+  const line = n === 1 ? '1 line' : n + ' lines';
+  const verb = { approve: 'approved', reject: 'rejected', match: 'linked', unmatch: 'unlinked' }[action] || 'updated';
+  let msg = line + ' ' + verb;
+  if (skipped) msg += ' · ' + skipped + ' skipped';
+  return msg;
+}
+// </recon-core>
+
 let _boCache = { statements: [], summary: null, loadedAt: 0 };
 let _boPollTimer = null;
 let _boBusy = false;
@@ -21665,15 +21944,18 @@ function boArea(key, silent) {
     ingest: 'Drop a carrier commission statement in and it is read, matched to your policies, and filed. PDF, Excel, CSV, or a ZIP of them.',
     commissions: 'What your ingested statements add up to. Every figure here comes from a commission line you uploaded — nothing is estimated.',
     persistency: 'How much of what you wrote stayed on the books. Carrier bonus programmes are written against these numbers.',
+    reconciliation: 'The lines the parser could not place, the policies nothing has paid on, and the uploads that failed. Nothing here is deleted — it is decided.',
   };
   const sub = document.getElementById('bo-subtitle');
   if (sub) sub.textContent = SUBTITLES[key] || SUBTITLES.ingest;
-  const REFRESH = { ingest: () => boRefresh(true), commissions: () => cmRender(true), persistency: () => psRender(true) };
+  const REFRESH = { ingest: () => boRefresh(true), commissions: () => cmRender(true),
+                    persistency: () => psRender(true), reconciliation: () => rcRender(true) };
   const refresh = document.getElementById('bo-refresh');
   if (refresh) refresh.onclick = REFRESH[key] || REFRESH.ingest;
   if (silent) return;
   if (key === 'commissions') cmRender();
   else if (key === 'persistency') psRender();
+  else if (key === 'reconciliation') rcRender();
   else boRefresh(false);
 }
 
@@ -22205,6 +22487,337 @@ function psSegmentHTML(title, segment, overallRate, emptyNote) {
   return '<div class="cm-panel">' + head +
     '<div class="ps-row cm-thead"><div>Segment</div><div>Rate</div><div></div><div>Kept</div></div>' +
     rows + note + '</div>';
+}
+
+// ============================================================
+// RECONCILIATION (Back Office Phase 6)
+// Pure logic lives in the recon-core block above.
+//
+// Every write goes through the `statement-review` edge function under the
+// service role. commission_rows is SELECT-only for the browser and stays so.
+// ============================================================
+let _rcQueue = 'match';
+let _rcStatus = 'needs_review';
+let _rcSort = 'priority';
+let _rcSel = new Set();
+let _rcCache = { rows: [], statements: [], summary: null, matchedIds: new Set(), loadedAt: 0 };
+
+function rcSetQueue(k) {
+  if (!RECON_QUEUES.some(q => q.key === k)) return;
+  _rcQueue = k; _rcSel = new Set();
+  try { localStorage.setItem('pp_rc_queue', k); } catch (e) {}
+  rcPaint();
+}
+function rcSetStatus(v) { _rcStatus = v || ''; _rcSel = new Set(); rcPaint(); }
+function rcSetSort(v) { _rcSort = v || 'priority'; rcPaint(); }
+try {
+  const q = localStorage.getItem('pp_rc_queue');
+  if (RECON_QUEUES.some(x => x.key === q)) _rcQueue = q;
+} catch (e) { /* private mode */ }
+
+async function rcRender(force) {
+  if (!currentAgent) return;
+  const panel = document.getElementById('rc-panel');
+  const fresh = !force && _rcCache.loadedAt && (Date.now() - _rcCache.loadedAt) < 30000;
+  if (!fresh) {
+    if (panel && !_rcCache.loadedAt) panel.innerHTML = '<div class="cm-panel"><div class="cm-empty">Loading…</div></div>';
+    try {
+      const [sum, rows, sts, matched] = await Promise.all([
+        sb.rpc('get_reconciliation_summary', { p_unpaid_days: 45 }),
+        sb.from('commission_rows')
+          .select('id,statement_id,carrier,policy_number,insured_name,transaction_type,amount_cents,' +
+                  'transaction_date,created_at,matched_policy_id,match_method,match_confidence,' +
+                  'review_status,review_reason,reviewed_at,review_note')
+          .order('created_at', { ascending: false }).limit(500),
+        sb.from('commission_statements')
+          .select('id,filename,status,error,attempts,created_at,file_kind')
+          .in('status', ['failed', 'queued', 'parsing', 'persisting', 'matching']).limit(100),
+        sb.from('commission_rows').select('matched_policy_id')
+          .not('matched_policy_id', 'is', null).neq('review_status', 'rejected').limit(2000),
+      ]);
+      await bobLoadPolicyUuidMap();
+      _rcCache = {
+        summary: (sum.data && sum.data[0]) || null,
+        rows: (!rows.error && rows.data) || [],
+        statements: (!sts.error && sts.data) || [],
+        matchedIds: new Set(((!matched.error && matched.data) || []).map(r => r.matched_policy_id)),
+        loadedAt: Date.now(),
+      };
+    } catch (e) {
+      if (panel) panel.innerHTML = '<div class="cm-panel"><div class="cm-empty">Could not load the queues: ' +
+        escHTML((e && e.message) || e) + '</div></div>';
+      return;
+    }
+  }
+  rcPaint();
+  if (force) showToast('Reconciliation refreshed', '#10b981');
+}
+
+/** Every item in the currently-selected queue, filtered and sorted. */
+function rcItems() {
+  let items;
+  if (_rcQueue === 'match') {
+    items = reconMatchItems(_rcCache.rows);
+    if (_rcStatus) items = items.filter(i => i.status === _rcStatus);
+  } else if (_rcQueue === 'unlinked') {
+    items = reconUnlinkedItems(
+      Array.isArray(typeof policies !== 'undefined' ? policies : null) ? policies : [],
+      _rcCache.matchedIds, _bobPolicyUuid, new Date(), 45);
+  } else {
+    items = reconStuckItems(_rcCache.statements, new Date());
+  }
+  return reconSort(items, _rcSort, _rcSort === 'confidence' ? 'asc' : 'desc');
+}
+
+function rcPaint() {
+  const qEl = document.getElementById('rc-queues');
+  const hEl = document.getElementById('rc-headline');
+  const bEl = document.getElementById('rc-bulk');
+  const pEl = document.getElementById('rc-panel');
+  if (!pEl) return;
+
+  const counts = {
+    match: Number((_rcCache.summary || {}).match_review || 0),
+    unlinked: Number((_rcCache.summary || {}).unlinked_policies || 0),
+    stuck: Number((_rcCache.summary || {}).stuck_uploads || 0),
+  };
+  if (qEl) {
+    qEl.innerHTML = RECON_QUEUES.map(q =>
+      '<button class="tracker-tab' + (q.key === _rcQueue ? ' active' : '') +
+      '" onclick="rcSetQueue(\'' + q.key + '\')">' + escHTML(q.label) +
+      ' <span class="pt-tab-n">' + counts[q.key] + '</span></button>').join('');
+  }
+  if (hEl) hEl.textContent = reconHeadline(_rcCache.summary);
+
+  // The status filter only means something on the match queue — the other two
+  // are derived and have no stored status to filter by.
+  const statusSel = document.getElementById('rc-status');
+  if (statusSel) { statusSel.style.display = _rcQueue === 'match' ? '' : 'none'; statusSel.value = _rcStatus; }
+  const sortSel = document.getElementById('rc-sort');
+  if (sortSel) sortSel.value = _rcSort;
+
+  const items = rcItems();
+  const pri = reconPriorityCounts(items);
+
+  if (bEl) {
+    bEl.innerHTML = (_rcQueue === 'match' && _rcSel.size)
+      ? '<div class="rc-bulk"><strong>' + _rcSel.size + ' selected</strong>' +
+        '<button class="rc-btn rc-btn-ok" onclick="rcBulk(\'approve\')">Approve</button>' +
+        '<button class="rc-btn rc-btn-no" onclick="rcBulk(\'reject\')">Reject</button>' +
+        '<button class="rc-btn" onclick="rcClearSel()">Clear</button>' +
+        '<span style="margin-left:auto;color:var(--lg-text3);font-size:11.5px">' +
+          'Rejecting never deletes a line — it records a decision.</span></div>'
+      : '';
+  }
+
+  const head = '<div class="cm-panel-h">' +
+    '<div class="cm-panel-t">' + escHTML((RECON_QUEUES.find(q => q.key === _rcQueue) || {}).label || '') + '</div>' +
+    '<div class="cm-panel-s">' + pri.high + ' high &middot; ' + pri.med + ' medium &middot; ' + pri.low + ' low</div></div>';
+
+  if (!items.length) {
+    pEl.innerHTML = '<div class="cm-panel">' + head + '<div class="cm-empty">' +
+      escHTML(rcEmptyText()) + '</div></div>';
+    return;
+  }
+  pEl.innerHTML = '<div class="cm-panel">' + head +
+    (_rcQueue === 'match' ? rcMatchRows(items)
+      : _rcQueue === 'unlinked' ? rcUnlinkedRows(items) : rcStuckRows(items)) + '</div>';
+}
+
+function rcEmptyText() {
+  if (_rcQueue === 'match') {
+    return _rcStatus === 'needs_review'
+      ? 'Nothing to review. Every ingested line is matched to a policy.'
+      : 'No lines with that status.';
+  }
+  if (_rcQueue === 'unlinked') {
+    return 'Every in-force policy whose draft date has passed has been paid on. ' +
+      'A policy appears here 45 days after its draft date if no commission line points at it.';
+  }
+  return 'No uploads are stuck. A statement appears here if it failed, or if it has been ' +
+    'in flight for more than an hour.';
+}
+
+const _rcPri = p => '<span class="rc-pri rc-pri-' + p + '">' + p + '</span>';
+
+function rcMatchRows(items) {
+  return '<div class="rc-row cm-thead"><div></div><div>Line</div><div>Amount</div>' +
+      '<div>Match %</div><div>Priority</div><div style="text-align:right">Action</div></div>' +
+    items.map(i => {
+      const conf = reconConfidencePct(i.confidence);
+      const open = i.status === 'needs_review';
+      return '<div class="rc-row">' +
+        '<div>' + (open
+          ? '<input type="checkbox" ' + (_rcSel.has(i.id) ? 'checked ' : '') +
+            'onchange="rcToggleSel(\'' + i.id + '\',this.checked)" aria-label="Select line">'
+          : '') + '</div>' +
+        '<div><div class="cm-strong" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+          escHTML(i.insured || i.policyNumber || 'Unnamed line') + '</div>' +
+          '<div class="rc-reason">' + escHTML([i.carrier, i.type, i.at].filter(Boolean).join(' · ')) +
+          (i.reason ? ' — ' + escHTML(i.reason) : '') + '</div></div>' +
+        '<div class="bo-num" style="color:' + (i.amountCents < 0 ? 'var(--lg-red)' : 'var(--lg-text1)') + '">' +
+          escHTML(commMoney(i.amountCents)) + '</div>' +
+        '<div class="rc-conf">' + (conf === null ? '<span style="color:var(--lg-faint)">no match</span>' : conf + '%') + '</div>' +
+        '<div>' + _rcPri(i.priority) + '</div>' +
+        '<div class="rc-acts">' + (open
+          ? (i.matched ? '<button class="rc-btn rc-btn-ok" onclick="rcAct(\'approve\',\'' + i.id + '\')">Approve</button>' : '') +
+            '<button class="rc-btn" onclick="rcOpenPicker(\'' + i.id + '\')">Link…</button>' +
+            '<button class="rc-btn rc-btn-no" onclick="rcAct(\'reject\',\'' + i.id + '\')">Reject</button>'
+          : '<span style="font-size:11.5px;color:var(--lg-caption)">' +
+            escHTML(i.status === 'approved' ? 'Approved' : 'Rejected') +
+            (i.reviewedAt ? ' ' + String(i.reviewedAt).slice(0, 10) : '') + '</span>' +
+            (i.status === 'rejected' ? '' :
+             '<button class="rc-btn" onclick="rcAct(\'unmatch\',\'' + i.id + '\')">Undo</button>')) +
+        '</div>' +
+      '</div>';
+    }).join('');
+}
+
+function rcUnlinkedRows(items) {
+  return '<div class="rc-row cm-thead" style="grid-template-columns:26px 1.6fr .9fr .9fr .9fr 1.2fr">' +
+      '<div></div><div>Client</div><div>AP</div><div>Waiting</div><div>Priority</div>' +
+      '<div style="text-align:right">Action</div></div>' +
+    items.map(i => '<div class="rc-row" style="grid-template-columns:26px 1.6fr .9fr .9fr .9fr 1.2fr">' +
+      '<div></div>' +
+      '<div><div class="cm-strong">' + escHTML(i.client) + '</div>' +
+        '<div class="rc-reason">' + escHTML([i.carrier, i.policyNumber].filter(Boolean).join(' · ')) +
+        ' — drafted ' + escHTML(i.at) + ', nothing has paid on it</div></div>' +
+      '<div class="bo-num">' + escHTML(fmt$(i.ap)) + '</div>' +
+      '<div class="bo-num">' + i.daysWaiting + 'd</div>' +
+      '<div>' + _rcPri(i.priority) + '</div>' +
+      '<div class="rc-acts"><button class="rc-btn" onclick="nav(\'tracker\');togglePolicyHistory(' +
+        i.id + ')">Open policy</button></div>' +
+    '</div>').join('');
+}
+
+function rcStuckRows(items) {
+  return '<div class="rc-row cm-thead" style="grid-template-columns:26px 2fr .9fr .8fr .9fr 1.2fr">' +
+      '<div></div><div>File</div><div>State</div><div>Tries</div><div>Priority</div>' +
+      '<div style="text-align:right">Action</div></div>' +
+    items.map(i => '<div class="rc-row" style="grid-template-columns:26px 2fr .9fr .8fr .9fr 1.2fr">' +
+      '<div></div>' +
+      '<div><div class="cm-strong" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
+        escHTML(i.filename) + '</div>' +
+        (i.error ? '<div class="rc-reason">' + escHTML(i.error) + '</div>' : '') + '</div>' +
+      '<div>' + escHTML(i.state) + '</div>' +
+      '<div class="bo-num">' + i.attempts + '</div>' +
+      '<div>' + _rcPri(i.priority) + '</div>' +
+      '<div class="rc-acts"><button class="rc-btn" onclick="rcRetry(\'' + i.id + '\',this)">Try again</button></div>' +
+    '</div>').join('');
+}
+
+function rcToggleSel(id, on) { if (on) _rcSel.add(id); else _rcSel.delete(id); rcPaint(); }
+function rcClearSel() { _rcSel = new Set(); rcPaint(); }
+
+/** Every write goes through the edge function — never a direct PostgREST write. */
+async function rcCall(action, rowIds, extra) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { showToast('Please sign in again', '#f87171'); return null; }
+  const res = await fetch(SUPABASE_URL + '/functions/v1/statement-review', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + session.access_token, apikey: SUPABASE_ANON_KEY,
+               'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, row_ids: rowIds, ...(extra || {}) }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    showToast(json.detail || json.error || 'That did not work', '#f87171');
+    return null;
+  }
+  return json;
+}
+
+async function rcAct(action, rowId, extra) {
+  const res = await rcCall(action, [rowId], extra);
+  if (!res) return;
+  showToast(reconResultMessage(action, res), '#10b981');
+  _rcSel.delete(rowId);
+  // Invalidate before re-rendering, never after: the row's new status lives on
+  // the server, and painting from the stale cache first would show the old
+  // state for a frame and read as "the button did nothing".
+  _rcCache.loadedAt = 0;
+  await rcRender();
+}
+
+async function rcBulk(action) {
+  const ids = [..._rcSel];
+  if (!ids.length) return;
+  const res = await rcCall(action, ids);
+  if (!res) return;
+  showToast(reconResultMessage(action, res), '#10b981');
+  _rcSel = new Set();
+  _rcCache.loadedAt = 0;
+  await rcRender();
+}
+
+/**
+ * Link a line to a policy the agent picks.
+ *
+ * The picker lists the agent's OWN policies only — and the edge function
+ * re-checks that server-side, because a picker is a convenience and not a
+ * security boundary.
+ */
+function rcOpenPicker(rowId) {
+  const item = reconMatchItems(_rcCache.rows).find(i => i.id === rowId);
+  const pols = Array.isArray(typeof policies !== 'undefined' ? policies : null) ? policies : [];
+  if (!pols.length) { showToast('Add a policy to the tracker first', '#f87171'); return; }
+  const guess = (item && item.insured || '').toLowerCase();
+  const sorted = pols.slice().sort((a, b) => {
+    const am = guess && (a.client || '').toLowerCase().includes(guess.split(' ')[0]) ? 0 : 1;
+    const bm = guess && (b.client || '').toLowerCase().includes(guess.split(' ')[0]) ? 0 : 1;
+    return am - bm || (a.client || '').localeCompare(b.client || '');
+  });
+  const opts = sorted.map(p =>
+    '<option value="' + p.id + '">' + escHTML(p.client || 'Unnamed') +
+    (p.carrier ? ' — ' + escHTML(p.carrier) : '') +
+    (p.policyNumber ? ' (' + escHTML(p.policyNumber) + ')' : '') + '</option>').join('');
+  const modal = document.getElementById('cmDebtModal');
+  const title = document.getElementById('cm-debt-title');
+  const sub = document.getElementById('cm-debt-sub');
+  const body = document.getElementById('cm-debt-body');
+  if (!modal || !body) return;
+  if (title) title.textContent = 'Link this line to a policy';
+  if (sub) sub.textContent = item
+    ? [item.insured, item.policyNumber, commMoney(item.amountCents)].filter(Boolean).join(' · ') : '';
+  body.innerHTML =
+    '<div style="padding:14px">' +
+      '<label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;' +
+        'color:var(--text3);display:block;margin-bottom:6px">Policy</label>' +
+      '<select id="rc-pick" class="pt-input" style="width:100%">' + opts + '</select>' +
+      '<div style="font-size:11.5px;color:var(--text3);margin-top:8px;line-height:1.5">' +
+        'This records a manual match at 100% confidence, with your name and the time against it.</div>' +
+      '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
+        '<button class="pt-btn pt-btn-ghost" onclick="cmCloseDebt()">Cancel</button>' +
+        '<button class="pt-btn pt-btn-primary" onclick="rcConfirmPick(\'' + rowId + '\')">Link policy</button>' +
+      '</div>' +
+    '</div>';
+  modal.classList.add('open');
+}
+
+async function rcConfirmPick(rowId) {
+  const sel = document.getElementById('rc-pick');
+  if (!sel) return;
+  const clientId = Number(sel.value);
+  cmCloseDebt();
+  const res = await rcCall('match', [rowId], { policy_client_id: clientId });
+  if (!res) return;
+  showToast(reconResultMessage('match', res), '#10b981');
+  _rcCache.loadedAt = 0;
+  await rcRender();
+}
+
+/**
+ * A stuck statement is re-read by the SAME call site the Ingest screen uses.
+ *
+ * `boParseNow` already owns the session header, the retry flag and the
+ * failure reporting. A second fetch here would be a second place for all
+ * three to drift — which is exactly what `test/back-office.test.mjs` asserts
+ * against, and it caught this the first time it was written.
+ */
+async function rcRetry(statementId, btn) {
+  await boParseNow(statementId, btn);
+  _rcCache.loadedAt = 0;
+  await rcRender();
 }
 
 function psAgentHTML() {

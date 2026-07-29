@@ -19,19 +19,26 @@ seven independently-shippable phases. Started 2026-07-29.
 | 3 | Book of Business upgrades | ✅ **shipped 2026-07-29** |
 | 4 | Commissions dashboard | ✅ **shipped 2026-07-29** |
 | 5 | Persistency upgrades | ✅ **shipped 2026-07-29** |
-| 6 | Reconciliation screen | not started |
+| 6 | Reconciliation screen | ✅ **shipped 2026-07-29** |
 | 7 | Close the loop (auto-referral, chargeback at-risk, carriers) | not started |
 
-**Exact resume point:** Phase 6 — Reconciliation. Nothing from Phases 1–5 is
-outstanding. Phase 6 has everything it needs already in data: `commission_rows`
-carries `review_status` ('auto' | 'needs_review' | 'approved' | 'rejected'),
-`review_reason`, `match_method` and `match_confidence`; `commission_statements`
-carries the `failed` state and its `error`. The open decision is whether to
-build on the existing `public.review_queue` (the carrier-mail pipeline's) or to
-replace it deliberately — the brief asks for that call to be made and
-documented. **Writes must go through a service-role path**: `commission_rows`
-is SELECT-only and stays that way, so approving or correcting a match needs a
-new edge function, not an RLS policy.
+**Exact resume point:** Phase 7 — Close the loop. Nothing from Phases 1–6 is
+outstanding. Three separate pieces, in rising order of risk:
+
+1. **Carriers screen** — read-only, derived from `commission_rows`. The
+   easiest; a fifth Back Office area beside the four that exist.
+2. **Chargeback signal on the at-risk flag** — extend the EXISTING rule in
+   `// <team-core>`; keep both current guards (prior AP ≥ 1, tenure ≥ 30 days)
+   and the in-app-only rule. `get_team_summary` would need a chargeback figure
+   per agent, which `get_downline_commission_rollup` already computes — prefer
+   reading that over widening `get_team_summary` again.
+3. **Auto-referral generation** — the one with real consequences. Beneficiary
+   and emergency contacts become leads, deduped against the book, and
+   **NEVER auto-contacted**: they must enter needing consent like every other
+   lead. `consent_records` is service-role-write-only and `lead-ingest` does
+   not write it, so a referral lead simply has no consent row and
+   `leadTextingState()` renders it `needs_optin` — which is the correct
+   outcome and needs no new code, only a test proving it.
 
 **Waiting on Jace:** one decision — see *"Forwarding email address"* below.
 Nothing is blocked by it; Phase 1 shipped upload-only as planned.
@@ -680,9 +687,94 @@ Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
 
 ---
 
-## Phases 6–7
+## Phase 6 — Reconciliation ✅ SHIPPED
 
-Not started. Each will get its own decisions + work log section here as it
+Feature doc: **`docs/back-office-reconciliation.md`**.
+Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
+`20260744_reconciliation.sql`*.
+
+### What shipped
+
+- **Schema `20260744`** — three columns on `commission_rows` (`reviewed_at`,
+  `reviewed_by`, `review_note`), two partial indexes, and
+  `get_reconciliation_summary()`. No table, no policy, no data change.
+- **`statement-review` edge function** — the only write path. Deployed
+  individually, v1, `verify_jwt = true`; fleet 72 → 73, the 16
+  `verify_jwt = false` unchanged.
+- **A fourth Back Office area, Reconciliation**: three priority-ranked queues,
+  a status filter, a match-% sort, single and bulk approve / reject, a policy
+  picker for manual matching, and a Try again for stuck uploads.
+
+### Decisions taken without asking
+
+1. **`review_queue` is neither built on nor replaced — it is left alone and
+   not used.** It is keyed `NOT NULL` to `parsed_events` with a UNIQUE on it,
+   its `reason` vocabulary is the carrier-mail pipeline's, and **it holds 30
+   live rows that `match-events` writes on a cron**. Filing a commission row
+   there means a fake parent or a dropped constraint. `commission_rows` already
+   IS the queue — `review_status`, `review_reason`, `match_method`,
+   `match_confidence` all shipped in Phase 1.
+
+2. **What was actually missing was provenance**, so that is all the migration
+   adds. Without `reviewed_by`/`reviewed_at`, an approved row is
+   indistinguishable from one the parser matched itself.
+
+3. **Priority follows the money, not the age.** A chargeback is never low
+   priority however small; a failed upload is always high, because nothing was
+   ingested at all and no total anywhere says so.
+
+4. **A row with no match confidence sorts LAST on the match-% sort.** It never
+   matched; it is not a zero-confidence match. `0` and `null` are both
+   preserved and mean different things.
+
+5. **REJECT NEVER DELETES.** The row, its amount and its statement all stay.
+   The bulk bar says so on screen. A reconciliation screen that could delete a
+   commission line is where "nothing is discarded" would break.
+
+6. **Approving a line that was never matched is refused with a reason**, rather
+   than quietly claiming a link that does not exist.
+
+7. **`match` re-checks the target policy server-side.** The picker lists only
+   the agent's own policies, but a picker is a convenience, not a security
+   boundary.
+
+8. **A row belonging to someone else is skipped, not reported.** "That row
+   exists but is not yours" is itself a disclosure.
+
+9. **Unlinked Policies is scoped to IN-FORCE policies 45 days past their draft
+   date.** A lapsed policy that was never paid is not a reconciliation problem.
+
+10. **No cross-agent reconciliation view.** Resolving a match means seeing a
+    client name, which is the line `docs/agency-team-screen.md` draws.
+
+### Verification
+
+| Layer | Result |
+|---|---|
+| Unit tests (`npm run test:recon`) | **39** |
+| Full suite (`npm test`) | **628 tests + `npm run check` clean** |
+| End-to-end against production | **29/29** |
+| Headless click-through | **31/31** |
+| Residue after both live runs | **zero** |
+
+### Surprises worth recording
+
+- **An existing invariant caught this phase's own code.**
+  `test/back-office.test.mjs` asserts exactly one `statement-parse` call site;
+  the stuck-upload **Try again** button had added a second. Fixed by calling
+  `boParseNow()` — which already owns the session header, the retry flag and
+  the failure reporting — rather than re-implementing it. The test was right.
+- **The click-through could not reach the edge function at first**, because the
+  CORS allowlist does not cover a random `127.0.0.1` port. Web security was
+  relaxed inside the throwaway Chrome profile only, exactly as the
+  `transfer-leads` run did; no production secret was touched, and the
+  end-to-end run exercises the same calls with real CORS.
+
+---
+
+## Phase 7
+
+Not started. It will get its own decisions + work log section here as it
 begins.
 
 ### Phase 6 notes carried forward

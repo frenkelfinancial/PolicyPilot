@@ -140,7 +140,7 @@ Companion doc: `docs/ORION_GAP_ANALYSIS.md` (full detail on each item).
 - [x] **90. Outstanding debt tracking, drillable.** Carrier-reported balance at individual and rollup level. Shipped 2026-07-29 — per carrier, drillable to the lines, never range-filtered.
 - [x] **91. Commission trend chart** with commission / personal / override above the line and debt below it. Shipped 2026-07-29 — hand-built SVG, empty weeks filled in.
 - [x] **92. Personal vs override stacked mix.** Shipped 2026-07-29 — largest-remainder rounding, so the two integers always total 100.
-- [ ] **93. Reconciliation triage queues.** Policy Match Review, Unlinked Policies, stuck uploads. Priority high/medium/low, status filter, match-% sort, needs-review flag. You have a `review_queue` in `match-events` — this is the screen for it.
+- [x] **93. Reconciliation triage queues.** Policy Match Review, Unlinked Policies, stuck uploads. Priority high/medium/low, status filter, match-% sort, needs-review flag. Shipped 2026-07-29 (Back Office Phase 6) — `docs/back-office-reconciliation.md`. `review_queue` was deliberately left to the carrier-mail pipeline; `commission_rows` already was the queue.
 - [x] **94. Persistency at 4 / 9 / 13 / 25-month windows.** Shipped 2026-07-29 (Back Office Phase 5) — `docs/back-office-persistency.md`.
 - [x] **95. Flat vs weighted persistency toggle.** Shipped 2026-07-29 — weighted is by annualised premium, which is what carriers measure.
 - [x] **96. Policy persistency vs agent persistency views.** Shipped 2026-07-29 — the agent view is a SECURITY DEFINER aggregate so a leader sees rates, never a client list.

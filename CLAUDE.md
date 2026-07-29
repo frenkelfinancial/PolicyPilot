@@ -33,6 +33,28 @@ Autonomy layer (added 07/2026):
 - **`nav()` highlights by section name, not by position.** The positional index map (duplicated in `restoreSectionFromCache()`) had to be hand-corrected every time the sidebar grew; a test asserts it does not come back.
 - **Inbound forwarding addresses are NOT built and need one DNS record.** Resend is already signed up, paid for and wired (`messaging-email-inbound-webhook` verifies its signature); only the inbound MX is missing. Exact plan in `docs/back-office-progress.md` § "Forwarding email address".
 
+### Reconciliation (Phase 6) — `docs/back-office-reconciliation.md`
+
+- **`public.review_queue` was deliberately NOT used, NOT extended and NOT
+  replaced.** It is keyed `NOT NULL` to `parsed_events` with a UNIQUE on it and
+  holds ~30 live rows that `match-events` writes on a cron. `commission_rows`
+  already IS the queue (`review_status`, `review_reason`, `match_method`,
+  `match_confidence`). Do not merge them.
+- **Every resolution goes through the `statement-review` edge function.** The
+  agent comes from the JWT; there is no agent id in the body. `match`
+  re-verifies the target policy belongs to the caller — the picker is a
+  convenience, not a boundary. Never add an INSERT/UPDATE policy to
+  `commission_rows`.
+- **REJECT NEVER DELETES.** No `.delete(` may appear in `statement-review`; a
+  test asserts it. Rejecting records a decision.
+- **A row with no `match_confidence` sorts LAST on the match-% sort** — it
+  never matched, it is not a zero-confidence match. `0` and `null` differ.
+- **Unlinked Policies is IN-FORCE policies only**, 45 days past draft. A lapsed
+  policy that was never paid is a lapse, not a reconciliation problem.
+- **There is exactly ONE `statement-parse` call site and one
+  `statement-upload` call site in `app.html`** — a test enforces it, and it
+  caught the Phase 6 retry button adding a second. Call `boParseNow()`.
+
 ### Persistency (Phase 5) — `docs/back-office-persistency.md`
 
 - **The cohort date is `issueDate → draft → dateSubmitted`, and that chain is a
