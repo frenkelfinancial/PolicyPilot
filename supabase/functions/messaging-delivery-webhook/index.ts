@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { verifyTelnyxSignature, verifyResendSignature } from "../_shared/webhook-verify.ts";
+import { verifyTelnyxSignature, verifyResendSignature, verifyResendSignatureAny } from "../_shared/webhook-verify.ts";
 
 // Delivery webhook for BOTH providers this project sends messages through:
 //   - Telnyx (SMS/MMS): `telnyx-signature-ed25519` + `telnyx-timestamp` headers.
@@ -100,7 +100,14 @@ Deno.serve(async (req) => {
 
     const svixId  = req.headers.get("svix-id");
     const svixTs  = req.headers.get("svix-timestamp");
-    if (!await verifyResendSignature(rawBody, svixId, svixTs, svixSig, RESEND_WEBHOOK_SECRET)) {
+    const v = await verifyResendSignatureAny(rawBody, svixId, svixTs, svixSig, [
+      { name: "RESEND_WEBHOOK_SECRET", value: RESEND_WEBHOOK_SECRET },
+      { name: "RESEND_INBOUND_WEBHOOK_SECRET", value: Deno.env.get("RESEND_INBOUND_WEBHOOK_SECRET") },
+    ]);
+    if (v.ok && v.matched !== "RESEND_WEBHOOK_SECRET") {
+      console.warn(`[delivery] SECRETS ARE SWAPPED: verified with ${v.matched}.`);
+    }
+    if (!v.ok) {
       return new Response(JSON.stringify({ error: "invalid_signature" }), { status: 401 });
     }
 

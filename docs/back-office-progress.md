@@ -26,73 +26,103 @@ seven independently-shippable phases. Started 2026-07-29.
 briefed is complete. What remains is the work the brief explicitly deferred
 (see below) plus the one decision waiting on Jace.
 
-## Phase 1b — BUILT, DEPLOYED, and BLOCKED on Resend delivery
+## Phase 1b — inbound commission email: code DONE, waiting on two dashboard clicks
 
-The MX is live and correct. The code is written, applied and deployed. **The
-end-to-end proof could not be completed, and the blocker is a Resend account
-matter that only Jace can see.**
+### The diagnosis, corrected
 
-### What is verified
+The earlier conclusion that outbound was broken was **wrong**. Jace checked the
+Resend dashboard directly: both test emails show **Delivered**. Absence of
+arrival was not proof of non-delivery, and the restricted key could not tell
+the difference. The real findings:
 
-| Fact | Evidence |
+1. **Outbound is healthy.** Nothing wrong with the account or the key.
+2. **Receiving does not work for a subdomain under the apex domain entry on
+   the FREE plan.** Registering `commissions.producerstackcrm.com` as its own
+   Resend domain needs **Pro, $20/mo**. The commissions email reached SMTP but
+   the Receiving tab shows zero received emails.
+3. **BOTH Resend webhooks were DISABLED**, "20d ago" — no inbound OR delivery
+   event has reached the app since 2026-07-09.
+
+### DECISION: stay free, use Resend's own receiving domain
+
+Addresses are now `<token>@ouintiicri.resend.app`.
+
+`commissions.producerstackcrm.com` is kept **dormant, not deleted**: the MX
+record stays, and the domain stays in `COMMISSION_EMAIL_DOMAINS` alongside the
+active one. The day Pro is bought it starts working with **no code change** —
+that is the entire reason the domain is a list and not a constant.
+
+### Why the webhooks were disabled — root cause found
+
+`messaging-delivery-webhook` was last deployed at **2026-07-09T20:48:49Z**. The
+commit adding `verify_jwt = false` for it and for
+`messaging-email-inbound-webhook` landed **2026-07-09T21:51:07Z**, and the
+webhooks were created in Resend that same day (`docs/PHASE2_S2_COWORK_CHECKLIST.md`
+§2.2). The endpoints were therefore registered while the functions still
+required a Supabase JWT: Resend's calls got a platform **401**, Svix retried,
+and both endpoints were auto-disabled. The functions were fixed about an hour
+later — **but nobody re-enabled the endpoints**, so nothing has flowed since.
+
+That exact failure mode has a same-day commit of its own for other functions:
+`6e88581 Fix stripe-webhook/telnyx-call-status/wallet cron 401s from a missing
+verify_jwt=false`.
+
+**It is fixed today, and proved live** rather than assumed:
+
+| Endpoint | Unsigned POST returns |
 |---|---|
-| `commissions.producerstackcrm.com` MX → `inbound-smtp.us-east-1.amazonaws.com` pri 9 | public DNS (8.8.8.8) |
-| the apex MX was NOT touched | apex still `fwd1/fwd2.porkbun.com` |
-| schema applied | `20260748`, audited, 3 columns + table + 3 functions + trigger |
-| `statement-upload` accepts a service-role `x-agent-id` | deployed v3, guarded, 3 tests |
-| the inbound dispatch is live | `messaging-email-inbound-webhook` v16 |
-| a token can be minted | Jace's is live |
+| `messaging-email-inbound-webhook` | `{"error":"invalid_signature"}` ← **our code** |
+| `messaging-delivery-webhook` | `{"error":"invalid_signature"}` ← **our code** |
+| control (`statement-review`, verify_jwt=true) | `UNAUTHORIZED_NO_AUTH_HEADER` ← the platform |
 
-### What is NOT verified, and why
+Our own error body is the proof the platform gate is off and Resend can reach
+the code.
 
-**Two real emails were accepted by Resend (HTTP 200 + message id) and NEITHER
-was delivered.**
+### The SECOND cause, which would have disabled them again
 
-1. → `<token>@commissions.producerstackcrm.com` — no capture row, no statement,
-   nothing in `inbound_messages`, after ~4 minutes.
-2. → `jacef8778099@gmail.com` (a plain control, no subdomain involved) — never
-   arrived either; checked `in:anywhere`, so not merely filtered to spam.
+Resend issues one `whsec_` per endpoint, so there are two secrets —
+`RESEND_WEBHOOK_SECRET` (delivery) and `RESEND_INBOUND_WEBHOOK_SECRET`
+(inbound). **Which value landed in which Supabase secret has never been
+confirmed against a real event**, because no event has ever verified. The
+checklist flagged this at the time ("Code assumed one secret — Code change
+required").
 
-**The control is the important one.** Because a plain Gmail send failed
-identically, the failure is NOT the commissions subdomain, NOT the MX, and NOT
-the inbound configuration. Something upstream is stopping this account or key
-delivering at all.
+If they are swapped, every call to both endpoints 401s and Resend disables them
+again on the first click. Both functions now try their **own** secret first and
+the other as a fallback, and log `SECRETS ARE SWAPPED: verified with <name>`
+when the fallback is what worked. Not a weakening — both secrets are ours, a
+forgery still needs a valid HMAC under one of them, and a genuine mismatch
+still fails closed. It removes the single most likely way to be re-disabled.
 
-**It could not be diagnosed further from here.** The stored `RESEND_API_KEY` is
-a **send-only restricted key**: `/domains`, `/webhooks`, `/inbound` and even
-`GET /emails/{id}` all return `401 restricted_api_key`. Configuration and
-delivery state are both unreadable with it.
+### 🔴 WHAT JACE CLICKS IN THE RESEND DASHBOARD
 
-An SMTP `RCPT TO` probe against the MX was also tried and is inconclusive: SES
-returns `550 5.7.1 IP address blacklisted by recipient` for this machine's
-residential IP before it ever evaluates the recipient — a control probe for a
-domain we do not own returned the identical error.
+Nothing here costs money.
 
-### 🔴 What Jace needs to decide
+**1. Webhooks → re-enable BOTH endpoints.**
 
-Open the Resend dashboard and check, in this order:
+| Endpoint URL | Events to enable |
+|---|---|
+| `https://cweiaibjigjwspmshcrj.supabase.co/functions/v1/messaging-email-inbound-webhook` | `email.received` |
+| `https://cweiaibjigjwspmshcrj.supabase.co/functions/v1/messaging-delivery-webhook` | `email.delivered`, `email.bounced`, `email.complained`, `email.delivery_delayed` |
 
-1. **Is the account able to send at all right now?** Look at the two message
-   ids for their real status — `cac3e6fd-2128-4fd1-b6ee-a2a0685548e9`
-   (commissions) and `5d17addd-f77c-4f42-8a0a-9fd1dee13dac` (Gmail control).
-   A bounce, a block or a suspension will be on both.
-2. **Is `producerstackcrm.com` still Verified for sending?** It was on
-   2026-07-09; that is 20 days old.
-3. **Is there a domain entry for `commissions.producerstackcrm.com` with
-   Receiving enabled?** In Resend, receiving is configured per domain entry and
-   a subdomain generally needs its own — "Receiving enabled on the Resend
-   domain" may be the APEX entry, which would not cover the subdomain.
-4. **Is inbound on the current plan?** If it needs a paid tier, that is the
-   spend decision, and nothing here should be assumed until it is made.
+**RE-ENABLE the existing endpoints — do not delete and recreate them.** Their
+`whsec_` signing secrets are already in Supabase. Deleting an endpoint mints a
+NEW secret, and the ones stored here would then be wrong.
 
-**A full-access Resend API key set as a Supabase secret would let this be
-diagnosed and re-tested without the dashboard.** The current one cannot read
-anything.
+**2. If an endpoint cannot be re-enabled and must be recreated**, copy its new
+`whsec_` from the endpoint's detail page and say so — the matching Supabase
+secret has to be updated (`RESEND_INBOUND_WEBHOOK_SECRET` for the inbound one,
+`RESEND_WEBHOOK_SECRET` for delivery). The code tolerates them being swapped
+but not being stale.
 
-### Re-testing once it is fixed — no tooling required
+**3. Confirm receiving is on for `ouintiicri.resend.app`** and that inbound
+mail routes to the `email.received` webhook.
 
-Send an email from any mail client to the address, with a CSV/XLSX/PDF
-statement attached. Then:
+**Then send a real email** with a CSV/XLSX/PDF attached to:
+
+`f8056f832d874a379587fca4af517b33@ouintiicri.resend.app`
+
+and check:
 
 ```sql
 select status, error, attachment_count, statement_ids,
@@ -101,13 +131,15 @@ from public.inbound_statement_emails order by created_at desc limit 5;
 ```
 
 `status='ingested'` with a statement id is success. Any other status carries a
-plain-English `error`, and **the verbatim payload is stored either way** — which
-is what makes the unverified attachment shape safe to have shipped. If the
-adapter read the wrong key, `raw_attachments` shows the real shape and only
-`_shared/statement-email.ts` needs adjusting; nothing has to be re-sent.
+plain-English `error`, and the **verbatim payload is stored either way** — so if
+the attachment adapter reads the wrong key, `raw_attachments` shows the real
+shape, only `_shared/statement-email.ts` changes, and nothing is re-sent.
 
-**Jace's address (live now):**
-`f8056f832d874a379587fca4af517b33@commissions.producerstackcrm.com`
+### Still deliberately NOT built
+
+**The Settings UI showing an agent their address.** Putting a forwarding
+address in front of agents before one email has ever arrived through it would
+be advertising something unproven. It is a small piece once a real email lands.
 
 ---
 

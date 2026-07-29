@@ -75,3 +75,49 @@ export async function verifyResendSignature(
 
   return candidates.includes(expected);
 }
+
+/**
+ * Verify against ANY of our known Resend signing secrets, and say which one
+ * matched.
+ *
+ * WHY THIS EXISTS. Resend issues a separate `whsec_` per endpoint, so we hold
+ * two: RESEND_WEBHOOK_SECRET (delivery, webhook 86308238-…) and
+ * RESEND_INBOUND_WEBHOOK_SECRET (inbound, webhook 06060a7c-…). Which value
+ * landed in which Supabase secret has NEVER been confirmed against a real
+ * event — no Resend webhook has successfully delivered to this app, because
+ * both endpoints were auto-disabled on 2026-07-09 before one ever did.
+ *
+ * If those two values are swapped, every call to both endpoints returns 401,
+ * Svix retries, and Resend disables them again — which is exactly the failure
+ * being recovered from. Trying the endpoint's OWN secret first and the other
+ * as a fallback removes that entire class of failure, and the returned
+ * `matched` name makes a swap visible in the logs instead of silent.
+ *
+ * This is not a weakening: both secrets are ours, both are Resend-issued for
+ * our own endpoints, and a forged request still has to produce a valid HMAC
+ * under one of them. A genuine mismatch still fails closed.
+ */
+export async function verifyResendSignatureAny(
+  rawBody: string,
+  svixId: string | null,
+  svixTimestamp: string | null,
+  svixSignatureHeader: string | null,
+  secrets: { name: string; value: string | undefined }[],
+): Promise<{ ok: boolean; matched: string | null; tried: string[] }> {
+  const tried: string[] = [];
+  for (const s of secrets) {
+    if (!s.value) continue;
+    tried.push(s.name);
+    try {
+      if (await verifyResendSignature(rawBody, svixId, svixTimestamp, svixSignatureHeader, s.value)) {
+        return { ok: true, matched: s.name, tried };
+      }
+    } catch (err) {
+      // A malformed secret (bad base64) must not take the endpoint down with
+      // a 500 — that is a retry storm and another auto-disable. Treat it as a
+      // non-match and let the next candidate try.
+      console.error(`[webhook-verify] secret ${s.name} unusable:`, (err as Error)?.message || err);
+    }
+  }
+  return { ok: false, matched: null, tried };
+}

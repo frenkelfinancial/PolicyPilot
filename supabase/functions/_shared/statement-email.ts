@@ -18,8 +18,30 @@
 // 'no_attachment' and an error saying exactly that — rather than guessing.
 // ============================================================
 
-/** The subdomain that carries commission mail. Anything else is not ours. */
-export const COMMISSION_EMAIL_DOMAIN = "commissions.producerstackcrm.com";
+/**
+ * The domains that carry commission mail.
+ *
+ * PRIMARY is Resend's own receiving domain, which works on the FREE plan.
+ * Registering `commissions.producerstackcrm.com` as its own Resend domain —
+ * which is what receiving on a subdomain requires — needs their $20/mo Pro
+ * plan, and that spend was deliberately declined on 2026-07-29.
+ *
+ * The branded domain stays in this list, dormant. Its MX record is live and
+ * correct, so the day the plan is upgraded it starts working with NO code
+ * change: mail to either address resolves the same token the same way. That
+ * is the whole reason it is a list and not a constant.
+ */
+export const COMMISSION_EMAIL_PRIMARY = "ouintiicri.resend.app";
+export const COMMISSION_EMAIL_BRANDED = "commissions.producerstackcrm.com";
+export const COMMISSION_EMAIL_DOMAINS = [
+  COMMISSION_EMAIL_PRIMARY,   // active, free plan
+  COMMISSION_EMAIL_BRANDED,   // dormant until Resend Pro; MX already live
+];
+
+/** The address to SHOW an agent. Always the one that actually receives today. */
+export function commissionAddressFor(token: string): string {
+  return `${token}@${COMMISSION_EMAIL_PRIMARY}`;
+}
 
 /** True when this recipient is a commission forwarding address. */
 export function isCommissionAddress(to: string): boolean {
@@ -43,7 +65,7 @@ export function extractCommissionToken(to: unknown): string | null {
   const at = addr.lastIndexOf("@");
   if (at < 1) return null;
   const domain = addr.slice(at + 1);
-  if (domain !== COMMISSION_EMAIL_DOMAIN) return null;
+  if (!COMMISSION_EMAIL_DOMAINS.includes(domain)) return null;
   const local = addr.slice(0, at).split("+")[0];
   return /^[a-z0-9]{8,64}$/.test(local) ? local : null;
 }

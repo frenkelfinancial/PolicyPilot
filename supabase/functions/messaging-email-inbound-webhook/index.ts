@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { verifyResendSignature } from "../_shared/webhook-verify.ts";
+import { verifyResendSignature, verifyResendSignatureAny } from "../_shared/webhook-verify.ts";
 import {
   parseInboundStatementEmail,
   captureStatus,
@@ -76,12 +76,29 @@ Deno.serve(async (req) => {
 
   const rawBody = await req.text();
 
-  if (RESEND_INBOUND_WEBHOOK_SECRET) {
-    const svixId  = req.headers.get("svix-id");
-    const svixTs  = req.headers.get("svix-timestamp");
-    const svixSig = req.headers.get("svix-signature");
-    if (!await verifyResendSignature(rawBody, svixId, svixTs, svixSig, RESEND_INBOUND_WEBHOOK_SECRET)) {
+  // Try this endpoint's OWN secret first, then the delivery endpoint's as a
+  // fallback. Which whsec_ landed in which Supabase secret has never been
+  // confirmed against a real event, and a swap would 401 every call and get
+  // this endpoint auto-disabled a second time. `matched` names the one that
+  // worked, so a swap shows up in the logs instead of silently costing mail.
+  if (RESEND_INBOUND_WEBHOOK_SECRET || Deno.env.get("RESEND_WEBHOOK_SECRET")) {
+    const v = await verifyResendSignatureAny(
+      rawBody,
+      req.headers.get("svix-id"),
+      req.headers.get("svix-timestamp"),
+      req.headers.get("svix-signature"),
+      [
+        { name: "RESEND_INBOUND_WEBHOOK_SECRET", value: RESEND_INBOUND_WEBHOOK_SECRET },
+        { name: "RESEND_WEBHOOK_SECRET", value: Deno.env.get("RESEND_WEBHOOK_SECRET") },
+      ],
+    );
+    if (!v.ok) {
+      console.error("[inbound] signature rejected; tried:", v.tried.join(", "));
       return new Response(JSON.stringify({ error: "invalid_signature" }), { status: 401 });
+    }
+    if (v.matched !== "RESEND_INBOUND_WEBHOOK_SECRET") {
+      console.warn(`[inbound] SECRETS ARE SWAPPED: verified with ${v.matched}. ` +
+        "Swap the values of RESEND_INBOUND_WEBHOOK_SECRET and RESEND_WEBHOOK_SECRET.");
     }
   }
 
