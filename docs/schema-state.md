@@ -1923,3 +1923,86 @@ covers the four new cache invalidations and nothing further.
 
 **If the join-request flow is going to carry real recruiting traffic, it wants
 the same behavioural pass every other function in this ledger got.**
+
+---
+
+## Apply 2026-07-29 — `20260748_inbound_statement_email.sql`
+
+Back Office Phase 1b: the per-tenant commission forwarding address. Applied via
+`supabase db query --linked -f <wrapped>`, transaction-wrapped.
+
+**Additive only.** Three `add column if not exists` on `agents`, one
+`create table if not exists`, four indexes, one check constraint, one policy
+(SELECT), three functions, one trigger. No `DROP` of a table, column or row;
+nothing in `auth.*` or `storage.*`. Re-running is a no-op.
+
+### Pre / post apply
+
+| Probe | Before | After |
+|---|---|---|
+| `agents.commission_email_*` columns | 0 | **3** |
+| `inbound_statement_emails` | absent | present, RLS on, **1 policy, SELECT only** |
+| `issue_commission_email_token` / `resolve_commission_email_token` / `agents_protect_commission_token` | 0 | **3** |
+| triggers on `agents` | 6 | **7** |
+
+### A bug the apply itself caught
+
+`issue_commission_email_token()` originally used `gen_random_bytes(16)`. That
+is **pgcrypto**, which lives in the `extensions` schema on Supabase, and every
+SECURITY DEFINER function here pins `search_path = public` so it cannot be
+aimed at a hostile schema. The first real call threw `42883: function
+gen_random_bytes(integer) does not exist`.
+
+It now builds the token from `gen_random_uuid()`, which is **core PostgreSQL** —
+same 128 bits, no extension dependency, no search_path exposure. Found by
+minting a token for a live account rather than by reading the code.
+
+### The token is a bearer secret, and is treated as one
+
+Anyone who knows an agent's address can post a statement into that agent's
+book. That is inherent to any forwarding address; what follows from it:
+
+- 32 hex characters of randomness, not a slug of the agent's name.
+- **Server-issued and not client-writable.** `agents_protect_commission_token`
+  reverts `commission_email_token`, `commission_email_enabled` and
+  `commission_email_rotated_at` for any `authenticated`/`anon` write. The
+  existing `agents_protect_privileged_columns` (20260703c) enumerates its
+  columns by name and these are new, so they needed their own guard rather
+  than an assumption — the same lesson this ledger has recorded four times.
+- **Rotatable.** `issue_commission_email_token(p_rotate => true)` mints a new
+  one; `commission_email_enabled` can disable an address without deleting it.
+- It grants **no read access**. It names a destination, nothing else.
+- `resolve_commission_email_token()` is `service_role` only (explicitly
+  REVOKEd from `public`/`anon`/`authenticated`) and returns **only an agent
+  id** — never an email, a name, or anything else about the account.
+
+### `inbound_statement_emails` — capture first, parse second
+
+`agent_id` is **nullable on purpose**: an email sent to a rotated or mistyped
+token is still stored, because a statement that arrived at the wrong address
+must be findable rather than silently dropped. Those rows belong to nobody and
+are invisible to every agent.
+
+The whole Resend event is stored **verbatim before anything is parsed out of
+it**, because the `email.received` payload shape has never been observed by
+this codebase — `messaging-email-inbound-webhook` says so in its own header.
+That makes every inbound re-processable: if the attachment adapter reads the
+wrong key, no statement is lost and nobody has to forward anything again. Same
+guarantee `statement_extractions` gives for model output and `statement_files`
+gives for bytes.
+
+`UNIQUE (provider, provider_event_id)` is the replay guard — Resend retries
+anything it does not get a 2xx for.
+
+### ⚠️ THE INBOUND PATH IS BUILT AND DEPLOYED BUT **NOT PROVEN**
+
+The end-to-end test could not be completed. **See
+`docs/back-office-progress.md` § "Phase 1b — blocked on Resend delivery" for
+the full evidence and the decision required.** In short: two real emails were
+accepted by Resend (HTTP 200 + message id) and **neither was delivered** —
+including a plain Gmail control, which rules out the commissions subdomain as
+the cause. The stored `RESEND_API_KEY` is send-only restricted, so no
+configuration or delivery state can be read from here.
+
+Nothing in this migration depends on that resolution; the schema is correct and
+inert until mail actually arrives.

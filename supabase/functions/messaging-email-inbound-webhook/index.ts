@@ -1,5 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyResendSignature } from "../_shared/webhook-verify.ts";
+import {
+  parseInboundStatementEmail,
+  captureStatus,
+  captureError,
+  base64ToBytes,
+} from "../_shared/statement-email.ts";
 
 // ============================================================
 // EVENT NAME CONFIRMED, PAYLOAD SHAPE STILL AN ADAPTER — VERIFY BEFORE
@@ -89,10 +95,29 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, ignored: true }), { status: 200 });
   }
 
+  const sb = createClient(SUPABASE_URL, SERVICE_KEY);
+
+  // ------------------------------------------------------------
+  // COMMISSION FORWARDING ADDRESSES (Back Office Phase 1b)
+  //
+  // Resend allows ONE inbound webhook endpoint per account and it is already
+  // pointed here (webhook id 06060a7c-…), so commission mail arrives at this
+  // function rather than at one of its own. Dispatch on the recipient domain
+  // BEFORE the messaging path runs: a statement forwarded to
+  // <token>@commissions.producerstackcrm.com is not a reply to anything, and
+  // letting it fall through would file it as an unmatched inbound message.
+  //
+  // This branch always returns 200. Resend retries a non-2xx, and a retry
+  // storm on a statement we have already captured helps nobody — the capture
+  // row and its provider_event_id are what make a retry a no-op.
+  // ------------------------------------------------------------
+  const statementEmail = parseInboundStatementEmail(raw);
+  if (statementEmail && statementEmail.token) {
+    return await handleCommissionEmail(sb, raw, statementEmail);
+  }
+
   const parsed = parseInboundEmailPayload(raw);
   if (!parsed) return new Response(JSON.stringify({ ok: true, ignored: "unparseable" }), { status: 200 });
-
-  const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
   if (parsed.eventId) {
     const { data: existing } = await sb.from("inbound_messages")
@@ -126,3 +151,127 @@ Deno.serve(async (req) => {
 
   return new Response(JSON.stringify({ ok: true, matched: Boolean(messageId) }), { status: 200 });
 });
+
+/**
+ * A forwarded carrier statement.
+ *
+ * ORDER MATTERS AND IS DELIBERATE:
+ *   1. capture the verbatim event FIRST (the payload shape is unverified, so
+ *      the raw event is the only thing guaranteed to be worth keeping);
+ *   2. resolve the token to an agent;
+ *   3. hand each ingestible attachment to the SAME storage path the browser
+ *      upload uses, so there is one ingestion route and not two.
+ *
+ * Nothing here throws. A failure is recorded on the capture row and answered
+ * with 200, because a statement we have stored but not yet parsed is
+ * recoverable and a Resend retry loop is not.
+ */
+async function handleCommissionEmail(
+  // deno-lint-ignore no-explicit-any
+  sb: any,
+  raw: Record<string, unknown>,
+  email: ReturnType<typeof parseInboundStatementEmail>,
+): Promise<Response> {
+  if (!email) return new Response(JSON.stringify({ ok: true }), { status: 200 });
+
+  // Replay guard. Resend retries anything it did not get a 2xx for.
+  if (email.eventId) {
+    const { data: seen } = await sb.from("inbound_statement_emails")
+      .select("id").eq("provider", "resend").eq("provider_event_id", email.eventId).maybeSingle();
+    if (seen) {
+      return new Response(JSON.stringify({ ok: true, deduped: true }), { status: 200 });
+    }
+  }
+
+  const { data: agentId } = await sb.rpc("resolve_commission_email_token", { p_token: email.token });
+  const resolved: string | null = (typeof agentId === "string" && agentId) ? agentId : null;
+
+  // 1. CAPTURE, before anything can go wrong downstream.
+  const { data: capture, error: capErr } = await sb.from("inbound_statement_emails").insert({
+    agent_id:          resolved,
+    provider:          "resend",
+    provider_event_id: email.eventId,
+    token:             email.token,
+    to_address:        email.toAddress,
+    from_address:      email.from,
+    subject:           email.subject,
+    payload:           raw,
+    attachment_count:  email.attachments.length,
+    status:            captureStatus(email, resolved),
+    error:             captureError(email, resolved),
+  }).select("id").maybeSingle();
+
+  if (capErr) {
+    // A unique violation here is the replay guard firing on a concurrent
+    // retry, which is success, not failure.
+    const dup = String(capErr.code) === "23505";
+    return new Response(JSON.stringify({ ok: true, deduped: dup, error: dup ? null : capErr.message }),
+      { status: 200 });
+  }
+
+  const captureId = capture?.id ?? null;
+  if (!resolved || email.ingestible.length === 0) {
+    return new Response(JSON.stringify({
+      ok: true,
+      captured: captureId,
+      resolved: Boolean(resolved),
+      attachments: email.attachments.length,
+      ingestible: email.ingestible.length,
+      // The `via` strings say which payload shape actually carried the
+      // attachments, which is how the real Resend format gets learned from a
+      // genuine delivery rather than guessed.
+      shapes: email.attachments.map((a) => a.via),
+    }), { status: 200 });
+  }
+
+  // 2. INGEST each attachment through the same edge function the browser uses.
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const statementIds: string[] = [];
+  const failures: string[] = [];
+
+  for (const att of email.ingestible) {
+    try {
+      const bytes = base64ToBytes(att.contentBase64);
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/statement-upload`, {
+        method: "POST",
+        headers: {
+          // The service role is a valid Supabase JWT, which is what
+          // statement-upload's verify_jwt accepts. The agent is passed
+          // explicitly because there is no user session here — and
+          // statement-upload only honours x-agent-id from a service-role
+          // caller (see the check there).
+          Authorization: `Bearer ${SERVICE_KEY}`,
+          "Content-Type": "application/octet-stream",
+          "x-filename-b64": btoa(unescape(encodeURIComponent(att.filename))),
+          "x-agent-id": resolved,
+          "x-source": "email",
+        },
+        body: bytes,
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) { failures.push(`${att.filename}: ${out.error ?? res.status}`); continue; }
+      const ids: string[] = out.statement_id ? [out.statement_id]
+        : Array.isArray(out.statements) ? out.statements.map((x: { id: string }) => x.id) : [];
+      statementIds.push(...ids.filter(Boolean));
+    } catch (e) {
+      failures.push(`${att.filename}: ${String((e as Error).message ?? e)}`);
+    }
+  }
+
+  await sb.from("inbound_statement_emails").update({
+    status: statementIds.length > 0 ? "ingested" : "failed",
+    statement_ids: statementIds,
+    error: failures.length ? failures.join("; ") : null,
+    processed_at: new Date().toISOString(),
+  }).eq("id", captureId);
+
+  return new Response(JSON.stringify({
+    ok: true,
+    captured: captureId,
+    ingested: statementIds.length,
+    statement_ids: statementIds,
+    failures,
+    shapes: email.ingestible.map((a) => a.via),
+  }), { status: 200 });
+}

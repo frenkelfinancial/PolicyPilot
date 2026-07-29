@@ -321,10 +321,46 @@ test('the raw model output is stored before normalization', () => {
   assert.equal(inserts.length, 2, 'both the PDF and the tabular path must record their extraction');
 });
 
-test('the uploading agent comes from the JWT, never from the request', () => {
-  assert.match(UPLOAD_FN, /const agentId = user\.id;/);
+test('the uploading agent comes from the JWT, never from the request BODY', () => {
+  // Unchanged and non-negotiable: nothing in the request body can name an
+  // agent. That was the whole point of the original assertion and it still is.
   assert.equal(/body\.agent_id|agent_id:\s*body\./.test(UPLOAD_FN), false);
   assert.equal(/body\.agent_id/.test(PARSE_FN), false);
+  // The default path still resolves the agent from the token.
+  assert.match(UPLOAD_FN, /const \{ data: \{ user \} \} = await sb\.auth\.getUser\(token\)/);
+  assert.match(UPLOAD_FN, /agentId = user\.id/);
+});
+
+test('x-agent-id is honoured ONLY for a service-role caller, and only if real', () => {
+  // Phase 1b added exactly one exception: a statement forwarded to
+  // <token>@commissions.… arrives at a webhook with no user session, so it
+  // calls statement-upload with the SERVICE ROLE key and names the agent in a
+  // header. Three things have to hold, or that header is a way into someone
+  // else's book — which is the single worst outcome available in this schema.
+  const gate = /const isService = token === SERVICE_KEY;/;
+  assert.match(UPLOAD_FN, gate, 'the exception must be gated on the service-role key itself');
+
+  // (1) the header is only read behind the service-role gate…
+  assert.match(UPLOAD_FN, /if \(isService && headerAgent\)/);
+  // (2) …its shape is validated…
+  assert.match(UPLOAD_FN, /bad_agent_id/);
+  // (3) …and the agent is confirmed to EXIST rather than merely well-formed.
+  assert.match(UPLOAD_FN, /from\("agents"\)\.select\("id"\)\.eq\("id", headerAgent\)/);
+  assert.match(UPLOAD_FN, /unknown_agent/);
+
+  // A non-service caller sending the header must fall through to the JWT
+  // path — the `else` branch — not be trusted and not be rejected.
+  const block = UPLOAD_FN.slice(UPLOAD_FN.indexOf('const isService'),
+                                UPLOAD_FN.indexOf('const filename'));
+  assert.match(block, /\}\s*else\s*\{[\s\S]*getUser\(token\)/,
+    'a browser sending x-agent-id must simply upload to its own book');
+});
+
+test('an emailed statement is recorded as source=email, and only from the service role', () => {
+  assert.match(UPLOAD_FN, /const sourceLabel = \(isService && req\.headers\.get\("x-source"\) === "email"\)/);
+  // The browser can never mark an upload as having arrived by email.
+  assert.ok(!/source: "email"/.test(UPLOAD_FN),
+    'the email source must come from the guarded sourceLabel, never a literal');
 });
 
 test('a statement row is never left without its bytes', () => {

@@ -26,6 +26,91 @@ seven independently-shippable phases. Started 2026-07-29.
 briefed is complete. What remains is the work the brief explicitly deferred
 (see below) plus the one decision waiting on Jace.
 
+## Phase 1b — BUILT, DEPLOYED, and BLOCKED on Resend delivery
+
+The MX is live and correct. The code is written, applied and deployed. **The
+end-to-end proof could not be completed, and the blocker is a Resend account
+matter that only Jace can see.**
+
+### What is verified
+
+| Fact | Evidence |
+|---|---|
+| `commissions.producerstackcrm.com` MX → `inbound-smtp.us-east-1.amazonaws.com` pri 9 | public DNS (8.8.8.8) |
+| the apex MX was NOT touched | apex still `fwd1/fwd2.porkbun.com` |
+| schema applied | `20260748`, audited, 3 columns + table + 3 functions + trigger |
+| `statement-upload` accepts a service-role `x-agent-id` | deployed v3, guarded, 3 tests |
+| the inbound dispatch is live | `messaging-email-inbound-webhook` v16 |
+| a token can be minted | Jace's is live |
+
+### What is NOT verified, and why
+
+**Two real emails were accepted by Resend (HTTP 200 + message id) and NEITHER
+was delivered.**
+
+1. → `<token>@commissions.producerstackcrm.com` — no capture row, no statement,
+   nothing in `inbound_messages`, after ~4 minutes.
+2. → `jacef8778099@gmail.com` (a plain control, no subdomain involved) — never
+   arrived either; checked `in:anywhere`, so not merely filtered to spam.
+
+**The control is the important one.** Because a plain Gmail send failed
+identically, the failure is NOT the commissions subdomain, NOT the MX, and NOT
+the inbound configuration. Something upstream is stopping this account or key
+delivering at all.
+
+**It could not be diagnosed further from here.** The stored `RESEND_API_KEY` is
+a **send-only restricted key**: `/domains`, `/webhooks`, `/inbound` and even
+`GET /emails/{id}` all return `401 restricted_api_key`. Configuration and
+delivery state are both unreadable with it.
+
+An SMTP `RCPT TO` probe against the MX was also tried and is inconclusive: SES
+returns `550 5.7.1 IP address blacklisted by recipient` for this machine's
+residential IP before it ever evaluates the recipient — a control probe for a
+domain we do not own returned the identical error.
+
+### 🔴 What Jace needs to decide
+
+Open the Resend dashboard and check, in this order:
+
+1. **Is the account able to send at all right now?** Look at the two message
+   ids for their real status — `cac3e6fd-2128-4fd1-b6ee-a2a0685548e9`
+   (commissions) and `5d17addd-f77c-4f42-8a0a-9fd1dee13dac` (Gmail control).
+   A bounce, a block or a suspension will be on both.
+2. **Is `producerstackcrm.com` still Verified for sending?** It was on
+   2026-07-09; that is 20 days old.
+3. **Is there a domain entry for `commissions.producerstackcrm.com` with
+   Receiving enabled?** In Resend, receiving is configured per domain entry and
+   a subdomain generally needs its own — "Receiving enabled on the Resend
+   domain" may be the APEX entry, which would not cover the subdomain.
+4. **Is inbound on the current plan?** If it needs a paid tier, that is the
+   spend decision, and nothing here should be assumed until it is made.
+
+**A full-access Resend API key set as a Supabase secret would let this be
+diagnosed and re-tested without the dashboard.** The current one cannot read
+anything.
+
+### Re-testing once it is fixed — no tooling required
+
+Send an email from any mail client to the address, with a CSV/XLSX/PDF
+statement attached. Then:
+
+```sql
+select status, error, attachment_count, statement_ids,
+       payload->'data'->'attachments' as raw_attachments
+from public.inbound_statement_emails order by created_at desc limit 5;
+```
+
+`status='ingested'` with a statement id is success. Any other status carries a
+plain-English `error`, and **the verbatim payload is stored either way** — which
+is what makes the unverified attachment shape safe to have shipped. If the
+adapter read the wrong key, `raw_attachments` shows the real shape and only
+`_shared/statement-email.ts` needs adjusting; nothing has to be re-sent.
+
+**Jace's address (live now):**
+`f8056f832d874a379587fca4af517b33@commissions.producerstackcrm.com`
+
+---
+
 **Waiting on Jace:** one decision — see *"Forwarding email address"* below.
 Nothing is blocked by it; Phase 1 shipped upload-only as planned.
 

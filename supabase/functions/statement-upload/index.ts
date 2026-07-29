@@ -83,9 +83,40 @@ serve(async (req) => {
   // book, and commission data is the most sensitive data in this app.
   const token = (req.headers.get("authorization") || "").replace("Bearer ", "");
   if (!token) return json({ error: "unauthorized" }, 401);
-  const { data: { user } } = await sb.auth.getUser(token);
-  if (!user) return json({ error: "unauthorized" }, 401);
-  const agentId = user.id;
+
+  // THE ONE EXCEPTION, added in Phase 1b, and the reason it is safe:
+  //
+  // A statement forwarded to <token>@commissions.producerstackcrm.com arrives
+  // at messaging-email-inbound-webhook, which has NO user session — it has
+  // resolved the agent from the address token instead. So it calls this
+  // function with the SERVICE ROLE KEY and names the agent in `x-agent-id`.
+  //
+  // `x-agent-id` is honoured ONLY when the bearer token is byte-for-byte the
+  // service-role key. From any other caller it is ignored completely — not
+  // rejected, ignored — so a browser sending it simply uploads to its own
+  // book as before. The service role is not something a client can hold; if
+  // it ever were, naming an agent here would be the least of the problems.
+  const isService = token === SERVICE_KEY;
+  const headerAgent = (req.headers.get("x-agent-id") || "").trim();
+
+  let agentId: string;
+  if (isService && headerAgent) {
+    if (!/^[0-9a-f-]{36}$/i.test(headerAgent)) return json({ error: "bad_agent_id" }, 400);
+    // Verify the agent actually exists rather than trusting the header shape.
+    const { data: who } = await sb.from("agents").select("id").eq("id", headerAgent).maybeSingle();
+    if (!who) return json({ error: "unknown_agent" }, 404);
+    agentId = headerAgent;
+  } else {
+    const { data: { user } } = await sb.auth.getUser(token);
+    if (!user) return json({ error: "unauthorized" }, 401);
+    agentId = user.id;
+  }
+
+  // `email` marks a statement that arrived by forwarding rather than upload;
+  // commission_statements.source already allowed the value (Phase 1 reserved
+  // it), and the Back Office screen renders it so an agent can tell at a
+  // glance where a statement came from.
+  const sourceLabel = (isService && req.headers.get("x-source") === "email") ? "email" : "upload";
 
   const filename = decodeFilename(req.headers.get("x-filename-b64"));
   const mime = (req.headers.get("x-content-type") || "").slice(0, 120) || null;
@@ -188,7 +219,7 @@ serve(async (req) => {
   try {
     if (kind !== "zip") {
       const r = await storeStatement({
-        name: filename, data: bytes, fileKind: kind, source: "upload",
+        name: filename, data: bytes, fileKind: kind, source: sourceLabel,
         parentId: null, status: "queued", mimeType: mime,
       });
       return json({ ok: true, statements: [r], queued: r.duplicate ? 0 : 1, duplicates: r.duplicate ? 1 : 0 });
@@ -223,7 +254,7 @@ serve(async (req) => {
     }
 
     const parent = await storeStatement({
-      name: filename, data: bytes, fileKind: "zip", source: "upload",
+      name: filename, data: bytes, fileKind: "zip", source: sourceLabel,
       parentId: null, status: "ingested",
       statusDetail: `Archive — expanded into ${usable.length} statements`,
       mimeType: mime,
