@@ -805,6 +805,52 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .cmpct-more-btn:hover{color:var(--text2);border-color:var(--border2)}
 .cmpct-extra{display:none;grid-template-columns:1fr 1fr;gap:3px 8px;margin-top:7px;padding-top:7px;border-top:1px solid var(--border)}
 .compact-card.cmpct-open .cmpct-extra{display:grid}
+/* ── 2-col compact: condensed echo of the wide single-lead row —
+   info | (status pill + big notes box) | vertical action stack. ── */
+#lead-list-container.view-compact2 .compact-card{padding:14px 16px}
+.view-compact2 .cmpct2-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) 104px;gap:14px;align-items:stretch}
+.view-compact2 .cmpct2-info{display:flex;flex-direction:column;min-width:0}
+.view-compact2 .cmpct2-info .cmpct-hdr{margin-bottom:6px}
+/* Fields auto-fit by content width, wrapping to fill the column; tight gaps,
+   no forced two-column split. Long values (Email) claim a full row. */
+.view-compact2 .cmpct2-info .cmpct-fields{display:flex;flex-wrap:wrap;gap:7px 16px;margin:4px 0}
+.view-compact2 .cmpct2-info .cmpct-field{flex:0 1 auto;min-width:0;max-width:100%}
+.view-compact2 .cmpct2-info .cmpct-field.full{flex-basis:100%}
+.view-compact2 .cmpct2-info .cmpct-fv{white-space:normal;overflow-wrap:anywhere}
+.view-compact2 .cmpct2-info .cmpct-more-btn{align-self:flex-start;margin-top:7px}
+.view-compact2 .cmpct2-info .cmpct-extra{display:none;flex-wrap:wrap;gap:7px 16px;margin-top:7px;padding-top:7px;border-top:1px solid var(--border);grid-template-columns:none}
+.view-compact2 .compact-card.cmpct-open .cmpct2-info .cmpct-extra{display:flex}
+/* Middle region: status pill sits at the top; the notes box fills the rest,
+   stretching the full height of the card. */
+.view-compact2 .cmpct2-mid{display:flex;flex-direction:column;gap:8px;min-width:0}
+.view-compact2 .cmpct2-mid .cmpct-status-btn{align-self:flex-start;max-width:150px}
+.view-compact2 .cmpct2-notes{flex:1 1 auto;height:auto;min-height:120px;margin:0;resize:none}
+.view-compact2 .cmpct2-actions{display:flex;flex-direction:column;gap:6px}
+.view-compact2 .cmpct2-actions .cmpct-call-wrap{width:100%}
+.view-compact2 .cmpct2-actions .cmpct-call{width:100%;justify-content:center;padding:7px 8px}
+.view-compact2 .cmpct2-actions .lead-act-btn{width:100%;padding:7px 8px;text-align:center}
+@media(max-width:560px){
+  /* Stack again when the card is full-width and too narrow for three columns. */
+  .view-compact2 .cmpct2-grid{grid-template-columns:1fr;gap:9px}
+  .view-compact2 .cmpct2-notes{flex:none;min-height:70px}
+  .view-compact2 .cmpct2-actions{flex-direction:row;flex-wrap:wrap}
+  .view-compact2 .cmpct2-actions .cmpct-call-wrap{flex:1;min-width:70px}
+  .view-compact2 .cmpct2-actions .lead-act-btn{flex:1;width:auto;min-width:70px}
+}
+/* ── 4-col compact: header on top, body split into lead info | notepad,
+   actions in a row underneath. ── */
+.view-compact4 .cmpct4-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;align-items:stretch;margin:6px 0}
+.view-compact4 .cmpct4-info{display:flex;flex-direction:column;min-width:0}
+/* Narrow half-width column — stack fields one per line so labels/values fit. */
+.view-compact4 .cmpct4-info .cmpct-fields{grid-template-columns:1fr;gap:3px 0;margin:6px 0 0}
+.view-compact4 .cmpct4-info .cmpct-fv{white-space:normal;overflow-wrap:anywhere}
+/* Notepad fills the right half, stretching to the info column's height. */
+.view-compact4 .cmpct4-notes{height:auto;min-height:100%;margin:0;resize:none}
+@media(max-width:520px){
+  /* One card per row here — go back to a stacked info-then-notepad body. */
+  .view-compact4 .cmpct4-body{grid-template-columns:1fr;gap:6px}
+  .view-compact4 .cmpct4-notes{min-height:56px}
+}
 /* ── View switcher ── */
 .vsw-group{display:flex;align-items:center;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:2px;gap:1px;flex-shrink:0}
 .vsw-btn{padding:5px 8px;border-radius:6px;border:none;cursor:pointer;background:transparent;color:var(--text3);display:flex;align-items:center;justify-content:center;transition:all .13s;line-height:1}
@@ -16323,22 +16369,82 @@ function renderLeads() {
         `<div class="cmpct-field"><span class="cmpct-fl">${escapeHTML(lbl)}</span><span class="cmpct-fv">${escapeHTML(String(val))}</span></div>`
       ).join('');
 
-      div.innerHTML = `
-        <div class="cmpct-hdr">
-          <input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead" style="flex-shrink:0">
-          <div class="cmpct-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>
-          <select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb lead-pill--${status}" data-lid="${lid}" title="Set status">
+      // Shared bits used by both compact layouts.
+      const _cbHTML = `<input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead" style="flex-shrink:0">`;
+      const _nameHTML = `<div class="cmpct-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>`;
+      const _statusHTML = `<select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb lead-pill--${status}" data-lid="${lid}" title="Set status">
             ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
             ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
-          </select>
-          <div class="cmpct-call-wrap">
+          </select>`;
+      const _callHTML = `<div class="cmpct-call-wrap">
             <button class="cmpct-call lead-call-btn lead-click-to-call" data-lid="${lid}" data-phone-href="${callHref}" aria-label="Call ${escapeHTML(lead.name||'lead')}">${icon('phone',{size:11})}&thinsp;Call</button>
             ${callCount > 0 ? `<span class="lead-call-badge" style="top:-4px;right:-4px">${callCount}</span>` : ''}
+          </div>`;
+      const _moreHTML = _sfHTML ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : '';
+
+      if (leadView === 'compact2') {
+        // ── 2-column: condensed take on the wide row — lead info | (status +
+        // big notes box) | vertical action stack — so each card reads
+        // left-to-right like the single-lead view. The info column shows as
+        // many fields as fit (auto-wrapping by content width); the overflow
+        // goes behind ▼ More. The notes box fills the whole middle region. ──
+        const _fld2 = ([lbl, val, full]) => {
+          const dv = lbl === 'Email'
+            ? `<a href="mailto:${escapeHTML(String(val))}" onclick="event.stopPropagation()">${escapeHTML(String(val))}</a>`
+            : escapeHTML(String(val));
+          return `<div class="cmpct-field${full?' full':''}"><span class="cmpct-fl">${escapeHTML(lbl)}</span><span class="cmpct-fv">${dv}</span></div>`;
+        };
+        // Pull primary + secondary into one list so the wide info column is
+        // filled; anything past the cap stays collapsed under More.
+        const _all2 = [..._pf, ..._sf];
+        const _CAP2 = 8;
+        const _vis2 = _all2.slice(0, _CAP2), _hid2 = _all2.slice(_CAP2);
+        div.innerHTML = `
+        <div class="cmpct2-grid">
+          <div class="cmpct2-info">
+            <div class="cmpct-hdr">
+              ${_cbHTML}
+              ${_nameHTML}
+            </div>
+            ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
+            ${_vis2.length ? `<div class="cmpct-fields">${_vis2.map(_fld2).join('')}</div>` : ''}
+            ${_hid2.length ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : ''}
+            ${_hid2.length ? `<div class="cmpct-extra">${_hid2.map(_fld2).join('')}</div>` : ''}
+          </div>
+          <div class="cmpct2-mid">
+            ${_statusHTML}
+            <textarea class="cmpct-notes cmpct2-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes…">${escapeHTML(lead.notes||'')}</textarea>
+          </div>
+          <div class="cmpct2-actions">
+            ${_callHTML}
+            <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
+            <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
+            ${_txBtn}
+            ${_optInBtn}
           </div>
         </div>
-        ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
-        ${_pfHTML ? `<div class="cmpct-fields">${_pfHTML}</div>` : ''}
-        <textarea class="cmpct-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes…">${escapeHTML(lead.notes||'')}</textarea>
+        `;
+        container.appendChild(div);
+        return; // skip standard template below
+      }
+
+      // ── 4-column: header (name · status · Call) on top, then a two-column
+      // body — lead info on the left, notepad on the right — and the action
+      // buttons in a row underneath. ──
+      div.innerHTML = `
+        <div class="cmpct-hdr">
+          ${_cbHTML}
+          ${_nameHTML}
+          ${_statusHTML}
+          ${_callHTML}
+        </div>
+        <div class="cmpct4-body">
+          <div class="cmpct4-info">
+            ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
+            ${_pfHTML ? `<div class="cmpct-fields">${_pfHTML}</div>` : ''}
+          </div>
+          <textarea class="cmpct-notes cmpct4-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes…">${escapeHTML(lead.notes||'')}</textarea>
+        </div>
         <div class="cmpct-bottom">
           <div class="cmpct-actions">
             <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
@@ -16346,7 +16452,7 @@ function renderLeads() {
             ${_txBtn}
             ${_optInBtn}
           </div>
-          ${_sfHTML ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : ''}
+          ${_moreHTML}
         </div>
         ${_sfHTML ? `<div class="cmpct-extra">${_sfHTML}</div>` : ''}
       `;
