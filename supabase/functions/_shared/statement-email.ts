@@ -194,10 +194,23 @@ export async function fetchAttachmentBytes(
   attachmentId: string,
   apiKey: string,
 ): Promise<{ ok: true; base64: string } | { ok: false; reason: string }> {
-  const url = `https://api.resend.com/emails/${emailId}/attachments/${attachmentId}`;
+  // THE REAL ENDPOINT, found by probing with a full-access key on 2026-07-29:
+  //
+  //   GET /emails/inbound/{email_id}/attachments/{attachment_id}
+  //     -> { id, filename, content_type, size, download_url, expires_at }
+  //
+  // INBOUND emails live under /emails/inbound/, NOT /emails/. The first guess
+  // (`/emails/{id}/attachments/{id}`) returned 404 "Email not found" — the
+  // outbound collection genuinely does not contain them. Resend answers 405
+  // method_not_allowed for a path that does not exist at all, which is what
+  // made the difference between "wrong path" and "wrong id" legible.
+  //
+  // The bytes are then behind a SIGNED, EXPIRING CDN url which takes no auth
+  // header of its own — sending one is harmless but pointless.
+  const metaUrl = `https://api.resend.com/emails/inbound/${emailId}/attachments/${attachmentId}`;
   let res: Response;
   try {
-    res = await fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } });
+    res = await fetch(metaUrl, { headers: { Authorization: `Bearer ${apiKey}` } });
   } catch (e) {
     return { ok: false, reason: `Could not reach Resend to download the attachment: ${String((e as Error).message ?? e)}` };
   }
@@ -208,24 +221,37 @@ export async function fetchAttachmentBytes(
         "A full-access Resend API key (free) is needed in RESEND_FULL_API_KEY.",
     };
   }
-  if (!res.ok) return { ok: false, reason: `Resend returned ${res.status} for the attachment download.` };
+  if (!res.ok) return { ok: false, reason: `Resend returned ${res.status} for the attachment lookup.` };
 
   const ct = res.headers.get("content-type") || "";
   try {
-    if (ct.includes("json")) {
-      const j = await res.json() as Record<string, unknown>;
-      for (const k of CONTENT_KEYS) {
-        const v = j[k];
-        if (typeof v === "string" && v) return { ok: true, base64: stripDataUrl(v) };
-      }
-      if (typeof j.url === "string") {
-        const r2 = await fetch(j.url);
-        if (!r2.ok) return { ok: false, reason: `The attachment download URL returned ${r2.status}.` };
-        return { ok: true, base64: base64FromBytes(new Uint8Array(await r2.arrayBuffer())) };
-      }
-      return { ok: false, reason: "Resend returned JSON with no attachment content in it." };
+    // A non-JSON answer means Resend handed us the bytes directly. Not the
+    // shape observed today, but free to support.
+    if (!ct.includes("json")) {
+      return { ok: true, base64: base64FromBytes(new Uint8Array(await res.arrayBuffer())) };
     }
-    return { ok: true, base64: base64FromBytes(new Uint8Array(await res.arrayBuffer())) };
+
+    const j = await res.json() as Record<string, unknown>;
+
+    // Inline content, if it is ever offered.
+    for (const k of CONTENT_KEYS) {
+      const v = j[k];
+      if (typeof v === "string" && v) return { ok: true, base64: stripDataUrl(v) };
+    }
+
+    // The observed path: follow the signed URL.
+    const dl = (typeof j.download_url === "string" && j.download_url)
+      ? j.download_url
+      : (typeof j.url === "string" ? j.url : null);
+    if (!dl) return { ok: false, reason: "Resend returned no download URL for the attachment." };
+
+    const r2 = await fetch(dl);
+    if (!r2.ok) {
+      // `expires_at` is minutes away, so a stale URL is a real failure mode
+      // rather than a theoretical one — say so plainly.
+      return { ok: false, reason: `The attachment download URL returned ${r2.status} (it may have expired).` };
+    }
+    return { ok: true, base64: base64FromBytes(new Uint8Array(await r2.arrayBuffer())) };
   } catch (e) {
     return { ok: false, reason: `The attachment download could not be read: ${String((e as Error).message ?? e)}` };
   }

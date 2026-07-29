@@ -26,136 +26,112 @@ seven independently-shippable phases. Started 2026-07-29.
 briefed is complete. What remains is the work the brief explicitly deferred
 (see below) plus the one decision waiting on Jace.
 
-## Phase 1b — inbound commission email: PROVEN end to end except the byte download
+## Phase 1b — inbound commission email ✅ PROVEN END TO END
 
-The webhooks are re-enabled, a real email round-tripped, and everything on the
-path is verified against a genuine delivery. **One free dashboard action
-remains**: a full-access Resend API key.
+A real carrier-style statement was emailed to a forwarding address and came out
+the other side as matched commission rows, with a policy status updated and an
+audit trail naming the file. **This closes the Back Office mission.**
 
-### What a real email proved, 2026-07-29
-
-A statement was sent through Resend to
-`<token>@ouintiicri.resend.app` and came back in **15 seconds**:
+### The full path, verified on a real delivery
 
 | Step | Result |
 |---|---|
-| Resend fires `email.received` | ✅ |
-| Svix signature verifies | ✅ (no swap — the primary secret matched) |
-| `messaging-email-inbound-webhook` dispatches on the domain | ✅ |
-| raw event captured verbatim in `inbound_statement_emails` | ✅ |
-| address token extracted | ✅ |
-| token resolves to the agent | ✅ (after the fix below) |
-| attachment detected | ✅ `attachment_count = 1` |
-| attachment BYTES downloaded | ❌ **needs a full-access Resend key** |
-| statement ingests → commission rows | ⏸ blocked only by the line above |
+| Resend fires `email.received` | ✅ ~15s |
+| Svix signature verifies | ✅ primary secret matched — never swapped |
+| Domain dispatch inside `messaging-email-inbound-webhook` | ✅ |
+| Raw event captured verbatim | ✅ |
+| Token extracted, resolves to the agent | ✅ |
+| Attachment metadata read | ✅ |
+| **Attachment BYTES downloaded** | ✅ |
+| Stored via `statement-upload`, `source='email'` | ✅ |
+| **Parsed by `statement-parse`** | ✅ 1 Haiku call |
+| **Commission rows written** | ✅ |
+| Matched to real policies | ✅ 2/2 (`name`, confidence 0.75) |
+| Phase 3 status write-back | ✅ approved → paid |
+| History entry naming the statement | ✅ |
 
-### 🔴 THE ONE REMAINING ACTION — free, no plan change
+Money check: the four-line statement totalled **$673.20**, exactly
+`891.00 + 52.20 − 720.00 + 450.00` — the negative chargeback parsed correctly,
+and `premium_cents`, `transaction_date` and all three transaction types
+(advance / renewal / chargeback) came through right.
 
-**Create a full-access Resend API key** (Resend → API Keys → Create, permission
-**Full access**) and set it as a Supabase secret:
-
-```
-supabase secrets set RESEND_FULL_API_KEY=re_xxxxxxxx
-```
-
-Why: Resend's inbound webhook carries attachment **metadata only**. The bytes
-come from `GET /emails/{email_id}/attachments/{attachment_id}`, and the key
-this app stores is **send-only restricted** — all four plausible read endpoints
-return `401 restricted_api_key`, verified directly.
-
-`RESEND_FULL_API_KEY` is read **first**, falling back to `RESEND_API_KEY`, so
-the existing send-only key keeps doing exactly what it does today and nothing
-else changes. The moment the secret exists, forwarding works — no redeploy.
-
-### The observed payload shape — the guess was wrong
+### The attachment endpoint — found by probing, not by guessing
 
 ```
-data: { cc, to, bcc, from, subject, email_id, created_at,
-        message_id, attachments, received_for }
-data.attachments[]: { id, filename, content_id, content_type,
-                      content_disposition }
+GET /emails/inbound/{email_id}/attachments/{attachment_id}
+  -> { id, filename, content_type, size, download_url, expires_at }
 ```
 
-**No content field.** The build had guessed inbound would mirror Resend's
-OUTBOUND `{filename, content}`. It does not. Capture-first is exactly why that
-cost one function and no lost mail: the raw event was already stored, so the
-real shape was read out of the database rather than guessed at again.
+Then follow the **signed, expiring** `download_url` (no auth header of its own).
 
-`received_for` is Resend's own record of the address it accepted the mail for.
-It is authoritative and present even when the forwarding address is only in
-bcc — which is how a forwarded carrier email usually arrives — so it is now
-checked ahead of `to`/`cc`. It arrives JSON-encoded (a string holding an
-array).
+Inbound emails live under **`/emails/inbound/`**, not `/emails/`. The first
+guess, `/emails/{id}/attachments/{id}`, returned `404 Email not found` — the
+outbound collection genuinely does not contain them. What made this tractable
+is that Resend answers **405 method_not_allowed for a path that does not
+exist** and **404 for a path that exists with a missing resource**, so the two
+failure modes are distinguishable.
 
-### Two real bugs the live run found
+`GET /emails/inbound/{id}` also returns the whole record including a
+`raw.download_url` for the full MIME — worth knowing, but the per-attachment
+endpoint means no MIME parser is needed.
 
-**1. The token guard ate its own write.** `issue_commission_email_token()` is
-SECURITY DEFINER, but `auth.role()` reads the JWT CLAIM, which is still
-`authenticated` inside a definer function called from a browser — so
-`agents_protect_commission_token` reverted the definer's own UPDATE. The
-function then returned the token it *meant* to write, so the address looked
-real and was never persisted. The first email to it resolved to nobody.
+### The gap that only a real run could find
 
-`20260736` records this exact trap in this exact schema, about
-`set_my_agency_profile`. The fix is the one that file used: **gate, do not
-freeze** — a transaction-local `app.commission_token_issue` flag the issuing
-function opens for one statement, the same idiom `20260731` uses for
-`app.a2p_allow_id_change`.
+`statement-upload` stores and **queues**; `statement-parse` does the reading.
+In the browser flow the UI calls `boParseNow()` straight after uploading. **The
+email flow had no equivalent**, so the first fully-working forward left the
+statement sitting at `queued` — stored, visible, and never read. "Forward it
+and forget it" is the whole promise, so the webhook now kicks the parser
+itself.
 
-`issue_commission_email_token` now **reads the value back** after writing and
-returns what is actually stored. That is the assertion that would have caught
-this immediately: a reverted write now returns null instead of a confident,
-non-existent address.
+It runs **after** the 200 via `EdgeRuntime.waitUntil` where available, falling
+back to awaiting: parsing costs an Anthropic call, and Resend retries a webhook
+that takes too long, which would parse the same statement twice.
 
-**2. `settingsTab` compared the wrong identifier.** The hook was written
-`if (name === 'integrations')` when the parameter is `id`. `name` is
-`window.name`, a legitimate browser global, so the linter passed it and the
-condition was silently always false — the card never rendered. Only clicking
-the tab found it.
+### One finding, NOT fixed — name-order matching
 
-### The Settings UI
+The first test statement printed insureds as `Langley John` (last name first,
+no comma) and **nothing matched**. The second used `"Langley, John"` and
+**both lines matched**.
 
-**Settings → Integrations → "Forward commission statements".**
+`normalizeName()` handles the comma form (`SMITH, JOHN A.` → `john a smith`)
+but does not reorder a space-separated `Last First`. Unmatched lines behaved
+exactly as designed — stored, flagged `needs_review`, counted, never dropped —
+so this is a matching-quality gap, not a pipeline failure.
 
-- The address is minted **on first view of that tab**, so an agent who never
-  opens it never has one issued.
-- **Idempotent** — reloading does not mint a new address. An agent may already
-  have given the old one to a carrier.
-- **Copy** and **Rotate**, with the warning that it is a bearer secret and that
-  rotating stops the old address immediately. Verified live: after a rotation
-  the old token no longer resolves.
-- **Recently forwarded** — the last five inbound emails with a human status
-  (*Filed* / *No statement attached* / *Wrong address* / *Could not read it*)
-  and the actual reason. Forwarding is fire-and-forget; an agent who sends a
-  statement and hears nothing otherwise has no way to know it worked.
+**Deliberately left alone.** Reversing space-separated names is ambiguous
+(`James Robert` is two first names) and a wrong guess writes a carrier's money
+against the wrong client. It deserves its own decision, with a look at what
+real carrier statements actually print, rather than a change made in the last
+ten minutes of a mission.
 
-### Verification
+### Production left exactly as found
 
-| Layer | Result |
+The test ran against Jace's real book, against real policies, by prior
+agreement. Afterwards:
+
+| | |
 |---|---|
-| Unit tests (`statement-email.test.ts`) | **24**, including the real observed payload as a fixture |
-| Full suite | **687 tests + `npm run check` clean** |
-| Real inbound email | **round-tripped in 15s**, every step above verified |
-| Settings UI click-through | **17/17** — including that the token persists, rotation invalidates the old address, and a client cannot write the column |
-| Residue | **zero** — temp sender deleted, captures cleaned, fleet 73 / 16 |
+| `inbound_statement_emails` | 0 |
+| `commission_statements` | 0 |
+| `commission_rows` | 0 |
+| `policy_status_history` (source=statement) | 0 |
+| John Langley | restored `paid` → **`approved`** (its pre-test status) |
+| Clifford Ambers / George Galbraith | unchanged |
+| temporary sender function | deleted |
+| fleet | 73 functions, 16 `verify_jwt = false` |
 
-### Jace's live address
+### Jace's live forwarding address
 
 `1eecbfe195d84878b651d4f6cc92c288@ouintiicri.resend.app`
 
-Once `RESEND_FULL_API_KEY` is set, forward a statement there and check:
-
-```sql
-select status, error, attachment_count, statement_ids
-from public.inbound_statement_emails order by created_at desc limit 5;
-```
-
-`status='ingested'` with a statement id is the whole path working.
+**Settings → Integrations → Forward commission statements**, with Copy, Rotate,
+and the last five forwarded emails and what happened to each.
 
 ---
 
-**Waiting on Jace:** one decision — see *"Forwarding email address"* below.
-Nothing is blocked by it; Phase 1 shipped upload-only as planned.
+**Waiting on Jace:** nothing. Phase 1b is proven end to end; the forwarding
+address is live and `RESEND_FULL_API_KEY` is set.
 
 ---
 

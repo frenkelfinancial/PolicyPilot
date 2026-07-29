@@ -298,6 +298,31 @@ async function handleCommissionEmail(
     }
   }
 
+  // KICK THE PARSER.
+  //
+  // statement-upload stores and QUEUES; statement-parse does the reading. In
+  // the browser flow the UI calls boParseNow() straight after uploading. The
+  // email flow had no equivalent, so a forwarded statement sat at `queued`
+  // for ever — stored, visible, and never read. "Forward it and forget it" is
+  // the entire promise of this feature, so the webhook kicks the parser
+  // itself.
+  //
+  // It runs AFTER the 200 wherever the runtime supports it: parsing costs an
+  // Anthropic call and Resend retries a webhook that takes too long, and a
+  // retry here would mean parsing the same statement twice. Where waitUntil is
+  // unavailable it is awaited instead — slower, but never dropped.
+  if (statementIds.length > 0) {
+    const kick = fetch(`${SUPABASE_URL}/functions/v1/statement-parse`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ statement_id: statementIds[0] }),
+    }).catch((e) => { console.error("[inbound] parse kick failed", String(e)); });
+
+    const rt = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    if (rt && typeof rt.waitUntil === "function") rt.waitUntil(kick);
+    else await kick;
+  }
+
   await sb.from("inbound_statement_emails").update({
     status: statementIds.length > 0 ? "ingested" : "failed",
     statement_ids: statementIds,
