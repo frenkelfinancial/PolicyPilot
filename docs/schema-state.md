@@ -956,3 +956,118 @@ The leads count is 1,330 rather than the 1,329 that appears earlier in this
 file: a genuine webhook-ingested lead (`client_id` prefix `wh_`) arrived on
 Jace's own account at 2026-07-29T05:34Z, during the team-screen test window.
 It is real production data and was correctly left alone.
+
+---
+
+## Apply 2026-07-29 — `20260739_back_office_ingestion.sql`
+
+Phase 1 of the Back Office mission: commission statement ingestion. Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Feature doc: `docs/back-office-ingestion.md`. Progress ledger:
+`docs/back-office-progress.md`.
+
+**Additive only, no approval needed under the rules above.** Four
+`create table if not exists`, 18 `create index if not exists`, four
+`alter table … enable row level security`, four `create policy` (all `SELECT`),
+two check constraints added behind an `if not exists` guard, two triggers on
+`public.touch_updated_at()`, one `create or replace function`. No `DROP` of a
+table, column or row; nothing in `auth.*` or `storage.*` (the `references
+auth.users(id)` foreign keys are how every table in this schema keys a tenant —
+that is reading auth, not writing it). Re-running the whole file was confirmed
+a clean no-op.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `commission_statements` / `statement_files` / `statement_extractions` / `commission_rows` | **all absent** |
+| `public.touch_updated_at()` | present (the trigger function both new tables reuse) |
+| `get_ingestion_summary` | absent |
+| `policies` / `leads` / `agents` | 23 / 1,331 / 7 |
+
+### Post-apply audit
+
+| Probe | Result |
+|---|---|
+| Tables | 4/4 present |
+| RLS enabled | 4/4 `relrowsecurity = true` |
+| Policies | exactly **4, all `SELECT`** — no INSERT/UPDATE/DELETE policy on any commission table |
+| Indexes | 18 |
+| Check constraints | `commission_statements_status_check`, `commission_rows_review_status_check` |
+| Triggers | `commission_statements_touch_updated_at`, `commission_rows_touch_updated_at` |
+| `get_ingestion_summary` | present, **`prosecdef = false`** (SECURITY INVOKER — see below) |
+| `policies` / `leads` / `agents` | 23 / 1,331 / 7 — **unchanged** |
+| Re-run of the file | clean no-op (row counts and index count identical) |
+
+### Why the four tables have no write policy
+
+Commission data is the most sensitive data in this app. All four tables are
+**SELECT-only for `authenticated`**; every write goes through the
+`statement-upload` / `statement-parse` edge functions under the service role,
+and both take the agent **from the JWT** — there is no agent id anywhere in
+either request body. RLS-enabled-with-no-write-policy is how "service-role
+only" is expressed in Postgres, the same shape as `consent_records`,
+`lead_transfers` and `reputation_config`. Do not "fix" this by adding an INSERT
+policy: a policy broad enough to let the browser record a commission row is
+broad enough to let it record one against another agent's book.
+
+### Why `get_ingestion_summary()` is SECURITY INVOKER
+
+It is the one function here a browser calls, and it reads only through the
+caller's own RLS — so it cannot return another agent's figures even by
+accident. That is deliberate and is the opposite choice from
+`get_team_summary`: a leader seeing downline aggregates *requires* SECURITY
+DEFINER and a hand-built authorization anchor, and that arrives in Phase 4 with
+the debt rollup that needs it. Until then no query in this schema can return
+another agent's row, by construction rather than by restraint.
+
+### Behavioural verification — 14/14
+
+Run inside a transaction that **rolled back**; `commission_statements`,
+`commission_rows` and `statement_files` re-confirmed at 0 afterwards, and
+`policies` unchanged at 23.
+
+| # | Check | Result |
+|---|---|---|
+| 0 | two distinct agents available to test cross-tenant reads | PASS |
+| 1 | a statement inserts | PASS |
+| 2 | **file-grain idempotency** — same agent + same sha256 rejected | PASS |
+| 3 | the same file for a **different** agent is allowed | PASS |
+| 4 | `status` check constraint refuses an invented state | PASS |
+| 5 | **row-grain idempotency** — same `dedupe_key` rejected | PASS |
+| 6 | a genuinely identical second statement line survives via its occurrence ordinal | PASS |
+| 7 | `review_status` check constraint refuses an invented state | PASS |
+| 8 | raw bytes round-trip through `bytea` | PASS |
+| 9 | the owner sees their own commission rows | PASS |
+| 10 | **another agent sees none of them** | PASS |
+| 11 | the owner can read their own stored bytes | PASS |
+| 12 | the owner sees their own statements only | PASS |
+| 13 | `get_ingestion_summary()` is scoped to the caller | PASS |
+
+Checks 10 and 13 are the tenant guarantee, exercised rather than asserted.
+
+### Edge functions
+
+`statement-upload` and `statement-parse` deployed **individually** (never a
+batch — see the header of `supabase/config.toml`), both **`verify_jwt = true`**
+and therefore deliberately **absent from `config.toml`**: the browser is the
+caller and always has a session, and the service role (for a future unattended
+sweep) presents a valid Supabase JWT of its own. A test asserts neither slug
+appears in that file.
+
+Fleet diffed before and after: **70 → 72 functions**, and the **16**
+`verify_jwt = false` functions are the same 16 — none flipped.
+
+Confirmed live: no `Authorization` header → `401`; a malformed bearer →
+platform `UNAUTHORIZED_INVALID_JWT_FORMAT` before our code runs.
+
+### End-to-end, against production
+
+Two throwaway accounts, synthetic statements (CSV + XLSX + a ZIP of both),
+driven through the **real** deployed functions: **36/36 assertions passed**,
+including that another agent sees zero rows/statements/bytes and that even the
+owner gets `403` attempting a direct `POST /commission_rows`. A separate
+headless-browser click-through against the real UI passed **22/22**. Both runs
+deleted every account and row they created; the residue sweep returned **0**,
+and production row counts were unchanged afterwards (`policies` 23, `leads`
+1,331, `agents` 7).

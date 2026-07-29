@@ -3195,6 +3195,78 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
      .ledger, without the renderer knowing where it is. Duplicating the
      table per surface is exactly how the two screens drifted before.
      ============================================================ -->
+<style id="back-office-styles">
+/* Back Office — commission statement ingestion. Palette is indirected through
+   the ledger variables so the screen follows the theme toggle without a second
+   set of colours to keep in sync. See docs/back-office-progress.md. */
+.bo-drop{
+  border:1.5px dashed var(--lg-border-strong);border-radius:10px;background:var(--lg-inner);
+  padding:26px 20px;text-align:center;cursor:pointer;transition:border-color .14s,background .14s;
+}
+.bo-drop:hover,.bo-drop:focus-visible{border-color:var(--lg-blue);background:var(--lg-blue-soft);outline:none}
+.bo-drop.bo-dragging{border-color:var(--lg-blue);background:var(--lg-blue-soft)}
+.bo-drop.bo-busy{opacity:.6;pointer-events:none}
+.bo-drop-ico{color:var(--lg-blue);margin-bottom:8px;display:flex;justify-content:center}
+.bo-drop-title{font-size:13.5px;font-weight:600;color:var(--lg-text1)}
+.bo-drop-sub{font-size:11.5px;color:var(--lg-caption);margin-top:4px}
+.bo-pipeline-note{
+  padding:9px 14px;border-top:1px solid var(--lg-divider);background:var(--lg-inner);
+  font-size:12px;color:var(--lg-text3);
+}
+.bo-kpi-v.bo-warn{color:var(--lg-red)}
+.bo-kpi-v.bo-ok{color:var(--lg-green)}
+.bo-msg{
+  border-radius:8px;padding:9px 12px;font-size:12.5px;margin-top:10px;
+  display:flex;gap:8px;align-items:flex-start;line-height:1.5;
+}
+.bo-msg-ok{background:var(--lg-green-soft);border:1px solid var(--lg-green-border);color:var(--lg-text1)}
+.bo-msg-warn{background:var(--lg-blue-soft);border:1px solid var(--lg-blue-border);color:var(--lg-text1)}
+.bo-msg-err{background:var(--lg-red-soft);border:1px solid var(--lg-red-border);color:var(--lg-text1)}
+.bo-table{background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;overflow:hidden}
+.bo-scroll{overflow-x:auto}
+.bo-min{min-width:960px}
+.bo-grid{display:grid;grid-template-columns:2.2fr 1.1fr 1.1fr .7fr .9fr 1.1fr 1.3fr;gap:10px;padding:10px 14px;align-items:center}
+.bo-thead{
+  background:var(--lg-inner);border-bottom:1px solid var(--lg-border);
+  font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-caption);
+}
+.bo-row{border-bottom:1px solid var(--lg-divider);font-size:12.5px;color:var(--lg-text2)}
+.bo-row:last-child{border-bottom:none}
+.bo-row:hover{background:var(--lg-inner)}
+.bo-file{font-weight:600;color:var(--lg-text1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bo-sub{font-size:11px;color:var(--lg-caption);margin-top:2px}
+.bo-num{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace;font-size:12px}
+.bo-pill{
+  display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;
+  font-size:10.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap;
+}
+.bo-pill-queued{background:var(--lg-pill-new-bg);color:var(--lg-pill-new-fg)}
+.bo-pill-working{background:var(--lg-blue-soft);color:var(--lg-blue-deep)}
+.bo-pill-ingested{background:var(--lg-green-soft);color:var(--lg-green)}
+.bo-pill-failed{background:var(--lg-red-soft);color:var(--lg-red)}
+.bo-pill-archive{background:var(--lg-pill-called-bg);color:var(--lg-pill-called-fg)}
+.bo-spin{
+  width:9px;height:9px;border-radius:50%;border:1.5px solid currentColor;border-top-color:transparent;
+  display:inline-block;animation:bo-spin .7s linear infinite;
+}
+@keyframes bo-spin{to{transform:rotate(360deg)}}
+.bo-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.bo-link{
+  background:none;border:none;padding:2px 4px;font:inherit;font-size:11.5px;
+  color:var(--lg-blue);cursor:pointer;text-decoration:underline;text-underline-offset:2px;
+}
+.bo-link:hover{color:var(--lg-blue-deep)}
+.bo-link[disabled]{opacity:.45;cursor:default;text-decoration:none}
+.bo-empty{padding:34px 20px;text-align:center;color:var(--lg-caption);font-size:12.5px}
+.bo-rgrid{display:grid;grid-template-columns:1.4fr 1.6fr 1fr 1fr .9fr 1.4fr;gap:10px;padding:9px 12px;align-items:center}
+.bo-review{background:var(--lg-red-soft)}
+.bo-reason{font-size:11px;color:var(--lg-red);margin-top:2px}
+.bo-neg{color:var(--lg-red)}
+@media (max-width:760px){
+  .bo-min{min-width:820px}
+}
+</style>
+
 <style id="team-roster-styles">
 .tm{
   --tm-card:var(--card); --tm-inner:var(--bg2); --tm-border:var(--border);
@@ -3995,6 +4067,7 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
     <div class="nav-item" onclick="nav('tracker')"><span class="ico" data-ico="clipboard-text"></span><span class="nav-lbl-text">Policy Tracker</span></div>
     <div class="nav-item" onclick="nav('carriermail')"><span class="ico" data-ico="download-simple"></span><span class="nav-lbl-text">Carrier Mail</span></div>
     <div class="nav-item" onclick="nav('bonuses')"><span class="ico" data-ico="trophy"></span><span class="nav-lbl-text">Bonus Tracker</span></div>
+    <div class="nav-item" onclick="nav('backoffice')"><span class="ico" data-ico="file-arrow-up"></span><span class="nav-lbl-text">Back Office</span></div>
   </div>
   <div class="nav-sec">
     <div class="nav-lbl">Leads</div>
@@ -4528,6 +4601,57 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
         </div>
       </div>
     </div>
+
+    <!-- ========== BACK OFFICE — commission statement ingestion ==========
+         Docs: docs/back-office-progress.md. The shell is static; everything
+         inside #bo-body is rendered by renderBackOffice(). -->
+    <div class="section" id="sec-backoffice">
+      <div class="ledger">
+        <div class="lg-wrap">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+            <div>
+              <div style="font-size:15px;font-weight:600;color:var(--lg-text1)">Back Office</div>
+              <div style="font-size:12px;color:var(--lg-caption);margin-top:2px">Drop a carrier commission statement in and it is read, matched to your policies, and filed. PDF, Excel, CSV, or a ZIP of them.</div>
+            </div>
+            <button class="pt-btn pt-btn-ghost" id="bo-refresh" onclick="boRefresh(true)">Refresh</button>
+          </div>
+
+          <!-- Drop zone -->
+          <div id="bo-drop" class="bo-drop" tabindex="0"
+               onclick="document.getElementById('bo-file').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('bo-file').click();}">
+            <input type="file" id="bo-file" multiple accept=".pdf,.xlsx,.xls,.csv,.zip,application/pdf,text/csv,application/zip" style="display:none" onchange="boPickFiles(this.files); this.value='';">
+            <div class="bo-drop-ico"><span data-ico="file-arrow-up" data-size="22"></span></div>
+            <div class="bo-drop-title">Drop statements here, or click to choose</div>
+            <div class="bo-drop-sub" id="bo-drop-sub">PDF · XLSX · XLS · CSV · ZIP — up to 10 MB per file</div>
+          </div>
+          <div id="bo-upload-log"></div>
+
+          <!-- Pipeline strip -->
+          <div style="background:var(--lg-card);border:1px solid var(--lg-border);border-radius:6px;box-shadow:0 1px 2px rgba(15,29,61,.05);overflow:hidden;margin:16px 0">
+            <div class="pt-kpis" id="bo-pipeline"></div>
+            <div class="bo-pipeline-note" id="bo-headline">—</div>
+          </div>
+
+          <div id="bo-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statement drill-down: the rows one statement produced -->
+    <div class="overlay" id="boRowsModal">
+      <div class="modal modal-wide">
+        <div class="mhdr">
+          <div>
+            <div class="mtitle" id="bo-rows-title">Statement</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:3px" id="bo-rows-sub"></div>
+          </div>
+          <button class="mclose" onclick="boCloseRows()" data-ico="x" data-size="14" aria-label="Close"></button>
+        </div>
+        <div id="bo-rows-body"></div>
+      </div>
+    </div>
+
 
     <!-- ========== BONUS TRACKER ========== -->
     <div class="section" id="sec-carriermail">
@@ -10642,8 +10766,10 @@ function dsInitPlayground(){
   // Make the page title resolve to a label instead of the raw id.
   if (typeof NAV_TITLES === 'object' && NAV_TITLES) NAV_TITLES['ds-playground'] = 'Design System';
 
-  // Reveal the nav entry. Insert AFTER Settings so the existing positional
-  // idxMap inside nav() — which keys settings:8 — stays correct.
+  // Reveal the nav entry, after Settings. nav() now highlights by section
+  // name rather than by position, so appending here is a placement choice
+  // rather than a constraint — but this item navigates via its own onclick
+  // handler, so it still sets its own active class below.
   const settingsItem = document.querySelector('.sidebar .nav-item[onclick*="settings"]');
   if (settingsItem && !document.getElementById('nav-ds')){
     const a = document.createElement('div');
@@ -19595,12 +19721,533 @@ async function cmSyncParse(btn) {
   }
 }
 
+// ============================================================
+// BACK OFFICE — commission statement ingestion (Phase 1)
+//
+// Read docs/back-office-progress.md before changing anything named `bo*`.
+//
+// Three surfaces, all inside #sec-backoffice: the drop zone, the pipeline
+// strip, and the statements table (whose rows drill into #boRowsModal).
+//
+// The screen talks to exactly two edge functions — `statement-upload` (bytes
+// in, statement queued) and `statement-parse` (do the work) — and reads back
+// through RLS with the ordinary client. It never writes commission data
+// directly: `commission_statements`, `statement_files`, `statement_extractions`
+// and `commission_rows` are all SELECT-only for `authenticated`, on purpose.
+// ============================================================
+
+// <backoffice-core>
+// Pure logic — no DOM, no network, no storage, no app globals. Extracted
+// verbatim and executed by test/back-office.test.mjs, so these tests run the
+// code that ships rather than a copy of it that drifts. Keep it pure.
+
+// Mirrors MAX_FILE_BYTES / MAX_BATCH_BYTES in
+// supabase/functions/_shared/statement-core.ts. Duplicated deliberately: the
+// browser must be able to refuse a 40 MB PDF before spending a minute
+// uploading it. The server enforces the same numbers again, because the
+// browser is not a security boundary.
+const BO_MAX_FILE_BYTES = 10 * 1024 * 1024;
+const BO_MAX_BATCH_BYTES = 25 * 1024 * 1024;
+const BO_ALLOWED_EXT = ['pdf', 'xlsx', 'xls', 'csv', 'zip'];
+
+// The pipeline states, in the order they happen. `active` marks the ones that
+// mean "still moving", which is what decides whether the screen keeps polling.
+const BO_STATES = [
+  { key: 'queued',     label: 'Queued',     active: true  },
+  { key: 'parsing',    label: 'Parsing',    active: true  },
+  { key: 'persisting', label: 'Persisting', active: true  },
+  { key: 'matching',   label: 'Matching',   active: true  },
+  { key: 'ingested',   label: 'Ingested',   active: false },
+  { key: 'failed',     label: 'Failed',     active: false },
+];
+
+function boIsActiveStatus(status) {
+  const s = BO_STATES.find(x => x.key === status);
+  return !!(s && s.active);
+}
+
+/** Counts per pipeline state, derived from the statement list itself. */
+function boPipelineCounts(statements) {
+  const out = {};
+  BO_STATES.forEach(s => { out[s.key] = 0; });
+  (statements || []).forEach(s => {
+    if (Object.prototype.hasOwnProperty.call(out, s.status)) out[s.status]++;
+  });
+  return out;
+}
+
+/** True while anything is still moving — the only reason to keep polling. */
+function boAnyActive(statements) {
+  return (statements || []).some(s => boIsActiveStatus(s.status));
+}
+
+/**
+ * Split an upload into what we will send and what we are refusing, with a
+ * plain-English reason per refusal.
+ *
+ * Refusals are reported, never silently dropped: a file that vanishes without
+ * explanation reads as "the app lost my statement".
+ */
+function boValidateFiles(files, caps) {
+  const maxFile = (caps && caps.maxFile) || BO_MAX_FILE_BYTES;
+  const maxBatch = (caps && caps.maxBatch) || BO_MAX_BATCH_BYTES;
+  const accepted = [], rejected = [];
+  let running = 0;
+  (files || []).forEach(f => {
+    const name = f.name || 'file';
+    const ext = (name.split('.').pop() || '').toLowerCase();
+    if (!BO_ALLOWED_EXT.includes(ext)) {
+      rejected.push({ name, reason: 'not a PDF, Excel, CSV or ZIP file' });
+      return;
+    }
+    if (!f.size) { rejected.push({ name, reason: 'the file is empty' }); return; }
+    if (f.size > maxFile) {
+      rejected.push({ name, reason: boFmtBytes(f.size) + ' — the limit is ' + boFmtBytes(maxFile) + ' per file' });
+      return;
+    }
+    if (running + f.size > maxBatch) {
+      rejected.push({ name, reason: 'this batch would exceed ' + boFmtBytes(maxBatch) + ' — send it in two goes' });
+      return;
+    }
+    running += f.size;
+    accepted.push(f);
+  });
+  return { accepted, rejected };
+}
+
+function boFmtBytes(n) {
+  const v = Number(n) || 0;
+  if (v < 1024) return v + ' B';
+  if (v < 1024 * 1024) return (v / 1024).toFixed(0) + ' KB';
+  return (v / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/** Integer cents to a signed dollar string. Negatives are real money moving the other way. */
+function boFmtMoney(cents) {
+  const v = Number(cents || 0) / 100;
+  const s = Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (v < 0 ? '-$' : '$') + s;
+}
+
+/** "12 ingested in the last 7 days · 3 lines waiting for review" */
+function boSummaryLine(sum) {
+  const s = sum || {};
+  const n = Number(s.ingested_7d || 0);
+  const rows = Number(s.rows_7d || 0);
+  const review = Number(s.pending_review || 0);
+  const a = n === 1 ? '1 statement ingested in the last 7 days' : n + ' statements ingested in the last 7 days';
+  const b = rows ? ' (' + rows.toLocaleString('en-US') + ' lines)' : '';
+  const c = review === 1 ? '1 line waiting for review' : review + ' lines waiting for review';
+  return a + b + ' · ' + c;
+}
+
+/**
+ * Nest ZIP members under the archive they came from.
+ *
+ * The archive is a real statement row (its bytes are the evidence) but it
+ * produces no commission lines itself, so showing it flat next to its members
+ * reads as a duplicate upload.
+ */
+function boGroupStatements(list) {
+  const all = (list || []).slice();
+  const byId = new Map(all.map(s => [s.id, s]));
+  const children = new Map();
+  all.forEach(s => {
+    if (!s.parent_statement_id) return;
+    if (!byId.has(s.parent_statement_id)) return; // orphan: render it top level
+    if (!children.has(s.parent_statement_id)) children.set(s.parent_statement_id, []);
+    children.get(s.parent_statement_id).push(s);
+  });
+  const top = all.filter(s => !s.parent_statement_id || !byId.has(s.parent_statement_id));
+  return top.map(s => ({ statement: s, members: children.get(s.id) || [] }));
+}
+
+/** Which pill a statement wears, and whether it should spin. */
+function boStatusMeta(status) {
+  if (status === 'ingested') return { cls: 'bo-pill-ingested', label: 'Ingested', spin: false };
+  if (status === 'failed') return { cls: 'bo-pill-failed', label: 'Failed', spin: false };
+  if (status === 'queued') return { cls: 'bo-pill-queued', label: 'Queued', spin: false };
+  const s = BO_STATES.find(x => x.key === status);
+  return { cls: 'bo-pill-working', label: s ? s.label : String(status || 'Unknown'), spin: true };
+}
+
+/** Postgres bytea (`\x48656c6c6f`) back to bytes, for the "Original" download. */
+function boHexToBytes(hex) {
+  const s = String(hex || '');
+  const body = s.startsWith('\\x') ? s.slice(2) : s;
+  const out = new Uint8Array(body.length >> 1);
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(body.substr(i * 2, 2), 16);
+  return out;
+}
+
+/** UTF-8 filename to base64, for the ASCII-only `x-filename-b64` header. */
+function boFilenameHeader(name) {
+  const bytes = new TextEncoder().encode(String(name || 'statement'));
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+// </backoffice-core>
+
+let _boCache = { statements: [], summary: null, loadedAt: 0 };
+let _boPollTimer = null;
+let _boBusy = false;
+
+async function renderBackOffice() {
+  boBindDropZone();
+  await boRefresh(false);
+}
+
+/** One pass: summary RPC + statement list, then paint. */
+async function boRefresh(userInitiated) {
+  if (!currentAgent) return;
+  const body = document.getElementById('bo-body');
+  if (body && !_boCache.statements.length && !_boCache.loadedAt) {
+    body.innerHTML = '<div class="bo-table"><div class="bo-empty">Loading…</div></div>';
+  }
+  try {
+    const [sumRes, stRes] = await Promise.all([
+      sb.rpc('get_ingestion_summary'),
+      sb.from('commission_statements')
+        .select('id,parent_statement_id,filename,file_kind,source,status,status_detail,error,carrier,period_start,period_end,row_count,matched_count,review_count,total_amount_cents,size_bytes,attempts,created_at,ingested_at')
+        .order('created_at', { ascending: false })
+        .limit(200),
+    ]);
+    if (stRes.error) throw stRes.error;
+    _boCache.summary = (sumRes.data && sumRes.data[0]) || null;
+    _boCache.statements = stRes.data || [];
+    _boCache.loadedAt = Date.now();
+  } catch (e) {
+    if (body) body.innerHTML = '<div class="bo-table"><div class="bo-empty">Could not load statements: ' + escHTML((e && e.message) || e) + '</div></div>';
+    return;
+  }
+  boPaint();
+  boSchedulePoll();
+  if (userInitiated) showToast('Back Office refreshed', '#10b981');
+}
+
+/**
+ * Poll only while something is actually moving. A screen that polls forever is
+ * a screen that keeps a laptop awake for nothing.
+ */
+function boSchedulePoll() {
+  if (_boPollTimer) { clearTimeout(_boPollTimer); _boPollTimer = null; }
+  const sec = document.getElementById('sec-backoffice');
+  if (!sec || !sec.classList.contains('active')) return;
+  if (!boAnyActive(_boCache.statements)) return;
+  _boPollTimer = setTimeout(() => { boRefresh(false); }, 3000);
+}
+
+function boPaint() {
+  const counts = boPipelineCounts(_boCache.statements);
+  const strip = document.getElementById('bo-pipeline');
+  if (strip) {
+    strip.innerHTML = BO_STATES.map(s => {
+      const n = counts[s.key] || 0;
+      const cls = s.key === 'failed' && n > 0 ? ' bo-warn' : (s.key === 'ingested' && n > 0 ? ' bo-ok' : '');
+      return '<div class="pt-kpi"><div class="pt-kpi-l">' + s.label + '</div>' +
+        '<div class="pt-kpi-v bo-kpi-v' + cls + '">' + n + '</div></div>';
+    }).join('');
+  }
+  const headline = document.getElementById('bo-headline');
+  if (headline) headline.textContent = boSummaryLine(_boCache.summary);
+
+  const body = document.getElementById('bo-body');
+  if (!body) return;
+  const groups = boGroupStatements(_boCache.statements);
+  if (groups.length === 0) {
+    body.innerHTML =
+      '<div class="bo-table"><div class="bo-empty">' +
+      'No statements yet. Drop a carrier commission statement above — a PDF, an Excel file, a CSV, or a ZIP of several — ' +
+      'and it will be read and matched against your Policy Tracker.' +
+      '</div></div>';
+    return;
+  }
+
+  const head =
+    '<div class="bo-grid bo-thead">' +
+      '<div>Statement</div><div>Carrier</div><div>Period</div><div>Lines</div>' +
+      '<div>Matched</div><div>Total</div><div style="text-align:right">Status</div>' +
+    '</div>';
+
+  const rows = groups.map(g => {
+    let html = boStatementRowHTML(g.statement, false);
+    g.members.forEach(m => { html += boStatementRowHTML(m, true); });
+    return html;
+  }).join('');
+
+  body.innerHTML =
+    '<div class="bo-table"><div class="bo-scroll"><div class="bo-min">' + head + rows + '</div></div></div>' +
+    '<div style="font-size:11.5px;color:var(--lg-caption);margin-top:9px;line-height:1.6">' +
+      'Every uploaded file is kept exactly as it arrived, alongside the raw extraction — a parse is never the only ' +
+      'surviving record of your statement. Lines that could not be matched to a policy are held for review rather ' +
+      'than discarded.' +
+    '</div>';
+}
+
+function boStatementRowHTML(st, isMember) {
+  const meta = boStatusMeta(st.status);
+  const isArchive = st.file_kind === 'zip';
+  const period = st.period_start || st.period_end
+    ? escHTML([st.period_start, st.period_end].filter(Boolean).join(' → '))
+    : '<span style="color:var(--lg-faint)">—</span>';
+
+  const detail = st.status === 'failed'
+    ? '<div class="bo-reason">' + escHTML(st.error || 'Parsing failed.') + '</div>'
+    : (st.status_detail ? '<div class="bo-sub">' + escHTML(st.status_detail) + '</div>' : '');
+
+  const actions = [];
+  if (st.status === 'ingested' && !isArchive && st.row_count > 0) {
+    actions.push('<button class="bo-link" onclick="boOpenRows(\'' + st.id + '\')">View lines</button>');
+  }
+  if (st.status === 'failed' || st.status === 'queued') {
+    actions.push('<button class="bo-link" onclick="boParseNow(\'' + st.id + '\',this)">' +
+      (st.status === 'failed' ? 'Try again' : 'Parse now') + '</button>');
+  }
+  actions.push('<button class="bo-link" onclick="boDownload(\'' + st.id + '\',this)">Original</button>');
+
+  return '<div class="bo-grid bo-row">' +
+    '<div>' +
+      '<div class="bo-file"' + (isMember ? ' style="padding-left:14px"' : '') + '>' +
+        (isMember ? '<span style="color:var(--lg-faint)">↳ </span>' : '') + escHTML(st.filename) +
+        (isArchive ? ' <span class="bo-pill bo-pill-archive">Archive</span>' : '') +
+      '</div>' +
+      '<div class="bo-sub"' + (isMember ? ' style="padding-left:14px"' : '') + '>' +
+        escHTML(String(st.file_kind || '').toUpperCase()) + ' · ' + boFmtBytes(st.size_bytes) +
+        (st.attempts > 1 ? ' · attempt ' + st.attempts : '') +
+      '</div>' + detail +
+    '</div>' +
+    '<div>' + (st.carrier ? escHTML(st.carrier) : '<span style="color:var(--lg-faint)">—</span>') + '</div>' +
+    '<div class="bo-num">' + period + '</div>' +
+    '<div class="bo-num">' + (isArchive ? '—' : (st.row_count || 0)) + '</div>' +
+    '<div class="bo-num">' + (isArchive ? '—' :
+      ((st.matched_count || 0) + (st.review_count ? ' <span class="bo-neg">(' + st.review_count + ' to review)</span>' : ''))) + '</div>' +
+    '<div class="bo-num' + ((st.total_amount_cents || 0) < 0 ? ' bo-neg' : '') + '">' +
+      (isArchive ? '—' : boFmtMoney(st.total_amount_cents)) + '</div>' +
+    '<div style="text-align:right">' +
+      '<span class="bo-pill ' + meta.cls + '">' + (meta.spin ? '<span class="bo-spin"></span>' : '') + escHTML(meta.label) + '</span>' +
+      '<div class="bo-actions" style="margin-top:5px">' + actions.join('') + '</div>' +
+    '</div>' +
+  '</div>';
+}
+
+// ------------------------------------------------------------
+// Upload
+// ------------------------------------------------------------
+
+function boBindDropZone() {
+  const zone = document.getElementById('bo-drop');
+  if (!zone || zone.dataset.bound === '1') return;
+  zone.dataset.bound = '1';
+  ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); e.stopPropagation(); zone.classList.add('bo-dragging');
+  }));
+  ['dragleave', 'drop'].forEach(ev => zone.addEventListener(ev, e => {
+    e.preventDefault(); e.stopPropagation(); zone.classList.remove('bo-dragging');
+  }));
+  zone.addEventListener('drop', e => {
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) boPickFiles(files);
+  });
+}
+
+function boPickFiles(fileList) {
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  const { accepted, rejected } = boValidateFiles(files, { maxFile: BO_MAX_FILE_BYTES, maxBatch: BO_MAX_BATCH_BYTES });
+  boLog(rejected.map(r => ({ kind: 'err', text: r.name + ' was not sent — ' + r.reason })));
+  if (accepted.length) boUpload(accepted);
+}
+
+function boLog(entries, append) {
+  const el = document.getElementById('bo-upload-log');
+  if (!el) return;
+  const html = (entries || []).map(e =>
+    '<div class="bo-msg bo-msg-' + e.kind + '"><span data-ico="' +
+    (e.kind === 'err' ? 'warning' : e.kind === 'ok' ? 'check-circle' : 'info') +
+    '" data-size="14"></span><div>' + escHTML(e.text) + '</div></div>'
+  ).join('');
+  if (append) el.insertAdjacentHTML('beforeend', html); else el.innerHTML = html;
+  if (typeof mountIcons === 'function') { try { mountIcons(el); } catch (_e) {} }
+}
+
+async function boUpload(files) {
+  if (_boBusy) return;
+  _boBusy = true;
+  const zone = document.getElementById('bo-drop');
+  const sub = document.getElementById('bo-drop-sub');
+  if (zone) zone.classList.add('bo-busy');
+
+  let queued = 0, dupes = 0;
+  const problems = [];
+  try {
+    const { data: sess } = await sb.auth.getSession();
+    const token = sess && sess.session && sess.session.access_token;
+    if (!token) throw new Error('Your session has expired — sign in again.');
+
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (sub) sub.textContent = 'Uploading ' + (i + 1) + ' of ' + files.length + ' — ' + f.name;
+      let res, json;
+      try {
+        res = await fetch(SUPABASE_URL + '/functions/v1/statement-upload', {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/octet-stream',
+            'x-filename-b64': boFilenameHeader(f.name),
+            'x-content-type': f.type || 'application/octet-stream',
+          },
+          body: f,
+        });
+        json = await res.json();
+      } catch (netErr) {
+        problems.push(f.name + ' could not be uploaded — ' + ((netErr && netErr.message) || netErr));
+        continue;
+      }
+      if (!res.ok || json.error) {
+        problems.push(json.detail || (f.name + ' was refused: ' + (json.error || res.status)));
+        continue;
+      }
+      queued += json.queued || 0;
+      dupes += json.duplicates || 0;
+    }
+  } catch (e) {
+    problems.push((e && e.message) || String(e));
+  } finally {
+    _boBusy = false;
+    if (zone) zone.classList.remove('bo-busy');
+    if (sub) sub.textContent = 'PDF · XLSX · XLS · CSV · ZIP — up to 10 MB per file';
+  }
+
+  const log = [];
+  if (queued) log.push({ kind: 'ok', text: queued === 1 ? '1 statement queued.' : queued + ' statements queued.' });
+  // A duplicate is the idempotency guarantee working, not a failure — but
+  // saying nothing looks like the upload silently did nothing.
+  if (dupes) log.push({ kind: 'warn', text: dupes === 1
+    ? 'One file was already ingested, so it was not read again.'
+    : dupes + ' files were already ingested, so they were not read again.' });
+  problems.forEach(p => log.push({ kind: 'err', text: p }));
+  boLog(log, true);
+
+  await boRefresh(false);
+  if (queued) boParseNow(null, null);
+}
+
+// ------------------------------------------------------------
+// Parse
+// ------------------------------------------------------------
+
+async function boParseNow(statementId, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Working…'; }
+  try {
+    const { data: sess } = await sb.auth.getSession();
+    const token = sess && sess.session && sess.session.access_token;
+    if (!token) throw new Error('Your session has expired — sign in again.');
+    const res = await fetch(SUPABASE_URL + '/functions/v1/statement-parse', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(statementId ? { statement_id: statementId, retry: true } : { retry: false }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) throw new Error(json.detail || json.error || ('HTTP ' + res.status));
+    const failed = (json.results || []).filter(r => r.status === 'failed');
+    if (failed.length) {
+      boLog(failed.map(r => ({ kind: 'err', text: r.filename + ' — ' + r.error })), true);
+    }
+  } catch (e) {
+    boLog([{ kind: 'err', text: 'Parsing could not be started: ' + ((e && e.message) || e) }], true);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
+    await boRefresh(false);
+  }
+}
+
+// ------------------------------------------------------------
+// Drill-down + original download
+// ------------------------------------------------------------
+
+async function boOpenRows(statementId) {
+  const st = _boCache.statements.find(s => s.id === statementId);
+  const modal = document.getElementById('boRowsModal');
+  const body = document.getElementById('bo-rows-body');
+  const title = document.getElementById('bo-rows-title');
+  const sub = document.getElementById('bo-rows-sub');
+  if (!modal || !body) return;
+  if (title) title.textContent = st ? st.filename : 'Statement';
+  if (sub) {
+    sub.textContent = st
+      ? [st.carrier, st.row_count + ' lines', boFmtMoney(st.total_amount_cents),
+         st.review_count ? st.review_count + ' waiting for review' : null].filter(Boolean).join(' · ')
+      : '';
+  }
+  body.innerHTML = '<div class="bo-empty">Loading lines…</div>';
+  modal.classList.add('open');
+
+  const { data, error } = await sb
+    .from('commission_rows')
+    .select('id,row_index,insured_name,policy_number,carrier,product,transaction_type,amount_cents,transaction_date,match_method,review_status,review_reason')
+    .eq('statement_id', statementId)
+    .order('row_index', { ascending: true })
+    .limit(1000);
+
+  if (error) { body.innerHTML = '<div class="bo-empty">Could not load lines: ' + escHTML(error.message) + '</div>'; return; }
+  if (!data || !data.length) { body.innerHTML = '<div class="bo-empty">This statement produced no lines.</div>'; return; }
+
+  const head = '<div class="bo-rgrid bo-thead"><div>Insured</div><div>Policy</div><div>Type</div><div>Date</div><div style="text-align:right">Amount</div><div>Match</div></div>';
+  const rows = data.map(r =>
+    '<div class="bo-rgrid bo-row' + (r.review_status === 'needs_review' ? ' bo-review' : '') + '">' +
+      '<div>' + escHTML(r.insured_name || '—') + '</div>' +
+      '<div class="bo-num">' + escHTML(r.policy_number || '—') + '</div>' +
+      '<div>' + escHTML(r.transaction_type) + '</div>' +
+      '<div class="bo-num">' + escHTML(r.transaction_date || '—') + '</div>' +
+      '<div class="bo-num' + (r.amount_cents < 0 ? ' bo-neg' : '') + '" style="text-align:right">' + boFmtMoney(r.amount_cents) + '</div>' +
+      '<div>' + (r.review_status === 'needs_review'
+        ? '<span class="bo-neg">Needs review</span><div class="bo-reason">' + escHTML(r.review_reason || '') + '</div>'
+        : escHTML((r.match_method || 'matched').replace(/_/g, ' '))) + '</div>' +
+    '</div>').join('');
+
+  body.innerHTML = '<div class="bo-table"><div class="bo-scroll"><div style="min-width:820px">' + head + rows + '</div></div></div>' +
+    (data.length >= 1000 ? '<div style="font-size:11.5px;color:var(--lg-caption);margin-top:8px">Showing the first 1,000 lines.</div>' : '');
+}
+
+function boCloseRows() {
+  const m = document.getElementById('boRowsModal');
+  if (m) m.classList.remove('open');
+}
+
+/** Hand back the exact bytes that were uploaded. This is the evidence trail. */
+async function boDownload(statementId, btn) {
+  const st = _boCache.statements.find(s => s.id === statementId);
+  if (btn) { btn.disabled = true; }
+  try {
+    const { data, error } = await sb
+      .from('statement_files').select('content').eq('statement_id', statementId).maybeSingle();
+    if (error) throw error;
+    if (!data || !data.content) throw new Error('the stored file could not be read');
+    const blob = new Blob([boHexToBytes(data.content)], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (st && st.filename) || 'statement';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  } catch (e) {
+    boLog([{ kind: 'err', text: 'Could not download the original: ' + ((e && e.message) || e) }], true);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 const NAV_TITLES = {
   summary:'Summary',
   'api-quoter':'Quote + Underwriting',
   tracker:'Policy Tracker',
   carriermail:'Carrier Mail',
   bonuses:'Bonus Tracker',
+  backoffice:'Back Office',
   leads:'Leads',
   calendar:'Calendar',
   phonebook:'Phone Book',
@@ -19614,8 +20261,8 @@ const NAV_TITLES = {
 // Visible ONLY when BOTH kill switches are true: the agent's
 // agents.ai_dialer_enabled AND the global billing_config.ai_dialer_enabled.
 // Ships on the live site — everyone else gets no nav item and the section
-// stays hidden. Mirrors dsInitPlayground()'s dynamic-nav injection (appends
-// AFTER Settings) so the positional idxMap inside nav() stays valid.
+// stays hidden. Mirrors dsInitPlayground()'s dynamic-nav injection (appended
+// after Settings).
 // The two kill switches are flipped by SQL only — there is deliberately no UI
 // to toggle them here.
 // ============================================================
@@ -19638,9 +20285,10 @@ async function aiTestInit() {
 
   if (typeof NAV_TITLES === 'object' && NAV_TITLES) NAV_TITLES['ai-test'] = 'AI Dialer Test';
 
-  // Inject the nav item AFTER Settings so nav()'s positional idxMap stays correct.
-  // nav() highlights by index and won't know about this dynamic item, so the
-  // click handler toggles the active class manually (same trick as ds-playground).
+  // Inject the nav item after Settings. nav() highlights by matching the
+  // onclick text, and this item is wired through a JS handler rather than an
+  // inline onclick, so the click handler toggles the active class itself
+  // (same trick as ds-playground).
   const settingsItem = document.querySelector('.sidebar .nav-item[onclick*="settings"]');
   if (settingsItem && !document.getElementById('nav-ai-test')) {
     const a = document.createElement('div');
@@ -20011,12 +20659,16 @@ function nav(id) {
   // Update page title
   const titleEl = document.getElementById('pgTitle');
   if (titleEl) titleEl.textContent = NAV_TITLES[id] || id;
-  // Highlight active nav item
-  const items = document.querySelectorAll('.nav-item');
-  // settings:11 (not 10) — the support-widget nav-item sits between agency and
-  // settings in the DOM (sidebar-bot), shifting settings' positional index by one.
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:11 };
-  if (items[idxMap[id]] !== undefined) items[idxMap[id]].classList.add('active');
+  // Highlight the active nav item BY THE SECTION IT NAVIGATES TO, never by
+  // position. This used to be a positional index map ({summary:0, tracker:2,
+  // … settings:11}) which had to be hand-corrected every time the sidebar
+  // grew — the support widget sitting between Agency and Settings already
+  // cost it one off-by-one, and dynamically injected items (ds-playground,
+  // ai-test) had to be appended after Settings purely to keep it valid.
+  // _applyPlanGating() learned this lesson the expensive way and switched to
+  // the same selector; see its comment for what the drift actually broke.
+  const navItem = document.querySelector('.nav-item[onclick*="nav(\'' + id + '\')"]');
+  if (navItem) navItem.classList.add('active');
   // Persist active section so a refresh restores it. Save both a per-agent key
   // (correct across multiple agents on one browser) and an unscoped key so the
   // DOMContentLoaded restore can run before auth resolves (no Summary flash).
@@ -20031,6 +20683,7 @@ function nav(id) {
   if (id === 'leads')   renderLeads();
   if (id === 'tracker') { populateTrackerCarrierFilter(); const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
   if (id === 'carriermail') renderCarrierMail();
+  if (id === 'backoffice') renderBackOffice();
   if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
   if (id === 'phonebook') renderPhoneBook();
   if (id === 'webdialer') webDialer.render();
@@ -26928,17 +27581,20 @@ async function bootDashboard() {
 function restoreSectionFromCache() {
   let saved;
   try { saved = localStorage.getItem('pp_last_section'); } catch (e) { return; }
-  // settings:11 — see matching comment in nav() above.
-  const idxMap = { summary:0, 'api-quoter':1, tracker:2, carriermail:3, bonuses:4, leads:5, calendar:6, phonebook:7, webdialer:8, agency:9, settings:11 };
+  // A section is restorable when a nav item actually points at it. This used
+  // to be a positional index map duplicated from nav(); both copies had to be
+  // hand-corrected every time the sidebar grew, and the second one was always
+  // the one that got forgotten. Resolve the item the same way nav() does.
+  if (!saved) return;
+  const navItem = document.querySelector('.nav-item[onclick*="nav(\'' + saved + '\')"]');
   // Skip plan-gated sections — plan can't be verified before auth resolves.
   // bootDashboard() will navigate to the correct section for the user's tier.
-  if (!saved || !(saved in idxMap) || saved === 'summary' || saved === 'bonuses' || saved === 'agency') return;
+  if (!navItem || saved === 'summary' || saved === 'bonuses' || saved === 'agency') return;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   const sec = document.getElementById('sec-' + saved);
   if (sec) sec.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  const items = document.querySelectorAll('.nav-item');
-  if (items[idxMap[saved]]) items[idxMap[saved]].classList.add('active');
+  navItem.classList.add('active');
   const titleEl = document.getElementById('pgTitle');
   if (titleEl) titleEl.textContent = (typeof NAV_TITLES !== 'undefined' && NAV_TITLES[saved]) || saved;
 }
