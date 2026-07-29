@@ -3047,6 +3047,12 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
 }
 /* ── Plan Required Overlay (post-login, no active subscription) ── */
 #plan-required-overlay{position:fixed;inset:0;z-index:1500;background:rgba(7,14,28,.92);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:24px}
+/* Opaque cover that sits over the dashboard from the instant a session resolves
+   until an active plan is confirmed — prevents any flash of dashboard for
+   unplanned users. Sits just below the plan-required overlay (1500). */
+#boot-shield{position:fixed;inset:0;z-index:1400;background:var(--bg);display:none;align-items:center;justify-content:center}
+#boot-shield.on{display:flex}
+#boot-shield .bs-spin{width:26px;height:26px;border-radius:50%;border:2.5px solid var(--text);border-top-color:transparent;animation:itkspin .8s linear infinite;opacity:.55}
 .pro-card{background:#fff;border-radius:18px;padding:36px 32px 28px;width:100%;max-width:480px;box-shadow:0 24px 80px rgba(0,0,0,.5);font-family:var(--sans)}
 body:not(.light) .pro-card{background:#0f1d32;border:1px solid rgba(143,194,247,.12)}
 .pro-badge{display:inline-flex;align-items:center;gap:7px;background:#FEF2F2;border:1px solid rgba(239,68,68,.22);border-radius:99px;padding:5px 14px 5px 10px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#DC2626;margin-bottom:18px}
@@ -4170,6 +4176,7 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
 </div>
 
 <!-- PLAN REQUIRED OVERLAY - shown after login when agent has no plan -->
+<div id="boot-shield"><div class="bs-spin"></div></div>
 <div id="plan-required-overlay" style="display:none">
   <div class="pro-card">
     <div class="pro-badge">
@@ -7770,6 +7777,12 @@ let _proSelectedId = null;
 async function showPlanRequiredOverlay() {
   const overlay = document.getElementById('plan-required-overlay');
   if (!overlay) return;
+  // Hard choke point: whenever the paywall is up, the dashboard MUST be hidden
+  // beneath it (not merely covered). This guarantees an unplanned user can't
+  // reach dashboard content even if the optimistic reveal ran a moment earlier.
+  document.querySelector('.sidebar').style.display = 'none';
+  document.querySelector('.main').style.display = 'none';
+  hideBootShield();
   overlay.style.display = 'flex';
   const wrap = document.getElementById('pro-plan-cards');
   const btn  = document.getElementById('pro-subscribe-btn');
@@ -7950,7 +7963,9 @@ async function _autoCheckout(planId) {
       });
       return;
     }
-    if (result.ok) { hideGate(); return; }
+    // Already subscribed (edge fn updated plan_id server-side). Reload so boot
+    // re-runs, confirms the plan, and reveals the dashboard through the gate.
+    if (result.ok) { window.location.reload(); return; }
     throw new Error('no checkout response');
   } catch(e) {
     hideGate();
@@ -7988,13 +8003,49 @@ function showGate() {
   document.getElementById('auth-gate').classList.remove('hidden');
   document.querySelector('.sidebar').style.display = 'none';
   document.querySelector('.main').style.display = 'none';
+  hideBootShield();
+}
+
+// Reveal the dashboard chrome. ONLY call this once an active plan (or admin)
+// is confirmed — see _isEntitled(). Everything else keeps it shielded.
+function _revealDashboard() {
+  hideBootShield();
+  document.querySelector('.sidebar').style.display = '';
+  document.querySelector('.main').style.display = '';
+  if (typeof mountIcons === 'function') mountIcons();
+}
+
+// Cover the screen with an opaque shield and keep the dashboard hidden, so an
+// unplanned (or not-yet-verified) user never sees dashboard content — not even
+// for a frame — while bootDashboard() confirms their plan over the network.
+function _shieldDashboard() {
+  document.querySelector('.sidebar').style.display = 'none';
+  document.querySelector('.main').style.display = 'none';
+  showBootShield();
+}
+
+function showBootShield() { const s = document.getElementById('boot-shield'); if (s) s.classList.add('on'); }
+function hideBootShield() { const s = document.getElementById('boot-shield'); if (s) s.classList.remove('on'); }
+
+// True only when we can already prove entitlement WITHOUT a network round-trip:
+// either it's confirmed in memory, or a non-empty plan name is cached for this
+// exact agent. bootDashboard() re-verifies against Supabase regardless, so a
+// stale cache can only ever cause a brief optimistic reveal for a returning
+// paid user — never a flash for someone who has never had a plan.
+function _isEntitled() {
+  if (currentPlanName || currentAgentIsAdmin) return true;
+  if (typeof _isDev === 'function' && _isDev()) return true;   // owner/dev bypass (mirrors edge fn)
+  try { return !!(currentAgent && localStorage.getItem(k('pp_plan_name'))); } catch (_) { return false; }
 }
 
 function hideGate() {
   document.getElementById('auth-gate').classList.add('hidden');
-  document.querySelector('.sidebar').style.display = '';
-  document.querySelector('.main').style.display = '';
-  if (typeof mountIcons === 'function') mountIcons();
+  // Do NOT blindly reveal the dashboard here (the old bug: it showed for ~1s
+  // before the async plan check could raise the paywall). Reveal only if
+  // entitlement is already provable; otherwise shield until bootDashboard()
+  // confirms a plan or raises the plan-required overlay.
+  if (_isEntitled()) _revealDashboard();
+  else _shieldDashboard();
 }
 
 // Per-agent localStorage namespacing.
@@ -30851,11 +30902,14 @@ async function bootDashboard() {
       }
       window._stripeCheckoutReturn = false;
       _applyPlanGating();
-      if (!currentPlanName && !currentAgentIsAdmin) {
+      if (!currentPlanName && !currentAgentIsAdmin && !_isDev()) {
         const pid = (currentAgent && currentAgent.user_metadata && currentAgent.user_metadata.pending_plan_id)
           || localStorage.getItem('pp_pending_plan_id');
-        if (pid) await _autoCheckout(pid);
-        else showPlanRequiredOverlay();
+        if (pid) await _autoCheckout(pid);       // showGate() inside keeps dashboard hidden
+        else showPlanRequiredOverlay();          // choke point hides the dashboard
+      } else {
+        // Entitlement confirmed against Supabase — now (and only now) reveal.
+        _revealDashboard();
       }
     } catch(_) {
       // Plan check failed — don't fail open. Show the paywall so an
@@ -30911,7 +30965,12 @@ async function bootDashboard() {
     _initLeadsRealtime();
   } catch (e) {
     console.error('[sync] bootDashboard sync failed', e);
-    // Local data is already showing, fail open.
+    // The plan check may not have run (e.g. sbFirstSyncIfNeeded threw first),
+    // which would strand the user on the boot shield. Resolve the shield now:
+    // reveal only if entitlement is already provable, otherwise fail CLOSED to
+    // the paywall — never leave a spinner up or silently reveal the dashboard.
+    if (_isEntitled()) _revealDashboard();
+    else showPlanRequiredOverlay();
   }
 
   // Restore the last-active section so refresh keeps the user where they were.
