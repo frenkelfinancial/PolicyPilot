@@ -26843,6 +26843,11 @@ async function _agRenderLeaderView(root) {
       <div class="tm">${teamPeriodChipsHTML('agency')}</div>
     </div>`;
 
+  // Agents who typed this leader's code and asked to join. Shown up top with
+  // the requester's name, plan, comp level and NPN so the leader can decide.
+  const joinRequests = await _agLoadJoinRequests();
+  if (joinRequests.length) h += _agJoinRequestsHTML(joinRequests);
+
   if (entry.state !== 'ok') {
     h += `<div class="tm">${teamUnavailableHTML(entry.state)}</div>`;
   } else {
@@ -26970,19 +26975,62 @@ async function _agRenderAgentView(root) {
     return;
   }
 
-  const pending  = pendRes.data || [];
-  const accepted = accRes.data  || [];
+  const pendingAll = pendRes.data || [];
+  const accepted   = accRes.data  || [];
+  // The same table carries two kinds of pending row. `initiated_by` may be
+  // absent until 20260747 is applied — a legacy row is always a leader invite.
+  const invitesToMe = pendingAll.filter(i => (i.initiated_by || 'leader') === 'leader'); // a leader invited me
+  const myRequests  = pendingAll.filter(i => i.initiated_by === 'agent');                // I asked to join one
+
+  // "Request to join" is a paid-plan feature: it needs an active Basic or Pro
+  // plan (leaders never reach this view — they get _agRenderLeaderView).
+  const tier    = _planTier();
+  const canJoin = (tier === 'basic' || tier === 'pro');
 
   let h = `<div class="ag-header">
     <div>
       <div class="ag-header-title">Agency</div>
-      <div class="ag-header-sub">Agency leaders can request access to view your performance data. You control who sees your information.</div>
+      <div class="ag-header-sub">Join your team leader's agency, or manage who can view your performance data. You control who sees your information.</div>
     </div>
   </div>`;
 
-  if (pending.length) {
-    h += `<div class="ag-section-lbl">Access Requests (${pending.length})</div>`;
-    pending.forEach(inv => {
+  if (canJoin) {
+    h += `<div class="card" style="margin-bottom:18px;padding:18px 20px">
+      <div style="font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span data-ico="users-three" data-size="15"></span>Join an agency
+      </div>
+      <div style="font-size:12.5px;color:var(--text2);line-height:1.5;margin-bottom:14px">
+        Have an agency code from your team leader? Enter it below to send a request to join. Your leader will see your name, plan, comp level and NPN, and can approve or decline.
+      </div>
+      <div class="ag-invite-row">
+        <input class="ag-invite-input" id="ag-join-code" type="text" maxlength="20" placeholder="Agency code…"
+          style="text-transform:uppercase;font-family:var(--mono);letter-spacing:.06em"
+          onkeydown="if(event.key==='Enter')agRequestJoin()">
+        <button class="btn btn-p btn-sm" onclick="agRequestJoin()" style="display:inline-flex;align-items:center;gap:7px">
+          <span data-ico="paper-plane-right" data-size="14"></span>Request to Join
+        </button>
+      </div>
+    </div>`;
+  }
+
+  if (myRequests.length) {
+    h += `<div class="ag-section-lbl">Your Join Requests (${myRequests.length})</div>`;
+    myRequests.forEach(inv => {
+      h += `<div class="ag-pending-card">
+        <span data-ico="clock" data-size="18" style="color:#f59e0b;flex-shrink:0"></span>
+        <div class="ag-pending-info">
+          <div>Request to join <strong>${escapeHTML(inv.leader_name || inv.leader_email || 'an agency')}</strong></div>
+          <div class="ag-pending-sub">Awaiting approval · Sent ${new Date(inv.created_at).toLocaleDateString()}</div>
+        </div>
+        <button class="btn btn-s btn-sm" onclick="agCancelJoinRequest('${inv.id}')"
+          style="color:var(--ds-color-danger)">Cancel</button>
+      </div>`;
+    });
+  }
+
+  if (invitesToMe.length) {
+    h += `<div class="ag-section-lbl"${myRequests.length ? ' style="margin-top:20px"' : ''}>Access Requests (${invitesToMe.length})</div>`;
+    invitesToMe.forEach(inv => {
       h += `<div class="ag-pending-card info">
         <span data-ico="info" data-size="18" style="color:#3b82f6;flex-shrink:0"></span>
         <div class="ag-pending-info">
@@ -26998,7 +27046,7 @@ async function _agRenderAgentView(root) {
   }
 
   if (accepted.length) {
-    h += `<div class="ag-section-lbl" style="margin-top:${pending.length?20:0}px">Sharing Your Data With</div>`;
+    h += `<div class="ag-section-lbl" style="margin-top:${(myRequests.length||invitesToMe.length)?20:0}px">Sharing Your Data With</div>`;
     accepted.forEach(inv => {
       h += `<div class="ag-access-row">
         <span data-ico="eye" data-size="16" style="color:var(--ds-color-success);flex-shrink:0"></span>
@@ -27012,10 +27060,12 @@ async function _agRenderAgentView(root) {
     });
   }
 
-  if (!pending.length && !accepted.length) {
+  if (!myRequests.length && !invitesToMe.length && !accepted.length) {
     h += `<div class="ag-empty-state">
-      <h3>No access requests</h3>
-      <p>When an agency leader invites you, their request will appear here. You control exactly who can view your data — and you can revoke access at any time.</p>
+      <h3>${canJoin ? 'Not connected to an agency yet' : 'No access requests'}</h3>
+      <p>${canJoin
+        ? 'Enter your team leader\'s agency code above to request to join. Invites a leader sends you will also appear here — you control who can view your data and can revoke access at any time.'
+        : 'When an agency leader invites you, their request will appear here. You control exactly who can view your data — and you can revoke access at any time.'}</p>
     </div>`;
   }
 
@@ -27222,6 +27272,123 @@ async function agRevokeAccess(id) {
   } catch (e) { showToast('Failed: ' + e.message, '#dc2626'); return; }
   teamInvalidate(); _agencyMembers = null;
   showToast('Access revoked', '#10b981');
+  await renderAgencySection();
+}
+
+// ---- Request to join an agency (agent side, Basic/Pro) ----
+// Sends a pending request the LEADER approves. Writes through the
+// request_agency_join RPC (SECURITY DEFINER) because the browser cannot
+// insert a row whose leader_id is someone else under agency_invites RLS.
+async function agRequestJoin() {
+  const input = document.getElementById('ag-join-code');
+  const code  = (input ? input.value : '').trim().toUpperCase();
+  if (!code || code.length < 4) { showToast('Enter the agency code (at least 4 characters)', '#dc2626'); return; }
+  const btn = document.querySelector('#ag-root button[onclick="agRequestJoin()"]');
+  if (btn) { btn.disabled = true; }
+  // Best-effort: surface the agent's current NPN (kept in settings/localStorage)
+  // to the leader by syncing it into auth metadata, which the leader's
+  // get_agency_join_requests() reads. Never blocks the request.
+  try {
+    const npn = (localStorage.getItem(k('stg_npn')) || '').trim();
+    if (npn) await sb.auth.updateUser({ data: { npn } });
+  } catch (_) {}
+  try {
+    const { data, error } = await sb.rpc('request_agency_join', { p_code: code });
+    if (error) {
+      if (error.code === 'PGRST202' || (error.message || '').includes('request_agency_join')) {
+        showToast('Join requests need a one-time database update — run migration 20260747', '#dc2626');
+        return;
+      }
+      throw error;
+    }
+    if (!data || !data.ok) { showToast((data && data.error) || 'Could not send request', '#dc2626'); return; }
+    if (input) input.value = '';
+    teamInvalidate(); _agencyMembers = null;
+    if (data.auto_accepted) showToast(`Joined ${data.leader_name || 'the agency'}!`, '#10b981');
+    else                    showToast(`Request sent to ${data.leader_name || 'the agency'} — awaiting approval`, '#10b981');
+    await renderAgencySection();
+  } catch (e) {
+    showToast(e.message || 'Could not send request', '#dc2626');
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+// Withdraw a request the agent sent. Uses the "invitees respond to invites"
+// RLS policy (invitee_email = auth.email()) to mark it declined — the agent
+// cannot delete the row, and a withdrawn request drops out of the leader's
+// get_agency_join_requests() list (which is pending-only).
+async function agCancelJoinRequest(id) {
+  const { error } = await sb.from('agency_invites')
+    .update({ status: 'declined' })
+    .eq('id', id).eq('invitee_email', currentAgent.email);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
+  showToast('Request withdrawn', '#10b981');
+  await renderAgencySection();
+}
+
+// ---- Approve / deny join requests (leader side) ----
+// Reads the requester's profile through the get_agency_join_requests RPC.
+// Returns [] (feature hidden) if the migration has not been applied yet.
+async function _agLoadJoinRequests() {
+  try {
+    const { data, error } = await sb.rpc('get_agency_join_requests');
+    if (error) return [];
+    return data || [];
+  } catch (_) { return []; }
+}
+
+function _agJoinRequestsHTML(reqs) {
+  const cards = reqs.map(r => {
+    const name = [r.first_name, r.last_name].filter(Boolean).join(' ').trim()
+      || r.display_name || r.email || 'Agent';
+    const initials = (name || '?').slice(0, 2).toUpperCase();
+    const chips = [];
+    chips.push(`Plan: ${r.plan_name ? escapeHTML(r.plan_name) : '—'}`);
+    chips.push(`Comp: ${r.comp_level ? escapeHTML(r.comp_level) + '%' : '—'}`);
+    if (r.npn) chips.push(`NPN: ${escapeHTML(r.npn)}`);
+    return `<div class="ag-access-row" style="align-items:flex-start;flex-wrap:wrap;gap:10px">
+      <div class="ag-agent-avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0">${escapeHTML(initials)}</div>
+      <div style="flex:1;min-width:150px">
+        <strong>${escapeHTML(name)}</strong>
+        <div style="color:var(--text3);font-size:12px">${escapeHTML(r.email || '')}</div>
+        <div style="color:var(--text2);font-size:12px;margin-top:4px;display:flex;gap:12px;flex-wrap:wrap">
+          ${chips.map(c => `<span>${c}</span>`).join('')}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-p btn-sm" onclick="agAcceptJoinRequest('${escapeHTML(r.invite_id)}')">Accept</button>
+        <button class="btn btn-s btn-sm" onclick="agDenyJoinRequest('${escapeHTML(r.invite_id)}')"
+          style="color:var(--ds-color-danger)">Deny</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="card" style="margin-bottom:16px;padding:16px 18px;border:1px solid rgba(59,130,246,.35);background:rgba(59,130,246,.06)">
+    <div style="display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:12px">
+      <span data-ico="users-three" data-size="15" style="color:#3b82f6"></span>Join Requests (${reqs.length})
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">${cards}</div>
+  </div>`;
+}
+
+async function agAcceptJoinRequest(id) {
+  const { error } = await sb.from('agency_invites')
+    .update({ status: 'accepted' })
+    .eq('id', id).eq('leader_id', currentAgent.id);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
+  showToast('Agent added to your agency', '#10b981');
+  await renderAgencySection();
+}
+
+async function agDenyJoinRequest(id) {
+  const { error } = await sb.from('agency_invites')
+    .update({ status: 'declined' })
+    .eq('id', id).eq('leader_id', currentAgent.id);
+  if (error) { showToast('Failed: ' + error.message, '#dc2626'); return; }
+  teamInvalidate(); _agencyMembers = null;
+  showToast('Request declined', '#10b981');
   await renderAgencySection();
 }
 

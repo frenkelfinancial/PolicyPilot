@@ -520,8 +520,9 @@ test('Send Leads still hangs off the profile view', () => {
 
 test('roster mutations drop the cached team view', () => {
   const invalidations = (APP.match(/teamInvalidate\(\); _agencyMembers = null;/g) || []).length;
-  assert.equal(invalidations, 6,
-    'invite, cancel, remove, accept, decline and revoke must all invalidate');
+  assert.equal(invalidations, 10,
+    'invite, cancel, remove, accept, decline and revoke — plus the four join-request ' +
+    'mutations (request, withdraw, accept-request, deny-request) — must all invalidate');
 });
 
 // ============================================================
