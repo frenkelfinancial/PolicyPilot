@@ -28,6 +28,68 @@ and the campaign was corrected IN PLACE for $0.** `campaignStatus` moved
 
 Read this whole file before touching the campaign.
 
+---
+
+## ⏳ Current wait state — 2026-07-29T03:2xZ
+
+**Everything under our control is done. We are waiting on the mobile carriers,
+and there is no action that shortens that.**
+
+| | |
+|---|---|
+| `campaignStatus` | `TCR_ACCEPTED` |
+| `isTMobileRegistered` | `false` |
+| Blocked on | carrier registration of `CD2166Q` |
+| Assignment today | **refused** — `400 code 10036`, "still pending and has not been approved yet" |
+
+Re-checked twice ~25 minutes apart on 2026-07-29 with no change. `a2p-status-poll`
+runs hourly, so the app will notice the flip on its own. **The signal to watch is
+`isTMobileRegistered` going `true`** (and `campaignStatus` reaching `ACTIVE`):
+
+```bash
+curl -s -H "Authorization: Bearer $TELNYX_API_KEY" \
+  https://api.telnyx.com/v2/10dlc/campaign/4b30019f-a9df-e17b-3529-70677db27ec4 \
+  | grep -o '"campaignStatus":"[^"]*"\|"isTMobileRegistered":[a-z]*'
+```
+
+### Next actions, in order
+
+1. **When `isTMobileRegistered` flips `true`, assign `+12029981783`** and
+   confirm `phone_numbers.sms_capable` goes `true`.
+   - That number is both `agents.signalwire_caller_id` and `is_primary`, so
+     rules 1 and 2 of `resolveTextingNumber()` agree on it.
+   - It is already attached to the "Jarvis" messaging profile, which is a hard
+     prerequisite and was the one thing missing.
+   - **Auto-assign will NOT do this for you** — it requires the agent to own
+     exactly one active number and there are two (`+12026143091` is the other).
+     Use the picker in Settings → Texting.
+   - Assignment usually returns `PENDING_ASSIGNMENT`; `a2p-status-poll`'s
+     confirmation pass flips it to `ASSIGNED` and sets `sms_capable` within the
+     hour. `sms_capable` is deliberately NOT set while pending.
+
+2. **Wait out carrier propagation — 24–72h from the moment it reads
+   `ASSIGNED`**, not from assignment submission. A failed test send at hour two
+   is expected, not broken.
+
+3. **Send an end-to-end test text.** The target is already prepared: a live
+   `consent_records` row exists for **`+19204169244`** (Jace's own mobile),
+   captured `2026-07-28T19:26Z` via the hosted opt-in page — `express_written`
+   + `web_form`, unrevoked, and `dnc_list` is empty. It is the only contact
+   currently textable, and it is the correct one for this test because the
+   consent behind it is the evidence-grade kind the campaign describes.
+   - Send it from the lead row's **Text** button so the whole gate runs.
+   - Send inside 8am–9pm at the recipient's local time — quiet hours are
+     enforced server-side (`_shared/tcpa.ts`) and will refuse otherwise, for
+     free, with its own sentence.
+
+### What is NOT waiting on the carriers
+
+Nothing else. All three review items are closed, the compliance pages are live
+and byte-verified, the registration row exists and polls `approved`, and no
+further spend is required — the campaign is paid through `2026-10-28`.
+
+---
+
 This is the campaign prepared for our own verified production brand. It existed
 only in a chat transcript until now; it is recorded here so the exact approved
 wording survives, because **each submission costs $15 — including every
