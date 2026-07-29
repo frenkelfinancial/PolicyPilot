@@ -877,4 +877,82 @@ One observation, not from this run: `sectest+1785212287@frenkelfinancial.com`
 is still present in `auth.users`. It appears to be a leftover from the
 2026-07-28 privilege-escalation testing, which this ledger records as having
 deleted its throwaway account. Left alone — deleting an account is destructive
-and it is not this build's to remove.
+and it is not this build's to remove. **Resolved 2026-07-29, see below.**
+
+---
+
+## Cleanup 2026-07-29 — the leftover `sectest` security-test account
+
+**No DDL. One `auth.users` DELETE, authorised by Jace** after the verification
+below. Recorded here because the ledger's own rule is that nothing touching
+`auth.*` happens without an explicit decision, and because the 2026-07-28 entry
+claimed a throwaway account had been deleted when one had not.
+
+### Identification — it is the 07-28 security-test throwaway
+
+| Evidence | Value |
+|---|---|
+| Email | `sectest+1785212287@frenkelfinancial.com` |
+| The embedded epoch `1785212287` decodes to | **2026-07-28T04:18:07Z** |
+| `agents` row created | 2026-07-28T04:18:08.240736Z — **1 second later** |
+| `auth.users` created | 2026-07-28T04:18:08.242278Z |
+| `last_sign_in_at` | **never** — the account was never used interactively |
+
+A plus-addressed local part carrying a unix timestamp minted one second before
+the row exists is a script generating a unique address at run time. 04:18 sits
+inside the `04:1xZ` window this ledger records for the
+`20260730_phone_numbers_column_protection` apply, so it is that test's account
+rather than the `20260703c` one (04:0xZ) that was genuinely deleted.
+
+### Verification that it held no real data
+
+A generated sweep, not a hand-written list: every `BASE TABLE` in `public`
+carrying `agent_id`, `leader_id`, `invitee_id`, `sender_id`, `recipient_id`,
+`user_id` or `owner_id`, plus `agents.id`. **34 checks across 32 tables.**
+
+| Result | |
+|---|---|
+| Total rows referencing the account | **2** |
+| …which were | its own `agents` row, and the `wallet_accounts` row auto-created by `on_agent_created_wallet` |
+| Rows in the other 30 tables | **0** — policies, leads, calls, phone_numbers, a2p_registrations, messages, inbound_messages, consent_records, dnc_list, agency_invites, lead_transfers, compliance_page_revisions, broadcasts, ai_calls, gmail_accounts, support_tickets, review_queue, suppression_list, quote_usage, policy_events, portal_nudges, parsed_events, email_ingest_log, lead_vendors, dialer_sessions, ai_dialer_sessions, agent_dashboards, wallet_ledger, wallet_topups, broadcast_recipients |
+
+Money and privilege, checked individually because those are the ones that
+would make a deletion consequential:
+
+| Field | Value |
+|---|---|
+| `wallet_accounts.balance_mills` | **0** |
+| `auto_recharge_enabled` | false (no threshold, no amount) |
+| `wallet_ledger` / `wallet_topups` rows | **0 / 0** |
+| `stripe_customer_id` / `stripe_subscription_id` | **null / null** |
+| `plan_id` | **null** — never subscribed |
+| `is_admin` | false |
+| `agency_code` / `agency_name` | null / null |
+| `compliance_slug` / published page | null / null |
+| `phone_numbers` owned | 0 |
+
+Nothing billable, nothing carrier-facing, no PII beyond the synthetic address.
+
+### The delete
+
+`DELETE /auth/v1/admin/users/ecce418f-…` → `200`; a follow-up lookup returns
+`404`. Both foreign keys are `ON DELETE CASCADE` (`agents_id_fkey`,
+`wallet_accounts_agent_id_fkey`), so the two dependent rows went with it.
+
+### Post-delete audit
+
+The same 34-check sweep re-run:
+
+| Probe | Result |
+|---|---|
+| Rows still referencing the account | **0** |
+| `agents` with a `sectest` email | **0** |
+| `auth.users` total | 8 → **7** |
+| `agents` total | 8 → **7** |
+| `wallet_accounts` total | 8 → **7**, **0 orphans** |
+| `policies` / `leads` / `calls` | 23 / 1,330 / 1,282 — **unchanged** |
+
+The leads count is 1,330 rather than the 1,329 that appears earlier in this
+file: a genuine webhook-ingested lead (`client_id` prefix `wh_`) arrived on
+Jace's own account at 2026-07-29T05:34Z, during the team-screen test window.
+It is real production data and was correctly left alone.

@@ -30,7 +30,7 @@ Read this whole file before touching the campaign.
 
 ---
 
-## ⏳ Current wait state — 2026-07-29T03:2xZ
+## ⏳ Current wait state — rechecked 2026-07-29T05:5xZ · STILL PENDING
 
 **Everything under our control is done. We are waiting on the mobile carriers,
 and there is no action that shortens that.**
@@ -39,8 +39,80 @@ and there is no action that shortens that.**
 |---|---|
 | `campaignStatus` | `TCR_ACCEPTED` |
 | `isTMobileRegistered` | `false` |
+| `isTMobileSuspended` | `false` |
 | Blocked on | carrier registration of `CD2166Q` |
 | Assignment today | **refused** — `400 code 10036`, "still pending and has not been approved yet" |
+
+### Recheck log
+
+| When (UTC) | `campaignStatus` | `isTMobileRegistered` | Action taken |
+|---|---|---|---|
+| 2026-07-29T03:0xZ | `TCR_ACCEPTED` | `false` | none — assignment refused 10036 |
+| 2026-07-29T03:2xZ | `TCR_ACCEPTED` | `false` | none |
+| 2026-07-29T05:5xZ | `TCR_ACCEPTED` | `false` | **none — nothing assigned, nothing changed** |
+
+`campaignId` created `2026-07-28T18:00:15Z`, so at the 05:5xZ recheck the
+carrier registration had been outstanding **~12 hours**. `failureReasons` still
+carries the original three-item text; that is the historical record, not live
+state — read `campaignStatus`.
+
+### 📋 Parked: Telnyx support ticket, if this is still pending after Fri 2026-07-31
+
+Written 2026-07-29 at Jace's instruction so it is ready to fire. **Not sent —
+the trigger condition has not been reached.** Today is Wednesday 2026-07-29;
+send only if `isTMobileRegistered` is still `false` on **Saturday 2026-08-01 or
+later**. Recheck with the `curl` above first; if it has flipped, delete this
+block instead of sending it.
+
+> **Subject:** 10DLC campaign CD2166Q — `isTMobileRegistered` still false after
+> carrier registration window
+>
+> Hello,
+>
+> Campaign `CD2166Q` (Telnyx campaign ID
+> `4b30019f-a9df-e17b-3529-70677db27ec4`, brand `BBTQ508` /
+> `4b20019f-a5df-2721-e3c1-cea9522125a0`) has been sitting at
+> `campaignStatus: TCR_ACCEPTED` with `isTMobileRegistered: false` since it was
+> created on 2026-07-28T18:00:15Z.
+>
+> The brand is `identityStatus: VERIFIED`. The campaign is `status: ACTIVE`,
+> billed 2026-07-28, next renewal 2026-10-28. `isTMobileSuspended` is `false`.
+>
+> Three carrier review items came back on 2026-07-28 and all three were
+> corrected in place via `PUT /v2/10dlc/campaign/{id}` on 2026-07-29 — the
+> opt-in evidence now identifies our own brand and is collected on our own
+> hosted opt-in page, and the opt-in auto-response was rewritten to match the
+> keywords article and to name marketing/promotional messages explicitly, since
+> `MARKETING` is in `subUsecases`. `campaignStatus` moved `TELNYX_FAILED` →
+> `TCR_ACCEPTED` on that update. The stale text is still visible in
+> `failureReasons`, which I understand to be historical.
+>
+> Attempting to assign a number returns:
+>
+> ```
+> POST /v2/10dlc/phone_number_campaigns
+> 400  code 10036  "Resource is being processed"
+>      "Campaign 4b30019f-… is still pending and has not been approved yet."
+> ```
+>
+> The number (`+12029981783`) is already attached to a messaging profile, so
+> that prerequisite is met.
+>
+> Could you tell me:
+>
+> 1. whether carrier registration for `CD2166Q` is progressing normally or is
+>    stalled — and if stalled, whether anything is required from us;
+> 2. whether the `TELNYX_FAILED` → `TCR_ACCEPTED` correction restarted the
+>    carrier registration clock, and from what timestamp; and
+> 3. the expected window for `isTMobileRegistered` to flip on a Low Volume
+>    Mixed campaign on a verified brand.
+>
+> No resubmission has been made and none is intended — the campaign was
+> corrected in place and is paid through 2026-10-28. I would rather wait than
+> submit anything a second time.
+>
+> Thanks,
+> Jace Frenkel — Frenkel Financial Agency
 
 Re-checked twice ~25 minutes apart on 2026-07-29 with no change. `a2p-status-poll`
 runs hourly, so the app will notice the flip on its own. **The signal to watch is
