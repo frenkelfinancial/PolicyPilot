@@ -21,6 +21,7 @@ import {
   SOLE_PROP,
   STANDARD_MAX_NUMBERS,
 } from "./a2p-registration.ts";
+import { isTransientAssignmentError } from "./a2p-assign.ts";
 
 const URLS = {
   privacy: "https://trust.producerstackcrm.com/a/frenkel-financial-agency/privacy-policy",
@@ -32,6 +33,39 @@ const baseOpts = {
   agencyName: "Frenkel Financial Agency",
   complianceUrls: URLS,
 };
+
+// ---------- transient vs real assignment refusals ----------
+//
+// Observed live 2026-07-29: Telnyx refuses number assignment with 400 code
+// 10036 while a campaign is TCR_ACCEPTED but not yet carrier-registered.
+// Stamping that as FAILED_ASSIGNMENT permanently excludes the number from
+// a2p-status-poll's auto-assign pass, which skips FAILED_ASSIGNMENT by design.
+// So the classifier has to be right in BOTH directions.
+
+test("a 10036 'campaign still pending' is transient, not a failure", () => {
+  assert.equal(isTransientAssignmentError(
+    '400: {"errors":[{"code":"10036","title":"Resource is being processed",' +
+    '"detail":"Campaign 4b30019f is still pending and has not been approved yet."}]}',
+  ), true);
+  // The prose fallback stands on its own if the code ever moves.
+  assert.equal(isTransientAssignmentError("Campaign is still pending"), true);
+  assert.equal(isTransientAssignmentError("this has not been approved yet"), true);
+});
+
+test("a real assignment failure is NOT treated as transient", () => {
+  // These must still stamp FAILED_ASSIGNMENT — retrying them forever would be
+  // a pointless hammer on Telnyx, which is what the skip rule is for.
+  for (const real of [
+    "number_not_on_messaging_profile: +12025550123 must be attached to a Telnyx Messaging Profile",
+    "number_not_found_at_telnyx: +12025550123",
+    '400: {"errors":[{"code":"10015","detail":"Phone number is not owned by this account."}]}',
+    "number_not_e164: \"2025550123\" is not a valid E.164 number.",
+    "",
+    undefined,
+  ]) {
+    assert.equal(isTransientAssignmentError(real), false, `wrongly transient: ${real}`);
+  }
+});
 
 // ---------- OTP clock ----------
 

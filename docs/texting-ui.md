@@ -416,6 +416,12 @@ they read already existed in production — audited read-only 2026-07-28, see
 
 ## Not built (deliberately out of scope)
 
+- **Choosing the texting number at purchase time.** Requested 2026-07-29;
+  logged as item 129 in `docs/PRODUCERSTACK_BUILD_CHECKLIST.md`. The wizard's
+  picker covers the multi-number case correctly today, so this is ergonomics,
+  not a capability gap — an agent buying a second number has already decided
+  what it is for, and currently has to go to another screen to say so.
+
 - The default campaign library and drip sequences — separate work.
 - MMS in the composer. `messaging-send-mms` exists and respects the same gate;
   the thread renders `mms` rows but has no attachment picker.

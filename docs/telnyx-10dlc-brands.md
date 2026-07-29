@@ -39,6 +39,15 @@ Telnyx then **refuses to assign a number** to any non-approved campaign
 (`POST /v2/10dlc/phone_number_campaigns` → 400 code 10036 "Campaign is still
 pending and has not been approved yet").
 
+> ⚠️ **This is NOT a mock-brand quirk.** Confirmed 2026-07-29 against the real,
+> paid, VERIFIED-brand campaign `CD2166Q`: the identical `400 code 10036` comes
+> back while `campaignStatus: TCR_ACCEPTED` and `isTMobileRegistered: false`.
+> **`TCR_ACCEPTED` is not assignable** — TCR has accepted the campaign but the
+> mobile carriers have not finished registering it. Only the wait ends it.
+> `normalizeStatus()` maps `TCR_ACCEPTED` and `ACTIVE` alike to `approved`,
+> which is too optimistic; see `docs/a2p-campaign-draft.md` §
+> "`TCR_ACCEPTED` is not assignable".
+
 **Consequence:** the sandbox proves campaign creation, the assignment endpoint,
 its error path, and every data shape — but it **cannot** prove a successful
 `ASSIGNED`. That requires an approved campaign, which only the VERIFIED

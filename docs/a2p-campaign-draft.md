@@ -390,15 +390,95 @@ It was inserted at `status = 'pending'` — deliberately never hand-stamped
 
 | Gate | State |
 |---|---|
-| `a2p_registrations.status = 'approved'` | ✅ now passes |
-| a `sms_capable` number | ❌ **0 of 2** — neither is assigned to the campaign |
+| `a2p_registrations.status = 'approved'` | ✅ passes — but see the warning below |
+| a `sms_capable` number | ❌ **0 of 2** — assignment is REFUSED BY TELNYX, see below |
 | a `consent_records` row per recipient | 1 row exists; every other contact needs its own |
 
-The auto-assign pass deliberately **skipped** (`auto_assign_skipped: 1`): it
-only acts when an agent owns exactly one active number, and Jace owns two
-(`+12026143091`, `+12029981783`). Choosing which one carries the campaign is
-choosing his public texting identity, so the status wizard shows a picker
-instead. That is the next action, and it is free.
+---
+
+## 🔴 `TCR_ACCEPTED` is not assignable — and our status mapping doesn't know it
+
+**Found live 2026-07-29, attempting the assignment.**
+`POST /v2/10dlc/phone_number_campaigns` for `+12029981783` → `CD2166Q`:
+
+```
+400  code 10036  "Resource is being processed"
+     "Campaign 4b30019f-a9df-e17b-3529-70677db27ec4 is still pending and has
+      not been approved yet. Please try again once you've confirmed the
+      campaign is in an approved state. This process can take time."
+```
+
+The campaign is `campaignStatus: TCR_ACCEPTED`, `isTMobileRegistered: false`.
+TCR has accepted it; **the mobile carriers have not finished registering it.**
+Assignment is impossible until they do, and that is pure waiting — there is no
+action available to anyone.
+
+This was previously recorded only for the *mock sandbox* brand (see
+`docs/telnyx-10dlc-brands.md`, "mock brands can't be approved"). It is not a
+mock-brand quirk. It applies to a real, paid, VERIFIED-brand campaign.
+
+### The mapping is too optimistic
+
+`normalizeStatus()` in `_shared/telnyx-10dlc-adapter.ts` maps **both**
+`TCR_ACCEPTED` and `ACTIVE` to `approved`:
+
+```ts
+if (["VERIFIED","REGISTERED","TCR_ACCEPTED","APPROVED","ACTIVE"].includes(s)) return "approved";
+```
+
+So `a2p_registrations.status` reads `approved` while Telnyx will refuse every
+assignment. Consequences today:
+
+- the status wizard shows **"Carrier approved: complete"** when the carriers
+  have not, in fact, finished;
+- `runComplianceGate()`'s A2P check passes. Sends are still refused, but by the
+  *next* gate (`no_sms_capable_number`), whose message — "attached to your
+  approved 10DLC campaign… 24-72 hours to propagate" — is roughly true here, so
+  this is not currently harmful; and
+- `assignAgentNumberToCampaign()` passes its `status === 'approved'`
+  precondition and calls Telnyx, which is where the 10036 surfaces.
+
+**Not changed here**, because separating `TCR_ACCEPTED` from `ACTIVE` changes
+what the send gate allowlists and what the wizard claims, and that is a
+deliberate product decision rather than a cleanup. The candidate fix is a
+distinct `carrier_pending` state between `pending` and `approved`. Logged as
+checklist item 130.
+
+### What WAS fixed: a transient refusal no longer strands the number
+
+The dangerous part is fixed. `assignAgentNumberToCampaign()` used to send any
+non-ok Telnyx result through `recordFailure()`, stamping
+`a2p_assignment_status = 'FAILED_ASSIGNMENT'` — and `a2p-status-poll`'s
+auto-assign pass **skips FAILED_ASSIGNMENT forever**, by design, on the
+reasoning that carriers don't change their mind on a timer.
+
+That reasoning is right for a real rejection and exactly wrong for a 10036. One
+press of Assign a few hours too early would have permanently opted the number
+out of the automation that would otherwise have assigned it, leaving a Retry
+button for a condition retrying cannot fix.
+
+`isTransientAssignmentError()` in `_shared/a2p-assign.ts` now classifies 10036
+(and its prose) as a **precondition**, writing nothing and returning a plain
+sentence. Verified: after the refused attempt, both numbers still read
+`a2p_assignment_status: null` and the registration carries no
+`assignment_failure_reason`. Two unit tests cover both directions.
+
+### The chosen texting number, and the one thing that was done
+
+**`+12029981783`** — it is both `agents.signalwire_caller_id` and
+`is_primary`, so rules 1 and 2 of `resolveTextingNumber()` agree. Nothing was
+recorded in the DB, because nothing was assigned.
+
+One real change did land, at Telnyx: `+12029981783` had
+`messaging_profile_id: null` and is now attached to the "Jarvis" profile
+(`40019edb-…`). That is `ensureNumberOnMessagingProfile()`'s self-heal step, it
+is free, and it is a hard prerequisite of assignment — so the number is now
+ready the moment the carriers finish.
+
+The auto-assign pass will **not** pick it up on its own: it requires the agent
+to own exactly one active number, and there are two. Assignment needs one press
+of the wizard's picker once `campaignStatus` reaches `ACTIVE` /
+`isTMobileRegistered: true`.
 
 ---
 

@@ -31,6 +31,46 @@ export type AssignAgentNumberOutcome =
   | { ok: true; status: "pending"; campaignId: string }
   | { ok: false; status: "failed" | "precondition"; reason: string; httpStatus: number };
 
+/**
+ * Is this assignment refusal a WAIT rather than a FAILURE?
+ *
+ * ------------------------------------------------------------------
+ * 🔴 Why this exists. Observed live 2026-07-29 on campaign CD2166Q.
+ * ------------------------------------------------------------------
+ * Telnyx refuses `POST /10dlc/phone_number_campaigns` with
+ *
+ *   400  code 10036  "Campaign <id> is still pending and has not been
+ *                     approved yet. Please try again once you've confirmed
+ *                     the campaign is in an approved state."
+ *
+ * while a campaign sits at `campaignStatus: TCR_ACCEPTED` with
+ * `isTMobileRegistered: false`. TCR has accepted it; the carriers have not
+ * finished registering it. That resolves on its own, with no action from
+ * anybody.
+ *
+ * Treating it as a failure did real damage. `recordFailure()` stamps
+ * `a2p_assignment_status = 'FAILED_ASSIGNMENT'`, and the auto-assign pass in
+ * `a2p-status-poll` deliberately skips FAILED_ASSIGNMENT forever — on the
+ * reasoning that a carrier is not going to change its mind on a timer. That
+ * reasoning is right for a real rejection and exactly wrong for this one: one
+ * press of Assign a few hours too early would permanently opt the number out
+ * of the automation that would otherwise have assigned it, and leave the agent
+ * looking at a Retry button for a condition retrying cannot fix.
+ *
+ * So a transient refusal writes NOTHING and returns a precondition, which is
+ * what it actually is. The number keeps its never-attempted state and stays
+ * eligible for auto-assign the moment the campaign really is assignable.
+ *
+ * Matched on the Telnyx error code first; the prose is a belt-and-braces
+ * fallback in case the code moves.
+ */
+export function isTransientAssignmentError(error: string | undefined): boolean {
+  const e = (error || "").toLowerCase();
+  return e.includes("10036") ||
+    e.includes("still pending") ||
+    e.includes("has not been approved yet");
+}
+
 async function recordFailure(sb: Sb, agentId: string, phoneNumberId: string, reason: string): Promise<void> {
   await sb.from("phone_numbers").update({
     a2p_assignment_status: "FAILED_ASSIGNMENT",
@@ -137,6 +177,19 @@ export async function assignAgentNumberToCampaign(
   // 6. Assign.
   const result = await assignNumberToCampaign(apiKey, campaignId, pn.e164 as string);
   if (!result.ok) {
+    // A campaign that TCR has accepted but the carriers have not finished
+    // registering refuses assignment, and that is a wait, not a failure.
+    // Write nothing — see isTransientAssignmentError above.
+    if (isTransientAssignmentError(result.error)) {
+      return {
+        ok: false,
+        status: "precondition",
+        httpStatus: 409,
+        reason: "campaign_not_yet_assignable: Your campaign is registered but the mobile carriers have not " +
+          "finished activating it yet. Nothing is wrong and there is nothing to fix — we check automatically " +
+          "and will attach your number as soon as they confirm it. This usually takes a few hours to a few days.",
+      };
+    }
     await recordFailure(sb, agentId, pn.id as string, result.error ?? "assignment_failed");
     return { ok: false, status: "failed", reason: result.error ?? "assignment_failed", httpStatus: 502 };
   }

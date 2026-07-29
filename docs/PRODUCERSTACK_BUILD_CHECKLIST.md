@@ -182,6 +182,22 @@ Companion doc: `docs/ORION_GAP_ANALYSIS.md` (full detail on each item).
 
 ---
 
+## Requested during build — not from the Orion gap analysis
+
+- [ ] **129. Choose the texting number at purchase time.** When an agent buys a number, let them decide *then* whether it becomes their texting (10DLC campaign) number, instead of only afterward. Requested by Jace 2026-07-29.
+
+  **What exists today.** `telnyx-buy-number` already auto-assigns a number bought *after* the campaign is approved, and `a2p-status-poll` auto-assigns after approval when the agent owns **exactly one** active number. Beyond that, the Settings → Texting wizard has a picker for the multi-number case, and it covers it correctly — this is an ergonomics change, not a gap in capability. Nothing is broken without it.
+
+  **Why it's worth doing.** The picker is a second, later, separate screen. An agent buying their second number has already formed the intent ("this one is for texting") at the moment of purchase, and today has to go find another screen to express it. It also removes the only case where the system deliberately refuses to choose: with two numbers and no stated preference, auto-assign correctly declines rather than picking someone's public texting identity for them. A purchase-time answer means that ambiguity never arises.
+
+  **Shape.** A checkbox or radio in the buy-number flow ("Use this as my texting number"), stored with the purchase and consumed by the existing `assignAgentNumberToCampaign` path — no new assignment logic. Default it OFF when the agent already has an assigned texting number; default ON when they have none.
+
+  **Constraints that already exist and must be respected.** Assignment cannot happen until the campaign is genuinely assignable (see item 130) — so at purchase time this records an *intent*, and the existing poller acts on it later. A sole proprietor gets exactly one texting number ever (Telnyx hard limit), so for them the control is a swap, not an add, and needs to say so.
+
+- [ ] **130. Don't strand a number on a transient assignment refusal.** Partially fixed 2026-07-29 (`isTransientAssignmentError` in `_shared/a2p-assign.ts`); the rest is UI. Telnyx refuses assignment with `400 code 10036` while a campaign is `TCR_ACCEPTED` but not yet carrier-registered, which is a *wait*, not a failure. The wizard should say "waiting on carrier registration" with no Retry button, rather than presenting a failure the agent cannot act on. See `docs/a2p-campaign-draft.md` § "TCR_ACCEPTED is not assignable".
+
+---
+
 ## Optional / decide later
 
 - [ ] **127. Affiliate or referral program.** Normal SaaS growth lever, but it sits closest to the energy you said you don't want. Your call.
