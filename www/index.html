@@ -13095,7 +13095,6 @@ function _planTier() {
 function _applyPlanGating() {
   const tier = _planTier();
   const restricted = tier !== 'pro' && tier !== 'leader'; // basic or no plan
-  const isLeader = tier === 'leader';
   // Summary analytics cards — hidden for Basic
   ['income-reality', 'activity-momentum', 'persistency-health', 'pipeline-funnel'].forEach(id => {
     const el = document.getElementById(id);
@@ -13103,21 +13102,38 @@ function _applyPlanGating() {
   });
   const btiCard = document.querySelector('.bti-card');
   if (btiCard) btiCard.style.display = restricted ? 'none' : '';
-  // Nav items — Bonus Tracker requires Pro+, Agency requires Leader
-  const navItems = document.querySelectorAll('.nav-item');
-  const idxMap = { bonuses: 3, agency: 8 };
-  if (navItems[idxMap.bonuses]) navItems[idxMap.bonuses].style.display = restricted ? 'none' : '';
-  if (navItems[idxMap.agency])  navItems[idxMap.agency].style.display  = isLeader  ? '' : 'none';
+  // Nav items — selected by the section they navigate to, never by position.
+  // This used to be a positional index map ({bonuses:3, agency:8}) against
+  // document.querySelectorAll('.nav-item'); the sidebar grew and the indices
+  // silently came to mean Carrier Mail and Web Dialer instead, so Basic lost
+  // Carrier Mail, Basic KEPT the Pro-only Bonus Tracker, and Pro lost the Web
+  // Dialer it pays for. Match the pricing matrix (#pricing-col-*) instead:
+  //   Bonus Tracker  — Pro+   (Basic column: ✗)
+  //   Power Dialer   — Pro+   (Basic column: ✗)  → the 'webdialer' nav item
+  //   Carrier Mail   — ungated (not a row in the matrix at all)
+  //   Agency         — visible to everyone ON PURPOSE. Leader-only is enforced
+  //     inside renderAgencySection(), which branches to _agRenderLeaderView
+  //     (agency code, downline stats, invites) or _agRenderAgentView. The
+  //     agent view is the ONLY place a downline agent can accept an invite or
+  //     revoke a leader's access to their data — hiding the tab from
+  //     non-leaders makes every emailed invite unacceptable.
+  const navBySection = name => document.querySelector('.nav-item[onclick*="nav(\'' + name + '\')"]');
+  [['bonuses', restricted], ['webdialer', restricted]].forEach(([name, hide]) => {
+    const el = navBySection(name);
+    if (el) el.style.display = hide ? 'none' : '';
+  });
   // If user landed on a gated section (e.g. page reload with cached section), redirect to Summary
   const activeSec = document.querySelector('.section.active');
   if (activeSec) {
     const activeId = activeSec.id.replace('sec-', '');
-    const shouldRedirect = (activeId === 'bonuses' && restricted) || (activeId === 'agency' && !isLeader);
+    const shouldRedirect = (activeId === 'bonuses' && restricted) || (activeId === 'webdialer' && restricted);
     if (shouldRedirect) {
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       const sum = document.getElementById('sec-summary');
       if (sum) sum.classList.add('active');
-      document.querySelectorAll('.nav-item').forEach((n, i) => n.classList.toggle('active', i === 0));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      const sumNav = navBySection('summary');   // by name, not index 0 — same drift risk
+      if (sumNav) sumNav.classList.add('active');
     }
   }
 }
@@ -21940,7 +21956,7 @@ async function _agRenderLeaderView(root) {
         <span data-ico="key" data-size="13"></span>Your Agency
       </div>
       <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">
-        Set your agency name and a custom code. Share the code with agents when they sign up — they'll be automatically added to your agency and get <strong>20% off</strong> their Basic or Pro plan for as long as they stay connected to you.
+        Set your agency name and a custom code. Share the code with agents when they sign up — they'll be automatically added to your agency and get <strong>30% off</strong> their Basic or Pro plan for as long as they stay connected to you.
       </div>
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
         <div style="flex:1;min-width:180px">
@@ -22250,7 +22266,8 @@ async function agCancelInvite(id) {
 }
 
 // Unlinks an agency_invites row and, if the invitee has no other accepted
-// agency link left, strips their 20% downline discount from Stripe.
+// agency link left, strips their 30% downline discount from Stripe
+// (DOWNLINE30 — see stripe-create-checkout; was 20% before the 07/2026 repricing).
 async function _agUnlink(id, mode) {
   const { data: { session } } = await sb.auth.getSession();
   const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-agency-unlink`, {

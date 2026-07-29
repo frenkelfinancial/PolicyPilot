@@ -585,3 +585,110 @@ the cron block at the foot of the migration with its own
 
 The first row records the state inherited at baseline, not an apply performed
 by that session. The second row is a real apply.
+
+---
+
+## Apply 2026-07-28 — `20260736_agency_leader_gate_hardening.sql`
+
+Phase A of the Team Leader / downline work. Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Three `CREATE OR REPLACE FUNCTION` statements, no DDL on
+tables, no data change, nothing touching `auth.*` or `storage.*` — additive
+under the rules above, re-running is a no-op.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `set_my_agency_code` (the ungated RPC from `20260617_agency_code.sql`) | **absent from production** — never applied, or dropped later |
+| `set_my_agency_profile`, `is_agency_leader`, `email_matches_user` | present, `SECURITY DEFINER` → **`20260703b` is applied** |
+| `agency_invites` policy `leaders manage their invites` | `WITH CHECK` carries `is_agency_leader(auth.uid())` — applied |
+| `agents.agency_code` / `agency_name` | columns present |
+| `agents_protect_privileged_columns` live body | byte-identical to committed `20260703c` — no drift |
+| agents holding an `agency_code` | **0** |
+| rows in `agency_invites` | **0** |
+
+So the specific door I went looking for was already shut, and nothing had been
+exploited — but the same hole was open through a different one.
+
+### What was actually wrong
+
+**1. `agents.agency_code` was client-writable.** `20260703b` gated the *RPC*
+(`set_my_agency_profile` refuses unless `is_agency_leader`) and gated the invite
+*RLS*. It never protected the *column*, and `agents_update_own` is
+row-ownership only. So from the browser console, with a session and the
+publishable key:
+
+```js
+sb.from('agents').update({ agency_code: 'SMITH2024' }).eq('id', myId)
+```
+
+…made any account an agency leader with no Team Leader plan. `agency_code` is
+`UNIQUE`, so this also allowed squatting the code a real leader was about to
+hand out, and collecting that leader's recruits.
+
+**2. `process_agency_code_join` never checked the leader.** It is
+`SECURITY DEFINER`, so it runs as the table owner and RLS on `agency_invites`
+does not apply — meaning the `is_agency_leader(auth.uid())` `WITH CHECK` that
+`20260703b` added was never enforced on the code-join path at all. Downline rows
+formed regardless of whether the leader qualified.
+
+Together: read access to a downline's production aggregates
+(`get_team_summary`, `get_agency_stats`) for an account that never paid for a
+Leader plan. **Revenue was never exposed** — the 30% downline discount
+independently re-checks `is_agency_leader(leader_id)` on every checkout
+(`stripe-create-checkout` → `agent_has_active_leader_link`).
+
+Same class as `20260703c` / `20260730`: the guard went on the RPC, the column
+stayed writable. That is now three times. **When gating a privileged value,
+protect the column, not only the function that sets it.**
+
+### Fix — gate, do not freeze
+
+`agency_code`/`agency_name` are **not** frozen like `is_admin`. `auth.role()`
+reads the JWT claim, so it is still `'authenticated'` inside a `SECURITY
+DEFINER` RPC invoked from the browser — a blanket freeze would also revert the
+UPDATE that `set_my_agency_profile` itself performs. The trigger instead gates
+on `is_agency_leader(NEW.id)` and mirrors the RPC's format checks, so the
+legitimate RPC passes and everything else is reverted, regardless of how the
+write arrived.
+
+`process_agency_code_join` now refuses a code whose owner does not currently
+qualify, matching the discount rule exactly: the link stops forming at the same
+moment the discount evaporates.
+
+### Post-apply verification — behavioural, not just definitional
+
+Run inside a transaction terminated by `RAISE EXCEPTION`, so it could not
+persist; `agents_with_code` and `agency_invites` both re-confirmed `0` after.
+
+| Test | Result |
+|---|---|
+| A. non-leader direct write of `agency_code` (authenticated JWT) | **BLOCKED** — still null |
+| B. trusted-context write (no JWT: service_role / SQL editor) | **ALLOWED** — carve-out intact |
+| C. join a code owned by a non-leader | **refused**, readable error |
+| D. join a code owned by a real leader | **succeeds** — no regression |
+| E. `get_agency_stats` AP vs raw truth | **exact match** |
+
+**E is the reason the third statement was in this batch.** `get_agency_stats`
+LEFT JOINed `policies`, `calls` and `leads` in one SELECT. `COUNT(DISTINCT …)`
+corrected the three counts, but `SUM((po.data->>'ap')::numeric)` had no
+`DISTINCT` and no way to get one, so AP was added once per (call × lead) pair.
+The downline used in test D has 7 policies, $8,977.80 AP, **35 calls and 246
+leads** — the old shape would have reported that agent's premium as
+**$77,298,858**, a 8,610× overstatement, on the Agency tab. It now returns
+$8,977.80, matching the raw sum.
+
+It was never visible in production only because `agency_invites` has been empty.
+The first accepted invite would have shown it.
+
+Both screens now also share one definition of a sale: `'lapsed'` and
+`'chargeback'` excluded, the identical predicate `get_team_summary` uses.
+
+### Not verified
+
+There is no non-admin Team Leader account in production, and
+`agents_protect_privileged_columns` returns early for admins, so the
+*leader-writes-a-valid-code* branch was exercised only through the admin
+carve-out. The non-leader block (the security-relevant half) is verified
+directly.
