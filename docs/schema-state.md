@@ -1784,3 +1784,77 @@ port. Rather than flip a production secret for a test, web security was relaxed
 **inside the throwaway Chrome profile only** — the same choice this ledger
 records for the `transfer-leads` run. Nothing server-side was altered, and the
 end-to-end run exercises the same calls with real CORS.
+
+---
+
+## Apply 2026-07-29 — `20260745_carriers.sql`
+
+Phase 7 of the Back Office mission, and the last schema change in it. Applied
+via `supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Feature doc: `docs/back-office-close-the-loop.md`.
+
+**One `CREATE OR REPLACE FUNCTION` and one `GRANT EXECUTE`.** No table, no
+column, no index, no policy, no data change. Nothing in `auth.*` or
+`storage.*`. Re-running it is a no-op by construction.
+
+### Pre / post apply
+
+| Probe | Before | After |
+|---|---|---|
+| `get_carrier_summary` | absent | present, **`prosecdef = false`** (SECURITY INVOKER), `authenticated` may execute |
+
+### Why it is derived and SECURITY INVOKER
+
+Checklist #103 asks for "appointed carriers, derived from ingested statements",
+and *derived* is the point: a carrier appears because it has **paid** the agent,
+which the statements already record. A `carriers` table would be a second list
+to maintain and the first thing an agent forgets to update after taking an
+appointment.
+
+`data/carrier_bonuses.json` (45 carriers) and `TRACKER_CARRIER_LIST` (24) are
+deliberately not joined in — they answer what programmes exist and what the Add
+Policy dropdown offers, and folding them in would show an agent carriers they
+have never written a line with.
+
+INVOKER because a carrier list is per-agent by nature. There is no cross-agent
+carrier view, and the aggregate paths that do exist
+(`get_downline_commission_rollup`, `get_downline_persistency`) return money and
+rates rather than anything naming a carrier.
+
+Two definitions are shared rather than restated: **debt is
+`chargeback + adjustment`, positive balance only** — byte-identical to
+`get_commission_debt`, because two screens disagreeing about what an agent owes
+a carrier is worse than either being absent — and **rejected lines are
+excluded** while unmatched ones are counted and named, since an unmatched line
+is still money that moved.
+
+### No edge function changed
+
+The rest of Phase 7 (auto-referral generation, the chargeback at-risk signal)
+is entirely `app.html`. Referral leads are written through the existing
+`saveLeads()` / `sbUpsertAllLeads()` path, which is owner-RLS and unchanged.
+The fleet was not disturbed: **73 functions, 16 `verify_jwt = false`.**
+
+### The compliance property this phase turns on
+
+An auto-generated referral lead is created **without consent, deliberately**.
+It carries no `tcpa_consent`, no `consent_records` row and no opt-in of any
+kind, so `leadTextingState()` renders it `needs_optin` and `runComplianceGate()`
+refuses the send. A beneficiary named on an application has not asked to hear
+from anyone.
+
+This is verified in three places, not one: a unit test enumerating every
+consent-shaped key on the generated object; a headless click-through reading
+the keys off the real lead **in the browser**; and the same check against the
+row that **synced to the server**. `consent_records` is service-role-write-only
+and nothing in this phase writes it, which is what makes the property hold by
+construction rather than by care.
+
+### Verification
+
+| Layer | Result |
+|---|---|
+| Unit tests (`npm run test:referrals`) | **33** |
+| Full suite | **661 tests + `npm run check` clean** |
+| Headless click-through | **26/26** |
+| Residue | **zero** |

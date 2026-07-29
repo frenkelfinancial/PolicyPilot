@@ -4768,6 +4768,7 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
             <button class="tracker-tab" data-boarea="commissions" onclick="boArea('commissions')">Commissions</button>
             <button class="tracker-tab" data-boarea="persistency" onclick="boArea('persistency')">Persistency</button>
             <button class="tracker-tab" data-boarea="reconciliation" onclick="boArea('reconciliation')">Reconciliation</button>
+            <button class="tracker-tab" data-boarea="carriers" onclick="boArea('carriers')">Carriers</button>
           </div>
 
           <div id="bopanel-ingest">
@@ -4835,6 +4836,11 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
             <div class="bo-pipeline-note" id="rc-headline" style="border:1px solid var(--lg-border);border-radius:6px;margin-bottom:12px">&mdash;</div>
             <div id="rc-bulk"></div>
             <div id="rc-panel"></div>
+          </div>
+
+          <!-- ========== CARRIERS (Phase 7) ========== -->
+          <div id="bopanel-carriers" style="display:none">
+            <div id="cr-panel"></div>
           </div>
         </div>
       </div>
@@ -6594,7 +6600,27 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
              so the Add/Edit modals and the Book of Business status tabs
              cannot offer different sets. -->
         <select id="p-status"></select>
+        </select>
       </div>
+    </div>
+
+    <!-- Auto-referral capture (Back Office Phase 7). Optional, and the note
+         says plainly that a referral is created WITHOUT consent. -->
+    <div class="frow mt12" style="border-top:1px dashed var(--border);padding-top:12px">
+      <div class="fg" style="flex:1 1 100%">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:2px">Referrals (optional)</div>
+        <div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-bottom:8px">
+          A beneficiary or emergency contact with a phone number becomes a new lead, marked
+          <strong>referral &mdash; auto</strong>. They have <strong>not</strong> opted in, so texting
+          stays blocked until they do.
+        </div>
+      </div>
+      <div class="fg"><label>Beneficiary name</label><input type="text" id="p-benName" placeholder="Optional"></div>
+      <div class="fg"><label>Beneficiary phone</label><input type="tel" id="p-benPhone" placeholder="Optional"></div>
+      <div class="fg"><label>Relationship</label><input type="text" id="p-benRel" placeholder="e.g. Daughter"></div>
+      <div class="fg"><label>Emergency contact</label><input type="text" id="p-emgName" placeholder="Optional"></div>
+      <div class="fg"><label>Emergency phone</label><input type="tel" id="p-emgPhone" placeholder="Optional"></div>
+      <div class="fg"><label>Relationship</label><input type="text" id="p-emgRel" placeholder="e.g. Son"></div>
     </div>
     <div class="frow mt12" style="border-top:1px dashed var(--border);padding-top:12px">
       <div class="fg" style="flex:1">
@@ -6781,6 +6807,25 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
           <option value="issued">Issued / Active</option>
         </select>
       </div>
+    </div>
+
+    <!-- Auto-referral capture (Back Office Phase 7). Optional, and the note
+         says plainly that a referral is created WITHOUT consent. -->
+    <div class="frow mt12" style="border-top:1px dashed var(--border);padding-top:12px">
+      <div class="fg" style="flex:1 1 100%">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--text3);margin-bottom:2px">Referrals (optional)</div>
+        <div style="font-size:11.5px;color:var(--text3);line-height:1.5;margin-bottom:8px">
+          A beneficiary or emergency contact with a phone number becomes a new lead, marked
+          <strong>referral &mdash; auto</strong>. They have <strong>not</strong> opted in, so texting
+          stays blocked until they do.
+        </div>
+      </div>
+      <div class="fg"><label>Beneficiary name</label><input type="text" id="sold-benName" placeholder="Optional"></div>
+      <div class="fg"><label>Beneficiary phone</label><input type="tel" id="sold-benPhone" placeholder="Optional"></div>
+      <div class="fg"><label>Relationship</label><input type="text" id="sold-benRel" placeholder="e.g. Daughter"></div>
+      <div class="fg"><label>Emergency contact</label><input type="text" id="sold-emgName" placeholder="Optional"></div>
+      <div class="fg"><label>Emergency phone</label><input type="tel" id="sold-emgPhone" placeholder="Optional"></div>
+      <div class="fg"><label>Relationship</label><input type="text" id="sold-emgRel" placeholder="e.g. Son"></div>
     </div>
 
     <div class="mt16" style="display:flex;gap:10px">
@@ -11849,11 +11894,14 @@ async function submitAsSold() {
     issueDate: draft || null,
   };
   if (termYears) policy.termYears = termYears;
+  referralReadFields('sold', policy);
   const { error: polErr } = await sbUpsertPolicy(policy);
   if (polErr) { alert('Save failed: ' + polErr.message); return; }
   policies.push(policy);
   localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
   await bobRecordPolicyCreated(policy, 'Submitted as sold from a lead');
+  const ref = await referralGenerate(policy);
+  referralClearFields('sold');
 
   // Mark lead as sold (status update flows through saveLeads which syncs).
   if (soldLeadId) {
@@ -11874,6 +11922,55 @@ async function submitAsSold() {
   filterLeads();
 
   showToast(`${client} added to Policy Tracker! Adv. comm: ${fmt$(advComm)}`, '#10b981');
+  if (ref && referralSummary(ref)) {
+    setTimeout(() => showToast(referralSummary(ref) + ' — they have not opted in', '#10b981'), 1200);
+  }
+}
+
+/**
+ * Read the referral fields off a modal and stamp them onto the policy.
+ *
+ * Stored on the policy (jsonb, so no schema change) rather than only becoming
+ * leads, because the policy is where an agent goes looking for "who did they
+ * name as beneficiary" a year later.
+ */
+function referralReadFields(prefix, policy) {
+  const v = id => (document.getElementById(prefix + '-' + id)?.value || '').trim();
+  const map = {
+    beneficiaryName: v('benName'), beneficiaryPhone: v('benPhone'),
+    beneficiaryRelationship: v('benRel'),
+    emergencyName: v('emgName'), emergencyPhone: v('emgPhone'),
+    emergencyRelationship: v('emgRel'),
+  };
+  Object.keys(map).forEach(k2 => { if (map[k2]) policy[k2] = map[k2]; });
+  return policy;
+}
+
+function referralClearFields(prefix) {
+  ['benName','benPhone','benRel','emgName','emgPhone','emgRel'].forEach(id => {
+    const el = document.getElementById(prefix + '-' + id);
+    if (el) el.value = '';
+  });
+}
+
+/**
+ * Create the referral leads a policy implies.
+ *
+ * They enter the book like any other lead — status `new`, source
+ * `referral — auto`, and CARRYING NO CONSENT. `leadTextingState()` will render
+ * them `needs_optin` and the send gate will refuse, which is the correct
+ * outcome: a beneficiary named on an application has not asked to hear from
+ * anyone. The note on the lead says so in words the agent will read.
+ */
+async function referralGenerate(policy) {
+  if (!policy) return null;
+  const existing = Array.isArray(typeof leads !== 'undefined' ? leads : null) ? leads : [];
+  const res = referralsFromPolicy(policy, existing, { idBase: Date.now() });
+  if (!res.created.length) return res;
+  res.created.forEach(l => leads.push(l));
+  saveLeads();
+  if (typeof filterLeads === 'function') { try { filterLeads(); } catch (e) { /* not on that screen */ } }
+  return res;
 }
 
 async function addPolicy() {
@@ -11908,12 +12005,16 @@ async function addPolicy() {
   if (issueDate) policy.issueDate = issueDate;
   if (termYears) policy.termYears = termYears;
   if (policyNumber) policy.policyNumber = policyNumber;
+  referralReadFields('p', policy);
 
   const { error } = await sbUpsertPolicy(policy);
   if (error) { alert('Save failed: ' + error.message); return; }
   policies.push(policy);
   localStorage.setItem(k('ff_policies'), JSON.stringify(policies));
   await bobRecordPolicyCreated(policy, 'Added on the Book of Business');
+  const ref = await referralGenerate(policy);
+  if (ref && referralSummary(ref)) showToast(referralSummary(ref), '#10b981');
+  referralClearFields('p');
   closeModal();
   renderPolicies();
   updateBonusFromTracker();
@@ -14320,6 +14421,38 @@ function teamNormalizeRow(r) {
 }
 
 /**
+ * The chargeback half of the AT-RISK signal (Back Office Phase 7).
+ *
+ * A SPIKE, not a chargeback. One clawback is an ordinary event in this
+ * business; a book where a third of the gross is coming back is a pattern.
+ * Both a floor AND a ratio are required, so a tiny book with one $40
+ * chargeback against $100 of commission does not read as a crisis.
+ *
+ * Returns false when there is no commission data at all — an agent whose
+ * statements have never been ingested must not be flagged for not having
+ * uploaded any. That is what makes this signal safe to add to a rule that was
+ * already shipping.
+ */
+const AT_RISK_CB_MIN_CENTS = 50000;   // $500 — below this it is one policy
+const AT_RISK_CB_RATIO     = 0.30;    // chargebacks >= 30% of gross
+
+function teamChargebackSpike(monthChargebackCents, monthGrossCents) {
+  const cb = Number(monthChargebackCents || 0);
+  const gross = Number(monthGrossCents || 0);
+  if (cb < AT_RISK_CB_MIN_CENTS) return false;
+  if (gross <= 0) return false;
+  return (cb / gross) >= AT_RISK_CB_RATIO;
+}
+
+/** The sentence the badge shows for the chargeback half. */
+function teamChargebackPhrase(monthChargebackCents, monthGrossCents) {
+  const cb = Number(monthChargebackCents || 0);
+  const gross = Number(monthGrossCents || 0);
+  if (gross <= 0) return 'chargebacks this month';
+  return 'chargebacks are ' + Math.round((cb / gross) * 100) + '% of commission this month';
+}
+
+/**
  * The AT-RISK predicate. Returns the verdict AND the sentence that explains
  * it, so the badge and the drill-down can never disagree about why.
  *
@@ -14340,21 +14473,36 @@ function teamAtRisk(row, now) {
 
   const productionDown = priorAp >= AT_RISK_MIN_PRIOR_AP && dropPct >= AT_RISK_AP_DROP_PCT;
   const quiet          = daysSinceDial === null || daysSinceDial >= AT_RISK_NO_DIAL_DAYS;
+  // Phase 7: a chargeback spike is a SECOND way to satisfy the second half.
+  // Production alone is still a slow month — that guard has not moved — but an
+  // agent whose production halved AND whose book is coming back is at risk
+  // even while they are still dialling. Arguably more so: they are writing
+  // business that does not stick, which silence would not have told you.
+  // Absent commission data it is false, so nothing about the shipped rule
+  // changes for an agent who has never uploaded a statement.
+  const cbSpike = teamChargebackSpike(row.monthChargebackCents, row.monthGrossCents);
+
   // The leader's own row is never badged — you do not flag yourself on your
   // own dashboard — and someone who joined this month has no prior month.
   const eligible = !row.you && tenureDays !== null && tenureDays >= AT_RISK_MIN_TENURE_DAYS;
 
-  const atRisk = eligible && productionDown && quiet;
+  const atRisk = eligible && productionDown && (quiet || cbSpike);
   const apPhrase   = 'AP down ' + Math.round(dropPct * 100) + '% vs last month';
   const dialPhrase = daysSinceDial === null
     ? 'no dials on record'
     : 'no dials in ' + daysSinceDial + ' day' + (daysSinceDial === 1 ? '' : 's');
+  const cbPhrase = teamChargebackPhrase(row.monthChargebackCents, row.monthGrossCents);
+
+  // The sentence names the half that actually fired. Saying "no dials in 2
+  // days" on an agent flagged for chargebacks would send the leader into the
+  // wrong conversation.
+  const secondHalf = quiet ? dialPhrase : cbPhrase;
 
   return {
     atRisk, dropPct, daysSinceDial, tenureDays,
-    productionDown, quiet, eligible,
-    apPhrase, dialPhrase,
-    reason: atRisk ? (apPhrase + ', ' + dialPhrase) : '',
+    productionDown, quiet, eligible, cbSpike,
+    apPhrase, dialPhrase, cbPhrase,
+    reason: atRisk ? (apPhrase + ', ' + secondHalf) : '',
   };
 }
 
@@ -14411,11 +14559,26 @@ function teamSortRows(rows, col, dir) {
 }
 
 /** Raw RPC rows -> the complete view-model both surfaces render. */
-function buildTeamView(rawRows, nowDate) {
+/**
+ * `cbByAgent` (Phase 7) maps agent id -> { chargeback_cents, gross_cents } for
+ * THIS CALENDAR MONTH, from get_downline_commission_rollup. Optional: without
+ * it every agent's chargeback figures are undefined, teamChargebackSpike()
+ * returns false, and the at-risk rule behaves exactly as it did before Phase 7.
+ * An agent who has never uploaded a statement must not be flagged for it.
+ */
+function buildTeamView(rawRows, nowDate, cbByAgent) {
   const now  = (nowDate instanceof Date) ? nowDate : new Date(nowDate || Date.now());
   const rows = (rawRows || []).map(teamNormalizeRow);
   const shares = teamShares(rows);
-  rows.forEach((r, i) => { r.share = shares[i]; r.risk = teamAtRisk(r, now); });
+  rows.forEach((r, i) => {
+    r.share = shares[i];
+    const cb = cbByAgent && (cbByAgent.get ? cbByAgent.get(r.id) : cbByAgent[r.id]);
+    if (cb) {
+      r.monthChargebackCents = Number(cb.chargeback_cents || 0);
+      r.monthGrossCents = Number(cb.gross_cents || 0);
+    }
+    r.risk = teamAtRisk(r, now);
+  });
 
   const totals = rows.reduce((s, r) => ({
     ap: s.ap + r.ap, sales: s.sales + r.sales, dials: s.dials + r.dials,
@@ -14503,13 +14666,32 @@ async function loadTeamRoster(periodKey, force) {
     return _teamCache[pk];
   }
   try {
-    const { data, error } = await sb.rpc('get_team_summary', teamRpcArgs(range));
+    // The at-risk chargeback signal reads THIS CALENDAR MONTH, always — the
+    // same fixed window the AP half uses, so the badge cannot blink as a
+    // leader clicks between period chips. Best effort: if the rollup fails or
+    // returns nothing, the map is empty and the rule falls back to exactly its
+    // pre-Phase-7 behaviour.
+    const mStart = new Date(); mStart.setDate(1); mStart.setHours(0, 0, 0, 0);
+    const mEnd = new Date(mStart); mEnd.setMonth(mEnd.getMonth() + 1);
+    const isoDay = d => d.toISOString().slice(0, 10);
+    const [summary, rollup] = await Promise.all([
+      sb.rpc('get_team_summary', teamRpcArgs(range)),
+      sb.rpc('get_downline_commission_rollup', { p_start: isoDay(mStart), p_end: isoDay(mEnd) })
+        .then(r => r, () => ({ data: null, error: true })),
+    ]);
+    const { data, error } = summary;
+    const cbByAgent = new Map();
+    if (rollup && !rollup.error && Array.isArray(rollup.data)) {
+      rollup.data.forEach(r => cbByAgent.set(r.agent_id,
+        { chargeback_cents: r.chargeback_cents, gross_cents: r.gross_cents }));
+    }
     if (error) {
       const missing = error.code === 'PGRST202' || /get_team_summary/.test(error.message || '');
       if (!missing) console.warn('[team] roster rpc', error.message);
       _teamCache[pk] = { at: Date.now(), state: missing ? 'unavailable' : 'error', range };
     } else {
-      _teamCache[pk] = { at: Date.now(), state: 'ok', range, view: buildTeamView(Array.isArray(data) ? data : [], new Date()) };
+      _teamCache[pk] = { at: Date.now(), state: 'ok', range,
+        view: buildTeamView(Array.isArray(data) ? data : [], new Date(), cbByAgent) };
     }
   } catch (e) {
     console.warn('[team] roster rpc', e);
@@ -21908,6 +22090,139 @@ function reconResultMessage(action, res) {
 }
 // </recon-core>
 
+// <referral-core>
+// Auto-referral generation (Back Office Phase 7) — pure logic. No DOM, no
+// network, no storage, no app globals. Extracted verbatim and executed by
+// test/referrals.test.mjs. Keep it pure.
+//
+// THE ONE RULE THIS FILE EXISTS TO ENFORCE:
+//
+//   A referral lead is created WITHOUT consent, and must be. It carries no
+//   `tcpa_consent`, no consent record and no opt-in of any kind, so
+//   `leadTextingState()` renders it `needs_optin` and `runComplianceGate()`
+//   refuses a send. A beneficiary named on an application has not asked to
+//   hear from anyone. Creating the lead is free pipeline; contacting them
+//   without an opt-in is the thing that gets a campaign shut down.
+//
+// So `referralsFromPolicy()` returns lead objects that deliberately do NOT
+// carry a consent field, and a test asserts every consent-shaped key is
+// absent from what it produces.
+
+/** The source label every auto-generated referral carries. */
+const REFERRAL_SOURCE = 'referral — auto';
+
+/** Which policy fields describe a person who is not the insured. */
+const REFERRAL_ROLES = [
+  { key: 'beneficiary', label: 'Beneficiary',
+    name: 'beneficiaryName', phone: 'beneficiaryPhone', rel: 'beneficiaryRelationship' },
+  { key: 'emergency', label: 'Emergency contact',
+    name: 'emergencyName', phone: 'emergencyPhone', rel: 'emergencyRelationship' },
+];
+
+/** Digits only, last 10 — the same shape the rest of the app dedupes phones on. */
+function referralNormalizePhone(v) {
+  const d = String(v || '').replace(/\D/g, '');
+  if (d.length < 10) return '';
+  return d.slice(-10);
+}
+
+function referralNormalizeName(v) {
+  return String(v || '').toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * The referrals a policy implies, before deduping.
+ *
+ * A contact with no name is not a lead. A contact with no PHONE is also not a
+ * lead — an agent cannot work it, and creating it would inflate the book with
+ * rows that can never be called.
+ */
+function referralCandidates(policy) {
+  if (!policy) return [];
+  const out = [];
+  REFERRAL_ROLES.forEach(role => {
+    const name = String(policy[role.name] || '').trim();
+    const phone = referralNormalizePhone(policy[role.phone]);
+    if (!name || !phone) return;
+    out.push({
+      role: role.key,
+      roleLabel: role.label,
+      name,
+      phone: String(policy[role.phone] || '').trim(),
+      phoneKey: phone,
+      relationship: String(policy[role.rel] || '').trim() || null,
+      fromPolicyId: policy.id,
+      fromClient: policy.client || null,
+    });
+  });
+  return out;
+}
+
+/**
+ * Turn candidates into new leads, deduped.
+ *
+ * Deduped THREE ways, and each one is a real case:
+ *   1. against the existing book by phone — the beneficiary is already a lead;
+ *   2. against the insured themselves — a policy naming the client as their
+ *      own emergency contact would otherwise create a lead for someone you
+ *      just sold;
+ *   3. within the batch — beneficiary and emergency contact are frequently the
+ *      same person, and creating them twice is the first thing an agent
+ *      notices and the last thing they forgive.
+ */
+function referralsFromPolicy(policy, existingLeads, opts) {
+  const o = opts || {};
+  const now = o.now || new Date();
+  const seen = new Set();
+  (Array.isArray(existingLeads) ? existingLeads : []).forEach(l => {
+    const k = referralNormalizePhone(l && l.phone);
+    if (k) seen.add(k);
+  });
+  const insuredPhone = referralNormalizePhone(policy && policy.phone);
+  if (insuredPhone) seen.add(insuredPhone);
+
+  const created = [], skipped = [];
+  referralCandidates(policy).forEach((c, i) => {
+    if (seen.has(c.phoneKey)) {
+      skipped.push({ ...c, reason: 'already in your book' });
+      return;
+    }
+    seen.add(c.phoneKey);
+    created.push({
+      // Date.now() + i keeps ids unique when two referrals come off one policy
+      // in the same millisecond, which is the normal case here.
+      id: (o.idBase || Number(now)) + i,
+      name: c.name,
+      phone: c.phone,
+      status: 'new',
+      source: REFERRAL_SOURCE,
+      referralRole: c.role,
+      referralRelationship: c.relationship,
+      referredByPolicyId: c.fromPolicyId,
+      referredByClient: c.fromClient,
+      notes: c.roleLabel + ' on ' + (c.fromClient || 'a policy') +
+        (c.relationship ? ' (' + c.relationship + ')' : '') +
+        '. Has not opted in — ask before you text.',
+      createdAt: new Date(now).toISOString(),
+      // NO consent field of any kind. See the header. This is the point.
+    });
+  });
+  return { created, skipped };
+}
+
+/** "2 referrals added · 1 was already in your book" — never a bare "Saved". */
+function referralSummary(result) {
+  const c = ((result || {}).created || []).length;
+  const s = ((result || {}).skipped || []).length;
+  if (!c && !s) return '';
+  const parts = [];
+  if (c) parts.push(c === 1 ? '1 referral added' : c + ' referrals added');
+  if (s) parts.push(s === 1 ? '1 was already in your book' : s + ' were already in your book');
+  return parts.join(' · ');
+}
+
+// </referral-core>
+
 let _boCache = { statements: [], summary: null, loadedAt: 0 };
 let _boPollTimer = null;
 let _boBusy = false;
@@ -21945,17 +22260,20 @@ function boArea(key, silent) {
     commissions: 'What your ingested statements add up to. Every figure here comes from a commission line you uploaded — nothing is estimated.',
     persistency: 'How much of what you wrote stayed on the books. Carrier bonus programmes are written against these numbers.',
     reconciliation: 'The lines the parser could not place, the policies nothing has paid on, and the uploads that failed. Nothing here is deleted — it is decided.',
+    carriers: 'Every carrier that has actually paid you, derived from your ingested statements. Read-only — a carrier is here because it paid, not because someone typed it in.',
   };
   const sub = document.getElementById('bo-subtitle');
   if (sub) sub.textContent = SUBTITLES[key] || SUBTITLES.ingest;
   const REFRESH = { ingest: () => boRefresh(true), commissions: () => cmRender(true),
-                    persistency: () => psRender(true), reconciliation: () => rcRender(true) };
+                    persistency: () => psRender(true), reconciliation: () => rcRender(true),
+                    carriers: () => crRender(true) };
   const refresh = document.getElementById('bo-refresh');
   if (refresh) refresh.onclick = REFRESH[key] || REFRESH.ingest;
   if (silent) return;
   if (key === 'commissions') cmRender();
   else if (key === 'persistency') psRender();
   else if (key === 'reconciliation') rcRender();
+  else if (key === 'carriers') crRender();
   else boRefresh(false);
 }
 
@@ -22818,6 +23136,89 @@ async function rcRetry(statementId, btn) {
   await boParseNow(statementId, btn);
   _rcCache.loadedAt = 0;
   await rcRender();
+}
+
+// ============================================================
+// CARRIERS (Back Office Phase 7) — read-only, derived from ingested rows.
+//
+// A carrier is on this list because it has PAID the agent. There is no
+// carriers table and no appointment form: `data/carrier_bonuses.json` (45
+// carriers) and TRACKER_CARRIER_LIST (24) answer different questions, and
+// folding them in would show an agent carriers they have never written with.
+// ============================================================
+let _crCache = { rows: [], loadedAt: 0 };
+
+async function crRender(force) {
+  if (!currentAgent) return;
+  const host = document.getElementById('cr-panel');
+  const fresh = !force && _crCache.loadedAt && (Date.now() - _crCache.loadedAt) < 45000;
+  if (!fresh) {
+    if (host && !_crCache.loadedAt) host.innerHTML = '<div class="cm-panel"><div class="cm-empty">Loading…</div></div>';
+    try {
+      const { data, error } = await sb.rpc('get_carrier_summary', { p_start: null, p_end: null });
+      if (error) throw error;
+      _crCache = { rows: data || [], loadedAt: Date.now() };
+    } catch (e) {
+      if (host) host.innerHTML = '<div class="cm-panel"><div class="cm-empty">Could not load carriers: ' +
+        escHTML((e && e.message) || e) + '</div></div>';
+      return;
+    }
+  }
+  crPaint();
+  if (force) showToast('Carriers refreshed', '#10b981');
+}
+
+function crPaint() {
+  const host = document.getElementById('cr-panel');
+  if (!host) return;
+  const rows = _crCache.rows || [];
+  const head = '<div class="cm-panel-h"><div class="cm-panel-t">Carriers</div>' +
+    '<div class="cm-panel-s">Derived from ingested statements &middot; ' +
+    rows.length + ' carrier' + (rows.length === 1 ? '' : 's') + '</div></div>';
+  if (!rows.length) {
+    host.innerHTML = '<div class="cm-panel">' + head +
+      '<div class="cm-empty">No carrier has paid you yet, as far as your ingested statements go. ' +
+      'Upload one on the <a href="#" onclick="boArea(\'ingest\');return false;" ' +
+      'style="color:var(--lg-blue)">Ingest</a> tab and its carrier appears here.</div></div>';
+    return;
+  }
+  const n = v => Number(v || 0);
+  const tot = rows.reduce((a, r) => ({
+    rows: a.rows + n(r.row_count), gross: a.gross + n(r.gross_cents),
+    net: a.net + n(r.net_cents), debt: a.debt + n(r.debt_cents),
+    prem: a.prem + n(r.premium_cents), unmatched: a.unmatched + n(r.unmatched_rows),
+  }), { rows: 0, gross: 0, net: 0, debt: 0, prem: 0, unmatched: 0 });
+  const G = 'grid-template-columns:1.5fr .7fr .9fr 1fr 1fr 1fr';
+  const body = rows.map(r =>
+    '<div class="cm-row" style="' + G + '">' +
+      '<div class="cm-strong">' + escHTML(r.carrier) +
+        (n(r.unmatched) ? '<div class="rc-reason">' + n(r.unmatched) + ' line' +
+          (n(r.unmatched) === 1 ? '' : 's') + ' not matched to a policy</div>' : '') + '</div>' +
+      '<div class="bo-num">' + n(r.row_count) + '</div>' +
+      '<div class="bo-num">' + n(r.policy_count) + '</div>' +
+      '<div class="bo-num">' + escHTML(commMoney(r.premium_cents)) + '</div>' +
+      '<div class="bo-num">' + escHTML(commMoney(r.net_cents)) + '</div>' +
+      '<div class="bo-num" style="text-align:right;color:' +
+        (n(r.debt_cents) > 0 ? 'var(--lg-red)' : 'var(--lg-text3)') + '">' +
+        escHTML(commMoney(r.debt_cents)) + '</div>' +
+    '</div>').join('');
+  host.innerHTML = '<div class="cm-panel">' + head +
+    '<div class="cm-row cm-thead" style="' + G + '">' +
+      '<div>Carrier</div><div>Lines</div><div>Policies</div><div>Premium</div>' +
+      '<div>Net paid</div><div style="text-align:right">Debt</div></div>' +
+    body +
+    '<div class="cm-row" style="' + G + ';background:var(--lg-inner)">' +
+      '<div class="cm-strong">Total</div>' +
+      '<div class="bo-num cm-strong">' + tot.rows + '</div><div></div>' +
+      '<div class="bo-num cm-strong">' + escHTML(commMoney(tot.prem)) + '</div>' +
+      '<div class="bo-num cm-strong">' + escHTML(commMoney(tot.net)) + '</div>' +
+      '<div class="bo-num" style="text-align:right;font-weight:600;color:' +
+        (tot.debt > 0 ? 'var(--lg-red)' : 'var(--lg-text3)') + '">' +
+        escHTML(commMoney(tot.debt)) + '</div>' +
+    '</div></div>' +
+    '<div class="ps-gate">A carrier is on this list because it has paid you. ' +
+      'Rejected lines are excluded; unmatched ones are counted and named, because they are ' +
+      'still money that moved.</div>';
 }
 
 function psAgentHTML() {

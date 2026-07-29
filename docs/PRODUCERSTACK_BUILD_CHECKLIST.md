@@ -150,7 +150,7 @@ Companion doc: `docs/ORION_GAP_ANALYSIS.md` (full detail on each item).
 - [x] **100. Rollup debt by downline.** Shipped 2026-07-29 — `get_downline_commission_rollup`, SECURITY DEFINER with no parameter naming a leader, aggregates only.
 - [ ] **101. Comp ladder UI.** Tier progression, progress to the next bump, carrier-specific structures — built on top of your existing 45-carrier `carrier_bonuses.json`, which is better data than Orion's.
 - [ ] **102. Bonus progress tracking.** Fast Start, Producer Club, and carrier bonus thresholds with current position.
-- [ ] **103. Appointed carriers list,** derived from ingested statements.
+- [x] **103. Appointed carriers list,** derived from ingested statements. Shipped 2026-07-29 (Back Office Phase 7) — `docs/back-office-close-the-loop.md`. Read-only; a carrier is listed because it paid, not because it was typed in.
 - [ ] **104. Natural-language back-office query.** "Who is behind on Carrier A?" against commission and policy data.
 - [ ] **105. Public back-office API with per-tenant keys.** Feature-flagged. Longer-term, but it's where they're heading.
 

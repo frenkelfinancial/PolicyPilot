@@ -33,6 +33,29 @@ Autonomy layer (added 07/2026):
 - **`nav()` highlights by section name, not by position.** The positional index map (duplicated in `restoreSectionFromCache()`) had to be hand-corrected every time the sidebar grew; a test asserts it does not come back.
 - **Inbound forwarding addresses are NOT built and need one DNS record.** Resend is already signed up, paid for and wired (`messaging-email-inbound-webhook` verifies its signature); only the inbound MX is missing. Exact plan in `docs/back-office-progress.md` § "Forwarding email address".
 
+### Close the loop (Phase 7) — `docs/back-office-close-the-loop.md`
+
+- **🔴 AN AUTO-REFERRAL LEAD CARRIES NO CONSENT, DELIBERATELY.**
+  `referralsFromPolicy()` must never add `tcpa_consent`, a `consent_records`
+  row, or any opt-in field, so `leadTextingState()` renders it `needs_optin`
+  and `runComplianceGate()` refuses. A beneficiary named on an application has
+  not asked to hear from anyone. Three tests enforce it — a unit test, the
+  browser, and the row that synced to the server. This protects a LIVE 10DLC
+  campaign that already has carrier review items on record.
+- **A referral needs both a name and a phone**, and is deduped three ways:
+  against the book by phone, against the insured themselves, and within the
+  batch (beneficiary and emergency contact are often the same person).
+- **The at-risk chargeback signal is `productionDown && (quiet || cbSpike)`** —
+  production-down is still required, both original guards (prior AP ≥ 1,
+  tenure ≥ 30 days) still hold, and it is still in-app only. A spike needs BOTH
+  a $500 floor and a 30% ratio. **No commission data is never a spike.**
+- **`teamChargebackSpike`/`teamChargebackPhrase` live in team-core**, not
+  referral-core: `test/team-roster.test.mjs` extracts team-core and runs it
+  standalone, so `teamAtRisk` must not reach into another block.
+- **Carriers is DERIVED from `commission_rows`, never a table**, and
+  `carrier_bonuses.json` / `TRACKER_CARRIER_LIST` are deliberately not joined
+  in. Its debt definition is byte-identical to the Debt tab's.
+
 ### Reconciliation (Phase 6) — `docs/back-office-reconciliation.md`
 
 - **`public.review_queue` was deliberately NOT used, NOT extended and NOT

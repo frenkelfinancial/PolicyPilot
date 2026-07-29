@@ -20,25 +20,11 @@ seven independently-shippable phases. Started 2026-07-29.
 | 4 | Commissions dashboard | ✅ **shipped 2026-07-29** |
 | 5 | Persistency upgrades | ✅ **shipped 2026-07-29** |
 | 6 | Reconciliation screen | ✅ **shipped 2026-07-29** |
-| 7 | Close the loop (auto-referral, chargeback at-risk, carriers) | not started |
+| 7 | Close the loop (auto-referral, chargeback at-risk, carriers) | ✅ **shipped 2026-07-29** |
 
-**Exact resume point:** Phase 7 — Close the loop. Nothing from Phases 1–6 is
-outstanding. Three separate pieces, in rising order of risk:
-
-1. **Carriers screen** — read-only, derived from `commission_rows`. The
-   easiest; a fifth Back Office area beside the four that exist.
-2. **Chargeback signal on the at-risk flag** — extend the EXISTING rule in
-   `// <team-core>`; keep both current guards (prior AP ≥ 1, tenure ≥ 30 days)
-   and the in-app-only rule. `get_team_summary` would need a chargeback figure
-   per agent, which `get_downline_commission_rollup` already computes — prefer
-   reading that over widening `get_team_summary` again.
-3. **Auto-referral generation** — the one with real consequences. Beneficiary
-   and emergency contacts become leads, deduped against the book, and
-   **NEVER auto-contacted**: they must enter needing consent like every other
-   lead. `consent_records` is service-role-write-only and `lead-ingest` does
-   not write it, so a referral lead simply has no consent row and
-   `leadTextingState()` renders it `needs_optin` — which is the correct
-   outcome and needs no new code, only a test proving it.
+**Exact resume point:** none — **all seven phases are shipped.** The mission as
+briefed is complete. What remains is the work the brief explicitly deferred
+(see below) plus the one decision waiting on Jace.
 
 **Waiting on Jace:** one decision — see *"Forwarding email address"* below.
 Nothing is blocked by it; Phase 1 shipped upload-only as planned.
@@ -772,10 +758,97 @@ Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
 
 ---
 
-## Phase 7
+## Phase 7 — Close the loop ✅ SHIPPED
 
-Not started. It will get its own decisions + work log section here as it
-begins.
+Feature doc: **`docs/back-office-close-the-loop.md`**.
+Schema apply record: `docs/schema-state.md` → *Apply 2026-07-29 —
+`20260745_carriers.sql`*.
+
+### What shipped
+
+- **Auto-referral generation.** Six optional fields on Add Policy and Submit as
+  Sold (beneficiary + emergency contact, each name/phone/relationship). On
+  save they become leads tagged `referral — auto`, deduped three ways, and
+  **carrying no consent of any kind**.
+- **A chargeback signal on the at-risk flag.** `teamAtRisk` now reads
+  `productionDown && (quiet || cbSpike)`.
+- **A read-only Carriers screen**, the fifth Back Office area, derived from
+  ingested rows. Closes checklist #103.
+- **Schema `20260745`** — one SECURITY INVOKER function. No table, no column,
+  no data, no policy. No edge function deployed; fleet untouched at 73 / 16.
+
+### Decisions taken without asking
+
+1. **A referral lead is created WITHOUT consent, deliberately — and the
+   capture had to be built too.** Nothing was recording beneficiaries at sale,
+   so "captured at sale" meant building the capture. The lead carries no
+   `tcpa_consent` and no consent record, so `leadTextingState()` renders it
+   `needs_optin` and the send gate refuses. A beneficiary named on an
+   application has not asked to hear from anyone, and this repo already carries
+   three carrier review items from that class of mistake. Verified in three
+   places: the unit test, the browser, and the row that synced to the server.
+
+2. **A contact needs both a name and a phone.** A lead an agent cannot call is
+   not a lead.
+
+3. **Three dedupes, each a real case** — against the book by phone, against
+   the insured themselves (a policy naming the client as their own emergency
+   contact), and within the batch (beneficiary and emergency contact are
+   frequently the same person).
+
+4. **Referral fields are stored on the POLICY as well as becoming leads**,
+   because the policy is where an agent looks a year later for who was named.
+
+5. **A chargeback SPIKE, not a chargeback.** Both a $500 floor and a 30% ratio
+   are required. One clawback is ordinary in this business.
+
+6. **Production-down is still required.** A good month with chargebacks is not
+   the flight-risk pattern. What changed is that an agent whose production
+   halved *and* whose book is coming back is flagged even while still dialling
+   — arguably worse off than a quiet one, and silence would never have said so.
+
+7. **No commission data is never a spike.** An agent who has not uploaded a
+   statement must not be flagged for not having uploaded one; a test asserts
+   the pre-Phase-7 behaviour is unchanged when the figures are absent.
+
+8. **The reason names the half that fired.** Telling a leader "no dials" about
+   an agent who dialled this morning is worse than no badge.
+
+9. **The chargeback helpers live in team-core, not referral-core**, because the
+   at-risk rule is theirs — and because `test/team-roster.test.mjs` extracts
+   team-core and runs it standalone, so a `teamAtRisk` reaching into another
+   block would stop parsing there.
+
+10. **The chargeback figures come from `get_downline_commission_rollup`**
+    rather than by widening `get_team_summary` a second time, and the call is
+    best effort: a failure leaves the rule exactly as it was.
+
+11. **Carriers is derived, not a table**, and `carrier_bonuses.json` /
+    `TRACKER_CARRIER_LIST` are deliberately not joined in — they answer
+    different questions, and folding them in would list carriers the agent has
+    never written with.
+
+12. **Carriers debt uses the Debt tab's definition byte for byte.** Two screens
+    disagreeing about what an agent owes a carrier is worse than either being
+    absent.
+
+### Verification
+
+| Layer | Result |
+|---|---|
+| Unit tests (`npm run test:referrals`) | **33** |
+| Full suite (`npm test`) | **661 tests + `npm run check` clean** |
+| Headless click-through | **26/26** |
+| Residue | **zero** |
+
+### Surprises worth recording
+
+- **The chargeback helper had to move.** Written first into `referral-core`, it
+  was called from `teamAtRisk` — which `test/team-roster.test.mjs` extracts and
+  runs on its own, where the function would not exist. Moved into team-core,
+  where the rule it serves already lives.
+- **Two click-through assertions were wrong rather than the code**, both times
+  a selector that forgot the Total row or assumed an ordering by name.
 
 ### Phase 6 notes carried forward
 
