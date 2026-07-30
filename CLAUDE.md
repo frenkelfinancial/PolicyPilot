@@ -190,6 +190,59 @@ Autonomy layer (added 07/2026):
 - **Talk time is `duration_sec`, the same expression the team table's Call time column uses** — `answered_at` exists and the two definitions differ by 13 seconds across 1,298 rows, which is not worth two numbers on one screen.
 - **Both cron jobs call SQL directly**, not an edge function: no secret, no `verify_jwt` flag. `lb_rollover()` reasons in `America/Chicago`, so there is no CDT/CST job pair.
 
+## AI Sales Agent (voice dialer)
+
+- **Read `docs/ai-assistant-script-v1.md` before touching anything named
+  `ai-call-*`, `aiTest*`, or the Telnyx assistant config.** That doc is the
+  SOURCE OF TRUTH for the assistant's instructions, not a copy of them:
+  `npm run sync:ai-assistant` extracts the fenced blocks and PATCHes the live
+  assistant, then reads back to confirm (Telnyx silently ignores fields it does
+  not recognise, so a 200 proves nothing). Never edit the prompt in Mission
+  Control by hand — this prompt carries a TCPA disclosure and "which version
+  was live on the 14th" is a question that can actually get asked.
+- **AMD DOES NOT GATE THE GREETING** (changed 2026-07-30). It used to, and that
+  was 3.5s of the measured 6.5s of dead air — premium AMD cannot be made fast,
+  listening *is* how it works. `call.answered` now attaches the assistant
+  inline; the AMD verdict is an async backstop that hangs up on a machine.
+  Accepted tradeoff: the assistant may speak a sentence into a voicemail.
+- **🔴 On the AMD-machine path, tag `outcome='voicemail'` BEFORE calling
+  hangup.** `answered_at` is stamped on answer now, so `computeBilledMinutes`
+  returns a real minute and the ONLY thing zeroing it is the finalize block
+  reading `outcome === 'voicemail'`. Hanging up first races our own
+  `call.hangup` event against that write, and losing it bills an agent for a
+  voicemail — the one thing this feature promises never to do.
+- **`buildGreeting()` in `ai-call-webhook` is the one place the opening line is
+  built**, and that string IS the disclosure. Four openers, because every fact
+  (lead first name, AI name, agent, agency, lead type) can be blank in
+  production and "Hi , this is  —" is how a robot sounds.
+- **A blank `agents.ai_agent_name` stays blank.** Nothing invents a default — a
+  name the agent did not choose is a name they have to explain to a lead.
+- **Disclosure wording is "an assistant", not "an automated AI assistant"**
+  (owner decision, 2026-07-30, history table in the doc). What did NOT move:
+  the instructions still require answering *immediately and plainly* that it is
+  an **automated assistant** whenever anyone asks whether it's a real person.
+  Transcript QA must match the CURRENT line — finding `automated AI assistant`
+  now means a stale assistant version, i.e. someone edited Mission Control by
+  hand.
+- **`NOTHING SENDS message_history`** — Telnyx's validator 422s it on this
+  account (code 10000, pointer `/message_history`) and that rejection is what
+  made every early call dead air. `startAssistant()` degrades down a ladder
+  (voice dropped, then greeting dropped) so a future field rejection costs the
+  call its voice, never its audio. Rung 3 speaks the greeting stored ON the
+  assistant, so that string must carry the disclosure too — it is synced from
+  the doc's ```greeting block.
+- **Every value in `AI_VOICES` was verified against the live API** by PATCHing
+  `voice_settings.voice` (a wrong id is 400 / code 10015). A saved voice that
+  drops off the list is MIGRATED to `AI_VOICE_DEFAULT`, not silently shown as
+  "Assistant default" — the webhook would keep sending the retired id and eat a
+  rejection on the greeting's critical path.
+- `supabase/config.toml` pins `[functions.ai-call-webhook] verify_jwt = false`
+  and it is load-bearing (Telnyx signs Ed25519, not a Supabase JWT). After any
+  deploy, an unauthenticated POST must come back `{"error":"invalid_signature"}`
+  — that is the function's own check answering, i.e. proof the platform gate is
+  still off. A `{"code":401,"message":"Missing authorization header"}` means it
+  came back on.
+
 ## Identity — a person has a name, not an address
 
 - **`pp_display_name()` (SQL, `20260751`) and `ppAgentName()` (browser, in `// <team-core>`) are the ONE identity resolver.** `lb_agent_name`, `get_team_summary` and `get_agency_members` all delegate to the SQL one; every renderer goes through the browser one. Read `docs/agency-leaderboards.md` § "Who an agent is called".

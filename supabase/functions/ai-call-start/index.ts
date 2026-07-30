@@ -74,7 +74,7 @@ serve(async (req) => {
   // One parallel round-trip for everything the gates read.
   const [{ data: agent }, { data: billingConfig }, { data: wallet }, { data: lead }] = await Promise.all([
     sb.from("agents")
-      .select("is_admin, ai_dialer_enabled, plan_id, display_name, agency_name, signalwire_caller_id, ai_voice")
+      .select("is_admin, ai_dialer_enabled, plan_id, display_name, agency_name, signalwire_caller_id, ai_voice, ai_agent_name")
       .eq("id", user.id)
       .maybeSingle(),
     sb.from("billing_config")
@@ -202,20 +202,32 @@ serve(async (req) => {
   // ---- Dynamic variables handed to the assistant -------------------------
   const d = (lead.data as Record<string, unknown> | null) || {};
   const asStr = (v: unknown) => (typeof v === "string" ? v : "");
+  // Left EMPTY when unknown rather than defaulted to "there": buildGreeting()
+  // in the webhook has a proper nameless opener, and the wallet-ledger
+  // description falls back to the phone number — "AI Sales Agent call — there"
+  // is what a placeholder leaking into a receipt looks like.
   const leadName = asStr(d.name) ||
-    [asStr(d.first_name), asStr(d.last_name)].filter(Boolean).join(" ").trim() ||
-    "there";
+    [asStr(d.first_name), asStr(d.last_name)].filter(Boolean).join(" ").trim();
+  // The greeting addresses people by FIRST name only — "Hi Mark Johnson," is
+  // a telemarketer reading a screen.
+  const leadFirst = asStr(d.first_name).trim() || leadName.split(/\s+/)[0] || "";
   // Agent-chosen TTS voice (agents.ai_voice). Travels in client_state.vars;
   // the webhook sends it as the top-level `voice` override on
   // ai_assistant_start. Empty = use the assistant's Mission Control voice.
   const aiVoice = asStr((agent as { ai_voice?: unknown } | null)?.ai_voice).trim();
+  // The name the assistant introduces itself by (agents.ai_agent_name, 20260730).
+  // Empty is a real answer — the webhook renders the nameless greeting and
+  // NEVER invents one.
+  const aiName = asStr((agent as { ai_agent_name?: unknown } | null)?.ai_agent_name).trim();
 
   const dynamicVariables = {
     lead_name:   leadName,
+    lead_first:  leadFirst,
     lead_state:  asStr(d.state),
     lead_type:   asStr(d.coverage_wanted) || asStr(d.lead_type) || asStr(d.type) || asStr(d.source),
     agent_name:  asStr(agent?.display_name) || "your agent",
     agency_name: asStr(agent?.agency_name) || asStr(agent?.display_name) || "our agency",
+    ai_name:     aiName,
     voice:       aiVoice,
   };
 
@@ -256,8 +268,14 @@ serve(async (req) => {
 
   // Telnyx /v2/calls does NOT accept an assistant field. Dial PLAIN with AMD
   // premium + our webhook; the webhook attaches the assistant via a
-  // POST /v2/calls/{id}/actions/ai_assistant_start action once AMD confirms a
-  // human answered (never on a machine).
+  // POST /v2/calls/{id}/actions/ai_assistant_start action.
+  //
+  // AMD stays PREMIUM even though it no longer gates the greeting (2026-07-30):
+  // the webhook now attaches the assistant on call.answered and treats the AMD
+  // verdict as an async backstop that hangs up on a machine. Since nobody
+  // waits on it any more, there is no reason to trade premium's accuracy for a
+  // faster mode — the cost of a wrong verdict (hanging up on a real person) is
+  // far higher than the cost of a late one.
   const callRes = await fetch("https://api.telnyx.com/v2/calls", {
     method: "POST",
     headers: telnyxHeaders,

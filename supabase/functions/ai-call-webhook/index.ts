@@ -14,11 +14,13 @@ import {
 // can't supply a Supabase JWT), same as messaging-delivery-webhook.
 //
 // Flow:
-//   • call.answered      -> arm the DEAD-AIR FALLBACK (see below). Does NOT
-//     stamp answered_at or start the assistant on its own.
-//   • AMD says machine   -> hang up, mark 'voicemail'. No answered_at, no debit.
-//   • AMD says human     -> claim the start, stamp answered_at (billing
-//     anchor) and attach the assistant via /actions/ai_assistant_start.
+//   • call.answered      -> claim the start, stamp answered_at (billing
+//     anchor) and attach the assistant IMMEDIATELY via
+//     /actions/ai_assistant_start. This is the ONLY path that normally
+//     speaks; AMD is a backstop behind it (see below).
+//   • AMD says machine   -> hang up, mark 'voicemail'. Bills 0 either way.
+//   • AMD says human     -> backstop only: start the assistant if
+//     call.answered never claimed it (a lost event or a DB error).
 //   • transcript/insights -> store transcript + parse the assistant outcome
 //     JSON; a dnc_request writes a suppression row + flips leads.dnc.
 //   • call.hangup        -> compute talk minutes (answered_at -> hangup),
@@ -43,11 +45,35 @@ import {
 //
 // 2. THE DEAD-AIR FALLBACK. The assistant used to start ONLY on the premium-AMD
 //    verdict, which makes a missing or slow AMD event indistinguishable from a
-//    broken assistant: both are silence. call.answered now arms a background
-//    timer, and if no AMD verdict has claimed the call within
-//    ASSISTANT_START_GRACE_MS the assistant starts anyway. Exactly one path
-//    ever starts it — claimAssistantStart() is an atomic compare-and-set on
-//    `answered_at is null` — so the fallback cannot double-start or double-bill.
+//    broken assistant: both are silence. call.answered arms a background timer,
+//    and if nothing has claimed the call within ASSISTANT_START_GRACE_MS the
+//    assistant starts anyway. Exactly one path ever starts it —
+//    claimAssistantStart() is an atomic compare-and-set on `answered_at is
+//    null` — so the fallback cannot double-start or double-bill.
+//
+// ---- Why AMD no longer gates the greeting (2026-07-30, humanize round 1) ---
+//
+// The assistant used to attach only AFTER premium AMD returned a human verdict.
+// Measured on the 07-30 08:41 call (ai_call_events, call_control_id
+// v3:pIHy1iU-...): call.answered 08:41:23.09 -> AMD verdict 08:41:26.60 (3.5s
+// of AMD listening) -> ai_assistant_start accepted 08:41:29.10 (2.5s) -> first
+// audio 08:41:29.63. 6.5 SECONDS of silence, of which AMD was the single
+// largest slice, and premium AMD cannot be made fast — listening IS how it
+// works. So it stopped being a gate:
+//
+//   • call.answered attaches the assistant right away.
+//   • AMD still runs (premium, requested by ai-call-start) and is handled
+//     ASYNCHRONOUSLY. A machine verdict arriving a few seconds later hangs the
+//     call up and marks it 'voicemail'.
+//   • A human verdict is now only a BACKSTOP: it starts the assistant if
+//     call.answered never claimed the call.
+//
+// ACCEPTED TRADEOFF: the assistant may speak a sentence or two into a
+// voicemail greeting before the machine verdict lands and hangs up. That is
+// deliberate. It still leaves NO voicemail message (v1 drops none), and the
+// call still bills ZERO — the `isVoicemail` rule in the finalize block keys
+// off outcome, not off answered_at, precisely so that stamping the billing
+// anchor before the AMD verdict cannot charge a minute for a voicemail.
 //
 // Every event received and every action taken is appended to ai_call_events
 // (20260752) so the next silent call is read off a table, not guessed at.
@@ -58,10 +84,12 @@ import {
 // ai_calls is the AI call's activity/disposition record; Phase 4's timeline
 // UI unions the two by lead_id for display.
 
-// How long after call.answered to wait for a premium-AMD verdict before
-// starting the assistant regardless. Premium AMD resolves a human in roughly
-// 2–5s; past this the caller is just listening to nothing.
-const ASSISTANT_START_GRACE_MS = 6000;
+// How long after call.answered the backstop timer waits before starting the
+// assistant regardless. call.answered now starts it inline, so this only ever
+// fires when that inline attempt could not claim the call (a transient DB
+// error on the compare-and-set) — hence much shorter than the 6s it needed
+// when it was waiting on an AMD verdict.
+const ASSISTANT_START_GRACE_MS = 2500;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -218,11 +246,7 @@ serve(async (req) => {
       return;
     }
 
-    const greeting =
-      `Hi ${vars.lead_name || "there"}, this is an automated AI assistant calling on behalf of ` +
-      `${vars.agent_name || "your agent"} with ${vars.agency_name || "our agency"}. ` +
-      `I'm reaching out about the ${vars.lead_type || "life insurance"} coverage you asked about. ` +
-      `Do you have a quick minute?`;
+    const greeting = buildGreeting(vars);
 
     // The attempt ladder. Rung 1 is the proven-accepted body; each further rung
     // drops the next-most-likely-rejected field so a validator change can cost
@@ -302,8 +326,8 @@ serve(async (req) => {
   }
 
   // ---- Dead-air fallback ---------------------------------------------------
-  // Armed by call.answered. If the AMD verdict has not claimed the call by the
-  // time the grace period expires, start the assistant anyway.
+  // Armed by call.answered alongside the inline start. If nothing has claimed
+  // the call by the time the grace period expires, start the assistant anyway.
   async function deadAirFallback(answeredAtIso: string): Promise<void> {
     await sleep(ASSISTANT_START_GRACE_MS);
     const row = await loadAiCall();
@@ -314,8 +338,8 @@ serve(async (req) => {
     if (row.status === "completed" || row.outcome === "voicemail") return;
     if (!await claimAssistantStart(answeredAtIso)) return;
 
-    console.warn("[ai-call-webhook] no AMD verdict within grace — starting assistant anyway.");
-    await logEvent("assistant_start.amd_fallback", {
+    console.warn("[ai-call-webhook] nothing claimed the call within grace — starting assistant anyway.");
+    await logEvent("assistant_start.grace_fallback", {
       grace_ms:    ASSISTANT_START_GRACE_MS,
       answered_at: answeredAtIso,
     });
@@ -328,7 +352,9 @@ serve(async (req) => {
 
   try {
     // ------------------------------------------------------------------
-    // AMD result — the human/machine fork.
+    // AMD result — the ASYNC BACKSTOP. By the time this arrives the assistant
+    // is normally already talking (call.answered attached it). See the header
+    // note on why AMD no longer gates the greeting.
     // ------------------------------------------------------------------
     if (eventType.includes("machine") && eventType.endsWith("detection.ended")) {
       const result = String(p.result || "").toLowerCase();
@@ -336,20 +362,29 @@ serve(async (req) => {
       await logEvent("amd.verdict", { result, is_machine: isMachine, event_type: eventType });
 
       if (isMachine) {
-        // Never talk to voicemail: hang up, tag voicemail, leave answered_at
-        // null so the hangup bills 0. (If the dead-air fallback already
-        // started the assistant, this still ends the call — the fallback
-        // window is deliberately shorter than a voicemail greeting.)
-        await hangupCall();
+        // Never talk to voicemail. The assistant has very likely spoken a
+        // sentence into the greeting by now — accepted, documented tradeoff —
+        // so tag the call and end it.
+        //
+        // TAG BEFORE HANGING UP. This order is load-bearing since the assistant
+        // started attaching on call.answered: answered_at is now stamped by the
+        // time a machine verdict lands, so `computeBilledMinutes` would return
+        // a real minute and the ONLY thing zeroing it is the finalize block
+        // reading outcome === 'voicemail'. Hanging up first races our own
+        // call.hangup event against this write — and losing that race bills an
+        // agent a minute for a voicemail, which is the one thing this feature
+        // promises never to do.
         await sb.from("ai_calls").update({ outcome: "voicemail" }).eq(idCol, idVal);
+        await hangupCall();
         return new Response("ok");
       }
 
       // Human (or not_sure / silence — proceed rather than hang up on a real
-      // person). Claim the start: if the dead-air fallback already won the
-      // race the assistant is running and answered_at is stamped, so there is
-      // nothing left to do here.
+      // person). Normally a no-op: call.answered has already claimed the call
+      // and the assistant is mid-greeting. This only does work when the
+      // call.answered event was lost or its claim errored.
       if (await claimAssistantStart()) {
+        await logEvent("assistant_start.amd_backstop", { trigger: eventType, result });
         await startAssistant(eventType);
       } else {
         await logEvent("assistant_start.already_claimed", { trigger: eventType, result });
@@ -357,15 +392,25 @@ serve(async (req) => {
       return new Response("ok");
     }
 
-    // call.answered fires BEFORE the AMD result. It does not stamp the billing
-    // anchor or start the assistant — that is the AMD verdict's job — but it
-    // DOES arm the dead-air fallback, so a verdict that never arrives (or
-    // arrives late) can no longer leave the caller listening to silence.
+    // call.answered — THE HOT PATH. Everything between this event arriving and
+    // ai_assistant_start being accepted is dead air on a real person's phone,
+    // so it does the least possible work: one atomic claim (which is also the
+    // billing anchor), then the Telnyx action. The grace timer is armed too,
+    // but only ever fires if that claim could not be made at all.
     if (eventType === "call.answered") {
-      const task = deadAirFallback(new Date().toISOString());
+      const answeredIso = new Date().toISOString();
+      const task = deadAirFallback(answeredIso);
       // Prefer running it after the response; if the runtime has no
       // background-task API, hold the request instead of dropping the timer.
-      if (!scheduleBackground(task)) await task;
+      const backgrounded = scheduleBackground(task);
+
+      if (await claimAssistantStart(answeredIso)) {
+        await startAssistant("call.answered");
+      } else {
+        await logEvent("assistant_start.already_claimed", { trigger: "call.answered" });
+      }
+
+      if (!backgrounded) await task;
       return new Response("ok");
     }
 
@@ -495,6 +540,53 @@ serve(async (req) => {
 
   return new Response("ok");
 });
+
+// ---- The opening line ------------------------------------------------------
+// Spoken verbatim by Telnyx as the call's `greeting`, so this string IS the
+// TCPA disclosure. Every clause is load-bearing:
+//   • who is calling      — the AI's name when the agent chose one
+//   • on whose behalf     — the licensed agent + their agency
+//   • that it is NOT a person — "I'm an assistant"
+//   • why                 — the coverage they asked about
+//
+// WORDING (owner decision, 2026-07-30): "an assistant", NOT "an automated AI
+// assistant". The honesty requirement did not move — it moved INTO the
+// conversation: the assistant's instructions require it to say immediately and
+// plainly that it is an automated assistant the moment anyone asks whether
+// it's a person, a robot or AI. See docs/ai-assistant-script-v1.md
+// § "Disclosure wording history".
+//
+// Written to be SPOKEN: contractions, em-dashes where a person would breathe,
+// one question at the end and nothing after it.
+//
+// Every fact degrades on its own, because in production any of them can be
+// blank. No name at all still produces a complete, compliant sentence — it
+// must, since a nameless lead is the one most likely to hang up on a stumble.
+export function buildGreeting(vars: Record<string, string>): string {
+  const clean = (s: unknown) => (typeof s === "string" ? s.trim() : "");
+
+  // lead_first is stamped by ai-call-start; fall back to the first word of
+  // lead_name for calls already in flight when this shipped. 'there' is
+  // ai-call-start's own historical placeholder, not a person's name.
+  const rawFirst = clean(vars.lead_first) || clean(vars.lead_name).split(/\s+/)[0] || "";
+  const first  = /^(there|null|undefined|unknown)$/i.test(rawFirst) ? "" : rawFirst;
+  const aiName = clean(vars.ai_name);          // agents.ai_agent_name — never defaulted
+  const agent  = clean(vars.agent_name) || "your agent";
+  const agency = clean(vars.agency_name);
+  const type   = clean(vars.lead_type) || "life insurance";
+
+  // Four openers, because "Hi , this is  —" is how a robot sounds.
+  const opener = first
+    ? (aiName ? `Hi ${first}, this is ${aiName} — ` : `Hi ${first} — `)
+    : (aiName ? `Hi, this is ${aiName} — `          : `Hi there — `);
+
+  const behalf = agency
+    ? `I'm an assistant calling on behalf of ${agent} with ${agency}.`
+    : `I'm an assistant calling on behalf of ${agent}.`;
+
+  return `${opener}${behalf} I'm reaching out about the ${type} coverage ` +
+    `you asked about — do you have a quick minute?`;
+}
 
 // Instant DNC: suppression row (idempotent — dup key on the unique index is a
 // no-op) + flip the lead's dnc flag so no future session dials it.

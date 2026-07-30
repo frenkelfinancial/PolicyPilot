@@ -1,10 +1,14 @@
-# AI Sales Agent — Assistant Script v1 (life-insurance qualification)
+# AI Sales Agent — Assistant Script (life-insurance qualification)
 
-The system prompt for the Telnyx AI Assistant that Phase 1 dials. Paste the
-**System instructions** block below into Telnyx Mission Control → AI Assistants
-→ (your assistant) → Instructions. The **Mission Control settings** and
-**Dynamic variables** sections cover the rest of the assistant config so it
-matches what `ai-call-start` / `ai-call-webhook` expect.
+The system prompt for the Telnyx AI Assistant that Phase 1 dials.
+
+> **This file is the source of truth for the live assistant's instructions.**
+> The **System instructions** fenced block below is pushed verbatim to Telnyx
+> by `scripts/sync-ai-assistant.mjs` (`node scripts/sync-ai-assistant.mjs`),
+> which extracts the block from *this file* and PATCHes
+> `/v2/ai/assistants/{TELNYX_AI_ASSISTANT_ID}`. Edit here, run the script —
+> never paste into Mission Control by hand, or the two drift and nobody can
+> tell which one a transcript came from.
 
 > Compliance is not optional here. An AI voice is an "artificial voice" under
 > the TCPA. The opening-line disclosure, the instant opt-out, and the
@@ -15,121 +19,193 @@ matches what `ai-call-start` / `ai-call-webhook` expect.
 ## Call context (delivered at assistant start — NOT Telnyx dynamic variables)
 
 Telnyx `POST /v2/calls` does **not** accept an assistant field, so `ai-call-start`
-dials plain and stashes the lead/agent context in `client_state`. Once AMD
-confirms a **human**, `ai-call-webhook` attaches the assistant with
-`POST /v2/calls/{id}/actions/ai_assistant_start`, delivering the context two ways:
+dials plain and stashes the lead/agent context in `client_state`. On
+`call.answered`, `ai-call-webhook` attaches the assistant with
+`POST /v2/calls/{id}/actions/ai_assistant_start`, delivering the context as the
+per-call **`greeting`** — the webhook renders the full opening line (below) with
+the agent, agency, AI name and lead facts baked in, and Telnyx **speaks it
+verbatim** on connect. That is what guarantees the disclosure is said.
 
-1. **`greeting`** — the webhook renders the full opening line (below) with the
-   agent, agency, and disclosure baked in, and Telnyx **speaks it verbatim** on
-   connect. This is what guarantees the disclosure is said.
-2. **`message_history`** — a `system` message with the lead facts:
-   `name`, `state`, `lead_type`, `agent`, `agency`.
+**Nothing sends `message_history`.** Telnyx's production validator rejects it
+outright on this account (422 / code 10000, pointer `/message_history`), and
+that rejection is what made every early test call dead air. The lead facts it
+used to carry are all in the greeting already.
 
-| Fact       | Example            | Source (`public.leads.data` / `agents`)    |
-|------------|--------------------|--------------------------------------------|
-| name       | `Mark Johnson`     | `data.name` (or first/last)                |
-| state      | `Texas`            | `data.state`                               |
-| lead_type  | `final expense`    | `data.coverage_wanted` / `type` / `source` |
-| agent      | `Jordan Rivera`    | `agents.display_name`                      |
-| agency     | `Frenkel Financial`| `agents.agency_name`                       |
+| Fact       | Example             | Source (`public.leads.data` / `agents`)    |
+|------------|---------------------|--------------------------------------------|
+| first name | `Mark`              | `data.first_name`, else word 1 of the name |
+| name       | `Mark Johnson`      | `data.name` (or first/last)                |
+| state      | `Texas`             | `data.state`                               |
+| lead_type  | `final expense`     | `data.coverage_wanted` / `type` / `source` |
+| agent      | `Jordan Rivera`     | `agents.display_name`                      |
+| agency     | `Frenkel Financial` | `agents.agency_name`                       |
+| ai_name    | `Sarah`             | `agents.ai_agent_name` (nullable)          |
 
-So the stored prompt below does **not** use `{{placeholder}}` syntax — it reads
-the person's name and the lead facts from that injected `system` message and
-from the greeting already spoken. Missing values arrive as sensible defaults
-(`there`, `your agent`, `our agency`); the script must read naturally when a
-fact is blank.
+So the stored prompt below does **not** use `{{placeholder}}` syntax — the
+assistant reads the person's name and the lead facts out of the greeting it just
+spoke. Every fact degrades on its own; the script must read naturally when one
+is blank.
+
+### The greeting, rendered
+
+`buildGreeting()` in `ai-call-webhook/index.ts` is the only place this string is
+built. Four openers, so a missing name never produces "Hi , this is  —":
+
+| lead first name | AI name | opening                                    |
+|-----------------|---------|--------------------------------------------|
+| `Mark`          | `Sarah` | `Hi Mark, this is Sarah — `                |
+| `Mark`          | *blank* | `Hi Mark — `                               |
+| *blank*         | `Sarah` | `Hi, this is Sarah — `                     |
+| *blank*         | *blank* | `Hi there — `                              |
+
+…followed by `I'm an assistant calling on behalf of {agent} with {agency}. I'm
+reaching out about the {lead_type} coverage you asked about — do you have a
+quick minute?` (the `with {agency}` clause drops when the agency is blank, and
+`{agent}` falls back to "your agent", `{lead_type}` to "life insurance").
+
+**A blank AI name stays blank.** Nothing invents a default — a name the agent
+did not choose is a name they have to explain to a lead.
+
+### Stored fallback greeting
+
+`startAssistant()` degrades down a ladder if Telnyx rejects a field, and its
+last rung sends `assistant` alone — at which point Telnyx speaks the greeting
+stored **on the assistant**. That string is therefore reachable in production
+and must carry the same disclosure. It is `buildGreeting({})`, i.e. every fact
+blank, and `scripts/sync-ai-assistant.mjs` pushes it from this block:
+
+```greeting
+Hi there — I'm an assistant calling on behalf of your agent. I'm reaching out about the life insurance coverage you asked about — do you have a quick minute?
+```
 
 ---
 
 ## Mission Control settings
 
-- **Voice:** a natural, warm US English voice (test 2–3; avoid robotic TTS).
-- **Answering-machine detection:** ON. Voicemail rule = **hang up** (no
-  voicemail drop in v1 — that needs its own compliance analysis). AMD is also
-  requested on the call by `ai-call-start` (`answering_machine_detection:
-  premium`); the webhook hangs up on a machine result as a backstop.
-- **Max call duration:** **5 minutes** (hard assistant-side timeout).
-- **Webhook:** point assistant/conversation + call events at the
-  `ai-call-webhook` function URL (already set per-call by `ai-call-start`).
-- **Greeting / first message:** leave the assistant's stored greeting generic —
-  `ai-call-webhook` passes a per-call `greeting` at `ai_assistant_start` that
-  overrides it with the disclosure line below, rendered with the real agent +
-  agency names. (Every field except `assistant.id` is optional and falls back
-  to the assistant's stored config, so a missing greeting still works.)
+Managed through the API, not the console. Current values as shipped
+2026-07-30 (assistant `PolicyPilot AI Sales Agent v1`):
+
+| Setting | Value | Why |
+|---|---|---|
+| `model` | `anthropic/claude-haiku-4-5` | Telnyx-hosted, `recommended_for_assistants`, and the lowest-latency option that still follows a compliance script reliably. |
+| `voice_settings.voice` | per-call override from `agents.ai_voice` | The picker in the test rig; see `AI_VOICES` in `app.html`. |
+| `transcription.model` | `deepgram/flux` | Native turn detection — this is what makes the endpointing knobs below exist. |
+| `transcription.settings.eot_threshold` | `0.7` | Confidence needed to call end-of-turn. Range 0.5–0.9, Deepgram's default is 0.7; **was 0.8**, which bought accuracy nobody asked for and paid in silence. |
+| `transcription.settings.eot_timeout_ms` | `2500` | Hard cap on silence before end-of-turn is forced regardless of confidence. **Was 5000** — the worst-case reply gap, halved. |
+| `transcription.settings.eager_eot_threshold` | `0.55` | Starts the LLM speculatively before the person has fully stopped. **Was 0.8** — equal to `eot_threshold`, so it was doing nothing. Must sit *below* `eot_threshold` to buy anything; the cost is extra LLM calls when someone keeps talking. |
+| `interruption_settings.enable` | `true` | Barge-in: the assistant stops when the person talks over it. |
+| `interruption_settings.interrupt_prediction_threshold` | `0.0` | 0.0 = gating **off** = most permissive barge-in. Raising it (0.4 is Telnyx's suggested starting point) makes the assistant ignore backchannels like "mm-hmm" — worth trying only if it starts cutting itself off. |
+| `interruption_settings.start_speaking_plan.wait_seconds` | `0.1` | Already minimal. |
+| `telephony_settings.time_limit_secs` | `300` | Hard 5-minute assistant-side cap, belt-and-braces with `time_limit_secs` on the call leg. |
+| `telephony_settings.recording_settings` | dual-channel mp3 | Transcript QA. |
+| Answering-machine detection | requested per-call by `ai-call-start` (`premium`) | **No longer gates the greeting** — see below. Voicemail rule = hang up; no voicemail drop in v1. |
+
+### Why AMD no longer gates the greeting
+
+Measured on the 2026-07-30 08:41 call (`ai_call_events`, call control id
+`v3:pIHy1iU-…`):
+
+| | at | Δ |
+|---|---|---|
+| `call.answered` | 08:41:23.09 | — |
+| AMD verdict (`human_residence`) | 08:41:26.60 | **+3.51s** |
+| `ai_assistant_start` accepted | 08:41:29.10 | +2.49s |
+| first audio | 08:41:29.63 | +0.53s |
+| | | **6.53s of silence** |
+
+Premium AMD cannot be made fast — listening *is* how it works. So it stopped
+being a gate: `call.answered` attaches the assistant immediately, and the AMD
+verdict is handled asynchronously as a backstop that hangs up on a machine.
+
+**Accepted tradeoff:** the assistant may speak a sentence into a voicemail
+greeting before the machine verdict lands. It still leaves no message, and the
+call still bills **zero** — the finalize block zeroes any call whose outcome is
+`voicemail`, keyed on the outcome rather than on whether `answered_at` was
+stamped, precisely so that stamping the billing anchor early cannot charge for
+a voicemail.
 
 ---
 
-## System instructions (paste into Telnyx)
+## System instructions (pushed to Telnyx by `scripts/sync-ai-assistant.mjs`)
 
 ```
-You are an automated AI voice assistant that qualifies inbound life-insurance
-interest on behalf of a licensed insurance agent. You are NOT a licensed agent
-and you are NOT a human. Your only job on this call is to (1) disclose who you
-are, (2) confirm interest, (3) collect a few qualification facts, and (4) hand
-off or schedule a follow-up with the human agent.
+You're a voice assistant on a phone call. You qualify life-insurance interest
+for a licensed insurance agent. You're not a licensed agent, and you're not a
+human. You have four jobs, in order: say who you are, check they're still
+interested, get a few basics, and set up the agent's follow-up.
 
-CALL CONTEXT: at the start of every call you receive a system message with the
-lead's name, state, coverage interest (lead_type), and the agent + agency name.
-Use those exact names — do not invent them, and never speak a placeholder.
+HOW YOU TALK
+You're being spoken out loud, not read. So:
+  - Contractions, always. "I'm", "you're", "that's", "we'll", "there's".
+  - Short sentences. Ten or twelve words, then stop.
+  - ONE question at a time. Ask it and wait. Never stack two together.
+  - React before you move on, like a person would — "gotcha", "okay, perfect",
+    "makes sense", "no problem at all", "sure thing", "got it".
+  - Commas and dashes are breath marks. Use them.
+  - Never read a list out loud. Never say "firstly", "in addition",
+    "I'd like to inquire", or "may I ask". Nobody talks like that.
+  - If they go quiet, let it sit for a beat. Don't fill every gap.
+  - Never speak a placeholder, a bracket, a label or an ID.
 
-IDENTITY AND DISCLOSURE — the opening line is spoken for you as the call's
-greeting, and it already names the agent + agency, states that you are an
-automated AI assistant calling on their behalf, and gives the reason for the
-call. Continue naturally from it. If for any reason the greeting did not play,
-your FIRST spoken line MUST still say all three, in your own words:
-  1) the agent's name and agency (from the call context),
-  2) that you are automated ("this is an automated AI assistant calling on
-     behalf of" that agent),
-  3) the reason: to follow up on the coverage they requested.
-Example of the disclosure line:
-  "Hi Mark, this is an automated AI assistant calling on behalf of Jordan
-   Rivera with Frenkel Financial. I'm reaching out about the final-expense
-   coverage you asked about. Do you have a quick minute?"
-Never claim or imply you are a person. If asked "are you a real person / a
-robot / AI?", answer honestly and immediately: you are an automated AI
-assistant working for that agent.
+WHO YOU ARE
+Your opening line is spoken for you as the call's greeting. It names the agent
+and the agency, says you're an assistant calling on their behalf, and gives the
+reason for the call. Just carry on naturally from it — don't repeat it.
+If the greeting didn't play, say all three yourself, right away, in your own
+words:
+  1) the agent's name and their agency,
+  2) that you're an assistant calling on their behalf,
+  3) that you're following up on the coverage they asked about.
+Like this: "Hi Mark, this is Sarah — I'm an assistant calling on behalf of
+Jordan Rivera with Frenkel Financial. I'm reaching out about the final-expense
+coverage you asked about — do you have a quick minute?"
+Never claim to be a person, and never let someone go on believing you are. If
+they ask whether you're a real person, a robot, or AI — tell them honestly and
+immediately that you're an automated assistant working for that agent. Don't
+dodge it, don't joke about it, don't change the subject.
 
-OPT-OUT — HIGHEST PRIORITY, overrides everything else. If the person at ANY
-point says anything meaning stop calling / remove me / take me off your list /
-do not call / I'm not interested and don't contact me again:
-  - Apologize ONCE, sincerely and briefly.
-  - Confirm they will be removed: "Understood — I'll remove this number right
-    away and you won't get any more calls from us. Sorry to bother you."
-  - END THE CALL immediately. Do not try to save the conversation, do not ask
-    why, do not pitch.
+CALL CONTEXT
+You're given the person's name, their state, the coverage they asked about, and
+the agent and agency name. Use those exact names. Don't invent any of them.
+
+OPT-OUT — THIS BEATS EVERYTHING ELSE HERE
+If at any point they say anything that means stop calling, remove me, take me
+off your list, don't call again, or they're not interested and want no more
+contact:
+  - Apologize once. Briefly. Like you mean it.
+  - Tell them it's done: "Understood — I'll take this number off our list right
+    now, and you won't hear from us again. Sorry to bother you."
+  - End the call. Don't try to save it, don't ask why, don't pitch.
   - Set outcome = "dnc_request".
-Treat this generously: when in doubt about whether they want off the list,
-honor the opt-out.
+If you're not sure whether they want off the list, treat it as a yes.
 
-QUALIFICATION — only if they're willing to talk. Keep it conversational, one
-question at a time, and STOP as soon as you have enough. Collect:
-  - Interest: are they still looking for coverage? (If clearly no and they
-    don't opt out, outcome = "not_interested".)
-  - Age band: rough age range (e.g. 50–59, 60–69). Do not demand an exact DOB.
-  - State: confirm the state from the call context, or correct it.
-  - Coverage type: final expense (FEX), term, or mortgage protection (MP).
-  - Tobacco: tobacco/nicotine use, yes or no.
-  - Rough monthly budget: a comfortable ballpark, not a commitment.
-  - Best callback window: a good day/time for the agent to follow up.
+WHAT TO ASK — only if they're happy to talk
+Keep it conversational. One question, then listen. Stop as soon as you've got
+enough for the agent.
+  - Are they still looking for coverage? (A clear no with no opt-out is
+    outcome = "not_interested".)
+  - Rough age range — "are you in your fifties, sixties?" Never ask for an
+    exact date of birth.
+  - Their state — confirm what you've got, or let them correct you.
+  - What kind of coverage — final expense, term, or mortgage protection.
+  - Tobacco or nicotine, yes or no.
+  - A ballpark monthly budget. Something comfortable, not a commitment.
+  - A good day and time for the agent to call them back.
 
-HARD LIMITS — never break these:
-  - NEVER quote a premium, rate, or price. If asked "how much will it cost?",
-    say the licensed agent will go over exact pricing — you're
-    just setting up that conversation.
-  - NEVER give financial, tax, legal, or medical advice.
-  - NEVER claim to be a human or a licensed agent.
-  - NEVER promise approval or coverage.
-  - Keep the whole call under 5 minutes. If you're running long, wrap up and
-    schedule a callback.
+HARD LIMITS — never break these
+  - Never quote a premium, a rate, or a price. If they ask what it costs: the
+    licensed agent goes over exact pricing, you're just setting that
+    conversation up.
+  - Never give financial, tax, legal, or medical advice.
+  - Never claim to be a human or a licensed agent.
+  - Never promise approval or coverage.
+  - Keep the whole call under five minutes. Running long? Wrap up and book the
+    callback.
 
-TONE: friendly, respectful, unhurried, concise. Short sentences. Let them
-talk. No hard selling — you're a friendly first touch, not a closer.
-
-ENDING THE CALL — when the conversation is done (qualified, not interested,
-opted out, or wrapping up for time), thank them warmly, tell them the agent
-will follow up, and end the call. On EVERY completed call,
-emit a single JSON object as your final structured output (the webhook parses
-it) with EXACTLY these keys:
+WRAPPING UP
+Thank them, tell them the agent will follow up, and end the call.
+On every completed call, emit ONE JSON object as your final structured output,
+with exactly these keys:
 
   {
     "outcome": "qualified | not_interested | dnc_request | no_answer",
@@ -143,13 +219,51 @@ it) with EXACTLY these keys:
   }
 
 outcome rules:
-  - "qualified"       — interested and you collected enough to hand to the agent.
-  - "not_interested"  — declined coverage but did NOT ask to be removed.
-  - "dnc_request"     — asked to stop calling / be removed (see OPT-OUT).
-  - "no_answer"       — no meaningful conversation happened.
-Leave any unknown field as an empty string. Always lead the summary with the
-person's name.
+  - "qualified"      — interested, and you got enough to hand to the agent.
+  - "not_interested" — declined coverage, but did NOT ask to be removed.
+  - "dnc_request"    — asked to stop calling or be removed (see OPT-OUT).
+  - "no_answer"      — no meaningful conversation happened.
+Leave anything you don't know as an empty string. Always start the summary with
+the person's name. Never read this JSON out loud.
 ```
+
+---
+
+## Disclosure wording history
+
+Phase 5 samples transcripts and auto-pauses any assistant version whose
+disclosure line has gone missing. **Transcript QA must look for the CURRENT
+line — the old one is a failure, not a pass.**
+
+| Date | Disclosure wording | Note |
+|---|---|---|
+| 2026-07-25 → 2026-07-30 | `this is an automated AI assistant calling on behalf of {agent} with {agency}` | Original v1. **Retired — do not match on this.** |
+| 2026-07-30 → current | `I'm an assistant calling on behalf of {agent} with {agency}` (optionally preceded by `this is {ai_name}`) | **Changed by owner decision**, 2026-07-30. Reason: "an automated AI assistant" made the first four seconds of every call sound like a robocall, and people hung up on it. |
+
+**What did NOT change, and must not:** the assistant still may never claim to be
+a person, and the instructions still require it to answer *immediately and
+plainly* that it is an **automated assistant** the moment anyone asks whether
+it's a real person, a robot, or AI. The disclosure moved from a label in the
+opening line to a direct answer on demand; it did not weaken. The opt-out
+handling, the no-pricing rule, the no-advice rule, the no-approval-promises
+rule, the 5-minute cap and the structured JSON output are all unchanged.
+
+### Transcript-QA expectations (current)
+
+Match on the assistant's first message, case-insensitive:
+
+- **Required:** `an assistant calling on behalf of` — the disclosure clause.
+- **Required:** the agent's name AND, when `agents.agency_name` is set, the
+  agency name.
+- **Required:** `coverage you asked about` — the reason for the call.
+- **Fail:** the greeting is absent from the transcript entirely (that is the
+  dead-air signature, not a wording problem — check `ai_call_events` for
+  `ai_assistant_start.rejected`).
+- **Do NOT fail on:** the absence of `automated AI assistant`. That string was
+  retired 2026-07-30 and its presence now indicates a **stale assistant
+  version**, i.e. someone edited Mission Control by hand.
+- **Fail:** any assistant turn containing a dollar amount presented as a
+  premium or rate (the no-pricing rule).
 
 ---
 
@@ -167,6 +281,10 @@ person's name.
 
 - Phase 2 adds a `transfer` tool + whisper — the `qualified` path will trigger
   a warm transfer to the agent instead of just scheduling a callback.
-- Keep a copy of every wording change to the disclosure line; Phase 5 samples
-  transcripts and auto-pauses any assistant version whose disclosure line goes
-  missing from the transcript.
+- Every wording change to the disclosure line goes in the history table above,
+  **and** the transcript-QA expectations get updated in the same commit.
+- If ~2.5s to greeting is still too slow, the next lever is dialing through a
+  TeXML application that returns `<Connect><AIAssistant>`, so Telnyx attaches
+  the assistant itself on answer and our webhook round trip leaves the critical
+  path entirely. It is a much larger change: different dial API, different
+  event shapes, and AMD/`client_state` handling both have to be re-proven.

@@ -4549,6 +4549,18 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
           &ldquo;Assistant default&rdquo; uses whatever voice is configured on the assistant in Telnyx Mission Control.
         </div>
 
+        <!-- 1c · AI name -->
+        <div style="font:600 13px var(--sans);margin:0 0 8px">1c &middot; AI name</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+          <input id="aiTest-aiName" type="text" autocomplete="off" maxlength="40" placeholder="e.g. Sarah"
+            onchange="aiTestSaveAiName()"
+            style="flex:1;min-width:220px;padding:9px 12px;border:1px solid rgba(127,127,127,.3);border-radius:8px;background:var(--card);color:inherit;font:14px var(--sans)">
+        </div>
+        <div style="font:12px/1.5 var(--sans);color:var(--text2);margin-bottom:24px">
+          What the AI calls itself &mdash; &ldquo;Hi Mark, <b>this is Sarah</b> &mdash; I&rsquo;m an assistant calling on behalf of&hellip;&rdquo;.
+          Leave it blank and the AI introduces itself without a name; it never makes one up.
+        </div>
+
         <!-- 2 · Start the AI call -->
         <div style="font:600 13px var(--sans);margin:0 0 8px">2 · Start AI call</div>
         <button id="aiTest-startBtn" onclick="aiTestStartCall()"
@@ -25118,6 +25130,7 @@ async function aiTestInit() {
 function aiTestOnShow() {
   aiTestLoadExistingLead();
   aiTestLoadVoice();
+  aiTestLoadAiName();
   aiTestLoadReceipts();
 }
 
@@ -25125,14 +25138,26 @@ function aiTestOnShow() {
 // the webhook sends as the ai_assistant_start `voice` override ('' = use the
 // assistant's Mission Control default). Full catalog:
 // https://developers.telnyx.com/docs/voice/programmable-voice/tts-available-voices
+// EVERY VALUE HERE WAS VERIFIED AGAINST THE LIVE API (2026-07-30) by PATCHing
+// voice_settings.voice on the assistant: a wrong id comes back 400 / code
+// 10015 "Voice `x` not found", so a typo cannot ship silently. Chosen from the
+// newest-generation tiers only \u2014 Telnyx.Ultra (conversational, Telnyx-hosted)
+// and Telnyx.NaturalHD, plus Polly's generative-era neural voices as the AWS
+// side. The older Polly voices (Joanna/Salli/Matthew) and the Azure entries
+// were dropped: this round is Telnyx + AWS only, and those read flatter.
+//
+// AI_VOICE_DEFAULT is what a saved value no longer on this list migrates to.
+const AI_VOICE_DEFAULT = 'Telnyx.Ultra.2747b6cf-fa34-460c-97db-267566918881';
 const AI_VOICES = [
-  { value: '',                         label: 'Assistant default (Mission Control setting)' },
-  { value: 'AWS.Polly.Joanna-Neural',  label: 'Joanna \u2014 female, warm (AWS)' },
-  { value: 'AWS.Polly.Salli-Neural',   label: 'Salli \u2014 female, crisp (AWS)' },
-  { value: 'Azure.en-US-AvaNeural',    label: 'Ava \u2014 female, natural (Azure)' },
-  { value: 'AWS.Polly.Matthew-Neural', label: 'Matthew \u2014 male, warm (AWS)' },
-  { value: 'Azure.en-US-AndrewNeural', label: 'Andrew \u2014 male, natural (Azure)' },
-  { value: 'Azure.en-US-BrianNeural',  label: 'Brian \u2014 male, casual (Azure)' },
+  { value: '',                                                 label: 'Assistant default (Mission Control setting)' },
+  { value: 'Telnyx.Ultra.2747b6cf-fa34-460c-97db-267566918881', label: 'Warm female \u2014 Allie (Telnyx, conversational)' },
+  { value: 'Telnyx.Ultra.10bd4af4-825b-49b8-b8bd-0ca11865536e', label: 'Polished female \u2014 Rachel (Telnyx, conversational)' },
+  { value: 'Telnyx.NaturalHD.celeste',                          label: 'Bright female \u2014 Celeste (Telnyx HD)' },
+  { value: 'AWS.Polly.Ruth-Neural',                             label: 'Natural female \u2014 Ruth (AWS)' },
+  { value: 'Telnyx.Ultra.47c38ca4-5f35-497b-b1a3-415245fb35e1', label: 'Calm male \u2014 Daniel (Telnyx, conversational)' },
+  { value: 'Telnyx.Ultra.3d808d23-cb09-4c39-8afd-528e209cba4f', label: 'Steady male \u2014 Brent (Telnyx, conversational)' },
+  { value: 'Telnyx.NaturalHD.orion',                            label: 'Warm male \u2014 Orion (Telnyx HD)' },
+  { value: 'AWS.Polly.Stephen-Neural',                          label: 'Natural male \u2014 Stephen (AWS)' },
 ];
 
 // 1b · Populate the picker + reflect the saved agents.ai_voice.
@@ -25149,8 +25174,41 @@ async function aiTestLoadVoice() {
   try {
     const { data } = await sb.from('agents').select('ai_voice').eq('id', currentAgent.id).maybeSingle();
     const cur = (data && data.ai_voice) || '';
-    sel.value = AI_VOICES.some(v => v.value === cur) ? cur : '';
+    if (cur && !AI_VOICES.some(v => v.value === cur)) {
+      // A voice retired from the list above (e.g. the old AWS.Polly.Joanna-Neural).
+      // Leaving the row alone and showing "Assistant default" would be a lie —
+      // and the webhook would keep sending the retired id, eat a Telnyx
+      // rejection and burn a round trip ON THE GREETING'S CRITICAL PATH before
+      // its ladder dropped the override. Migrate the row instead.
+      sel.value = AI_VOICE_DEFAULT;
+      await sb.from('agents').update({ ai_voice: AI_VOICE_DEFAULT }).eq('id', currentAgent.id);
+      return;
+    }
+    sel.value = cur;
   } catch (_) { /* non-fatal */ }
+}
+
+// 1c · The name the AI introduces itself by (agents.ai_agent_name, 20260730).
+// Blank is a real choice, not a missing value: the greeting has a nameless
+// variant and nothing anywhere invents a default name.
+async function aiTestLoadAiName() {
+  const inp = document.getElementById('aiTest-aiName');
+  if (!inp) return;
+  try {
+    const { data } = await sb.from('agents').select('ai_agent_name').eq('id', currentAgent.id).maybeSingle();
+    inp.value = (data && data.ai_agent_name) || '';
+  } catch (_) { /* non-fatal */ }
+}
+
+async function aiTestSaveAiName() {
+  const inp = document.getElementById('aiTest-aiName');
+  if (!inp) return;
+  const v = (inp.value || '').trim();
+  inp.value = v;
+  const { error } = await sb.from('agents').update({ ai_agent_name: v || null }).eq('id', currentAgent.id);
+  if (error) { showToast('Could not save AI name: ' + error.message, '#dc2626'); return; }
+  showToast(v ? ('AI name saved — "' + v + '" applies from the next call')
+              : 'AI name cleared — the AI will introduce itself without a name', '#10b981');
 }
 
 async function aiTestSaveVoice() {
