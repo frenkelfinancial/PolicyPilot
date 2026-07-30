@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import {
   MAX_DAYS_AHEAD,
   buildConfirmSms,
+  normalizeSpokenNumbers,
   parseAppointmentTime,
   parseTimeOfDay,
   speakTime,
@@ -84,6 +85,68 @@ test("parseTimeOfDay: vague periods resolve to a default and are flagged", () =>
 test("parseTimeOfDay: no time at all is null, not a guess", () => {
   assert.equal(parseTimeOfDay("sometime next week"), null);
   assert.equal(parseTimeOfDay("whenever suits you"), null);
+});
+
+// ---- SPOKEN NUMBERS: the live 9am-for-10am regression --------------------
+//
+// On the first live booking the caller said "tomorrow at ten". The assistant
+// passed "tomorrow at ten in the morning", no digit matched, and the parser
+// fell through to the vague-period default and booked NINE. It then read nine
+// back to them, twice, and a retry with "tomorrow at ten AM" failed to parse
+// at all. Both phrases are pinned below, verbatim.
+
+test("REGRESSION: 'ten in the morning' is 10am, not the 9am morning default", () => {
+  assert.deepEqual(parseTimeOfDay("tomorrow at ten in the morning"), { hour: 10, minute: 0, approximate: false });
+});
+
+test("REGRESSION: 'ten AM' parses instead of failing outright", () => {
+  assert.deepEqual(parseTimeOfDay("tomorrow at ten AM"), { hour: 10, minute: 0, approximate: false });
+});
+
+test("parseTimeOfDay: spoken hours obey the same rules as digits", () => {
+  assert.deepEqual(parseTimeOfDay("at two"), { hour: 14, minute: 0, approximate: true });      // business-hours rule
+  assert.deepEqual(parseTimeOfDay("at seven in the evening"), { hour: 19, minute: 0, approximate: false });
+  assert.deepEqual(parseTimeOfDay("nine o'clock in the morning"), { hour: 9, minute: 0, approximate: false });
+  assert.deepEqual(parseTimeOfDay("two thirty in the afternoon"), { hour: 14, minute: 30, approximate: false });
+});
+
+test("parseTimeOfDay: quarter/half past and to", () => {
+  assert.deepEqual(parseTimeOfDay("half past six in the evening"), { hour: 18, minute: 30, approximate: false });
+  assert.deepEqual(parseTimeOfDay("quarter past ten in the morning"), { hour: 10, minute: 15, approximate: false });
+  assert.deepEqual(parseTimeOfDay("quarter to five in the afternoon"), { hour: 16, minute: 45, approximate: false });
+});
+
+test("normalizeSpokenNumbers leaves ordinary words alone", () => {
+  // Word-boundaried, and only hour words (1-12) are ever rewritten — so
+  // "someone" and "phone" keep their letters, and "fifteen thousand" stays
+  // prose rather than becoming a time. Narrow on purpose.
+  assert.equal(
+    normalizeSpokenNumbers("someone on the phone about fifteen thousand"),
+    "someone on the phone about fifteen thousand",
+  );
+  assert.equal(parseTimeOfDay("someone on the phone about fifteen thousand"), null);
+});
+
+test("a date is never read as an hour", () => {
+  // "August 5 in the morning" must not book five o'clock.
+  assert.deepEqual(parseTimeOfDay("August 5 in the morning"), { hour: 9, minute: 0, approximate: true });
+  assert.deepEqual(parseTimeOfDay("the 5th of August at 3pm"), { hour: 15, minute: 0, approximate: false });
+  assert.deepEqual(parseTimeOfDay("8/5 at 3pm"), { hour: 15, minute: 0, approximate: false });
+});
+
+test("REGRESSION: a spoken hour with no anchor word still wins over the period default", () => {
+  // "eleven o'clock in the morning" normalises to "11 in the morning" — no
+  // "at". Requiring an anchor sent this to the vague-period branch and booked
+  // NINE, which is the same failure the caller hit with "ten".
+  assert.deepEqual(parseTimeOfDay("eleven o'clock in the morning"), { hour: 11, minute: 0, approximate: false });
+  assert.deepEqual(parseTimeOfDay("nine o'clock in the morning"), { hour: 9, minute: 0, approximate: false });
+});
+
+test("REGRESSION end to end: 'tomorrow at ten in the morning' books 10am Central", () => {
+  const r = ok(parseAppointmentTime("tomorrow at ten in the morning", CHI, NOW));
+  assert.equal(r.at.toISOString(), "2026-07-31T15:00:00.000Z"); // 10am CDT, not 9
+  assert.equal(r.spoken, "Friday, July 31 at 10:00 am");
+  assert.equal(r.approximate, false, "an explicit hour must not ask the caller to re-confirm");
 });
 
 // ---- parseAppointmentTime: the happy paths ------------------------------

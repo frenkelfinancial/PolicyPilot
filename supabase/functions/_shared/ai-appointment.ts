@@ -157,6 +157,76 @@ export function zoneLabel(instant: Date, timeZone: string): string {
 interface TimeOfDay { hour: number; minute: number; approximate: boolean }
 
 /**
+ * Spelled-out numbers, because PEOPLE SAY WORDS and a speech-to-text engine
+ * writes down what they said.
+ *
+ * This is not a nicety. On the first live booking the caller said "tomorrow at
+ * ten", the assistant passed `"tomorrow at ten in the morning"`, no digit
+ * matched anything below, and the parser fell through to the vague-period
+ * default — booking **9am for a caller who said ten**. It then said nine back
+ * to them, twice. A second attempt with `"tomorrow at ten AM"` failed to parse
+ * at all. Both are in ai_call_events (2026-07-30 20:45–20:46).
+ *
+ * So word-numbers are normalised to digits BEFORE any of the digit patterns
+ * run, which means every rule below — the meridiem, the business-hours
+ * default, the period disambiguation — applies to "ten" exactly as it applies
+ * to "10", with no second code path to keep in step.
+ */
+const NUMBER_WORDS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+  seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+  thirteen: 13, fourteen: 14, fifteen: 15, twenty: 20, thirty: 30,
+  forty: 40, fifty: 50,
+};
+
+/**
+ * Rewrite spoken numbers into digits: "ten thirty" -> "10:30",
+ * "quarter past ten" -> "10:15", "half past six" -> "6:30", "ten" -> "10".
+ *
+ * Deliberately narrow. It only ever rewrites a standalone number WORD, so
+ * "someone", "phone" and "fifteen thousand" are untouched, and it runs on the
+ * `datetime_text` argument alone — never on notes or a summary.
+ */
+export function normalizeSpokenNumbers(text: string): string {
+  let t = ` ${text.toLowerCase()} `;
+
+  const hourWords = Object.keys(NUMBER_WORDS).filter((w) => NUMBER_WORDS[w] <= 12).join("|");
+  const minuteWords = "fifteen|thirty|forty ?five|forty-five|twenty|ten|five|oh five|o'? ?clock";
+
+  // "quarter past ten" / "half past six" / "quarter to five"
+  t = t.replace(new RegExp(`\\b(quarter|half)\\s+past\\s+(${hourWords}|\\d{1,2})\\b`, "g"),
+    (_m, frac, hr) => {
+      const h = /^\d+$/.test(hr) ? Number(hr) : NUMBER_WORDS[hr];
+      return ` ${h}:${frac === "half" ? "30" : "15"} `;
+    });
+  t = t.replace(new RegExp(`\\b(quarter|half)\\s+to\\s+(${hourWords}|\\d{1,2})\\b`, "g"),
+    (_m, frac, hr) => {
+      const h = /^\d+$/.test(hr) ? Number(hr) : NUMBER_WORDS[hr];
+      const prev = h === 1 ? 12 : h - 1;
+      return ` ${prev}:${frac === "half" ? "30" : "45"} `;
+    });
+
+  // "ten o'clock" -> "10"
+  t = t.replace(new RegExp(`\\b(${hourWords})\\s+o'? ?clock\\b`, "g"),
+    (_m, hr) => ` ${NUMBER_WORDS[hr]} `);
+  t = t.replace(/\b(\d{1,2})\s+o'? ?clock\b/g, " $1 ");
+
+  // "ten thirty" / "ten forty five" -> "10:30" / "10:45"
+  t = t.replace(new RegExp(`\\b(${hourWords})\\s+(${minuteWords})\\b`, "g"), (m, hr, min) => {
+    const h = NUMBER_WORDS[hr];
+    const key = String(min).replace(/-/g, " ").replace(/\s+/g, " ").trim();
+    const mins = key === "forty five" ? 45 : (NUMBER_WORDS[key] ?? null);
+    if (mins == null || mins > 59) return m;
+    return ` ${h}:${String(mins).padStart(2, "0")} `;
+  });
+
+  // A bare hour word last, so the compound forms above win.
+  t = t.replace(new RegExp(`\\b(${hourWords})\\b`, "g"), (_m, hr) => ` ${NUMBER_WORDS[hr]} `);
+
+  return t.replace(/\s+/g, " ").trim();
+}
+
+/**
  * Find a time of day in the phrase.
  *
  * The bare-hour rule ("at two" with no am/pm): 1-6 -> PM, 7-11 -> AM, 12 ->
@@ -164,25 +234,49 @@ interface TimeOfDay { hour: number; minute: number; approximate: boolean }
  * morning" is a typo, not a booking. Any inference sets `approximate`.
  */
 export function parseTimeOfDay(text: string): TimeOfDay | null {
-  const t = text.toLowerCase();
+  // Words to digits FIRST, so every rule below sees "10" whether the caller
+  // said "ten" or "10". See normalizeSpokenNumbers for why this is load-bearing.
+  const t = normalizeSpokenNumbers(text);
 
-  // 1. h:mm with an explicit meridiem, or 24-hour.
+  // "in the morning" / "this afternoon" / "tonight" is a MERIDIEM the caller
+  // actually said, and it beats any inference. It is resolved once, here, and
+  // applied by every branch below — the h:mm branch used to skip it, which made
+  // "two thirty in the afternoon" come out as an approximate guess rather than
+  // the unambiguous 2:30pm it plainly is.
+  const spokenAm = /\bmorning\b/.test(t);
+  const spokenPm = /\b(afternoon|evening|tonight)\b/.test(t);
+
+  /** Apply the business-hours rule to an hour with no meridiem of any kind. */
+  const infer = (hour: number, minute: number): TimeOfDay | null => {
+    if (hour > 23) return null;
+    if (hour >= 1 && hour <= 6) return { hour: hour + 12, minute, approximate: true }; // 1-6 -> PM
+    if (hour === 12) return { hour: 12, minute, approximate: true };
+    if (hour > 12) return { hour, minute, approximate: false };                        // 24-hour, unambiguous
+    return { hour, minute, approximate: true };                                        // 7-11 -> AM
+  };
+
+  /** Apply a spoken period ("in the morning") to a 12-hour clock reading. */
+  const applySpoken = (hour: number, minute: number): TimeOfDay | null => {
+    if (spokenAm && hour <= 12) return { hour: hour === 12 ? 0 : hour, minute, approximate: false };
+    if (spokenPm && hour < 12)  return { hour: hour + 12, minute, approximate: false };
+    if (spokenPm && hour === 12) return { hour: 12, minute, approximate: false };
+    return null;
+  };
+
+  // 1. h:mm, with an explicit meridiem, a spoken period, or neither.
   const hm = t.match(/\b(\d{1,2})[:.](\d{2})\s*(a\.?m\.?|p\.?m\.?)?/);
   if (hm) {
     let hour = Number(hm[1]);
     const minute = Number(hm[2]);
     if (minute > 59) return null;
     const mer = hm[3]?.replace(/\./g, "");
-    if (mer === "pm" && hour < 12) hour += 12;
-    else if (mer === "am" && hour === 12) hour = 0;
-    else if (!mer) {
+    if (mer) {
+      if (mer === "pm" && hour < 12) hour += 12;
+      else if (mer === "am" && hour === 12) hour = 0;
       if (hour > 23) return null;
-      if (hour >= 1 && hour <= 6) return { hour: hour + 12, minute, approximate: true };
-      if (hour === 12) return { hour: 12, minute, approximate: true };
-      return { hour, minute, approximate: hour <= 11 };
+      return { hour, minute, approximate: false };
     }
-    if (hour > 23) return null;
-    return { hour, minute, approximate: false };
+    return applySpoken(hour, minute) ?? infer(hour, minute);
   }
 
   // 2. A bare hour with a meridiem: "2pm", "at 10 a.m."
@@ -196,21 +290,30 @@ export function parseTimeOfDay(text: string): TimeOfDay | null {
     return { hour, minute: 0, approximate: false };
   }
 
-  // 3. A named period. Checked before the bare hour so "tomorrow morning at 10"
-  //    still prefers the 10 (handled below by looking for a bare hour first).
-  const bare = t.match(/\b(?:at|around|about)\s+(\d{1,2})\b(?!\s*[:.]\d)/);
+  // 3. A standalone hour.
+  //
+  // DATE NUMBERS ARE REMOVED FIRST. Without that, "August 5 in the morning"
+  // reads the 5 as five o'clock. And the anchor word ("at", "around") cannot be
+  // required: "nine o'clock in the morning" normalises to "9 in the morning",
+  // which has no anchor at all — requiring one sent it to the vague-period
+  // branch, where "eleven o'clock in the morning" would have booked NINE.
+  const monthNames = Object.keys(MONTHS).join("|");
+  const withoutDates = t
+    .replace(new RegExp(`\\b(?:${monthNames})\\b\\.?\\s*\\d{1,2}(?:st|nd|rd|th)?`, "g"), " ")
+    .replace(new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:of\\s+)?(?:${monthNames})\\b`, "g"), " ")
+    .replace(/\b\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?\b/g, " ")
+    .replace(/\b\d{1,2}(?:st|nd|rd|th)\b/g, " ");
+
+  const anchored = withoutDates.match(/\b(?:at|around|about)\s+(\d{1,2})\b(?!\s*[:.]\d)/);
+  const bare = anchored ?? withoutDates.match(/\b(\d{1,2})\b(?!\s*[:.]\d)/);
   if (bare) {
     const hour = Number(bare[1]);
     if (hour > 23) return null;
-    // "at 10 in the morning" / "at 7 tonight" — the phrase disambiguates it.
-    if (/\b(in the )?morning\b/.test(t) && hour <= 12) return { hour: hour === 12 ? 0 : hour, minute: 0, approximate: false };
-    if (/\b(in the )?(afternoon|evening)\b|\btonight\b/.test(t) && hour < 12) return { hour: hour + 12, minute: 0, approximate: false };
-    if (hour >= 1 && hour <= 6) return { hour: hour + 12, minute: 0, approximate: true };
-    if (hour === 12) return { hour: 12, minute: 0, approximate: true };
-    if (hour > 12) return { hour, minute: 0, approximate: false };
-    return { hour, minute: 0, approximate: true };
+    return applySpoken(hour, 0) ?? infer(hour, 0);
   }
 
+  // 4. A named period on its own ("Tuesday morning"). A DEFAULT, always
+  //    flagged approximate so the assistant confirms it out loud.
   for (const [word, hour] of Object.entries(PERIODS)) {
     if (new RegExp(`\\b${word}\\b`).test(t)) {
       return { hour, minute: 0, approximate: !(word === "noon" || word === "midnight") };
@@ -238,7 +341,9 @@ export function parseAppointmentTime(
   if (!tz) return { ok: false, reason: "No usable timezone for this lead." };
 
   const raw = text.trim();
-  const t = raw.toLowerCase().replace(/\s+/g, " ");
+  // Same normalisation the time-of-day parser uses, so a spoken date like
+  // "the fifth of August" is read the same way as "the 5th of August".
+  const t = normalizeSpokenNumbers(raw);
   const today = zonedParts(now, tz);
 
   const tod = parseTimeOfDay(t);

@@ -164,8 +164,12 @@ serve(async (req) => {
     phone_e164: string; from_e164: string | null; call_control_id: string | null;
     status: string | null; outcome: string | null;
     transfer_status: string | null; qualification: Record<string, unknown> | null;
+    appointment_id: string | null;
   };
-  const SELECT = "id, agent_id, lead_id, phone_e164, from_e164, call_control_id, status, outcome, transfer_status, qualification";
+  // Kept as ONE string literal, not a concatenation: the supabase-js types
+  // parse the select list at compile time, and a computed string collapses the
+  // row type to GenericStringError.
+  const SELECT = "id, agent_id, lead_id, phone_e164, from_e164, call_control_id, status, outcome, transfer_status, qualification, appointment_id";
 
   async function resolveCall(): Promise<AiCallRow | null> {
     if (aiCallIdIn) {
@@ -275,8 +279,13 @@ serve(async (req) => {
         return toolJson({
           ok: true,
           status: "unavailable",
-          message: "The agent is not available for a live transfer right now. " +
-            "Apologize briefly, then offer two or three specific times and book an appointment " +
+          // "Do not invent a reason" is load-bearing. Told only that the agent
+          // was unavailable, the assistant told a live caller he was "with
+          // another client" — a specific claim about a real person's
+          // whereabouts that nothing in this system knows to be true.
+          message: "The agent cannot take a live transfer right now. Apologize briefly and move on. " +
+            "Do NOT state or invent a reason — not 'with another client', not 'in a meeting', not " +
+            "'on another call'. You do not know why. Then offer two or three specific times and book " +
             "with the book_appointment tool.",
         });
       }
@@ -299,32 +308,69 @@ serve(async (req) => {
         lead_name:   leadName,
       }));
 
-      const dialRes = await fetch("https://api.telnyx.com/v2/calls", {
-        method: "POST",
-        headers: telnyxHeaders,
-        body: JSON.stringify({
-          connection_id: TELNYX_CONN_ID,
-          to:   transferTo,
-          from: call.from_e164 || asStr(agent?.signalwire_caller_id),
-          // So the agent's screen says who it is about, not just our number.
-          from_display_name: (leadName || "AI transfer").slice(0, 128),
-          answering_machine_detection: "premium",
-          timeout_secs:    TRANSFER_RING_SECS,
-          time_limit_secs: LEG_TIME_LIMIT_SECS,
-          webhook_url:        `${SUPABASE_URL}/functions/v1/ai-call-webhook`,
-          webhook_url_method: "POST",
-          client_state:       agentState,
-        }),
-      });
+      const dialBody: Record<string, unknown> = {
+        connection_id: TELNYX_CONN_ID,
+        to:   transferTo,
+        from: call.from_e164 || asStr(agent?.signalwire_caller_id),
+        answering_machine_detection: "premium",
+        timeout_secs:    TRANSFER_RING_SECS,
+        time_limit_secs: LEG_TIME_LIMIT_SECS,
+        webhook_url:        `${SUPABASE_URL}/functions/v1/ai-call-webhook`,
+        webhook_url_method: "POST",
+        client_state:       agentState,
+      };
 
-      if (!dialRes.ok) {
-        const detail = await dialRes.text().catch(() => "");
+      // ---- The caller-ID name is DECORATION and is treated as such ---------
+      //
+      // Showing the lead's name on the agent's screen is a nicety. On the first
+      // live transfer it was the entire reason the transfer never happened:
+      // the test lead was called "AI Test (my cell)" and Telnyx 422'd the whole
+      // dial — `pointer: /from_display_name`, "only letters, numbers, spaces,
+      // and -_~!.+". Parentheses. A cosmetic field took down the feature.
+      //
+      // So it is sanitised to exactly the documented charset, AND the dial is
+      // retried without it if Telnyx objects anyway. A name we cannot send is
+      // a name the agent does not see; it is never a transfer that does not
+      // happen.
+      const displayName = (leadName || "AI transfer")
+        .replace(/[^A-Za-z0-9 \-_~!.+]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 128);
+
+      const dialAttempts: Array<{ label: string; body: Record<string, unknown> }> = [];
+      if (displayName) {
+        dialAttempts.push({ label: "with from_display_name", body: { ...dialBody, from_display_name: displayName } });
+      }
+      dialAttempts.push({ label: "without from_display_name", body: dialBody });
+
+      let dialRes: Response | null = null;
+      let dialDetail = "";
+      for (const attempt of dialAttempts) {
+        dialRes = await fetch("https://api.telnyx.com/v2/calls", {
+          method: "POST",
+          headers: telnyxHeaders,
+          body: JSON.stringify(attempt.body),
+        }).catch(() => null);
+        if (dialRes && dialRes.ok) break;
+        dialDetail = dialRes ? await dialRes.text().catch(() => "") : "network_error";
+        await logEvent(traceId, "transfer.dial_rejected", {
+          attempt: attempt.label,
+          status:  dialRes ? dialRes.status : "network_error",
+          body:    dialDetail.slice(0, 800),
+        });
+      }
+
+      if (!dialRes || !dialRes.ok) {
         await sb.from("ai_calls").update({ transfer_status: "failed", transfer_to: transferTo }).eq("id", call.id);
-        await logEvent(traceId, "transfer.dial_failed", { status: dialRes.status, body: detail.slice(0, 800) });
+        await logEvent(traceId, "transfer.dial_failed", {
+          status: dialRes ? dialRes.status : "network_error", body: dialDetail.slice(0, 800),
+        });
         return toolJson({
           ok: false,
           status: "unavailable",
-          message: "The agent could not be reached. Apologize briefly and book an appointment instead.",
+          message: "The agent could not be reached. Apologize briefly — do NOT say why, and do not invent a " +
+            "reason such as being with another client — then offer times and book an appointment.",
         });
       }
 
@@ -378,7 +424,12 @@ serve(async (req) => {
         });
       }
 
-      const { data: appt, error: apptErr } = await sb.from("ai_appointments").insert({
+      // ONE APPOINTMENT PER CALL. A caller correcting the time — "no, I said
+      // ten" — makes the assistant call this tool again, and on the first live
+      // booking that produced THREE rows for one conversation, all with
+      // different spoken text and only the last one right. A re-book is an
+      // edit of the same appointment, not a second appointment.
+      const fields = {
         agent_id:         call.agent_id,
         lead_id:          call.lead_id,
         ai_call_id:       call.id,
@@ -389,10 +440,29 @@ serve(async (req) => {
         lead_phone_e164:  call.phone_e164,
         notes:            notes ? notes.slice(0, 2000) : null,
         source:           "ai_call",
-      }).select("id").single();
+      };
 
-      if (apptErr || !appt) {
-        console.error("[ai-call-tools] ai_appointments insert failed:", apptErr?.message);
+      let appt: { id: string } | null = null;
+      let apptErr: { message?: string } | null = null;
+      if (call.appointment_id) {
+        // Re-booking: overwrite the time and clear the previous send status so
+        // the confirmation text describes the time that actually stands.
+        const { data, error } = await sb.from("ai_appointments")
+          .update({ ...fields, sms_confirm_status: null, sms_message_id: null })
+          .eq("id", call.appointment_id)
+          .select("id").maybeSingle();
+        appt = data as { id: string } | null;
+        apptErr = error;
+        if (appt) await logEvent(traceId, "booking.rebooked", { appointment_id: appt.id, at: fields.starts_at });
+      }
+      if (!appt) {
+        const { data, error } = await sb.from("ai_appointments").insert(fields).select("id").single();
+        appt = data as { id: string } | null;
+        apptErr = apptErr ?? error;
+      }
+
+      if (!appt) {
+        console.error("[ai-call-tools] ai_appointments write failed:", apptErr?.message);
         await logEvent(traceId, "booking.insert_failed", { message: apptErr?.message });
         return toolJson({
           ok: false,
