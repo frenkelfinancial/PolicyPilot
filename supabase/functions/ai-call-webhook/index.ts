@@ -13,24 +13,75 @@ import {
 // its OWN Ed25519 signature check (verify_jwt = false in config.toml — Telnyx
 // can't supply a Supabase JWT), same as messaging-delivery-webhook.
 //
-// Flow (AMD premium is always requested by ai-call-start, so an AMD result
-// event always fires and is the human/machine fork):
-//   • AMD says machine  -> hang up, mark 'voicemail'. No answered_at, no debit.
-//   • AMD says human     -> stamp answered_at (billing anchor) AND attach the
-//     assistant via /actions/ai_assistant_start. (call.answered fires BEFORE
-//     the AMD result, so neither the assistant start nor the billing anchor
-//     can live there without risking talking-to / billing a voicemail.)
+// Flow:
+//   • call.answered      -> arm the DEAD-AIR FALLBACK (see below). Does NOT
+//     stamp answered_at or start the assistant on its own.
+//   • AMD says machine   -> hang up, mark 'voicemail'. No answered_at, no debit.
+//   • AMD says human     -> claim the start, stamp answered_at (billing
+//     anchor) and attach the assistant via /actions/ai_assistant_start.
 //   • transcript/insights -> store transcript + parse the assistant outcome
 //     JSON; a dnc_request writes a suppression row + flips leads.dnc.
-//   • call.hangup       -> compute talk minutes (answered_at -> hangup), debit
-//     the wallet ONCE via wallet_debit_ai_minutes (idempotent by
+//   • call.hangup        -> compute talk minutes (answered_at -> hangup),
+//     debit the wallet ONCE via wallet_debit_ai_minutes (idempotent by
 //     call_control_id), finalize the row.
+//
+// ---- Two things here exist because of the "answered but silent" bug --------
+//
+// 1. NOTHING SENDS `message_history`. Telnyx's production validator rejects it
+//    outright on this account — 422 code 10000 "Invalid message format",
+//    pointer /message_history — and that single rejection is what made every
+//    Phase 1 test call dead air: ai_assistant_start failed, so the assistant
+//    never attached and the lead listened to silence until the 5-minute cap.
+//    The lead context it used to carry (name, agent, agency, lead type) is all
+//    in the greeting already, and the sales script lives in the assistant's
+//    own `instructions`, so nothing of substance is lost. `assistant.id`,
+//    `greeting` and `voice` are all PROVEN-accepted: the live 422 listed
+//    exactly one error and it named only /message_history.
+//    startAssistant() additionally degrades on any 4xx — voice dropped, then
+//    greeting dropped — so a future field rejection costs the call its voice
+//    override, never its audio.
+//
+// 2. THE DEAD-AIR FALLBACK. The assistant used to start ONLY on the premium-AMD
+//    verdict, which makes a missing or slow AMD event indistinguishable from a
+//    broken assistant: both are silence. call.answered now arms a background
+//    timer, and if no AMD verdict has claimed the call within
+//    ASSISTANT_START_GRACE_MS the assistant starts anyway. Exactly one path
+//    ever starts it — claimAssistantStart() is an atomic compare-and-set on
+//    `answered_at is null` — so the fallback cannot double-start or double-bill.
+//
+// Every event received and every action taken is appended to ai_call_events
+// (20260752) so the next silent call is read off a table, not guessed at.
 //
 // It does NOT write into public.calls: that table feeds the human dialer's
 // monthly minute cap (telnyx-bridge/signalwire-bridge) and the Summary
 // dial/contact analytics, both of which sum calls.duration_sec unfiltered.
 // ai_calls is the AI call's activity/disposition record; Phase 4's timeline
 // UI unions the two by lead_id for display.
+
+// How long after call.answered to wait for a premium-AMD verdict before
+// starting the assistant regardless. Premium AMD resolves a human in roughly
+// 2–5s; past this the caller is just listening to nothing.
+const ASSISTANT_START_GRACE_MS = 6000;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Run work after the response is sent. Supabase's edge runtime exposes
+// EdgeRuntime.waitUntil; if it is ever absent we fall back to awaiting inline
+// (the caller holds the request open instead), because losing the fallback
+// silently would bring the dead air back.
+function scheduleBackground(task: Promise<unknown>): boolean {
+  try {
+    const er = (globalThis as {
+      EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+    }).EdgeRuntime;
+    if (er && typeof er.waitUntil === "function") {
+      er.waitUntil(task.catch(() => {}));
+      return true;
+    }
+  } catch { /* fall through to inline await */ }
+  return false;
+}
+
 serve(async (req) => {
   if (req.method !== "POST") return new Response("ok");
 
@@ -91,6 +142,7 @@ serve(async (req) => {
     agent_id: string;
     lead_id: string | null;
     phone_e164: string;
+    status: string | null;
     outcome: string | null;
     answered_at: string | null;
     started_at: string | null;
@@ -98,15 +150,181 @@ serve(async (req) => {
   };
   async function loadAiCall(): Promise<AiCallRow | null> {
     const { data } = await sb.from("ai_calls")
-      .select("id, agent_id, lead_id, phone_e164, outcome, answered_at, started_at, error_detail")
+      .select("id, agent_id, lead_id, phone_e164, status, outcome, answered_at, started_at, error_detail")
       .eq(idCol, idVal)
       .maybeSingle();
     return (data as AiCallRow | null) ?? null;
   }
 
+  // ---- Diagnostic trace (20260752) ---------------------------------------
+  // Fire-and-forget by contract: a logging failure must never change how a
+  // call is handled, so every path here swallows its own errors.
+  async function logEvent(type: string, detail: unknown): Promise<void> {
+    try {
+      await sb.from("ai_call_events").insert({
+        call_control_id: callControlId,
+        event_type:      type,
+        payload:         detail as Record<string, unknown>,
+      });
+    } catch (e) {
+      console.warn("[ai-call-webhook] ai_call_events insert failed:", (e as Error)?.message || e);
+    }
+  }
+
+  async function hangupCall(): Promise<void> {
+    await fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/hangup`, {
+      method:  "POST",
+      headers: telnyxHeaders,
+      body:    JSON.stringify({ command_id: crypto.randomUUID() }),
+    }).catch(() => {});
+  }
+
+  // Atomic compare-and-set on `answered_at is null`: whichever path wins gets
+  // rows back and is the ONE that starts the assistant. This is what makes the
+  // AMD verdict and the dead-air fallback safe to race — they cannot both
+  // start the assistant, and answered_at (the billing anchor) is stamped once.
+  // `at` lets the fallback back-date the anchor to the real answer time rather
+  // than to the moment the grace period expired.
+  async function claimAssistantStart(at?: string): Promise<boolean> {
+    const { data, error } = await sb.from("ai_calls")
+      .update({ status: "in_progress", answered_at: at || new Date().toISOString() })
+      .eq(idCol, idVal)
+      .is("answered_at", null)
+      .select("id");
+    if (error) {
+      console.error("[ai-call-webhook] claimAssistantStart failed:", error.message);
+      await logEvent("assistant_start.claim_error", { message: error.message });
+      return false;
+    }
+    return Array.isArray(data) && data.length > 0;
+  }
+
   const vars = ctx.vars || {};
   const leadName = vars.lead_name || "";
   const isFinalize = eventType === "call.hangup" || eventType.endsWith("conversation.ended");
+
+  // ---- Attach the assistant ------------------------------------------------
+  // Called by the AMD-human branch and by the dead-air fallback, never both
+  // (see claimAssistantStart). `trigger` is recorded in the trace so a silent
+  // call shows which path tried and what Telnyx said back.
+  async function startAssistant(trigger: string): Promise<void> {
+    if (!TELNYX_ASSISTANT) {
+      console.error("[ai-call-webhook] TELNYX_AI_ASSISTANT_ID not set — cannot start the assistant.");
+      await logEvent("assistant_start.no_assistant_id", { trigger });
+      await sb.from("ai_calls").update({
+        error_detail: "TELNYX_AI_ASSISTANT_ID secret not set — assistant never attached.",
+      }).eq(idCol, idVal);
+      await hangupCall();
+      return;
+    }
+
+    const greeting =
+      `Hi ${vars.lead_name || "there"}, this is an automated AI assistant calling on behalf of ` +
+      `${vars.agent_name || "your agent"} with ${vars.agency_name || "our agency"}. ` +
+      `I'm reaching out about the ${vars.lead_type || "life insurance"} coverage you asked about. ` +
+      `Do you have a quick minute?`;
+
+    // The attempt ladder. Rung 1 is the proven-accepted body; each further rung
+    // drops the next-most-likely-rejected field so a validator change can cost
+    // the call its voice or its custom greeting but never its audio. NOTHING
+    // here sends message_history — see the header note.
+    const full: Record<string, unknown> = { assistant: { id: TELNYX_ASSISTANT }, greeting };
+    if (vars.voice) full.voice = vars.voice;
+
+    const attempts: Array<{ label: string; body: Record<string, unknown> }> = [
+      { label: vars.voice ? "assistant+greeting+voice" : "assistant+greeting", body: full },
+    ];
+    if (vars.voice) {
+      attempts.push({
+        label: "assistant+greeting (voice override dropped)",
+        body:  { assistant: { id: TELNYX_ASSISTANT }, greeting },
+      });
+    }
+    attempts.push({
+      label: "assistant only (Mission Control greeting + voice)",
+      body:  { assistant: { id: TELNYX_ASSISTANT } },
+    });
+
+    let lastStatus: number | string = 0;
+    let lastText = "";
+
+    for (const attempt of attempts) {
+      let res: Response | null = null;
+      try {
+        res = await fetch(
+          `https://api.telnyx.com/v2/calls/${callControlId}/actions/ai_assistant_start`,
+          {
+            method:  "POST",
+            headers: telnyxHeaders,
+            body:    JSON.stringify({ ...attempt.body, command_id: crypto.randomUUID() }),
+          },
+        );
+      } catch (e) {
+        lastStatus = "network_error";
+        lastText   = (e as Error)?.message || String(e);
+        await logEvent("ai_assistant_start.network_error", { trigger, attempt: attempt.label, message: lastText });
+        break; // a transport failure won't be fixed by sending a smaller body
+      }
+
+      if (res.ok) {
+        await logEvent("ai_assistant_start.ok", {
+          trigger,
+          attempt: attempt.label,
+          status:  res.status,
+          voice:   (attempt.body.voice as string) || null,
+        });
+        return;
+      }
+
+      lastStatus = res.status;
+      lastText   = await res.text().catch(() => "");
+      console.error("[ai-call-webhook] ai_assistant_start rejected:", lastStatus, attempt.label, lastText);
+      await logEvent("ai_assistant_start.rejected", {
+        trigger,
+        attempt: attempt.label,
+        status:  lastStatus,
+        body:    lastText.slice(0, 1000),
+      });
+
+      // Only a 4xx is a body problem worth degrading for. A 5xx is Telnyx's
+      // side and a smaller body won't help.
+      if (res.status < 400 || res.status >= 500) break;
+    }
+
+    // Every rung failed: make it visible on the row, then hang up rather than
+    // leave the lead listening to dead air until the 5-minute cap. Finalize
+    // (call.hangup) marks the outcome 'error' and, because error_detail is
+    // set, bills nothing.
+    await sb.from("ai_calls").update({
+      error_detail: `ai_assistant_start ${lastStatus}: ${lastText.slice(0, 500)}`,
+    }).eq(idCol, idVal);
+    await hangupCall();
+  }
+
+  // ---- Dead-air fallback ---------------------------------------------------
+  // Armed by call.answered. If the AMD verdict has not claimed the call by the
+  // time the grace period expires, start the assistant anyway.
+  async function deadAirFallback(answeredAtIso: string): Promise<void> {
+    await sleep(ASSISTANT_START_GRACE_MS);
+    const row = await loadAiCall();
+    if (!row) return;
+    // AMD already resolved it: human (answered_at claimed, assistant started),
+    // machine (outcome voicemail), or the call is simply over.
+    if (row.answered_at || row.error_detail) return;
+    if (row.status === "completed" || row.outcome === "voicemail") return;
+    if (!await claimAssistantStart(answeredAtIso)) return;
+
+    console.warn("[ai-call-webhook] no AMD verdict within grace — starting assistant anyway.");
+    await logEvent("assistant_start.amd_fallback", {
+      grace_ms:    ASSISTANT_START_GRACE_MS,
+      answered_at: answeredAtIso,
+    });
+    await startAssistant("call.answered+fallback");
+  }
+
+  // Trace EVERY event before doing anything with it, so a call that breaks
+  // half-way still shows what arrived. Never throws (see logEvent).
+  await logEvent(eventType || "unknown", p);
 
   try {
     // ------------------------------------------------------------------
@@ -115,110 +333,41 @@ serve(async (req) => {
     if (eventType.includes("machine") && eventType.endsWith("detection.ended")) {
       const result = String(p.result || "").toLowerCase();
       const isMachine = result.startsWith("machine") || result === "fax_detected";
+      await logEvent("amd.verdict", { result, is_machine: isMachine, event_type: eventType });
 
       if (isMachine) {
         // Never talk to voicemail: hang up, tag voicemail, leave answered_at
-        // null so the hangup bills 0.
-        await fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/hangup`, {
-          method: "POST",
-          headers: telnyxHeaders,
-          body: JSON.stringify({ command_id: crypto.randomUUID() }),
-        }).catch(() => {});
+        // null so the hangup bills 0. (If the dead-air fallback already
+        // started the assistant, this still ends the call — the fallback
+        // window is deliberately shorter than a voicemail greeting.)
+        await hangupCall();
         await sb.from("ai_calls").update({ outcome: "voicemail" }).eq(idCol, idVal);
         return new Response("ok");
       }
 
       // Human (or not_sure / silence — proceed rather than hang up on a real
-      // person): this is the billing anchor AND where the assistant attaches.
-      await sb.from("ai_calls")
-        .update({ status: "in_progress", answered_at: new Date().toISOString() })
-        .eq(idCol, idVal)
-        .is("answered_at", null); // idempotent — don't clobber an earlier stamp
-
-      if (TELNYX_ASSISTANT) {
-        const greeting =
-          `Hi ${vars.lead_name || "there"}, this is an automated AI assistant calling on behalf of ` +
-          `${vars.agent_name || "your agent"} with ${vars.agency_name || "our agency"}. ` +
-          `I'm reaching out about the ${vars.lead_type || "life insurance"} coverage you asked about. ` +
-          `Do you have a quick minute?`;
-        const systemContext =
-          `Lead context — name: ${vars.lead_name || ""}; state: ${vars.lead_state || ""}; ` +
-          `lead_type: ${vars.lead_type || ""}; agent: ${vars.agent_name || ""}; ` +
-          `agency: ${vars.agency_name || ""}.`;
-
-        // Only assistant.id is required; greeting overrides the assistant's
-        // stored config for this call, and any field omitted falls back to
-        // that stored config. `voice` (when the agent picked one —
-        // client_state.vars.voice, from agents.ai_voice) overrides the
-        // assistant's Mission Control voice for this call only.
-        const baseBody: Record<string, unknown> = {
-          assistant: { id: TELNYX_ASSISTANT },
-          greeting,
-        };
-        if (vars.voice) baseBody.voice = vars.voice;
-
-        const attemptStart = (body: Record<string, unknown>) =>
-          fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/ai_assistant_start`, {
-            method: "POST",
-            headers: telnyxHeaders,
-            body: JSON.stringify({ ...body, command_id: crypto.randomUUID() }),
-          });
-
-        // Telnyx's production validator 422-rejects {role:"system"} entries in
-        // message_history ("Invalid message format", pointer /message_history)
-        // even though the API reference lists System messages as allowed — hit
-        // live on 2026-07-27. So: attempt WITH the lead-context message first
-        // (in case the validator is fixed / differs by account), and on a 422
-        // that points at message_history retry once WITHOUT it. The greeting
-        // already carries the essential context (lead name, agent, agency,
-        // lead type), so a context-less start loses almost nothing, while a
-        // failed start loses the whole call.
-        let startRes = await attemptStart({
-          ...baseBody,
-          message_history: [{ role: "system", content: systemContext }],
-        });
-        let failText = "";
-        if (!startRes.ok) {
-          failText = await startRes.text().catch(() => "");
-          if (startRes.status === 422 && failText.includes("message_history")) {
-            console.warn("[ai-call-webhook] message_history rejected (422) — retrying without it:", failText);
-            startRes = await attemptStart(baseBody);
-            failText = startRes.ok ? "" : await startRes.text().catch(() => "");
-          }
-        }
-        if (!startRes.ok) {
-          console.error("[ai-call-webhook] ai_assistant_start failed:", startRes.status, failText);
-          // Make the failure VISIBLE (the "answered but silent" bug): store
-          // the Telnyx response on the row so the test rig can display it...
-          await sb.from("ai_calls").update({
-            error_detail: `ai_assistant_start ${startRes.status}: ${failText.slice(0, 500)}`,
-          }).eq(idCol, idVal);
-          // ...and hang up rather than leaving the lead listening to dead
-          // air until the 5-minute cap. Finalize (call.hangup) will mark the
-          // outcome 'error' since answered_at is set but nothing terminal is.
-          await fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/hangup`, {
-            method: "POST",
-            headers: telnyxHeaders,
-            body: JSON.stringify({ command_id: crypto.randomUUID() }),
-          }).catch(() => {});
-        }
+      // person). Claim the start: if the dead-air fallback already won the
+      // race the assistant is running and answered_at is stamped, so there is
+      // nothing left to do here.
+      if (await claimAssistantStart()) {
+        await startAssistant(eventType);
       } else {
-        console.error("[ai-call-webhook] TELNYX_AI_ASSISTANT_ID not set — cannot start the assistant.");
-        await sb.from("ai_calls").update({
-          error_detail: "TELNYX_AI_ASSISTANT_ID secret not set — assistant never attached.",
-        }).eq(idCol, idVal);
-        await fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/hangup`, {
-          method: "POST",
-          headers: telnyxHeaders,
-          body: JSON.stringify({ command_id: crypto.randomUUID() }),
-        }).catch(() => {});
+        await logEvent("assistant_start.already_claimed", { trigger: eventType, result });
       }
       return new Response("ok");
     }
 
-    // call.answered fires BEFORE the AMD result — nothing billing- or
-    // assistant-relevant happens here (see the AMD branch above).
-    if (eventType === "call.answered") return new Response("ok");
+    // call.answered fires BEFORE the AMD result. It does not stamp the billing
+    // anchor or start the assistant — that is the AMD verdict's job — but it
+    // DOES arm the dead-air fallback, so a verdict that never arrives (or
+    // arrives late) can no longer leave the caller listening to silence.
+    if (eventType === "call.answered") {
+      const task = deadAirFallback(new Date().toISOString());
+      // Prefer running it after the response; if the runtime has no
+      // background-task API, hold the request instead of dropping the timer.
+      if (!scheduleBackground(task)) await task;
+      return new Response("ok");
+    }
 
     // ------------------------------------------------------------------
     // Transcript / insights — store transcript, parse the assistant outcome.
@@ -268,7 +417,16 @@ serve(async (req) => {
       // of dead air we caused. Legit answered calls that merely failed
       // outcome-classification have no error_detail and still bill normally.
       const ourFault = !!row.error_detail;
-      const billed = ourFault ? 0 : computeBilledMinutes(durationSecs);
+      // A VOICEMAIL IS NEVER BILLABLE, whatever the event order was. Screening
+      // out voicemails is a headline benefit of this feature, not something
+      // the agent pays a minimum minute for (see ai-call-billing.ts). This
+      // used to be guaranteed by answered_at staying null on the AMD-machine
+      // path — but the dead-air fallback can stamp answered_at at +6s while
+      // premium AMD is still listening to a long voicemail greeting, and then
+      // the whole-minute rounding would charge for it. The rule belongs on the
+      // outcome, not on an ordering assumption.
+      const isVoicemail = row.outcome === "voicemail";
+      const billed = (ourFault || isVoicemail) ? 0 : computeBilledMinutes(durationSecs);
 
       // Debit exactly once. Pre-check the ledger by ref_id; the partial unique
       // index on wallet_ledger is the race-safe backstop (23505 -> no-op).
