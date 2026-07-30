@@ -2058,3 +2058,220 @@ null instead of a confident, non-existent address.
 
 17/17 in a real browser against production; every account and row deleted
 afterwards.
+
+---
+
+## Apply 2026-07-30 — `20260750_agency_leaderboards.sql`
+
+Agency leaderboards, records and achievements (PROMPT_17). Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Feature doc: `docs/agency-leaderboards.md`.
+
+**Additive.** Six `create table if not exists`, one `add column if not exists`
+on `public.agents`, 6 indexes, 2 check constraints behind an `if not exists`
+guard, 3 policies (**all SELECT**), an 18-row seed with `on conflict do
+update`, and 20 functions. No `DROP` of a table, column or row; no `DELETE`, no
+`TRUNCATE`; nothing in `auth.*` or `storage.*`. Re-running the whole file was
+confirmed a clean no-op.
+
+**One `DROP CONSTRAINT`, and it needs naming.** See "The defect the behavioural
+pass caught" below. It drops a UNIQUE constraint that *this same file* created
+ninety minutes earlier, on a table holding **0 rows**, and replaces it with the
+correct one. It is guarded on the auto-generated constraint name, so it is a
+no-op on any database that never took the first version. No data existed to
+lose and none was lost — but this ledger's rule is that a DROP is named out
+loud, so it is.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| the six new tables | **0 of 6 present** |
+| `agents.hide_from_leaderboards` | **absent** |
+| `lb_*` functions | **0** |
+| `get_agency_leaderboards` / `get_agency_records` / `get_agency_milestones` / `get_agency_hall_of_fame` / `get_my_achievements` | **0 of 5** |
+| `policies` / `calls` / `leads` / `agents` | 24 / 1,298 / 1,345 / 8 |
+| `agency_invites` | 2, both `accepted` — production has a **real** 3-person agency now |
+| policies on `agents` / triggers on `agents` | 5 / 7 |
+
+That `agency_invites` row count is why this shipped straight to a live agency
+rather than to an empty table, unlike `20260738`.
+
+### Post-apply audit
+
+| Probe | Result |
+|---|---|
+| Tables | 6/6 present |
+| RLS enabled | 6/6 |
+| Policies | **3, all `SELECT`** — 0 INSERT/UPDATE/DELETE on any of the six |
+| `achievement_definitions` rows | 18 |
+| `agents.hide_from_leaderboards` | present; triggers on `agents` still **7** (unchanged) |
+| Browser-callable RPCs | 7, all executable by `authenticated` |
+| Internal `lb_*(uuid…)` helpers | 11, **`authenticated` may execute: false** |
+| `get_my_achievements` | **`prosecdef = false`** (SECURITY INVOKER) |
+| `policies` / `calls` / `agents` | 24 / 1,298 / 8 — **unchanged** |
+| Re-run of the file | clean no-op |
+
+### Why the new column is NOT in the column-protection trigger
+
+`agents.hide_from_leaderboards` is deliberately absent from
+`agents_protect_privileged_columns` (`20260703c`). Every other column that
+guard covers is one the client must not write; this is the one column on that
+table the agent is *supposed* to own, and `agents_update_own` is row-ownership
+only, which is exactly right here. The trigger count on `agents` is unchanged
+at 7 for the same reason — nothing was added.
+
+### The defect the behavioural pass caught
+
+`leaderboard_snapshots` was originally `UNIQUE (leader_id, period_kind,
+period_start, board_key, **rank**)`. That makes the rollover idempotent and
+also makes it **lossy**: ties share a rank by design, so a board with two
+agents at rank 6 offered the same key twice and `ON CONFLICT DO NOTHING`
+silently swallowed the second. Check 53 expected ten frozen ranks and got
+**nine** — the missing row was somebody's tied placement, dropped from the Hall
+of Fame permanently.
+
+Re-keyed on `agent_id`: still exactly as idempotent (one row per agent per
+board per period), and a tie survives. A test pins the old grain out.
+
+### Behavioural verification — 70/70
+
+Run inside a transaction that **rolled back**, with `session_replication_role =
+replica` set `LOCAL` so FK triggers were off for that transaction only. The
+fixture therefore needed **no `auth.users` rows and `auth.*` was never
+written**. Every assertion reads June 2019, a window in which production holds
+0 policies and 0 calls, so the figures are exact rather than "production plus
+fixture". Row counts re-confirmed identical afterwards.
+
+Fixture: a leader with 11 accepted downline (AP $1,100 down to $100, two tied
+at $700, dial counts of 60/55/52/**49**), plus a completely separate agency
+whose two members wrote $9,999 and $8,888 in the same window.
+
+| # | Check | Result |
+|---|---|---|
+| 1–4 | membership resolves; a solo agent is NULL, not an error | PASS |
+| 5 | **NET AP counts paid + approved and EXCLUDES a lapsed $5,000** | PASS |
+| 6 | PLACED AP counts only issued/paid/placed/claim | PASS |
+| 7–9 | the lapsed policy is not a sale; the window bounds dials | PASS |
+| 10 | the AP board sends exactly the top 10 to a top-10 viewer | PASS |
+| 11 | rank 1 is the leader at $1,200 net | PASS |
+| 12 | **ties share a rank** — two agents at $700 are both rank 6 | PASS |
+| 13 | …and the rank after a two-way tie **skips to 8** | PASS |
+| 14–15 | 12 entrants known, 10 sent; `top_value` is rank 10's value | PASS |
+| 16 | **NO ROW FROM ANOTHER AGENCY APPEARS ON THIS BOARD** | PASS |
+| 17 | …checked by value as well as by id | PASS |
+| 18 | and the reverse: the stranger's board contains none of ours | PASS |
+| 19 | a stranger sees none of our agency records | PASS |
+| 20 | a 12th-place viewer gets the top 10 **plus one private row** | PASS |
+| 21 | …carrying their real rank | PASS |
+| 22 | **NOBODY ELSE'S BELOW-10 ROW IS EVER SENT** | PASS |
+| 23–24 | 49 dials is **absent** from the rate boards, not ranked last | PASS |
+| 25 | AP per dial is net AP over dials | PASS |
+| 26–29 | Most Improved: the $500 baseline holds, 0→$300 is excluded | PASS |
+| 30 | Most Improved is **unavailable on All-Time** | PASS |
+| 31 | **A HIDDEN AGENT APPEARS ON NO BOARD AT ALL** | PASS |
+| 32 | …the entrant count drops, so it is not a display filter | PASS |
+| 33 | a hidden agent **still sees** the boards | PASS |
+| 34 | …but is not ranked, even privately to themselves | PASS |
+| 35 | the state RPC tells the UI it is hiding them | PASS |
+| 36–40 | records and achievements written; **backfilled unlocks carry their historical date** | PASS |
+| 41 | **a silent evaluation writes no feed events at all** | PASS |
+| 42 | **RE-RUNNING THE EVALUATOR IS A NO-OP** — no double award | PASS |
+| 43 | …and announces nothing, because nothing was broken | PASS |
+| 44–45 | agency best-day is the team **combined** total; best-day-by-one-agent is separate | PASS |
+| 46–48 | a genuine break writes exactly one feed event | PASS |
+| 49 | the event reads as English, not as a column name | PASS |
+| 50 | announcing the same record twice is impossible | PASS |
+| 51 | **A HIDDEN AGENT'S $9,000 DAY DOES NOT BECOME THE AGENCY RECORD** | PASS |
+| 52–54 | a closed month freezes 10 ranks; the frozen winner matches the live board | PASS |
+| 55 | **RE-SNAPSHOTTING A CLOSED PERIOD WRITES NOTHING** | PASS |
+| 56 | the season close announces the Top Producer exactly once | PASS |
+| 57 | every member reads the Hall of Fame, not just the leader | PASS |
+| 58–59 | the cron rollover is idempotent; a mid-month night does nothing | PASS |
+| 60 | **AN AGENT CANNOT AWARD THEMSELVES A BADGE** | PASS |
+| 61 | an agent cannot write an agency record | PASS |
+| 62 | an agent cannot inflate a stored record | PASS |
+| 63 | **an agent cannot run the evaluator against ANOTHER agent** | PASS |
+| 64 | an agent cannot read arbitrary agents' metrics directly | PASS |
+| 65 | an agent cannot enumerate another agency's members | PASS |
+| 66 | `anon` resolves to nobody and gets no board | PASS |
+| 67–70 | the business-day streak rule; lower-is-better for lead-to-sale | PASS |
+
+Checks 16–19, 22, 31, 51 and 60–66 are the boundary, exercised rather than
+asserted.
+
+### Retroactive backfill — run against real production data
+
+`select public.lb_evaluate_all(true)` → `{"agents": 8, "agencies": 1,
+"silent": true}`.
+
+| Wrote | Count |
+|---|---|
+| `agent_records` | 21 |
+| `agent_achievements` | 12 |
+| `agency_records` | 7 |
+| **`agency_milestones`** | **0 — zero feed flood, as designed** |
+
+Spot-checked against raw truth for all three agents who hold policies:
+`best_day_ap` and `biggest_policy_ap` match a hand-written aggregate exactly
+($3,876 / $1,896 · $2,719.32 / $2,600.40 · $2,236.68 / $2,236.68).
+
+**Idempotency proven, not asserted.** Re-running with `p_silent => false`
+afterwards left the row counts identical, the md5 of every record value and of
+every achievement date **identical**, and still wrote **0** feed events.
+
+### The two cron jobs
+
+`supabase/schedule_leaderboards.sql`, applied the same day. `cron.job` went
+**11 → 13**.
+
+| Job | Schedule (UTC) | Command |
+|---|---|---|
+| `leaderboard-nightly` | `5 6 * * *` | `select public.lb_evaluate_all(false);` |
+| `leaderboard-rollover` | `20 6 * * *` | `select public.lb_rollover();` |
+
+**Unlike every other cron job in this project these call SQL directly** rather
+than `net.http_post`-ing an edge function: the whole feature is one migration
+plus `app.html`, so there is no function to call, no `CRON_SECRET` to store and
+no `verify_jwt` flag to get wrong. `lb_rollover()` derives "today" from
+`America/Chicago` itself, which is why there is no CDT/CST job pair here.
+
+### No edge function changed
+
+Nothing was deployed, so the fleet was not disturbed and no `verify_jwt` flag
+could move.
+
+### End-to-end, against production — 62/62
+
+**13 throwaway accounts**: a Leader-plan agency owner, 11 downline, and a
+completely separate agency of two. Seeded for the current month, then driven
+through the **real `app.html`** in headless Chrome over the DevTools Protocol
+(zero new dependencies — Node 24's built-in `WebSocket`).
+
+Includes, over real user JWTs: an invented `p_leader_id` is refused (404, not
+ignored); a direct `POST /agent_achievements` is **403**; a direct
+`POST /agency_records` is **403**; a 12th-place agent's response carries ten
+public rows plus exactly one private row and no other agent's tail; the hidden
+toggle removes the agent from the leader's board entirely while their own
+records survive; closing the month snapshots 38 rows and re-closing writes 0;
+the Hall of Fame then names the Top Producer; no uncaught-error banner appears;
+and at 390 px the page does not scroll horizontally.
+
+**Residue: zero.** All 14 accounts deleted (13 plus one from an earlier aborted
+run), and a generated sweep over every `public` base table carrying an
+agent-shaped foreign key returned 0. Production afterwards: `agents` 8,
+`wallet_accounts` 8 with **0 orphans**, `policies` 24, `calls` 1,298,
+`agency_invites` 2 — all identical to the pre-apply audit. The leaderboard
+tables hold only the real backfill (21 / 12 / 7 / 0 / 0).
+
+### One thing the run found that is NOT this feature's
+
+`fmt$()` in `app.html` guards with `isFinite(n)` — and global `isFinite('1200')`
+is `true`, so a numeric **string** slips past the guard and `.toFixed` throws.
+It surfaced only because the QA fixture seeded `data.ap` as a string. **All 24
+production policies store `ap` as a JSON number** and `addPolicy()` writes
+`+(monthly*12).toFixed(2)`, so nothing is broken today. Left alone — it is a
+40-call-site formatter and out of this build's scope — but recorded because any
+future writer that puts a string into `data.ap` will break the dashboard. The
+SQL side is already immune: every AP read is regex-guarded on the text
+projection.
