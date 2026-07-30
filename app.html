@@ -4550,6 +4550,59 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
 
     <!-- ========== AI DIALER TEST (Phase 1 rig; injected + shown ONLY when BOTH kill switches are ON) ========== -->
     <div class="section" id="sec-ai-test">
+
+      <!-- Daily AI-call meter. A RECOMMENDATION, not a wall: amber past the
+           recommended pace (the call still goes through and the copy says so),
+           red only at the cap the agent typed in themselves. -->
+      <style>
+        #aiMeterCard .aim-count { font:700 30px/1.1 var(--sans); color:var(--text); font-variant-numeric:tabular-nums; margin:2px 0 10px; }
+        #aiMeterCard .aim-count small { font:400 14px var(--sans); color:var(--text3); }
+        #aiMeterCard .aim-bar { height:8px; border-radius:999px; background:rgba(127,127,127,.18); overflow:hidden; }
+        #aiMeterCard .aim-bar-fill { height:100%; width:0; border-radius:999px; background:#2563eb; transition:width .3s ease, background .3s ease; }
+        #aiMeterCard[data-state="over_recommendation"] .aim-bar-fill { background:#f59e0b; }
+        #aiMeterCard[data-state="over_recommendation"] .aim-count { color:#b45309; }
+        #aiMeterCard[data-state="at_cap"] .aim-bar-fill { background:#dc2626; }
+        #aiMeterCard[data-state="at_cap"] .aim-count { color:#dc2626; }
+        #aiMeterCard .aim-rec { font:12.5px/1.5 var(--sans); color:var(--text2); margin-top:9px; }
+        #aiMeterCard .aim-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+        #aiMeterCard .aim-chip { font:11.5px var(--sans); color:var(--text2); background:var(--bg3); border:1px solid var(--border); border-radius:999px; padding:3px 10px; white-space:nowrap; }
+        #aiMeterCard .aim-banner { margin-top:14px; padding:11px 13px; border-radius:9px; font:12.5px/1.55 var(--sans);
+          background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.4); color:#b45309; }
+        #aiMeterCard[data-state="at_cap"] .aim-banner { background:rgba(220,38,38,.10); border-color:rgba(220,38,38,.4); color:#dc2626; }
+        #aiMeterCard .aim-settings { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:18px; padding-top:16px; border-top:1px solid var(--border); }
+        #aiMeterCard .aim-settings label { font:600 13px var(--sans); color:var(--text); }
+        #aiMeterCard .aim-settings input[type="number"] { width:110px; padding:8px 10px; border:1px solid rgba(127,127,127,.3); border-radius:8px; background:var(--card); color:inherit; font:14px var(--sans); }
+        #aiMeterCard .aim-settings input[type="number"]:disabled { opacity:.45; }
+        #aiMeterCard .aim-nocap { display:inline-flex; align-items:center; gap:6px; font:400 13px var(--sans) !important; color:var(--text2) !important; cursor:pointer; }
+        #aiMeterCard .aim-note { font:12px/1.55 var(--sans); color:var(--text3); margin-top:9px; }
+      </style>
+      <div class="card" id="aiMeterCard" data-state="normal" style="max-width:780px;margin-bottom:16px">
+        <div class="card-head">
+          <div class="kpi-label">Today's AI calls</div>
+          <span class="ds-trend" id="aiMeter-chip" data-tone="static">METER</span>
+        </div>
+        <div class="aim-count" id="aiMeter-count">&mdash;</div>
+        <div class="aim-bar"><div class="aim-bar-fill" id="aiMeter-fill"></div></div>
+        <div class="aim-rec" id="aiMeter-rec">Loading today&rsquo;s pace&hellip;</div>
+        <div class="aim-chips" id="aiMeter-chips"></div>
+        <div class="aim-banner" id="aiMeter-banner" style="display:none"></div>
+
+        <div class="aim-settings">
+          <label for="aiMeter-capInput">Daily cap</label>
+          <input id="aiMeter-capInput" type="number" min="0" max="10000" step="1" inputmode="numeric"
+            onchange="aiMeterSaveCap()">
+          <label class="aim-nocap" for="aiMeter-noCap">
+            <input type="checkbox" id="aiMeter-noCap" onchange="aiMeterToggleNoCap()"> No cap
+          </label>
+        </div>
+        <div class="aim-note">
+          Your cap is yours &mdash; raise it, lower it, or switch it off. The recommendation above is
+          only advice: going past it never blocks a call, but a number that keeps a heavy pace is the
+          kind carriers start labelling &ldquo;Spam Likely&rdquo;, and that is hard to undo. With no cap,
+          nothing here stops you at all.
+        </div>
+      </div>
+
       <div class="card" style="max-width:780px">
         <div class="card-head">
           <div class="kpi-label">AI Dialer — Phase 1 Test</div>
@@ -25208,6 +25261,194 @@ const NAV_TITLES = {
 };
 
 // ============================================================
+// DAILY AI-CALL METER — the pure math (Phase 3)
+//
+// This block is the BROWSER MIRROR of
+// supabase/functions/_shared/ai-call-meter.ts. There is no build step here, so
+// the module cannot be imported; test/ai-meter.test.mjs runs a shared table of
+// cases through BOTH and asserts they return the same numbers. Same
+// arrangement as pcNormalizeCode() vs pc_normalize_code(). Change a rule in
+// one and you must change it in the other, or that test fails.
+//
+// WHY IT IS SOFT. Carriers flag numbers that place hundreds of calls a day as
+// "Spam Likely", and a new number is most fragile in its first week. So the
+// ~300/day/number recommendation (ramped over a number's first seven days) is
+// ADVICE: passing it turns this screen amber and records one row for the day.
+// The only thing that refuses a call is the cap the agent typed in themselves,
+// and clearing it is one click. Someone who wants 500 calls a day on one
+// number gets the warning, and then gets their 500 calls.
+//
+// Keep it pure — no DOM, network, storage or app globals — or the tests stop
+// running against the code that ships. (The sentinel below must appear exactly
+// once in this file — the harness extracts by lazy match, so naming it in a
+// comment above the real block swallows everything in between.)
+// ============================================================
+// <ai-meter-core>
+const AI_DAILY_CALL_RECOMMENDATION = 300;
+// Index 0 is day 1, the calendar day a number first carries an AI call.
+const AI_RAMP_SCHEDULE = [30, 60, 100, 150, 200, 250, 300];
+const AI_RAMP_DAYS = AI_RAMP_SCHEDULE.length;
+const AI_DEFAULT_DAILY_CAP = 300;
+const AI_METER_DEFAULT_TZ = 'America/Chicago';
+
+function aiIsValidTimezone(tz) {
+  if (typeof tz !== 'string' || !tz.trim()) return false;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz.trim() }); return true; }
+  catch (_) { return false; }
+}
+
+// Two steps and no guessing. Inferring where a PERSON is from a phone number
+// they bought online is the kind of almost-right that files a call on the
+// wrong day, so there is deliberately no area-code inference here.
+function aiResolveAgentTimezone(agent) {
+  const tz = agent && typeof agent.timezone === 'string' ? agent.timezone.trim() : '';
+  return aiIsValidTimezone(tz) ? tz : AI_METER_DEFAULT_TZ;
+}
+
+function _aiPad2(n) { return n < 10 ? '0' + n : String(n); }
+
+// How far `timeZone` is from UTC at this instant, in ms. Derived from what the
+// zone actually renders, so DST is the platform's problem, not a table's.
+function _aiTzOffsetMs(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).formatToParts(date);
+  const p = {};
+  for (const part of parts) if (part.type !== 'literal') p[part.type] = Number(part.value);
+  const hour = p.hour === 24 ? 0 : p.hour;   // some ICU builds render midnight as 24
+  const asIfUtc = Date.UTC(p.year, p.month - 1, p.day, hour, p.minute, p.second);
+  return asIfUtc - (date.getTime() - date.getUTCMilliseconds());
+}
+
+function aiLocalDayKey(date, timeZone) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(date);
+  const p = {};
+  for (const part of parts) if (part.type !== 'literal') p[part.type] = part.value;
+  return p.year + '-' + p.month + '-' + p.day;
+}
+
+function aiAddDays(dayKey, days) {
+  const a = dayKey.split('-').map(Number);
+  const dt = new Date(Date.UTC(a[0], a[1] - 1, a[2] + days));
+  return dt.getUTCFullYear() + '-' + _aiPad2(dt.getUTCMonth() + 1) + '-' + _aiPad2(dt.getUTCDate());
+}
+
+function aiDaysBetween(from, to) {
+  const f = from.split('-').map(Number), t = to.split('-').map(Number);
+  return Math.round((Date.UTC(t[0], t[1] - 1, t[2]) - Date.UTC(f[0], f[1] - 1, f[2])) / 86400000);
+}
+
+// Fixed point, not a single offset add: the offset at UTC-midnight and at
+// LOCAL-midnight differ across a DST boundary, and one pass lands an hour out
+// twice a year. Two passes converge for every real zone.
+function aiLocalMidnightUtc(dayKey, timeZone) {
+  const a = dayKey.split('-').map(Number);
+  const base = Date.UTC(a[0], a[1] - 1, a[2]);
+  let ms = base - _aiTzOffsetMs(new Date(base), timeZone);
+  ms = base - _aiTzOffsetMs(new Date(ms), timeZone);
+  return new Date(ms);
+}
+
+// The half-open UTC window [local midnight, next local midnight). Half-open
+// like every other range in this app: a call at exactly midnight belongs to
+// the new day, once.
+function aiLocalDayWindow(date, timeZone) {
+  const tz = aiIsValidTimezone(timeZone) ? timeZone : AI_METER_DEFAULT_TZ;
+  const dayKey = aiLocalDayKey(date, tz);
+  return {
+    dayKey,
+    startIso: aiLocalMidnightUtc(dayKey, tz).toISOString(),
+    endIso:   aiLocalMidnightUtc(aiAddDays(dayKey, 1), tz).toISOString(),
+    timezone: tz,
+  };
+}
+
+// A number that has NEVER carried an AI call reports day 1, not day 0 — the
+// moment it carries one it IS day 1. Answering 300 would hand a number bought
+// this morning a full day's volume. A stamp in the future (clock skew) also
+// clamps to day 1.
+function aiRampDayIndex(firstUsedAt, now, timeZone) {
+  const tz = aiIsValidTimezone(timeZone) ? timeZone : AI_METER_DEFAULT_TZ;
+  if (firstUsedAt === null || firstUsedAt === undefined || firstUsedAt === '') return 1;
+  const first = firstUsedAt instanceof Date ? firstUsedAt : new Date(String(firstUsedAt));
+  if (isNaN(first.getTime())) return 1;
+  const day = aiDaysBetween(aiLocalDayKey(first, tz), aiLocalDayKey(now, tz)) + 1;
+  return day < 1 ? 1 : day;
+}
+
+function aiNumberRampValue(firstUsedAt, now, timeZone) {
+  const day = aiRampDayIndex(firstUsedAt, now, timeZone);
+  if (day > AI_RAMP_DAYS) return AI_DAILY_CALL_RECOMMENDATION;
+  return Math.min(AI_DAILY_CALL_RECOMMENDATION, AI_RAMP_SCHEDULE[day - 1]);
+}
+
+// `recommended` is NULL with no active numbers — not 0. There is no pool to
+// advise on, and a recommendation of 0 would flag every call on an account
+// that cannot dial at all.
+function aiRecommendedDailyCalls(numbers, now, timeZone) {
+  const rows = (numbers || []).map(function (n) {
+    const e164 = typeof n.e164 === 'string' ? n.e164 : '';
+    const day = aiRampDayIndex(n.ai_first_used_at, now, timeZone);
+    return {
+      e164: e164,
+      last4: e164.replace(/\D/g, '').slice(-4),
+      day: day,
+      inRamp: day <= AI_RAMP_DAYS,
+      recommended: aiNumberRampValue(n.ai_first_used_at, now, timeZone),
+      neverUsed: !n.ai_first_used_at,
+    };
+  });
+  return {
+    recommended: rows.length ? rows.reduce(function (s, r) { return s + r.recommended; }, 0) : null,
+    numbers: rows,
+    numberCount: rows.length,
+    ramping: rows.filter(function (r) { return r.inRamp; }),
+  };
+}
+
+// ONE threshold, shared with the server, so this screen can never look green
+// for a call ai-call-start would refuse: `callsToday >= limit` means "the call
+// about to be placed is beyond it". `overRecommendation` requires !blocked —
+// a call that is never going to happen leaves no warning behind saying it did.
+function aiEvaluateDailyPace(input) {
+  const callsToday = isFinite(input.callsToday) ? Math.max(0, Math.trunc(input.callsToday)) : 0;
+  const hasCap = typeof input.cap === 'number' && isFinite(input.cap) && input.cap >= 0;
+  const cap = hasCap ? Math.trunc(input.cap) : null;
+  const recommended = typeof input.recommended === 'number' && isFinite(input.recommended)
+    ? Math.trunc(input.recommended) : null;
+  const blocked = cap !== null && callsToday >= cap;
+  const overRecommendation = !blocked && recommended !== null && callsToday >= recommended;
+  return {
+    callsToday: callsToday,
+    cap: cap,
+    recommended: recommended,
+    state: blocked ? 'at_cap' : (overRecommendation ? 'over_recommendation' : 'normal'),
+    blocked: blocked,
+    overRecommendation: overRecommendation,
+    remaining: cap === null ? null : Math.max(0, cap - callsToday),
+  };
+}
+
+function aiDailyCapMessage(cap) {
+  return "You've hit your daily cap of " + cap + ' AI calls. ' +
+    'Raise or remove it in settings, or it resets at midnight.';
+}
+
+// Plain and non-scary on purpose: the agent has not done anything wrong, and
+// the only action offered is the one that actually helps.
+function aiPaceBannerText(numberCount) {
+  const n = Math.max(1, Math.trunc(numberCount) || 1);
+  return "You're past the recommended daily pace for " + n + ' number' + (n === 1 ? '' : 's') + '. ' +
+    "Carriers may start marking this number 'Spam Likely' if it keeps this pace up. " +
+    'Adding another AI number raises the recommendation.';
+}
+// </ai-meter-core>
+
+// ============================================================
 // AI DIALER TEST PANEL (Phase 1 test rig)
 // Visible ONLY when BOTH kill switches are true: the agent's
 // agents.ai_dialer_enabled AND the global billing_config.ai_dialer_enabled.
@@ -25267,6 +25508,228 @@ function aiTestOnShow() {
   aiTestLoadAiName();
   aiTestLoadTransferNumber();
   aiTestLoadReceipts();
+  aiMeterLoad();
+}
+
+// ============================================================
+// DAILY AI-CALL METER — the screen (Phase 3)
+//
+// Reads the same three facts the server's gate reads (today's OUTBOUND count
+// in the agent's own day, the agent's cap, the ramp state of every active
+// number) and runs them through the pure meter-core block above, so this card
+// can never look green for a call ai-call-start would refuse.
+//
+// INBOUND IS NOT COUNTED. A consumer who called the agent's number is not
+// outbound volume and does nothing to the number's outbound reputation.
+// ============================================================
+let aiMeterState = {
+  callsToday: 0,
+  cap: AI_DEFAULT_DAILY_CAP,
+  timezone: AI_METER_DEFAULT_TZ,
+  rec: null,        // aiRecommendedDailyCalls() result
+  loaded: false,
+  busy: false,
+};
+
+async function aiMeterLoad() {
+  if (!currentAgent || !document.getElementById('aiMeterCard')) return;
+
+  let agentRow = null;
+  try {
+    const { data } = await sb.from('agents')
+      .select('ai_daily_call_cap, timezone')
+      .eq('id', currentAgent.id).maybeSingle();
+    agentRow = data;
+  } catch (_) { return; }
+  if (!agentRow) return;
+
+  // Stamp the zone the agent is actually in. "Today" has to mean their today —
+  // the server only knows UTC, and a row that has never been stamped falls
+  // back to America/Chicago, which is right for most of this book and wrong
+  // for the rest. Written only when it CHANGED, so this is normally no query
+  // at all.
+  let deviceTz = '';
+  try { deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (_) {}
+  if (aiIsValidTimezone(deviceTz) && deviceTz !== agentRow.timezone) {
+    try {
+      await sb.from('agents').update({ timezone: deviceTz }).eq('id', currentAgent.id);
+      agentRow.timezone = deviceTz;
+    } catch (_) { /* non-fatal — the fallback still works */ }
+  }
+
+  const tz  = aiResolveAgentTimezone(agentRow);
+  const now = new Date();
+  const win = aiLocalDayWindow(now, tz);
+
+  let callsToday = 0, numbers = [];
+  try {
+    const [cRes, nRes] = await Promise.all([
+      sb.from('ai_calls')
+        .select('id', { count: 'exact', head: true })
+        .eq('agent_id', currentAgent.id)
+        .eq('direction', 'outbound')
+        .gte('created_at', win.startIso)
+        .lt('created_at', win.endIso),
+      sb.from('phone_numbers')
+        .select('e164, ai_first_used_at')
+        .eq('agent_id', currentAgent.id)
+        .eq('status', 'active'),
+    ]);
+    callsToday = typeof cRes.count === 'number' ? cRes.count : 0;
+    numbers = nRes.data || [];
+  } catch (_) { /* render what we have */ }
+
+  aiMeterState.callsToday = callsToday;
+  aiMeterState.cap        = (typeof agentRow.ai_daily_call_cap === 'number') ? agentRow.ai_daily_call_cap : null;
+  aiMeterState.timezone   = win.timezone;
+  aiMeterState.rec        = aiRecommendedDailyCalls(numbers, now, win.timezone);
+  aiMeterState.loaded     = true;
+  aiMeterRender();
+}
+
+function aiMeterRender() {
+  const card = document.getElementById('aiMeterCard');
+  if (!card) return;
+  const rec  = aiMeterState.rec || { recommended: null, numberCount: 0, ramping: [] };
+  const v    = aiEvaluateDailyPace({
+    callsToday: aiMeterState.callsToday,
+    cap: aiMeterState.cap,
+    recommended: rec.recommended,
+  });
+
+  card.dataset.state = v.state;
+
+  const countEl = document.getElementById('aiMeter-count');
+  if (countEl) {
+    countEl.innerHTML = '';
+    countEl.appendChild(document.createTextNode(String(v.callsToday)));
+    const small = document.createElement('small');
+    // No cap is shown as ∞ — an honest rendering of a state the agent chose,
+    // not a blank that reads as "not loaded yet".
+    small.textContent = ' / ' + (v.cap === null ? '∞' : String(v.cap));
+    countEl.appendChild(small);
+  }
+
+  // The bar tracks whatever the agent is actually being measured against: their
+  // cap when they have one, otherwise the recommendation. With neither, there
+  // is nothing to fill against and it stays empty.
+  const denom = v.cap !== null ? v.cap : (v.recommended !== null ? v.recommended : 0);
+  const fill  = document.getElementById('aiMeter-fill');
+  if (fill) fill.style.width = denom > 0 ? Math.min(100, (v.callsToday / denom) * 100) + '%' : '0%';
+
+  const chip = document.getElementById('aiMeter-chip');
+  if (chip) {
+    chip.textContent = v.state === 'at_cap' ? 'AT YOUR CAP'
+      : v.state === 'over_recommendation' ? 'PAST RECOMMENDED' : 'ON PACE';
+    chip.dataset.tone = v.state === 'at_cap' ? 'down' : (v.state === 'over_recommendation' ? 'flat' : 'up');
+  }
+
+  const recEl = document.getElementById('aiMeter-rec');
+  if (recEl) {
+    if (rec.recommended === null) {
+      recEl.textContent = 'No active number on your account yet — buy one in Phone Book before placing AI calls.';
+    } else {
+      const n = rec.numberCount;
+      recEl.textContent = 'Recommended today: ' + rec.recommended + ' across ' +
+        n + ' number' + (n === 1 ? '' : 's') + ' · resets at midnight ' + aiMeterState.timezone + '.';
+    }
+  }
+
+  // One chip per number still inside its first seven days. A mature number gets
+  // no chip — there is nothing to say about it.
+  const chips = document.getElementById('aiMeter-chips');
+  if (chips) {
+    chips.innerHTML = '';
+    (rec.ramping || []).forEach(function (r) {
+      const el = document.createElement('span');
+      el.className = 'aim-chip';
+      el.textContent = '…' + (r.last4 || '????') + ' · day ' + r.day + ' of ' + AI_RAMP_DAYS +
+        ' ramp-up · recommended ' + r.recommended + ' today';
+      el.title = r.neverUsed
+        ? 'This number has not carried an AI call yet. Its first call starts day 1.'
+        : 'New numbers are the most fragile with carriers. This one reaches the full ' +
+          AI_DAILY_CALL_RECOMMENDATION + '/day on day ' + AI_RAMP_DAYS + '.';
+      chips.appendChild(el);
+    });
+  }
+
+  const banner = document.getElementById('aiMeter-banner');
+  if (banner) {
+    if (v.state === 'at_cap') {
+      banner.style.display = '';
+      banner.textContent = aiDailyCapMessage(v.cap);
+    } else if (v.state === 'over_recommendation') {
+      banner.style.display = '';
+      banner.textContent = aiPaceBannerText(rec.numberCount);
+    } else {
+      banner.style.display = 'none';
+      banner.textContent = '';
+    }
+  }
+
+  const capInput = document.getElementById('aiMeter-capInput');
+  const noCap    = document.getElementById('aiMeter-noCap');
+  if (capInput && document.activeElement !== capInput) {
+    capInput.value = v.cap === null ? '' : String(v.cap);
+  }
+  if (capInput) capInput.disabled = v.cap === null;
+  if (noCap) noCap.checked = v.cap === null;
+}
+
+// Writes agents.ai_daily_call_cap. The number is theirs to choose — including
+// one above the recommendation, which is warned about and then honoured.
+async function aiMeterSaveCap() {
+  const inp = document.getElementById('aiMeter-capInput');
+  if (!inp || !currentAgent || aiMeterState.busy) return;
+  const raw = (inp.value || '').trim();
+  if (raw === '') { aiMeterRender(); return; }        // blank is not "no cap" — the toggle is
+  const n = Number(raw);
+  if (!isFinite(n) || n < 0 || Math.trunc(n) !== n) {
+    showToast('Enter a whole number of calls, or tick “No cap”.', '#dc2626');
+    aiMeterRender();
+    return;
+  }
+  aiMeterState.busy = true;
+  const { error } = await sb.from('agents').update({ ai_daily_call_cap: n }).eq('id', currentAgent.id);
+  aiMeterState.busy = false;
+  if (error) { showToast('Could not save your daily cap: ' + error.message, '#dc2626'); return; }
+  aiMeterState.cap = n;
+  aiMeterRender();
+  const rec = (aiMeterState.rec && aiMeterState.rec.recommended) || null;
+  if (rec !== null && n > rec) {
+    showToast('Daily cap saved — ' + n + ' calls. That is above the recommended ' + rec +
+      ' for your numbers; you will be warned, not blocked.', '#f59e0b');
+  } else {
+    showToast('Daily cap saved — ' + n + ' AI calls per day.', '#10b981');
+  }
+}
+
+// NULL is a real, supported setting: no cap at all.
+async function aiMeterToggleNoCap() {
+  const box = document.getElementById('aiMeter-noCap');
+  const inp = document.getElementById('aiMeter-capInput');
+  if (!box || !currentAgent || aiMeterState.busy) return;
+  const off = box.checked;
+  let next = null;
+  if (!off) {
+    const typed = Number((inp && inp.value) || '');
+    next = (isFinite(typed) && typed >= 0 && Math.trunc(typed) === typed && String(inp.value).trim() !== '')
+      ? Math.trunc(typed) : AI_DEFAULT_DAILY_CAP;
+  }
+  aiMeterState.busy = true;
+  const { error } = await sb.from('agents').update({ ai_daily_call_cap: next }).eq('id', currentAgent.id);
+  aiMeterState.busy = false;
+  if (error) {
+    showToast('Could not change your daily cap: ' + error.message, '#dc2626');
+    box.checked = aiMeterState.cap === null;   // revert
+    return;
+  }
+  aiMeterState.cap = next;
+  aiMeterRender();
+  showToast(next === null
+    ? 'Daily cap off — nothing here will stop you. Watch the recommended pace instead.'
+    : 'Daily cap on — ' + next + ' AI calls per day.',
+    next === null ? '#f59e0b' : '#10b981');
 }
 
 // ============================================================
@@ -25600,6 +26063,10 @@ async function aiTestStartCall() {
     aiTestState.callControlId = body.call_control_id || null;
     aiTestStartPolling();
   }
+  // The meter moves on every attempt — including a refused one, where the
+  // count it shows is the reason. Re-read rather than trusting the response
+  // body: a call placed from another tab is still one of today's calls.
+  aiMeterLoad();
 }
 
 // Read the JSON body out of a failed sb.functions.invoke() (non-2xx). Mirrors
@@ -25621,6 +26088,9 @@ function aiTestGateMessage(body) {
     ai_disabled:              'AI dialer kill switch is off (global or per-agent).',
     upgrade_required:         'Plan not entitled — Pro Producer or Team Leader required (admins bypass).',
     insufficient_balance:     'Wallet balance is below the AI call-start floor — top up first.',
+    // The one gate the agent set themselves. The server already wrote the
+    // sentence, including where to change it and when it lifts.
+    daily_cap_reached:        (body && body.detail) || 'You have hit your own daily AI-call cap.',
     quiet_hours:              (body && body.detail) || 'Outside the lead-local calling window (quiet hours).',
     no_caller_id:             'No Telnyx caller ID assigned — buy/assign a number in Phone Book.',
     missing_lead_id:          'No lead id sent — create the test lead first.',

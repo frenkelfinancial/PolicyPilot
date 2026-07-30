@@ -243,7 +243,7 @@ test('the referral-core block is pure', () => {
 
 test('every core sentinel still appears exactly once', () => {
   ['bob-core', 'comm-core', 'persist-core', 'recon-core', 'referral-core',
-   'backoffice-core', 'team-core', 'producer-codes-core'].forEach(name => {
+   'backoffice-core', 'team-core', 'producer-codes-core', 'ai-meter-core'].forEach(name => {
     assert.equal((APP.match(new RegExp(`// <${name}>`, 'g')) || []).length, 1, `// <${name}>`);
     assert.equal((APP.match(new RegExp(`// </${name}>`, 'g')) || []).length, 1, `// </${name}>`);
   });

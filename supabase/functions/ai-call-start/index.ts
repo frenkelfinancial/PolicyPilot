@@ -7,21 +7,41 @@ import {
   isWithinAllowedHoursUnknownTz,
   knownTimezoneForPhone,
 } from "../_shared/tcpa.ts";
+import {
+  evaluateDailyPace,
+  dailyCapMessage,
+  localDayWindow,
+  recommendedDailyCalls,
+  resolveAgentTimezone,
+} from "../_shared/ai-call-meter.ts";
 
 // ai-call-start — place ONE compliant AI Sales Agent qualification call.
 //
 // Same skeleton as telnyx-dialer-create-session: auth -> gates -> Telnyx
-// API -> DB row. The gates here are the Phase 0 compliance foundation and
-// run in a fixed order, each returning its own error code so the UI can
-// explain exactly why a call was blocked:
+// API -> DB row. The gates run in a fixed order, each returning its own error
+// code so the UI can explain exactly why a call was blocked:
 //   1. ai_disabled          — global OR per-agent kill switch is off
 //   2. upgrade_required     — plan tier isn't Pro or Team Leader
 //   3. not_callable         — no consent / on DNC / on suppression list
 //   4. quiet_hours          — outside 8am-9pm lead-local (most restrictive
 //                             interpretation when the timezone is unknown)
-//   5. insufficient_balance — wallet can't cover the AI call-start floor
+//   5. daily_cap_reached    — the agent's OWN daily cap (agents.
+//                             ai_daily_call_cap). NULL there = no cap.
+//   6. insufficient_balance — wallet can't cover the AI call-start floor
 //
-// Only after all five pass does it dial. Billing happens later, in
+// Gates 1–4 are the Phase 0 compliance foundation and their order is
+// unchanged. Gate 5 is new (20260802) and sits ABOVE the wallet floor on
+// purpose: hitting a cap you set yourself is a PACING answer, not a money
+// answer, and sending someone to top up their wallet when the real reason is
+// their own setting points them at the wrong screen.
+//
+// THE RECOMMENDATION IS NOT A GATE. ~300 calls/day per active number (ramped
+// over a number's first seven days — see _shared/ai-call-meter.ts) is advice
+// about carrier spam-labelling. Passing it records ONE ai_pace_events row for
+// the day and places the call. Only the agent's own cap refuses, and clearing
+// it is one click.
+//
+// Only after all six pass does it dial. Billing happens later, in
 // ai-call-webhook, via wallet_debit_ai_minutes.
 serve(async (req) => {
   const CORS = corsHeaders(req.headers.get("origin"));
@@ -72,9 +92,15 @@ serve(async (req) => {
   if (!leadId) return json({ error: "missing_lead_id", detail: "lead_id (public.leads.id uuid) is required." }, 400);
 
   // One parallel round-trip for everything the gates read.
-  const [{ data: agent }, { data: billingConfig }, { data: wallet }, { data: lead }] = await Promise.all([
+  const [
+    { data: agent },
+    { data: billingConfig },
+    { data: wallet },
+    { data: lead },
+    { data: agentNumbers },
+  ] = await Promise.all([
     sb.from("agents")
-      .select("is_admin, ai_dialer_enabled, plan_id, display_name, agency_name, signalwire_caller_id, ai_voice, ai_agent_name")
+      .select("is_admin, ai_dialer_enabled, plan_id, display_name, agency_name, signalwire_caller_id, ai_voice, ai_agent_name, ai_daily_call_cap, timezone")
       .eq("id", user.id)
       .maybeSingle(),
     sb.from("billing_config")
@@ -90,6 +116,13 @@ serve(async (req) => {
       .eq("agent_id", user.id)
       .eq("id", leadId)
       .maybeSingle(),
+    // The AI-number pool the daily recommendation is summed over. Active rows
+    // only — a released or past-due number is not carrying traffic and must
+    // not inflate the pace we recommend.
+    sb.from("phone_numbers")
+      .select("e164, ai_first_used_at")
+      .eq("agent_id", user.id)
+      .eq("status", "active"),
   ]);
 
   // ---- Gate 1: kill switches (global AND per-agent) ----------------------
@@ -157,7 +190,74 @@ serve(async (req) => {
     }, 422);
   }
 
-  // ---- Gate 5: wallet floor for an AI call -------------------------------
+  // ---- Gate 5: the agent's own daily cap (+ the soft recommendation) ------
+  //
+  // Everything here counts in the AGENT's day, not UTC. An agent in Chicago
+  // starting at 6am is on a new day; the server left to itself would still be
+  // on yesterday for six more hours and would let them run two days' calls
+  // through one number's budget.
+  //
+  // INBOUND IS NEVER COUNTED AND NEVER BLOCKED. A consumer who dialed the
+  // agent's number is not outbound volume, does nothing to the number's
+  // outbound reputation, and refusing to answer them is the one failure this
+  // whole feature cannot justify. Hence `.eq("direction", "outbound")`.
+  const meterTz  = resolveAgentTimezone(agent as { timezone?: unknown } | null);
+  const dayWin   = localDayWindow(new Date(), meterTz);
+  const { count: placedToday } = await sb.from("ai_calls")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", user.id)
+    .eq("direction", "outbound")
+    .gte("created_at", dayWin.startIso)
+    .lt("created_at", dayWin.endIso);
+
+  const callsToday = typeof placedToday === "number" ? placedToday : 0;
+  const rec = recommendedDailyCalls(
+    (agentNumbers || []) as Array<{ e164?: string | null; ai_first_used_at?: string | null }>,
+    new Date(),
+    meterTz,
+  );
+  const pace = evaluateDailyPace({
+    callsToday,
+    cap: (agent as { ai_daily_call_cap?: number | null } | null)?.ai_daily_call_cap ?? null,
+    recommended: rec.recommended,
+  });
+
+  // The cap blocks. It is the agent's own number, so blocking on it is fine —
+  // and the message says exactly where to change it.
+  if (pace.blocked) {
+    return json({
+      error:  "daily_cap_reached",
+      detail: dailyCapMessage(pace.cap as number),
+      calls_today: pace.callsToday,
+      cap:         pace.cap,
+      recommended: pace.recommended,
+      resets_at:   dayWin.endIso,
+      timezone:    dayWin.timezone,
+    }, 429);
+  }
+
+  // Past the RECOMMENDATION but under their cap: the call goes through. All
+  // that happens is one row for the day, written idempotently — call 301
+  // writes it and calls 302..500 write nothing, because the unique key does
+  // the remembering rather than this function.
+  if (pace.overRecommendation) {
+    try {
+      await sb.from("ai_pace_events").upsert({
+        agent_id:     user.id,
+        local_day:    dayWin.dayKey,
+        timezone:     dayWin.timezone,
+        calls_today:  pace.callsToday,
+        recommended:  pace.recommended,
+        cap:          pace.cap,
+        number_count: rec.numberCount,
+      }, { onConflict: "agent_id,local_day", ignoreDuplicates: true });
+    } catch (e) {
+      // A warning that failed to record must never cost the agent the call.
+      console.error("[ai-call-start] pace event write failed:", (e as Error)?.message);
+    }
+  }
+
+  // ---- Gate 6: wallet floor for an AI call -------------------------------
   const minStartMills = billingConfig?.min_ai_call_start_mills ?? 150;
   const balanceMills  = wallet?.balance_mills ?? 0;
   if (balanceMills < minStartMills) {
@@ -320,5 +420,28 @@ serve(async (req) => {
     .update({ call_control_id: callControlId, telnyx_call_leg_id: callLegId || null })
     .eq("id", aiCall.id);
 
-  return json({ ok: true, ai_call_id: aiCall.id, call_control_id: callControlId });
+  // Day 1 of this number's ramp starts NOW, if it hasn't already.
+  //
+  // Stamped only on a call Telnyx actually accepted — a rejected dial did not
+  // put a call on the number and must not start its seven-day clock. `is null`
+  // makes this write-once: a re-stamp would slide a mature number back to day
+  // 1 and quietly halve the recommendation on every later call.
+  await sb.from("phone_numbers")
+    .update({ ai_first_used_at: new Date().toISOString() })
+    .eq("agent_id", user.id)
+    .eq("e164", callerId)
+    .is("ai_first_used_at", null);
+
+  return json({
+    ok: true,
+    ai_call_id: aiCall.id,
+    call_control_id: callControlId,
+    // The meter as it stood before this call, plus this one — so the panel can
+    // move without a round trip. `recommended` is null when the agent has no
+    // active number (no pool, so no recommendation — not a recommendation of 0).
+    calls_today: pace.callsToday + 1,
+    cap: pace.cap,
+    recommended: pace.recommended,
+    over_recommendation: pace.overRecommendation,
+  });
 });

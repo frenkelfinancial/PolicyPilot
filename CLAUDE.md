@@ -300,6 +300,54 @@ Autonomy layer (added 07/2026):
   list shorter than `properties` (400 / code 10015). `sync-ai-assistant.mjs`
   READS BACK everything it writes — that read-back caught both.
 
+### Phase 3 — daily call meter, recommended pace, ramp-up (added 2026-07-30)
+
+- **Read `docs/ai-call-meter.md` before touching anything named `aiMeter*`,
+  `ai-call-meter`, `ai_daily_call_cap`, `ai_first_used_at` or
+  `ai_pace_events`.** Schema: `20260802_ai_call_meter.sql`.
+- **🔴 THE RECOMMENDATION NEVER BLOCKS. ONLY THE AGENT'S OWN CAP DOES.**
+  ~300 calls/day per active number (ramped `30,60,100,150,200,250,300` over a
+  number's first seven days) is advice about carrier spam-labelling. Passing it
+  turns the meter amber, writes ONE `ai_pace_events` row for the day, and
+  **places the call**. A test asserts the over-recommendation branch in
+  `ai-call-start` contains no `return`. Someone who wants 500 calls a day on one
+  number gets the warning and then gets their 500 calls; "add another AI number
+  raises the recommendation" is a line of copy, never a wall.
+- **`ai_daily_call_cap IS NULL` means NO CAP — a state the agent chose**, not a
+  missing value. The column default is 300 (the recommendation *is* the
+  default). The migration contains no `update … set ai_daily_call_cap` and must
+  not gain one: a blanket backfill hands the cap back to an agent who cleared it
+  on purpose. Likewise **a recommendation of `null` (no active numbers) is not
+  `0`** — 0 would flag every call on an account that cannot dial at all.
+- **A number that has never carried an AI call is ramp day 1, not day 0**, so it
+  is recommended 30. That is also what makes the upsell honest: a new number
+  adds 30 today and +300 a week later. `ai_first_used_at` is stamped ONCE, only
+  after Telnyx accepted the dial (`.is(…, null)`), and is client-immutable via
+  the `phone_numbers` denylist trigger — a backdate would buy a fresh number a
+  matured number's recommendation.
+- **INBOUND IS NEVER COUNTED AND NEVER BLOCKED.** Both count queries (browser
+  and server) carry `direction = 'outbound'` and a test greps for it in both.
+  The consumer called us.
+- **"Today" is the AGENT's day.** `agents.timezone` is written by the browser
+  from `Intl…resolvedOptions().timeZone`; NULL falls back to `America/Chicago`.
+  **No area-code inference for an agent's own zone** — that is `tcpa.ts`'s job
+  for a *recipient*, and it is a different question. The day window is half-open
+  and solved by fixed point so DST cannot move it an hour.
+- **Gate order in `ai-call-start` is now 1 ai_disabled → 2 upgrade_required →
+  3 not_callable → 4 quiet_hours → 5 `daily_cap_reached` → 6
+  insufficient_balance.** The cap sits ABOVE the wallet floor deliberately:
+  hitting a cap you set yourself is a pacing answer, not a money answer.
+- **The math is duplicated on purpose and pinned by a parity test.**
+  `_shared/ai-call-meter.ts` (server) and the `// <ai-meter-core>` block in
+  `app.html` (screen); `test/ai-meter.test.mjs` runs several hundred shared
+  cases through both and compares ramp days, day windows, verdicts and copy.
+  Change one, change the other. Same arrangement as `pcNormalizeCode()`.
+- **`ai_pace_events` is `unique (agent_id, local_day)` with ONE policy,
+  SELECT.** The key does the remembering, not the caller — the stored
+  `calls_today` is the count at the FIRST warning, not the day's total. Never
+  add an INSERT policy. `ai_call_events` was deliberately not reused (Telnyx
+  payloads, no `agent_id`, service-role-only).
+
 ## Identity — a person has a name, not an address
 
 - **`pp_display_name()` (SQL, `20260751`) and `ppAgentName()` (browser, in `// <team-core>`) are the ONE identity resolver.** `lb_agent_name`, `get_team_summary` and `get_agency_members` all delegate to the SQL one; every renderer goes through the browser one. Read `docs/agency-leaderboards.md` § "Who an agent is called".

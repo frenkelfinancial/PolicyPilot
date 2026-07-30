@@ -2551,3 +2551,64 @@ Applied with `npx supabase db query --linked -f <file>`, wrapped in
   for inbound.
 - **No `leads` migration.** The table already had everything; recorded here so
   the next reader does not go looking.
+
+---
+
+## Applied — `20260802_ai_call_meter.sql` (2026-07-30)
+
+Daily AI-call meter: a recommended pace, a seven-day ramp for a new number,
+and the agent's own cap.
+
+Applied with `npx supabase db query --linked -f <file>`, wrapped in
+`begin; … commit;` (same mechanism and reasoning as 20260753 / 20260801).
+
+### Verified present after the apply
+
+| Object | Before | After |
+|---|---|---|
+| `agents.ai_daily_call_cap` | absent | present, `default 300` |
+| `agents.timezone` | absent | present |
+| `phone_numbers.ai_first_used_at` | absent | present |
+| `public.ai_pace_events` | absent | present, RLS on, **1 policy (SELECT)** |
+| `agents_ai_daily_call_cap_check` | absent | present |
+| agents with `ai_daily_call_cap = 300` | — | **9 of 9** |
+| agents with a NULL cap | — | 0 |
+| `phone_numbers` backfilled from `ai_calls` | — | **1 of 7 active** (`+12029981783`, first used 2026-07-27) |
+| `phone_numbers_protect_privileged_columns` guards `ai_first_used_at` | no | **yes** |
+
+Row counts unchanged: 9 agents, 7 active numbers, 14 `ai_calls`.
+
+### Decisions worth not re-deriving
+
+- **NULL `ai_daily_call_cap` means NO CAP, and it is a supported one-click
+  state.** The column default is 300 — the same number as the recommendation —
+  so `add column … default 300` gave all nine existing rows a cap in one pass.
+  There is deliberately **no `update … set ai_daily_call_cap`** anywhere in the
+  file: a blanket backfill would hand the cap back to an agent who had cleared
+  it on purpose the next time anyone re-ran the migration. A test asserts that
+  statement is absent.
+- **The recommendation is not in the database.** No column, no function, no
+  check constraint computes 300 or the ramp. It lives once in
+  `_shared/ai-call-meter.ts` (mirrored in `// <ai-meter-core>` in `app.html`,
+  with a parity test), because it is advice that changes, not a constraint.
+- **`agents.timezone` is written by the BROWSER**, from
+  `Intl.DateTimeFormat().resolvedOptions().timeZone`, and only when it changed.
+  "Today" has to mean the agent's today; the server only knows UTC. All nine
+  rows are NULL right now, so every account currently meters on the
+  `America/Chicago` fallback. **No area-code inference** — guessing where a
+  PERSON is from a number they bought online files calls on the wrong day.
+- **`ai_first_used_at` is client-immutable**, added to the 20260730 denylist
+  trigger. A browser that could backdate it would buy a fresh number a matured
+  number's 300-call recommendation on the day it was purchased — the exact
+  reputation risk the ramp exists to prevent.
+- **`ai_pace_events` is keyed `unique (agent_id, local_day)` and has ONE
+  policy, SELECT.** The unique key is what makes "one warning per agent per
+  day" true — `ai-call-start` offers a row on every call past the
+  recommendation and the key discards all but the first, so the count stored is
+  the one at the FIRST warning, not the day's total. Do not add an INSERT
+  policy: a browser that can write here can forge, or suppress, the record that
+  it was warned.
+- **`ai_call_events` was deliberately not reused for this.** It is keyed on a
+  Telnyx `call_control_id`, carries raw Telnyx payloads, has no `agent_id` to
+  scope an owner policy by, and is service-role-only. A pace warning belongs to
+  an agent and a day, and the agent is allowed to see it.
