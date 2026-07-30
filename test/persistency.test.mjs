@@ -35,8 +35,15 @@ const EXPORTS = [
 function loadCore() {
   const m = APP.match(/\/\/ <persist-core>([\s\S]*?)\/\/ <\/persist-core>/);
   assert.ok(m, 'app.html must contain the // <persist-core> ... // </persist-core> block');
+  // persistAgentRows() labels each agent, and that goes through ppAgentName()
+  // — the ONE identity resolver, which lives in team-core because every screen
+  // that names an agent needs it. Load team-core alongside rather than letting
+  // this block grow a second copy of the "a person has a name, not an address"
+  // rule. Same arrangement as test/leaderboards.test.mjs pulling in tmDur().
+  const team = APP.match(/\/\/ <team-core>([\s\S]*?)\/\/ <\/team-core>/);
+  assert.ok(team, 'app.html must contain the // <team-core> block');
   // eslint-disable-next-line no-new-func
-  return new Function(`${m[1]}\nreturn {${EXPORTS.join(',')}};`)();
+  return new Function(`${team[1]}\n${m[1]}\nreturn {${EXPORTS.join(',')}};`)();
 }
 const P = loadCore();
 

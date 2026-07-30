@@ -34,8 +34,16 @@ const EXPORTS = [
 function loadCore() {
   const m = APP.match(/\/\/ <producer-codes-core>([\s\S]*?)\/\/ <\/producer-codes-core>/);
   assert.ok(m, 'app.html must contain the // <producer-codes-core> block');
+  // producer-codes-core labels the agent a sheet row resolves to, and that
+  // label goes through ppAgentName() — the ONE identity resolver, which lives
+  // in team-core because every screen that names an agent needs it. Load
+  // team-core alongside rather than letting this block grow a second copy of
+  // the "a person has a name, not an address" rule. Same arrangement, and the
+  // same reason, as test/leaderboards.test.mjs pulling in tmDur().
+  const team = APP.match(/\/\/ <team-core>([\s\S]*?)\/\/ <\/team-core>/);
+  assert.ok(team, 'app.html must contain the // <team-core> block');
   // eslint-disable-next-line no-new-func
-  return new Function(`${m[1]}\nreturn {${EXPORTS.join(',')}};`)();
+  return new Function(`${team[1]}\n${m[1]}\nreturn {${EXPORTS.join(',')}};`)();
 }
 const P = loadCore();
 

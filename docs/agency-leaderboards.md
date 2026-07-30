@@ -119,6 +119,89 @@ the tail was being sent and merely hidden.
 
 ---
 
+## Who an agent is called
+
+**One resolver, `pp_display_name()`, and every peer-visible surface reads it** —
+directly, or through `lb_agent_name` / `get_team_summary` / `get_agency_members`.
+`20260751`.
+
+An email address is not a name. Before that migration every name expression in
+this schema ended `..., au.email)` and `agents.display_name` was NULL for all
+eight production agents, so the fallback *was* the answer: the leader of the
+only live agency appeared as `jacef8778099@gmail.com` on the team table, all
+seven boards, both record scopes and — stored, not merely rendered — on four
+`agency_records.holder_name` rows his two downline agents could read.
+
+The chain:
+
+| | Source | Why here |
+|---|---|---|
+| 1 | `agents.display_name` | what the agent typed in Settings |
+| 2 | `raw_user_meta_data->>'display_name'` | the old chain's key, preserved |
+| 3–4 | `->>'full_name'`, `->>'name'` | the identity provider names a PERSON |
+| 5 | `dba_name` → `business_legal_name` → `agency_name` | the business profile |
+| 6 | the email's **local part**, prettified | never the address |
+| 7 | `'Agent'` | rather than a blank cell |
+
+Steps 3–4 sit **above** the business profile deliberately. A board row names a
+person; ranking "Frenkel Financial LLC" against ten people reads as a bug.
+
+`ppAgentName()` in `// <team-core>` is the browser's half, and it **refuses any
+string containing `@`** — if a stale cache or an unmigrated RPC ever hands the
+browser an address in a name field, it derives a name instead of publishing it.
+`ppInitials()` builds avatars from that name, so a monogram can never spell an
+address either.
+
+**The Settings field used to write localStorage only.** An agent typed their
+name, watched it stick, and stayed an email address to their whole agency. It
+now writes `agents.display_name` and drops the team/leaderboard caches.
+
+**The one place an address is still shown:** a *pending* or *declined* invite
+card, where no account exists and the address the leader typed is the only
+identifier the row has. A *connected* agent is a person and is named as one.
+Search is unaffected — typing an email to find a colleague in the transfer
+picker still works. The rule is about what is rendered, not what is matched.
+
+---
+
+## Periods: Lifetime, a month picker, and custom ranges
+
+Added 2026-07-30 to **both** the Summary screen and the Agency tab. No schema
+change was needed: every window is expressed in bounds the RPCs already accept.
+
+One key grammar, one parser, both engines:
+
+```
+'month:2026-04'                 a past calendar month
+'custom:2026-04-01:2026-04-17'  an inclusive range
+```
+
+`ppParsePeriodKey()` / `ppDynamicRange()` live in `// <team-core>` and are called
+by `summaryPeriodRange()` and `teamPeriodRange()` alike. A test asserts each is
+defined exactly once and that neither engine grew its own week-start or quarter
+arithmetic. The keys are strings so they persist in `localStorage` and travel
+through the existing setter/renderer plumbing untouched.
+
+- **`end` is exclusive** (the day after `to`) because every consumer in this app
+  is half-open. The picker is inclusive because that is what a person means by
+  "the 1st to the 17th".
+- **Most Improved compares against the preceding range of EQUAL LENGTH**, and
+  for a picked month against the month before. That is why the board stays
+  available on a custom range rather than being hidden: `ppDynamicRange` emits
+  `prevStart`/`prevEnd`, which is exactly what `lb_board_rows` already reads, so
+  `20260750` needed no change. The screen says which comparison it made.
+- **The AT-RISK window does not move.** It is always this calendar month versus
+  last, for every period key including a picked one — a leader browsing last
+  April must not see agents flagged for April's numbers. A test asserts the
+  at-risk pair is byte-identical across all six key shapes.
+- **A stored key that no longer resolves is ignored**, on both screens, so a
+  corrupt value cannot brick the page on every future load.
+- `_lgInRange` / `_lgWhenInRange` and the Summary calls query all had to learn
+  that **null bounds mean unbounded** — they used to dereference `range.start`
+  unconditionally, so Lifetime would have thrown the moment it appeared.
+
+---
+
 ## Peer visibility — the new consent question
 
 Until this feature a downline consented to sharing performance data with their

@@ -190,6 +190,25 @@ Autonomy layer (added 07/2026):
 - **Talk time is `duration_sec`, the same expression the team table's Call time column uses** — `answered_at` exists and the two definitions differ by 13 seconds across 1,298 rows, which is not worth two numbers on one screen.
 - **Both cron jobs call SQL directly**, not an edge function: no secret, no `verify_jwt` flag. `lb_rollover()` reasons in `America/Chicago`, so there is no CDT/CST job pair.
 
+## Identity — a person has a name, not an address
+
+- **`pp_display_name()` (SQL, `20260751`) and `ppAgentName()` (browser, in `// <team-core>`) are the ONE identity resolver.** `lb_agent_name`, `get_team_summary` and `get_agency_members` all delegate to the SQL one; every renderer goes through the browser one. Read `docs/agency-leaderboards.md` § "Who an agent is called".
+- **🔴 NO PEER-VISIBLE SURFACE MAY RENDER AN EMAIL ADDRESS.** Before `20260751` every name expression ended `..., au.email)` and `agents.display_name` was NULL for all 8 production agents, so the fallback WAS the answer — the leader of the only live agency showed as `jacef8778099@gmail.com` on the team table, all seven boards, both record scopes, and stored on four `agency_records.holder_name` rows. A test sweeps `app.html` as source text for `agent_name || agent_email` and its variants.
+- **`ppAgentName()` refuses any string containing `@`** and derives from the local part instead. That is the belt-and-braces half: a stale cache or an unmigrated RPC cannot publish an address just because it reached the browser. `ppInitials()` builds avatars from the resolved name for the same reason.
+- **The identity-provider name (`raw_user_meta_data->>'full_name'`) outranks the business profile**, deliberately and against the brief's literal wording. A board row names a PERSON; "Frenkel Financial LLC" ranked against ten people reads as a bug, and "renders as Jace Frenkel" was the acceptance test.
+- **An email is still shown on a PENDING or DECLINED invite card**, where no account exists and it is the row's only identifier. A CONNECTED agent is named. Search-by-email in the transfer picker is untouched — the rule is about what is rendered, not what is matched.
+- **The Settings display-name field writes `agents.display_name`**, not just localStorage. It used to write localStorage only, so an agent could type their name, watch it stick, and stay an address to their whole agency.
+- **`persist-core` and `producer-codes-core` now load `team-core` in their test harnesses**, because both label agents through `ppAgentName()`. Same arrangement as `leaderboards.test.mjs` pulling in `tmDur()`.
+
+## Period controls — Lifetime, month picker, custom ranges
+
+- **One key grammar, one parser, both engines.** `'month:2026-04'` and `'custom:2026-04-01:2026-04-17'` are parsed by `ppParsePeriodKey()` / `ppDynamicRange()` in `// <team-core>`, called by BOTH `summaryPeriodRange()` and `teamPeriodRange()`. No schema change was needed — every window rides bounds the RPCs already accept.
+- **`end` is exclusive, the picker is inclusive.** Every consumer in this app is half-open; a person saying "the 1st to the 17th" means the 17th counts.
+- **Most Improved compares against the preceding range of EQUAL LENGTH** (a picked month compares to the month before). That is why the board stays available on a custom range instead of being hidden, and why `20260750` needed no change: `ppDynamicRange` emits the `prevStart`/`prevEnd` `lb_board_rows` already reads. The screen states which comparison it made.
+- **The AT-RISK window never moves** — always this calendar month vs last, for every key including a picked one. A leader browsing last April must not see agents flagged for April's numbers. A test asserts the at-risk pair is identical across all six key shapes.
+- **Both `ledgerPeriod` and `_teamPeriod` initialise from localStorage and must accept a stored dynamic key** (and reject one that no longer resolves). Teaching only the setters is what made a picked window silently revert to the default on the next page load — caught by the headless run, not by a unit test.
+- **Null bounds mean unbounded.** `_lgInRange`, `_lgWhenInRange` and the Summary calls query all had to learn this; they used to dereference `range.start` unconditionally, so Lifetime would have thrown on arrival.
+
 ## Agency / team reporting
 - **Read `docs/agency-team-screen.md` before touching anything named `team*`, `tm*`, `_ag*`, or `get_team_summary`.** The Agency tab and the Summary team mini-card are two VIEWS of one view-model.
 - **Three invariants, all asserted by `test/team-roster.test.mjs` against `app.html` as source text:** exactly one `sb.rpc('get_team_summary')` call site (`loadTeamRoster`), exactly one period engine (`teamPeriodRange`), exactly one table renderer (`teamTableHTML`). Two independent team queries is what produced the 8,610× AP overstatement fixed in `20260736`.

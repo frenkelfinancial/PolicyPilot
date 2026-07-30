@@ -2275,3 +2275,178 @@ production policies store `ap` as a JSON number** and `addPolicy()` writes
 future writer that puts a string into `data.ap` will break the dashboard. The
 SQL side is already immune: every AP read is regex-guarded on the text
 projection.
+
+---
+
+## Apply 2026-07-30 — `20260751_display_names.sql`
+
+Display names everywhere; email addresses nowhere peer-facing. Applied via
+`supabase db query --linked -f <wrapped>` with `begin;`/`commit;` around the
+committed file. Feature doc: `docs/agency-leaderboards.md` § "Who an agent is
+called".
+
+**Additive.** Five `create or replace function`, three guarded `UPDATE`s, one
+comment, three grants. No table, no column, no index, no policy. No `DROP`, no
+`DELETE`, no `TRUNCATE`. Nothing in `auth.*` is written — it is read, for the
+name a consumer's own identity provider already gave us. Re-running is a no-op.
+
+**The file is GENERATED, not hand-written.** `get_team_summary` and
+`get_agency_members` are lifted verbatim from the migrations that most recently
+define them (`20260741` and `20260737`) with exactly one expression substituted
+in each, and the generator throws if either expression has moved. Retyping a
+100-line function to change one line is how a status filter or a window bound
+silently drifts — the same technique, for the same reason, that `20260741` used
+on `get_team_summary`.
+
+### What was wrong
+
+Every name-resolving expression in this schema ended `..., au.email)`, and
+**`agents.display_name` was NULL for all 8 production agents**. The fallback was
+not a fallback. It was the answer, for everybody.
+
+| Surface | What it showed for Jace |
+|---|---|
+| Team table "Agent" column | `jacef8778099@gmail.com` |
+| All seven leaderboards | `jacef8778099@gmail.com` |
+| Records (personal + agency) | `jacef8778099@gmail.com` |
+| Hall of Fame, milestone feed | would have, on the next write |
+| Roster, invitee view, transfer picker | ditto |
+| **`agency_records.holder_name`** | **STORED as the address, 4 rows** |
+
+Those four stored rows were live on the Records screen for two downline agents.
+
+**The near-miss that hid it:** the old chain probed
+`raw_user_meta_data->>'display_name'`, and Google OAuth writes the person's name
+to `full_name` and `name`. One key away from correct — which is why nobody
+noticed the fallback was load-bearing.
+
+### The chain, and the one deliberate departure from the brief
+
+```
+1. agents.display_name                     what the agent typed in Settings
+2. raw_user_meta_data->>'display_name'     preserved: the old chain's key
+3. raw_user_meta_data->>'full_name'        Google/Apple give us a PERSON
+4. raw_user_meta_data->>'name'             same, other providers
+5. dba_name / business_legal_name / agency_name    the business profile
+6. the email's LOCAL PART, prettified      never the address itself
+7. 'Agent'                                 rather than a blank cell
+```
+
+The brief said "display name → business-profile name → email's front part".
+**Steps 3–4 were inserted above the business profile deliberately.** A
+leaderboard row names a PERSON; Jace's business profile says "Frenkel Financial
+LLC" and his Google account says "Jace Frenkel", and ranking a company against
+ten people reads as a bug. "Confirm my own account renders as Jace Frenkel" was
+the stated acceptance test and only step 3 satisfies it. The business profile is
+still in the chain, one rung lower, for an agent who has one and no OAuth name.
+
+Step 6 keeps the promise rather than compromising on it: `owenclark.2831`
+becomes "Owenclark 2831" — not a `mailto:`, not harvestable, still recognisable
+to their own team.
+
+### Pre-apply audit
+
+| Probe | Result |
+|---|---|
+| `pp_display_name` | **absent** |
+| `agents` with a blank `display_name` | **8 of 8** |
+| `agency_records.holder_name` containing `@` | **4** |
+| `get_team_summary` / `get_agency_members` signatures | 1 / 1 |
+| `agency_milestones` / `leaderboard_snapshots` | 0 / 0 rows |
+| `policies` / `agents` | 24 / 8 |
+
+### Post-apply audit
+
+| Probe | Result |
+|---|---|
+| `pp_display_name` | present, `prosecdef = true`, **`authenticated` may execute: false** |
+| `agents` still blank | 6 — and each resolves at READ time (e.g. "Owenclark 2831") |
+| Jace's `display_name` | **`Jace Frenkel`** |
+| `agency_records.holder_name` containing `@` | **0** — all now `Jace Frenkel` |
+| `get_team_summary` / `get_agency_members` | still exactly 1 signature each |
+| `policies` / `agents` | 24 / 8 — **unchanged** |
+| Re-run of the file | clean no-op |
+
+The backfill filled 2 of 8 (the two agents with an OAuth name). The other 6 are
+left NULL on purpose: `pp_display_name()` resolves the same value at read time,
+and writing a derived name into the column would make it look like something
+the agent had chosen.
+
+### Behavioural verification — 14/14
+
+Run inside a transaction that **rolled back**, with `session_replication_role =
+replica` set `LOCAL`. **This one inserted four rows into `auth.users`** to
+exercise the identity-provider branches, which the ledger's rules say must be
+named out loud: the transaction rolled back and `agents` was re-confirmed at 8
+with 0 fixture rows afterwards, so nothing persisted.
+
+| # | Check | Result |
+|---|---|---|
+| 1 | a typed display name wins over everything | PASS |
+| 2 | **the identity provider's person name beats the business profile** | PASS |
+| 3 | the business profile is used when there is no person name | PASS |
+| 4 | with nothing at all, the email LOCAL PART is prettified | PASS |
+| 5 | …and it carries no `@` and no domain | PASS |
+| 6 | an unknown agent is "Agent", never null or blank | PASS |
+| 7 | a whitespace-only display name is not a name | PASS |
+| 8 | `lb_agent_name` returns exactly what the resolver returns | PASS |
+| 9 | **NO AGENT IN THIS DATABASE RESOLVES TO AN EMAIL ADDRESS** | PASS |
+| 10 | `get_team_summary` names nobody by address | PASS |
+| 11 | **JACE RENDERS AS "Jace Frenkel" ON THE TEAM TABLE** | PASS |
+| 12 | the lead-transfer picker names nobody by address | PASS |
+| 13 | no agency record is held by an address | PASS |
+| 14 | …and the record Jace holds says his name | PASS |
+
+### The one place an email is still shown, on purpose
+
+A **pending** or **declined** invite card. There is no account yet, so the
+address the leader typed is the only identifier the row has. A **connected**
+agent is a person and is named as one — the address beside their name is gone.
+Two tests pin both halves.
+
+Search is also unchanged: typing an email into the lead-transfer recipient
+search still finds the person. The rule is about what is *rendered*, not what is
+*matched*, and the sweep test is scoped accordingly.
+
+### No edge function changed
+
+Nothing was deployed; the fleet was not disturbed and no `verify_jwt` flag could
+move.
+
+---
+
+## No schema change — Summary and Agency period controls (2026-07-30)
+
+Recorded here because "we checked and changed nothing" is exactly what this
+ledger exists to stop someone re-deriving. **Lifetime, the month picker and the
+custom date-range selector needed no migration**: every window is expressed in
+the bounds the existing RPCs already accept (`get_team_summary` has taken eight
+optional `timestamptz` bounds since `20260738`, `NULL` meaning unbounded, and
+`get_agency_leaderboards` takes four).
+
+The whole feature is one shared key grammar in `app.html`:
+
+```
+'month:2026-04'                a past calendar month
+'custom:2026-04-01:2026-04-17' an inclusive range
+```
+
+parsed by **one** parser (`ppParsePeriodKey` / `ppDynamicRange`) that **both**
+period engines call — `summaryPeriodRange` and `teamPeriodRange`. A test asserts
+each helper is defined exactly once and that neither engine grew its own.
+
+**Most Improved compares against the preceding range of EQUAL LENGTH** (and, for
+a picked month, the month before). That is why the board stays available on a
+custom range instead of being hidden: `ppDynamicRange` emits `prevStart`/
+`prevEnd`, which is what `lb_board_rows` already reads, so **`20260750` needed no
+change at all**. The screen states the comparison in a line under the board.
+
+Two live bugs the headless run caught, both fixed before shipping:
+
+1. **The drill-down profile still printed the agent's email** under their name.
+   Missed by the source sweep because it read a local called `email` rather than
+   an `agent_email` field.
+2. **A picked month or custom range silently reverted to the default on the next
+   page load.** Both `ledgerPeriod` and `_teamPeriod` are initialised from
+   `localStorage` at load, and only the *setters* had been taught the new
+   grammar. A control that forgets what you chose is worse than not offering it.

@@ -3670,6 +3670,20 @@ body:not(.light) .lb{
   .lb-row{grid-template-columns:34px 1fr auto;gap:9px;padding:10px 12px}
   .lb-head{padding:11px 12px}
 }
+
+/* The month picker and custom-range control. Deliberately borrows whatever
+   chip class the host screen already uses (.tm-chip on Agency, .lg-chip on
+   Summary) so it looks native to both; .pp-pick only adds what a <select> and
+   a date <input> need on top of a button. */
+.pp-pick{font-family:inherit;font-size:12.5px;line-height:1.2;appearance:none;-webkit-appearance:none}
+select.pp-pick{padding-right:24px;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 13px) calc(50% + 1px),calc(100% - 9px) calc(50% + 1px);background-size:4px 4px,4px 4px;background-repeat:no-repeat}
+input.pp-pick[type=date]{padding:5px 8px;min-width:130px}
+input.pp-pick[type=date]::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.6}
+body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{filter:invert(1)}
+@media(max-width:560px){
+  select.pp-pick,input.pp-pick[type=date]{min-width:0;max-width:150px}
+}
 </style>
 <!-- ============================================================
      LEDGER LEADS styles — warm-gray "Ledger 2a" reskin of the
@@ -5727,6 +5741,7 @@ body:not(.light) .lb{
               <div class="fg">
                 <label>Display Name</label>
                 <input type="text" id="stg-display-name" placeholder="Your name">
+                <div style="font-size:11px;color:var(--text3);margin-top:5px;line-height:1.5">This is what your agency sees on leaderboards, records and the team table.</div>
               </div>
               <div class="fg">
                 <label>Email</label>
@@ -8367,12 +8382,33 @@ async function sbSaveContract(level) {
 
 async function sbLoadContract() {
   if (!currentAgent) return null;
+  // display_name rides along on a query the boot already makes, rather than
+  // costing a second round trip. It is what ppMyName() renders wherever this
+  // app names YOU — the server resolves everybody else.
   const { data, error } = await sb.from('agents')
-    .select('contract_level')
+    .select('contract_level, display_name')
     .eq('id', currentAgent.id)
     .maybeSingle();
   if (error) { console.error('[sync] load contract', error); return null; }
+  if (data && typeof data.display_name === 'string') _ppMyDisplayName = data.display_name.trim() || null;
   return data?.contract_level ?? null;
+}
+
+/**
+ * What to call the signed-in agent.
+ *
+ * Mirrors the server's pp_display_name() chain for the one row the server is
+ * not asked about: your own. `agents.display_name` first (what you typed in
+ * Settings), then whatever your identity provider called you, then — through
+ * ppAgentName — the email's local part, never the address.
+ */
+let _ppMyDisplayName = null;
+function ppMyName() {
+  const md = (currentAgent && currentAgent.user_metadata) || {};
+  return ppAgentName({
+    name: _ppMyDisplayName || md.display_name || md.full_name || md.name || '',
+    email: (currentAgent && currentAgent.email) || '',
+  });
 }
 
 // First-sync push: when Supabase has no rows for this agent but localStorage
@@ -13671,6 +13707,14 @@ function setSummaryPeriod(p) {
 // 'all' returns no bounds (everything counts) and skips the prior comparison.
 function summaryPeriodRange(period, today) {
   const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  // A picked month or a custom range, in the shared grammar both screens read.
+  // Handled before the simple keys so 'month:2026-04' can never be mistaken
+  // for the plain 'monthly'.
+  const dyn = ppDynamicRange(period);
+  if (dyn) return { start: dyn.start, end: dyn.end, prevStart: dyn.prevStart, prevEnd: dyn.prevEnd, label: dyn.label };
+  // 'lifetime' is the Ledger Summary's spelling of the same unbounded window
+  // 'all' has always meant. Both fall through to the null-bounds return below.
+  if (period === 'lifetime') return { start: null, end: null, prevStart: null, prevEnd: null, label: 'All time' };
   // Ledger Summary period keys (daily / weekly / monthly) — added 2026-07-16.
   if (period === 'daily') {
     const end = new Date(t); end.setDate(end.getDate() + 1);
@@ -14612,6 +14656,92 @@ const AT_RISK_NO_DIAL_DAYS    = 7;     // and no dial for >= 7 days
 const AT_RISK_MIN_PRIOR_AP    = 1;     // you cannot fall from zero
 const AT_RISK_MIN_TENURE_DAYS = 30;    // a new joiner has no month to fall from
 
+// ---- the shared period-key grammar ------------------------------------
+// ONE vocabulary, read by BOTH period engines (teamPeriodRange here and
+// summaryPeriodRange on the Summary screen). Two screens learned to jump to
+// an arbitrary month and an arbitrary range on the same day; giving each its
+// own parser would have been two ways to spell the same window.
+//
+//   'week' | 'month' | 'quarter' | 'lifetime' | 'daily' | ...   simple keys
+//   'month:2026-04'                                             a past month
+//   'custom:2026-04-01:2026-04-17'                              a range, INCLUSIVE
+//
+// A dynamic key is a string so it persists in localStorage, survives a reload
+// and travels through the existing setter/renderer plumbing untouched.
+
+/** Splits a period key into its kind. Never throws on rubbish. */
+function ppParsePeriodKey(key) {
+  const s = String(key || '');
+  let m = s.match(/^month:(\d{4})-(\d{2})$/);
+  if (m) {
+    const mo = +m[2];
+    if (mo >= 1 && mo <= 12) return { kind: 'month', year: +m[1], month: mo - 1 };
+    return { kind: 'simple', key: s };
+  }
+  m = s.match(/^custom:(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})$/);
+  if (m) return { kind: 'custom', from: m[1], to: m[2] };
+  return { kind: 'simple', key: s };
+}
+
+/** YYYY-MM-DD -> a LOCAL midnight Date, matching how both engines build bounds. */
+function ppDay(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return isFinite(d.getTime()) ? d : null;
+}
+
+function ppIsDynamicPeriod(key) { return ppParsePeriodKey(key).kind !== 'simple'; }
+
+/**
+ * The window for a `month:` or `custom:` key, with its comparable prior
+ * period. Returns null for a simple key — the caller's own engine owns those.
+ *
+ * **The prior period for a custom range is the PRECEDING RANGE OF EQUAL
+ * LENGTH.** That is the whole reason Most Improved keeps working on a custom
+ * range instead of being hidden: "improved" needs something to have improved
+ * against, and a 17-day window compared to the 17 days before it is a fair
+ * question. Comparing it to a calendar month would not be.
+ *
+ * `end` is EXCLUSIVE (the day after `to`), because every consumer in this app
+ * — the RPC bounds, _lgInRange, the SQL `< p_end` — is half-open. The picker
+ * is inclusive because that is what a person means by "1st to the 17th".
+ */
+function ppDynamicRange(key) {
+  const p = ppParsePeriodKey(key);
+  if (p.kind === 'month') {
+    const start     = new Date(p.year, p.month, 1);
+    const end       = new Date(p.year, p.month + 1, 1);
+    const prevStart = new Date(p.year, p.month - 1, 1);
+    return {
+      start, end, prevStart, prevEnd: start,
+      label: start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+    };
+  }
+  if (p.kind === 'custom') {
+    const from = ppDay(p.from), to = ppDay(p.to);
+    if (!from || !to || to < from) return null;
+    const end = new Date(to); end.setDate(end.getDate() + 1);
+    const days = Math.round((end.getTime() - from.getTime()) / 86400000);
+    const prevStart = new Date(from); prevStart.setDate(prevStart.getDate() - days);
+    const fmt = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return {
+      start: from, end, prevStart, prevEnd: from, days,
+      label: fmt(from) + ' – ' + fmt(to) +
+             (from.getFullYear() !== new Date().getFullYear() ? ', ' + from.getFullYear() : ''),
+    };
+  }
+  return null;
+}
+
+/** The chip label for any key, simple or dynamic. */
+function ppPeriodLabel(key, simpleLabels) {
+  const dyn = ppDynamicRange(key);
+  if (dyn) return dyn.label;
+  const hit = (simpleLabels || []).find(p => p.key === key);
+  return hit ? hit.label : '';
+}
+
 /**
  * The one period engine. Returns every window the RPC needs.
  *
@@ -14624,7 +14754,9 @@ const AT_RISK_MIN_TENURE_DAYS = 30;    // a new joiner has no month to fall from
  * preceding period the trend is hidden rather than invented.
  */
 function teamPeriodRange(key, today) {
-  const pk = TEAM_PERIODS.some(p => p.key === key) ? key : TEAM_PERIOD_DEFAULT;
+  const dyn = ppDynamicRange(key);
+  const pk = dyn ? String(key)
+                 : (TEAM_PERIODS.some(p => p.key === key) ? key : TEAM_PERIOD_DEFAULT);
   const now = (today instanceof Date) ? today : new Date(today || Date.now());
   const t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const def = TEAM_PERIODS.find(p => p.key === pk);
@@ -14633,6 +14765,18 @@ function teamPeriodRange(key, today) {
   const monthEnd       = new Date(t.getFullYear(), t.getMonth() + 1, 1);
   const prevMonthStart = new Date(t.getFullYear(), t.getMonth() - 1, 1);
   const prevMonthEnd   = monthStart;
+
+  // A picked month or range replaces the SELECTED window only. The at-risk
+  // pair below stays this calendar month vs last, exactly as it does for every
+  // simple key — the badge means one fixed thing and must not start reporting
+  // "AP down 60%" because a leader went looking at last April.
+  if (dyn) {
+    return {
+      key: pk, label: dyn.label, dynamic: true,
+      start: dyn.start, end: dyn.end, prevStart: dyn.prevStart, prevEnd: dyn.prevEnd,
+      monthStart, monthEnd, prevMonthStart, prevMonthEnd,
+    };
+  }
 
   let start = null, end = null, prevStart = null, prevEnd = null;
   if (pk === 'week') {
@@ -14671,6 +14815,48 @@ function teamRpcArgs(range) {
   };
 }
 
+/**
+ * THE BROWSER'S HALF OF "a person has a name, not an address".
+ *
+ * The server resolves this properly (pp_display_name), so in normal operation
+ * this just reads the name it was handed. It exists for two reasons that are
+ * not normal operation:
+ *
+ *   1. **It refuses anything containing '@'.** If a row ever reaches the
+ *      browser carrying an email in a name field — an older cached payload, a
+ *      surface whose RPC has not been migrated, a hand-built object — this
+ *      renders a derived name rather than publishing the address. The rule is
+ *      enforced at the last possible moment, where the string becomes pixels.
+ *   2. Some pickers build rows client-side from `agency_invites`, where the
+ *      only stored identifier for a PENDING invite is the email that was
+ *      typed. Those rows have no name to read.
+ *
+ * The derivation is the email's LOCAL PART only, separators to spaces, title
+ * case: `owenclark.2831@gmail.com` -> "Owenclark 2831". Recognisable to their
+ * own team, useless to a scraper, and not a mailto:.
+ */
+function ppAgentName(row) {
+  if (!row) return 'Agent';
+  const clean = v => (typeof v === 'string' && v.trim() && v.indexOf('@') < 0) ? v.trim() : '';
+  const named = clean(row.agent_name) || clean(row.name) || clean(row.display_name) ||
+                clean(row.holder_name) || clean(row.leader_name);
+  if (named) return named;
+  const raw = String(row.agent_email || row.email || row.invitee_email || row.leader_email ||
+                     row.agent_name || row.name || row.holder_name || row.leader_name || '');
+  const local = raw.split('@')[0].trim();
+  if (!local) return 'Agent';
+  return local.replace(/[._+-]+/g, ' ').replace(/\s+/g, ' ').trim()
+              .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Two letters for an avatar, from a NAME — never from an address. */
+function ppInitials(row) {
+  const n = ppAgentName(row);
+  const parts = n.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return n.slice(0, 2).toUpperCase();
+}
+
 /** One RPC row -> the shape every renderer reads. */
 function teamNormalizeRow(r) {
   const num = v => { const n = Number(v); return isFinite(n) ? n : 0; };
@@ -14678,7 +14864,9 @@ function teamNormalizeRow(r) {
   const sales = num(r.sales), dials = num(r.dials);
   return {
     id: r.agent_id || null,
-    name: r.agent_name || r.agent_email || '—',
+    name: ppAgentName(r),
+    // Kept on the view-model because the roster panel needs it to identify a
+    // PENDING invitation, where no account exists yet. It is never a name.
     email: r.agent_email || '',
     plan: r.agent_plan || '',
     you: !!r.is_leader,
@@ -14910,7 +15098,14 @@ function tmDelta(cur, prev, hasPrior) {
 // ---- state (persisted the way ledgerPeriod is: plain keys, set at load) ----
 const TEAM_ROSTER_TTL_MS = 45000;
 let _teamPeriod = (function () {
-  try { const v = localStorage.getItem('pp_team_period'); return TEAM_PERIODS.some(p => p.key === v) ? v : TEAM_PERIOD_DEFAULT; }
+  try {
+    const v = localStorage.getItem('pp_team_period');
+    if (TEAM_PERIODS.some(p => p.key === v)) return v;
+    // A stored month:/custom: key is honoured only if it still resolves, so a
+    // corrupt value cannot brick the screen on every future load.
+    if (ppIsDynamicPeriod(v) && ppDynamicRange(v)) return v;
+    return TEAM_PERIOD_DEFAULT;
+  }
   catch (e) { return TEAM_PERIOD_DEFAULT; }
 })();
 let _teamCardOpen = (function () {
@@ -14999,8 +15194,13 @@ function teamRerender(surface) {
 }
 
 function teamSetPeriod(key, surface) {
-  if (!TEAM_PERIODS.some(p => p.key === key)) return;
+  const dyn = ppIsDynamicPeriod(key);
+  if (!TEAM_PERIODS.some(p => p.key === key) && !dyn) return;
+  // A custom key that does not resolve is refused rather than stored.
+  if (dyn && !ppDynamicRange(key)) return;
   _teamPeriod = key;
+  teamInvalidate();
+  if (typeof lbInvalidate === 'function') lbInvalidate();
   try { localStorage.setItem('pp_team_period', key); } catch (e) { /* private mode */ }
   teamRerender(surface);
 }
@@ -15106,7 +15306,9 @@ function teamPeriodChipsHTML(surface) {
     TEAM_PERIODS.map(p =>
       '<button class="tm-chip' + (_teamPeriod === p.key ? ' on' : '') + '" ' +
       'onclick="event.stopPropagation();teamSetPeriod(\'' + p.key + '\',\'' + surface + '\')">' + p.label + '</button>'
-    ).join('') + '</div>';
+    ).join('') +
+    ppPeriodPickerHTML(_teamPeriod, 'teamSetPeriod', surface, 'tm-chip pp-pick') +
+    '</div>';
 }
 
 /** "You vs team average" — period-scoped, identical maths on both surfaces. */
@@ -15794,6 +15996,15 @@ async function lbRenderBoards(host, state) {
     h += lbBoardHTML(entry.boards[board], def, entry.range.label);
     h += '<div class="lb-note">Only the top ' + LB_TOP_N + ' is ever shown. ' +
       'Nobody but you can see your own position when it falls outside it.</div>';
+    // Most Improved needs "the previous equivalent period", and for a picked
+    // window that phrase has to be defined out loud rather than guessed at.
+    if (board === 'improved' && ppIsDynamicPeriod(_teamPeriod)) {
+      const p = ppParsePeriodKey(_teamPeriod);
+      h += '<div class="lb-note">Compared against ' + (p.kind === 'month'
+        ? 'the month before this one.'
+        : 'the ' + (ppDynamicRange(_teamPeriod) || {}).days + ' days immediately before this range.') +
+        '</div>';
+    }
   }
 
   h += '<div class="lb-fam" style="margin-top:22px">Recent milestones</div>' + lbFeedHTML(feed, now);
@@ -15947,8 +16158,18 @@ async function lbRenderFame(host, state) {
 // Composes shared widget builders; the tier switch lives in renderSummary().
 // ============================================================
 
-const LG_PERIODS = ['daily','weekly','monthly'];
-let ledgerPeriod = (function(){ try { const v = localStorage.getItem('pp_summary_period'); return LG_PERIODS.includes(v) ? v : 'monthly'; } catch(e){ return 'monthly'; } })();
+const LG_PERIODS = ['daily','weekly','monthly','lifetime'];
+let ledgerPeriod = (function(){
+  try {
+    const v = localStorage.getItem('pp_summary_period');
+    if (LG_PERIODS.includes(v)) return v;
+    // A stored month:/custom: key is honoured only if it still resolves, so a
+    // corrupt value cannot brick the screen on every future load. Without this
+    // branch a custom range silently reverted to Monthly on the next reload.
+    if (ppIsDynamicPeriod(v) && ppDynamicRange(v)) return v;
+    return 'monthly';
+  } catch(e){ return 'monthly'; }
+})();
 const _lgCalls = {};   // period -> {dials,contacts,callTime} | 'loading'
 // Team state deliberately does NOT live here — see the TEAM ROSTER block
 // above. _lgTeam/_lgTeamSort/_lgFetchTeam were this file's second, private
@@ -15966,17 +16187,99 @@ function _lgEsc(s){ return (typeof escHTML==='function')?escHTML(s):String(s==nu
 // ---- period math (agent-local timezone, same convention as streakStats) ----
 function _lgPeriodRange(period, today){
   // Delegates to the shared summaryPeriodRange helper (extended with the
-  // daily/weekly/monthly keys); Ledger only needs {start,end}.
-  const r = summaryPeriodRange(LG_PERIODS.includes(period)?period:'monthly', today);
-  return { start:r.start, end:r.end };
+  // daily/weekly/monthly keys, 'lifetime', and the month:/custom: grammar);
+  // Ledger needs {start,end} plus the label for the picked-window chip.
+  const ok = LG_PERIODS.includes(period) || ppIsDynamicPeriod(period);
+  const r = summaryPeriodRange(ok ? period : 'monthly', today);
+  return { start:r.start, end:r.end, label:r.label };
 }
 function _lgSubDate(p){ return p && (p.dateSubmitted || p.draft || (p.id? new Date(+p.id).toISOString().slice(0,10) : null)); }
-function _lgInRange(dateStr, range){ if(!dateStr)return false; const d=new Date(dateStr+'T00:00:00'); if(isNaN(d.getTime()))return false; return d>=range.start && d<range.end; }
-function _lgWhenInRange(iso, range){ const t=new Date(iso).getTime(); return isFinite(t) && t>=range.start.getTime() && t<range.end.getTime(); }
+// Null bounds mean UNBOUNDED, which is how 'lifetime' is expressed. These two
+// used to dereference range.start unconditionally, so the moment Lifetime
+// appeared on this screen every one of them would have thrown.
+function _lgInRange(dateStr, range){
+  if(!dateStr)return false;
+  const d=new Date(dateStr+'T00:00:00'); if(isNaN(d.getTime()))return false;
+  if(range.start && d<range.start) return false;
+  if(range.end   && d>=range.end)  return false;
+  return true;
+}
+function _lgWhenInRange(iso, range){
+  const t=new Date(iso).getTime(); if(!isFinite(t)) return false;
+  if(range.start && t<range.start.getTime()) return false;
+  if(range.end   && t>=range.end.getTime())  return false;
+  return true;
+}
 function _lgAdvComm(p){ const ap=Number(p.ap)||0; return Number(p.advComm) || +(ap*(Number(p.commPct)||0)/100*0.75); }
 
 // ---- controls (global — referenced from inline onclick) ----
-function setLedgerPeriod(p){ if(!LG_PERIODS.includes(p))return; ledgerPeriod=p; try{localStorage.setItem('pp_summary_period',p);}catch(e){} renderSummary(); }
+function setLedgerPeriod(p){
+  if(!LG_PERIODS.includes(p) && !ppIsDynamicPeriod(p)) return;
+  // A custom key that does not resolve (end before start) is refused rather
+  // than stored — a persisted bad key would break every later page load.
+  if(ppIsDynamicPeriod(p) && !ppDynamicRange(p)) return;
+  ledgerPeriod=p;
+  try{localStorage.setItem('pp_summary_period',p);}catch(e){}
+  Object.keys(_lgCalls).forEach(key=>{ delete _lgCalls[key]; });
+  renderSummary();
+}
+
+/** The month picker and range picker, shared by Summary and Agency. */
+function ppMonthOptions(back){
+  const out=[]; const now=new Date();
+  for(let i=1;i<=(back||18);i++){
+    const d=new Date(now.getFullYear(), now.getMonth()-i, 1);
+    out.push({ key:'month:'+d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'),
+               label:d.toLocaleDateString('en-US',{month:'long',year:'numeric'}) });
+  }
+  return out;
+}
+
+/**
+ * One markup builder for both screens. `setter` is the name of the global that
+ * stores the key — setLedgerPeriod on Summary, teamSetPeriod on Agency — so
+ * the control is identical and the two screens cannot grow different pickers.
+ */
+function ppPeriodPickerHTML(active, setter, surface, cls){
+  const dyn   = ppDynamicRange(active);
+  const isMon = ppParsePeriodKey(active).kind === 'month';
+  const isCus = ppParsePeriodKey(active).kind === 'custom';
+  const call  = v => setter + "('" + v + "'" + (surface ? ",'" + surface + "'" : '') + ')';
+  const id    = 'pp-rng-' + (surface || 'sum');
+  const opts  = ppMonthOptions(18).map(m =>
+    '<option value="' + m.key + '"' + (m.key === active ? ' selected' : '') + '>' + escapeHTML(m.label) + '</option>').join('');
+  return '<select class="' + cls + '" aria-label="Jump to a past month" ' +
+      'onchange="if(this.value)' + setter + '(this.value' + (surface ? ",'" + surface + "'" : '') + ')">' +
+      '<option value=""' + (isMon ? '' : ' selected') + '>Past month…</option>' + opts +
+    '</select>' +
+    '<button class="' + cls + (isCus ? ' on' : '') + '" aria-expanded="false" ' +
+      'onclick="ppToggleRange(\'' + id + '\')">' + (isCus && dyn ? escapeHTML(dyn.label) : 'Custom range…') + '</button>' +
+    '<span id="' + id + '" style="display:none;align-items:center;gap:6px">' +
+      '<input type="date" id="' + id + '-a" class="' + cls + '" aria-label="Range start">' +
+      '<span style="font-size:11px;color:var(--text3)">to</span>' +
+      '<input type="date" id="' + id + '-b" class="' + cls + '" aria-label="Range end">' +
+      '<button class="' + cls + '" onclick="ppApplyRange(\'' + id + '\',\'' + setter + '\',\'' + (surface || '') + '\')">Apply</button>' +
+    '</span>';
+}
+
+function ppToggleRange(id){
+  const el=document.getElementById(id); if(!el) return;
+  const open = el.style.display === 'none';
+  el.style.display = open ? 'inline-flex' : 'none';
+  const btn = el.previousElementSibling;
+  if (btn && btn.setAttribute) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+function ppApplyRange(id, setter, surface){
+  const a=document.getElementById(id+'-a'), b=document.getElementById(id+'-b');
+  const from=(a&&a.value)||'', to=(b&&b.value)||'';
+  if(!from||!to){ showToast('Pick both a start and an end date', '#f59e0b'); return; }
+  if(to<from){ showToast('The end date is before the start date', '#dc2626'); return; }
+  const key='custom:'+from+':'+to;
+  if(!ppDynamicRange(key)){ showToast('That range is not valid', '#dc2626'); return; }
+  if(setter==='teamSetPeriod') teamSetPeriod(key, surface||'agency');
+  else setLedgerPeriod(key);
+}
 function lgUpgrade(tier){ if(typeof showUpgradeGate==='function'){ showUpgradeGate(tier==='leader'?'Team Summary':'Pro Summary', tier); } else if(typeof pbOpenUpgradeModal==='function'){ pbOpenUpgradeModal(); } }
 
 // ---- async: calling stats for the period (dialer calls ∪ logged dials) ----
@@ -15984,11 +16287,14 @@ async function _lgFetchCalls(range, period){
   let stats = { dials:0, contacts:0, callTime:0 };
   try {
     if (typeof sb !== 'undefined' && sb && currentAgent && currentAgent.id) {
-      const { data, error } = await sb.from('calls')
+      let q = sb.from('calls')
         .select('duration_sec,status,started_at')
-        .eq('agent_id', currentAgent.id)
-        .gte('started_at', range.start.toISOString())
-        .lt('started_at', range.end.toISOString());
+        .eq('agent_id', currentAgent.id);
+      // Lifetime has no bounds. Applying .gte(null) would have sent the string
+      // "null" to PostgREST and returned zero rows, silently.
+      if (range.start) q = q.gte('started_at', range.start.toISOString());
+      if (range.end)   q = q.lt('started_at',  range.end.toISOString());
+      const { data, error } = await q;
       if (error) throw error;
       const rows = data || [];
       stats.dials    = rows.length;
@@ -16056,9 +16362,17 @@ function renderSummary(){
   const range  = _lgPeriodRange(period, now);
 
   // ---- period labels ----
+  // A closed window (a past month, a custom range, or lifetime) does not
+  // "reset" and does not run up to today — saying so would misdescribe what is
+  // on screen. Its caption is the window itself.
+  const _lgClosed = !range.start || !range.end || range.end <= now;
   const resetTxt = period==='daily'?'at midnight':period==='weekly'?'Monday':'on the 1st';
-  const periodCaption = (period==='daily' ? 'Today, '+_lgFd(range.start) : _lgFd(range.start)+' &ndash; '+_lgFd(now)) + ' &middot; resets '+resetTxt;
-  const periodTag = period==='daily' ? 'Today' : (_lgFd(range.start)+' &ndash; '+_lgFd(now));
+  const periodCaption = !range.start ? 'Everything you have ever written'
+    : (_lgClosed && range.label) ? range.label
+    : (period==='daily' ? 'Today, '+_lgFd(range.start) : _lgFd(range.start)+' &ndash; '+_lgFd(now)) + ' &middot; resets '+resetTxt;
+  const periodTag = !range.start ? 'All time'
+    : (_lgClosed && range.label) ? range.label
+    : (period==='daily' ? 'Today' : (_lgFd(range.start)+' &ndash; '+_lgFd(now)));
 
   // ---- period slices ----
   // Shared with get_team_summary's predicate via BOB_NOT_A_SALE, so the
@@ -16114,8 +16428,8 @@ function renderSummary(){
 
   // ================= SHELL =================
   const tierLabel = tier==='leader'?'Team Leader':tier==='pro'?'Pro Producer':'Basic';
-  const _nm = (currentAgent && (currentAgent.user_metadata && currentAgent.user_metadata.display_name)) || (currentAgent && currentAgent.display_name) || (currentAgent && currentAgent.email) || '';
-  const _initials = (_nm.replace(/@.*/,'').trim().split(/[.\s_-]+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('') || '&mdash;').toUpperCase();
+  const _nm = ppMyName();
+  const _initials = ppInitials({ name: _nm });
   const todayLabel = now.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
 
   let H = '';
@@ -16134,7 +16448,9 @@ function renderSummary(){
 
   // Period toggle
   const chip = (p,label)=>{ const on=period===p; return '<button class="lg-chip lg-click" onclick="setLedgerPeriod(\''+p+'\')" style="padding:6px 10px;font-weight:500;font-size:12.5px;background:var(--lg-card);border:1px solid '+(on?'var(--lg-blue-border)':'var(--lg-border)')+';color:'+(on?'var(--lg-blue)':'var(--lg-text2)')+';border-radius:6px;cursor:pointer">'+label+'</button>'; };
-  H += '<div style="display:flex;align-items:center;gap:8px">'+chip('daily','Daily')+chip('weekly','Weekly')+chip('monthly','Monthly')+
+  H += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+    chip('daily','Daily')+chip('weekly','Weekly')+chip('monthly','Monthly')+chip('lifetime','Lifetime')+
+    ppPeriodPickerHTML(period, 'setLedgerPeriod', '', 'lg-chip lg-click pp-pick')+
     '<span class="lgm" style="margin-left:auto;font-weight:400;font-size:11.5px;color:var(--lg-caption)">'+periodCaption+'</span></div>';
 
   // KPI row
@@ -21956,7 +22272,7 @@ function pcPlanBulk(grid, carriers, members, selfEmail) {
       entries.push({
         row: i + 1,
         subjectId: who.agent_id,
-        subjectLabel: who.agent_name || who.agent_email || label,
+        subjectLabel: (who && ppAgentName(who)) || label,
         isSelf: !!who.is_self,
         carrier: c.carrier,
         code: c.code,
@@ -22031,7 +22347,7 @@ function pcMembers() {
   const me = {
     agent_id: currentAgent && currentAgent.id,
     agent_email: (currentAgent && currentAgent.email) || '',
-    agent_name: (currentAgent && ((currentAgent.user_metadata && currentAgent.user_metadata.display_name) || currentAgent.display_name || currentAgent.email)) || 'You',
+    agent_name: ppMyName(),
     is_self: true,
   };
   return [me].concat((_pcCache.members || []).map(m => ({ ...m, is_self: false })));
@@ -22070,7 +22386,7 @@ function pcPaintCodes() {
   const members = pcMembers();
   const whoFor = (id) => {
     const m = members.find(x => x.agent_id === id);
-    return m ? (m.is_self ? 'You' : (m.agent_name || m.agent_email)) : 'An agent no longer in your agency';
+    return m ? (m.is_self ? 'You' : ppAgentName(m)) : 'An agent no longer in your agency';
   };
   el.innerHTML =
     '<div class="pc-table"><div class="pc-grid pc-thead"><div>Carrier</div><div>Code</div><div>Belongs to</div><div></div></div>' +
@@ -22973,7 +23289,7 @@ function persistAgentRows(rpcRows, months, weighted) {
     const kept = weighted ? Number(r.kept_ap || 0) : Number(r.kept_count || 0);
     byAgent.set(r.agent_id, {
       agentId: r.agent_id,
-      name: r.agent_name || r.agent_email || 'Agent',
+      name: ppAgentName(r),
       isSelf: !!r.is_self,
       cohortCount: Number(r.cohort_count || 0),
       keptCount: Number(r.kept_count || 0),
@@ -23681,7 +23997,7 @@ function cmRollupHTML(debtFirst) {
   const totalNet = rows.reduce((s, r) => s + Number(r.net_cents || 0), 0);
   const body = rows.map(r =>
     '<div class="cm-row" style="grid-template-columns:1.6fr 1fr 1fr 1fr 110px">' +
-      '<div class="cm-strong">' + escHTML(r.agent_name || r.agent_email || 'Agent') +
+      '<div class="cm-strong">' + escHTML(ppAgentName(r)) +
         (r.is_self ? ' <span style="font-weight:500;color:var(--lg-caption)">· You</span>' : '') + '</div>' +
       '<div class="bo-num">' + escHTML(commMoney(r.personal_cents)) + '</div>' +
       '<div class="bo-num">' + escHTML(commMoney(r.override_cents)) + '</div>' +
@@ -27995,13 +28311,17 @@ async function _agRenderLeaderView(root) {
     roster += `<div class="ag-section-lbl" style="margin-top:${(pending.length || declined.length) ? 20 : 18}px">Connected Agents (${accepted.length})</div>`;
     accepted.forEach(inv => {
       const r = byId[inv.invitee_id] || {};
-      const label = r.name || inv.invitee_email;
-      const initials = (label || '?').slice(0, 2).toUpperCase();
+      // A CONNECTED agent is a person and is named as one. The email that
+      // originally addressed the invitation is not shown here — it identifies
+      // an invite, and this row is no longer an invite. (It is still shown on
+      // the Pending and Declined cards above, where it is the only identifier
+      // there is, because no account exists yet.)
+      const label = ppAgentName({ name: r.name, invitee_email: inv.invitee_email });
+      const initials = ppInitials({ name: r.name, invitee_email: inv.invitee_email });
       roster += `<div class="ag-access-row">
         <div class="ag-agent-avatar" style="width:32px;height:32px;font-size:12px;flex-shrink:0">${escapeHTML(initials)}</div>
         <div class="ag-access-info" style="flex:1;min-width:0">
           <strong>${escapeHTML(label)}</strong>
-          <span style="color:var(--text3);font-size:12px;margin-left:8px">${escapeHTML(inv.invitee_email)}</span>
           ${r.plan ? `<span style="color:var(--text3);font-size:12px;margin-left:8px">· ${escapeHTML(r.plan)}</span>` : ''}
         </div>
         <button class="btn btn-s btn-sm" onclick="agOpenAgentProfile('${escapeHTML(inv.invitee_id || '')}')">Open</button>
@@ -28085,7 +28405,7 @@ async function _agRenderAgentView(root) {
       h += `<div class="ag-pending-card">
         <span data-ico="clock" data-size="18" style="color:#f59e0b;flex-shrink:0"></span>
         <div class="ag-pending-info">
-          <div>Request to join <strong>${escapeHTML(inv.leader_name || inv.leader_email || 'an agency')}</strong></div>
+          <div>Request to join <strong>${escapeHTML(ppAgentName({ leader_name: inv.leader_name, leader_email: inv.leader_email }))}</strong></div>
           <div class="ag-pending-sub">Awaiting approval · Sent ${new Date(inv.created_at).toLocaleDateString()}</div>
         </div>
         <button class="btn btn-s btn-sm" onclick="agCancelJoinRequest('${inv.id}')"
@@ -28100,8 +28420,8 @@ async function _agRenderAgentView(root) {
       h += `<div class="ag-pending-card info">
         <span data-ico="info" data-size="18" style="color:#3b82f6;flex-shrink:0"></span>
         <div class="ag-pending-info">
-          <div><strong>${escapeHTML(inv.leader_name || inv.leader_email || 'A leader')}</strong> wants to view your performance data</div>
-          <div class="ag-pending-sub">${escapeHTML(inv.leader_email||'')} · Received ${new Date(inv.created_at).toLocaleDateString()}</div>
+          <div><strong>${escapeHTML(ppAgentName({ leader_name: inv.leader_name, leader_email: inv.leader_email }))}</strong> wants to view your performance data</div>
+          <div class="ag-pending-sub">Received ${new Date(inv.created_at).toLocaleDateString()}</div>
         </div>
         <div class="ag-pending-actions">
           <button class="btn btn-p btn-sm" onclick="agAcceptInvite('${inv.id}')">Accept</button>
@@ -28117,8 +28437,7 @@ async function _agRenderAgentView(root) {
       h += `<div class="ag-access-row">
         <span data-ico="eye" data-size="16" style="color:var(--ds-color-success);flex-shrink:0"></span>
         <div class="ag-access-info">
-          <strong>${escapeHTML(inv.leader_name || inv.leader_email || 'A leader')}</strong>
-          <span style="color:var(--text3);font-size:12px;margin-left:8px">${escapeHTML(inv.leader_email||'')}</span>
+          <strong>${escapeHTML(ppAgentName({ leader_name: inv.leader_name, leader_email: inv.leader_email }))}</strong>
         </div>
         <button class="btn btn-s btn-sm" onclick="agRevokeAccess('${inv.id}')"
           style="color:var(--ds-color-danger)">Revoke Access</button>
@@ -28408,8 +28727,8 @@ async function _agLoadJoinRequests() {
 function _agJoinRequestsHTML(reqs) {
   const cards = reqs.map(r => {
     const name = [r.first_name, r.last_name].filter(Boolean).join(' ').trim()
-      || r.display_name || r.email || 'Agent';
-    const initials = (name || '?').slice(0, 2).toUpperCase();
+      || ppAgentName(r);
+    const initials = ppInitials({ name });
     const chips = [];
     chips.push(`Plan: ${r.plan_name ? escapeHTML(r.plan_name) : '—'}`);
     chips.push(`Comp: ${r.comp_level ? escapeHTML(r.comp_level) + '%' : '—'}`);
@@ -28418,7 +28737,6 @@ function _agJoinRequestsHTML(reqs) {
       <div class="ag-agent-avatar" style="width:36px;height:36px;font-size:13px;flex-shrink:0">${escapeHTML(initials)}</div>
       <div style="flex:1;min-width:150px">
         <strong>${escapeHTML(name)}</strong>
-        <div style="color:var(--text3);font-size:12px">${escapeHTML(r.email || '')}</div>
         <div style="color:var(--text2);font-size:12px;margin-top:4px;display:flex;gap:12px;flex-wrap:wrap">
           ${chips.map(c => `<span>${c}</span>`).join('')}
         </div>
@@ -28621,14 +28939,14 @@ function sltRenderMembers() {
 
   const relLabel = { upline: 'Your leader', downline: 'Your downline', sibling: 'Teammate' };
   list.innerHTML = rows.map(m => {
-    const initials = (m.agent_name || m.agent_email || '?').slice(0, 2).toUpperCase();
+    const initials = ppInitials(m);
     return `<div class="slt-member" onclick="sltPick('${escapeHTML(m.agent_id)}')"
       style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer;transition:border-color .14s"
       onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
       <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#3b82f6,#6366f1);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0">${escapeHTML(initials)}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(m.agent_name || m.agent_email)}</div>
-        <div style="font-size:11.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(m.agent_email || '')}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(ppAgentName(m))}</div>
+        <div style="font-size:11.5px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(m.agent_plan || relLabel[m.relationship] || 'Agency member')}</div>
       </div>
       <div style="text-align:right;flex-shrink:0">
         <div style="font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">${escapeHTML(relLabel[m.relationship] || 'Agency')}</div>
@@ -28642,7 +28960,7 @@ async function sltPick(recipientId) {
   const member = (_agencyMembers || []).find(m => m.agent_id === recipientId);
   if (!member) return;
   const ids = [...selectedLeadIds].slice(0, TRANSFER_MAX_PER_REQUEST);
-  const name = member.agent_name || member.agent_email || 'them';
+  const name = ppAgentName(member) || 'them';
   if (!window.confirm(
     `Send ${ids.length} lead${ids.length !== 1 ? 's' : ''} to ${name}?\n\n` +
     `They move out of your book into theirs. Text-message consent does not transfer.`
@@ -28681,8 +28999,7 @@ async function agOpenAgentProfile(agentId) {
   const now = new Date();
   const range = teamPeriodRange(_teamPeriod, now);
   const hasPrior = !!range.prevStart;
-  const name = (row && row.name) || (member && (member.agent_name || member.agent_email)) || 'Agent';
-  const email = (row && row.email) || (member && member.agent_email) || '';
+  const name = (row && row.name) || (member && ppAgentName(member)) || 'Agent';
   const plan = (row && row.plan) || (member && member.agent_plan) || '';
   const initials = (name || '?').slice(0, 2).toUpperCase();
   const relLabel = { upline: 'Your leader', downline: 'Your downline', sibling: 'Teammate' };
@@ -28787,7 +29104,6 @@ async function agOpenAgentProfile(agentId) {
             ${escapeHTML(name)}
             ${row && row.risk && row.risk.atRisk ? '<span class="tm-risk">AT RISK</span>' : ''}
           </div>
-          <div style="font-size:12.5px;color:var(--text2);margin-top:2px">${escapeHTML(email)}</div>
           <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-top:6px">
             ${escapeHTML(rel)}${plan ? ' · ' + escapeHTML(plan) : ''}
           </div>
@@ -28814,7 +29130,7 @@ async function openAgLeadPicker(recipientId) {
 
   _alp = {
     recipientId,
-    recipientName: member.agent_name || member.agent_email || 'them',
+    recipientName: ppAgentName(member) || 'them',
     selected: new Set(), page: 1, perPage: 50,
   };
 
@@ -28967,7 +29283,10 @@ function initSettingsSection() {
   const emailEl = document.getElementById('stg-email');
   const phoneEl = document.getElementById('stg-phone');
   const npnEl   = document.getElementById('stg-npn');
-  if (nameEl)   nameEl.value   = localStorage.getItem(k('stg_display_name'))  || '';
+  // The name is a SERVER value now — it is what every peer sees on the team
+  // table, the boards, the records and the Hall of Fame. localStorage is only
+  // a first-paint cache so the field is not blank for a frame.
+  if (nameEl)   nameEl.value   = _ppMyDisplayName || localStorage.getItem(k('stg_display_name')) || '';
   if (phoneEl)  phoneEl.value  = localStorage.getItem(k('stg_phone'))          || '';
   if (npnEl)    npnEl.value    = localStorage.getItem(k('stg_npn'))            || '';
   if (emailEl && currentAgent) emailEl.value = currentAgent.email || '';
@@ -28978,8 +29297,10 @@ function initSettingsSection() {
   // Load CNAM from DB
   const cnamEl = document.getElementById('stg-cnam-name');
   if (cnamEl && currentAgent) {
-    sb.from('agents').select('cnam_name').eq('id', currentAgent.id).maybeSingle().then(({ data }) => {
+    sb.from('agents').select('cnam_name, display_name').eq('id', currentAgent.id).maybeSingle().then(({ data }) => {
       if (cnamEl) cnamEl.value = data?.cnam_name || '';
+      const nm = (data && typeof data.display_name === 'string') ? data.display_name.trim() : '';
+      if (nm) { _ppMyDisplayName = nm; if (nameEl && nameEl.value !== nm) nameEl.value = nm; }
     });
   }
   // Reset messages
@@ -29038,6 +29359,20 @@ async function saveAccountProfile() {
   const cnam   = (document.getElementById('stg-cnam-name')?.value || '').trim();
   const states = US_STATES.filter(s => licensedStatesSelected.has(s[0])).map(s => s[0]).join(', ');
   localStorage.setItem(k('stg_display_name'), name);
+  // Persist to the column every peer-visible surface resolves through. Before
+  // this the field wrote localStorage ONLY: an agent typed their name, watched
+  // it stick in Settings, and stayed an email address to their whole agency.
+  if (currentAgent) {
+    const { error: nameErr } = await sb.from('agents')
+      .update({ display_name: name || null }).eq('id', currentAgent.id);
+    if (nameErr) {
+      const m0 = document.getElementById('stg-profile-msg');
+      if (m0) { m0.style.color = '#dc2626'; m0.textContent = 'Could not save your name: ' + (nameErr.message || nameErr); }
+      return;
+    }
+    _ppMyDisplayName = name || null;
+    teamInvalidate(); lbInvalidate();
+  }
   localStorage.setItem(k('stg_phone'), phone);
   localStorage.setItem(k('stg_npn'), npn);
   localStorage.setItem(k('stg_states'), states);
