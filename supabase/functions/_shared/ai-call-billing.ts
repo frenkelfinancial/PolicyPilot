@@ -49,7 +49,17 @@ export async function debitAiCallOnce(deps: {
   return { debited: true };
 }
 
-/** Assistant outcome tags the webhook understands (also the ai_calls.outcome check). */
+/**
+ * Assistant outcome tags the webhook understands. Must stay in step with the
+ * `ai_calls_outcome_check` constraint (20260753) — a tag missing there is a
+ * 23514 on the finalize UPDATE, i.e. a call that ends with no outcome at all.
+ *
+ * `completed` is the honest last resort for a call that reached a person and
+ * that nothing classified. It is NOT `error`: error means we broke, and it
+ * also suppresses the wallet debit (see ai-call-webhook's finalize block), so
+ * using it for "the classifier came up empty" both libels the call and gives
+ * away the minute. See _shared/ai-call-outcome.ts.
+ */
 export const AI_CALL_OUTCOMES = [
   "voicemail",
   "no_answer",
@@ -57,6 +67,10 @@ export const AI_CALL_OUTCOMES = [
   "not_interested",
   "qualified",
   "dnc_request",
+  "callback_requested",
+  "appointment_booked",
+  "transferred",
+  "completed",
   "error",
   "in_progress",
 ] as const;
@@ -86,7 +100,18 @@ export function normalizeOutcome(
     declined: "not_interested",
     not_qualified: "not_interested",
     interested: "qualified",
-    transfer: "qualified",
+    // 'transfer' used to map to 'qualified' — there was no transfer outcome to
+    // map it to. There is now, and a call the agent actually took should not
+    // read the same as one that never left the assistant.
+    transfer: "transferred",
+    transferred_to_agent: "transferred",
+    warm_transfer: "transferred",
+    appointment: "appointment_booked",
+    appointment_set: "appointment_booked",
+    booked: "appointment_booked",
+    callback: "callback_requested",
+    call_back: "callback_requested",
+    callback_scheduled: "callback_requested",
     dnc: "dnc_request",
     do_not_call: "dnc_request",
     remove_me: "dnc_request",

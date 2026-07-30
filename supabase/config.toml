@@ -126,6 +126,16 @@ verify_jwt = false
 [functions.ai-call-webhook]
 verify_jwt = false
 
+# ai-call-tools: the endpoint the AI Assistant's WEBHOOK TOOLS call
+# mid-conversation (transfer_to_agent, book_appointment). Same caller and the
+# same reason as ai-call-webhook — Telnyx POSTs it directly and cannot supply a
+# Supabase JWT. It is NOT unauthenticated: it requires the AI_TOOLS_SECRET
+# carried in the tool URL (which lives inside the assistant configuration, and
+# only we can write that), and it additionally verifies the Telnyx Ed25519
+# signature whenever those headers are present, failing closed on a bad one.
+[functions.ai-call-tools]
+verify_jwt = false
+
 # compliance-page: the ONLY function here whose caller is the general public
 # rather than a signed webhook or a cron secret. It server-renders each
 # agent's 10DLC privacy policy / terms at /a/<slug>, and the people who fetch

@@ -202,30 +202,216 @@ HARD LIMITS — never break these
   - Keep the whole call under five minutes. Running long? Wrap up and book the
     callback.
 
+HANDING OFF — this is the point of the call
+Once they're interested and you've got the basics, get them to the agent.
+There are exactly two ways that happens, and you always try them in this order.
+
+1) TRY TO CONNECT THEM LIVE.
+   Call the transfer_to_agent tool. Pass a `summary` of twenty-five words or
+   fewer, written to be SPOKEN to the agent: their name, rough age, what
+   coverage they want, budget, and the one detail that matters most.
+   Also pass whatever you've gathered: age, coverage_interest, budget_text,
+   best_callback_text, notes.
+   The tool answers one of two ways.
+     - "ringing" — the agent's phone is ringing. Say something like "great,
+       let me get you over to them now — just hold on one second." Then STAY
+       WITH THEM. Small talk is fine, a warm word about what they told you is
+       better. Don't count down, don't promise how long it takes, don't
+       explain how any of it works. If they ask what's happening, "I'm just
+       getting hold of them for you" is the whole answer.
+     - "unavailable" — the agent can't take it. Go straight to (2). Don't
+       mention it in any detail; "they're with someone right now" is enough.
+   If you're told the transfer didn't connect, apologize once, briefly, and go
+   to (2). Never try to transfer twice.
+
+2) BOOK A TIME INSTEAD.
+   Offer two or three specific windows, not an open question. "Tomorrow
+   morning, or Thursday afternoon — which suits you better?" beats "when's
+   good for you?" every time.
+   When they pick one, call the book_appointment tool with `datetime_text` set
+   to EXACTLY what they said ("Tuesday at two", "tomorrow after five") and any
+   `notes` worth passing on. Don't convert it, don't tidy it up, don't guess a
+   date — the tool does that, in their own timezone.
+   The tool answers one of two ways.
+     - "booked" — it gives you the time in full. Say it back to them plainly
+       ("so that's Tuesday the 4th, two in the afternoon"), tell them the
+       agent will call then and they'll get a text confirming it, and wrap up.
+     - "needs_confirmation" — it couldn't pin the time down, and it tells you
+       why. Ask them again for a day and a clock time, then call it again.
+
+NEVER PROMISE AVAILABILITY YOU HAVEN'T BEEN GIVEN.
+You don't know the agent's calendar. Don't say they're free at a time, don't
+say they'll definitely call at a time you haven't booked, and don't invent a
+window to fill a silence. Offer times, book what the caller picks, and let the
+tool confirm it.
+
 WRAPPING UP
 Thank them, tell them the agent will follow up, and end the call.
 On every completed call, emit ONE JSON object as your final structured output,
 with exactly these keys:
 
   {
-    "outcome": "qualified | not_interested | dnc_request | no_answer",
-    "age_band": "e.g. 60-69, or empty",
-    "coverage_type": "FEX | term | MP | empty",
-    "tobacco": "yes | no | unknown",
-    "budget": "e.g. ~$85/mo, or empty",
-    "callback_window": "e.g. weekday evenings, or empty",
+    "outcome": "qualified | not_interested | callback_requested | voicemail |
+                no_answer | dnc_request | appointment_booked | transferred",
+    "age": "e.g. 58, or a range like 50-59, or empty",
+    "coverage_interest": "final expense | term | mortgage protection | empty",
+    "budget_text": "e.g. about $85 a month, or empty",
+    "best_callback_text": "e.g. weekday evenings, or empty",
+    "notes": "anything the agent should know before they call — health,
+              who it's for, urgency. Empty if there's nothing.",
     "summary": "1-2 sentences leading with the person's name, then the key
                 facts and the next step."
   }
 
 outcome rules:
-  - "qualified"      — interested, and you got enough to hand to the agent.
-  - "not_interested" — declined coverage, but did NOT ask to be removed.
-  - "dnc_request"    — asked to stop calling or be removed (see OPT-OUT).
-  - "no_answer"      — no meaningful conversation happened.
+  - "transferred"        — you handed them to the agent live.
+  - "appointment_booked" — you booked a time with book_appointment.
+  - "qualified"          — interested and you got the basics, but neither of
+                           the above happened.
+  - "callback_requested" — they want a call back but wouldn't pick a time.
+  - "not_interested"     — declined coverage, but did NOT ask to be removed.
+  - "dnc_request"        — asked to stop calling or be removed (see OPT-OUT).
+  - "no_answer"          — no meaningful conversation happened.
 Leave anything you don't know as an empty string. Always start the summary with
 the person's name. Never read this JSON out loud.
 ```
+
+---
+
+## Transfer and booking (Phase 2, 2026-07-30)
+
+### Why the native Telnyx transfer tool is NOT used
+
+Telnyx has an assistant-level `transfer` tool. It was read out of the published
+OpenAPI spec (`InferenceEmbeddingTransferToolParams`) rather than assumed, and
+it gives two of the three things this feature needs:
+
+| Requirement | Native `transfer` tool | Native `invite` tool |
+|---|---|---|
+| Spoken briefing to the destination | ✅ `warm_transfer_instructions` | ❌ |
+| AMD on the transferred leg | ✅ `voicemail_detection.detection_mode: premium` + `on_voicemail_detected.action: stop_transfer` | ✅ |
+| **Destination must press a digit to accept** | ❌ **nothing** | ❌ **nothing** |
+
+There is no digit-confirm field anywhere in either tool, and `send_dtmf`
+*sends* digits rather than gathering them. Press-1 is not a nicety: it is what
+stops a lead being bridged into a car radio, a spouse, a colleague, or an agent
+who answered on autopilot without realising what the call was. So the flow is
+built on **Call Control** instead — `ai-call-tools` dials the agent leg, and
+`ai-call-webhook` plays the whisper, gathers the digit and bridges.
+
+### The chain, end to end
+
+| # | Where | What happens |
+|---|---|---|
+| 1 | assistant | calls `transfer_to_agent` with a ≤25-word spoken summary |
+| 2 | `ai-call-tools` | re-reads `agents.ai_availability` + `transfer_number` **fresh** |
+| 3 | `ai-call-tools` | busy / no number → returns `unavailable`, assistant pivots to booking |
+| 4 | `ai-call-tools` | available → dials the agent's cell (premium AMD, 30s ring), `transfer_status = ringing_agent`, **returns immediately** |
+| 5 | assistant | keeps the lead company — it is never left in silence while a phone rings |
+| 6 | `ai-call-webhook` | agent answers → whisper + `gather_using_speak`, one digit, 8s, repeated once |
+| 7 | `ai-call-webhook` | `1` → stop the assistant, bridge the legs, `transfer_status = bridged`, `outcome = transferred` |
+| 8 | `ai-call-webhook` | any other digit → `agent_declined`; AMD machine / timeout / hangup → `agent_no_answer` |
+| 9 | `ai-call-webhook` | either failure → `ai_assistant_add_messages` pushes a system message into the LIVE conversation so the assistant apologizes and books instead |
+
+**The tool returns before the agent picks up, on purpose.** Blocking until the
+digit arrives would be 15–30 seconds of a blocked assistant, which on a phone
+call is 15–30 seconds of nothing at all. The outcome is pushed back into the
+conversation afterwards instead.
+
+**Billing is unchanged and is one debit.** The whole call — AI leg and agent
+leg — bills once at the `ai_call` rate, anchored at the lead's answer and keyed
+on the LEAD's `call_control_id`. The agent leg returns from the webhook long
+before the finalize block, so it can never open a second debit.
+
+**Two call-length settings, doing different jobs.** The lead leg is dialed with
+`time_limit_secs = 1800` so a transferred conversation is not guillotined at
+five minutes; the AI portion is bounded by the assistant's own
+`telephony_settings.time_limit_secs = 300`, which Telnyx documents as stopping
+**the assistant**, explicitly "not applying to portions of a call without an
+active assistant (for instance, a call transferred to a human
+representative)". Because that cap leaves the leg alive, `ai-call-webhook`
+hangs up on `call.conversation.ended` whenever no transfer is in flight —
+otherwise a stopped assistant means a real person listening to silence on a
+billable call.
+
+### The two webhook tools
+
+Both point at `ai-call-tools` (`verify_jwt = false`; it verifies the Telnyx
+Ed25519 signature when present and always requires the `AI_TOOLS_SECRET` in the
+URL). Both are created by `npm run sync:ai-assistant`.
+
+```tools-note
+transfer_to_agent  summary (≤25 words, spoken), age, coverage_interest,
+                   budget_text, best_callback_text, notes
+book_appointment   datetime_text (verbatim, e.g. "Tuesday at two"), notes
+```
+
+**How the tool knows which call it is on.** A tool call carries the LLM's
+arguments and nothing else — no `call_control_id`. Identity resolves three
+ways, best first: `{{ai_call_id}}` (a per-call dynamic variable, only present
+when `assistant.dynamic_variables` was accepted on `ai_assistant_start`);
+`{{telnyx_call_to}}` / `{{telnyx_call_from}}`, which **Telnyx merges in
+automatically on every assistant call** and which therefore need no change to
+the greeting's critical path at all; and finally the newest in-progress
+`ai_calls` row. An unresolved mustache arriving literally is treated as absent,
+never as a phone number.
+
+### Structured insights — why every completed call used to say `error`
+
+Telnyx's `call.conversation_insights.generated` event returns
+`results: [{ insight_id, result }]`. With only the stock **Summary** insight
+configured, `result` is a **prose paragraph** — no `outcome` key anywhere. The
+Phase 1 parser looked for an object containing `outcome`, found nothing, and
+every completed call finalized as `outcome = 'error'` with a null summary.
+Six consecutive production rows, all of them ordinary conversations.
+
+Two fixes, and both are needed:
+
+1. **Upstream** — a custom insight with a strict `json_schema` (below), added
+   to a dedicated insight group that the assistant points at. Telnyx then
+   returns JSON instead of prose.
+2. **Downstream** — `_shared/ai-call-outcome.ts` degrades in four documented
+   steps (JSON → JSON embedded in prose → keyword-mapped prose → prose kept as
+   the summary with the outcome derived from call-flow facts). **A call that
+   completed normally is never `error` again.** `error` now means *we* broke —
+   which matters, because `error` is also what suppresses the wallet debit.
+
+The insight's schema, pushed by `scripts/sync-ai-assistant.mjs`:
+
+**Every property is in `required`, and that is not a mistake.** Telnyx enforces
+OpenAI-style strict structured output: with `additionalProperties: false` it
+rejects a schema whose `required` list is shorter than its `properties` —
+verified, `400` / code `10015`, *"'required' must list all properties"*. So
+"optional" is expressed the only way strict mode allows: the field is always
+present and carries an **empty string** when the call did not cover it. The
+insight instructions say so explicitly, and `coerceQualification()` drops empty
+strings, so an untouched field reads as `null` on the row rather than as `""`.
+
+```insight-schema
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["outcome", "age", "coverage_interest", "budget_text",
+               "best_callback_text", "notes", "summary"],
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": ["qualified", "not_interested", "callback_requested", "voicemail",
+               "no_answer", "dnc_request", "appointment_booked", "transferred"]
+    },
+    "age":                { "type": "string" },
+    "coverage_interest":  { "type": "string" },
+    "budget_text":        { "type": "string" },
+    "best_callback_text": { "type": "string" },
+    "notes":              { "type": "string" },
+    "summary":            { "type": "string" }
+  }
+}
+```
+
+The stock Summary insight is deliberately KEPT in the group alongside it: its
+paragraph is a genuinely good `ai_calls.summary`, and it is the fallback the
+parser reads when the structured one is empty.
 
 ---
 

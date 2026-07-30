@@ -518,6 +518,25 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 .topbar{padding:14px 28px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
 .topbar h1{font-size:16px;font-weight:600}
 .topbar-r{display:flex;gap:10px;align-items:center}
+
+/* AI availability pill (global header). Shares the .theme-toggle pill shape so
+   it reads as part of the header furniture rather than as a control bolted on.
+   Busy is the NEUTRAL state, not a warning: busy is the default and the safe
+   one, and painting it red would make the normal condition look broken. */
+#aiAvailPill{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;background:var(--bg3);
+  border:1px solid var(--border);border-radius:20px;cursor:pointer;user-select:none;
+  font:600 12px var(--sans);color:var(--text2);transition:all .2s;white-space:nowrap}
+#aiAvailPill:hover{border-color:var(--border2)}
+#aiAvailPill[disabled]{cursor:progress;opacity:.6}
+#aiAvailPill .ai-avail-dot{width:8px;height:8px;border-radius:50%;background:var(--text3);flex:none;transition:all .2s}
+#aiAvailPill[data-state="available"]{color:#10b981;border-color:rgba(16,185,129,.45);background:rgba(16,185,129,.10)}
+#aiAvailPill[data-state="available"] .ai-avail-dot{background:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.18)}
+/* Available but no transfer number saved: the server treats this as busy, so
+   the pill must not sit there looking green and ready. */
+#aiAvailPill[data-state="needs_number"]{color:#f59e0b;border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.10)}
+#aiAvailPill[data-state="needs_number"] .ai-avail-dot{background:#f59e0b}
+body.light #aiAvailPill{background:var(--bg2)}
+@media(max-width:640px){#aiAvailPill{padding:5px 9px;font-size:11px}}
 .content{padding:26px;flex:1}
 /* ---- SECTIONS ---- */
 .section{display:none}.section.active{display:block}
@@ -939,6 +958,11 @@ body:not(.light) .sidebar .sweep::before{background:linear-gradient(115deg,trans
 }
 /* GCAL */
 .gcal-event{background:var(--ds-color-info-bg);border:1px solid var(--ds-color-info-bg);border-radius:5px;padding:3px 6px;margin-bottom:3px;cursor:default}
+/* AI-booked appointments read as a different KIND of thing from a Google
+   event, because they are: nobody put them in a calendar, the assistant
+   agreed them on a call. Green, matching the "booked" state elsewhere. */
+.gcal-event--ai{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.45)}
+.gcal-event--ai .gcal-event-title{color:#10b981}
 .gcal-event-title{font-size:10.5px;font-weight:600;color:var(--ds-color-info);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gcal-event-time{font-size:9.5px;color:var(--text3)}
 /* Award tier label colors (flat) */
@@ -4480,6 +4504,15 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
     </button>
     <h1 id="pgTitle">Quote + Underwriting</h1>
     <div class="topbar-r">
+      <!-- AI availability pill. Injected-visible only when the AI dialer is on for
+           this agent (aiAvailInit) — everyone else never sees it. Lives in the
+           GLOBAL header on purpose: a warm transfer rings the agent's real cell,
+           so "am I on the hook right now?" has to be answerable from every tab
+           without going looking for it. -->
+      <button type="button" id="aiAvailPill" onclick="aiAvailToggle()" style="display:none"
+        title="Whether the AI can transfer a hot lead straight to your phone">
+        <span class="ai-avail-dot"></span><span id="aiAvailLbl">AI: Busy</span>
+      </button>
       <span style="font-size:11.5px;color:var(--text3);font-family:var(--mono)" id="todayDate"></span>
       <div class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">
         <span class="toggle-label" id="theme-lbl" data-ico="moon" data-size="14"></span>
@@ -4560,6 +4593,21 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
           What the AI calls itself &mdash; &ldquo;Hi Mark, <b>this is Sarah</b> &mdash; I&rsquo;m an assistant calling on behalf of&hellip;&rdquo;.
           Leave it blank and the AI introduces itself without a name; it never makes one up.
         </div>
+
+        <!-- 1d · Transfer number (warm transfer target) -->
+        <div style="font:600 13px var(--sans);margin:0 0 8px">1d &middot; Transfer number</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+          <input id="aiTest-transferNum" type="tel" autocomplete="off" placeholder="Your cell, e.g. (555) 123-4567"
+            onchange="aiTestSaveTransferNumber()"
+            style="flex:1;min-width:220px;padding:9px 12px;border:1px solid rgba(127,127,127,.3);border-radius:8px;background:var(--card);color:inherit;font:14px var(--sans)">
+        </div>
+        <div style="font:12px/1.5 var(--sans);color:var(--text2);margin-bottom:8px">
+          Where a qualified lead gets warm-transferred while you&rsquo;re set to <b>AI: Available</b>.
+          Your phone rings, you hear a one-line whisper about the lead, and pressing <b>1</b> connects you.
+          Anything else (or no answer) and the AI apologises and books an appointment instead.
+        </div>
+        <div id="aiTest-transferHint" style="display:none;font:12px/1.5 var(--sans);margin-bottom:24px;padding:9px 12px;border-radius:8px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#b45309"></div>
+        <div id="aiTest-transferSpacer" style="margin-bottom:24px"></div>
 
         <!-- 2 · Start the AI call -->
         <div style="font:600 13px var(--sans);margin:0 0 8px">2 · Start AI call</div>
@@ -21793,7 +21841,68 @@ async function gcalFetchEvents() {
   }
 }
 
-function gcalRefresh() { gcalFetchEvents(); }
+// ============================================================
+// AI-BOOKED APPOINTMENTS on the Calendar tab.
+//
+// The Calendar tab is a READ-ONLY view of Google Calendar, fetched in the
+// BROWSER with a GIS token under the calendar.readonly scope. There is no
+// server-side refresh token and no write scope, so an edge function cannot put
+// anything into it — which is why ai-call-tools writes public.ai_appointments
+// and this merges the two for display. They stay separate sources: nothing
+// here ever tries to push into Google.
+//
+// The merged shape is deliberately the SAME `{id,title,start,location}` object
+// gcalFetchEvents produces, so both renderers below needed one extra line each
+// rather than a second code path per view.
+// ============================================================
+let aiAppointments = [];
+
+async function aiApptLoad() {
+  if (!currentAgent) return;
+  try {
+    const since = new Date(Date.now() - 30 * 86400000).toISOString(); // a month back
+    const { data, error } = await sb.from('ai_appointments')
+      .select('id, starts_at, lead_name, lead_phone_e164, lead_timezone, notes, status, sms_confirm_status')
+      .gte('starts_at', since)
+      .order('starts_at', { ascending: true })
+      .limit(500);
+    if (error) throw error;
+    aiAppointments = (data || []).filter(a => a.status !== 'cancelled');
+  } catch (e) {
+    console.warn('[calendar] ai_appointments load failed:', (e && e.message) || e);
+    aiAppointments = [];
+  }
+}
+
+// AI appointments in the same shape as the Google events, so the two renderers
+// treat them identically. `aiAppt: true` is the only thing that distinguishes
+// them, and it is used purely for the badge.
+function aiApptAsEvents() {
+  return aiAppointments.map(a => ({
+    id: 'ai-' + a.id,
+    aiAppt: true,
+    title: (a.lead_name || a.lead_phone_e164 || 'AI appointment') + ' — booked by AI',
+    start: a.starts_at,
+    end: a.starts_at,
+    location: '',
+    description: a.notes || '',
+    smsStatus: a.sms_confirm_status || '',
+  }));
+}
+
+/** Everything the Calendar tab shows: Google's events plus the AI's bookings. */
+function calAllEvents() {
+  return gcalEvents.concat(aiApptAsEvents());
+}
+
+async function gcalRefresh() {
+  // Always reload the AI bookings, even when Google is not connected — an
+  // agent with no Google account still needs to see what the AI booked for
+  // them, and that is the whole reason these live in our own table.
+  await aiApptLoad();
+  if (gcalToken) await gcalFetchEvents();
+  else { gcalRenderGrid(); gcalRenderList(); }
+}
 
 function gcalNavMonth(dir) {
   gcalViewMonth += dir;
@@ -21818,14 +21927,28 @@ function gcalRenderGrid() {
   const daysInPrev = new Date(yr, mo, 0).getDate();
   const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
 
-  // Build events map: dateStr → [events]
+  // Build events map: dateStr → [events]. AI-booked appointments are bucketed
+  // by their LOCAL date, not by the UTC date in the timestamp — a 7pm Central
+  // appointment is stored as midnight-or-later UTC and slicing the ISO string
+  // would file it on the following day.
   const evMap = {};
-  gcalEvents.forEach(ev => {
-    const d = ev.start ? ev.start.split('T')[0] : '';
+  calAllEvents().forEach(ev => {
+    if (!ev.start) return;
+    let d;
+    if (ev.aiAppt || ev.start.endsWith('Z')) {
+      const dt = new Date(ev.start);
+      if (isNaN(dt)) return;
+      d = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+    } else {
+      d = ev.start.split('T')[0];
+    }
     if (!d) return;
     evMap[d] = evMap[d] || [];
     evMap[d].push(ev);
   });
+  for (const k of Object.keys(evMap)) {
+    evMap[k].sort((a, b) => new Date(a.start) - new Date(b.start));
+  }
 
   for (let i = 0; i < totalCells; i++) {
     let dayNum, isOther = false;
@@ -21849,9 +21972,9 @@ function gcalRenderGrid() {
       dayEvs.slice(0,3).forEach(ev => {
         const time = ev.start.includes('T') ? new Date(ev.start).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : 'All Day';
         const el = document.createElement('div');
-        el.className = 'gcal-event';
+        el.className = 'gcal-event' + (ev.aiAppt ? ' gcal-event--ai' : '');
         el.title = (ev.title||'') + (ev.location ? ' @ '+ev.location : '');
-        el.innerHTML = `<div class="gcal-event-title">${escHTML(ev.title)}</div><div class="gcal-event-time">${escHTML(time)}</div>`;
+        el.innerHTML = `<div class="gcal-event-title">${ev.aiAppt ? '🤖 ' : ''}${escHTML(ev.title)}</div><div class="gcal-event-time">${escHTML(time)}</div>`;
         cell.appendChild(el);
       });
       if (dayEvs.length > 3) {
@@ -21868,12 +21991,13 @@ function gcalRenderGrid() {
 function gcalRenderList() {
   const el = document.getElementById('gcal-events-list');
   if (!el) return;
-  if (!gcalEvents.length) {
+  const all = calAllEvents();
+  if (!all.length) {
     el.innerHTML = `<div class="empty" style="padding:24px"><div class="ico">${icon('calendar-blank',{size:32})}</div><p>Connect Google Calendar to see your appointments here.</p></div>`;
     return;
   }
   const now = new Date();
-  const upcoming = gcalEvents
+  const upcoming = all
     .filter(e => new Date(e.start) >= now)
     .sort((a,b) => new Date(a.start)-new Date(b.start))
     .slice(0, 10);
@@ -21882,12 +22006,22 @@ function gcalRenderList() {
     const d = new Date(ev.start);
     const dateStr = d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
     const timeStr = ev.start.includes('T') ? d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : 'All Day';
+    // The confirmation-text status is shown, including when it did NOT go out.
+    // A booking whose text silently failed looks exactly like one that worked,
+    // and the agent is the person who can act on the difference.
+    const sms = ev.aiAppt && ev.smsStatus
+      ? (ev.smsStatus === 'sent'
+          ? `<span style="color:#10b981">text sent</span>`
+          : `<span style="color:var(--text3)">text not sent (${escHTML(ev.smsStatus)})</span>`)
+      : '';
     return `
       <div style="padding:10px 0;border-bottom:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <div style="font-size:13px;font-weight:600;color:var(--text)">${escHTML(ev.title)}</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${ev.aiAppt?'🤖 ':''}${escHTML(ev.title)}</div>
             ${ev.location?`<div style="font-size:11.5px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:5px">${icon('map-pin',{size:11})}${escHTML(ev.location)}</div>`:''}
+            ${ev.aiAppt&&ev.description?`<div style="font-size:11.5px;color:var(--text3);margin-top:2px">${escHTML(ev.description)}</div>`:''}
+            ${sms?`<div style="font-size:11.5px;margin-top:2px">${sms}</div>`:''}
           </div>
           <div style="text-align:right;min-width:90px">
             <div style="font-size:12px;color:var(--ds-color-info);font-weight:500">${dateStr}</div>
@@ -25131,7 +25265,156 @@ function aiTestOnShow() {
   aiTestLoadExistingLead();
   aiTestLoadVoice();
   aiTestLoadAiName();
+  aiTestLoadTransferNumber();
   aiTestLoadReceipts();
+}
+
+// ============================================================
+// AI AVAILABILITY — the global header pill (Phase 2)
+//
+// One click flips agents.ai_availability between 'available' and 'busy'.
+// Optimistic: the pill moves first and reverts on error, because the whole
+// point of a header control is that it answers instantly.
+//
+// THE GATE. `available` with no transfer_number saved is treated as BUSY by
+// the server (ai-call-tools re-reads both and refuses on either), so the pill
+// must not sit there looking green and ready — it goes amber and says what is
+// missing. A green pill that cannot actually receive a call is the single most
+// misleading thing this screen could show.
+// ============================================================
+let aiAvailState = { availability: 'busy', transferNumber: '', loaded: false, busy: false };
+
+async function aiAvailInit() {
+  if (!currentAgent) return;
+  const pill = document.getElementById('aiAvailPill');
+  if (!pill) return;
+  let row = null;
+  try {
+    const { data } = await sb.from('agents')
+      .select('ai_dialer_enabled, ai_availability, transfer_number')
+      .eq('id', currentAgent.id).maybeSingle();
+    row = data;
+  } catch (_) { return; }
+  // Same strict AND gate as the test rig: no AI dialer, no pill at all.
+  if (!row || !row.ai_dialer_enabled) return;
+  let globalOn = false;
+  try {
+    const { data } = await sb.from('billing_config').select('ai_dialer_enabled').eq('id', 1).maybeSingle();
+    globalOn = !!(data && data.ai_dialer_enabled);
+  } catch (_) { return; }
+  if (!globalOn) return;
+
+  aiAvailState.availability   = (row.ai_availability === 'available') ? 'available' : 'busy';
+  aiAvailState.transferNumber = row.transfer_number || '';
+  aiAvailState.loaded = true;
+  pill.style.display = '';
+  aiAvailRender();
+}
+
+function aiAvailRender() {
+  const pill = document.getElementById('aiAvailPill');
+  const lbl  = document.getElementById('aiAvailLbl');
+  if (!pill || !lbl) return;
+  const available = aiAvailState.availability === 'available';
+  const missing   = available && !aiAvailState.transferNumber;
+  pill.dataset.state = missing ? 'needs_number' : (available ? 'available' : 'busy');
+  lbl.textContent = missing ? 'AI: No number' : (available ? 'AI: Available' : 'AI: Busy');
+  pill.title = missing
+    ? 'Add a transfer number or hot calls can’t reach you — the AI will book appointments instead.'
+    : available
+      ? 'The AI can transfer a qualified lead straight to your phone. Click to go Busy.'
+      : 'The AI will book appointments instead of calling you. Click to go Available.';
+  // The nudge under the transfer-number field, when that panel is on screen.
+  const hint = document.getElementById('aiTest-transferHint');
+  const spacer = document.getElementById('aiTest-transferSpacer');
+  if (hint) {
+    hint.style.display = missing ? '' : 'none';
+    if (missing) hint.textContent = 'Add a transfer number or hot calls can’t reach you. ' +
+      'Until one is saved you are treated as Busy and the AI books appointments instead.';
+    if (spacer) spacer.style.display = missing ? 'none' : '';
+  }
+}
+
+async function aiAvailToggle() {
+  if (!currentAgent || !aiAvailState.loaded || aiAvailState.busy) return;
+  const pill = document.getElementById('aiAvailPill');
+  const prev = aiAvailState.availability;
+  const next = prev === 'available' ? 'busy' : 'available';
+
+  aiAvailState.busy = true;
+  aiAvailState.availability = next;              // optimistic
+  aiAvailRender();
+  if (pill) pill.disabled = true;
+
+  const { error } = await sb.from('agents').update({ ai_availability: next }).eq('id', currentAgent.id);
+
+  aiAvailState.busy = false;
+  if (pill) pill.disabled = false;
+
+  if (error) {
+    aiAvailState.availability = prev;           // revert
+    aiAvailRender();
+    showToast('Could not change your availability: ' + error.message, '#dc2626');
+    return;
+  }
+  if (next === 'available' && !aiAvailState.transferNumber) {
+    showToast('You’re Available, but no transfer number is saved — add one in AI Dialer Test, ' +
+      'or hot calls can’t reach you.', '#f59e0b');
+  } else {
+    showToast(next === 'available'
+      ? 'AI: Available — qualified leads will be transferred to your phone.'
+      : 'AI: Busy — the AI will book appointments instead of calling you.',
+      next === 'available' ? '#10b981' : '#6b7280');
+  }
+  aiAvailRender();
+}
+
+// 1d · The warm-transfer target (agents.transfer_number).
+async function aiTestLoadTransferNumber() {
+  const inp = document.getElementById('aiTest-transferNum');
+  if (!inp) return;
+  try {
+    const { data } = await sb.from('agents')
+      .select('transfer_number, phone, ai_availability')
+      .eq('id', currentAgent.id).maybeSingle();
+    const saved = (data && data.transfer_number) || '';
+    aiAvailState.transferNumber = saved;
+    if (data && data.ai_availability) {
+      aiAvailState.availability = data.ai_availability === 'available' ? 'available' : 'busy';
+    }
+    // Prefill from the profile phone when nothing is saved yet — it is very
+    // often the right number, and an empty field is one more reason not to
+    // finish setting this up. Prefilled is NOT saved: the input is left dirty
+    // so nothing is written to the agent's row until they mean it.
+    inp.value = saved || toE164((data && data.phone) || '') || '';
+    aiAvailRender();
+  } catch (_) { /* non-fatal */ }
+}
+
+async function aiTestSaveTransferNumber() {
+  const inp = document.getElementById('aiTest-transferNum');
+  if (!inp) return;
+  const raw = (inp.value || '').trim();
+  if (!raw) {
+    const { error } = await sb.from('agents').update({ transfer_number: null }).eq('id', currentAgent.id);
+    if (error) { showToast('Could not clear the transfer number: ' + error.message, '#dc2626'); return; }
+    aiAvailState.transferNumber = '';
+    aiAvailRender();
+    showToast('Transfer number cleared — hot calls will be booked as appointments.', '#6b7280');
+    return;
+  }
+  const e164 = toE164(raw);
+  if (!e164) {
+    showToast('That doesn’t look like a valid US phone number.', '#dc2626');
+    inp.focus();
+    return;
+  }
+  inp.value = e164;                              // show exactly what was stored
+  const { error } = await sb.from('agents').update({ transfer_number: e164 }).eq('id', currentAgent.id);
+  if (error) { showToast('Could not save the transfer number: ' + error.message, '#dc2626'); return; }
+  aiAvailState.transferNumber = e164;
+  aiAvailRender();
+  showToast('Transfer number saved — ' + e164, '#10b981');
 }
 
 // Curated Telnyx TTS voices for the AI Sales Agent. value = the exact string
@@ -25376,7 +25659,7 @@ async function aiTestPollOnce() {
   let row;
   try {
     const { data } = await sb.from('ai_calls')
-      .select('status, outcome, answered_at, duration_secs, billed_minutes, summary, transcript, started_at, ended_at, call_control_id, error_detail, voice')
+      .select('status, outcome, answered_at, duration_secs, billed_minutes, summary, transcript, started_at, ended_at, call_control_id, error_detail, voice, transfer_status, transfer_to, qualification, appointment_id')
       .eq('id', aiTestState.aiCallId).maybeSingle();
     row = data;
   } catch (_) { return; }
@@ -25386,6 +25669,62 @@ async function aiTestPollOnce() {
     aiTestStopPolling();
     aiTestLoadReceipts(); // the debit lands on finalize (call.hangup)
   }
+}
+
+// Plain-English names for ai_calls.transfer_status. `agent_declined` and
+// `agent_no_answer` are deliberately worded as two different events, because
+// they are: one is a key that was pressed, the other is a phone that was not
+// answered, and only one of them is worth changing your habits over.
+const AI_TRANSFER_LABELS = {
+  none:            'not attempted',
+  offered:         'offered — you were Busy (or no transfer number), so it booked instead',
+  ringing_agent:   'ringing your phone…',
+  whisper:         'you picked up — playing the whisper',
+  bridged:         'connected ✓',
+  agent_declined:  'you pressed a key other than 1 — booked instead',
+  agent_no_answer: 'no answer / voicemail — booked instead',
+  failed:          'transfer failed — booked instead',
+};
+
+const AI_QUALIFICATION_FIELDS = [
+  ['age', 'Age'],
+  ['coverage_interest', 'Coverage'],
+  ['budget_text', 'Budget'],
+  ['best_callback_text', 'Best time'],
+  ['notes', 'Notes'],
+  ['transfer_summary', 'Whisper summary'],
+  ['appointment_spoken', 'Appointment'],
+];
+
+// The booked appointment, rendered under the live-call status.
+async function aiTestRenderAppointment(appointmentId) {
+  const el = document.getElementById('aiTest-status');
+  if (!el || !appointmentId) return;
+  let a;
+  try {
+    const { data } = await sb.from('ai_appointments')
+      .select('starts_at, lead_timezone, spoken_time_text, sms_confirm_status, notes')
+      .eq('id', appointmentId).maybeSingle();
+    a = data;
+  } catch (_) { return; }
+  if (!a || document.getElementById('aiTest-appt-' + appointmentId)) return;
+  const when = a.starts_at
+    ? new Date(a.starts_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '—';
+  const sms = a.sms_confirm_status || 'pending…';
+  const smsOk = sms === 'sent';
+  const box = document.createElement('div');
+  box.id = 'aiTest-appt-' + appointmentId;
+  box.style.cssText = 'margin-top:14px;padding:11px 13px;border-radius:8px;background:rgba(16,185,129,.10);border:1px solid rgba(16,185,129,.4)';
+  box.innerHTML =
+    '<div style="font:600 13px var(--sans);color:#10b981;margin-bottom:5px">Appointment booked</div>' +
+    '<div style="font:13px/1.6 var(--sans)"><b>' + _aiTestEsc(when) + '</b>' +
+    (a.lead_timezone ? ' <span style="color:var(--text3)">(' + _aiTestEsc(a.lead_timezone) + ')</span>' : '') + '</div>' +
+    (a.spoken_time_text ? '<div style="font:12px/1.5 var(--sans);color:var(--text2)">They said: “' + _aiTestEsc(a.spoken_time_text) + '”</div>' : '') +
+    (a.notes ? '<div style="font:12px/1.5 var(--sans);color:var(--text2)">' + _aiTestEsc(a.notes) + '</div>' : '') +
+    '<div style="font:12px/1.5 var(--sans);margin-top:4px;color:' + (smsOk ? '#10b981' : 'var(--text2)') + '">' +
+      'Confirmation text: ' + _aiTestEsc(sms) + '</div>';
+  el.appendChild(box);
 }
 
 function aiTestRenderCall(row) {
@@ -25402,9 +25741,28 @@ function aiTestRenderCall(row) {
     ['Billed minutes', (row.billed_minutes != null) ? String(row.billed_minutes) : '—'],
     ['Voice', row.voice || 'assistant default'],
   ];
+  // Phase 2: how far the warm transfer got. Named in plain words, because
+  // "agent_declined" vs "agent_no_answer" is the difference between "you
+  // pressed the wrong key" and "your phone never rang", and both look like
+  // "it didn't work" from the outside.
+  if (row.transfer_status) {
+    lines.push(['Transfer', AI_TRANSFER_LABELS[row.transfer_status] || row.transfer_status]);
+    if (row.transfer_to) lines.push(['Transfer to', row.transfer_to]);
+  }
   let html = '<div style="display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font:13px/1.5 var(--sans)">';
   for (const [k, v] of lines) html += '<div style="color:var(--text2)">' + k + '</div><div style="font-weight:600">' + _aiTestEsc(v) + '</div>';
   html += '</div>';
+  if (row.appointment_id) aiTestRenderAppointment(row.appointment_id);
+  if (row.qualification && typeof row.qualification === 'object') {
+    const q = row.qualification;
+    const rows = AI_QUALIFICATION_FIELDS
+      .filter(([k]) => q[k] != null && String(q[k]).trim() !== '')
+      .map(([k, label]) => '<div style="color:var(--text2)">' + label + '</div><div style="font-weight:600">' + _aiTestEsc(String(q[k])) + '</div>');
+    if (rows.length) {
+      html += '<div style="margin-top:14px"><div style="color:var(--text2);font:13px var(--sans);margin-bottom:6px">Qualification</div>' +
+        '<div style="display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font:13px/1.5 var(--sans)">' + rows.join('') + '</div></div>';
+    }
+  }
   if (row.error_detail) {
     html += '<div style="margin-top:14px"><div style="color:#dc2626;font:600 13px var(--sans);margin-bottom:4px">Error detail</div>' +
             '<pre style="margin:0;padding:10px;border-radius:8px;background:rgba(220,38,38,.08);overflow:auto;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word;color:#dc2626">' + _aiTestEsc(row.error_detail) + '</pre></div>';
@@ -25557,7 +25915,13 @@ function nav(id) {
   if (id === 'tracker') { populateTrackerCarrierFilter(); const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
   if (id === 'carriermail') renderCarrierMail();
   if (id === 'backoffice') renderBackOffice();
-  if (id === 'calendar') { gcalRenderGrid(); gcalRenderList(); }
+  // Paint from what is already in memory first (instant), then reload the
+  // AI-booked appointments and repaint. An appointment the AI booked five
+  // minutes ago must not need a manual Refresh to appear.
+  if (id === 'calendar') {
+    gcalRenderGrid(); gcalRenderList();
+    aiApptLoad().then(() => { gcalRenderGrid(); gcalRenderList(); });
+  }
   if (id === 'phonebook') renderPhoneBook();
   if (id === 'webdialer') webDialer.render();
   if (id === 'agency') renderAgencySection();
@@ -32779,6 +33143,7 @@ async function bootDashboard() {
   } catch (e) {}
   if (typeof dsInitPlayground === 'function') dsInitPlayground();
   if (typeof aiTestInit === 'function') aiTestInit(); // AI Dialer Test panel — gated on both kill switches
+  if (typeof aiAvailInit === 'function') aiAvailInit(); // global AI Available/Busy pill — same gate
   // Phase 7: wire drag-to-reorder once DOM is settled.
   _wireReorder();
 

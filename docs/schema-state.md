@@ -2450,3 +2450,60 @@ Two live bugs the headless run caught, both fixed before shipping:
    page load.** Both `ledgerPeriod` and `_teamPeriod` are initialised from
    `localStorage` at load, and only the *setters* had been taught the new
    grammar. A control that forgets what you chose is worse than not offering it.
+
+---
+
+## Applied — `20260753_ai_transfer_booking.sql` (2026-07-30)
+
+AI Sales Agent Phase 2: warm transfer + whisper, agent availability, appointment
+booking, and the structured qualification object.
+
+Applied with `npx supabase db query --linked -f <file>`, wrapped in
+`begin; … commit;`. `psql` is still not installed on this machine and
+`SUPABASE_DB_URL` is still not in `.env.local`; the CLI's `db query --linked`
+goes through the Management API and runs the file as one transaction, which
+satisfies the "wrap each file so a partial apply rolls back" rule.
+
+**Filename note.** The prompt asked for `20260731_…`. That number was already
+taken by `20260731_a2p_resumable_registration.sql`, and this directory is
+applied in filename order, so it was filed at **20260753** — the next free
+number after `20260752_ai_call_events.sql`, and after the `ai_calls` /
+`ai_call_events` tables it alters. Nothing else about it changed.
+
+### Verified present after the apply
+
+| Object | Result |
+|---|---|
+| `agents.transfer_number`, `agents.ai_availability` | 2/2 present |
+| `ai_calls.qualification`, `.transfer_status`, `.transfer_to`, `.transfer_call_control_id`, `.appointment_id` | 5/5 present |
+| `public.ai_appointments` | present |
+| `ai_calls_outcome_check` (replaced, now 12 tags) | present |
+| `ai_appointments` RLS policies | 1 (SELECT-own only, as intended) |
+
+### Decisions worth not re-deriving
+
+- **`ai_availability` defaults to `'busy'`.** A transfer rings a real person's
+  cell mid-conversation. Ringing is opt-in.
+- **No RLS change was needed, and none was made.** `agents_update_own` was
+  confirmed against production as row-ownership only (`auth.uid() = id` for both
+  USING and WITH CHECK), and `agents_protect_privileged_columns` (20260703c) is
+  a DENYLIST of billing/privilege columns. So both new columns are owner-
+  writable exactly like `ai_voice` (20260727), `ai_agent_name` (20260730) and
+  `hide_from_leaderboards` (20260750). They were deliberately NOT added to the
+  denylist: they are the agent's own settings.
+- **`ai_appointments` is SELECT-only for `authenticated`.** Every write goes
+  through `ai-call-tools` under the service role, which takes the agent from
+  the CALL, never from a request body. Do not add an INSERT policy: one broad
+  enough to let a browser record an appointment is broad enough to let it record
+  one against another agent's book — and this table is what a confirmation SMS
+  is sent from.
+- **A new table rather than the existing calendar.** The Calendar tab is
+  READ-ONLY Google Calendar, fetched in the BROWSER with a GIS token under the
+  `calendar.readonly` scope; there is no server-side refresh token and no write
+  scope, so an edge function cannot put anything into it. The Calendar tab now
+  merges `ai_appointments` alongside the Google events.
+- **The lead's `data.status` is deliberately NOT the record of a booking.**
+  `leads.data` is a jsonb blob the browser owns — `sbUpsertAllLeads()` re-upserts
+  every lead on every save, so a server-side write to `data.status` is silently
+  overwritten the next time the agent edits anything. An appointment the AI
+  booked must not disappear because someone renamed a lead.

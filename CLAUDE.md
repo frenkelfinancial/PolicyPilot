@@ -241,7 +241,64 @@ Autonomy layer (added 07/2026):
   deploy, an unauthenticated POST must come back `{"error":"invalid_signature"}`
   — that is the function's own check answering, i.e. proof the platform gate is
   still off. A `{"code":401,"message":"Missing authorization header"}` means it
-  came back on.
+  came back on. **`ai-call-tools` is pinned the same way** and answers
+  `{"error":"invalid_secret"}` — same test, same meaning.
+
+### Phase 2 — warm transfer, booking, structured outcomes (added 2026-07-30)
+
+- **🔴 `error` IS NOT A CLASSIFICATION RESULT.** Six consecutive production
+  calls — every one an ordinary conversation — finalized as `outcome='error'`
+  because Telnyx's insight came back as a prose paragraph with no `outcome`
+  key. `error` means WE broke, and it is *also* what suppresses the wallet
+  debit, so using it for "the parser found nothing" both libels the call and
+  gives away the minute. `outcomeFromCallFlow()` derives from facts instead and
+  an unclassified answered call is **`completed`**. Pinned by a unit test
+  against that exact production payload.
+- **The parser degrades in four steps** (`_shared/ai-call-outcome.ts`): JSON →
+  a brace-balanced `{…}` lifted out of prose → keyword-mapped prose → prose kept
+  as the summary. The brace scan replaced a greedy regex that, given two JSON
+  objects in one string, matched across both and parsed as neither.
+  `shouldReplaceOutcome()` is the other half: insights arrive **~8s after the
+  call already finalized**, so a late, vaguer tag must never downgrade a
+  terminal one.
+- **The NATIVE Telnyx transfer tool was rejected on evidence, not taste.** It
+  has `warm_transfer_instructions` and premium AMD, but **no digit confirm** —
+  nothing in `InferenceEmbeddingTransferToolParams`, `InviteToolConfig` or the
+  DTMF tool gathers a keypress (checked in the published OpenAPI spec). Press-1
+  is what stops a lead being bridged into a car radio. Hence the Call Control
+  flow: `ai-call-tools` dials, `ai-call-webhook` whispers, gathers and bridges.
+- **`ai_availability` is re-read FRESH at tool time, never captured at call
+  start** — the agent can walk away between dial and qualification. `available`
+  with no `transfer_number` is treated as busy, server-side *and* in the pill.
+- **The transfer tool RETURNS IMMEDIATELY** (`status: "ringing"`). Blocking
+  until the agent presses 1 is 15–30s of a blocked assistant, which on a phone
+  call is 15–30s of nothing. Failure is pushed back into the live conversation
+  with `ai_assistant_add_messages` so the assistant apologizes and books.
+- **ONE debit for the whole call, both legs**, keyed on the LEAD's
+  `call_control_id` and anchored at lead answer. The agent leg returns from the
+  webhook long before the finalize block — that ordering *is* the guarantee.
+- **Two call-length settings doing different jobs.** The lead leg is dialed
+  `time_limit_secs = 1800` so a transferred conversation is not cut off at five
+  minutes; the assistant's own `telephony_settings.time_limit_secs = 300` stops
+  **the assistant** and Telnyx documents it as not applying to a transferred
+  portion. Because that leaves the leg alive, the webhook hangs up on
+  `call.conversation.ended` whenever no transfer is in flight.
+- **Appointments are their own table, not the Google Calendar and not
+  `leads.data.status`.** The Calendar tab is browser-side `calendar.readonly` —
+  an edge function cannot write it. And `sbUpsertAllLeads()` re-upserts every
+  lead on every save, so a server-side `data.status` write is silently
+  overwritten the next time the agent edits anything.
+- **`sms_confirm_status` is never null on success or failure.** A booking whose
+  confirmation text did not go out must be distinguishable from one whose did.
+  The send is fire-and-forget through the *same* `runComplianceGate` /
+  `resolveTextingNumber` / `sendMessageCore` path as `messaging-send-sms` —
+  no duplicated gate logic — and it starts working with zero code changes the
+  moment the agent's number is attached to the campaign.
+- **Telnyx silently drops fields it does not recognise, twice over here.**
+  `insight_ids` on an insight-group write is ignored (membership goes through
+  `.../insights/{id}/assign`), and the strict-schema rule rejects a `required`
+  list shorter than `properties` (400 / code 10015). `sync-ai-assistant.mjs`
+  READS BACK everything it writes — that read-back caught both.
 
 ## Identity — a person has a name, not an address
 

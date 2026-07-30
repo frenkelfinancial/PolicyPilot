@@ -1,19 +1,29 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyTelnyxSignature } from "../_shared/webhook-verify.ts";
 import {
   computeBilledMinutes,
   debitAiCallOnce,
-  normalizeOutcome,
   type AiCallOutcome,
 } from "../_shared/ai-call-billing.ts";
+import {
+  outcomeFromCallFlow,
+  parseInsightPayload,
+  shouldReplaceOutcome,
+} from "../_shared/ai-call-outcome.ts";
 
 // ai-call-webhook — Telnyx Call Control + AI Assistant webhook for one AI
-// Sales Agent call. Configured per-call by ai-call-start (webhook_url). Does
-// its OWN Ed25519 signature check (verify_jwt = false in config.toml — Telnyx
-// can't supply a Supabase JWT), same as messaging-delivery-webhook.
+// Sales Agent call, BOTH LEGS. Configured per-call by ai-call-start (the lead
+// leg) and by ai-call-tools (the agent leg of a warm transfer). Does its OWN
+// Ed25519 signature check (verify_jwt = false in config.toml — Telnyx can't
+// supply a Supabase JWT), same as messaging-delivery-webhook.
 //
-// Flow:
+// Which leg an event belongs to is read from client_state.role:
+// 'ai_call' (the lead) or 'agent_leg' (the agent being warm-transferred to).
+// Both legs' events land here on purpose — one function, one trace table, one
+// place where the two are joined.
+//
+// LEAD LEG:
 //   • call.answered      -> claim the start, stamp answered_at (billing
 //     anchor) and attach the assistant IMMEDIATELY via
 //     /actions/ai_assistant_start. This is the ONLY path that normally
@@ -21,11 +31,45 @@ import {
 //   • AMD says machine   -> hang up, mark 'voicemail'. Bills 0 either way.
 //   • AMD says human     -> backstop only: start the assistant if
 //     call.answered never claimed it (a lost event or a DB error).
-//   • transcript/insights -> store transcript + parse the assistant outcome
-//     JSON; a dnc_request writes a suppression row + flips leads.dnc.
+//   • transcript/insights -> store transcript + parse the outcome (see
+//     _shared/ai-call-outcome.ts); a dnc_request writes a suppression row +
+//     flips leads.dnc.
+//   • conversation.ended -> the ASSISTANT stopped. If no transfer is in
+//     flight, hang the leg up rather than leave a person in silence.
 //   • call.hangup        -> compute talk minutes (answered_at -> hangup),
 //     debit the wallet ONCE via wallet_debit_ai_minutes (idempotent by
 //     call_control_id), finalize the row.
+//
+// AGENT LEG (warm transfer, Phase 2):
+//   • call.answered      -> play the whisper and gather ONE digit
+//                           ("Hot lead: <summary>. Press 1 to take the call.")
+//   • AMD says machine    -> the agent's voicemail picked up: hang up,
+//                            transfer_status = agent_no_answer.
+//   • call.gather.ended   -> '1' bridges the two legs (transfer_status
+//                            'bridged', outcome 'transferred'); any other
+//                            digit is agent_declined; a timeout is
+//                            agent_no_answer.
+//   • either failure     -> push a system message back into the LEAD's live
+//                           conversation so the assistant apologizes and
+//                           pivots to booking. The lead is never told to hold
+//                           for something that is not coming.
+//
+// THE AGENT LEG NEVER DEBITS. The whole call — both legs — bills ONCE at the
+// ai_call rate, anchored on the LEAD's answer, keyed on the LEAD's
+// call_control_id (docs/ai-sales-agent-build-plan.md, Phase 2). Finalize is
+// gated on role for exactly that reason.
+//
+// ---- Why the native Telnyx transfer tool is NOT used ----------------------
+//
+// Telnyx's assistant `transfer` tool does support a spoken briefing
+// (`warm_transfer_instructions`) and AMD on the transferred leg
+// (`voicemail_detection.detection_mode: 'premium'`, verified in the published
+// OpenAPI spec). It has NO digit confirmation: nothing in
+// InferenceEmbeddingTransferToolParams, InviteToolConfig or the DTMF tool
+// gathers a keypress from the destination. Press-1 is what stops a lead being
+// bridged into a car radio, a colleague, or an agent who answered without
+// realising what the call was — so the flow below dials the agent leg through
+// Call Control instead.
 //
 // ---- Two things here exist because of the "answered but silent" bug --------
 //
@@ -118,6 +162,11 @@ serve(async (req) => {
   const TELNYX_API_KEY    = Deno.env.get("TELNYX_API_KEY")!;
   const TELNYX_PUBLIC_KEY = Deno.env.get("TELNYX_PUBLIC_KEY");
   const TELNYX_ASSISTANT  = Deno.env.get("TELNYX_AI_ASSISTANT_ID");
+  // The custom, JSON-schema'd insight (scripts/sync-ai-assistant.mjs creates
+  // it and prints the id). Optional: when unset the parser simply has no
+  // preferred insight and reads whichever result carries usable fields — which
+  // is what it does for the stock prose Summary insight anyway.
+  const TELNYX_OUTCOME_INSIGHT_ID = Deno.env.get("TELNYX_OUTCOME_INSIGHT_ID") || null;
 
   const rawBody = await req.text();
 
@@ -139,8 +188,17 @@ serve(async (req) => {
   const callControlId = (p.call_control_id as string) || "";
   if (!callControlId) return new Response("ok");
 
-  // client_state carries { role, ai_call_id, vars } stamped by ai-call-start.
-  let ctx: { role?: string; ai_call_id?: string; vars?: Record<string, string> } = {};
+  // client_state carries { role, ai_call_id, vars } stamped by ai-call-start
+  // (the lead leg) or { role:'agent_leg', ai_call_id, lead_ccid, summary,
+  // lead_name } stamped by ai-call-tools (the agent leg of a warm transfer).
+  let ctx: {
+    role?: string;
+    ai_call_id?: string;
+    vars?: Record<string, string>;
+    lead_ccid?: string;
+    summary?: string;
+    lead_name?: string;
+  } = {};
   try {
     if (typeof p.client_state === "string" && p.client_state) {
       ctx = JSON.parse(atob(p.client_state));
@@ -153,16 +211,24 @@ serve(async (req) => {
     "Content-Type":  "application/json",
   };
 
+  const isAgentLeg = ctx.role === "agent_leg";
+
   // Resolve the ai_calls row's id: prefer the id carried in client_state
   // (race-free), fall back to a lookup by call_control_id. Every ai_calls
   // update below targets (idCol = idVal); call_control_id is always present as
   // the last-resort target.
+  //
+  // On the AGENT leg the incoming call_control_id belongs to the agent's own
+  // leg, so it can never match ai_calls.call_control_id — the fallback looks
+  // at transfer_call_control_id instead. Without that, a lost client_state on
+  // the agent leg would silently update nothing.
   let aiCallId = ctx.ai_call_id || "";
   if (!aiCallId) {
-    const { data } = await sb.from("ai_calls").select("id").eq("call_control_id", callControlId).maybeSingle();
+    const col = isAgentLeg ? "transfer_call_control_id" : "call_control_id";
+    const { data } = await sb.from("ai_calls").select("id").eq(col, callControlId).maybeSingle();
     aiCallId = (data?.id as string) || "";
   }
-  const idCol = aiCallId ? "id" : "call_control_id";
+  const idCol = aiCallId ? "id" : (isAgentLeg ? "transfer_call_control_id" : "call_control_id");
   const idVal = aiCallId || callControlId;
 
   type AiCallRow = {
@@ -170,15 +236,23 @@ serve(async (req) => {
     agent_id: string;
     lead_id: string | null;
     phone_e164: string;
+    call_control_id: string | null;
     status: string | null;
     outcome: string | null;
     answered_at: string | null;
     started_at: string | null;
     error_detail: string | null;
+    transfer_status: string | null;
+    transfer_call_control_id: string | null;
+    appointment_id: string | null;
+    qualification: Record<string, unknown> | null;
   };
+  const AI_CALL_COLS =
+    "id, agent_id, lead_id, phone_e164, call_control_id, status, outcome, answered_at, " +
+    "started_at, error_detail, transfer_status, transfer_call_control_id, appointment_id, qualification";
   async function loadAiCall(): Promise<AiCallRow | null> {
     const { data } = await sb.from("ai_calls")
-      .select("id, agent_id, lead_id, phone_e164, status, outcome, answered_at, started_at, error_detail")
+      .select(AI_CALL_COLS)
       .eq(idCol, idVal)
       .maybeSingle();
     return (data as AiCallRow | null) ?? null;
@@ -187,24 +261,74 @@ serve(async (req) => {
   // ---- Diagnostic trace (20260752) ---------------------------------------
   // Fire-and-forget by contract: a logging failure must never change how a
   // call is handled, so every path here swallows its own errors.
+  //
+  // Agent-leg events are filed under the LEAD's call_control_id when it is
+  // known, so one call reads as ONE trace. The agent leg's own id travels in
+  // the payload — losing which leg an event came from would make the transfer
+  // chain unreadable, which is the exact thing this table exists to prevent.
+  const traceCcid = (isAgentLeg && ctx.lead_ccid) ? ctx.lead_ccid : callControlId;
   async function logEvent(type: string, detail: unknown): Promise<void> {
     try {
       await sb.from("ai_call_events").insert({
-        call_control_id: callControlId,
+        call_control_id: traceCcid,
         event_type:      type,
-        payload:         detail as Record<string, unknown>,
+        payload: isAgentLeg
+          ? { leg: "agent", agent_call_control_id: callControlId, ...(detail as Record<string, unknown>) }
+          : detail as Record<string, unknown>,
       });
     } catch (e) {
       console.warn("[ai-call-webhook] ai_call_events insert failed:", (e as Error)?.message || e);
     }
   }
 
-  async function hangupCall(): Promise<void> {
-    await fetch(`https://api.telnyx.com/v2/calls/${callControlId}/actions/hangup`, {
+  async function hangupCall(target?: string): Promise<void> {
+    await fetch(`https://api.telnyx.com/v2/calls/${target || callControlId}/actions/hangup`, {
       method:  "POST",
       headers: telnyxHeaders,
       body:    JSON.stringify({ command_id: crypto.randomUUID() }),
     }).catch(() => {});
+  }
+
+  /**
+   * Push a message into the LEAD's live conversation.
+   *
+   * This is how a transfer that failed becomes something the assistant can
+   * say. `trigger_response: true` makes it speak straight away instead of
+   * waiting for the lead to talk first — the lead has just been told to hold,
+   * so silence is precisely what must not happen next.
+   *
+   * NOTE the neighbouring hazard: `message_history` on ai_assistant_start is
+   * 422-rejected on this account (see the header note), and this endpoint
+   * takes the same message shape. It is a DIFFERENT endpoint and may well
+   * behave differently, but it is treated as fallible for that reason: the
+   * result is traced, and nothing downstream depends on it succeeding.
+   */
+  async function tellAssistant(leadCcid: string, content: string): Promise<boolean> {
+    if (!leadCcid) return false;
+    try {
+      const res = await fetch(
+        `https://api.telnyx.com/v2/calls/${leadCcid}/actions/ai_assistant_add_messages`,
+        {
+          method:  "POST",
+          headers: telnyxHeaders,
+          body: JSON.stringify({
+            messages: [{ role: "system", content }],
+            trigger_response: true,
+            command_id: crypto.randomUUID(),
+          }),
+        },
+      );
+      if (res.ok) {
+        await logEvent("assistant.add_messages.ok", { chars: content.length });
+        return true;
+      }
+      const body = await res.text().catch(() => "");
+      await logEvent("assistant.add_messages.rejected", { status: res.status, body: body.slice(0, 600) });
+      return false;
+    } catch (e) {
+      await logEvent("assistant.add_messages.error", { message: (e as Error)?.message || String(e) });
+      return false;
+    }
   }
 
   // Atomic compare-and-set on `answered_at is null`: whichever path wins gets
@@ -248,16 +372,39 @@ serve(async (req) => {
 
     const greeting = buildGreeting(vars);
 
-    // The attempt ladder. Rung 1 is the proven-accepted body; each further rung
-    // drops the next-most-likely-rejected field so a validator change can cost
-    // the call its voice or its custom greeting but never its audio. NOTHING
-    // here sends message_history — see the header note.
+    // Per-call dynamic variables. `ai_call_id` is what lets the webhook tools
+    // (ai-call-tools) identify this exact call from a tool invocation, which
+    // carries the LLM's arguments and nothing else. Telnyx also merges its own
+    // telnyx_call_to / telnyx_call_from in automatically, and THOSE are what
+    // the tool endpoint actually relies on — this is the precise identifier,
+    // not the only one, which is why losing it below costs nothing.
+    const dynamicVariables: Record<string, string> = { ai_call_id: aiCallId || "" };
+
+    // The attempt ladder. Rung 2 is the body PROVEN accepted in production, so
+    // the new rung 1 sits above it: if `assistant.dynamic_variables` is
+    // rejected the way `message_history` was, the call falls straight back to
+    // exactly what shipped before and loses nothing but a convenience id.
+    // Each further rung drops the next-most-likely-rejected field, so a
+    // validator change can cost the call its voice or its custom greeting but
+    // never its audio. NOTHING here sends message_history — see the header note.
+    const attempts: Array<{ label: string; body: Record<string, unknown> }> = [];
+
+    if (aiCallId) {
+      const withVars: Record<string, unknown> = {
+        assistant: { id: TELNYX_ASSISTANT, dynamic_variables: dynamicVariables },
+        greeting,
+      };
+      if (vars.voice) withVars.voice = vars.voice;
+      attempts.push({ label: "assistant+dynamic_variables+greeting" + (vars.voice ? "+voice" : ""), body: withVars });
+    }
+
     const full: Record<string, unknown> = { assistant: { id: TELNYX_ASSISTANT }, greeting };
     if (vars.voice) full.voice = vars.voice;
+    attempts.push({
+      label: vars.voice ? "assistant+greeting+voice" : "assistant+greeting",
+      body:  full,
+    });
 
-    const attempts: Array<{ label: string; body: Record<string, unknown> }> = [
-      { label: vars.voice ? "assistant+greeting+voice" : "assistant+greeting", body: full },
-    ];
     if (vars.voice) {
       attempts.push({
         label: "assistant+greeting (voice override dropped)",
@@ -346,6 +493,188 @@ serve(async (req) => {
     await startAssistant("call.answered+fallback");
   }
 
+  // ====================================================================
+  // THE WARM TRANSFER — the agent leg.
+  //
+  // Everything here runs on the AGENT's call leg, which ai-call-tools dialed.
+  // The lead is still on the line with the assistant throughout: nothing below
+  // touches the lead's audio until the moment the two legs are bridged.
+  //
+  // Deliberately BEFORE the trace-then-handle block below so an agent-leg
+  // event can never fall through into the lead-leg logic — in particular into
+  // finalize, which would debit a second time and close the call while the
+  // agent's phone is still ringing.
+  // ====================================================================
+
+  /** Where a transfer ended up, on the row and (when it failed) in the lead's ear. */
+  async function endTransfer(
+    status: "agent_declined" | "agent_no_answer" | "failed",
+    why: string,
+  ): Promise<void> {
+    await sb.from("ai_calls").update({ transfer_status: status }).eq(idCol, idVal);
+    await logEvent("transfer." + status, { why });
+    await hangupCall(); // the agent leg only — the lead is still talking
+    // Tell the assistant so it apologizes and books instead. The lead was
+    // asked to hold; leaving them holding for something that is not coming is
+    // the worst outcome this feature has.
+    await tellAssistant(
+      ctx.lead_ccid || "",
+      "SYSTEM: The warm transfer did not connect — the agent could not be reached. " +
+      "Do not mention keypads, voicemail, or any technical detail. Apologize once, briefly and warmly " +
+      "(\"I'm sorry, I couldn't get hold of them just now\"), then offer two or three specific times " +
+      "for the agent to call back, and when the caller picks one call the book_appointment tool with " +
+      "exactly what they said. Do not try to transfer again.",
+    );
+  }
+
+  if (isAgentLeg) {
+    await logEvent(eventType || "unknown", p);
+    try {
+      // ---- The agent picked up: whisper, then ask for a digit ------------
+      if (eventType === "call.answered") {
+        await sb.from("ai_calls").update({ transfer_status: "whisper" }).eq(idCol, idVal);
+
+        const who = (ctx.lead_name || "").trim();
+        const summary = (ctx.summary || "").trim();
+        // Spoken to the AGENT only. Says who, why, and what to do, in that
+        // order, because the agent hears it having just picked up a call they
+        // were not expecting.
+        const whisper =
+          `Hot lead${who ? `, ${who}` : ""}. ` +
+          (summary ? `${summary}. ` : "") +
+          `Press 1 to take the call.`;
+
+        // valid_digits is deliberately EVERY digit, not just "1". Telnyx would
+        // treat any other key as invalid and silently replay the prompt; we
+        // want a wrong key to END the gather so it can be recorded as a
+        // decline. maximum_tries 2 is the "repeat the whisper once" rule, and
+        // it only applies to a timeout.
+        const gatherBody = {
+          payload:            whisper,
+          invalid_payload:    "Press 1 to take the call.",
+          minimum_digits:     1,
+          maximum_digits:     1,
+          valid_digits:       "0123456789*#",
+          timeout_millis:     8000,
+          maximum_tries:      2,
+          client_state:       p.client_state as string,
+          command_id:         crypto.randomUUID(),
+        };
+
+        // Voice ladder: a rejected TTS voice would cost the transfer its
+        // whisper, so fall back to the plainest long-standing voice rather
+        // than let one 400 end the handoff in silence.
+        const voices = ["AWS.Polly.Joanna-Neural", "AWS.Polly.Joanna"];
+        let spoke = false;
+        for (const voice of voices) {
+          const res = await fetch(
+            `https://api.telnyx.com/v2/calls/${callControlId}/actions/gather_using_speak`,
+            { method: "POST", headers: telnyxHeaders, body: JSON.stringify({ ...gatherBody, voice }) },
+          ).catch(() => null);
+          if (res && res.ok) {
+            await logEvent("transfer.whisper.ok", { voice, whisper });
+            spoke = true;
+            break;
+          }
+          const status = res ? res.status : "network_error";
+          const detail = res ? await res.text().catch(() => "") : "";
+          await logEvent("transfer.whisper.rejected", { voice, status, body: detail.slice(0, 600) });
+          if (res && (res.status < 400 || res.status >= 500)) break;
+        }
+        if (!spoke) await endTransfer("failed", "gather_using_speak rejected on every voice");
+        return new Response("ok");
+      }
+
+      // ---- AMD on the agent leg: never bridge a lead into voicemail ------
+      if (eventType.includes("machine") && eventType.endsWith("detection.ended")) {
+        const result = String(p.result || "").toLowerCase();
+        const isMachine = result.startsWith("machine") || result === "fax_detected";
+        await logEvent("transfer.amd.verdict", { result, is_machine: isMachine });
+        if (isMachine) await endTransfer("agent_no_answer", `AMD: ${result}`);
+        return new Response("ok");
+      }
+
+      // ---- The digit ----------------------------------------------------
+      if (eventType === "call.gather.ended") {
+        const digits = String(p.digits || "").trim();
+        const status = String(p.status || "").toLowerCase();
+        await logEvent("transfer.gather.ended", { digits, status });
+
+        if (digits === "1") {
+          const row = await loadAiCall();
+          const leadCcid = ctx.lead_ccid || row?.call_control_id || "";
+          if (!leadCcid) { await endTransfer("failed", "no lead call_control_id to bridge to"); return new Response("ok"); }
+
+          // Stop the assistant BEFORE bridging. Otherwise the agent and the
+          // lead are talking with an AI still listening and taking turns in
+          // the middle of the conversation.
+          await fetch(`https://api.telnyx.com/v2/calls/${leadCcid}/actions/ai_assistant_stop`, {
+            method: "POST", headers: telnyxHeaders,
+            body: JSON.stringify({ command_id: crypto.randomUUID() }),
+          }).catch(() => {});
+
+          const bridgeRes = await fetch(
+            `https://api.telnyx.com/v2/calls/${callControlId}/actions/bridge`,
+            {
+              method: "POST", headers: telnyxHeaders,
+              body: JSON.stringify({ call_control_id: leadCcid, command_id: crypto.randomUUID() }),
+            },
+          ).catch(() => null);
+
+          if (!bridgeRes || !bridgeRes.ok) {
+            const st = bridgeRes ? bridgeRes.status : "network_error";
+            const detail = bridgeRes ? await bridgeRes.text().catch(() => "") : "";
+            await logEvent("transfer.bridge.rejected", { status: st, body: detail.slice(0, 600) });
+            await endTransfer("failed", `bridge ${st}`);
+            return new Response("ok");
+          }
+
+          // The one place the transfer is declared successful. `transferred`
+          // is a terminal outcome, so the late insights event cannot downgrade
+          // it (see shouldReplaceOutcome).
+          await sb.from("ai_calls").update({
+            transfer_status: "bridged",
+            outcome:         "transferred",
+          }).eq(idCol, idVal);
+          await logEvent("transfer.bridged", { lead_call_control_id: leadCcid });
+          return new Response("ok");
+        }
+
+        if (digits) await endTransfer("agent_declined", `agent pressed "${digits}"`);
+        else        await endTransfer("agent_no_answer", `gather ended with status "${status}" and no digits`);
+        return new Response("ok");
+      }
+
+      // ---- The agent leg ended ------------------------------------------
+      // NOT a finalize. The lead leg owns the billing anchor, the debit and
+      // the row's terminal state; this leg only records how far it got. If the
+      // call was bridged, the lead leg's own hangup follows and finalizes
+      // there — which is what makes the whole call bill exactly once.
+      if (eventType === "call.hangup") {
+        const row = await loadAiCall();
+        const st = row?.transfer_status || "";
+        if (st === "ringing_agent" || st === "whisper") {
+          // Never answered, or hung up before pressing anything.
+          await sb.from("ai_calls").update({ transfer_status: "agent_no_answer" }).eq(idCol, idVal);
+          await logEvent("transfer.agent_no_answer", { why: `agent leg hung up while ${st}`, hangup_cause: p.hangup_cause });
+          await tellAssistant(
+            ctx.lead_ccid || "",
+            "SYSTEM: The warm transfer did not connect — the agent could not be reached. " +
+            "Apologize once, briefly and warmly, then offer two or three specific times for the agent to " +
+            "call back and use the book_appointment tool with exactly what the caller says. " +
+            "Do not mention keypads or voicemail, and do not try to transfer again.",
+          );
+        }
+        return new Response("ok");
+      }
+
+      return new Response("ok");
+    } catch (e) {
+      console.error("[ai-call-webhook] agent leg error:", (e as Error)?.message || e);
+      return new Response(JSON.stringify({ error: "internal_error" }), { status: 500 });
+    }
+  }
+
   // Trace EVERY event before doing anything with it, so a call that breaks
   // half-way still shows what arrived. Never throws (see logEvent).
   await logEvent(eventType || "unknown", p);
@@ -415,30 +744,86 @@ serve(async (req) => {
     }
 
     // ------------------------------------------------------------------
-    // Transcript / insights — store transcript, parse the assistant outcome.
-    // The exact Telnyx AI Assistant event name + payload shape for this is
-    // still settling; capture defensively from several likely locations and
-    // confirm during the manual test-call step.
+    // Transcript / insights.
+    //
+    // `call.conversation_insights.generated` arrives ~8 SECONDS AFTER the call
+    // has already hung up and finalized, so this block's job is to CORRECT an
+    // already-written row, not to write a fresh one. shouldReplaceOutcome
+    // enforces the only rule that matters there: a terminal tag is never
+    // downgraded by a later, vaguer one.
+    //
+    // The parsing itself lives in _shared/ai-call-outcome.ts — pure, and
+    // pinned by a unit test against the exact production payload that used to
+    // make every completed call land 'error'.
     // ------------------------------------------------------------------
     const transcript = extractTranscript(p);
-    const outcomeObj = extractOutcomeObject(p);
-    if (transcript !== null || outcomeObj) {
+    const insight = parseInsightPayload(p, TELNYX_OUTCOME_INSIGHT_ID);
+    if (transcript !== null || insight.method !== "none") {
       const row = await loadAiCall();
       const update: Record<string, unknown> = {};
       if (transcript !== null) update.transcript = transcript;
-      if (outcomeObj) {
-        const outcome = normalizeOutcome(outcomeObj.outcome, "in_progress");
-        if (outcome !== "in_progress") update.outcome = outcome;
-        if (typeof outcomeObj.summary === "string" && outcomeObj.summary) update.summary = outcomeObj.summary;
-
-        if (outcome === "dnc_request" && row) {
-          await applyDnc(sb, row.agent_id, row.phone_e164, row.lead_id, callControlId);
+      if (insight.summary) update.summary = insight.summary;
+      if (insight.qualification) {
+        // Merge, never replace: ai-call-tools already wrote what the assistant
+        // gathered live (age, budget, the transfer summary), and the post-call
+        // insight is a second opinion arriving late — it must not blank fields
+        // that were captured during the actual conversation.
+        const merged = { ...(row?.qualification || {}) };
+        for (const [k, v] of Object.entries(insight.qualification)) {
+          if (v != null && v !== "") merged[k] = v;
         }
+        update.qualification = merged;
       }
+      if (insight.outcome && shouldReplaceOutcome(row?.outcome, insight.outcome)) {
+        update.outcome = insight.outcome;
+      }
+
+      if (insight.outcome === "dnc_request" && row) {
+        await applyDnc(sb, row.agent_id, row.phone_e164, row.lead_id, callControlId);
+      }
+
       if (Object.keys(update).length > 0) {
         await sb.from("ai_calls").update(update).eq(idCol, idVal);
       }
+      await logEvent("insight.parsed", {
+        method:  insight.method,
+        outcome: insight.outcome,
+        applied_outcome: update.outcome ?? null,
+        had_qualification: !!insight.qualification,
+        summary_chars: insight.summary?.length ?? 0,
+      });
       if (!isFinalize) return new Response("ok");
+    }
+
+    // ------------------------------------------------------------------
+    // The assistant stopped talking (`call.conversation.ended`).
+    //
+    // Two very different situations arrive on this one event:
+    //
+    //   • A warm transfer just bridged. The assistant was stopped ON PURPOSE
+    //     and the agent and the lead are mid-conversation. Finalizing here
+    //     would close the row, compute a duration and debit the wallet while
+    //     two people are still talking — so this returns and lets the LEAD's
+    //     own call.hangup finalize, which is also what keeps the whole call to
+    //     exactly one debit.
+    //   • The assistant ran out of things to say, or hit its own
+    //     telephony_settings.time_limit_secs. Telnyx documents that cap as
+    //     stopping the ASSISTANT, not the call — and the leg lives for up to
+    //     LEG_TIME_LIMIT_SECS so that a transferred conversation is not cut
+    //     off at five minutes. Left alone, that is a real person listening to
+    //     silence on a billable call. Hang it up.
+    // ------------------------------------------------------------------
+    if (eventType.endsWith("conversation.ended")) {
+      const row = await loadAiCall();
+      const st = row?.transfer_status || "";
+      if (st === "bridged" || st === "ringing_agent" || st === "whisper") {
+        await logEvent("conversation.ended.transfer_live", { transfer_status: st });
+        return new Response("ok");
+      }
+      if (row && row.status !== "completed") {
+        await logEvent("conversation.ended.hangup", { transfer_status: st || null });
+        await hangupCall();
+      }
     }
 
     // ------------------------------------------------------------------
@@ -473,8 +858,16 @@ serve(async (req) => {
       const isVoicemail = row.outcome === "voicemail";
       const billed = (ourFault || isVoicemail) ? 0 : computeBilledMinutes(durationSecs);
 
-      // Debit exactly once. Pre-check the ledger by ref_id; the partial unique
-      // index on wallet_ledger is the race-safe backstop (23505 -> no-op).
+      // Debit exactly once, for the WHOLE call.
+      //
+      // ref_id is the LEAD leg's call_control_id and nothing else. A warm
+      // transfer creates a second Telnyx leg with its own id, and that leg
+      // never reaches this block at all (the agent-leg branch returns long
+      // before it) — so the agent's conversation with the lead rides on the
+      // same single ai_call debit, anchored at lead answer, exactly as
+      // docs/ai-sales-agent-build-plan.md Phase 2 specifies. The pre-check
+      // below plus the partial unique index on wallet_ledger are the race-safe
+      // backstop (23505 -> no-op).
       if (billed > 0) {
         await debitAiCallOnce({
           hasExistingDebit: async () => {
@@ -507,19 +900,26 @@ serve(async (req) => {
         });
       }
 
-      // Finalize the outcome. Terminal outcomes (voicemail from AMD, or a
-      // qualified/not_interested/dnc_request already parsed) stand; a call
-      // that never answered is 'no_answer'; an answered call we couldn't
-      // classify is left 'error' (a later insights event still corrects it).
-      const terminal: AiCallOutcome[] = ["voicemail", "busy", "not_interested", "qualified", "dnc_request", "no_answer"];
-      let finalOutcome: AiCallOutcome;
-      if (row.outcome && (terminal as string[]).includes(row.outcome)) {
-        finalOutcome = row.outcome as AiCallOutcome;
-      } else if (!answeredAt) {
-        finalOutcome = "no_answer";
-      } else {
-        finalOutcome = "error";
-      }
+      // Finalize the outcome.
+      //
+      // A terminal tag already on the row (voicemail from AMD, a parsed
+      // dnc_request, `transferred` written when the legs bridged) stands.
+      // Otherwise the outcome is DERIVED FROM CALL-FLOW FACTS, never defaulted
+      // to 'error' — see _shared/ai-call-outcome.ts. That default is the bug
+      // this round fixed: six consecutive production calls, every one of them
+      // a normal conversation, all stored as errors because the insight came
+      // back as prose. `error` now means only what it says, and a later
+      // insights event can still upgrade `completed` to something specific.
+      const derived = outcomeFromCallFlow({
+        answered:          !!answeredAt,
+        ourFault,
+        machineDetected:   row.outcome === "voicemail",
+        transferStatus:    row.transfer_status,
+        appointmentBooked: !!row.appointment_id,
+      });
+      const finalOutcome: AiCallOutcome = shouldReplaceOutcome(row.outcome, derived)
+        ? derived
+        : (row.outcome as AiCallOutcome);
 
       await sb.from("ai_calls").update({
         status:         "completed",
@@ -528,6 +928,22 @@ serve(async (req) => {
         billed_minutes: billed,
         ended_at:       endTime.toISOString(),
       }).eq(idCol, idVal);
+
+      await logEvent("finalize", {
+        outcome_before: row.outcome, outcome_after: finalOutcome, derived,
+        duration_secs: durationSecs, billed_minutes: billed,
+        transfer_status: row.transfer_status, appointment_id: row.appointment_id,
+      });
+
+      // A qualified lead the agent never got to is the most valuable thing
+      // this feature produces and the easiest to lose. Name it in the trace.
+      if (row.transfer_status === "agent_declined" || row.transfer_status === "agent_no_answer") {
+        await logEvent("qualified_missed", {
+          transfer_status: row.transfer_status,
+          transfer_to:     row.transfer_call_control_id ? "dialed" : "not dialed",
+          booked:          !!row.appointment_id,
+        });
+      }
 
       return new Response("ok");
     }
@@ -591,7 +1007,12 @@ export function buildGreeting(vars: Record<string, string>): string {
 // Instant DNC: suppression row (idempotent — dup key on the unique index is a
 // no-op) + flip the lead's dnc flag so no future session dials it.
 async function applyDnc(
-  sb: ReturnType<typeof createClient>,
+  // `ReturnType<typeof createClient>` resolves to a client whose schema
+  // generics are `never`, so every insert/update through it failed to
+  // type-check and `deno check` on this file has never passed. Same widened
+  // signature the _shared modules use.
+  // deno-lint-ignore no-explicit-any
+  sb: SupabaseClient<any, any, any>,
   agentId: string,
   phoneE164: string,
   leadId: string | null,
@@ -627,37 +1048,9 @@ function extractTranscript(p: Record<string, unknown>): unknown {
   return null;
 }
 
-// Best-effort parse of the assistant's end-of-call outcome JSON:
-//   { outcome, age_band, coverage_type, tobacco, budget, callback_window, summary }
-// Looks in structured insight fields, then falls back to JSON-parsing the last
-// assistant message in a transcript array.
-function extractOutcomeObject(p: Record<string, unknown>): Record<string, unknown> | null {
-  const direct = [p.insights, p.result, p.metadata, p.conversation_insights]
-    .find((v) => v && typeof v === "object" && "outcome" in (v as object));
-  if (direct) return direct as Record<string, unknown>;
-
-  const parseMaybe = (s: unknown): Record<string, unknown> | null => {
-    if (typeof s !== "string") return null;
-    const m = s.match(/\{[\s\S]*"outcome"[\s\S]*\}/);
-    if (!m) return null;
-    try {
-      const o = JSON.parse(m[0]);
-      return o && typeof o === "object" && "outcome" in o ? o : null;
-    } catch { return null; }
-  };
-
-  const fromString = parseMaybe(p.transcript) || parseMaybe(p.summary);
-  if (fromString) return fromString;
-
-  const arr = (Array.isArray(p.transcript) ? p.transcript
-    : Array.isArray(p.messages) ? p.messages
-    : Array.isArray(p.conversation) ? p.conversation
-    : null) as Array<Record<string, unknown>> | null;
-  if (arr) {
-    for (let i = arr.length - 1; i >= 0; i--) {
-      const parsed = parseMaybe(arr[i]?.content) || parseMaybe(arr[i]?.text);
-      if (parsed) return parsed;
-    }
-  }
-  return null;
-}
+// extractOutcomeObject() used to live here. It has moved, and grown teeth, in
+// _shared/ai-call-outcome.ts — where it is a pure function with unit tests
+// pinned to the real production payload it used to fail on. Its old greedy
+// `/\{[\s\S]*"outcome"[\s\S]*\}/` is specifically covered by a test now: given
+// prose containing two JSON objects it matched from the first `{` to the last
+// `}` and parsed as neither.
