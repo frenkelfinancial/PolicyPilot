@@ -30,18 +30,75 @@ Read this whole file before touching the campaign.
 
 ---
 
-## ⏳ Current wait state — rechecked 2026-07-29T05:5xZ · STILL PENDING
+## 🔴 THE WAIT IS OVER, AND NOT IN THE GOOD WAY — 2026-07-30
 
-**Everything under our control is done. We are waiting on the mobile carriers,
-and there is no action that shortens that.**
+**`campaignStatus` is now `TELNYX_FAILED`, and the reason is money, not
+carriers.** Waiting will not fix this. The "we are blocked on carrier
+propagation" reading below this line was correct on 07-29 and is now wrong;
+it is kept as the recheck log, not as current state.
+
+```
+campaignStatus       TELNYX_FAILED          (was TCR_ACCEPTED)
+submissionStatus     CREATED
+isTMobileRegistered  false
+isTMobileSuspended   false
+status               ACTIVE                 <- billing state, NOT review state
+failureReasons       [{"description":"Please have sufficient funds in your
+                       account for carrier campaign review. Or turn on auto
+                       recharge"}]
+```
+
+`status: ACTIVE` is the **subscription** being paid up (billed 2026-07-28,
+renews 2026-10-28). It is not a review outcome and must not be read as one —
+the same trap `getBrandStatus` already carries a comment about for the brand's
+secondary `status: "OK"`.
 
 | | |
 |---|---|
-| `campaignStatus` | `TCR_ACCEPTED` |
-| `isTMobileRegistered` | `false` |
-| `isTMobileSuspended` | `false` |
-| Blocked on | carrier registration of `CD2166Q` |
-| Assignment today | **refused** — `400 code 10036`, "still pending and has not been approved yet" |
+| Telnyx balance at 2026-07-30 | **$57.60 USD**, `credit_limit` $0.00, `pending` $0.00 |
+| Auto-recharge | not exposed on `/v2/balance` — check in the Telnyx portal |
+| `+12029981783` | **not assigned**, `sms_capable = false`, no campaign id |
+| Assignment attempted this session | **NO** — see below |
+
+### 🔴 ACTION REQUIRED FROM JACE — and it costs money, so it was not taken
+
+Telnyx wants funds available for the carrier campaign-review fee (T-Mobile
+vets separately from TCR and charges for it). Fund the Telnyx account and/or
+turn on auto-recharge, then re-run the campaign review. **No money was moved
+and no campaign was resubmitted from this session** — the standing rule is stop
+and report.
+
+The balance reading $57.60 *now* does not contradict the failure: the review
+fee is charged at the moment Telnyx attempts it, and it failed then. Confirm
+the required amount with Telnyx before topping up — do not guess.
+
+### ⚠️ Our own database still says `approved`, and the poller cannot correct it
+
+`a2p_registrations.status = 'approved'` for Jace, last written
+**2026-07-29T02:42Z**, and the hourly `a2p-status-poll` has not moved it since
+because **it cannot represent this state**:
+
+`normalizeStatus()` in `_shared/telnyx-10dlc-adapter.ts` maps
+`["FAILED","REJECTED","TCR_REJECTED","TCR_FAILED","DELETED"]` → `rejected`.
+**`TELNYX_FAILED` is not in that list**, so it falls through to `pending` —
+and the poller has no branch that downgrades an already-`approved` row, so it
+counts `still_pending` and writes nothing. The registration will read
+`approved` forever.
+
+That is the same bug the comment above `normalizeStatus` records having fixed
+once already ("TCR_FAILED is now in the rejected set — it was missing"), with a
+different Telnyx spelling. The one-line fix is to add `"TELNYX_FAILED"` to the
+rejected list and redeploy `a2p-status-poll`.
+
+**Not applied in this session.** It is a live campaign in a documented
+in-flight state owned by other work, and deploying it flips what Jace's Texting
+screen tells him. It needs a deliberate decision, not a drive-by.
+
+**Exposure while it sits wrong:** `runComplianceGate()` allowlists
+`a2p_registrations.status = 'approved'`, so our gate currently believes A2P is
+good when Telnyx says the campaign failed. Nothing can actually send —
+**no number is `sms_capable` and none is attached to the campaign** — but that
+is defence by accident rather than the fail-closed gate this is supposed to be.
 
 ### Recheck log
 
@@ -50,13 +107,28 @@ and there is no action that shortens that.**
 | 2026-07-29T03:0xZ | `TCR_ACCEPTED` | `false` | none — assignment refused 10036 |
 | 2026-07-29T03:2xZ | `TCR_ACCEPTED` | `false` | none |
 | 2026-07-29T05:5xZ | `TCR_ACCEPTED` | `false` | **none — nothing assigned, nothing changed** |
+| 2026-07-30T~06:3xZ | **`TELNYX_FAILED`** | `false` | **none — not assigned, no funds added, no resubmission.** Cause read from live `failureReasons` |
 
-`campaignId` created `2026-07-28T18:00:15Z`, so at the 05:5xZ recheck the
-carrier registration had been outstanding **~12 hours**. `failureReasons` still
-carries the original three-item text; that is the historical record, not live
-state — read `campaignStatus`.
+`campaignId` created `2026-07-28T18:00:15Z`. The earlier note that
+`failureReasons` was "the historical record, not live state" **was true on
+07-29 and is no longer true**: it now carries a single, current, actionable
+reason that matches `campaignStatus`.
 
-### 📋 Parked: Telnyx support ticket, if this is still pending after Fri 2026-07-31
+### 📋 Parked: Telnyx support ticket — ⚠️ ITS PREMISE IS NOW FALSE, DO NOT SEND AS WRITTEN
+
+**Superseded 2026-07-30.** The draft below asks why a campaign sitting at
+`TCR_ACCEPTED` has not carrier-registered, and says "I would rather wait than
+resubmit". The campaign is no longer at `TCR_ACCEPTED` — it is `TELNYX_FAILED`
+for insufficient funds. Sending this as written would get a one-line reply
+telling us to add funds, and would waste the trigger.
+
+The trigger date has also not arrived: it fires **Saturday 2026-08-01 or
+later**, and today is **Thursday 2026-07-30**.
+
+If a ticket is still wanted after funding, it needs rewriting around the real
+question — *what is the carrier campaign-review fee for a Low Volume campaign,
+and does re-running review after funding cost anything beyond it?* Kept below
+verbatim as the historical draft.
 
 Written 2026-07-29 at Jace's instruction so it is ready to fire. **Not sent —
 the trigger condition has not been reached.** Today is Wednesday 2026-07-29;
