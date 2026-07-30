@@ -801,13 +801,19 @@ serve(async (req) => {
       if (Object.keys(update).length > 0) {
         await sb.from("ai_calls").update(update).eq(idCol, idVal);
       }
-      await logEvent("insight.parsed", {
-        method:  insight.method,
-        outcome: insight.outcome,
-        applied_outcome: update.outcome ?? null,
-        had_qualification: !!insight.qualification,
-        summary_chars: insight.summary?.length ?? 0,
-      });
+      // Only trace an actual parse. `call.conversation.messages_added` fires on
+      // EVERY turn and carries a transcript but no insight, so logging
+      // unconditionally wrote nine "method: none" rows during one live call —
+      // nine extra round trips on the path a person is waiting on.
+      if (insight.method !== "none") {
+        await logEvent("insight.parsed", {
+          method:  insight.method,
+          outcome: insight.outcome,
+          applied_outcome: update.outcome ?? null,
+          had_qualification: !!insight.qualification,
+          summary_chars: insight.summary?.length ?? 0,
+        });
+      }
       if (!isFinalize) return new Response("ok");
     }
 
