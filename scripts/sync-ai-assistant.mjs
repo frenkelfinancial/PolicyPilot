@@ -112,16 +112,22 @@ const INSIGHT_INSTRUCTIONS = [
 /**
  * The two webhook tools.
  *
- * `url` carries the shared secret plus three mustache variables. Telnyx merges
- * telnyx_call_to / telnyx_call_from into every assistant call automatically —
- * that pair is what the handler actually relies on, so tool identity does not
- * depend on the ai_assistant_start hot path having accepted anything new.
+ * `url` carries the shared secret plus the two dynamic variables Telnyx merges
+ * into EVERY assistant call automatically — telnyx_call_to and
+ * telnyx_call_from. That pair is the whole of tool identity, on purpose: it
+ * costs the ai_assistant_start hot path nothing.
+ *
+ * There is deliberately no `{{ai_call_id}}` here. It was tried, and delivering
+ * it meant putting `assistant.dynamic_variables` on the greeting's critical
+ * path; the first live call after that came back 503 and the lead heard
+ * silence. The handler still reads an `ai_call_id` if one ever arrives, so
+ * nothing has to change here if that becomes deliverable for free later.
  */
 function buildTools(supabaseUrl, secret) {
   const base = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/ai-call-tools`;
   const url = (tool) =>
     `${base}?k=${encodeURIComponent(secret)}&tool=${tool}` +
-    `&ai_call_id={{ai_call_id}}&telnyx_call_to={{telnyx_call_to}}&telnyx_call_from={{telnyx_call_from}}`;
+    `&telnyx_call_to={{telnyx_call_to}}&telnyx_call_from={{telnyx_call_from}}`;
 
   const qualificationProps = {
     age:                { type: 'string', description: "The caller's age or age range as discussed, e.g. '58' or '50-59'. Empty if not discussed." },

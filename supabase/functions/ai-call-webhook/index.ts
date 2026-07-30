@@ -372,31 +372,27 @@ serve(async (req) => {
 
     const greeting = buildGreeting(vars);
 
-    // Per-call dynamic variables. `ai_call_id` is what lets the webhook tools
-    // (ai-call-tools) identify this exact call from a tool invocation, which
-    // carries the LLM's arguments and nothing else. Telnyx also merges its own
-    // telnyx_call_to / telnyx_call_from in automatically, and THOSE are what
-    // the tool endpoint actually relies on — this is the precise identifier,
-    // not the only one, which is why losing it below costs nothing.
-    const dynamicVariables: Record<string, string> = { ai_call_id: aiCallId || "" };
-
-    // The attempt ladder. Rung 2 is the body PROVEN accepted in production, so
-    // the new rung 1 sits above it: if `assistant.dynamic_variables` is
-    // rejected the way `message_history` was, the call falls straight back to
-    // exactly what shipped before and loses nothing but a convenience id.
+    // ---- NOTHING SPECULATIVE GOES ON THIS PATH ----------------------------
+    //
+    // Rung 1 is the body PROVEN accepted in production, and it is first
+    // because every millisecond here is dead air on a real person's phone.
+    //
+    // `assistant.dynamic_variables` was briefly rung 1 above this one, to hand
+    // the webhook tools an exact `ai_call_id`. On the first live call after
+    // that change Telnyx answered **503 Service unavailable** and the lead
+    // heard nothing (ai_call_events, call_control_id v3:hxdqhlTP2…, 2026-07-30
+    // 20:37). Cause never established — it may have been the field, it may
+    // have been a genuine blip — and that is precisely the point: this is the
+    // one code path where an unproven field is not worth a convenience.
+    // ai-call-tools identifies the call from `telnyx_call_to` /
+    // `telnyx_call_from`, which Telnyx merges into every assistant call
+    // AUTOMATICALLY and which therefore cost this path nothing at all. Do not
+    // add fields here to make something downstream tidier.
+    //
     // Each further rung drops the next-most-likely-rejected field, so a
     // validator change can cost the call its voice or its custom greeting but
     // never its audio. NOTHING here sends message_history — see the header note.
     const attempts: Array<{ label: string; body: Record<string, unknown> }> = [];
-
-    if (aiCallId) {
-      const withVars: Record<string, unknown> = {
-        assistant: { id: TELNYX_ASSISTANT, dynamic_variables: dynamicVariables },
-        greeting,
-      };
-      if (vars.voice) withVars.voice = vars.voice;
-      attempts.push({ label: "assistant+dynamic_variables+greeting" + (vars.voice ? "+voice" : ""), body: withVars });
-    }
 
     const full: Record<string, unknown> = { assistant: { id: TELNYX_ASSISTANT }, greeting };
     if (vars.voice) full.voice = vars.voice;
@@ -419,47 +415,67 @@ serve(async (req) => {
     let lastStatus: number | string = 0;
     let lastText = "";
 
+    // ---- Failure policy: KEEP GOING ---------------------------------------
+    //
+    // Every rung is tried, whatever the previous one said. This used to break
+    // out on any 5xx, reasoning that a smaller body cannot fix Telnyx's side —
+    // true in isolation, and it still cost a live call its audio the first
+    // time rung 1 came back 503 (see the note above). Two things were wrong
+    // with it. A 503 is frequently transient, so it is worth ONE immediate
+    // retry while a person is holding a silent phone. And "the server said
+    // 5xx" is not reliable evidence about the body: a validator that dislikes
+    // a field is free to answer 503, so refusing to degrade on 5xx removes the
+    // ladder exactly when it is most needed.
+    //
+    // The cost of trying every rung is a few hundred milliseconds on a call
+    // that is already failing. The cost of stopping early is silence.
     for (const attempt of attempts) {
-      let res: Response | null = null;
-      try {
-        res = await fetch(
-          `https://api.telnyx.com/v2/calls/${callControlId}/actions/ai_assistant_start`,
-          {
-            method:  "POST",
-            headers: telnyxHeaders,
-            body:    JSON.stringify({ ...attempt.body, command_id: crypto.randomUUID() }),
-          },
-        );
-      } catch (e) {
-        lastStatus = "network_error";
-        lastText   = (e as Error)?.message || String(e);
-        await logEvent("ai_assistant_start.network_error", { trigger, attempt: attempt.label, message: lastText });
-        break; // a transport failure won't be fixed by sending a smaller body
-      }
+      for (let tryNo = 0; tryNo < 2; tryNo++) {
+        let res: Response | null = null;
+        try {
+          res = await fetch(
+            `https://api.telnyx.com/v2/calls/${callControlId}/actions/ai_assistant_start`,
+            {
+              method:  "POST",
+              headers: telnyxHeaders,
+              body:    JSON.stringify({ ...attempt.body, command_id: crypto.randomUUID() }),
+            },
+          );
+        } catch (e) {
+          lastStatus = "network_error";
+          lastText   = (e as Error)?.message || String(e);
+          await logEvent("ai_assistant_start.network_error", {
+            trigger, attempt: attempt.label, try: tryNo + 1, message: lastText,
+          });
+          continue; // a transport blip is worth one more go too
+        }
 
-      if (res.ok) {
-        await logEvent("ai_assistant_start.ok", {
+        if (res.ok) {
+          await logEvent("ai_assistant_start.ok", {
+            trigger,
+            attempt: attempt.label,
+            try:     tryNo + 1,
+            status:  res.status,
+            voice:   (attempt.body.voice as string) || null,
+          });
+          return;
+        }
+
+        lastStatus = res.status;
+        lastText   = await res.text().catch(() => "");
+        console.error("[ai-call-webhook] ai_assistant_start rejected:", lastStatus, attempt.label, lastText);
+        await logEvent("ai_assistant_start.rejected", {
           trigger,
           attempt: attempt.label,
-          status:  res.status,
-          voice:   (attempt.body.voice as string) || null,
+          try:     tryNo + 1,
+          status:  lastStatus,
+          body:    lastText.slice(0, 1000),
         });
-        return;
+
+        // Retry the SAME body only for a 5xx (transient). A 4xx is a verdict
+        // on the body: stop repeating it and drop to the next rung.
+        if (res.status < 500) break;
       }
-
-      lastStatus = res.status;
-      lastText   = await res.text().catch(() => "");
-      console.error("[ai-call-webhook] ai_assistant_start rejected:", lastStatus, attempt.label, lastText);
-      await logEvent("ai_assistant_start.rejected", {
-        trigger,
-        attempt: attempt.label,
-        status:  lastStatus,
-        body:    lastText.slice(0, 1000),
-      });
-
-      // Only a 4xx is a body problem worth degrading for. A 5xx is Telnyx's
-      // side and a smaller body won't help.
-      if (res.status < 400 || res.status >= 500) break;
     }
 
     // Every rung failed: make it visible on the row, then hang up rather than
