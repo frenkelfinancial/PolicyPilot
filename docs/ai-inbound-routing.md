@@ -141,3 +141,43 @@ branch's blast radius is bounded by the four conditions above (a forged
 themselves configured). Worth closing separately, for the whole function at
 once. `ai-call-webhook`, which receives everything after the answer, **does**
 verify the signature.
+
+---
+
+## Pre-live verification (2026-07-30)
+
+The live phone tests were deferred to a single batch session, so everything
+provable without a ringing phone was proved first. What follows is what was
+actually run, not what was intended.
+
+### Against production, with real side effects checked
+
+| Check | Result |
+|---|---|
+| Synthetic `call.initiated` → **non-enabled** number (`+12026143091`) | ignored — no `ai_calls` row, no lead, no trace row |
+| Synthetic `call.initiated` → **power-dialer host** (`+12625099123`) | ignored by the AI branch |
+| Synthetic `call.initiated` → **enabled** number, agent **Busy** | full chain ran: guard passed → agent resolved → unknown caller written to the book (`inbound-5550004444`, `tcpa_consent=false`, blank name) → `ai_calls` row `direction=inbound`, `transfer_status='none'` → answer attempted |
+| …and the answer | rejected by Telnyx `90015 Invalid Call Control ID` — the *only* possible failure for a synthetic id, and handled cleanly: `answered_by='none'`, `status='error'`, `error_detail` recorded |
+| **No agent phone was dialed on the Busy branch** | `transfer_status='none'`, no dial in the trace |
+| Post-deploy JWT gates | `telnyx-call-status` 200 `ok`; `ai-call-webhook` `{"error":"invalid_signature"}`; `ai-call-tools` `{"error":"invalid_secret"}` — each function's OWN check answering, so the platform gate is still off on all three |
+| Post-deploy Telnyx config | ONE app, webhook still `telnyx-call-status`, 8 numbers on ProducerStack Dialer + 1 on Browser — **identical to the before map above** |
+
+All synthetic rows were deleted afterwards and availability restored.
+
+So in production the routing, the guard, the schema, the secrets, agent
+resolution, lead creation and branch selection are all confirmed. What a
+synthetic `call_control_id` can never exercise is Telnyx's own behaviour from
+the answer onwards — see PENDING LIVE VERIFICATION in the round report.
+
+### Against the code, in tests
+
+`ai-inbound-flow.test.ts` drives `startInboundIfEnabled()` with a fake Supabase
+client and a fake `fetch`, asserting the exact Telnyx requests each branch
+would issue: Busy answers and never dials; Available dials with AMD + 15s and
+**does not answer the caller**; a rejected `from_display_name` retries without
+it; a failed dial falls back to the AI; the guard refuses the dialer host, a
+non-opted-in number, a disabled agent and any outbound leg.
+`ai-inbound-webhook.test.ts` guards the parts that live inside `serve()` and
+cannot be imported — the direction-scoped rate split, the idempotent human
+settlement, answering before bridging, the two atomic `answered_by` claims, and
+the inbound transfer refusal.
