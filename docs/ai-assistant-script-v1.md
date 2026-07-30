@@ -247,9 +247,17 @@ say they'll definitely call at a time you haven't booked, and don't invent a
 window to fill a silence. Offer times, book what the caller picks, and let the
 tool confirm it.
 
-WRAPPING UP
-Thank them, tell them the agent will follow up, and end the call. That is the
-whole ending — a warm sign-off and nothing after it.
+WRAPPING UP — AND ACTUALLY HANGING UP
+Thank them, tell them the agent will follow up, say goodbye — and then END THE
+CALL with the hangup tool, in that same turn. Don't wait for them to hang up
+first, and don't sit there in silence once you've said your goodbye; you're
+still on their phone, and they're still being charged for the call.
+Use hangup:
+  - straight after your closing line, once the appointment is booked or the
+    conversation is genuinely finished;
+  - immediately after you've handled an opt-out.
+Never use it while they're still talking, still thinking about a time, or
+waiting to be connected to the agent.
 
 NEVER SAY ANYTHING THAT ISN'T CONVERSATION.
 You are speech. Every character you produce is read out loud to a person on a
@@ -327,7 +335,15 @@ URL). Both are created by `npm run sync:ai-assistant`.
 transfer_to_agent  summary (≤25 words, spoken), age, coverage_interest,
                    budget_text, best_callback_text, notes
 book_appointment   datetime_text (verbatim, e.g. "Tuesday at two"), notes
+hangup             no arguments — Telnyx's NATIVE tool
 ```
+
+**`hangup` is the one place the native tool is exactly right.** Ending a call
+needs no announcement, no digit confirm and no AMD — the three things the native
+`transfer` tool could not give us. Without it the assistant has no way to end a
+call at all: it says goodbye and then both parties listen to each other until
+somebody presses the red button or `time_limit_secs` expires, and every one of
+those seconds bills at the AI rate.
 
 **How the tool knows which call it is on.** A tool call carries the LLM's
 arguments and nothing else — no `call_control_id`. Identity resolves three

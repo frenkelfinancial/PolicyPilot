@@ -192,6 +192,22 @@ function buildTools(supabaseUrl, secret) {
         },
       },
     },
+    // Telnyx's NATIVE hangup tool. Without it the assistant has no way to end
+    // a call: it says goodbye and then both parties sit there listening to
+    // each other until somebody presses the red button or a cap expires — and
+    // every one of those seconds is billed at the AI rate. `hangup` is the one
+    // place the native tool is exactly right, since ending a call needs no
+    // announcement, no digit and no AMD.
+    {
+      type: 'hangup',
+      hangup: {
+        description:
+          'End the call. Use this the moment the conversation is genuinely finished — right after ' +
+          'you have said goodbye, and only then. Say your closing line FIRST and call this straight ' +
+          'after it, in the same turn. Also use it immediately after handling an opt-out. Never use ' +
+          'it while the caller is still talking, still deciding, or waiting to be connected.',
+      },
+    },
   ];
 }
 
@@ -407,12 +423,16 @@ console.log(`transcription  : ${JSON.stringify(prev.transcription?.settings ?? n
 console.log(`               -> ${JSON.stringify(TUNING.transcription.settings)}`);
 console.log(`interruption   : ${JSON.stringify(prev.interruption_settings ?? null)}`);
 console.log(`               -> ${JSON.stringify(TUNING.interruption_settings)}`);
-console.log(`tools          : ${(prev.tools || []).map((t) => t?.webhook?.name || t?.type).join(', ') || '(none)'}` +
-  (tools ? ` -> ${tools.map((t) => t.webhook.name).join(', ')}` : '  (--skip-tools)'));
+const toolName = (t) => t?.webhook?.name || t?.type || '?';
+console.log(`tools          : ${(prev.tools || []).map(toolName).join(', ') || '(none)'}` +
+  (tools ? ` -> ${tools.map(toolName).join(', ')}` : '  (--skip-tools)'));
 if (tools) {
   // Never print the secret. The shape is what matters when this is being read
   // back in a terminal at 1am.
-  for (const t of tools) console.log(`               : ${t.webhook.name} -> ${redactUrl(t.webhook.url)}`);
+  for (const t of tools) {
+    if (t.webhook) console.log(`               : ${t.webhook.name} -> ${redactUrl(t.webhook.url)}`);
+    else console.log(`               : ${t.type} (native)`);
+  }
 }
 
 // The disclosure clause is the whole point of pushing this file. Refuse to ship
@@ -470,6 +490,12 @@ if (DRY) {
   if (tools) {
     const stored = verify.tools || [];
     for (const t of tools) {
+      // A native tool (hangup) has no webhook block — presence by type is the
+      // whole contract.
+      if (!t.webhook) {
+        if (!stored.some((s) => s?.type === t.type)) bad.push(`tools.${t.type}`);
+        continue;
+      }
       const got = stored.find((s) => s?.webhook?.name === t.webhook.name);
       if (!got) { bad.push(`tools.${t.webhook.name}`); continue; }
       if (got.webhook.url !== t.webhook.url) bad.push(`tools.${t.webhook.name}.url`);
