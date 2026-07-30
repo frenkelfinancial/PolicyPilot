@@ -42,6 +42,16 @@ verify_jwt = false
 [functions.lead-ingest]
 verify_jwt = false
 
+# telnyx-call-status is the APP-LEVEL webhook for the one Telnyx Call Control
+# application (ProducerStack Dialer, 2983088288312592018) and therefore the only
+# place an INBOUND call can land — outbound legs override webhook_url per call,
+# inbound cannot. Since 20260801 it carries three callers: the agent-bridge
+# click-to-call flow, the Power Dialer, and a single guarded branch that hands
+# AI-inbound calls to _shared/ai-inbound.ts. That branch sits AFTER the
+# power-dialer check and answers with a webhook_url override, so this function
+# sees an AI-inbound call at most twice and the dialer's own path is untouched.
+# No NEW webhook-receiving function was added this round — see
+# docs/ai-inbound-routing.md for why that was the least invasive option.
 [functions.telnyx-call-status]
 verify_jwt = false
 

@@ -8,6 +8,10 @@ import {
   dialNextLead,
   advanceToNextLeadNoDial,
 } from "../_shared/dialer-next-lead.ts";
+import {
+  cancelInboundIfAbandoned,
+  startInboundIfEnabled,
+} from "../_shared/ai-inbound.ts";
 
 // Telnyx Call Control webhook — receives call lifecycle events for both
 // the agent-bridge click-to-call flow and the Power Dialer flow.
@@ -101,6 +105,25 @@ serve(async (req) => {
         const errText = await ansRes.text();
         console.error("[dialer] answer action failed:", ansRes.status, errText);
       }
+      return new Response("ok");
+    }
+
+    // ---- AI INBOUND (20260801) -----------------------------------------
+    // Reached ONLY when the call was not the power dialer's. Until this
+    // existed, an inbound call to any other number fell off the end of this
+    // block and rang out — that no-op is the seam this feature slots into, and
+    // it is why no Telnyx routing had to move. See docs/ai-inbound-routing.md.
+    //
+    // Everything after the answer is redirected to ai-call-webhook with a
+    // per-call webhook_url override, so this function sees an AI-inbound call
+    // at most twice: here, and a pre-answer hangup if the caller gives up.
+    if (await startInboundIfEnabled({
+      sb, telnyxHeaders, supabaseUrl: SUPABASE_URL,
+      connectionId: TELNYX_CONN_ID, dialerNumber: TELNYX_DIALER_NUM,
+      eventType, direction: p.direction, to: p.to, from: p.from,
+      callControlId,
+    })) {
+      return new Response("ok");
     }
     return new Response("ok");
   }
@@ -299,6 +322,18 @@ serve(async (req) => {
 
   } else if (eventType === "call.hangup") {
     const callRowId = ctx.call_row_id;
+
+    // ---- AI INBOUND: the caller gave up while the agent's phone rang ------
+    // The ONLY other event an AI-inbound call delivers here (everything after
+    // the answer is redirected to ai-call-webhook). Guarded by `!ctx.role` so
+    // no power-dialer leg — every one of which carries a role — can reach it,
+    // and it runs before the dialer's own lookups so an abandoned inbound call
+    // cannot be mistaken for a dialer leg.
+    if (!ctx.role && callControlId) {
+      if (await cancelInboundIfAbandoned({ sb, telnyxHeaders, callControlId })) {
+        return new Response("ok");
+      }
+    }
 
     // Close a call row found by filter — idempotent (won't double-close).
     const findAndClose = async (filter: Record<string, string>) => {

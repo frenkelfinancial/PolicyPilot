@@ -164,12 +164,12 @@ serve(async (req) => {
     phone_e164: string; from_e164: string | null; call_control_id: string | null;
     status: string | null; outcome: string | null;
     transfer_status: string | null; qualification: Record<string, unknown> | null;
-    appointment_id: string | null;
+    appointment_id: string | null; direction: string | null;
   };
   // Kept as ONE string literal, not a concatenation: the supabase-js types
   // parse the select list at compile time, and a computed string collapses the
   // row type to GenericStringError.
-  const SELECT = "id, agent_id, lead_id, phone_e164, from_e164, call_control_id, status, outcome, transfer_status, qualification, appointment_id";
+  const SELECT = "id, agent_id, lead_id, phone_e164, from_e164, call_control_id, status, outcome, transfer_status, qualification, appointment_id, direction";
 
   async function resolveCall(): Promise<AiCallRow | null> {
     if (aiCallIdIn) {
@@ -263,6 +263,23 @@ serve(async (req) => {
     if (tool === "transfer_to_agent") {
       const summary = (typeof body.summary === "string" ? body.summary : "").trim();
       await mergeQualification({ transfer_summary: summary || null });
+
+      // ---- NEVER TRANSFER ON AN INBOUND CALL ---------------------------
+      // The AI is only on this call because the agent's phone already rang
+      // for fifteen seconds and they did not pick up. Ringing them a second
+      // time, mid-conversation, is the behaviour that makes people hang up on
+      // automated systems — and the caller would sit in silence through it.
+      // Enforced HERE rather than only in the prompt, because an instruction
+      // is a request and this is a rule.
+      if (call.direction === "inbound") {
+        await logEvent(traceId, "transfer.refused_inbound", { transfer_status: call.transfer_status });
+        return toolJson({
+          ok: true,
+          status: "unavailable",
+          message: "A live transfer is not possible on this call. Do not mention transferring. " +
+            "Offer two or three specific times and book with the book_appointment tool.",
+        });
+      }
 
       // THE FRESH READ. Never a value captured at call start: the agent may
       // have gone into a meeting since the phone started ringing, and a
@@ -408,6 +425,23 @@ serve(async (req) => {
         : typeof body.datetime === "string" ? body.datetime
         : "").trim();
       const notes = (typeof body.notes === "string" ? body.notes : "").trim();
+
+      // An INBOUND caller we had never seen was turned into a lead the moment
+      // they rang, with a blank name — nothing invents one. If the assistant
+      // has since been told a name, write it on, so the agent gets a person
+      // rather than a phone number.
+      //
+      // Only ever FILLS A BLANK. A caller mumbling their name on a bad line
+      // must not rename an existing lead in the book.
+      const callerName = (typeof body.caller_name === "string" ? body.caller_name : "").trim();
+      if (callerName && call.lead_id && !leadName) {
+        const merged = { ...leadData, name: callerName.slice(0, 120) };
+        const { error: nameErr } = await sb.from("leads")
+          .update({ data: merged }).eq("id", call.lead_id);
+        await logEvent(traceId, "inbound.lead_named", {
+          lead_id: call.lead_id, name_chars: callerName.length, error: nameErr?.message ?? null,
+        });
+      }
 
       const leadTz = asStr(lead?.lead_timezone) ||
         knownTimezoneForPhone(call.phone_e164) ||

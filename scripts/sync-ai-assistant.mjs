@@ -187,6 +187,13 @@ function buildTools(supabaseUrl, secret) {
                 'do not guess: it is resolved in the caller\'s own timezone on our side.',
             },
             notes: { type: 'string', description: 'Anything the agent should know before that call.' },
+            caller_name: {
+              type: 'string',
+              description:
+                "The caller's name, if they gave you one. Only useful on an INBOUND call from " +
+                'someone not already in the book — it fills in the blank name on their new lead. ' +
+                'Leave it out if you were not told a name; never guess or transcribe a greeting as one.',
+            },
             ...qualificationProps,
           },
         },

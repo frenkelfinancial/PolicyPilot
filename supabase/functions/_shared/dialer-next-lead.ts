@@ -217,11 +217,20 @@ export function selectCallerId(
 // Falls back to a plain wallet_debit for call rows that predate the spend
 // gate and never got a hold.
 export async function reportMinutesToWallet(
-  sb: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  sb: any,
   agentId: string,
   durationSec: number,
   callRowId: string,
   holdLedgerId?: string | null,
+  /**
+   * What the ledger line calls this call. Defaults to "Outbound call" so every
+   * existing caller is unchanged; ai-call-webhook passes "Inbound call" when
+   * settling an inbound call the agent answered themselves, because a receipt
+   * that says "Outbound" for a call somebody made TO them is the kind of small
+   * lie that costs a support ticket.
+   */
+  label = "Outbound call",
 ) {
   if (!agentId || !callRowId) return;
   try {
@@ -234,8 +243,8 @@ export async function reportMinutesToWallet(
     const minutes = durationSec > 0 ? Math.max(1, Math.ceil(durationSec / 60)) : 0;
     const amountMills = minutes * rateMills;
     const desc = minutes > 0
-      ? `Outbound call — ${minutes} min @ $${(rateMills / 1000).toFixed(3)}/min`
-      : "Outbound call — not answered, no charge";
+      ? `${label} — ${minutes} min @ $${(rateMills / 1000).toFixed(3)}/min`
+      : `${label} — not answered, no charge`;
 
     if (holdLedgerId) {
       const { error } = await sb.rpc("wallet_settle_call", {
@@ -272,7 +281,8 @@ export async function reportMinutesToWallet(
 }
 
 export async function closeCallRowById(
-  sb: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  sb: any,
   callRowId: string | null | undefined,
 ): Promise<{ id: string; agentId: string; durationSec: number; walletHoldId: string | null } | null> {
   if (!callRowId) return null;
@@ -340,7 +350,8 @@ export async function speakAndHangup(
 // last_skip_reason. Caller-ID/wallet checks are deferred to actual dial time.
 // Marks the session 'completed' (and says goodbye) once the list is exhausted.
 export async function advanceToNextLeadNoDial(
-  sb: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  sb: any,
   telnyxHeaders: Record<string, string>,
   session: DialerSession,
 ) {
@@ -405,7 +416,8 @@ export async function advanceToNextLeadNoDial(
 // based on session.caller_id_mode. Skips leads with no phone on file.
 // Marks the session 'completed' (and says goodbye to the agent) once exhausted.
 export async function dialNextLead(
-  sb: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  sb: any,
   telnyxHeaders: Record<string, string>,
   TELNYX_CONN_ID: string,
   webhookUrl: string,
@@ -551,7 +563,8 @@ export async function dialNextLead(
       // Telnyx rejected the number (e.g., invalid/fake number). Release the
       // hold — nothing was actually dialed, so nothing should be reserved.
       await sb.rpc("wallet_void", { p_ledger_id: holdId }).then(
-        (r) => { if (r.error) console.warn("[dialer] wallet_void failed:", r.error.message); },
+        // deno-lint-ignore no-explicit-any
+        (r: any) => { if (r.error) console.warn("[dialer] wallet_void failed:", r.error.message); },
       );
       // Stall at this lead so the agent sees it in the UI and can manually mark + skip.
       // Previously this silently looped to the next lead, causing leads to disappear.
@@ -570,7 +583,8 @@ export async function dialNextLead(
       // Telnyx accepted the call but returned no control ID — treat same as
       // rejection above, including releasing the hold.
       await sb.rpc("wallet_void", { p_ledger_id: holdId }).then(
-        (r) => { if (r.error) console.warn("[dialer] wallet_void failed:", r.error.message); },
+        // deno-lint-ignore no-explicit-any
+        (r: any) => { if (r.error) console.warn("[dialer] wallet_void failed:", r.error.message); },
       );
       await sb.from("dialer_sessions").update({
         current_index:           nextIndex,

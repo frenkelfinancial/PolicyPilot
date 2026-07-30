@@ -11,6 +11,8 @@ import {
   parseInsightPayload,
   shouldReplaceOutcome,
 } from "../_shared/ai-call-outcome.ts";
+import { buildInboundGreeting } from "../_shared/ai-inbound.ts";
+import { reportMinutesToWallet } from "../_shared/dialer-next-lead.ts";
 
 // ai-call-webhook — Telnyx Call Control + AI Assistant webhook for one AI
 // Sales Agent call, BOTH LEGS. Configured per-call by ai-call-start (the lead
@@ -198,6 +200,8 @@ serve(async (req) => {
     lead_ccid?: string;
     summary?: string;
     lead_name?: string;
+    /** Inbound only — the exact line to whisper (built by _shared/ai-inbound.ts). */
+    whisper?: string;
   } = {};
   try {
     if (typeof p.client_state === "string" && p.client_state) {
@@ -211,7 +215,14 @@ serve(async (req) => {
     "Content-Type":  "application/json",
   };
 
-  const isAgentLeg = ctx.role === "agent_leg";
+  // Both directions run the SAME whisper / press-1 / bridge machinery. The
+  // only differences are the words in the whisper and one extra step on the
+  // inbound bridge (the caller's leg has not been answered yet), so they share
+  // one code path rather than two that drift.
+  const isOutboundAgentLeg = ctx.role === "agent_leg";
+  const isInboundAgentLeg  = ctx.role === "inbound_agent_leg";
+  const isAgentLeg = isOutboundAgentLeg || isInboundAgentLeg;
+  const isInbound  = isInboundAgentLeg || ctx.vars?.inbound === "1";
 
   // Resolve the ai_calls row's id: prefer the id carried in client_state
   // (race-free), fall back to a lookup by call_control_id. Every ai_calls
@@ -246,10 +257,14 @@ serve(async (req) => {
     transfer_call_control_id: string | null;
     appointment_id: string | null;
     qualification: Record<string, unknown> | null;
+    from_e164: string | null;
+    direction: string | null;
+    answered_by: string | null;
   };
   const AI_CALL_COLS =
     "id, agent_id, lead_id, phone_e164, call_control_id, status, outcome, answered_at, " +
-    "started_at, error_detail, transfer_status, transfer_call_control_id, appointment_id, qualification";
+    "started_at, error_detail, transfer_status, transfer_call_control_id, appointment_id, qualification, " +
+    "from_e164, direction, answered_by";
   async function loadAiCall(): Promise<AiCallRow | null> {
     const { data } = await sb.from("ai_calls")
       .select(AI_CALL_COLS)
@@ -370,7 +385,20 @@ serve(async (req) => {
       return;
     }
 
-    const greeting = buildGreeting(vars);
+    // Inbound gets its own opening line: they rang US, so "I'm reaching out
+    // about the coverage you asked about" is nonsense, and a known caller
+    // should be greeted by name. Both shapes carry the same disclosure — see
+    // buildInboundGreeting in _shared/ai-inbound.ts.
+    const greeting = vars.inbound === "1"
+      ? buildInboundGreeting({
+          lead_first:  vars.lead_first,
+          lead_type:   vars.lead_type,
+          ai_name:     vars.ai_name,
+          agent_name:  vars.agent_name,
+          agency_name: vars.agency_name,
+          known:       vars.known === "1",
+        })
+      : buildGreeting(vars);
 
     // ---- NOTHING SPECULATIVE GOES ON THIS PATH ----------------------------
     //
@@ -522,6 +550,55 @@ serve(async (req) => {
   // agent's phone is still ringing.
   // ====================================================================
 
+  /**
+   * The AI takes an INBOUND call the agent did not pick up.
+   *
+   * Answering is what starts the assistant: the answer carries
+   * client_state {role:'ai_call', vars} and a webhook_url override, so the
+   * resulting call.answered lands right back here and runs the ordinary
+   * outbound path — claim, stamp the billing anchor, attach the assistant.
+   * Nothing about the assistant start is duplicated for inbound.
+   *
+   * Guarded by an atomic compare-and-set on answered_by so the several ways an
+   * agent leg can fail (AMD machine, wrong digit, ring timeout, hangup) cannot
+   * answer the caller twice.
+   */
+  async function inboundAiTakeover(why: string): Promise<void> {
+    const leadCcid = ctx.lead_ccid || "";
+    if (!leadCcid) { await logEvent("inbound.takeover_no_lead_ccid", { why }); return; }
+
+    const { data: claimed } = await sb.from("ai_calls")
+      .update({ answered_by: "ai" })
+      .eq(idCol, idVal)
+      .is("answered_by", null)
+      .select("id");
+    if (!Array.isArray(claimed) || claimed.length === 0) {
+      await logEvent("inbound.takeover_already_claimed", { why });
+      return;
+    }
+
+    const res = await fetch(`https://api.telnyx.com/v2/calls/${leadCcid}/actions/answer`, {
+      method:  "POST",
+      headers: telnyxHeaders,
+      body: JSON.stringify({
+        client_state: btoa(JSON.stringify({
+          role: "ai_call", ai_call_id: aiCallId || ctx.ai_call_id || "", vars: ctx.vars || {},
+        })),
+        webhook_url:        `${SUPABASE_URL}/functions/v1/ai-call-webhook`,
+        webhook_url_method: "POST",
+        command_id:         crypto.randomUUID(),
+      }),
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      const detail = res ? await res.text().catch(() => "") : "network_error";
+      await logEvent("inbound.takeover_failed", { why, status: res ? res.status : "network_error", body: detail.slice(0, 600) });
+      await sb.from("ai_calls").update({ answered_by: "none" }).eq(idCol, idVal);
+      return;
+    }
+    await logEvent("inbound.ai_takeover", { why });
+  }
+
   /** Where a transfer ended up, on the row and (when it failed) in the lead's ear. */
   async function endTransfer(
     status: "agent_declined" | "agent_no_answer" | "failed",
@@ -529,7 +606,18 @@ serve(async (req) => {
   ): Promise<void> {
     await sb.from("ai_calls").update({ transfer_status: status }).eq(idCol, idVal);
     await logEvent("transfer." + status, { why });
-    await hangupCall(); // the agent leg only — the lead is still talking
+    await hangupCall(); // the agent leg only — the caller is still on the line
+
+    // INBOUND: the caller has been listening to ringback this whole time and
+    // nobody has answered them yet. The AI picks up.
+    //
+    // It deliberately does NOT try to ring the agent again — they just missed
+    // it, and a second ring mid-conversation is the behaviour that makes
+    // people hang up on automated systems.
+    if (isInboundAgentLeg) {
+      await inboundAiTakeover(why);
+      return;
+    }
     // Tell the assistant so it apologizes and books instead. The lead was
     // asked to hold; leaving them holding for something that is not coming is
     // the worst outcome this feature has.
@@ -555,7 +643,12 @@ serve(async (req) => {
         // Spoken to the AGENT only. Says who, why, and what to do, in that
         // order, because the agent hears it having just picked up a call they
         // were not expecting.
-        const whisper =
+        //
+        // Inbound supplies its own line (ai-inbound.ts buildInboundWhisper) and
+        // is careful NOT to say "hot lead": on inbound nobody has spoken to the
+        // caller yet, so claiming they are qualified would be a lie the agent
+        // acts on.
+        const whisper = (ctx.whisper || "").trim() ||
           `Hot lead${who ? `, ${who}` : ""}. ` +
           (summary ? `${summary}. ` : "") +
           `Press 1 to take the call.`;
@@ -621,13 +714,55 @@ serve(async (req) => {
           const leadCcid = ctx.lead_ccid || row?.call_control_id || "";
           if (!leadCcid) { await endTransfer("failed", "no lead call_control_id to bridge to"); return new Response("ok"); }
 
-          // Stop the assistant BEFORE bridging. Otherwise the agent and the
-          // lead are talking with an AI still listening and taking turns in
-          // the middle of the conversation.
-          await fetch(`https://api.telnyx.com/v2/calls/${leadCcid}/actions/ai_assistant_stop`, {
-            method: "POST", headers: telnyxHeaders,
-            body: JSON.stringify({ command_id: crypto.randomUUID() }),
-          }).catch(() => {});
+          if (isInboundAgentLeg) {
+            // INBOUND: the caller's leg has never been answered — they have
+            // been hearing ringback. Answer it now, WITHOUT the assistant:
+            // role 'inbound_bridged' is what tells this webhook not to attach
+            // one and to bill the call at the human rate instead.
+            //
+            // Claimed atomically for the same reason the takeover is: the ring
+            // timeout and a press-1 arriving together must not both resolve.
+            const { data: claimed } = await sb.from("ai_calls")
+              .update({ answered_by: "agent" })
+              .eq(idCol, idVal)
+              .is("answered_by", null)
+              .select("id");
+            if (!Array.isArray(claimed) || claimed.length === 0) {
+              await logEvent("inbound.bridge_already_claimed", { digits });
+              return new Response("ok");
+            }
+
+            const ansRes = await fetch(`https://api.telnyx.com/v2/calls/${leadCcid}/actions/answer`, {
+              method: "POST", headers: telnyxHeaders,
+              body: JSON.stringify({
+                client_state: btoa(JSON.stringify({
+                  role: "inbound_bridged", ai_call_id: aiCallId || ctx.ai_call_id || "",
+                })),
+                webhook_url:        `${SUPABASE_URL}/functions/v1/ai-call-webhook`,
+                webhook_url_method: "POST",
+                command_id:         crypto.randomUUID(),
+              }),
+            }).catch(() => null);
+
+            if (!ansRes || !ansRes.ok) {
+              const d = ansRes ? await ansRes.text().catch(() => "") : "network_error";
+              await logEvent("inbound.bridge_answer_failed", { status: ansRes ? ansRes.status : "network_error", body: d.slice(0, 600) });
+              await sb.from("ai_calls").update({ answered_by: null }).eq(idCol, idVal);
+              await endTransfer("failed", "could not answer the caller's leg to bridge it");
+              return new Response("ok");
+            }
+            await sb.from("ai_calls").update({
+              answered_at: new Date().toISOString(),
+            }).eq(idCol, idVal).is("answered_at", null);
+          } else {
+            // OUTBOUND: stop the assistant BEFORE bridging. Otherwise the agent
+            // and the lead are talking with an AI still listening and taking
+            // turns in the middle of the conversation.
+            await fetch(`https://api.telnyx.com/v2/calls/${leadCcid}/actions/ai_assistant_stop`, {
+              method: "POST", headers: telnyxHeaders,
+              body: JSON.stringify({ command_id: crypto.randomUUID() }),
+            }).catch(() => {});
+          }
 
           const bridgeRes = await fetch(
             `https://api.telnyx.com/v2/calls/${callControlId}/actions/bridge`,
@@ -648,6 +783,14 @@ serve(async (req) => {
           // The one place the transfer is declared successful. `transferred`
           // is a terminal outcome, so the late insights event cannot downgrade
           // it (see shouldReplaceOutcome).
+          // `answered_by` is deliberately NOT set here for an OUTBOUND call.
+          // It gates the billing rate, and an outbound warm transfer bills the
+          // whole call — both legs — at the ai_call rate (Round C decision,
+          // docs/ai-sales-agent-build-plan.md Phase 2). Writing 'agent' here
+          // because the agent did technically answer would silently re-rate
+          // every successful outbound transfer to the human rate. The outbound
+          // bridge is already fully described by transfer_status='bridged';
+          // one fact, one column.
           await sb.from("ai_calls").update({
             transfer_status: "bridged",
             outcome:         "transferred",
@@ -742,7 +885,19 @@ serve(async (req) => {
     // so it does the least possible work: one atomic claim (which is also the
     // billing anchor), then the Telnyx action. The grace timer is armed too,
     // but only ever fires if that claim could not be made at all.
-    if (eventType === "call.answered") {
+    // The caller's leg on an inbound call the AGENT took. It was answered only
+    // so the two legs could be bridged — there is no assistant on this call and
+    // there must not be one. Everything else about it (finalize, the human-rate
+    // settlement, the outcome) happens on its call.hangup below.
+    if (ctx.role === "inbound_bridged") {
+      if (eventType === "call.answered") {
+        await logEvent("inbound.bridged_leg_answered", {});
+        return new Response("ok");
+      }
+      // fall through to finalize on hangup
+    }
+
+    if (eventType === "call.answered" && ctx.role !== "inbound_bridged") {
       const answeredIso = new Date().toISOString();
       const task = deadAirFallback(answeredIso);
       // Prefer running it after the response; if the runtime has no
@@ -878,7 +1033,22 @@ serve(async (req) => {
       // the whole-minute rounding would charge for it. The rule belongs on the
       // outcome, not on an ordering assumption.
       const isVoicemail = row.outcome === "voicemail";
-      const billed = (ourFault || isVoicemail) ? 0 : computeBilledMinutes(durationSecs);
+      // ---- THE RATE SPLIT (inbound only) ---------------------------------
+      // An INBOUND call the agent answered themselves never had an assistant
+      // on it — the caller and the agent had an ordinary phone conversation.
+      // Charging AI minutes for it would bill the premium rate for a product
+      // that was not used. It bills at the platform's standard human
+      // per-minute call rate instead, through public.calls and the existing
+      // reportMinutesToWallet path (see settleBridgedInbound below), and takes
+      // ZERO ai_call minutes here.
+      //
+      // Scoped to direction='inbound' on purpose. An OUTBOUND warm transfer is
+      // also answered by the agent, and it bills entirely at the ai_call rate
+      // by decision — the AI did the work of getting them on the phone.
+      const agentAnsweredInbound = row.direction === "inbound" && row.answered_by === "agent";
+      const billed = (ourFault || isVoicemail || agentAnsweredInbound)
+        ? 0
+        : computeBilledMinutes(durationSecs);
 
       // Debit exactly once, for the WHOLE call.
       //
@@ -951,9 +1121,30 @@ serve(async (req) => {
         ended_at:       endTime.toISOString(),
       }).eq(idCol, idVal);
 
+      // The human-rate half of the split. Writes a public.calls row and settles
+      // it through the SAME reportMinutesToWallet the power dialer uses, so
+      // there is one definition of what a human minute costs and this call
+      // shows up in the dial/contact analytics like any other. Idempotent on
+      // the inbound call_control_id via calls.sw_call_sid.
+      if (agentAnsweredInbound) {
+        await settleBridgedInbound(sb, {
+          agentId:     row.agent_id,
+          leadId:      row.lead_id,
+          fromE164:    row.phone_e164,          // the caller
+          toE164:      row.from_e164 || "",     // the number they dialed
+          callControlId,
+          answeredAt:  row.answered_at,
+          endedAt:     endTime,
+          durationSecs,
+        });
+      }
+
       await logEvent("finalize", {
         outcome_before: row.outcome, outcome_after: finalOutcome, derived,
-        duration_secs: durationSecs, billed_minutes: billed,
+        direction: row.direction, answered_by: row.answered_by,
+        duration_secs: durationSecs,
+        billed_minutes: billed,
+        billed_as: agentAnsweredInbound ? "human call rate (public.calls)" : "ai_call",
         transfer_status: row.transfer_status, appointment_id: row.appointment_id,
       });
 
@@ -1024,6 +1215,60 @@ export function buildGreeting(vars: Record<string, string>): string {
 
   return `${opener}${behalf} I'm reaching out about the ${type} coverage ` +
     `you asked about — do you have a quick minute?`;
+}
+
+/**
+ * Bill an INBOUND call that the agent answered themselves at the platform's
+ * standard human per-minute rate.
+ *
+ * Writes a normal `public.calls` row — which is correct, not a workaround: it
+ * WAS a human call, and that table is what the human dialer's monthly minute
+ * cap and the Summary dial/contact analytics read. Then it hands off to
+ * `reportMinutesToWallet`, the same helper telnyx-call-status uses, so "what a
+ * minute costs" has exactly one definition.
+ *
+ * IDEMPOTENT ON THE INBOUND call_control_id, stored in calls.sw_call_sid: a
+ * replayed hangup finds the existing row and does nothing. Combined with the
+ * ai_call debit being skipped for this case, an inbound call the agent took
+ * produces exactly ONE charge, at one rate.
+ */
+async function settleBridgedInbound(
+  // deno-lint-ignore no-explicit-any
+  sb: SupabaseClient<any, any, any>,
+  o: {
+    agentId: string; leadId: string | null; fromE164: string; toE164: string;
+    callControlId: string; answeredAt: string | null; endedAt: Date; durationSecs: number;
+  },
+): Promise<void> {
+  try {
+    const { data: existing } = await sb.from("calls")
+      .select("id").eq("sw_call_sid", o.callControlId).maybeSingle();
+    if (existing) return; // already settled — replayed webhook
+
+    const { data: callRow, error } = await sb.from("calls").insert({
+      agent_id:    o.agentId,
+      lead_id:     o.leadId,
+      direction:   "inbound",
+      phone_from:  o.fromE164,
+      phone_to:    o.toE164,
+      sw_call_sid: o.callControlId,
+      status:      "completed",
+      started_at:  o.answeredAt || o.endedAt.toISOString(),
+      answered_at: o.answeredAt,
+      ended_at:    o.endedAt.toISOString(),
+      duration_sec: o.durationSecs,
+      outcome:     "answered",
+    }).select("id").single();
+
+    if (error || !callRow) {
+      console.warn("[ai-call-webhook] inbound calls row insert failed:", error?.message);
+      return;
+    }
+    await reportMinutesToWallet(sb, o.agentId, o.durationSecs, callRow.id as string, null, "Inbound call");
+  } catch (e) {
+    // The call already happened; never throw here (Telnyx would retry forever).
+    console.warn("[ai-call-webhook] settleBridgedInbound failed:", (e as Error)?.message || e);
+  }
 }
 
 // Instant DNC: suppression row (idempotent — dup key on the unique index is a

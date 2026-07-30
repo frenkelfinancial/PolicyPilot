@@ -2507,3 +2507,47 @@ number after `20260752_ai_call_events.sql`, and after the `ai_calls` /
   every lead on every save, so a server-side write to `data.status` is silently
   overwritten the next time the agent edits anything. An appointment the AI
   booked must not disappear because someone renamed a lead.
+
+---
+
+## Applied — `20260801_ai_inbound.sql` (2026-07-30)
+
+AI inbound answering: ring the agent first, AI picks up as backup.
+
+Applied with `npx supabase db query --linked -f <file>`, wrapped in
+`begin; … commit;` (same mechanism and reasoning as 20260753).
+
+### Verified present after the apply
+
+| Object | Result |
+|---|---|
+| `ai_calls.direction`, `ai_calls.answered_by` | 2/2 present |
+| `phone_numbers.ai_inbound_enabled` | present |
+| numbers with `ai_inbound_enabled = true` | **1** (`+12029981783` only) |
+
+### Decisions worth not re-deriving
+
+- **`ai_inbound_enabled` defaults FALSE and is per-number.** Six other agents
+  own numbers on the same Telnyx application. A flag on means strangers can
+  make somebody's personal cell ring; nobody gets that by default. The one
+  number opted in is the AI dialer's own outbound caller ID — the number a lead
+  would call back after seeing it on their phone.
+- **`answered_by` decides the RATE, and is scoped to inbound.** An inbound call
+  the agent answered themselves never had an assistant on it, so it bills at
+  the platform's standard human per-minute rate through `public.calls` and
+  takes zero `ai_call` minutes. An OUTBOUND warm transfer is also answered by
+  the agent and still bills entirely at the `ai_call` rate (Round C decision) —
+  which is why the finalize guard tests `direction = 'inbound' AND answered_by
+  = 'agent'` and not `answered_by` alone.
+- **`public.calls` needed no migration.** `calls.direction` already carried
+  `check (direction in ('outbound','inbound'))` and all 1,403 existing rows are
+  `'outbound'`. A bridged inbound call writes a normal `'inbound'` row there,
+  which is correct: it IS a human call, and that table is what the human
+  dialer's minute cap and the Summary dial/contact analytics read.
+- **A lead created from an inbound call gets `tcpa_consent = false`.** The
+  consumer called US, which is what makes ANSWERING lawful; it is not consent
+  to be dialed by an artificial voice tomorrow. `ai-call-start`'s gate must
+  keep refusing them until real consent is captured. Do not default it true
+  for inbound.
+- **No `leads` migration.** The table already had everything; recorded here so
+  the next reader does not go looking.
