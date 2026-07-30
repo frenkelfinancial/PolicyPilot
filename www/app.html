@@ -25084,7 +25084,7 @@ const NAV_TITLES = {
 // to toggle them here.
 // ============================================================
 const AI_TEST_CLIENT_ID = 'ai-test-001';
-let aiTestState = { leadId: null, aiCallId: null, callControlId: null, pollTimer: null, pollTicks: 0 };
+let aiTestState = { leadId: null, aiCallId: null, callControlId: null, pollTimer: null, pollTicks: 0, aiNameSaved: '' };
 
 async function aiTestInit() {
   if (!currentAgent) return;
@@ -25197,16 +25197,20 @@ async function aiTestLoadAiName() {
   try {
     const { data } = await sb.from('agents').select('ai_agent_name').eq('id', currentAgent.id).maybeSingle();
     inp.value = (data && data.ai_agent_name) || '';
+    aiTestState.aiNameSaved = inp.value;
   } catch (_) { /* non-fatal */ }
 }
 
-async function aiTestSaveAiName() {
+async function aiTestSaveAiName(quiet) {
   const inp = document.getElementById('aiTest-aiName');
   if (!inp) return;
   const v = (inp.value || '').trim();
   inp.value = v;
+  if (v === aiTestState.aiNameSaved) return;   // nothing to write
   const { error } = await sb.from('agents').update({ ai_agent_name: v || null }).eq('id', currentAgent.id);
   if (error) { showToast('Could not save AI name: ' + error.message, '#dc2626'); return; }
+  aiTestState.aiNameSaved = v;
+  if (quiet) return;
   showToast(v ? ('AI name saved — "' + v + '" applies from the next call')
               : 'AI name cleared — the AI will introduce itself without a name', '#10b981');
 }
@@ -25279,6 +25283,12 @@ async function aiTestCreateLead() {
 // response and translate every gate error into plain words.
 async function aiTestStartCall() {
   if (!aiTestState.leadId) { showToast('Create the test lead first', '#dc2626'); return; }
+  // Flush a half-typed AI name FIRST. The field saves on change (i.e. on blur),
+  // and clicking this button is what blurs it — so the update was racing the
+  // dial, and ai-call-start reads agents.ai_agent_name at dial time. Losing
+  // that race means you type a name, hear the AI introduce itself without one,
+  // and conclude the feature is broken.
+  await aiTestSaveAiName(true);
   const btn    = document.getElementById('aiTest-startBtn');
   const respEl = document.getElementById('aiTest-response');
   if (btn) { btn.disabled = true; btn.textContent = 'Dialing…'; }
