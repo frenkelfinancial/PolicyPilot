@@ -3550,6 +3550,127 @@ body:not(.light) .tm-risk{color:#e5766e;background:rgba(229,118,110,.14);border-
 .tm-skel{height:12px;background:var(--tm-divider);border-radius:6px;animation:lg-pulse 1.4s ease-in-out infinite}
 @media(max-width:760px){.tm-min{--tm-min:900px}}
 </style>
+<style id="leaderboard-styles">
+/* Agency leaderboards, records and achievements.
+   Deliberately built on the SAME --tm-* palette indirection the team roster
+   uses, so the boards and the team table are visibly one screen rather than
+   two features that happen to share a tab. Nothing here introduces a colour
+   the app did not already have, except the three rank accents. */
+.lb{
+  --lb-gold:#b08b2e; --lb-gold-bg:rgba(176,139,46,.10); --lb-gold-br:rgba(176,139,46,.34);
+  --lb-silver:#78808c; --lb-silver-bg:rgba(120,128,140,.10); --lb-silver-br:rgba(120,128,140,.32);
+  --lb-bronze:#9a6b45; --lb-bronze-bg:rgba(154,107,69,.10); --lb-bronze-br:rgba(154,107,69,.32);
+}
+body:not(.light) .lb{
+  --lb-gold:#d9b45c; --lb-gold-bg:rgba(217,180,92,.12); --lb-gold-br:rgba(217,180,92,.30);
+  --lb-silver:#a8b0bc; --lb-silver-bg:rgba(168,176,188,.12); --lb-silver-br:rgba(168,176,188,.28);
+  --lb-bronze:#c08d63; --lb-bronze-bg:rgba(192,141,99,.12); --lb-bronze-br:rgba(192,141,99,.28);
+}
+/* Area switcher across the top of the Agency tab. */
+.lb-tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--tm-border);margin-bottom:20px;padding-bottom:0}
+.lb-tab{appearance:none;background:none;border:none;border-bottom:2px solid transparent;padding:9px 13px 10px;
+  font-size:13px;font-weight:500;color:var(--tm-t3);cursor:pointer;transition:color .16s ease,border-color .16s ease;font-family:inherit}
+.lb-tab:hover{color:var(--tm-t1)}
+.lb-tab.on{color:var(--tm-t1);border-bottom-color:var(--tm-blue);font-weight:600}
+.lb-tab .lb-tab-n{font-size:10.5px;color:var(--tm-faint);margin-left:5px;font-family:'Spline Sans Mono',ui-monospace,monospace}
+
+/* Board chips + basis toggle. */
+.lb-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.lb-chips{display:flex;gap:6px;flex-wrap:wrap}
+
+/* The board itself. */
+.lb-board{background:var(--tm-card);border:1px solid var(--tm-border);border-radius:8px;overflow:hidden}
+.lb-row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:12px;padding:11px 16px;
+  border-top:1px solid var(--tm-divider);transition:background .16s ease}
+.lb-row:first-child{border-top:none}
+.lb-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:13px 16px;background:var(--tm-inner);border-bottom:1px solid var(--tm-border)}
+.lb-head-t{font-size:13.5px;font-weight:600;color:var(--tm-t1)}
+.lb-head-s{font-size:11px;color:var(--tm-t3)}
+.lb-rank{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:13px;font-weight:600;color:var(--tm-t3);text-align:center}
+.lb-row--1 .lb-rank{color:var(--lb-gold)}
+.lb-row--2 .lb-rank{color:var(--lb-silver)}
+.lb-row--3 .lb-rank{color:var(--lb-bronze)}
+.lb-row--1{box-shadow:inset 2px 0 0 var(--lb-gold-br)}
+.lb-row--2{box-shadow:inset 2px 0 0 var(--lb-silver-br)}
+.lb-row--3{box-shadow:inset 2px 0 0 var(--lb-bronze-br)}
+.lb-who{display:flex;align-items:center;gap:10px;min-width:0}
+.lb-av{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:10.5px;font-weight:600;letter-spacing:.02em;background:var(--tm-inner);color:var(--tm-t2);border:1px solid var(--tm-border)}
+.lb-row--1 .lb-av{background:var(--lb-gold-bg);color:var(--lb-gold);border-color:var(--lb-gold-br)}
+.lb-row--2 .lb-av{background:var(--lb-silver-bg);color:var(--lb-silver);border-color:var(--lb-silver-br)}
+.lb-row--3 .lb-av{background:var(--lb-bronze-bg);color:var(--lb-bronze);border-color:var(--lb-bronze-br)}
+.lb-nm{font-size:13px;color:var(--tm-t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-val{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:13.5px;font-weight:600;
+  color:var(--tm-t1);font-variant-numeric:tabular-nums;white-space:nowrap}
+.lb-sub{font-size:10.5px;color:var(--tm-faint);font-family:'Spline Sans Mono',ui-monospace,monospace}
+/* The private own-rank row, pinned below the board. Visible only to its owner. */
+.lb-you{margin-top:8px;background:var(--tm-inner);border:1px dashed var(--tm-border);border-radius:8px}
+.lb-you .lb-row{border-top:none}
+.lb-you-note{font-size:11px;color:var(--tm-t3);padding:0 16px 11px}
+.lb-mine{background:var(--tm-blue-soft)}
+
+.lb-empty{padding:30px 18px;text-align:center;font-size:12.5px;color:var(--tm-t3);line-height:1.6}
+.lb-note{font-size:10.5px;color:var(--tm-faint);line-height:1.55;margin-top:9px}
+
+/* Records. */
+.lb-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(250px,100%),1fr))}
+.lb-rec{background:var(--tm-card);border:1px solid var(--tm-border);border-radius:8px;padding:13px 15px}
+.lb-rec-k{font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--tm-t3);
+  display:flex;align-items:center;gap:7px}
+.lb-rec-v{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:20px;font-weight:600;color:var(--tm-t1);
+  font-variant-numeric:tabular-nums;margin-top:7px}
+.lb-rec-m{font-size:11.5px;color:var(--tm-t3);margin-top:5px}
+.lb-rec-n{font-size:11.5px;color:var(--tm-blue);margin-top:6px}
+.lb-new{font-size:9px;font-weight:700;letter-spacing:.08em;color:var(--lb-gold);background:var(--lb-gold-bg);
+  border:1px solid var(--lb-gold-br);border-radius:4px;padding:1px 4px}
+
+/* Achievements gallery. */
+.lb-badges{display:grid;gap:11px;grid-template-columns:repeat(auto-fill,minmax(min(215px,100%),1fr))}
+.lb-badge{background:var(--tm-card);border:1px solid var(--tm-border);border-radius:8px;padding:13px 14px;
+  transition:border-color .16s ease}
+.lb-badge--off{opacity:.55}
+.lb-badge--on{border-color:var(--lb-gold-br);background:var(--lb-gold-bg)}
+.lb-badge-t{font-size:13px;font-weight:600;color:var(--tm-t1);display:flex;align-items:center;gap:7px}
+.lb-badge-d{font-size:11.5px;color:var(--tm-t2);margin-top:5px;line-height:1.5}
+.lb-badge-c{font-size:11px;color:var(--tm-faint);margin-top:7px;line-height:1.5}
+.lb-badge-e{font-size:10.5px;color:var(--lb-gold);margin-top:7px;font-weight:600;
+  font-family:'Spline Sans Mono',ui-monospace,monospace}
+.lb-fam{font-size:10.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--tm-t3);
+  margin:18px 0 10px}
+.lb-fam:first-child{margin-top:0}
+
+/* Milestone feed + banners. */
+.lb-feed{display:flex;flex-direction:column;gap:1px;background:var(--tm-border);border:1px solid var(--tm-border);border-radius:8px;overflow:hidden}
+.lb-ev{background:var(--tm-card);padding:11px 15px;display:flex;align-items:flex-start;gap:11px}
+.lb-ev-t{font-size:12.5px;color:var(--tm-t1);font-weight:500}
+.lb-ev-b{font-size:11.5px;color:var(--tm-t3);margin-top:3px}
+.lb-ev-w{font-size:10.5px;color:var(--tm-faint);margin-left:auto;white-space:nowrap;padding-left:10px}
+.lb-banner{display:flex;align-items:center;gap:11px;background:var(--lb-gold-bg);border:1px solid var(--lb-gold-br);
+  border-radius:8px;padding:11px 14px;margin-bottom:14px;font-size:12.5px;color:var(--tm-t1)}
+.lb-banner b{font-weight:600}
+.lb-x{margin-left:auto;background:none;border:none;color:var(--tm-t3);cursor:pointer;font-size:16px;line-height:1;
+  padding:0 2px;font-family:inherit}
+.lb-x:hover{color:var(--tm-t1)}
+.lb-notice{background:var(--tm-inner);border:1px solid var(--tm-border);border-radius:8px;padding:12px 14px;
+  margin-bottom:14px;font-size:12px;color:var(--tm-t2);line-height:1.6;display:flex;align-items:flex-start;gap:11px}
+
+/* The visibility switch. */
+.lb-vis{display:flex;align-items:center;gap:11px;flex-wrap:wrap;background:var(--tm-card);border:1px solid var(--tm-border);
+  border-radius:8px;padding:12px 15px;margin-top:14px}
+.lb-vis-l{font-size:12.5px;color:var(--tm-t1);font-weight:500}
+.lb-vis-s{font-size:11.5px;color:var(--tm-t3);margin-top:3px;line-height:1.5}
+.lb-sw{margin-left:auto;flex-shrink:0;width:40px;height:22px;border-radius:11px;border:1px solid var(--tm-border);
+  background:var(--tm-inner);position:relative;cursor:pointer;transition:background .16s ease,border-color .16s ease;padding:0}
+.lb-sw>i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--tm-t3);
+  transition:transform .16s ease,background .16s ease}
+.lb-sw.on{background:var(--tm-blue-soft);border-color:var(--tm-blue-border)}
+.lb-sw.on>i{transform:translateX(18px);background:var(--tm-blue)}
+@media(max-width:560px){
+  .lb-row{grid-template-columns:34px 1fr auto;gap:9px;padding:10px 12px}
+  .lb-head{padding:11px 12px}
+}
+</style>
 <!-- ============================================================
      LEDGER LEADS styles — warm-gray "Ledger 2a" reskin of the
      Leads page, scoped to #sec-leads.ledger-leads. Theme-aware
@@ -15019,6 +15140,802 @@ function teamSkeletonHTML() {
   return '<div class="tm-table" style="padding:16px;display:flex;flex-direction:column;gap:10px">' +
     '<div class="tm-skel" style="width:38%"></div><div class="tm-skel" style="width:92%"></div>' +
     '<div class="tm-skel" style="width:88%"></div><div class="tm-skel" style="width:90%"></div></div>';
+}
+
+// ============================================================
+// AGENCY LEADERBOARDS, RECORDS & ACHIEVEMENTS — 2026-07-30
+//
+// Read docs/agency-leaderboards.md before changing anything named lb* here
+// or in supabase/migrations/20260750_agency_leaderboards.sql.
+//
+// This feature deliberately owns NO period engine and NO definition of AP.
+// It reads teamPeriodRange() above for its windows and get_agency_leaderboards
+// for its numbers, and that RPC carries the sale predicate byte-identical to
+// get_team_summary's. The reason is one line long: the boards and the team
+// table sit on the same tab, and two definitions of "AP this month" a click
+// apart is the 8,610x bug with a shorter fuse.
+//
+// Three invariants, all asserted by test/leaderboards.test.mjs:
+//   1. exactly ONE sb.rpc('get_agency_leaderboards') call site (lbLoadBoards)
+//   2. lbRpcArgs() is fed from teamPeriodRange(), never from its own maths
+//   3. the top-10 cutoff is applied by the SERVER; the browser never filters
+//      a rank out of a payload it was sent
+// ============================================================
+
+// <leaderboard-core>
+// Everything between these two sentinels is PURE — no DOM, no network, no
+// storage, no app globals — and is extracted verbatim and executed by
+// test/leaderboards.test.mjs. Keep it pure.
+
+/**
+ * The boards, in the order they are offered.
+ *
+ * Two from the original brief are absent and their absence is the decision:
+ *
+ *   Most Appointments Set — `calls.outcome = 'appointment'` has exactly ONE
+ *     row in all of production and there is no "kept" signal anywhere, so the
+ *     board would have been a ranking of noise.
+ *   Best Placement Rate  — no agent in production has ever recorded a denial
+ *     or a withdrawal, so every agent scores 100% and the board says nothing.
+ *
+ * Both were put to Jace with the evidence on 2026-07-30 and cut.
+ * // PHASE 2: both become buildable the moment an appointment-set timestamp
+ * // and routine use of the denied/withdrawn statuses exist.
+ */
+const LB_BOARDS = [
+  { key: 'ap',          label: 'Most AP',            unit: 'money',  blurb: 'Annual premium written in the period.' },
+  { key: 'policies',    label: 'Most Policies Sold', unit: 'int',    blurb: 'Policies written in the period.' },
+  { key: 'dials',       label: 'Most Dials',         unit: 'int',    blurb: 'Calls placed through the dialer.' },
+  { key: 'talk',        label: 'Most Talk Time',     unit: 'dur',    blurb: 'Time on the phone.' },
+  { key: 'close_rate',  label: 'Highest Close Rate', unit: 'pct',    blurb: 'Policies per hundred dials.',
+    qualify: 'Qualify with 50+ dials this period.' },
+  { key: 'ap_per_dial', label: 'AP per Dial',        unit: 'money2', blurb: 'Annual premium earned per dial placed.',
+    qualify: 'Qualify with 50+ dials this period.' },
+  { key: 'improved',    label: 'Most Improved',      unit: 'gain',   blurb: 'Biggest gain against your own previous period.',
+    qualify: 'Needs $500 or more in the prior period.', noLifetime: true },
+];
+const LB_BOARD_DEFAULT = 'ap';
+
+/** Display rules the server also enforces. Stated here so the UI can explain them. */
+const LB_TOP_N              = 10;
+const LB_MIN_DIALS          = 50;
+const LB_IMPROVED_MIN_PRIOR = 500;
+
+/** The AP basis toggle. 'net' is the app's one definition of a sale. */
+const LB_BASES = [
+  { key: 'net',    label: 'Net AP', hint: 'Lapses and chargebacks are not sales, so they are not in this total.' },
+  { key: 'placed', label: 'Placed', hint: 'Only policies that reached issued, paid or claim.' },
+];
+const LB_BASIS_DEFAULT = 'net';
+
+function lbBoardDef(key) { return LB_BOARDS.find(b => b.key === key) || LB_BOARDS[0]; }
+
+/**
+ * Which boards a period offers. Most Improved needs a comparable preceding
+ * period and Lifetime has none — offering it there and rendering it empty
+ * would read as "nobody improved", which is a different claim.
+ */
+function lbBoardsFor(periodKey) {
+  return LB_BOARDS.filter(b => !(b.noLifetime && periodKey === 'lifetime'));
+}
+
+/** Falls back to the default when the stored board is not available here. */
+function lbResolveBoard(key, periodKey) {
+  const avail = lbBoardsFor(periodKey);
+  return avail.some(b => b.key === key) ? key : LB_BOARD_DEFAULT;
+}
+
+/** Only the AP-shaped boards change meaning with the basis toggle. */
+function lbBasisApplies(boardKey) {
+  return boardKey === 'ap' || boardKey === 'ap_per_dial' || boardKey === 'improved';
+}
+
+/**
+ * The one formatter. Tabular numerals everywhere, and money never carries
+ * cents on a board — a leaderboard is read at a glance.
+ */
+function lbFormat(unit, v) {
+  const n = Number(v);
+  if (!isFinite(n)) return '—';
+  switch (unit) {
+    case 'money':  return '$' + Math.round(n).toLocaleString('en-US');
+    case 'money2': return '$' + n.toFixed(2);
+    case 'int':    return Math.round(n).toLocaleString('en-US');
+    case 'dur':    return tmDur(n);
+    case 'pct':    return n.toFixed(1) + '%';
+    case 'gain':   return '+' + n.toFixed(0) + '%';
+    default:       return String(n);
+  }
+}
+
+/** Gold / silver / bronze for the first three only. Nothing below is accented. */
+function lbMedal(rank) {
+  return rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : null;
+}
+
+/**
+ * Split what the server sent into the public board and the viewer's own
+ * private row.
+ *
+ * The server sends ranks 1-10 plus the caller's own row and nothing else, so
+ * `you` is non-null only when the viewer placed outside the top ten. This
+ * function does not FILTER anything — there is nothing here to filter, which
+ * is the point. If it ever has to, the server has started over-sending.
+ */
+function lbSplitRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  return {
+    top: list.filter(r => r && r.in_top).sort((a, b) => (a.rank - b.rank) ||
+      String(a.agent_name || '').localeCompare(String(b.agent_name || ''))),
+    you: list.find(r => r && r.is_you && !r.in_top) || null,
+  };
+}
+
+/**
+ * "You're #14 — $840 AP from the top 10."
+ *
+ * Names the gap, never the agent standing in the way: `top_value` is a number
+ * the server sends precisely so the tenth-placed agent's identity does not
+ * have to be.
+ */
+function lbGapText(you, topValue, unit) {
+  if (!you) return '';
+  const gap = Number(topValue) - Number(you.value);
+  const rank = 'You’re #' + you.rank;
+  if (!isFinite(gap) || gap <= 0) return rank + ' this period.';
+  return rank + ' — ' + lbFormat(unit, gap) + ' from the top ' + LB_TOP_N + '.';
+}
+
+/** Two letters, from a display name or an email. Never more. */
+function lbInitials(name) {
+  const s = String(name || '').trim();
+  if (!s) return '?';
+  const parts = s.split(/[\s@._-]+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return s.slice(0, 2).toUpperCase();
+}
+
+/** Raw RPC rows -> board_key -> { rows, topValue, entrants }. */
+function lbGroupBoards(rawRows) {
+  const out = {};
+  (Array.isArray(rawRows) ? rawRows : []).forEach(r => {
+    if (!r || !r.board_key) return;
+    if (!out[r.board_key]) out[r.board_key] = { rows: [], topValue: null, entrants: 0 };
+    const g = out[r.board_key];
+    g.rows.push({
+      rank: Number(r.rank) || 0,
+      agent_id: r.agent_id || null,
+      agent_name: r.agent_name || '—',
+      value: Number(r.value) || 0,
+      secondary: r.secondary == null ? null : Number(r.secondary),
+      is_you: !!r.is_you,
+      in_top: !!r.in_top,
+    });
+    g.topValue = r.top_value == null ? g.topValue : Number(r.top_value);
+    g.entrants = Number(r.entrants) || g.entrants;
+  });
+  return out;
+}
+
+// ---- Records -----------------------------------------------------------
+
+const LB_PERSONAL_RECORDS = [
+  { key: 'best_day_ap',          label: 'Best day',           unit: 'money' },
+  { key: 'best_day_policies',    label: 'Most in a day',      unit: 'int'   },
+  { key: 'best_week_ap',         label: 'Best week',          unit: 'money' },
+  { key: 'best_month_ap',        label: 'Best month',         unit: 'money' },
+  { key: 'biggest_policy_ap',    label: 'Biggest policy',     unit: 'money' },
+  { key: 'longest_sale_streak',  label: 'Longest streak',     unit: 'days'  },
+  { key: 'fastest_lead_to_sale', label: 'Fastest lead to sale', unit: 'days' },
+];
+
+const LB_AGENCY_RECORDS = [
+  { key: 'team_day_ap',        label: 'Best day, whole agency',  unit: 'money' },
+  { key: 'agent_day_ap',       label: 'Best day by one agent',   unit: 'money' },
+  { key: 'team_week_ap',       label: 'Best week, whole agency', unit: 'money' },
+  { key: 'team_month_ap',      label: 'Best month, whole agency', unit: 'money' },
+  { key: 'biggest_policy_ap',  label: 'Biggest policy ever',     unit: 'money' },
+  { key: 'agent_day_policies', label: 'Most policies in one day', unit: 'int'  },
+  { key: 'fastest_lead_to_sale', label: 'Fastest lead to sale',  unit: 'days'  },
+];
+
+function lbRecordDef(scope, key) {
+  const list = scope === 'agency' ? LB_AGENCY_RECORDS : LB_PERSONAL_RECORDS;
+  return list.find(r => r.key === key) || null;
+}
+
+function lbRecordFormat(unit, v) {
+  const n = Number(v);
+  if (!isFinite(n)) return '—';
+  if (unit === 'days') return Math.round(n) + (Math.round(n) === 1 ? ' day' : ' days');
+  return lbFormat(unit, n);
+}
+
+/**
+ * The progress nudge under a personal record.
+ *
+ * Only ever shown when the agent is genuinely close and genuinely behind:
+ * "3 policies from your best month" is encouraging, and the same sentence
+ * when they are 40 policies away is not. Returns '' rather than a sentence
+ * nobody wants — and never fires on a record the agent has already beaten,
+ * because by then the record IS the current value.
+ */
+function lbNudge(unit, record, current) {
+  const rec = Number(record), cur = Number(current);
+  if (!isFinite(rec) || !isFinite(cur) || rec <= 0 || cur <= 0) return '';
+  if (cur >= rec) return '';
+  const gap = rec - cur;
+  if (gap / rec > 0.34) return '';                 // not close enough to be a nudge
+  if (unit === 'int')   return Math.ceil(gap) + (Math.ceil(gap) === 1 ? ' away' : ' away');
+  if (unit === 'money') return lbFormat('money', gap) + ' away';
+  return '';
+}
+
+// ---- Achievements ------------------------------------------------------
+
+const LB_FAMILIES = [
+  { key: 'sales',       label: 'Getting started' },
+  { key: 'volume',      label: 'Career milestones' },
+  { key: 'consistency', label: 'Consistency' },
+  { key: 'activity',    label: 'Activity' },
+  { key: 'quality',     label: 'Quality' },
+];
+
+/** Definitions grouped for the gallery, earned first inside each family. */
+function lbGroupBadges(list) {
+  const rows = Array.isArray(list) ? list : [];
+  return LB_FAMILIES.map(f => ({
+    key: f.key,
+    label: f.label,
+    badges: rows.filter(b => b && b.family === f.key)
+                .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0)),
+  })).filter(g => g.badges.length);
+}
+
+function lbEarnedCount(list) {
+  return (Array.isArray(list) ? list : []).filter(b => b && b.earned_at).length;
+}
+
+/**
+ * Which badges are newly earned relative to a remembered set.
+ *
+ * `seen === null` means this browser has never looked, which is what happens
+ * on the first load after the retroactive backfill. Returning [] there is the
+ * client-side half of the feed-silent rule: an agent who has been selling for
+ * a year should not be handed twelve toasts for history.
+ */
+function lbNewlyEarned(list, seen) {
+  if (!seen) return [];
+  const known = new Set(seen);
+  return (Array.isArray(list) ? list : [])
+    .filter(b => b && b.earned_at && !known.has(b.key));
+}
+
+function lbEarnedKeys(list) {
+  return (Array.isArray(list) ? list : []).filter(b => b && b.earned_at).map(b => b.key);
+}
+
+// ---- Milestones --------------------------------------------------------
+
+const LB_BANNER_MAX_AGE_MS = 48 * 3600 * 1000;
+
+/**
+ * The agency-record banner: the newest agency record broken in the last 48
+ * hours, if the viewer has not dismissed that specific one.
+ *
+ * Agency records only. A personal best is the agent's own business and gets a
+ * feed line, not a banner across everyone's screen.
+ */
+function lbBannerEvent(milestones, dismissedIds, now) {
+  const t = ((now instanceof Date) ? now : new Date(now || Date.now())).getTime();
+  const dis = new Set(dismissedIds || []);
+  return (Array.isArray(milestones) ? milestones : []).find(m => {
+    if (!m || m.kind !== 'agency_record' || dis.has(m.id)) return false;
+    const when = new Date(m.occurred_at).getTime();
+    return isFinite(when) && (t - when) <= LB_BANNER_MAX_AGE_MS && (t - when) >= -60000;
+  }) || null;
+}
+// </leaderboard-core>
+
+// ---- state -------------------------------------------------------------
+const LB_AREAS = [
+  { key: 'team',    label: 'Team' },
+  { key: 'boards',  label: 'Leaderboards' },
+  { key: 'records', label: 'Records' },
+  { key: 'badges',  label: 'Achievements' },
+  { key: 'fame',    label: 'Hall of Fame' },
+];
+const LB_TTL_MS = 45000;
+
+let _lbArea = (function () {
+  try { const v = localStorage.getItem('pp_ag_area'); return LB_AREAS.some(a => a.key === v) ? v : 'team'; }
+  catch (e) { return 'team'; }
+})();
+let _lbBoard = (function () {
+  try { const v = localStorage.getItem('pp_lb_board'); return LB_BOARDS.some(b => b.key === v) ? v : LB_BOARD_DEFAULT; }
+  catch (e) { return LB_BOARD_DEFAULT; }
+})();
+let _lbBasis = (function () {
+  try { const v = localStorage.getItem('pp_lb_basis'); return LB_BASES.some(b => b.key === v) ? v : LB_BASIS_DEFAULT; }
+  catch (e) { return LB_BASIS_DEFAULT; }
+})();
+let _lbState     = null;    // lb_my_agency_state(), cached for the session
+let _lbRefreshed = false;   // lb_refresh_me() runs once per page load, not per tab click
+const _lbCache   = {};      // cacheKey -> { at, rows }
+
+/** Maps the ONE period engine's range onto this RPC's five bounds. */
+function lbRpcArgs(range, basis) {
+  const iso = d => (d instanceof Date && isFinite(d.getTime())) ? d.toISOString() : null;
+  return {
+    p_start:      iso(range.start),
+    p_end:        iso(range.end),
+    p_prev_start: iso(range.prevStart),
+    p_prev_end:   iso(range.prevEnd),
+    p_basis:      basis === 'placed' ? 'placed' : 'net',
+  };
+}
+
+function lbInvalidate() { Object.keys(_lbCache).forEach(k => { delete _lbCache[k]; }); }
+
+async function lbAgencyState(force) {
+  if (_lbState && !force) return _lbState;
+  try {
+    const { data, error } = await sb.rpc('lb_my_agency_state');
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    _lbState = row || { leader_id: null, is_leader: false, member_count: 0, visible_count: 0, hidden: false };
+  } catch (e) {
+    _lbState = { leader_id: null, is_leader: false, member_count: 0, visible_count: 0, hidden: false, unavailable: true };
+  }
+  return _lbState;
+}
+
+/**
+ * THE ONLY sb.rpc('get_agency_leaderboards') CALL SITE IN THIS APP.
+ *
+ * Same reason loadTeamRoster is the only get_team_summary call site: a second
+ * one is a second set of window arguments, and two sets of window arguments is
+ * two answers to "how did I do this month".
+ */
+async function lbLoadBoards(periodKey, basis, force) {
+  const range = teamPeriodRange(periodKey, new Date());
+  const key = periodKey + '|' + basis;
+  const hit = _lbCache[key];
+  if (!force && hit && (Date.now() - hit.at) < LB_TTL_MS) return hit;
+  try {
+    const { data, error } = await sb.rpc('get_agency_leaderboards', lbRpcArgs(range, basis));
+    if (error) throw error;
+    _lbCache[key] = { at: Date.now(), state: 'ok', range, boards: lbGroupBoards(data) };
+  } catch (e) {
+    const missing = e && (e.code === 'PGRST202' || /get_agency_leaderboards/.test(e.message || ''));
+    _lbCache[key] = { at: Date.now(), state: missing ? 'unavailable' : 'error', range, boards: {} };
+  }
+  return _lbCache[key];
+}
+
+/**
+ * Recompute this agent's records and achievements, then their agency's.
+ *
+ * Runs once per page load rather than on every Agency click: it is a write,
+ * and a record break is worth one round trip when you open the screen, not one
+ * per tab. The nightly cron is what keeps it current for everyone else.
+ */
+async function lbRefreshMe(force) {
+  if (_lbRefreshed && !force) return;
+  _lbRefreshed = true;
+  try { await sb.rpc('lb_refresh_me'); lbInvalidate(); }
+  catch (e) { /* the boards still render from whatever is stored */ }
+}
+
+function lbSetArea(key) {
+  if (!LB_AREAS.some(a => a.key === key)) return;
+  _lbArea = key;
+  try { localStorage.setItem('pp_ag_area', key); } catch (e) { /* private mode */ }
+  renderAgencySection();
+}
+
+function lbSetBoard(key) {
+  if (!LB_BOARDS.some(b => b.key === key)) return;
+  _lbBoard = key;
+  try { localStorage.setItem('pp_lb_board', key); } catch (e) { /* private mode */ }
+  renderAgencySection();
+}
+
+function lbSetBasis(key) {
+  if (!LB_BASES.some(b => b.key === key)) return;
+  _lbBasis = key;
+  try { localStorage.setItem('pp_lb_basis', key); } catch (e) { /* private mode */ }
+  renderAgencySection();
+}
+
+/** The opt-out. Writes the agent's own row; nothing else may write it. */
+async function lbToggleVisibility() {
+  const st = await lbAgencyState();
+  const next = !st.hidden;
+  try {
+    const { error } = await sb.from('agents')
+      .update({ hide_from_leaderboards: next }).eq('id', currentAgent.id);
+    if (error) throw error;
+    _lbState.hidden = next;
+    lbInvalidate();
+    showToast(next ? 'You are hidden from agency boards' : 'You are back on the agency boards',
+              next ? '#f59e0b' : '#10b981');
+    renderAgencySection();
+  } catch (e) {
+    showToast(e.message || 'Could not change your board visibility', '#dc2626');
+  }
+}
+
+function lbDismissBanner(id) {
+  try {
+    const raw = localStorage.getItem('pp_lb_banner_seen');
+    const list = raw ? JSON.parse(raw) : [];
+    const safe = Array.isArray(list) ? list : [];
+    if (!safe.includes(id)) safe.push(id);
+    localStorage.setItem('pp_lb_banner_seen', JSON.stringify(safe.slice(-40)));
+  } catch (e) { /* private mode */ }
+  const el = document.getElementById('lb-banner');
+  if (el) el.remove();
+}
+
+function lbDismissPeerNotice() {
+  try { localStorage.setItem('pp_lb_peer_notice', '1'); } catch (e) { /* private mode */ }
+  const el = document.getElementById('lb-peer-notice');
+  if (el) el.remove();
+}
+
+function _lbBannerSeen() {
+  try { const raw = localStorage.getItem('pp_lb_banner_seen'); const l = raw ? JSON.parse(raw) : []; return Array.isArray(l) ? l : []; }
+  catch (e) { return []; }
+}
+function _lbPeerNoticeSeen() {
+  try { return localStorage.getItem('pp_lb_peer_notice') === '1'; } catch (e) { return true; }
+}
+function _lbSeenBadges() {
+  try { const raw = localStorage.getItem('pp_lb_seen_badges'); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }
+}
+function _lbStoreSeenBadges(keys) {
+  try { localStorage.setItem('pp_lb_seen_badges', JSON.stringify(keys)); } catch (e) { /* private mode */ }
+}
+
+// ---- renderers ---------------------------------------------------------
+
+function lbTabsHTML(active) {
+  return '<div class="lb-tabs">' + LB_AREAS.map(a =>
+    '<button class="lb-tab' + (a.key === active ? ' on' : '') + '" data-k="' + a.key + '" ' +
+    'onclick="lbSetArea(\'' + a.key + '\')">' + escapeHTML(a.label) + '</button>'
+  ).join('') + '</div>';
+}
+
+function lbBoardChipsHTML(periodKey, active) {
+  return '<div class="lb-chips">' + lbBoardsFor(periodKey).map(b =>
+    '<button class="tm-chip' + (b.key === active ? ' on' : '') + '" ' +
+    'onclick="lbSetBoard(\'' + b.key + '\')">' + escapeHTML(b.label) + '</button>'
+  ).join('') + '</div>';
+}
+
+function lbBasisChipsHTML(active) {
+  return '<div class="lb-chips" style="margin-left:auto">' + LB_BASES.map(b =>
+    '<button class="tm-chip' + (b.key === active ? ' on' : '') + '" title="' + escapeHTML(b.hint) + '" ' +
+    'onclick="lbSetBasis(\'' + b.key + '\')">' + escapeHTML(b.label) + '</button>'
+  ).join('') + '</div>';
+}
+
+/** One board. `group` is what lbGroupBoards produced for this board key. */
+function lbBoardHTML(group, def, periodLabel) {
+  const g = group || { rows: [], topValue: null, entrants: 0 };
+  const split = lbSplitRows(g.rows);
+
+  let h = '<div class="lb-board">' +
+    '<div class="lb-head"><div>' +
+      '<div class="lb-head-t">' + escapeHTML(def.label) + '</div>' +
+      '<div class="lb-head-s">' + escapeHTML(def.blurb) + '</div>' +
+    '</div><div class="lb-head-s">' + escapeHTML(periodLabel) + '</div></div>';
+
+  if (!split.top.length) {
+    h += '<div class="lb-empty">' + (def.qualify
+      ? 'Nobody has qualified for this board yet.<br>' + escapeHTML(def.qualify)
+      : 'No production on this board yet this period.<br>The first entry sets the standard.') +
+      '</div></div>';
+    return h;
+  }
+
+  h += split.top.map(r => {
+    const medal = lbMedal(r.rank);
+    return '<div class="lb-row' + (medal ? ' lb-row--' + r.rank : '') + (r.is_you ? ' lb-mine' : '') + '">' +
+      '<span class="lb-rank">' + r.rank + '</span>' +
+      '<span class="lb-who"><span class="lb-av">' + escapeHTML(lbInitials(r.agent_name)) + '</span>' +
+        '<span class="lb-nm">' + escapeHTML(r.agent_name) + (r.is_you ? ' <span class="tm-you">You</span>' : '') + '</span></span>' +
+      '<span style="text-align:right"><span class="lb-val">' + lbFormat(def.unit, r.value) + '</span>' +
+        (r.secondary != null && def.key !== 'improved'
+          ? '<div class="lb-sub">' + lbFormat('int', r.secondary) + ' dials</div>'
+          : (def.key === 'improved' && r.secondary != null
+            ? '<div class="lb-sub">from ' + lbFormat('money', r.secondary) + '</div>' : '')) +
+      '</span></div>';
+  }).join('');
+
+  h += '</div>';
+
+  // The private own-rank row. Rendered only for its owner, because it is the
+  // only row below rank 10 the server sent — see get_agency_leaderboards.
+  if (split.you) {
+    h += '<div class="lb-you"><div class="lb-row">' +
+      '<span class="lb-rank">' + split.you.rank + '</span>' +
+      '<span class="lb-who"><span class="lb-av">' + escapeHTML(lbInitials(split.you.agent_name)) + '</span>' +
+        '<span class="lb-nm">' + escapeHTML(split.you.agent_name) + ' <span class="tm-you">You</span></span></span>' +
+      '<span class="lb-val">' + lbFormat(def.unit, split.you.value) + '</span>' +
+      '</div><div class="lb-you-note">' + escapeHTML(lbGapText(split.you, g.topValue, def.unit)) +
+      ' Only you can see this row.</div></div>';
+  }
+
+  if (def.qualify) {
+    h += '<div class="lb-note">' + escapeHTML(def.qualify) +
+      ' Agents below the bar are not ranked rather than ranked last.</div>';
+  }
+  return h;
+}
+
+function lbVisibilityHTML(state) {
+  const on = !!(state && state.hidden);
+  return '<div class="lb-vis"><div>' +
+    '<div class="lb-vis-l">Hide me from public boards</div>' +
+    '<div class="lb-vis-s">' + (on
+      ? 'You are hidden. Your agency cannot see you on any board, record or milestone — your own records and achievements keep updating privately.'
+      : 'Members of your agency can see your standings. Turn this on to drop off every board and record feed.') +
+    '</div></div>' +
+    '<button class="lb-sw' + (on ? ' on' : '') + '" role="switch" aria-checked="' + (on ? 'true' : 'false') + '" ' +
+    'aria-label="Hide me from public boards" onclick="lbToggleVisibility()"><i></i></button></div>';
+}
+
+/**
+ * Shown once, to everyone, the first time their data would appear on a board.
+ * Peer visibility is genuinely new — until this feature a downline shared with
+ * their leader only — so it is stated plainly rather than discovered.
+ */
+function lbPeerNoticeHTML() {
+  return '<div class="lb-notice" id="lb-peer-notice">' +
+    '<span data-ico="info" data-size="15" style="flex-shrink:0;margin-top:1px"></span>' +
+    '<div>Everyone in your agency can see each other\'s standings on these boards — production and calling totals only, ' +
+    'never client names or commission. If you would rather not appear, the <strong>Hide me from public boards</strong> ' +
+    'switch at the bottom of this page turns it off for good.</div>' +
+    '<button class="lb-x" title="Got it" onclick="lbDismissPeerNotice()">&times;</button></div>';
+}
+
+function lbBannerHTML(ev) {
+  return '<div class="lb-banner" id="lb-banner">' +
+    '<span data-ico="trophy" data-size="15" style="flex-shrink:0"></span>' +
+    '<div><b>' + escapeHTML(ev.title) + '</b>' + (ev.body ? ' — ' + escapeHTML(ev.body) : '') + '</div>' +
+    '<button class="lb-x" title="Dismiss" onclick="lbDismissBanner(\'' + escapeHTML(ev.id) + '\')">&times;</button></div>';
+}
+
+function lbFeedHTML(events, now) {
+  if (!events || !events.length) {
+    return '<div class="lb-empty">Records and milestones will show up here as they happen.</div>';
+  }
+  return '<div class="lb-feed">' + events.map(m =>
+    '<div class="lb-ev"><div><div class="lb-ev-t">' + escapeHTML(m.title) + '</div>' +
+    (m.body ? '<div class="lb-ev-b">' + escapeHTML(m.body) + '</div>' : '') + '</div>' +
+    '<span class="lb-ev-w">' + escapeHTML(tmAgo(new Date(m.occurred_at), now)) + '</span></div>'
+  ).join('') + '</div>';
+}
+
+/** The solo state. A missing feature, said out loud, is not a broken screen. */
+function lbSoloHTML(what) {
+  return '<div class="lb-board"><div class="lb-empty">' +
+    '<strong style="color:var(--tm-t1)">' + escapeHTML(what) + ' need an agency.</strong><br>' +
+    'You are not connected to one yet. Your personal records and achievements are all yours and still tracked — ' +
+    'find them under <em>Records</em> and <em>Achievements</em>.<br>' +
+    'Join an agency with your team leader\'s code from the <em>Team</em> tab.' +
+    '</div></div>';
+}
+
+function lbUnavailableHTML() {
+  return '<div class="lb-board"><div class="lb-empty">' +
+    'Leaderboards are unavailable — apply <span class="tm-m">supabase/migrations/20260750_agency_leaderboards.sql</span> to enable this.' +
+    '</div></div>';
+}
+
+/**
+ * Current-period figures for the record nudges, from the agent's OWN local
+ * book. No query: `policies` is already in memory, and the windows come from
+ * teamPeriodRange so a nudge and the board agree about what "this month" is.
+ */
+function _lbCurrentTotals() {
+  const list = Array.isArray(window.policies) ? window.policies : [];
+  const now = new Date();
+  const wk = teamPeriodRange('week', now), mo = teamPeriodRange('month', now);
+  const iso = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const today = iso(now);
+  const out = { best_day_ap: 0, best_day_policies: 0, best_week_ap: 0, best_month_ap: 0 };
+  list.forEach(p => {
+    if (!p || BOB_NOT_A_SALE.includes(p.status)) return;
+    const d = (p.dateSubmitted || p.draft || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    const ap = Number(p.ap) || 0;
+    if (d === today) { out.best_day_ap += ap; out.best_day_policies += 1; }
+    if (wk.start && d >= iso(wk.start) && d < iso(wk.end)) out.best_week_ap += ap;
+    if (mo.start && d >= iso(mo.start) && d < iso(mo.end)) out.best_month_ap += ap;
+  });
+  return out;
+}
+
+async function lbRenderBoards(host, state) {
+  if (state && state.unavailable) { host.innerHTML = lbUnavailableHTML(); return; }
+  if (!state || !state.leader_id) { host.innerHTML = lbSoloHTML('Leaderboards'); return; }
+
+  const board = lbResolveBoard(_lbBoard, _teamPeriod);
+  const [entry, feed] = await Promise.all([
+    lbLoadBoards(_teamPeriod, _lbBasis),
+    sb.rpc('get_agency_milestones', { p_limit: 12 }).then(r => r.data || [], () => []),
+  ]);
+  if (entry.state === 'unavailable') { host.innerHTML = lbUnavailableHTML(); return; }
+
+  const now = new Date();
+  const def = lbBoardDef(board);
+  const banner = lbBannerEvent(feed, _lbBannerSeen(), now);
+
+  let h = '';
+  if (banner) h += lbBannerHTML(banner);
+  if (!state.hidden && !_lbPeerNoticeSeen()) h += lbPeerNoticeHTML();
+
+  h += '<div class="ag-header" style="margin-bottom:14px"><div>' +
+    '<div class="ag-header-title">Leaderboards</div>' +
+    '<div class="ag-header-sub">' + escapeHTML(state.agency_name || 'Your agency') + ' &middot; ' +
+    state.visible_count + ' agent' + (state.visible_count === 1 ? '' : 's') + ' on the boards</div>' +
+    '</div><div class="tm">' + teamPeriodChipsHTML('agency') + '</div></div>';
+
+  h += '<div class="lb-bar">' + lbBoardChipsHTML(_teamPeriod, board) +
+       (lbBasisApplies(board) ? lbBasisChipsHTML(_lbBasis) : '') + '</div>';
+
+  if (entry.state !== 'ok') {
+    h += '<div class="lb-board"><div class="lb-empty">Could not load the boards right now. Please try again.</div></div>';
+  } else {
+    h += lbBoardHTML(entry.boards[board], def, entry.range.label);
+    h += '<div class="lb-note">Only the top ' + LB_TOP_N + ' is ever shown. ' +
+      'Nobody but you can see your own position when it falls outside it.</div>';
+  }
+
+  h += '<div class="lb-fam" style="margin-top:22px">Recent milestones</div>' + lbFeedHTML(feed, now);
+  if (state.hidden) {
+    h += '<div class="lb-note">You are hidden from these boards, so none of your production appears above ' +
+      'and nothing you do writes a milestone.</div>';
+  }
+  h += lbVisibilityHTML(state);
+
+  host.innerHTML = h;
+}
+
+async function lbRenderRecords(host, state) {
+  const res = await sb.rpc('get_agency_records').then(r => r, () => ({ data: null, error: true }));
+  if (res.error) { host.innerHTML = lbUnavailableHTML(); return; }
+  const rows = Array.isArray(res.data) ? res.data : [];
+  const byKey = { personal: {}, agency: {} };
+  rows.forEach(r => { if (byKey[r.scope]) byKey[r.scope][r.record_key] = r; });
+  const cur = _lbCurrentTotals();
+
+  const card = (def, row, scope) => {
+    if (!row) {
+      return '<div class="lb-rec"><div class="lb-rec-k">' + escapeHTML(def.label) + '</div>' +
+        '<div class="lb-rec-v" style="color:var(--tm-faint)">—</div>' +
+        '<div class="lb-rec-m">Not set yet.</div></div>';
+    }
+    const nudge = scope === 'personal' ? lbNudge(def.unit, row.value, cur[def.key]) : '';
+    return '<div class="lb-rec">' +
+      '<div class="lb-rec-k">' + escapeHTML(def.label) +
+        (row.is_new ? '<span class="lb-new">NEW</span>' : '') + '</div>' +
+      '<div class="lb-rec-v">' + lbRecordFormat(def.unit, row.value) + '</div>' +
+      '<div class="lb-rec-m">Set ' + escapeHTML(tmDate(row.occurred_on ? new Date(row.occurred_on + 'T12:00:00') : null)) +
+        (scope === 'agency' && row.holder_name ? ' &mdash; ' + escapeHTML(row.holder_name) : '') + '</div>' +
+      (nudge ? '<div class="lb-rec-n">' + escapeHTML(nudge) + ' from your record</div>' : '') +
+      '</div>';
+  };
+
+  let h = '<div class="ag-header" style="margin-bottom:16px"><div>' +
+    '<div class="ag-header-title">Records</div>' +
+    '<div class="ag-header-sub">Your personal bests, and your agency\'s.</div></div></div>';
+
+  const anyPersonal = LB_PERSONAL_RECORDS.some(d => byKey.personal[d.key]);
+  h += '<div class="lb-fam">Your personal bests</div>';
+  h += anyPersonal
+    ? '<div class="lb-grid">' + LB_PERSONAL_RECORDS.map(d => card(d, byKey.personal[d.key], 'personal')).join('') + '</div>'
+    : '<div class="lb-board"><div class="lb-empty"><strong style="color:var(--tm-t1)">Records are waiting to be set.</strong><br>' +
+      'Your first policy sets seven of them at once.</div></div>';
+
+  if (state && state.leader_id) {
+    h += '<div class="lb-fam">' + escapeHTML(state.agency_name || 'Agency') + ' records</div>' +
+      '<div class="lb-grid">' + LB_AGENCY_RECORDS.map(d => card(d, byKey.agency[d.key], 'agency')).join('') + '</div>' +
+      '<div class="lb-note">Agency records show an amount, a date and a name — never a client, a policy number or a carrier.</div>';
+  } else {
+    h += '<div class="lb-fam">Agency records</div>' + lbSoloHTML('Agency records');
+  }
+  host.innerHTML = h;
+}
+
+async function lbRenderBadges(host) {
+  const res = await sb.rpc('get_my_achievements').then(r => r, () => ({ data: null, error: true }));
+  if (res.error) { host.innerHTML = lbUnavailableHTML(); return; }
+  const list = Array.isArray(res.data) ? res.data : [];
+
+  // Toast anything genuinely new. The first ever load seeds the remembered
+  // set silently — the retroactive backfill is history, not an event.
+  const seen = _lbSeenBadges();
+  const fresh = lbNewlyEarned(list, seen);
+  _lbStoreSeenBadges(lbEarnedKeys(list));
+  fresh.slice(0, 3).forEach((b, i) =>
+    setTimeout(() => showToast('Achievement unlocked — ' + b.name, '#b08b2e'), 400 + i * 1400));
+
+  const earned = lbEarnedCount(list);
+  let h = '<div class="ag-header" style="margin-bottom:16px"><div>' +
+    '<div class="ag-header-title">Achievements</div>' +
+    '<div class="ag-header-sub">' + earned + ' of ' + list.length + ' earned. ' +
+    'The rest show what it takes.</div></div></div>';
+
+  h += lbGroupBadges(list).map(g =>
+    '<div class="lb-fam">' + escapeHTML(g.label) + '</div><div class="lb-badges">' +
+    g.badges.map(b => {
+      const on = !!b.earned_at;
+      return '<div class="lb-badge ' + (on ? 'lb-badge--on' : 'lb-badge--off') + '">' +
+        '<div class="lb-badge-t">' + escapeHTML(b.name) + '</div>' +
+        '<div class="lb-badge-d">' + escapeHTML(b.description) + '</div>' +
+        (on
+          ? '<div class="lb-badge-e">Earned ' + escapeHTML(tmDate(b.earned_on ? new Date(b.earned_on + 'T12:00:00') : new Date(b.earned_at))) + '</div>'
+          : '<div class="lb-badge-c">' + escapeHTML(b.criteria) + '</div>') +
+        '</div>';
+    }).join('') + '</div>'
+  ).join('');
+
+  host.innerHTML = h;
+}
+
+async function lbRenderFame(host, state) {
+  if (!state || !state.leader_id) { host.innerHTML = lbSoloHTML('The Hall of Fame'); return; }
+  const res = await sb.rpc('get_agency_hall_of_fame', { p_limit: 60 }).then(r => r, () => ({ data: null, error: true }));
+  if (res.error) { host.innerHTML = lbUnavailableHTML(); return; }
+  const rows = Array.isArray(res.data) ? res.data : [];
+
+  let h = '<div class="ag-header" style="margin-bottom:16px"><div>' +
+    '<div class="ag-header-title">Hall of Fame</div>' +
+    '<div class="ag-header-sub">Every closed week, month and quarter, frozen as it finished.</div></div></div>';
+
+  if (!rows.length) {
+    h += '<div class="lb-board"><div class="lb-empty">' +
+      '<strong style="color:var(--tm-t1)">No periods have closed yet.</strong><br>' +
+      'The first week, month or quarter to finish is archived here automatically, and the standings never move afterwards.' +
+      '</div></div>';
+    host.innerHTML = h;
+    return;
+  }
+
+  const periodLabel = r => {
+    const d = new Date(r.period_start + 'T12:00:00');
+    if (r.period_kind === 'week')  return 'Week of ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    if (r.period_kind === 'month') return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return 'Q' + (Math.floor(d.getMonth() / 3) + 1) + ' ' + d.getFullYear();
+  };
+
+  const groups = [];
+  rows.forEach(r => {
+    const label = periodLabel(r);
+    let g = groups.find(x => x.label === label && x.kind === r.period_kind);
+    if (!g) { g = { label, kind: r.period_kind, rows: [] }; groups.push(g); }
+    g.rows.push(r);
+  });
+
+  h += groups.map(g =>
+    '<div class="lb-fam">' + escapeHTML(g.label) + '</div><div class="lb-board">' +
+    g.rows.map(r => {
+      const def = lbBoardDef(r.board_key);
+      return '<div class="lb-row lb-row--1">' +
+        '<span class="lb-rank">1</span>' +
+        '<span class="lb-who"><span class="lb-av">' + escapeHTML(lbInitials(r.agent_name)) + '</span>' +
+        '<span class="lb-nm">' + escapeHTML(r.agent_name || '—') +
+        '<span class="lb-sub" style="display:block">' + escapeHTML(def.label) + '</span></span></span>' +
+        '<span class="lb-val">' + lbFormat(def.unit, r.value) + '</span></div>';
+    }).join('') + '</div>'
+  ).join('');
+
+  host.innerHTML = h;
 }
 
 // ============================================================
@@ -26840,18 +27757,34 @@ async function renderAgencySection() {
   const pending = _agPendingProfile;
   _agPendingProfile = null;
   if (pending && tier === 'leader') {
+    _lbArea = 'team';
     try { await agOpenAgentProfile(pending); return; }
     catch (e) { /* fall through to the normal view */ }
   }
   root.innerHTML = '<div class="pb-empty" style="padding:40px">Loading…</div>';
+
+  // One evaluation per page load, before anything reads. A record broken since
+  // the last visit should be on screen the first time you look, not the second.
+  // Gated internally by _lbRefreshed, so clicking between areas is read-only.
+  await lbRefreshMe();
+  const lbState = await lbAgencyState();
+
+  // The Agency tab is five areas now, and Team is still the one that holds the
+  // invitee view — the ONLY place an invitee can accept an invite or revoke a
+  // leader's access. It stays the default and stays reachable for every tier;
+  // see the note in _applyPlanGating about the gate that broke this once.
+  const area = LB_AREAS.some(a => a.key === _lbArea) ? _lbArea : 'team';
+  root.innerHTML = '<div class="tm lb">' + lbTabsHTML(area) + '<div id="ag-area"></div></div>';
+  const host = document.getElementById('ag-area');
   try {
-    if (tier === 'leader') {
-      await _agRenderLeaderView(root);
-    } else {
-      await _agRenderAgentView(root);
-    }
+    if (area === 'boards')       await lbRenderBoards(host, lbState);
+    else if (area === 'records') await lbRenderRecords(host, lbState);
+    else if (area === 'badges')  await lbRenderBadges(host, lbState);
+    else if (area === 'fame')    await lbRenderFame(host, lbState);
+    else if (tier === 'leader')  await _agRenderLeaderView(host);
+    else                         await _agRenderAgentView(host);
   } catch (e) {
-    root.innerHTML = `<div class="pb-empty">${escapeHTML(e.message || 'Failed to load Agency data.')}</div>`;
+    host.innerHTML = `<div class="pb-empty">${escapeHTML(e.message || 'Failed to load Agency data.')}</div>`;
     return;
   }
   if (typeof mountIcons === 'function') mountIcons(root);

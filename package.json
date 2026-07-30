@@ -20,13 +20,14 @@
     "test:persistency": "node --test \"test/persistency.test.mjs\"",
     "test:recon": "node --test \"test/reconciliation.test.mjs\"",
     "test:referrals": "node --test \"test/referrals.test.mjs\"",
-    "test": "npm run test:email && npm run test:messaging && npm run test:ai && npm run test:compliance && npm run test:a2p && npm run test:leadtransfer && npm run test:team && npm run test:backoffice && npm run test:producercodes && npm run test:bob && npm run test:commissions && npm run test:persistency && npm run test:recon && npm run test:referrals && npm run check",
+    "test": "npm run test:email && npm run test:messaging && npm run test:ai && npm run test:compliance && npm run test:a2p && npm run test:leadtransfer && npm run test:team && npm run test:backoffice && npm run test:producercodes && npm run test:bob && npm run test:commissions && npm run test:persistency && npm run test:recon && npm run test:referrals && npm run test:leaderboards && npm run check",
     "prebuild": "node scripts/prebuild.js",
     "build": "npx cap sync",
     "cap:sync": "npm run prebuild && npx cap sync",
     "cap:android": "npm run cap:sync && npx cap open android",
     "cap:ios": "npm run cap:sync && npx cap open ios",
-    "test:producercodes": "node --test \"test/producer-codes.test.mjs\""
+    "test:producercodes": "node --test \"test/producer-codes.test.mjs\"",
+    "test:leaderboards": "node --test \"test/leaderboards.test.mjs\""
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",

@@ -3,9 +3,16 @@
 Every feature Orion has that you're **missing** or only **partially** have, as one atomic item per line.
 Ordered so each one is shippable on its own without waiting on the next.
 
-Excluded on purpose: leaderboard, production rankings, countdown-timer upsells, "trophy" mechanics.
+Excluded on purpose: countdown-timer upsells and "trophy" mechanics.
 Team/rollup **reporting** is still in here — an agency owner needs downline production and debt numbers.
 That's operational data, not a scoreboard.
+
+**Superseded 2026-07-30:** this line used to exclude leaderboards and production
+rankings outright. PROMPT_17 reversed that and they are now built — see
+`docs/agency-leaderboards.md`. The spirit of the exclusion survives in how they
+were built: top 10 only, nobody's low rank ever shown to anyone, no emails, no
+push, an easy opt-out, and no fire emojis. The two boards the data could not
+honestly support were cut rather than faked.
 
 Companion doc: `docs/ORION_GAP_ANALYSIS.md` (full detail on each item).
 
