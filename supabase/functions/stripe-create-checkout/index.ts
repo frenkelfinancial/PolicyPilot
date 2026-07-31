@@ -32,7 +32,17 @@ async function ensureDownlineDiscountCoupon(stripeHdrs: Record<string, string>) 
 // browser handoff to checkout-complete.html, byte for byte. Any older cached
 // app.html does the same. That is the whole reason this is a flag and not a
 // rewrite.
+// OUR request flag — what app.html puts in the body. Do not change this
+// without changing every call site: an older cached app.html keeps sending it.
 const CHECKOUT_UI_EMBEDDED = "embedded";
+
+// STRIPE's value for the same idea, and deliberately a SEPARATE constant.
+// Stripe retired the value `embedded` — a session created with it is rejected
+// outright: "The ui_mode value `embedded` is no longer supported. Use
+// `embedded_page` instead." Our flag and their enum are different vocabularies
+// that happened to share a word, and collapsing them into one constant is what
+// made a Stripe rename look like our API changing.
+const STRIPE_UI_MODE_EMBEDDED = "embedded_page";
 
 // STRICT compare, never truthy. A truthy check would let the string "false"
 // turn embedded mode on — the bug class this repo already pins in
@@ -59,7 +69,7 @@ function isEmbeddedRequest(body: any): boolean {
 function applyEmbeddedCheckout(params: URLSearchParams): URLSearchParams {
   params.delete("success_url");
   params.delete("cancel_url");
-  params.set("ui_mode", CHECKOUT_UI_EMBEDDED);
+  params.set("ui_mode", STRIPE_UI_MODE_EMBEDDED);
   params.set("redirect_on_completion", "never");
   return params;
 }

@@ -8535,6 +8535,32 @@ function _wizErr(n, msg) {
   el.classList.toggle('on', !!msg);
 }
 
+// Reads a stripe-create-checkout response and throws a NAMED error if it
+// failed. ONE definition, every call site.
+//
+// 🔴 `detail` IS THE ONLY PLACE STRIPE'S REASON APPEARS. Four call sites used
+// to throw `result.error` alone, so "The ui_mode value `embedded` is no longer
+// supported. Use `embedded_page` instead." — a message that names the bug and
+// the fix — reached the user as the word "checkout_session_failed" and nothing
+// else. Dropping it cost a debugging round trip that the server had already
+// paid for.
+//
+// resp.json() is deliberately not used: it THROWS on an empty or non-JSON body
+// BEFORE resp.ok can be consulted, so a 502 returning an HTML error page came
+// back as a JSON parse error instead of the real failure.
+async function _checkoutParseResponse(resp) {
+  const rawBody = await resp.text();
+  let result = {};
+  try { result = rawBody ? JSON.parse(rawBody) : {}; } catch (_) { result = {}; }
+  if (!resp.ok) {
+    const parts = [result.error, result.detail].filter(Boolean);
+    throw new Error(parts.length
+      ? parts.join(' — ')
+      : `checkout_failed (HTTP ${resp.status}${rawBody ? ': ' + rawBody.slice(0, 200) : ', empty response'})`);
+  }
+  return result;
+}
+
 // Turns a checkout failure into a sentence somebody can act on.
 //
 // 🔴 A MESSAGE THAT NAMES NOTHING IS WORSE THAN NO MESSAGE. This path used to
@@ -8708,15 +8734,7 @@ async function wizSubmit() {
     // error page used to surface as a JSON parse error, and an error object
     // that stringified to nothing useful surfaced as a bare "{}". Neither
     // names anything a human can act on or search for.
-    const rawBody = await resp.text();
-    let result = {};
-    try { result = rawBody ? JSON.parse(rawBody) : {}; } catch (_) { result = {}; }
-    if (!resp.ok) {
-      const parts = [result.error, result.detail].filter(Boolean);
-      throw new Error(parts.length
-        ? parts.join(' — ')
-        : `checkout_failed (HTTP ${resp.status}${rawBody ? ': ' + rawBody.slice(0, 200) : ', empty response'})`);
-    }
+    const result = await _checkoutParseResponse(resp);
     // client_secret BEFORE url, so a stale server that ignores the flag lands
     // on the working hosted path instead of a blank modal.
     if (result.client_secret) {
@@ -9196,8 +9214,7 @@ async function planRequiredSubscribe() {
       },
       body: JSON.stringify({ plan_id: planId, ...(embedded ? { ui: 'embedded' } : {}) }),
     });
-    const result = await resp.json();
-    if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+    const result = await _checkoutParseResponse(resp);
     // client_secret BEFORE url, so a stale server that ignores the flag lands
     // on the working hosted path instead of a blank modal.
     if (result.client_secret) {
@@ -9360,8 +9377,7 @@ async function _autoCheckout(planId) {
       },
       body: JSON.stringify({ plan_id: planId, ...(embedded ? { ui: 'embedded' } : {}) }),
     });
-    const result = await resp.json();
-    if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+    const result = await _checkoutParseResponse(resp);
     // client_secret BEFORE url, so a stale server that ignores the flag lands
     // on the working hosted path instead of a blank modal.
     if (result.client_secret) {
@@ -34808,7 +34824,7 @@ async function pbConfirmAddFunds(amountMills, btn) {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ mode: 'topup', amount_mills: amountMills, ...(embedded ? { ui: 'embedded' } : {}) }),
     });
-    const result = await resp.json();
+    const result = await _checkoutParseResponse(resp);
 
     // client_secret BEFORE url, so a stale server that ignores the flag lands
     // on the working hosted path instead of a blank modal.
@@ -35298,8 +35314,7 @@ async function pbApplyPlanChange() {
         body: JSON.stringify({ plan_id: plan.id, ...(embedded ? { ui: 'embedded' } : {}) }),
       }
     );
-    const result = await resp.json();
-    if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+    const result = await _checkoutParseResponse(resp);
 
     // client_secret BEFORE url, so a stale server that ignores the flag lands
     // on the working hosted path instead of a blank modal.

@@ -53,13 +53,31 @@ function loadCore() {
     .replace(/\)\s*:\s*[A-Za-z_$][\w$]*\s*\{/g, ') {')          // return annotations
     .replace(/([(,]\s*[A-Za-z_$][\w$]*)\s*:\s*[A-Za-z_$][\w$]*/g, '$1'); // parameter annotations
   // eslint-disable-next-line no-new-func
-  return new Function(`${js}\nreturn { CHECKOUT_UI_EMBEDDED, isEmbeddedRequest, applyEmbeddedCheckout };`)();
+  return new Function(`${js}\nreturn { CHECKOUT_UI_EMBEDDED, STRIPE_UI_MODE_EMBEDDED, isEmbeddedRequest, applyEmbeddedCheckout };`)();
 }
-const { CHECKOUT_UI_EMBEDDED, isEmbeddedRequest, applyEmbeddedCheckout } = loadCore();
+const { CHECKOUT_UI_EMBEDDED, STRIPE_UI_MODE_EMBEDDED, isEmbeddedRequest, applyEmbeddedCheckout } = loadCore();
 
 test('"embedded" is the only recognised value', () => {
   assert.equal(CHECKOUT_UI_EMBEDDED, 'embedded');
   assert.equal(isEmbeddedRequest({ ui: 'embedded' }), true);
+});
+
+test('🔴 our request flag and Stripe\'s ui_mode are SEPARATE values', () => {
+  // They shared a word, so they were written as one constant — and then Stripe
+  // retired the value `embedded` and rejected every session outright:
+  //   "The ui_mode value `embedded` is no longer supported.
+  //    Use `embedded_page` instead."
+  // Live checkout broke while our own request flag was perfectly fine. These
+  // are two different vocabularies and must be able to move independently.
+  assert.equal(STRIPE_UI_MODE_EMBEDDED, 'embedded_page');
+  assert.notEqual(STRIPE_UI_MODE_EMBEDDED, CHECKOUT_UI_EMBEDDED);
+  const p = new URLSearchParams({ success_url: 'x', cancel_url: 'y' });
+  applyEmbeddedCheckout(p);
+  assert.equal(p.get('ui_mode'), 'embedded_page', "the wire value is Stripe's, not ours");
+  // The flag app.html sends must NOT follow a Stripe rename — an older cached
+  // app.html goes on sending `ui: "embedded"` forever.
+  assert.equal(isEmbeddedRequest({ ui: 'embedded' }), true);
+  assert.equal(isEmbeddedRequest({ ui: 'embedded_page' }), false);
 });
 
 test('🔴 the flag is a strict compare, so nothing truthy turns it on', () => {
@@ -90,7 +108,7 @@ test('🔴 an embedded session sets both fields and carries NEITHER hosted URL',
     'metadata[supabase_user_id]': 'u1',
   });
   applyEmbeddedCheckout(p);
-  assert.equal(p.get('ui_mode'), 'embedded');
+  assert.equal(p.get('ui_mode'), 'embedded_page');
   assert.equal(p.get('redirect_on_completion'), 'never');
   assert.equal(p.has('success_url'), false);
   assert.equal(p.has('cancel_url'), false);
@@ -455,15 +473,31 @@ test('every auth error path actually uses it', () => {
   assert.equal(uses.length, 5);
 });
 
-test('the wizard reads the body as text, so a non-JSON error is still legible', () => {
-  // resp.json() THROWS on an empty or non-JSON body — before the resp.ok check
-  // runs — so a 502 returning an HTML error page surfaced as a parse error.
-  const at = APP_CODE.indexOf('async function wizSubmit()');
-  const body = APP_CODE.slice(at, APP_CODE.indexOf('function _wizIsNative()'));
-  assert.match(body, /const rawBody = await resp\.text\(\);/);
-  assert.match(body, /try \{ result = rawBody \? JSON\.parse\(rawBody\) : \{\}; \} catch \(_\) \{ result = \{\}; \}/);
-  assert.match(body, /HTTP \$\{resp\.status\}/, 'an unnamed failure must still carry its status code');
-  assert.match(body, /_checkoutFailureMessage\(e\)/);
+test("🔴 every call site surfaces Stripe's `detail`, not just `error`", () => {
+  // `detail` is the ONLY place Stripe's reason appears. Four sites threw
+  // result.error alone, so a message naming both the bug AND its fix —
+  // "The ui_mode value `embedded` is no longer supported. Use `embedded_page`
+  // instead." — reached the user as the bare word "checkout_session_failed".
+  const uses = APP_CODE.match(/await _checkoutParseResponse\(resp\)/g) || [];
+  assert.equal(uses.length, CALL_SITE_COUNT, 'one shared parser, every call site');
+  // Scoped to the checkout sites: other endpoints legitimately hand-roll their
+  // own checks, and this rule is about Stripe's `detail` specifically.
+  for (const m of APP_CODE.matchAll(/functions\/v1\/stripe-create-checkout`/g)) {
+    const after = APP_CODE.slice(m.index, m.index + 700);
+    assert.match(after, /await _checkoutParseResponse\(resp\)/);
+    assert.ok(!/await resp\.json\(\)/.test(after),
+      'a checkout site must not parse the body itself and drop detail');
+  }
+
+  const m = APP.match(/async function _checkoutParseResponse\(resp\) \{([\s\S]*?)\n\}/);
+  assert.ok(m, 'app.html must define _checkoutParseResponse');
+  const src = m[1];
+  // Read as TEXT: resp.json() throws on an empty or non-JSON body BEFORE
+  // resp.ok can be consulted, so a 502 HTML error page became a parse error.
+  assert.match(src, /await resp\.text\(\)/);
+  assert.ok(!/await resp\.json\(\)/.test(src));
+  assert.match(src, /\[result\.error, result\.detail\]/);
+  assert.match(src, /HTTP \$\{resp\.status\}/, 'an unnamed failure still carries its status');
 });
 
 test('the signup wizard no longer claims to do something it does not', () => {
