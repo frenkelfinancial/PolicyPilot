@@ -965,6 +965,63 @@ Prompt H. Schema: `20260804_sms_attestation_and_verification.sql`. Docs:
 - **An opt-out must NEVER be conditional on resolving the agent.** `dnc_list` is the single enforcement point — `runComplianceGate()` reads it for every send; nothing reads `inbound_messages.is_opt_out`. `messaging-inbound-webhook` resolves the agent in four passes (exact `e164` → last-10 `e164` → the prior outbound message on the same pair → legacy caller ID) and, if all four miss, writes a **global** `dnc_list` row and still sends the confirmation. Restoring an `&& agentId` guard there silently drops consumer STOPs — it did exactly that until 2026-07-28.
 - **The Telnyx fleet is larger than `phone_numbers`.** As of 2026-07-28: 8 DIDs live, 6 rows. `+12029703699` (shared caller ID) and `+12625099123` (dialer host) are in neither `phone_numbers` nor `agents.signalwire_caller_id`. Assume inbound can arrive on a number the DB does not know.
 
+## Stripe checkout
+
+- **🔴 `stripe-webhook` IS 100% OF FULFILLMENT, IN BOTH UI MODES.** Embedded
+  Checkout's `onComplete` fires on the client and a client can be lied to, so
+  it grants no plan, credits no wallet and writes no `plan_id` /
+  `monthly_minute_limit`. A test greps the whole completion path for those
+  writes and for any `sb.` call. It is a UI signal and nothing more.
+- **Embedded is WEB ONLY, selected by `ui: 'embedded'` and a STRICT compare.**
+  Anything else — including absent — keeps today's hosted behaviour byte for
+  byte, which is what lets the native shell and any older cached `app.html`
+  keep working with no change on their side. A truthy check would let the
+  string `"false"` turn it on; same bug class as `leads-consent`'s
+  `sms_attestation`. Native keeps `_wizOpenStripePopup()` /
+  `_openStripeCheckoutPopup()` and `checkout-complete.html` — **those are not
+  dead code**, they are the entire native purchase flow, and Apple's
+  payment-info privacy exemption depends on checkout genuinely being outside
+  the app.
+- **`redirect_on_completion: 'never'` is chosen so the top window never
+  navigates.** The default (`'always'`) sends the TOP window to `return_url` —
+  the exact bug `checkout-complete.html` exists to fix, through a different
+  door. Stripe rejects a session carrying `success_url`/`cancel_url` alongside
+  it, so `applyEmbeddedCheckout()` deletes them; that is required, not tidying.
+  **The tradeoff:** `'never'` disables redirect-based payment methods (bank
+  authorisation flows). This account takes cards, so it costs nothing today.
+  If one is ever wanted the answer is `'if_required'` plus a real `return_url`,
+  **not** a revert to hosted.
+- **The embedded shape is written in exactly ONE place** — the
+  `// <embedded-checkout-core>` block in `stripe-create-checkout`, extracted
+  and EXECUTED by `test/embedded-checkout.test.mjs`. Three session paths
+  (`topup`, `numbers`, subscription) call it; the existing-subscriber path
+  creates no session and must never be routed through checkout at all.
+- **FIVE call sites in `app.html`, pinned by a test** — signup wizard,
+  `planRequiredSubscribe()`, `_autoCheckout()`, `pbConfirmAddFunds()` and
+  `pbApplyPlanChange()`. (Prompt 18's inventory said four and missed the last,
+  which was doing a top-level `location.href` and unloading the whole
+  dashboard.) Each checks **`client_secret` before `url`**, so a stale server
+  that ignores the flag lands on the working hosted path instead of a blank
+  modal. `mode: 'numbers'` is wired server-side but has **no call site** — a
+  dead path, deliberately not given UI.
+- **`_wizIsNative()` is the ONLY platform predicate**, and a test asserts
+  `isNativePlatform` appears nowhere else. A second answer to "are we in the
+  shell" puts the native build on a path nobody tested.
+- **Closing the modal IS the cancel path.** The X button, `Escape` and a
+  backdrop click all reach `closeStripeCheckout()`, which runs the caller's
+  `onCancel` — `planRequiredSubscribe()` used to leave its button reading
+  "Opening checkout…" forever when the flow died. `onComplete` **destroys the
+  instance before** the caller's callback, because `_goToSuccessUrl()`
+  navigates and an undestroyed Stripe iframe mid-navigation floods the console.
+- **The subscription paths reuse `_goToSuccessUrl()`, never a toast.** It sets
+  `?checkout=success` and reloads specifically so `bootDashboard()`'s already
+  tested webhook-lag retry runs — the webhook may not have landed when
+  `onComplete` fires, and that retry is the thing covering the gap.
+- **Payment method domains are a Dashboard setting, not code.** Hosted Checkout
+  handled it for us; embedded does not, so Apple Pay / Google Pay silently do
+  not render inside the iframe until `producerstackcrm.com` is added under
+  Stripe → Settings → Payments → Payment method domains.
+
 ## Carrier email parsing feature — key gotchas
 
 Key gotchas encoded in the map (read its `key_findings`):

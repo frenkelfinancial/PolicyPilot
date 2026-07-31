@@ -8653,8 +8653,12 @@ async function wizSubmit() {
     return;
   }
 
-  // Account created — now mount Stripe embedded checkout inline on this same page
+  // Account created — pay for it without leaving this page. On web that is
+  // Stripe Embedded Checkout mounted inline; the native shell still hands off
+  // to the system browser below.
   if (btn) { btn.disabled = true; btn.textContent = 'Setting up payment…'; }
+
+  const embedded = !_wizIsNative();
 
   try {
     const { data: sd } = await sb.auth.getSession();
@@ -8662,10 +8666,25 @@ async function wizSubmit() {
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sd.session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ plan_id: planId }),
+      body: JSON.stringify({ plan_id: planId, ...(embedded ? { ui: 'embedded' } : {}) }),
     });
     const result = await resp.json();
     if (!resp.ok) throw new Error((result.detail ? result.error + ' — ' + result.detail : result.error) || 'checkout_failed');
+    // client_secret BEFORE url, so a stale server that ignores the flag lands
+    // on the working hosted path instead of a blank modal.
+    if (result.client_secret) {
+      await _mountEmbeddedCheckout(result.client_secret, {
+        onComplete: _goToSuccessUrl,
+        onCancel: () => {
+          _wizPaymentPending = false;
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Create Account &amp; Continue to Payment';
+          }
+        },
+      });
+      return;
+    }
     if (result.url) {
       // Open Stripe checkout in a popup; hide wizard actions while waiting
       if (btn) btn.style.display = 'none';
@@ -9077,6 +9096,7 @@ async function planRequiredSubscribe() {
   if (!planId) { const m = document.getElementById('pro-msg'); if (m) { m.textContent = 'Please select a plan.'; m.className = 'auth-msg show err'; } return; }
   const btn = document.getElementById('pro-subscribe-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Opening checkout…'; }
+  const embedded = !_wizIsNative();
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('Not signed in');
@@ -9087,10 +9107,20 @@ async function planRequiredSubscribe() {
         'Authorization': `Bearer ${session.access_token}`,
         'apikey': SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ plan_id: planId }),
+      body: JSON.stringify({ plan_id: planId, ...(embedded ? { ui: 'embedded' } : {}) }),
     });
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+    // client_secret BEFORE url, so a stale server that ignores the flag lands
+    // on the working hosted path instead of a blank modal.
+    if (result.client_secret) {
+      // New subscriber on web — mount inline; the overlay stays where it is.
+      await _mountEmbeddedCheckout(result.client_secret, {
+        onComplete: _goToSuccessUrl,
+        onCancel: () => { if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; } },
+      });
+      return;
+    }
     if (result.url) {
       // New subscriber — open hosted Stripe Checkout (popup on web, system
       // browser on native) and only resolve once payment actually completes.
@@ -9163,30 +9193,74 @@ function _goToSuccessUrl() {
   url.searchParams.set('checkout', 'success');
   location.href = url.toString();
 }
+// ── Stripe Embedded Checkout (WEB ONLY) ─────────────────────────────────────
+// Mounts the Checkout Session inline so the dashboard never unloads. Selected
+// per call site by `ui: 'embedded'` in the request body, and only when
+// !_wizIsNative() — the native shell keeps the hosted popup / system-browser
+// handoff to checkout-complete.html. _wizIsNative() is this app's ONLY platform
+// predicate; do not add a second one.
 let _stripeCheckoutInstance = null;
+// Stashed beside the instance so the X button, Escape and a backdrop click can
+// all reach the caller's onCancel. Without it planRequiredSubscribe() leaves
+// its Subscribe button reading "Opening checkout…" forever when the flow dies.
+let _stripeCheckoutCallbacks = null;
 
-async function _mountEmbeddedCheckout(clientSecret) {
+async function _mountEmbeddedCheckout(clientSecret, { onComplete, onCancel } = {}) {
   const modal = document.getElementById('stripe-checkout-modal');
   const container = document.getElementById('stripe-checkout-container');
   container.innerHTML = '';
   if (_stripeCheckoutInstance) { try { _stripeCheckoutInstance.destroy(); } catch(_) {} }
+  _stripeCheckoutCallbacks = { onComplete: onComplete || null, onCancel: onCancel || null };
   const stripe = Stripe(STRIPE_PUBLISHABLE_KEY);
-  _stripeCheckoutInstance = await stripe.initEmbeddedCheckout({ clientSecret });
+  _stripeCheckoutInstance = await stripe.initEmbeddedCheckout({
+    clientSecret,
+    // 🔴 UI SIGNAL ONLY. supabase/functions/stripe-webhook is 100% of
+    // fulfillment: nothing below grants a plan, credits a wallet or writes
+    // plan_id / monthly_minute_limit. onComplete fires on the client, and a
+    // client can be lied to. The subscription callers navigate to
+    // ?checkout=success so bootDashboard()'s already-tested webhook-lag retry
+    // is what actually confirms the purchase.
+    onComplete: () => {
+      const cb = _stripeCheckoutCallbacks && _stripeCheckoutCallbacks.onComplete;
+      // Destroy BEFORE running the caller's callback: _goToSuccessUrl()
+      // navigates, and an undestroyed Stripe iframe mid-navigation is how you
+      // get a console full of postMessage errors.
+      _teardownStripeCheckout();
+      if (cb) cb();
+    },
+  });
   _stripeCheckoutInstance.mount('#stripe-checkout-container');
   modal.style.display = 'flex';
 }
 
-function closeStripeCheckout() {
+// Hides and destroys, running NO callback. Both exits go through it.
+function _teardownStripeCheckout() {
   const modal = document.getElementById('stripe-checkout-modal');
-  modal.style.display = 'none';
+  if (modal) modal.style.display = 'none';
   if (_stripeCheckoutInstance) { try { _stripeCheckoutInstance.destroy(); } catch(_) {} _stripeCheckoutInstance = null; }
+  _stripeCheckoutCallbacks = null;
 }
+
+// The CANCEL path — the X button, Escape and a backdrop click all land here.
+function closeStripeCheckout() {
+  const cb = _stripeCheckoutCallbacks && _stripeCheckoutCallbacks.onCancel;
+  _teardownStripeCheckout();
+  if (cb) cb();
+}
+
+// A payment iframe you cannot dismiss without a mouse is a support ticket.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const modal = document.getElementById('stripe-checkout-modal');
+  if (modal && modal.style.display === 'flex') closeStripeCheckout();
+});
 
 async function _autoCheckout(planId) {
   showGate();
   document.getElementById('auth-gate').classList.remove('signup-mode');
   const m = document.getElementById('auth-msg');
   if (m) { m.textContent = 'Setting up your subscription…'; m.className = 'auth-msg show ok'; }
+  const embedded = !_wizIsNative();
   try {
     const { data: sd } = await sb.auth.getSession();
     if (!sd || !sd.session) throw new Error('no session');
@@ -9197,10 +9271,20 @@ async function _autoCheckout(planId) {
         'Authorization': `Bearer ${sd.session.access_token}`,
         'apikey': SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ plan_id: planId }),
+      body: JSON.stringify({ plan_id: planId, ...(embedded ? { ui: 'embedded' } : {}) }),
     });
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+    // client_secret BEFORE url, so a stale server that ignores the flag lands
+    // on the working hosted path instead of a blank modal.
+    if (result.client_secret) {
+      hideGate();
+      await _mountEmbeddedCheckout(result.client_secret, {
+        onComplete: _goToSuccessUrl,
+        onCancel: () => { showPlanRequiredOverlay(); },
+      });
+      return;
+    }
     if (result.url) {
       hideGate();
       _openStripeCheckoutPopup(result.url, {
@@ -34627,15 +34711,29 @@ async function pbConfirmAddFunds(amountMills, btn) {
   if (grid) grid.querySelectorAll('.pb-addfunds-opt').forEach(b => b.disabled = true);
   if (status) status.textContent = 'Starting checkout…';
 
+  const embedded = !_wizIsNative();
+
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) throw new Error('Not signed in');
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/stripe-create-checkout`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
-      body: JSON.stringify({ mode: 'topup', amount_mills: amountMills }),
+      body: JSON.stringify({ mode: 'topup', amount_mills: amountMills, ...(embedded ? { ui: 'embedded' } : {}) }),
     });
     const result = await resp.json();
+
+    // client_secret BEFORE url, so a stale server that ignores the flag lands
+    // on the working hosted path instead of a blank modal.
+    if (result.client_secret) {
+      pbCloseAddFundsModal();
+      // Same refresh the popup-closed poller does — renderPhoneBook() re-reads
+      // wallet_accounts. The webhook is what actually credits the balance.
+      await _mountEmbeddedCheckout(result.client_secret, {
+        onComplete: () => renderPhoneBook(),
+      });
+      return;
+    }
 
     if (result.url) {
       const popup = window.open(result.url, 'stripe_topup_checkout', 'width=620,height=820,scrollbars=yes,resizable=yes');
@@ -35098,6 +35196,7 @@ async function pbApplyPlanChange() {
   if (!plan) return;
   const btn = document.getElementById('pb-upgrade-confirm');
   if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+  const embedded = !_wizIsNative();
   try {
     const { data: { session } } = await sb.auth.getSession();
     const resp = await fetch(
@@ -35109,11 +35208,24 @@ async function pbApplyPlanChange() {
           'Authorization': `Bearer ${session.access_token}`,
           'apikey': SUPABASE_ANON_KEY,
         },
-        body: JSON.stringify({ plan_id: plan.id }),
+        body: JSON.stringify({ plan_id: plan.id, ...(embedded ? { ui: 'embedded' } : {}) }),
       }
     );
     const result = await resp.json();
     if (!resp.ok) throw new Error(result.error || 'checkout_failed');
+
+    // client_secret BEFORE url, so a stale server that ignores the flag lands
+    // on the working hosted path instead of a blank modal.
+    if (result.client_secret) {
+      // New subscriber on web — mount inline. This is the call site that used
+      // to unload the whole dashboard with a top-level location.href.
+      pbCloseUpgradeModal();
+      await _mountEmbeddedCheckout(result.client_secret, {
+        onComplete: _goToSuccessUrl,
+        onCancel: () => { if (btn) { btn.disabled = false; btn.textContent = 'Subscribe'; } },
+      });
+      return;
+    }
 
     if (result.url) {
       // New subscriber — redirect to Stripe Checkout.
@@ -41100,8 +41212,8 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <!-- Stripe Embedded Checkout Modal -->
-<div id="stripe-checkout-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(7,13,26,.82);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#fff;border-radius:16px;width:100%;max-width:580px;max-height:92vh;overflow-y:auto;position:relative;box-shadow:0 24px 80px rgba(0,0,0,.45)">
+<div id="stripe-checkout-modal" role="dialog" aria-modal="true" aria-label="Checkout" onclick="if(event.target===this)closeStripeCheckout()" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(7,13,26,.82);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:16px;width:100%;max-width:580px;max-height:90vh;overflow:auto;position:relative;box-shadow:0 24px 80px rgba(0,0,0,.45)">
     <button onclick="closeStripeCheckout()" style="position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;line-height:1;color:#6A8CAE;cursor:pointer;z-index:1;padding:4px 8px" aria-label="Close">&times;</button>
     <div id="stripe-checkout-container" style="min-height:420px"></div>
   </div>

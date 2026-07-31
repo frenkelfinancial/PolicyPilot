@@ -25,15 +25,62 @@ async function ensureDownlineDiscountCoupon(stripeHdrs: Record<string, string>) 
   }).catch(() => {});
 }
 
+// <embedded-checkout-core>
+// Embedded Checkout is WEB ONLY. app.html mounts the session inside
+// #stripe-checkout-modal so the dashboard never unloads; the native Capacitor
+// shell sends no `ui` field at all and keeps the hosted page + the system
+// browser handoff to checkout-complete.html, byte for byte. Any older cached
+// app.html does the same. That is the whole reason this is a flag and not a
+// rewrite.
+const CHECKOUT_UI_EMBEDDED = "embedded";
+
+// STRICT compare, never truthy. A truthy check would let the string "false"
+// turn embedded mode on — the bug class this repo already pins in
+// leads-consent's sms_attestation.
+function isEmbeddedRequest(body: any): boolean {
+  return !!body && body.ui === CHECKOUT_UI_EMBEDDED;
+}
+
+// Stripe REJECTS a session carrying success_url/cancel_url alongside
+// redirect_on_completion:'never', so the two shapes are mutually exclusive and
+// the hosted URLs are removed rather than left sitting there.
+//
+// 'never' is deliberate, not a convenience. The default ('always') navigates
+// the TOP window to return_url, which throws the agent out of the dashboard
+// mid-session — i.e. exactly the bug checkout-complete.html was created to
+// fix, reintroduced through a different door. 'never' keeps the whole flow
+// inside the modal and hands control back to us via onComplete.
+//
+// The tradeoff, stated so nobody rediscovers it: 'never' disables
+// redirect-based payment methods (bank authorisation flows). This account
+// takes cards, so it costs nothing today. If a redirect-based method is ever
+// wanted, the answer is 'if_required' plus a real return_url — NOT a revert
+// to hosted.
+function applyEmbeddedCheckout(params: URLSearchParams): URLSearchParams {
+  params.delete("success_url");
+  params.delete("cancel_url");
+  params.set("ui_mode", CHECKOUT_UI_EMBEDDED);
+  params.set("redirect_on_completion", "never");
+  return params;
+}
+// </embedded-checkout-core>
+
 // Called by the authenticated browser to start or change a Stripe subscription.
 //
 // Body:
 //   plan_id   — UUID of the desired plan from public.plans
 //   area_code — (optional) 3-digit area code for auto-provisioned phone number
+//   ui        — (optional) "embedded" and nothing else. Absent or any other
+//               value keeps today's hosted behaviour byte for byte.
 //
 // Responses:
-//   { url: "https://checkout.stripe.com/..." }  — redirect the user here (new subscriber)
+//   { url: "https://checkout.stripe.com/..." }  — redirect the user here (new subscriber, hosted)
+//   { client_secret: "cs_live_..._secret_..." } — mount this inline (new subscriber, embedded)
 //   { ok: true, upgraded: true }                 — plan switched via Stripe API (existing subscriber)
+//
+// 🔴 supabase/functions/stripe-webhook REMAINS 100% OF FULFILLMENT, in both UI
+// modes. The browser's onComplete callback grants no plan, credits no wallet
+// and writes no plan_id — it fires on the client, and a client can be lied to.
 //
 // REQUIRED Supabase secrets:
 //   STRIPE_SECRET_KEY  — sk_live_... or sk_test_...
@@ -79,6 +126,7 @@ serve(async (req) => {
   const planId   = body.plan_id as string | undefined;
   const mode     = body.mode as string | undefined;
   const areaCode = (body.area_code as string | undefined) || "202";
+  const embedded = isEmbeddedRequest(body);
 
   if (!planId && mode !== "numbers" && mode !== "topup") return json({ error: "plan_id_required" }, 400);
 
@@ -155,6 +203,8 @@ serve(async (req) => {
       sessionParams.set("customer_email", user.email);
     }
 
+    if (embedded) applyEmbeddedCheckout(sessionParams);
+
     const sessionRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
       headers: stripeHdrs,
@@ -170,6 +220,10 @@ serve(async (req) => {
     }
 
     const session = await sessionRes.json();
+    if (embedded) {
+      if (!session.client_secret) return json({ error: "checkout_session_no_client_secret" }, 502);
+      return json({ client_secret: session.client_secret });
+    }
     if (!session.url) return json({ error: "checkout_session_no_url" }, 502);
     return json({ url: session.url });
   }
@@ -222,6 +276,10 @@ serve(async (req) => {
       sessionParams.set("customer_email", user.email);
     }
 
+    // Wired for completeness — as of Prompt 18 nothing in app.html sends
+    // mode:'numbers', so no browser reaches this branch in either UI mode.
+    if (embedded) applyEmbeddedCheckout(sessionParams);
+
     const sessionRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
       method: "POST",
       headers: stripeHdrs,
@@ -237,6 +295,10 @@ serve(async (req) => {
     }
 
     const session = await sessionRes.json();
+    if (embedded) {
+      if (!session.client_secret) return json({ error: "checkout_session_no_client_secret" }, 502);
+      return json({ client_secret: session.client_secret });
+    }
     if (!session.url) return json({ error: "checkout_session_no_url" }, 502);
     return json({ url: session.url });
   }
@@ -343,7 +405,8 @@ serve(async (req) => {
     return json({ ok: true, upgraded: true });
   }
 
-  // New subscriber: create a hosted Stripe Checkout Session (opens in popup).
+  // New subscriber: create a Checkout Session — hosted (native popup / system
+  // browser) or embedded (mounted inline on web), decided by `ui` alone.
   // Note: Stripe disallows combining `discounts` with `allow_promotion_codes`,
   // so a downline agent gets their downline discount applied silently instead
   // of being able to type in a separate promo code.
@@ -373,6 +436,8 @@ serve(async (req) => {
     sessionParams.set("customer_email", user.email);
   }
 
+  if (embedded) applyEmbeddedCheckout(sessionParams);
+
   const sessionRes = await fetch("https://api.stripe.com/v1/checkout/sessions", {
     method: "POST",
     headers: stripeHdrs,
@@ -391,6 +456,13 @@ serve(async (req) => {
   }
 
   const session = await sessionRes.json();
+  if (embedded) {
+    if (!session.client_secret) {
+      console.error("Stripe returned no client_secret. Session:", JSON.stringify(session));
+      return json({ error: "checkout_session_no_client_secret", detail: JSON.stringify(session) }, 502);
+    }
+    return json({ client_secret: session.client_secret });
+  }
   if (!session.url) {
     console.error("Stripe returned no URL. Session:", JSON.stringify(session));
     return json({ error: "checkout_session_no_url", detail: JSON.stringify(session) }, 502);
