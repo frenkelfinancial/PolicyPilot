@@ -348,6 +348,79 @@ Autonomy layer (added 07/2026):
   add an INSERT policy. `ai_call_events` was deliberately not reused (Telnyx
   payloads, no `agent_id`, service-role-only).
 
+### Phase 4 — voice campaigns: the AI dials the book by rules (added 2026-07-30)
+
+- **Read `docs/voice-campaigns.md` before touching anything named `vcamp*`,
+  `vc*`, `voice-campaign-*` or `voice_campaign_*`.** Schema:
+  `20260802b_voice_campaigns.sql`. Closes `docs/ORION_GAP_ANALYSIS.md` § 1.3.
+- **🔴 EVERY CAMPAIGN CALL GOES THROUGH `ai-call-start`, AND THERE IS NO SECOND
+  PATH.** Consent, DNC, suppression, quiet hours, the daily cap and the wallet
+  floor are enforced once, in one function, in a fixed order.
+  `voice-campaign-tick` reimplements none of them — a test greps for
+  `min_ai_call_start_mills`, `balance_mills`, `ai_daily_call_cap`,
+  `evaluateDailyPace`, `wallet_accounts` and `api.telnyx.com/v2/calls` in it.
+  What the engine owns is what to do when the answer is **no**.
+- **🔴 EVERY TRIGGER GROUP MUST NAME A LEAD TYPE WITH A POSITIVE `is`
+  CONDITION** (`VC_TAG_FIELDS`: campaign_tag, tags, lead_type, coverage_wanted,
+  source). `is_not` does not count — "lead type is not trucker" excludes a
+  sliver and admits everyone else, which is the campaign nobody meant to build.
+  Enforced in the editor, in `voice-campaign-manage` before a re-evaluation
+  sweeps a whole book, and by the `voice_campaigns_validate()` trigger on any
+  row left `active`. A draft may be saved half-written; **activation** is when
+  the rule has to hold.
+- **`voice_campaign_enrollments` is SELECT-only for `authenticated`.** An
+  enrollment is a standing instruction to phone a consumer. Every write goes
+  through `voice-campaign-tick` (cron secret) or `voice-campaign-manage` (agent
+  from the JWT, no agent id in the body). Do not add an INSERT/UPDATE policy.
+  `voice_campaigns` and `voice_campaign_steps` ARE owner-writable — they are
+  configuration, the same class as `producer_codes` — with triggers deriving
+  `steps.agent_id` from the campaign and validating the rule.
+- **The claim is the whole idempotency story.** One conditional
+  `UPDATE … RETURNING`; Postgres re-checks the WHERE after the row lock, so of
+  two concurrent ticks exactly one dials. It **leases** (10 min) so a dead tick
+  strands nobody, and it is released by `recordCampaignCallResult()` in
+  `ai-call-webhook`'s finalize — not by the tick — which is what stops a second
+  call going out while the first is connected.
+- **Three rejection behaviours, chosen per code** (`vcHandleGateRejection`):
+  RESCHEDULE at a stated expiry (`daily_cap_reached` → `resets_at` from the 429
+  body; `quiet_hours` → the next allowed instant, computed with gate 4's OWN
+  predicate), PAUSE THE CAMPAIGN with a sentence on the card for account-level
+  refusals (wallet, plan, kill switch, no caller ID), STOP THE ENROLLMENT for
+  per-lead ones (`not_callable`). Never a one-minute retry loop; a test asserts
+  no path backs off by less than a minute.
+- **Caller-ID rotation closes the meter round's open item.** `vcPickCallerId()`
+  picks the active number with the most headroom against ITS OWN ramp, using
+  `numberRampValue()` from `_shared/ai-call-meter.ts` so the two cannot
+  disagree. A brand-new number is NOT preferred for being unused — it is ramp
+  day 1 and recommended 30. Manual test-rig calls still use
+  `agents.signalwire_caller_id`.
+- **`ai-call-start` now has two callers.** The browser with a session JWT
+  (unchanged), and `voice-campaign-tick` presenting **the service role key** as
+  its bearer — the only branch that reads `agent_id` from a body, reachable
+  only by something a browser never holds. It stays `verify_jwt = true` (NOT in
+  `config.toml`); the service key is itself a valid Supabase JWT. `dry_run` and
+  every campaign field are gated on the same flag.
+- **"Answered" is a TALK LENGTH, not a connect** — `stop_answer_talk_secs`
+  (default 15), measured `answered_at → ended_at`, the same two stamps the
+  biller uses. A three-second pickup is not a conversation. **DNC stops
+  unconditionally**, above every campaign flag.
+- **`double_dial` retries once, ~60s later, ON A NO-ANSWER ONLY.** Dialing
+  somebody again a minute after they picked up is what gets a number labelled.
+- **A drip throttle is not a reschedule** — a held-back enrollment stays due and
+  the next tick tries again, so a 20-per-hour step drains over the hour itself.
+- **`seed_key` is the seam for the next round's 12 default campaigns**, and its
+  unique index is PARTIAL (`where seed_key is not null`). A partial index cannot
+  be inferred from a bare column list, so the seed must write
+  `on conflict (agent_id, seed_key) where seed_key is not null` — which
+  PostgREST cannot express. **The seeder runs as SQL or in an edge function,
+  never as a browser upsert.**
+- **`ai_inbound_enabled` now DEFAULTS TRUE** and is backfilled for every
+  agent-owned number (20260802b). The power-dialer host (`+12625099123`) is
+  excluded by e164 and forced false if it ever lands in the table. All three
+  purchase paths (`telnyx-buy-number`, `-provision-number`, `-replace-number`)
+  get it from the column default and name it nowhere — one default beats three
+  call sites that have to remember. Per-number opt-out is in the Phone Book.
+
 ## Identity — a person has a name, not an address
 
 - **`pp_display_name()` (SQL, `20260751`) and `ppAgentName()` (browser, in `// <team-core>`) are the ONE identity resolver.** `lb_agent_name`, `get_team_summary` and `get_agency_members` all delegate to the SQL one; every renderer goes through the browser one. Read `docs/agency-leaderboards.md` § "Who an agent is called".

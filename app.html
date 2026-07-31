@@ -2576,6 +2576,10 @@ body.light #sec-webdialer .wd-call-info{
   background:none; border:none; cursor:pointer; padding:0;
 }
 #sec-phonebook .pb-number-setprimary:hover{ text-decoration:underline; }
+#sec-phonebook .pb-number-aiin{
+  display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text2); cursor:pointer; white-space:nowrap;
+}
+#sec-phonebook .pb-number-aiin input{ margin:0; cursor:pointer; }
 #sec-phonebook .pb-number-cost{
   font-size:12px; color:var(--text2); font-variant-numeric:tabular-nums; min-width:60px; text-align:right;
 }
@@ -4687,6 +4691,97 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
         </p>
         <button id="aiTest-resetBtn" onclick="aiTestResetDnc()"
           style="padding:9px 16px;border:1px solid #dc2626;border-radius:8px;background:transparent;color:#dc2626;font:600 13px var(--sans);cursor:pointer">Reset DNC test</button>
+      </div>
+    </div>
+
+    <!-- ========== VOICE CAMPAIGNS ==========
+         The AI dials the book on its own, by rules. Three tabs in the editor
+         (Settings / Steps / Enrollments); every call still goes through
+         ai-call-start's whole gate chain. See docs/voice-campaigns.md. -->
+    <div class="section" id="sec-voice-campaigns">
+      <style>
+        #sec-voice-campaigns .vc-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+        #sec-voice-campaigns .vc-card{border:1px solid var(--border);border-radius:12px;background:var(--bg2);padding:16px;margin-bottom:12px}
+        #sec-voice-campaigns .vc-name{font:600 15px var(--sans);color:var(--text);flex:1;min-width:180px;cursor:pointer}
+        #sec-voice-campaigns .vc-name:hover{text-decoration:underline}
+        #sec-voice-campaigns .vc-desc{font:12.5px/1.5 var(--sans);color:var(--text2);margin-top:4px;width:100%}
+        #sec-voice-campaigns .vc-stats{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+        #sec-voice-campaigns .vc-stat{font:12px var(--sans);color:var(--text2)}
+        #sec-voice-campaigns .vc-stat b{display:block;font:700 17px var(--sans);color:var(--text);font-variant-numeric:tabular-nums}
+        #sec-voice-campaigns .vc-pill{font:11.5px var(--sans);border-radius:999px;padding:3px 10px;white-space:nowrap;border:1px solid var(--border);color:var(--text2);background:var(--bg3)}
+        #sec-voice-campaigns .vc-pill[data-tone="on"]{border-color:rgba(16,185,129,.45);color:#059669;background:rgba(16,185,129,.12)}
+        #sec-voice-campaigns .vc-pill[data-tone="warn"]{border-color:rgba(245,158,11,.45);color:#b45309;background:rgba(245,158,11,.12)}
+        #sec-voice-campaigns .vc-pill[data-tone="dry"]{border-color:rgba(37,99,235,.45);color:#2563eb;background:rgba(37,99,235,.10)}
+        #sec-voice-campaigns .vc-slots{display:inline-flex;gap:4px;align-items:center;margin-left:6px}
+        #sec-voice-campaigns .vc-slot{width:9px;height:9px;border-radius:50%;background:rgba(127,127,127,.3)}
+        #sec-voice-campaigns .vc-slot.on{background:#10b981}
+        #sec-voice-campaigns .vc-banner{margin-top:12px;padding:10px 12px;border-radius:9px;font:12.5px/1.55 var(--sans);
+          background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.4);color:#b45309}
+        #sec-voice-campaigns .vc-tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin:0 0 18px}
+        #sec-voice-campaigns .vc-tab{padding:9px 15px;font:600 13px var(--sans);color:var(--text2);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent}
+        #sec-voice-campaigns .vc-tab.active{color:var(--accent-2);border-bottom-color:var(--accent)}
+        #sec-voice-campaigns label.vc-lbl{display:block;font:600 12.5px var(--sans);color:var(--text);margin:0 0 6px}
+        #sec-voice-campaigns input[type="text"],#sec-voice-campaigns input[type="number"],#sec-voice-campaigns select,#sec-voice-campaigns textarea{
+          padding:8px 10px;border:1px solid rgba(127,127,127,.3);border-radius:8px;background:var(--card);color:inherit;font:13px var(--sans)}
+        #sec-voice-campaigns .vc-group{border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;background:var(--bg3)}
+        #sec-voice-campaigns .vc-group-head{font:600 11.5px var(--sans);color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:9px}
+        #sec-voice-campaigns .vc-cond{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:7px}
+        #sec-voice-campaigns .vc-or{font:600 11.5px var(--sans);color:var(--text3);letter-spacing:.06em;margin:0 0 10px}
+        #sec-voice-campaigns .vc-err{font:12px/1.5 var(--sans);color:#dc2626;margin:6px 0 0}
+        #sec-voice-campaigns .vc-x{border:none;background:none;color:var(--text3);cursor:pointer;font:16px var(--sans);padding:0 4px;line-height:1}
+        #sec-voice-campaigns .vc-x:hover{color:#dc2626}
+        #sec-voice-campaigns .vc-btn{padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:var(--card);color:var(--text);font:600 12.5px var(--sans);cursor:pointer}
+        #sec-voice-campaigns .vc-btn:hover{background:var(--bg3)}
+        #sec-voice-campaigns .vc-btn.primary{border-color:var(--accent);background:var(--accent);color:#fff}
+        #sec-voice-campaigns .vc-btn:disabled{opacity:.5;cursor:default}
+        #sec-voice-campaigns .vc-check{display:flex;align-items:center;gap:8px;font:13px var(--sans);color:var(--text);margin-bottom:9px;cursor:pointer}
+        #sec-voice-campaigns table.vc-tbl{width:100%;border-collapse:collapse;font:12.5px var(--sans)}
+        #sec-voice-campaigns table.vc-tbl th{text-align:left;font:600 11.5px var(--sans);color:var(--text3);text-transform:uppercase;letter-spacing:.04em;padding:0 10px 8px;border-bottom:1px solid var(--border)}
+        #sec-voice-campaigns table.vc-tbl td{padding:10px;border-bottom:1px solid var(--border);color:var(--text2)}
+        #sec-voice-campaigns .vc-empty{font:13px/1.6 var(--sans);color:var(--text2);padding:26px 0;text-align:center}
+      </style>
+
+      <!-- ---------- LIST ---------- -->
+      <div id="vcamp-listView">
+        <div class="card" style="max-width:900px">
+          <div class="card-head">
+            <div class="kpi-label">Voice Campaigns</div>
+            <span class="ds-trend" data-tone="static" id="vcamp-slotsChip">0/3 ACTIVE</span>
+          </div>
+          <p style="font:13px/19px var(--sans);color:var(--text2);margin:0 0 16px">
+            A campaign watches your book and calls on its own &mdash; new lead arrives, call within a minute,
+            no answer, try again in two hours. Every call still passes consent, DNC, quiet hours, your daily
+            cap and your wallet before it dials.
+          </p>
+          <div class="vc-row" style="margin-bottom:16px">
+            <button class="vc-btn primary" onclick="vcampNew()">New campaign</button>
+            <button class="vc-btn" onclick="vcampLoad()">Refresh</button>
+            <span class="vc-pill" id="vcamp-slotsPill">0/3 active
+              <span class="vc-slots" id="vcamp-slotDots"></span>
+            </span>
+          </div>
+          <div id="vcamp-list"><div class="vc-empty">Loading&hellip;</div></div>
+        </div>
+      </div>
+
+      <!-- ---------- EDITOR ---------- -->
+      <div id="vcamp-editView" style="display:none">
+        <div class="card" style="max-width:900px">
+          <div class="card-head">
+            <div class="kpi-label" id="vcamp-editTitle">Campaign</div>
+            <button class="vc-btn" onclick="vcampCloseEditor()">&larr; All campaigns</button>
+          </div>
+
+          <div class="vc-tabs">
+            <button class="vc-tab active" data-vctab="settings"    onclick="vcampTab('settings')">Settings</button>
+            <button class="vc-tab"        data-vctab="steps"       onclick="vcampTab('steps')">Steps</button>
+            <button class="vc-tab"        data-vctab="enrollments" onclick="vcampTab('enrollments')">Enrollments</button>
+          </div>
+
+          <div id="vcamp-pane-settings"></div>
+          <div id="vcamp-pane-steps" style="display:none"></div>
+          <div id="vcamp-pane-enrollments" style="display:none"></div>
+        </div>
       </div>
     </div>
 
@@ -25449,6 +25544,261 @@ function aiPaceBannerText(numberCount) {
 // </ai-meter-core>
 
 // ============================================================
+// VOICE CAMPAIGN CORE — the browser half of the campaign engine's rules.
+//
+// Mirrors supabase/functions/_shared/voice-campaign-core.ts. app.html has no
+// build step and no module system, so the duplication is unavoidable; what is
+// avoidable is DRIFT, and test/voice-campaigns.test.mjs runs a shared table of
+// cases through both and compares. Same arrangement as the AI-meter core vs
+// _shared/ai-call-meter.ts, and pcNormalizeCode() vs pc_normalize_code().
+//
+// NOTE FOR THE NEXT EDITOR: never write another core's opening sentinel in a
+// comment. Each harness extracts by lazy match, so a mention above the real
+// block swallows the file between them. A test asserts every sentinel appears
+// exactly once — that is what caught this comment.
+//
+// Only what the SCREEN needs is here — rule matching (so the editor can show
+// how many leads a rule would catch), the tag-rule validation (so the editor
+// can refuse to save one that would call the whole book), wait maths, slots
+// and stats. The scheduler's own decisions — claim, advance, drip, caller-ID
+// rotation, gate rejections — live only on the server, because only the server
+// makes them.
+//
+// PURE: no DOM, no network, no storage, no app globals.
+// ============================================================
+// <vcamp-core>
+const VC_SLOT_LIMIT = 3;
+const VC_INFLIGHT_STALE_SECS = 2400;
+const VC_DOUBLE_DIAL_ATTEMPTS = 2;
+const VC_WAIT_UNITS = ['minutes', 'hours', 'days'];
+const VC_STEP_TYPES = ['call', 'double_dial'];
+
+// THE GUARD. A trigger group must contain at least one `is` condition on one
+// of these, so no rule can be saved that matches the whole book.
+const VC_TAG_FIELDS = ['campaign_tag', 'tags', 'lead_type', 'coverage_wanted', 'source'];
+
+const VC_UNIT_MS = { minutes: 60000, hours: 3600000, days: 86400000 };
+
+const VC_SKIP_LABELS = {
+  no_consent: 'no consent',
+  dnc: 'on DNC',
+  suppressed: 'suppressed',
+  already_enrolled: 'already in a campaign',
+  no_phone: 'no phone',
+};
+
+const VC_STOP_LABELS = {
+  dnc: 'Asked not to be called',
+  appointment_booked: 'Appointment booked',
+  sold: 'Sold',
+  answered: 'Answered the call',
+  not_callable: 'Not callable',
+  lead_missing: 'Lead removed',
+  manual: 'Unenrolled by hand',
+  campaign_deleted: 'Campaign removed',
+};
+
+function vcAsDate(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const d = v instanceof Date ? v : new Date(typeof v === 'number' ? v : String(v));
+  return isNaN(d.getTime()) ? null : d;
+}
+function vcNorm(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  return String(v).trim().toLowerCase();
+}
+function vcInt(v, fallback) {
+  const n = typeof v === 'number' ? v : Number(v);
+  return isFinite(n) ? Math.trunc(n) : fallback;
+}
+
+// A group may be a bare array of conditions or {conditions:[…]} — the seed
+// format for the shipped default campaigns has to forgive a reasonable shape.
+function vcNormalizeGroups(raw) {
+  if (!Array.isArray(raw)) return [];
+  const out = [];
+  for (const g of raw) {
+    let conds = [];
+    if (Array.isArray(g)) conds = g;
+    else if (g && typeof g === 'object' && Array.isArray(g.conditions)) conds = g.conditions;
+    else continue;
+    const conditions = [];
+    for (const c of conds) {
+      if (!c || typeof c !== 'object') continue;
+      const field = typeof c.field === 'string' ? c.field.trim() : '';
+      const opRaw = typeof c.op === 'string' ? c.op.trim().toLowerCase() : 'is';
+      const op = opRaw === 'is_not' ? 'is_not' : 'is';
+      const value = c.value === null || c.value === undefined ? '' : String(c.value).trim();
+      conditions.push({ field, op, value });
+    }
+    out.push({ conditions });
+  }
+  return out;
+}
+
+// lead_type is VIRTUAL and follows the chain ai-call-start hands the assistant,
+// so a rule written against the words the assistant says matches the leads it
+// would say them to.
+function vcLeadFieldValue(lead, field) {
+  if (!lead) return undefined;
+  const f = String(field || '').trim();
+  if (!f) return undefined;
+  if (f === 'tcpa_consent') return lead.tcpa_consent === true;
+  if (f === 'dnc') return lead.dnc === true;
+  const d = lead.data || {};
+  if (f === 'lead_type') {
+    return d.coverage_wanted !== undefined && d.coverage_wanted !== null ? d.coverage_wanted
+      : d.lead_type !== undefined && d.lead_type !== null ? d.lead_type
+      : d.type !== undefined && d.type !== null ? d.type
+      : d.source !== undefined && d.source !== null ? d.source
+      : undefined;
+  }
+  return d[f];
+}
+
+// `is_not` on a MISSING field is TRUE — "unknown means it might be" silently
+// shrinks every exclusion rule.
+function vcConditionMatches(lead, cond) {
+  const want = vcNorm(cond.value);
+  const raw = vcLeadFieldValue(lead, cond.field);
+  const present = Array.isArray(raw)
+    ? raw.map(vcNorm).filter(Boolean)
+    : (vcNorm(raw) === '' ? [] : [vcNorm(raw)]);
+  const hit = want === '' ? present.length > 0 : present.indexOf(want) !== -1;
+  return cond.op === 'is_not' ? !hit : hit;
+}
+
+// NO GROUPS and an EMPTY GROUP both match nobody. An unfinished rule must
+// never read as "everyone".
+function vcMatchesTriggerGroups(lead, raw) {
+  const groups = vcNormalizeGroups(raw);
+  if (!groups.length) return false;
+  return groups.some(g => g.conditions.length > 0 && g.conditions.every(c => vcConditionMatches(lead, c)));
+}
+
+function vcValidateTriggerGroups(raw) {
+  const groups = vcNormalizeGroups(raw);
+  const groupErrors = [];
+  if (!Array.isArray(raw) || !groups.length) {
+    return {
+      ok: false,
+      error: 'Add at least one condition group — a campaign with no trigger conditions would match nobody.',
+      groupErrors,
+    };
+  }
+  let firstError = null;
+  groups.forEach(g => {
+    let err = null;
+    if (!g.conditions.length) err = 'This group has no conditions.';
+    else if (g.conditions.some(c => !c.field)) err = 'Every condition needs a field.';
+    else if (g.conditions.some(c => c.op !== 'is' && c.op !== 'is_not')) err = 'A condition can only be "is" or "is not".';
+    else if (g.conditions.some(c => !c.value)) err = 'Every condition needs a value.';
+    else if (!g.conditions.some(c => c.op === 'is' && VC_TAG_FIELDS.indexOf(c.field) !== -1)) {
+      err = 'Every group must name a lead type or campaign tag with an “is” condition ' +
+        '(' + VC_TAG_FIELDS.join(', ') + ') — otherwise this campaign could call your whole book.';
+    }
+    groupErrors.push(err);
+    if (err && !firstError) firstError = err;
+  });
+  return { ok: !firstError, error: firstError, groupErrors };
+}
+
+function vcWaitMs(value, unit) {
+  const n = vcInt(value, 0);
+  if (!isFinite(n) || n <= 0) return 0;
+  const u = typeof unit === 'string' ? unit.trim().toLowerCase() : 'minutes';
+  const per = VC_UNIT_MS[u];
+  if (!per) return 0;
+  return n * per;
+}
+
+function vcStepDueAt(from, step) {
+  const base = vcAsDate(from) || new Date();
+  if (!step) return base;
+  return new Date(base.getTime() + vcWaitMs(step.wait_value, step.wait_unit));
+}
+
+function vcWaitLabel(step) {
+  if (!step) return 'immediately';
+  const n = vcInt(step.wait_value, 0);
+  if (n <= 0) return 'immediately';
+  const u = typeof step.wait_unit === 'string' ? step.wait_unit.toLowerCase() : 'minutes';
+  const unit = VC_UNIT_MS[u] ? u : 'minutes';
+  return n + ' ' + (n === 1 ? unit.replace(/s$/, '') : unit);
+}
+
+function vcStepsSorted(steps) {
+  return (steps || []).slice().sort((a, b) => vcInt(a.position, 0) - vcInt(b.position, 0));
+}
+function vcFirstStep(steps) { return vcStepsSorted(steps)[0] || null; }
+function vcStepAt(steps, position) {
+  return vcStepsSorted(steps).filter(s => vcInt(s.position, 0) === vcInt(position, 0))[0] || null;
+}
+function vcNextStep(steps, position) {
+  const pos = vcInt(position, 0);
+  return vcStepsSorted(steps).filter(s => vcInt(s.position, 0) > pos)[0] || null;
+}
+
+function vcDripActive(drip) {
+  if (!drip) return false;
+  return vcInt(drip.per_minutes, 0) > 0 && vcInt(drip.max_calls, 0) > 0;
+}
+
+// A call still in_progress past the stale window does not hold a slot — one
+// lost hangup webhook must not stop an agent's campaigns permanently.
+function vcSlotsInUse(calls, now) {
+  const floor = now.getTime() - VC_INFLIGHT_STALE_SECS * 1000;
+  return (calls || []).filter(c => {
+    if (vcNorm(c.status) !== 'in_progress') return false;
+    if (vcAsDate(c.ended_at === undefined ? null : c.ended_at)) return false;
+    const created = vcAsDate(c.created_at === undefined ? null : c.created_at);
+    return !created || created.getTime() >= floor;
+  }).length;
+}
+function vcSlotsFree(inUse) { return Math.max(0, VC_SLOT_LIMIT - Math.max(0, vcInt(inUse, 0))); }
+function vcSlotsLabel(inUse) {
+  return Math.max(0, Math.min(VC_SLOT_LIMIT, vcInt(inUse, 0))) + '/' + VC_SLOT_LIMIT + ' active';
+}
+
+function vcCampaignStats(enrollments) {
+  const out = { enrolled: 0, active: 0, completed: 0, stopped: 0, calls: 0, answers: 0, appointments: 0 };
+  for (const e of enrollments || []) {
+    out.enrolled++;
+    const st = vcNorm(e.status);
+    if (st === 'active') out.active++;
+    else if (st === 'completed') out.completed++;
+    else if (st === 'stopped') out.stopped++;
+    out.calls += Math.max(0, vcInt(e.calls_placed, 0));
+    out.answers += Math.max(0, vcInt(e.answers, 0));
+    out.appointments += Math.max(0, vcInt(e.appointments, 0));
+  }
+  return out;
+}
+
+function vcStopReasonLabel(reason) {
+  const r = vcNorm(reason);
+  if (!r) return '';
+  return VC_STOP_LABELS[r] || reason || '';
+}
+
+// "12 leads enrolled, 3 skipped: no consent"
+function vcEnrollSummary(enrolled, skipped) {
+  const entries = Object.keys(skipped || {})
+    .map(k => [k, vcInt(skipped[k], 0)])
+    .filter(e => e[1] > 0)
+    .sort((a, b) => b[1] - a[1]);
+  const head = enrolled + ' lead' + (enrolled === 1 ? '' : 's') + ' enrolled';
+  if (!entries.length) return head;
+  const total = entries.reduce((s, e) => s + e[1], 0);
+  const parts = entries.length === 1
+    ? [VC_SKIP_LABELS[entries[0][0]] || entries[0][0]]
+    : entries.map(e => e[1] + ' ' + (VC_SKIP_LABELS[e[0]] || e[0]));
+  return head + ', ' + total + ' skipped: ' + parts.join(', ');
+}
+// </vcamp-core>
+
+// ============================================================
 // AI DIALER TEST PANEL (Phase 1 test rig)
 // Visible ONLY when BOTH kill switches are true: the agent's
 // agents.ai_dialer_enabled AND the global billing_config.ai_dialer_enabled.
@@ -25495,6 +25845,24 @@ async function aiTestInit() {
     a.innerHTML = '<span class="ico" data-ico="robot"></span><span class="nav-lbl-text">AI Dialer Test</span>';
     if (settingsItem.nextSibling) settingsItem.parentNode.insertBefore(a, settingsItem.nextSibling);
     else settingsItem.parentNode.appendChild(a);
+
+    // Voice Campaigns lives in the same area and behind the same gate: both
+    // kill switches on. Injected here rather than in its own init so there is
+    // one place that decides whether the AI dialer area exists at all.
+    if (typeof NAV_TITLES === 'object' && NAV_TITLES) NAV_TITLES['voice-campaigns'] = 'Voice Campaigns';
+    const v = document.createElement('div');
+    v.className = 'nav-item';
+    v.id = 'nav-voice-campaigns';
+    v.onclick = () => {
+      nav('voice-campaigns');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      v.classList.add('active');
+      vcampOnShow();
+    };
+    v.innerHTML = '<span class="ico" data-ico="paper-plane-right"></span><span class="nav-lbl-text">Voice Campaigns</span>';
+    if (a.nextSibling) a.parentNode.insertBefore(v, a.nextSibling);
+    else a.parentNode.appendChild(v);
+    if (typeof mountIcons === 'function') mountIcons(a.parentNode);
   }
 
   const sw = document.getElementById('aiTest-switches');
@@ -26312,6 +26680,620 @@ function _aiTestEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
+// ============================================================
+// VOICE CAMPAIGNS — the screen.
+//
+// Three tabs, exactly as the Orion teardown describes them (Settings / Steps /
+// Enrollments). What is worth knowing before editing:
+//
+//   * CAMPAIGNS AND STEPS ARE WRITTEN DIRECTLY (RLS owner-write) — they are the
+//     agent's own configuration, the same class as producer codes. ENROLLMENTS
+//     ARE NOT: every enrollment write goes through voice-campaign-manage,
+//     because an enrollment is a standing instruction to phone a consumer.
+//   * THE TAG RULE IS VALIDATED IN THREE PLACES and this is the friendliest of
+//     them: inline, per group, before Save is enabled. The edge function and a
+//     database trigger say the same thing less politely.
+//   * ACTIVATION is the moment the rule has to hold. A draft may be saved
+//     half-written — an editor that refuses to save an unfinished rule is an
+//     editor nobody can use — but the Active toggle runs the validator first.
+// ============================================================
+const VCAMP_FIELDS = [
+  { value: 'lead_type',        label: 'Lead Type',        tag: true },
+  { value: 'campaign_tag',     label: 'Campaign Tag',     tag: true },
+  { value: 'tags',             label: 'Tag',              tag: true },
+  { value: 'coverage_wanted',  label: 'Coverage Wanted',  tag: true },
+  { value: 'source',           label: 'Lead Source',      tag: true },
+  { value: 'status',           label: 'Status' },
+  { value: 'state',            label: 'State' },
+  { value: 'city',             label: 'City' },
+  { value: 'military_status',  label: 'Military Status' },
+  { value: 'military_branch',  label: 'Military Branch' },
+  { value: 'gender',           label: 'Gender' },
+];
+
+let vcampState = {
+  campaigns: [],
+  steps: {},          // campaignId -> [step]
+  enrollments: {},    // campaignId -> [enrollment]
+  slotsInUse: 0,
+  editingId: null,
+  tab: 'settings',
+  draft: null,        // the campaign being edited, as an editable copy
+  draftSteps: [],
+  busy: false,
+};
+
+function vcampOnShow() { vcampLoad(); }
+
+async function vcampLoad() {
+  if (!currentAgent) return;
+  const list = document.getElementById('vcamp-list');
+  try {
+    const [cRes, sRes, eRes, callRes] = await Promise.all([
+      sb.from('voice_campaigns')
+        .select('id, name, description, active, dry_run, trigger_groups, auto_enroll_new_leads, ' +
+                'trigger_on_missed_appointment, trigger_on_sold, stop_on_appointment_booked, ' +
+                'stop_on_sold, stop_on_answered, stop_answer_talk_secs, paused_at, pause_reason, seed_key, created_at')
+        .eq('agent_id', currentAgent.id)
+        .order('created_at', { ascending: true }),
+      sb.from('voice_campaign_steps')
+        .select('id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate')
+        .eq('agent_id', currentAgent.id)
+        .order('position', { ascending: true }),
+      sb.from('voice_campaign_enrollments')
+        .select('id, campaign_id, lead_id, status, current_step_position, next_action_at, stop_reason, ' +
+                'calls_placed, answers, appointments, enrolled_at, enrolled_by')
+        .eq('agent_id', currentAgent.id)
+        .order('enrolled_at', { ascending: false })
+        .limit(2000),
+      // Live campaign calls — the slot indicator. Campaign calls only: a manual
+      // test-rig call is a different queue and does not consume a slot.
+      sb.from('ai_calls')
+        .select('id, status, created_at, ended_at')
+        .eq('agent_id', currentAgent.id)
+        .eq('status', 'in_progress')
+        .not('campaign_id', 'is', null)
+        .limit(50),
+    ]);
+
+    vcampState.campaigns = cRes.data || [];
+    vcampState.steps = {};
+    for (const s of sRes.data || []) {
+      (vcampState.steps[s.campaign_id] = vcampState.steps[s.campaign_id] || []).push(s);
+    }
+    vcampState.enrollments = {};
+    for (const e of eRes.data || []) {
+      (vcampState.enrollments[e.campaign_id] = vcampState.enrollments[e.campaign_id] || []).push(e);
+    }
+    vcampState.slotsInUse = vcSlotsInUse(callRes.data || [], new Date());
+  } catch (err) {
+    console.warn('[vcamp] load failed', err);
+    if (list) list.innerHTML = '<div class="vc-empty">Could not load campaigns.</div>';
+    return;
+  }
+  vcampRenderSlots();
+  if (vcampState.editingId) vcampRenderEditor();
+  else vcampRenderList();
+}
+
+function vcampRenderSlots() {
+  const label = vcSlotsLabel(vcampState.slotsInUse);
+  const chip = document.getElementById('vcamp-slotsChip');
+  if (chip) chip.textContent = label.toUpperCase();
+  const pill = document.getElementById('vcamp-slotsPill');
+  const dots = document.getElementById('vcamp-slotDots');
+  if (pill) pill.firstChild.nodeValue = label + ' ';
+  if (dots) {
+    let html = '';
+    for (let i = 0; i < VC_SLOT_LIMIT; i++) {
+      html += '<span class="vc-slot' + (i < vcampState.slotsInUse ? ' on' : '') + '"></span>';
+    }
+    dots.innerHTML = html;
+  }
+}
+
+function vcampRenderList() {
+  document.getElementById('vcamp-listView').style.display = '';
+  document.getElementById('vcamp-editView').style.display = 'none';
+  const list = document.getElementById('vcamp-list');
+  if (!list) return;
+
+  if (!vcampState.campaigns.length) {
+    // Deliberately one line and a button. The next round fills this with twelve
+    // ready-made campaigns; a clever empty screen would only be in the way.
+    list.innerHTML = '<div class="vc-empty">No campaigns yet. ' +
+      '<button class="vc-btn primary" style="margin-left:8px" onclick="vcampNew()">New campaign</button></div>';
+    return;
+  }
+
+  list.innerHTML = vcampState.campaigns.map(c => {
+    const stats = vcCampaignStats(vcampState.enrollments[c.id] || []);
+    const steps = vcampState.steps[c.id] || [];
+    const paused = !!c.paused_at;
+    const tone = paused ? 'warn' : (c.active ? 'on' : '');
+    const statusText = paused ? 'Paused' : (c.active ? 'Active' : 'Off');
+    return '<div class="vc-card">' +
+      '<div class="vc-row">' +
+        '<div class="vc-name" onclick="vcampOpen(\'' + _aiTestEsc(c.id) + '\')">' + _aiTestEsc(c.name) + '</div>' +
+        (c.dry_run ? '<span class="vc-pill" data-tone="dry">Dry run</span>' : '') +
+        '<span class="vc-pill"' + (tone ? ' data-tone="' + tone + '"' : '') + '>' + statusText + '</span>' +
+        '<label class="vc-check" style="margin:0">' +
+          '<input type="checkbox" ' + (c.active ? 'checked' : '') +
+          ' onchange="vcampToggleActive(\'' + _aiTestEsc(c.id) + '\', this.checked)"> Active' +
+        '</label>' +
+        '<button class="vc-btn" onclick="vcampOpen(\'' + _aiTestEsc(c.id) + '\')">Edit</button>' +
+      '</div>' +
+      (c.description ? '<div class="vc-desc">' + _aiTestEsc(c.description) + '</div>' : '') +
+      '<div class="vc-stats">' +
+        '<div class="vc-stat"><b>' + steps.length + '</b>steps</div>' +
+        '<div class="vc-stat"><b>' + stats.active + '</b>enrolled</div>' +
+        '<div class="vc-stat"><b>' + stats.calls + '</b>calls placed</div>' +
+        '<div class="vc-stat"><b>' + stats.answers + '</b>answers</div>' +
+        '<div class="vc-stat"><b>' + stats.appointments + '</b>appointments</div>' +
+      '</div>' +
+      (paused
+        ? '<div class="vc-banner">' + _aiTestEsc(c.pause_reason || 'Paused.') +
+          ' <button class="vc-btn" style="margin-left:8px" onclick="vcampResume(\'' + _aiTestEsc(c.id) + '\')">Resume</button></div>'
+        : '') +
+      '</div>';
+  }).join('');
+}
+
+async function vcampNew() {
+  if (!currentAgent) return;
+  const { data, error } = await sb.from('voice_campaigns').insert({
+    agent_id: currentAgent.id,
+    name: 'New campaign',
+    active: false,
+    trigger_groups: [{ conditions: [{ field: 'lead_type', op: 'is', value: '' }] }],
+  }).select('id').single();
+  if (error) { showToast('Could not create: ' + error.message, '#dc2626'); return; }
+  await vcampLoad();
+  vcampOpen(data.id);
+}
+
+function vcampOpen(id) {
+  const c = vcampState.campaigns.filter(x => x.id === id)[0];
+  if (!c) return;
+  vcampState.editingId = id;
+  vcampState.tab = 'settings';
+  // An editable COPY. Nothing is written until Save, so a half-typed rule
+  // never reaches the database and never reaches the tick.
+  vcampState.draft = JSON.parse(JSON.stringify(c));
+  vcampState.draft.trigger_groups = vcNormalizeGroups(c.trigger_groups);
+  if (!vcampState.draft.trigger_groups.length) {
+    vcampState.draft.trigger_groups = [{ conditions: [{ field: 'lead_type', op: 'is', value: '' }] }];
+  }
+  vcampState.draftSteps = JSON.parse(JSON.stringify(vcStepsSorted(vcampState.steps[id] || [])));
+  vcampRenderEditor();
+}
+
+function vcampCloseEditor() {
+  vcampState.editingId = null;
+  vcampState.draft = null;
+  vcampRenderList();
+}
+
+function vcampTab(tab) {
+  vcampState.tab = tab;
+  document.querySelectorAll('#sec-voice-campaigns .vc-tab').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-vctab') === tab);
+  });
+  ['settings', 'steps', 'enrollments'].forEach(t => {
+    const el = document.getElementById('vcamp-pane-' + t);
+    if (el) el.style.display = (t === tab ? '' : 'none');
+  });
+}
+
+function vcampRenderEditor() {
+  const c = vcampState.draft;
+  if (!c) return;
+  document.getElementById('vcamp-listView').style.display = 'none';
+  document.getElementById('vcamp-editView').style.display = '';
+  document.getElementById('vcamp-editTitle').textContent = c.name || 'Campaign';
+  vcampRenderSettings();
+  vcampRenderSteps();
+  vcampRenderEnrollments();
+  vcampTab(vcampState.tab);
+}
+
+// ---------- Settings tab ----------
+function vcampRenderSettings() {
+  const c = vcampState.draft;
+  const pane = document.getElementById('vcamp-pane-settings');
+  if (!pane || !c) return;
+  const v = vcValidateTriggerGroups(c.trigger_groups);
+
+  let html = '';
+  html += '<div style="margin-bottom:16px"><label class="vc-lbl" for="vcamp-name">Campaign name</label>' +
+    '<input id="vcamp-name" type="text" style="width:100%;max-width:420px" maxlength="120" value="' + _aiTestEsc(c.name || '') + '" ' +
+    'oninput="vcampState.draft.name=this.value"></div>';
+  html += '<div style="margin-bottom:22px"><label class="vc-lbl" for="vcamp-desc">Description</label>' +
+    '<input id="vcamp-desc" type="text" style="width:100%;max-width:560px" value="' + _aiTestEsc(c.description || '') + '" ' +
+    'oninput="vcampState.draft.description=this.value"></div>';
+
+  // ---- Trigger conditions ----
+  html += '<div style="font:600 13px var(--sans);margin:0 0 4px">Trigger conditions</div>' +
+    '<p style="font:12px/1.55 var(--sans);color:var(--text2);margin:0 0 12px">' +
+    'Match <b>ALL</b> of the conditions inside a group. Groups are combined with <b>OR</b>. ' +
+    'Every group must name a lead type or campaign tag &mdash; that is what stops a campaign calling your whole book.' +
+    '</p>';
+
+  c.trigger_groups.forEach((g, gi) => {
+    if (gi > 0) html += '<div class="vc-or">&mdash; OR &mdash;</div>';
+    html += '<div class="vc-group"><div class="vc-group-head">Match ALL of' +
+      (c.trigger_groups.length > 1
+        ? '<button class="vc-x" style="float:right" title="Remove group" onclick="vcampRemoveGroup(' + gi + ')">&times;</button>'
+        : '') +
+      '</div>';
+    g.conditions.forEach((cond, ci) => {
+      html += '<div class="vc-cond">' +
+        '<select onchange="vcampCond(' + gi + ',' + ci + ',\'field\',this.value)">' +
+          VCAMP_FIELDS.map(f => '<option value="' + f.value + '"' + (f.value === cond.field ? ' selected' : '') + '>' +
+            _aiTestEsc(f.label) + (f.tag ? ' · tag' : '') + '</option>').join('') +
+        '</select>' +
+        '<select onchange="vcampCond(' + gi + ',' + ci + ',\'op\',this.value)">' +
+          '<option value="is"' + (cond.op === 'is' ? ' selected' : '') + '>is</option>' +
+          '<option value="is_not"' + (cond.op === 'is_not' ? ' selected' : '') + '>is not</option>' +
+        '</select>' +
+        '<input type="text" placeholder="value" style="min-width:160px" value="' + _aiTestEsc(cond.value || '') + '" ' +
+          'oninput="vcampCond(' + gi + ',' + ci + ',\'value\',this.value)">' +
+        (g.conditions.length > 1
+          ? '<button class="vc-x" title="Remove condition" onclick="vcampRemoveCondition(' + gi + ',' + ci + ')">&times;</button>'
+          : '') +
+        '</div>';
+    });
+    html += '<button class="vc-btn" style="margin-top:4px" onclick="vcampAddCondition(' + gi + ')">+ Add condition</button>';
+    if (v.groupErrors[gi]) html += '<div class="vc-err">' + _aiTestEsc(v.groupErrors[gi]) + '</div>';
+    html += '</div>';
+  });
+  html += '<button class="vc-btn" style="margin-bottom:22px" onclick="vcampAddGroup()">+ Add another group (OR)</button>';
+
+  // ---- Enrollment & stop ----
+  const chk = (key, label) => '<label class="vc-check"><input type="checkbox" ' + (c[key] ? 'checked' : '') +
+    ' onchange="vcampState.draft.' + key + '=this.checked"> ' + label + '</label>';
+
+  html += '<div style="font:600 13px var(--sans);margin:0 0 10px">Enrollment &amp; stop conditions</div>';
+  html += chk('auto_enroll_new_leads', 'Auto-enroll new leads');
+  html += chk('trigger_on_missed_appointment', 'Trigger on missed appointment');
+  html += chk('trigger_on_sold', 'Trigger when lead is sold');
+  html += '<div style="height:8px"></div>';
+  html += chk('stop_on_appointment_booked', 'Stop on appointment booked');
+  html += chk('stop_on_sold', 'Stop when lead is sold');
+  html += '<label class="vc-check"><input type="checkbox" ' + (c.stop_on_answered ? 'checked' : '') +
+    ' onchange="vcampState.draft.stop_on_answered=this.checked;vcampRenderSettings()"> Stop when lead answers</label>';
+  if (c.stop_on_answered) {
+    html += '<div class="vc-row" style="margin:-2px 0 10px 26px">' +
+      '<input type="number" min="0" max="600" step="1" style="width:80px" value="' + vcInt(c.stop_answer_talk_secs, 15) + '" ' +
+      'oninput="vcampState.draft.stop_answer_talk_secs=parseInt(this.value,10)||0">' +
+      '<span style="font:12px var(--sans);color:var(--text2)">seconds of conversation counts as answered &mdash; ' +
+      'a lead who picked up and hung up in three seconds has not been spoken to.</span></div>';
+  }
+  html += '<label class="vc-check" style="margin-top:8px"><input type="checkbox" ' + (c.dry_run ? 'checked' : '') +
+    ' onchange="vcampState.draft.dry_run=this.checked"> Dry run &mdash; run every gate and schedule the next step, but place no call</label>';
+
+  html += '<div class="vc-row" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">' +
+    '<button class="vc-btn primary" id="vcamp-saveBtn" onclick="vcampSaveSettings()">Save</button>' +
+    '<button class="vc-btn" id="vcamp-reevalBtn" onclick="vcampReevaluate()">Re-evaluate leads now</button>' +
+    '<button class="vc-btn" style="border-color:#dc2626;color:#dc2626" onclick="vcampDelete()">Delete campaign</button>' +
+    '</div>' +
+    '<div id="vcamp-settingsMsg" style="font:12.5px/1.55 var(--sans);color:var(--text2);margin-top:10px"></div>';
+
+  pane.innerHTML = html;
+}
+
+function vcampCond(gi, ci, key, value) {
+  const g = vcampState.draft.trigger_groups[gi];
+  if (!g || !g.conditions[ci]) return;
+  g.conditions[ci][key] = value;
+  // Re-render only when the change can flip the tag rule; retyping a value
+  // must not steal focus from the box being typed into.
+  if (key !== 'value') vcampRenderSettings();
+}
+function vcampAddCondition(gi) {
+  vcampState.draft.trigger_groups[gi].conditions.push({ field: 'state', op: 'is', value: '' });
+  vcampRenderSettings();
+}
+function vcampRemoveCondition(gi, ci) {
+  vcampState.draft.trigger_groups[gi].conditions.splice(ci, 1);
+  vcampRenderSettings();
+}
+function vcampAddGroup() {
+  vcampState.draft.trigger_groups.push({ conditions: [{ field: 'lead_type', op: 'is', value: '' }] });
+  vcampRenderSettings();
+}
+function vcampRemoveGroup(gi) {
+  vcampState.draft.trigger_groups.splice(gi, 1);
+  vcampRenderSettings();
+}
+
+async function vcampSaveSettings() {
+  const c = vcampState.draft;
+  if (!c) return;
+  const msg = document.getElementById('vcamp-settingsMsg');
+  // A DRAFT may be saved half-written; only ACTIVATION requires a valid rule.
+  const v = vcValidateTriggerGroups(c.trigger_groups);
+  if (c.active && !v.ok) {
+    if (msg) { msg.textContent = v.error; msg.style.color = '#dc2626'; }
+    return;
+  }
+  const { error } = await sb.from('voice_campaigns').update({
+    name: (c.name || '').trim() || 'Untitled campaign',
+    description: c.description || null,
+    trigger_groups: c.trigger_groups,
+    auto_enroll_new_leads: !!c.auto_enroll_new_leads,
+    trigger_on_missed_appointment: !!c.trigger_on_missed_appointment,
+    trigger_on_sold: !!c.trigger_on_sold,
+    stop_on_appointment_booked: !!c.stop_on_appointment_booked,
+    stop_on_sold: !!c.stop_on_sold,
+    stop_on_answered: !!c.stop_on_answered,
+    stop_answer_talk_secs: vcInt(c.stop_answer_talk_secs, 15),
+    dry_run: !!c.dry_run,
+  }).eq('id', c.id);
+  if (error) {
+    if (msg) { msg.textContent = error.message; msg.style.color = '#dc2626'; }
+    return;
+  }
+  if (msg) {
+    msg.style.color = 'var(--text2)';
+    msg.textContent = v.ok ? 'Saved.' : 'Saved as a draft — ' + v.error;
+  }
+  showToast('Campaign saved', '#10b981');
+  await vcampLoad();
+}
+
+async function vcampToggleActive(id, on) {
+  const c = vcampState.campaigns.filter(x => x.id === id)[0];
+  if (!c) return;
+  if (on) {
+    const v = vcValidateTriggerGroups(c.trigger_groups);
+    if (!v.ok) { showToast(v.error, '#dc2626'); await vcampLoad(); return; }
+    const steps = vcampState.steps[id] || [];
+    if (!steps.length) { showToast('Add at least one step before switching this on.', '#dc2626'); await vcampLoad(); return; }
+  }
+  // Switching a paused campaign back on clears the pause: the agent has seen
+  // the reason and is telling us to try again.
+  const patch = on ? { active: true, paused_at: null, pause_reason: null } : { active: false };
+  const { error } = await sb.from('voice_campaigns').update(patch).eq('id', id);
+  if (error) showToast(error.message, '#dc2626');
+  await vcampLoad();
+}
+
+async function vcampResume(id) {
+  const resp = await sb.functions.invoke('voice-campaign-manage', { body: { action: 'resume', campaign_id: id } });
+  if (resp.error) { showToast('Could not resume', '#dc2626'); return; }
+  showToast('Campaign resumed', '#10b981');
+  await vcampLoad();
+}
+
+async function vcampDelete() {
+  const c = vcampState.draft;
+  if (!c) return;
+  if (!confirm('Delete “' + (c.name || 'this campaign') + '”? Its enrollments and steps go with it. Calls already placed stay in your history.')) return;
+  const { error } = await sb.from('voice_campaigns').delete().eq('id', c.id);
+  if (error) { showToast(error.message, '#dc2626'); return; }
+  vcampState.editingId = null;
+  vcampState.draft = null;
+  await vcampLoad();
+  vcampRenderList();
+}
+
+async function vcampReevaluate() {
+  const c = vcampState.draft;
+  if (!c) return;
+  const btn = document.getElementById('vcamp-reevalBtn');
+  const msg = document.getElementById('vcamp-settingsMsg');
+  if (btn) { btn.disabled = true; btn.textContent = 'Re-evaluating…'; }
+  let body = null;
+  try {
+    const resp = await sb.functions.invoke('voice-campaign-manage', {
+      body: { action: 'reevaluate', campaign_id: c.id },
+    });
+    body = resp.error ? null : resp.data;
+    if (resp.error && resp.error.context && typeof resp.error.context.json === 'function') {
+      body = await resp.error.context.json().catch(() => null);
+    }
+  } catch (e) {
+    body = { error: 'network_error', detail: (e && e.message) || String(e) };
+  }
+  if (btn) { btn.disabled = false; btn.textContent = 'Re-evaluate leads now'; }
+  if (body && body.ok) {
+    // The sentence comes from the server, built by the same function this file
+    // carries a copy of — so the toast and the log cannot word it differently.
+    showToast(body.summary || vcEnrollSummary(body.enrolled || 0, body.skipped || {}), '#10b981');
+    if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = body.summary || ''; }
+    await vcampLoad();
+  } else {
+    const detail = (body && (body.detail || body.error)) || 'Re-evaluation failed.';
+    showToast(detail, '#dc2626');
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = detail; }
+  }
+}
+
+// ---------- Steps tab ----------
+function vcampRenderSteps() {
+  const pane = document.getElementById('vcamp-pane-steps');
+  if (!pane) return;
+  const steps = vcampState.draftSteps;
+
+  let html = '<p style="font:12px/1.55 var(--sans);color:var(--text2);margin:0 0 14px">' +
+    'Each step waits, then calls. The wait is measured from when the previous step finished &mdash; ' +
+    'for the first step, from the moment the lead is enrolled.</p>';
+
+  if (!steps.length) {
+    html += '<div class="vc-empty">No steps yet.</div>';
+  }
+
+  steps.forEach((s, i) => {
+    const drip = s.drip_rate || null;
+    html += '<div class="vc-group">' +
+      '<div class="vc-group-head">Step ' + (i + 1) +
+        '<span style="float:right">' +
+          '<button class="vc-x" title="Move up" onclick="vcampMoveStep(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>&uarr;</button>' +
+          '<button class="vc-x" title="Move down" onclick="vcampMoveStep(' + i + ',1)"' + (i === steps.length - 1 ? ' disabled' : '') + '>&darr;</button>' +
+          '<button class="vc-x" title="Remove step" onclick="vcampRemoveStep(' + i + ')">&times;</button>' +
+        '</span>' +
+      '</div>' +
+      '<div class="vc-cond">' +
+        '<select onchange="vcampStep(' + i + ',\'step_type\',this.value)">' +
+          '<option value="call"' + (s.step_type === 'call' ? ' selected' : '') + '>Call</option>' +
+          '<option value="double_dial"' + (s.step_type === 'double_dial' ? ' selected' : '') + '>Double-Dial (2 attempts)</option>' +
+        '</select>' +
+        '<span style="font:12.5px var(--sans);color:var(--text2)">Wait</span>' +
+        '<input type="number" min="0" max="9999" step="1" style="width:80px" value="' + vcInt(s.wait_value, 0) + '" ' +
+          'oninput="vcampStep(' + i + ',\'wait_value\',parseInt(this.value,10)||0)">' +
+        '<select onchange="vcampStep(' + i + ',\'wait_unit\',this.value)">' +
+          VC_WAIT_UNITS.map(u => '<option value="' + u + '"' + (s.wait_unit === u ? ' selected' : '') + '>' + u + '</option>').join('') +
+        '</select>' +
+        '<span style="font:12.5px var(--sans);color:var(--text2)">before this step</span>' +
+      '</div>' +
+      '<label class="vc-check" style="margin-top:6px">' +
+        '<input type="checkbox" ' + (vcDripActive(drip) ? 'checked' : '') + ' onchange="vcampToggleDrip(' + i + ',this.checked)"> Drip rate' +
+      '</label>' +
+      (vcDripActive(drip)
+        ? '<div class="vc-cond" style="margin-left:26px">' +
+            '<span style="font:12.5px var(--sans);color:var(--text2)">at most</span>' +
+            '<input type="number" min="1" max="9999" style="width:80px" value="' + vcInt(drip.max_calls, 20) + '" ' +
+              'oninput="vcampStepDrip(' + i + ',\'max_calls\',parseInt(this.value,10)||0)">' +
+            '<span style="font:12.5px var(--sans);color:var(--text2)">calls every</span>' +
+            '<input type="number" min="1" max="1440" style="width:80px" value="' + vcInt(drip.per_minutes, 60) + '" ' +
+              'oninput="vcampStepDrip(' + i + ',\'per_minutes\',parseInt(this.value,10)||0)">' +
+            '<span style="font:12.5px var(--sans);color:var(--text2)">minutes &mdash; so 500 enrolled leads are not all dialed at 9:00:00</span>' +
+          '</div>'
+        : '') +
+      '</div>';
+  });
+
+  html += '<div class="vc-row" style="margin-top:6px">' +
+    '<button class="vc-btn" onclick="vcampAddStep()">+ Add step</button>' +
+    '<button class="vc-btn primary" onclick="vcampSaveSteps()">Save steps</button>' +
+    '</div><div id="vcamp-stepsMsg" style="font:12.5px var(--sans);color:var(--text2);margin-top:10px"></div>';
+
+  pane.innerHTML = html;
+}
+
+function vcampStep(i, key, value) {
+  const s = vcampState.draftSteps[i];
+  if (!s) return;
+  s[key] = value;
+  if (key === 'step_type' || key === 'wait_unit') vcampRenderSteps();
+}
+function vcampStepDrip(i, key, value) {
+  const s = vcampState.draftSteps[i];
+  if (!s) return;
+  s.drip_rate = s.drip_rate || { per_minutes: 60, max_calls: 20 };
+  s.drip_rate[key] = value;
+}
+function vcampToggleDrip(i, on) {
+  const s = vcampState.draftSteps[i];
+  if (!s) return;
+  s.drip_rate = on ? { per_minutes: 60, max_calls: 20 } : null;
+  vcampRenderSteps();
+}
+function vcampAddStep() {
+  vcampState.draftSteps.push({ id: null, step_type: 'call', wait_value: 2, wait_unit: 'hours', drip_rate: null });
+  vcampRenderSteps();
+}
+function vcampRemoveStep(i) {
+  vcampState.draftSteps.splice(i, 1);
+  vcampRenderSteps();
+}
+function vcampMoveStep(i, dir) {
+  const s = vcampState.draftSteps;
+  const j = i + dir;
+  if (j < 0 || j >= s.length) return;
+  const tmp = s[i]; s[i] = s[j]; s[j] = tmp;
+  vcampRenderSteps();
+}
+
+async function vcampSaveSteps() {
+  const c = vcampState.draft;
+  if (!c) return;
+  const msg = document.getElementById('vcamp-stepsMsg');
+  // Positions are rewritten from the on-screen order, so a reorder is a
+  // renumber. Deleting and re-inserting is what keeps
+  // UNIQUE(campaign_id, position) satisfiable without a two-phase shuffle;
+  // an enrollment mid-campaign keeps its position number and lands on
+  // whatever step now wears it, which is the same behaviour as editing a
+  // step in place.
+  try {
+    const { error: delErr } = await sb.from('voice_campaign_steps').delete().eq('campaign_id', c.id);
+    if (delErr) throw delErr;
+    if (vcampState.draftSteps.length) {
+      const rows = vcampState.draftSteps.map((s, i) => ({
+        campaign_id: c.id,
+        agent_id: currentAgent.id,   // overwritten by the derive trigger; sent to satisfy NOT NULL
+        position: i + 1,
+        step_type: VC_STEP_TYPES.indexOf(s.step_type) !== -1 ? s.step_type : 'call',
+        wait_value: Math.max(0, vcInt(s.wait_value, 0)),
+        wait_unit: VC_WAIT_UNITS.indexOf(s.wait_unit) !== -1 ? s.wait_unit : 'minutes',
+        drip_rate: vcDripActive(s.drip_rate) ? s.drip_rate : null,
+      }));
+      const { error: insErr } = await sb.from('voice_campaign_steps').insert(rows);
+      if (insErr) throw insErr;
+    }
+  } catch (err) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = err.message || String(err); }
+    return;
+  }
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Saved.'; }
+  showToast('Steps saved', '#10b981');
+  await vcampLoad();
+  vcampState.draftSteps = JSON.parse(JSON.stringify(vcStepsSorted(vcampState.steps[c.id] || [])));
+  vcampRenderSteps();
+}
+
+// ---------- Enrollments tab ----------
+function vcampRenderEnrollments() {
+  const pane = document.getElementById('vcamp-pane-enrollments');
+  const c = vcampState.draft;
+  if (!pane || !c) return;
+  const rows = vcampState.enrollments[c.id] || [];
+
+  if (!rows.length) {
+    pane.innerHTML = '<div class="vc-empty">Nobody is in this campaign yet. ' +
+      'Switch on “Auto-enroll new leads”, or press “Re-evaluate leads now” on the Settings tab to run the rules over your existing book.</div>';
+    return;
+  }
+
+  const leadName = (id) => {
+    const l = (typeof leads !== 'undefined' && Array.isArray(leads))
+      ? leads.filter(x => String(x.id) === String(id))[0] : null;
+    if (!l) return '—';
+    return l.name || ((l.first_name || '') + ' ' + (l.last_name || '')).trim() || '—';
+  };
+  const when = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  };
+
+  pane.innerHTML = '<table class="vc-tbl"><thead><tr>' +
+    '<th>Lead</th><th>Status</th><th>Step</th><th>Next action</th><th>Calls</th><th></th>' +
+    '</tr></thead><tbody>' +
+    rows.map(e => '<tr>' +
+      '<td style="color:var(--text)">' + _aiTestEsc(leadName(e.lead_id)) + '</td>' +
+      '<td>' + _aiTestEsc(e.status) +
+        (e.stop_reason ? ' <span style="color:var(--text3)">· ' + _aiTestEsc(vcStopReasonLabel(e.stop_reason)) + '</span>' : '') + '</td>' +
+      '<td>' + vcInt(e.current_step_position, 0) + '</td>' +
+      '<td>' + _aiTestEsc(e.status === 'active' ? when(e.next_action_at) : '—') + '</td>' +
+      '<td>' + vcInt(e.calls_placed, 0) + '</td>' +
+      '<td>' + (e.status === 'active'
+        ? '<button class="vc-btn" onclick="vcampUnenroll(\'' + _aiTestEsc(e.id) + '\')">Unenroll</button>'
+        : '') + '</td>' +
+      '</tr>').join('') +
+    '</tbody></table>';
+}
+
+async function vcampUnenroll(enrollmentId) {
+  const resp = await sb.functions.invoke('voice-campaign-manage', {
+    body: { action: 'unenroll', enrollment_id: enrollmentId },
+  });
+  if (resp.error) { showToast('Could not unenroll', '#dc2626'); return; }
+  showToast('Unenrolled', '#10b981');
+  await vcampLoad();
+}
+
 function nav(id) {
   // Plan gate — intercept before navigating
   const _navTier = _planTier();
@@ -26393,6 +27375,9 @@ function nav(id) {
     aiApptLoad().then(() => { gcalRenderGrid(); gcalRenderList(); });
   }
   if (id === 'phonebook') renderPhoneBook();
+  // Also wired on the injected nav item's own handler; this covers the
+  // refresh-restore path, which navigates without going through it.
+  if (id === 'voice-campaigns' && typeof vcampOnShow === 'function') vcampOnShow();
   if (id === 'webdialer') webDialer.render();
   if (id === 'agency') renderAgencySection();
   if (id === 'settings') initSettingsSection();
@@ -27466,7 +28451,7 @@ async function renderPhoneBook() {
       .select('id, slug, name, monthly_minutes, monthly_quote_limit, monthly_uw_prompt_limit, included_numbers, recording_retention_days, monthly_cost, sort_order')
       .eq('active', true).order('sort_order', { ascending: true }),
     sb.from('phone_numbers')
-      .select('id, e164, friendly_name, locality, region, sw_phone_sid, monthly_cost, is_primary, status, purchased_at')
+      .select('id, e164, friendly_name, locality, region, sw_phone_sid, monthly_cost, is_primary, status, purchased_at, ai_inbound_enabled')
       .eq('agent_id', currentAgent.id)
       .order('is_primary', { ascending: false })
       .order('purchased_at', { ascending: true }),
@@ -27694,16 +28679,31 @@ function pbRenderNumbersList(numbers) {
     const manageBtn = n._virtual
       ? ''
       : `<button type="button" class="pb-number-manage" data-id="${escapeHTML(n.id)}" data-e164="${escapeHTML(n.e164)}">Manage</button>`;
+    // "AI answers callbacks" — the per-number opt-OUT. On by default since
+    // 20260802b: a lead who calls back a number they saw on their phone
+    // should reach the agent who owns it, whichever of their numbers it was.
+    // Off here means that number rings out, exactly as it did before.
+    const aiInbound = n._virtual
+      ? ''
+      : `<label class="pb-number-aiin" title="Ring your transfer number when someone calls this one, with the AI as backup">
+           <input type="checkbox" data-id="${escapeHTML(n.id)}" ${n.ai_inbound_enabled === false ? '' : 'checked'}>
+           <span>AI answers callbacks</span>
+         </label>`;
     return `
       <div class="pb-number-row">
         <div class="pb-number-e164">${escapeHTML(_pbFmtPhone(n.e164))}</div>
         <div class="pb-number-loc">${escapeHTML(loc)}</div>
         <div>${primaryCol}</div>
+        <div>${aiInbound}</div>
         <div class="pb-number-cost">${cost}</div>
         <div>${manageBtn}</div>
       </div>
     `;
   }).join('');
+
+  list.querySelectorAll('.pb-number-aiin input').forEach(box => {
+    box.addEventListener('change', () => pbSetAiInbound(box.dataset.id, box.checked, box));
+  });
 
   list.querySelectorAll('.pb-number-setprimary').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -27725,6 +28725,26 @@ function pbRenderNumbersList(numbers) {
 // unique index on (agent_id) WHERE is_primary=true. After both
 // updates, mirror the new primary's e164 into agents.signalwire_caller_id
 // so signalwire-bridge dials from it on the next call.
+// The per-number inbound opt-out. `ai_inbound_enabled` is deliberately left
+// client-writable by phone_numbers_protect_privileged_columns (it is the
+// agent's own routing preference, not a billing or identity column), so this
+// is a plain owner-scoped UPDATE with no edge function in the way.
+async function pbSetAiInbound(numberId, on, box) {
+  if (!numberId) return;
+  try {
+    const { error } = await sb.from('phone_numbers')
+      .update({ ai_inbound_enabled: !!on })
+      .eq('id', numberId)
+      .eq('agent_id', currentAgent.id);
+    if (error) throw error;
+    showToast(on ? 'This number will answer callbacks' : 'This number will ring out', '#10b981');
+  } catch (err) {
+    console.warn('[phonebook] ai_inbound_enabled update failed', err);
+    if (box) box.checked = !on;   // put the switch back where the truth is
+    showToast(`Save failed: ${err.message || err}`, '#dc2626');
+  }
+}
+
 async function pbSetNumberAsPrimary(numberId, e164) {
   if (!numberId) return;
   try {

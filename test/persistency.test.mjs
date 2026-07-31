@@ -301,7 +301,7 @@ test('every core sentinel appears EXACTLY ONCE in app.html', () => {
   // between, and the extracted code stops parsing — which is exactly what a
   // comment saying "delegates to the <persist-core> block" did.
   ['bob-core', 'comm-core', 'persist-core', 'backoffice-core', 'team-core', 'producer-codes-core',
-   'ai-meter-core']
+   'ai-meter-core', 'vcamp-core']
     .forEach(name => {
       const opens = (APP.match(new RegExp(`// <${name}>`, 'g')) || []).length;
       const closes = (APP.match(new RegExp(`// </${name}>`, 'g')) || []).length;

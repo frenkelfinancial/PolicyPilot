@@ -43,6 +43,23 @@ import {
 //
 // Only after all six pass does it dial. Billing happens later, in
 // ai-call-webhook, via wallet_debit_ai_minutes.
+//
+// ---- TWO CALLERS, TWO AUTH MODES (20260802b) -------------------------------
+//
+//   1. THE BROWSER, with the signed-in agent's session JWT. Unchanged in every
+//      respect: the agent comes from the verified token and there is no agent
+//      id in the body.
+//   2. VOICE-CAMPAIGN-TICK, presenting the SERVICE ROLE KEY as its bearer
+//      token. Only then is `agent_id` read from the body.
+//
+// Mode 2 exists because campaigns must place every call THROUGH this gate
+// chain rather than around it, and the tick runs for many agents at once under
+// the service role with no user session to borrow. It is safe for one reason
+// and it is worth naming: the browser never holds the service role key, so no
+// client can reach the branch that reads an agent id from a request body. This
+// function stays verify_jwt = true (it is NOT in supabase/config.toml) — the
+// service key is itself a valid Supabase JWT, so the platform gate is
+// satisfied by the same header. Do not relax that.
 serve(async (req) => {
   const CORS = corsHeaders(req.headers.get("origin"));
   function json(body: unknown, status = 200) {
@@ -77,19 +94,52 @@ serve(async (req) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "unauthorized" }, 401);
 
-  const sbAuth = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: { user } } = await sbAuth.auth.getUser();
-  if (!user) return json({ error: "unauthorized" }, 401);
-
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  let body: { lead_id?: unknown; caller_id?: unknown };
+  // Mode 2 first, because it is a plain string comparison and mode 1 costs a
+  // round trip to the auth server.
+  const isInternal = authHeader === `Bearer ${SERVICE_KEY}`;
+
+  let body: {
+    lead_id?: unknown; caller_id?: unknown; agent_id?: unknown;
+    enrollment_id?: unknown; campaign_id?: unknown; campaign_step?: unknown;
+    campaign_name?: unknown; dry_run?: unknown;
+  };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
+
+  let agentId = "";
+  if (isInternal) {
+    // The ONLY branch that reads an agent id from a request body, reachable
+    // only by something already holding the service role key.
+    agentId = typeof body.agent_id === "string" ? body.agent_id : "";
+    if (!agentId) {
+      return json({ error: "missing_agent_id", detail: "An internal caller must name the agent." }, 400);
+    }
+  } else {
+    const sbAuth = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await sbAuth.auth.getUser();
+    if (!user) return json({ error: "unauthorized" }, 401);
+    agentId = user.id;
+  }
 
   const leadId = typeof body.lead_id === "string" && body.lead_id.length > 0 ? body.lead_id : "";
   if (!leadId) return json({ error: "missing_lead_id", detail: "lead_id (public.leads.id uuid) is required." }, 400);
+
+  // Campaign context. Every one of these is NULL for a manual / test-rig call
+  // and the row is written exactly as it was before.
+  const enrollmentId = isInternal && typeof body.enrollment_id === "string" ? body.enrollment_id : null;
+  const campaignId   = isInternal && typeof body.campaign_id   === "string" ? body.campaign_id   : null;
+  const campaignStep = isInternal && Number.isFinite(Number(body.campaign_step))
+    ? Math.trunc(Number(body.campaign_step)) : null;
+  const campaignName = isInternal && typeof body.campaign_name === "string" ? body.campaign_name.trim() : "";
+
+  // DRY RUN — internal callers only. Runs every gate in order and stops at the
+  // dial. It writes no ai_calls row, places no call and costs nothing, which
+  // is what makes the whole chain provable against production data without a
+  // phone ringing. A browser cannot ask for it.
+  const dryRun = isInternal && body.dry_run === true;
 
   // One parallel round-trip for everything the gates read.
   const [
@@ -101,7 +151,7 @@ serve(async (req) => {
   ] = await Promise.all([
     sb.from("agents")
       .select("is_admin, ai_dialer_enabled, plan_id, display_name, agency_name, signalwire_caller_id, ai_voice, ai_agent_name, ai_daily_call_cap, timezone")
-      .eq("id", user.id)
+      .eq("id", agentId)
       .maybeSingle(),
     sb.from("billing_config")
       .select("ai_dialer_enabled, ai_quiet_start, ai_quiet_end, min_ai_call_start_mills")
@@ -109,11 +159,11 @@ serve(async (req) => {
       .maybeSingle(),
     sb.from("wallet_accounts")
       .select("balance_mills")
-      .eq("agent_id", user.id)
+      .eq("agent_id", agentId)
       .maybeSingle(),
     sb.from("leads")
       .select("id, data, tcpa_consent, dnc, lead_timezone")
-      .eq("agent_id", user.id)
+      .eq("agent_id", agentId)
       .eq("id", leadId)
       .maybeSingle(),
     // The AI-number pool the daily recommendation is summed over. Active rows
@@ -121,7 +171,7 @@ serve(async (req) => {
     // not inflate the pace we recommend.
     sb.from("phone_numbers")
       .select("e164, ai_first_used_at")
-      .eq("agent_id", user.id)
+      .eq("agent_id", agentId)
       .eq("status", "active"),
   ]);
 
@@ -167,7 +217,7 @@ serve(async (req) => {
   const { data: suppressed } = await sb.from("suppression_list")
     .select("id")
     .eq("phone_e164", phoneE164)
-    .or(`agent_id.eq.${user.id},agent_id.is.null`)
+    .or(`agent_id.eq.${agentId},agent_id.is.null`)
     .limit(1)
     .maybeSingle();
   if (suppressed) {
@@ -205,7 +255,7 @@ serve(async (req) => {
   const dayWin   = localDayWindow(new Date(), meterTz);
   const { count: placedToday } = await sb.from("ai_calls")
     .select("id", { count: "exact", head: true })
-    .eq("agent_id", user.id)
+    .eq("agent_id", agentId)
     .eq("direction", "outbound")
     .gte("created_at", dayWin.startIso)
     .lt("created_at", dayWin.endIso);
@@ -243,7 +293,7 @@ serve(async (req) => {
   if (pace.overRecommendation) {
     try {
       await sb.from("ai_pace_events").upsert({
-        agent_id:     user.id,
+        agent_id:     agentId,
         local_day:    dayWin.dayKey,
         timezone:     dayWin.timezone,
         calls_today:  pace.callsToday,
@@ -268,7 +318,22 @@ serve(async (req) => {
   }
 
   // ---- Caller ID ---------------------------------------------------------
-  const callerId = (typeof body.caller_id === "string" && body.caller_id) ||
+  //
+  // A requested caller ID must be one of THIS agent's active numbers. The
+  // campaign engine rotates across the pool (see vcPickCallerId) and a bug
+  // there must not be able to place a call from a number belonging to someone
+  // else — Telnyx would reject it, but "the connection rejected it" is not a
+  // boundary, it is a coincidence. An unrecognised value falls back to the
+  // agent's primary rather than failing: the call is the point.
+  const requestedCallerId = typeof body.caller_id === "string" ? body.caller_id.trim() : "";
+  const ownedNumbers = ((agentNumbers || []) as Array<{ e164?: string | null }>)
+    .map((n) => (typeof n.e164 === "string" ? n.e164 : ""))
+    .filter(Boolean);
+  const callerIdOwned = !!requestedCallerId && ownedNumbers.includes(requestedCallerId);
+  if (requestedCallerId && !callerIdOwned) {
+    console.warn("[ai-call-start] requested caller_id is not an active number for this agent; falling back");
+  }
+  const callerId = (callerIdOwned ? requestedCallerId : "") ||
     agent?.signalwire_caller_id || "";
   if (!callerId) {
     return json({
@@ -329,7 +394,41 @@ serve(async (req) => {
     agency_name: asStr(agent?.agency_name) || asStr(agent?.display_name) || "our agency",
     ai_name:     aiName,
     voice:       aiVoice,
+    // Why this call is happening, when a campaign asked for it. Blank for a
+    // manual call, and blank STAYS blank — a campaign name the agent did not
+    // write is a phrase they would have to explain to a lead.
+    campaign_name: campaignName,
+    campaign_step: campaignStep !== null ? String(campaignStep) : "",
   };
+
+  // ---- Dry run: everything above happened, nothing below does -------------
+  if (dryRun) {
+    return json({
+      ok: true,
+      dry_run: true,
+      would_dial: {
+        to: phoneE164,
+        from: callerId,
+        lead_id: lead.id,
+        enrollment_id: enrollmentId,
+        campaign_id: campaignId,
+        campaign_step: campaignStep,
+        assistant_id: TELNYX_ASSISTANT,
+        vars: dynamicVariables,
+      },
+      // Named in words, not by their error codes: a test asserts each refusal
+      // code appears exactly once in this file, so that the one place a call
+      // can be blocked stays findable by searching for it.
+      gates_passed: [
+        "1 kill switches", "2 plan tier", "3 consent / DNC / suppression",
+        "4 lead-local quiet hours", "5 daily cap", "6 wallet floor",
+      ],
+      calls_today: pace.callsToday,
+      cap: pace.cap,
+      recommended: pace.recommended,
+      over_recommendation: pace.overRecommendation,
+    });
+  }
 
   const telnyxHeaders = {
     "Authorization": `Bearer ${TELNYX_API_KEY}`,
@@ -342,7 +441,7 @@ serve(async (req) => {
   // dependence on the call_control_id backfill landing before the first
   // event). call_control_id is filled in once Telnyx accepts the call.
   const { data: aiCall, error: insertErr } = await sb.from("ai_calls").insert({
-    agent_id:   user.id,
+    agent_id:   agentId,
     lead_id:    lead.id,
     phone_e164: phoneE164,
     from_e164:  callerId,
@@ -350,6 +449,12 @@ serve(async (req) => {
     outcome:    "in_progress",
     voice:      aiVoice || null,
     started_at: new Date().toISOString(),
+    // NULL on every manual call. campaign_id/step are denormalised beside the
+    // enrollment so the drip-rate window and the campaign stats stay one
+    // indexed query each (20260802b).
+    enrollment_id: enrollmentId,
+    campaign_id:   campaignId,
+    campaign_step: campaignStep,
   }).select("id").single();
 
   if (insertErr || !aiCall) {
@@ -428,7 +533,7 @@ serve(async (req) => {
   // 1 and quietly halve the recommendation on every later call.
   await sb.from("phone_numbers")
     .update({ ai_first_used_at: new Date().toISOString() })
-    .eq("agent_id", user.id)
+    .eq("agent_id", agentId)
     .eq("e164", callerId)
     .is("ai_first_used_at", null);
 
@@ -436,6 +541,11 @@ serve(async (req) => {
     ok: true,
     ai_call_id: aiCall.id,
     call_control_id: callControlId,
+    // The number this actually went out on. The campaign tick rotates the
+    // caller ID across the pool and traces what it got back, so a rotation
+    // that silently fell back to the primary is visible rather than inferred.
+    from_e164: callerId,
+    enrollment_id: enrollmentId,
     // The meter as it stood before this call, plus this one — so the panel can
     // move without a round trip. `recommended` is null when the agent has no
     // active number (no pool, so no recommendation — not a recommendation of 0).

@@ -121,17 +121,28 @@ windows, pool recommendations, verdicts and the rendered copy. If the screen
 and the server ever disagree about whether a call is allowed, that test fails.
 Same arrangement as `pcNormalizeCode()` vs `pc_normalize_code()`.
 
-## Left for the campaign-builder round
+## Closed by the campaign-builder round (2026-07-30)
 
-The campaign builder consumes this same gate for pacing. Two things it will
-need to decide:
+Both open items are done. See `docs/voice-campaigns.md`.
 
-- **The pool is every `status='active'` number, but the dialer only ever dials
-  from one.** `ai-call-start` takes an optional `caller_id` and otherwise uses
-  `agents.signalwire_caller_id`, so today a two-number agent is recommended 600
-  while all 600 would land on one number. Nothing rotates yet. Either the
-  campaign builder rotates the caller ID across the pool (which makes the
-  current recommendation correct), or the recommendation should be narrowed to
-  the numbers actually in rotation. **Do not leave it as-is silently.**
-- A campaign that queues work across days will want `resets_at` (already in the
-  429 body) rather than re-deriving midnight.
+- **The rotation exists, so the recommendation is now honest.** Campaign calls
+  pass an explicit `caller_id`, chosen by `vcPickCallerId()`
+  (`_shared/voice-campaign-core.ts`) as the active number with the most room
+  left against **its own** ramp — computed with this module's own
+  `numberRampValue()`, so the meter and the rotation cannot disagree about a
+  number's budget. Per-number usage comes from `ai_calls.from_e164` in the
+  agent's day. A two-number agent recommended 600 now genuinely spreads across
+  two numbers. Ties break deterministically and alternate on the next call,
+  because the winner's usage goes up the moment it dials.
+  **Manual test-rig calls still use `agents.signalwire_caller_id`** — one call
+  placed by hand does not need spreading, and changing what the rig dials from
+  would have changed what the live-call tests mean.
+- **`resets_at` is what a blocked campaign reschedules on.**
+  `vcHandleGateRejection('daily_cap_reached')` reads it straight out of the 429
+  body rather than re-deriving midnight, so there is one definition of when an
+  agent's day rolls over.
+
+One thing the campaign round added here: `ai-call-start` now **verifies a
+requested `caller_id` is one of the agent's own active numbers**, falling back
+to their primary if it is not. A rotation bug must not be able to place a call
+from another agent's number.

@@ -13,6 +13,7 @@ import {
 } from "../_shared/ai-call-outcome.ts";
 import { buildInboundGreeting } from "../_shared/ai-inbound.ts";
 import { reportMinutesToWallet } from "../_shared/dialer-next-lead.ts";
+import { recordCampaignCallResult } from "../_shared/voice-campaign-result.ts";
 
 // ai-call-webhook — Telnyx Call Control + AI Assistant webhook for one AI
 // Sales Agent call, BOTH LEGS. Configured per-call by ai-call-start (the lead
@@ -260,11 +261,12 @@ serve(async (req) => {
     from_e164: string | null;
     direction: string | null;
     answered_by: string | null;
+    enrollment_id: string | null;
   };
   const AI_CALL_COLS =
     "id, agent_id, lead_id, phone_e164, call_control_id, status, outcome, answered_at, " +
     "started_at, error_detail, transfer_status, transfer_call_control_id, appointment_id, qualification, " +
-    "from_e164, direction, answered_by";
+    "from_e164, direction, answered_by, enrollment_id";
   async function loadAiCall(): Promise<AiCallRow | null> {
     const { data } = await sb.from("ai_calls")
       .select(AI_CALL_COLS)
@@ -1139,8 +1141,27 @@ serve(async (req) => {
         });
       }
 
+      // ---- The campaign this call belonged to, if any --------------------
+      //
+      // AFTER the outcome is written, because vcEvaluateStop reads it: a
+      // dnc_request has to be able to stop the enrollment, and the row must
+      // already say so. AFTER the debit for the same reason the settle above
+      // is — money first, bookkeeping second. Never throws; a no-op for every
+      // manual and test-rig call.
+      const campaignResult = await recordCampaignCallResult(sb, {
+        id:             row.id,
+        agent_id:       row.agent_id,
+        lead_id:        row.lead_id,
+        enrollment_id:  row.enrollment_id,
+        outcome:        finalOutcome,
+        answered_at:    row.answered_at,
+        ended_at:       endTime.toISOString(),
+        appointment_id: row.appointment_id,
+      }, endTime);
+
       await logEvent("finalize", {
         outcome_before: row.outcome, outcome_after: finalOutcome, derived,
+        campaign: campaignResult.applied ? campaignResult : undefined,
         direction: row.direction, answered_by: row.answered_by,
         duration_secs: durationSecs,
         billed_minutes: billed,

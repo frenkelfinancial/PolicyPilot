@@ -146,6 +146,26 @@ verify_jwt = false
 [functions.ai-call-tools]
 verify_jwt = false
 
+# voice-campaign-tick: the campaign scheduler, invoked every minute by pg_cron
+# (see supabase/schedule_voice_campaigns.sql) with a dedicated
+# VOICE_CAMPAIGN_CRON_SECRET bearer token — not a Supabase JWT — so the
+# platform gate must be off and the function checks the secret itself, exactly
+# like email-pipeline. Nothing else calls it: the browser has no business here,
+# and a test asserts app.html never mentions it.
+#
+# voice-campaign-manage (the "Re-evaluate leads now" button, unenroll, resume)
+# is deliberately NOT listed: it is called by the signed-in agent's browser
+# with a real session JWT and takes the agent from that token, so the platform
+# default (verify_jwt = true) is correct and desired.
+#
+# ai-call-start is STILL not listed, and that is load-bearing. The tick calls
+# it with the SERVICE ROLE KEY as its bearer token — itself a valid Supabase
+# JWT, so the platform gate is satisfied — and that key is precisely what a
+# browser never holds, which is what keeps the internal "agent_id in the body"
+# branch out of a client's reach.
+[functions.voice-campaign-tick]
+verify_jwt = false
+
 # compliance-page: the ONLY function here whose caller is the general public
 # rather than a signed webhook or a cron secret. It server-renders each
 # agent's 10DLC privacy policy / terms at /a/<slug>, and the people who fetch

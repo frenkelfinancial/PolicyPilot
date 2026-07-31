@@ -2612,3 +2612,78 @@ Row counts unchanged: 9 agents, 7 active numbers, 14 `ai_calls`.
   Telnyx `call_control_id`, carries raw Telnyx payloads, has no `agent_id` to
   scope an owner policy by, and is service-role-only. A pace warning belongs to
   an agent and a day, and the agent is allowed to see it.
+
+---
+
+## Applied — `20260802b_voice_campaigns.sql` (2026-07-30)
+
+Voice campaigns: the AI dials the book on its own, by rules. Plus Part 0 —
+inbound answering turned on for every number an agent owns.
+
+Applied with `npx supabase db query --linked -f <file>`, wrapped in
+`begin; … commit;` (same mechanism and reasoning as 20260753 / 20260801 /
+20260802). Filed at `20260802b` because `20260802_ai_call_meter.sql` was applied
+earlier the same day and this file alters `ai_calls` and `phone_numbers` after
+it.
+
+### Verified present after the apply
+
+| Object | Result |
+|---|---|
+| `voice_campaigns`, `voice_campaign_steps`, `voice_campaign_enrollments` | 3/3 present |
+| `ai_calls.enrollment_id`, `.campaign_id`, `.campaign_step` | 3/3 present |
+| `phone_numbers.ai_inbound_enabled` default | `true` |
+| numbers with inbound on | **7 of 7** (the power-dialer host is not in this table) |
+| `voice_campaign_enrollments` policies | **1** — SELECT-own only, as intended |
+| `voice_campaigns` policies | SELECT, INSERT, UPDATE, DELETE (owner-writable config) |
+| `voice_campaigns_validate`, `voice_campaign_steps_derive` triggers | 2/2 present |
+
+### Decisions worth not re-deriving
+
+- **`ai_inbound_enabled` went from `default false` to `default true`, and that
+  is a product decision, not a loosening.** 20260801 shipped it false while the
+  inbound flow was unproven; the flow is proven, and an agent who buys five
+  numbers and finds four of them ring out has a broken product, not a safe one.
+  The person whose cell rings is the number's OWNER, the call is a callback to
+  a number they chose to publish, and the flow rings them first with the
+  assistant only as backup. The per-agent kill switch and the per-number
+  opt-out (now surfaced in the Phone Book) both still exist.
+- **The power-dialer host is excluded by e164 and forced FALSE.** It is not in
+  `public.phone_numbers` at all today — it is owned at the Telnyx account level,
+  not by an agent — and `telnyx-call-status` checks it before the AI branch
+  anyway, so a flag there could never fire. The predicate is what keeps that
+  true if the row is ever added.
+- **No purchase path was edited.** `telnyx-buy-number`,
+  `telnyx-provision-number` and `telnyx-replace-number` all INSERT without
+  naming the column, so the default is what a newly bought number gets — one
+  default beats three call sites that have to remember, and a fourth path added
+  later inherits it. Verified none of the three names the column.
+- **`voice_campaign_enrollments` is SELECT-only for `authenticated`, and this
+  is the boundary that matters in this migration.** An enrollment is a standing
+  instruction to place phone calls to a consumer; a browser that could write one
+  could enroll a lead with no consent, and the whole compliance story would rest
+  on the UI being polite. Campaigns and steps ARE owner-writable — they are
+  configuration, the same class as `producer_codes`.
+- **The trigger-group tag rule is enforced in the database as well as in the
+  browser and the edge function**, because `voice_campaigns` is owner-writable
+  and the browser is not the only thing that can PATCH it. It fires **only for
+  `active = true`**: a draft may be half-written, and an editor that refuses to
+  save an unfinished rule is an editor nobody can use.
+- **`voice_campaign_steps.agent_id` is derived by a trigger**, never accepted
+  from the client — same reasoning as `producer_codes.code_key`. The INSERT
+  policy therefore checks the CAMPAIGN's owner, not the row's `agent_id`, which
+  does not exist yet when `WITH CHECK` runs.
+- **The one-active-campaign rule is a partial unique index on `lead_id`**, not
+  application logic. A lead in two voice campaigns gets two robots in one
+  afternoon and neither campaign's numbers mean anything afterwards.
+- **`voice_campaigns_seed_uidx` is PARTIAL** (`where seed_key is not null`),
+  because hand-made campaigns have a NULL key and a total index would collide
+  every one of them against every other. A partial index cannot be inferred from
+  a bare column list, so the next round's seeder must write
+  `on conflict (agent_id, seed_key) where seed_key is not null` — a form
+  PostgREST cannot express. **The seed runs as SQL or in an edge function.**
+  This was found by hitting `42P10` during the dry-run setup, not by reading.
+- **`campaign_id` and `campaign_step` sit on `ai_calls` beside
+  `enrollment_id`**, denormalised on purpose: the drip throttle counts calls per
+  (campaign, step) over a rolling window and that must be one indexed query, and
+  a campaign's stats must survive an enrollment being deleted with its lead.

@@ -362,3 +362,82 @@ test("ABANDONED: an unrelated hangup is not claimed", async () => {
   }), false, "a power-dialer leg must fall through to the dialer's own handler");
   assert.equal(calls.length, 0);
 });
+
+// ==========================================================================
+// EVERY NUMBER AN AGENT OWNS (20260802b)
+//
+// ai_inbound_enabled now defaults TRUE, so an agent who buys five numbers has
+// five numbers that answer callbacks. What must hold is that the number
+// decides WHOSE agent gets rung: called number -> owning agent -> THAT agent's
+// transfer_number and Available/Busy state. Five numbers, one agent, one cell;
+// and a second agent's number that never crosses over.
+// ==========================================================================
+
+const FIVE = ["+12029981783", "+12026143091", "+12027953507", "+12027437798", "+12027718346"];
+const AGENT_B = "agent-uuid-2";
+const XFER_B  = "+13125550199";
+const NUM_B   = "+12027428855";
+
+const fleet = () => ({
+  phone_numbers: [
+    ...FIVE.map((e164, i) => numberRow({ id: `pn-a-${i}`, e164, agent_id: AGENT })),
+    numberRow({ id: "pn-b-1", e164: NUM_B, agent_id: AGENT_B }),
+  ],
+  agents: [
+    agentRow({ ai_availability: "available", transfer_number: XFER }),
+    agentRow({ id: AGENT_B, display_name: "Other Agent", ai_availability: "available", transfer_number: XFER_B }),
+  ],
+  leads: [],
+});
+
+for (const num of FIVE) {
+  test(`EVERY NUMBER: a callback to ${num} rings the owning agent's cell`, async () => {
+    const { sb } = makeSb(fleet());
+    const { impl, calls } = makeFetch([{ ok: true, body: { data: { call_control_id: "v3:agent-ccid" } } }]);
+
+    assert.equal(await startInboundIfEnabled(deps(sb, impl, { to: num })), true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, "https://api.telnyx.com/v2/calls");
+    assert.equal(calls[0].body.to, XFER, "all five numbers ring the SAME agent's transfer number");
+    assert.equal(calls[0].body.from, num, "caller ID is the number they actually dialed");
+  });
+}
+
+test("EVERY NUMBER: another agent's number rings THEIR cell, never the first agent's", async () => {
+  const { sb } = makeSb(fleet());
+  const { impl, calls } = makeFetch([{ ok: true, body: { data: { call_control_id: "v3:agent-ccid" } } }]);
+
+  assert.equal(await startInboundIfEnabled(deps(sb, impl, { to: NUM_B })), true);
+  assert.equal(calls[0].body.to, XFER_B);
+  assert.notEqual(calls[0].body.to, XFER, "a number resolves to ITS OWN owner and nobody else");
+});
+
+test("EVERY NUMBER: one agent going Busy does not change the other agent's routing", async () => {
+  const tables = fleet();
+  // Agent A steps away; agent B is still available.
+  tables.agents = [
+    agentRow({ ai_availability: "busy", transfer_number: XFER }),
+    agentRow({ id: AGENT_B, display_name: "Other Agent", ai_availability: "available", transfer_number: XFER_B }),
+  ];
+
+  const a = makeSb(tables);
+  const fa = makeFetch([{ ok: true }]);
+  assert.equal(await startInboundIfEnabled(deps(a.sb, fa.impl, { to: FIVE[2] })), true);
+  assert.match(fa.calls[0].url, /actions\/answer$/, "A is busy — the assistant takes it");
+
+  const b = makeSb(tables);
+  const fb = makeFetch([{ ok: true, body: { data: { call_control_id: "v3:agent-ccid" } } }]);
+  assert.equal(await startInboundIfEnabled(deps(b.sb, fb.impl, { to: NUM_B })), true);
+  assert.equal(fb.calls[0].body.to, XFER_B, "B is available — B's cell rings");
+});
+
+test("EVERY NUMBER: the power-dialer host is still excluded even now the default is on", async () => {
+  const tables = fleet();
+  // Even if a row for it somehow existed and said enabled.
+  tables.phone_numbers.push(numberRow({ id: "pn-host", e164: DIALER, agent_id: AGENT }));
+  const { sb } = makeSb(tables);
+  const { impl, calls } = makeFetch([{ ok: true }]);
+
+  assert.equal(await startInboundIfEnabled(deps(sb, impl, { to: DIALER })), false);
+  assert.equal(calls.length, 0, "the PIN IVR owns that number and the guard runs after it");
+});
