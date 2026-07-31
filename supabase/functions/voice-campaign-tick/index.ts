@@ -411,6 +411,11 @@ Deno.serve(async (req) => {
             // Nothing is due while a call is in the air. The webhook's
             // finalize sets the next one.
             next_action_at:  null,
+            // The phone is ringing, so no gate is holding this lead back any
+            // more. Cleared here rather than on the next reschedule, because
+            // between the two the screen would still be explaining a wait
+            // that ended the moment we dialled.
+            last_gate_code:  null,
             updated_at:      nowIso,
           }).eq("id", claimed.id);
           say({
@@ -468,6 +473,14 @@ Deno.serve(async (req) => {
       await sb.from("voice_campaign_enrollments").update({
         next_action_at: plan.next_action_at,
         claimed_at: null,
+        // WHY this lead is waiting, kept for the campaign screen. The engine
+        // branches on `plan`, never on this column — a deferral that says
+        // "quiet hours" and one that says nothing behave identically here, and
+        // the difference is entirely in whether the agent can tell a working
+        // campaign from a broken one. `retry_soon` covers the catch-all rung
+        // (a Telnyx 5xx, a network blip) because "a hiccup, retrying" is the
+        // true and complete answer for it.
+        last_gate_code: (code === "quiet_hours" || code === "daily_cap_reached") ? code : "retry_soon",
         updated_at: nowIso,
       }).eq("id", claimed.id);
     }
@@ -778,6 +791,10 @@ Deno.serve(async (req) => {
       next_action_at: adv.next_action_at,
       stop_reason: adv.stop_reason,
       claimed_at: null,
+      // A call has just been decided about, so whatever the last gate refusal
+      // was, its wait is over. A stale reason outliving its wait is how a
+      // screen ends up explaining a pause that is not happening.
+      last_gate_code: null,
       updated_at: nowIso,
     };
     if (adv.status !== "active") patch.completed_at = nowIso;

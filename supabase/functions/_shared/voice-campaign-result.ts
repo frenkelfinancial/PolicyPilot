@@ -138,6 +138,9 @@ export async function recordCampaignCallResult(
       // enrollment up again — which is exactly what stops a second call going
       // out while the first is still connected.
       claimed_at: null,
+      // The call happened, so no gate is holding this lead back. Whatever the
+      // last refusal was, the campaign screen must stop explaining it.
+      last_gate_code: null,
       last_ai_call_id: call.id,
       answers: (enr.answers || 0) + (answered ? 1 : 0),
       appointments: (enr.appointments || 0) + (call.appointment_id ? 1 : 0),

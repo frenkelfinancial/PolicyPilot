@@ -14,6 +14,7 @@ import {
 import { buildInboundGreeting } from "../_shared/ai-inbound.ts";
 import { reportMinutesToWallet } from "../_shared/dialer-next-lead.ts";
 import { recordCampaignCallResult } from "../_shared/voice-campaign-result.ts";
+import { applyLeadEffect } from "../_shared/ai-lead-effect.ts";
 
 // ai-call-webhook — Telnyx Call Control + AI Assistant webhook for one AI
 // Sales Agent call, BOTH LEGS. Configured per-call by ai-call-start (the lead
@@ -41,7 +42,11 @@ import { recordCampaignCallResult } from "../_shared/voice-campaign-result.ts";
 //     flight, hang the leg up rather than leave a person in silence.
 //   • call.hangup        -> compute talk minutes (answered_at -> hangup),
 //     debit the wallet ONCE via wallet_debit_ai_minutes (idempotent by
-//     call_control_id), finalize the row.
+//     call_control_id), finalize the row, APPLY THE OUTCOME TO THE LEAD
+//     (_shared/ai-lead-effect.ts — status, disposition, do-not-call flag),
+//     then advance the campaign enrollment. That order is deliberate: money,
+//     then the lead, then the campaign, because the campaign's stop rules
+//     read the lead.
 //
 // AGENT LEG (warm transfer, Phase 2):
 //   • call.answered      -> play the whisper and gather ONE digit
@@ -262,11 +267,15 @@ serve(async (req) => {
     direction: string | null;
     answered_by: string | null;
     enrollment_id: string | null;
+    created_at: string | null;
   };
   const AI_CALL_COLS =
     "id, agent_id, lead_id, phone_e164, call_control_id, status, outcome, answered_at, " +
     "started_at, error_detail, transfer_status, transfer_call_control_id, appointment_id, qualification, " +
-    "from_e164, direction, answered_by, enrollment_id";
+    // created_at is the ordering guard's fallback anchor: an AI outcome must
+    // not overwrite a status a human set after the call started, and a row
+    // whose started_at never got written still has a creation instant.
+    "from_e164, direction, answered_by, enrollment_id, created_at";
   async function loadAiCall(): Promise<AiCallRow | null> {
     const { data } = await sb.from("ai_calls")
       .select(AI_CALL_COLS)
@@ -1141,6 +1150,26 @@ serve(async (req) => {
         });
       }
 
+      // ---- What this call did to the LEAD --------------------------------
+      //
+      // The explicit outcome -> lead effect mapping (_shared/ai-lead-effect.ts):
+      // an appointment moves the lead to `appointment`, a refusal to
+      // `not_interested`, a dnc_request raises the do-not-call flag, and a
+      // missed call moves NOTHING — it is logged as the last call result and
+      // nowhere else, because a campaign dialling somebody five times would
+      // otherwise rewrite their status five times.
+      //
+      // BEFORE recordCampaignCallResult, so the enrollment's stop evaluation
+      // reads the lead as it now stands — a lead that just asked not to be
+      // called must be seen with the flag already up. Never throws.
+      const leadEffect = await applyLeadEffect(sb, {
+        leadId:        row.lead_id,
+        agentId:       row.agent_id,
+        outcome:       finalOutcome,
+        callStartedAt: row.started_at || row.created_at || null,
+        now:           endTime,
+      });
+
       // ---- The campaign this call belonged to, if any --------------------
       //
       // AFTER the outcome is written, because vcEvaluateStop reads it: a
@@ -1161,6 +1190,7 @@ serve(async (req) => {
 
       await logEvent("finalize", {
         outcome_before: row.outcome, outcome_after: finalOutcome, derived,
+        lead_effect: leadEffect,
         campaign: campaignResult.applied ? campaignResult : undefined,
         direction: row.direction, answered_by: row.answered_by,
         duration_secs: durationSecs,

@@ -37,6 +37,10 @@
 // ============================================================
 
 import { numberRampValue } from "./ai-call-meter.ts";
+// The campaign screen names what happened on a call, and what happened on a
+// call is already named once, in the outcome -> lead effect table. Importing
+// it is what stops "no answer" being worded two ways on two screens.
+import { dispositionShortLabel, leadEffectForOutcome } from "./ai-lead-effect.ts";
 
 // ------------------------------------------------------------
 // Constants
@@ -1501,6 +1505,10 @@ export function vcStopReasonLabel(reason: string | null | undefined): string {
     not_callable: "Not callable",
     lead_missing: "Lead removed",
     manual: "Unenrolled by hand",
+    // What the campaign screen's Remove button writes. Distinct from `manual`
+    // (the pre-mission-control wording, still on rows that carry it) so the
+    // two are tellable apart forever in a stats table.
+    removed_by_user: "Removed by hand",
     // Distinct from `manual` on purpose: this lead is still being worked,
     // just somewhere else. Reading it as "unenrolled by hand" would make a
     // move look like a loss on both campaigns' Enrollments tabs.
@@ -1510,4 +1518,422 @@ export function vcStopReasonLabel(reason: string | null | undefined): string {
     appointment_passed: "Appointment has been and gone",
   };
   return map[r] || reason || "";
+}
+
+// ------------------------------------------------------------
+// 11. Mission control — what the campaign screen says
+//
+// A campaign was a rule builder with a count on it. This section is what turns
+// it into something an agent can WATCH: which leads it is calling, what
+// happened on each, what is next, and — the part that was missing entirely —
+// WHY a lead that is not being called is not being called.
+//
+// Every function here is pure and locale-free. None of them format a clock
+// time: they return the instant and the renderer formats it, because a parity
+// test that compared `toLocaleString` output would be testing the test runner's
+// ICU data. `vcRelTime` is the exception and is deliberately built out of whole
+// units so it says the same thing in every runtime.
+// ------------------------------------------------------------
+
+/** The three things a person may do to one lead's enrollment from the screen. */
+export const VC_ENROLLMENT_OPS = ["pause", "resume", "remove"] as const;
+export type VcEnrollmentOp = (typeof VC_ENROLLMENT_OPS)[number];
+
+/**
+ * "Step 2 of 6".
+ *
+ * `current_step_position` is the step that runs NEXT, so a lead that has had
+ * one call out of six is on step 2 — which is also what the agent sees on the
+ * Steps tab. A position that no longer exists (the step was deleted under a
+ * live enrollment) still counts, because the tick will complete that
+ * enrollment on its next pass and pretending otherwise would hide it.
+ */
+export function vcStepProgressLabel(
+  position: unknown,
+  steps: VcStep[] | null | undefined,
+): string {
+  const total = vcStepsSorted(steps).length;
+  const pos = Math.max(1, intOr(position, 1));
+  if (!total) return "No steps";
+  return `Step ${Math.min(pos, total)} of ${total}`;
+}
+
+/**
+ * "2h ago", "in 5m", "just now".
+ *
+ * Whole units only, largest that fits, never a decimal. A campaign screen
+ * refreshing every ten seconds must not flicker between "1.9h" and "1.8h", and
+ * the difference between 110 and 118 minutes is not a fact anybody acts on.
+ */
+export function vcRelTime(when: string | Date | null | undefined, now: Date): string {
+  const t = asDate(when);
+  if (!t) return "";
+  const deltaMs = t.getTime() - now.getTime();
+  const ahead = deltaMs > 0;
+  const secs = Math.floor(Math.abs(deltaMs) / 1000);
+  if (secs < 45) return "just now";
+  const mins = Math.floor(secs / 60);
+  let n: number, unit: string;
+  if (mins < 60) { n = Math.max(1, mins); unit = "m"; }
+  else if (mins < 60 * 24) { n = Math.floor(mins / 60); unit = "h"; }
+  else { n = Math.floor(mins / (60 * 24)); unit = "d"; }
+  return ahead ? `in ${n}${unit}` : `${n}${unit} ago`;
+}
+
+/** Why a lead is waiting, when the wait came from a gate refusal. */
+export function vcWaitReasonLabel(code: string | null | undefined): string {
+  const c = norm(code);
+  if (!c) return "";
+  const map: Record<string, string> = {
+    quiet_hours: "Quiet hours where they live",
+    daily_cap_reached: "Your daily call limit",
+    // vcHandleGateRejection's catch-all. Naming the HTTP status would be
+    // honest and useless; this says the true thing an agent can act on, which
+    // is nothing, because it retries by itself.
+    retry_soon: "A hiccup on the line — retrying",
+  };
+  return map[c] || "";
+}
+
+export interface VcNextActionVerdict {
+  /**
+   * calling            — a call for this lead is in the air right now
+   * paused_lead        — this one enrollment is held by hand
+   * paused_campaign    — the whole campaign is paused (usually the wallet)
+   * campaign_off       — the campaign's Active switch is off
+   * ended              — stopped or completed; nothing is next
+   * waiting_on_call    — a call went out and its result has not landed yet
+   * due                — due now; the next tick takes it
+   * scheduled          — `at` is when
+   * unknown            — active with no next_action_at and no call in flight
+   */
+  kind:
+    | "calling" | "paused_lead" | "paused_campaign" | "campaign_off"
+    | "ended" | "waiting_on_call" | "due" | "scheduled" | "unknown";
+  /** The instant, for the caller to format. Null for every other kind. */
+  at: string | null;
+  /** The gate code behind a `scheduled`, when there was one. */
+  code: string | null;
+}
+
+/**
+ * What happens to this lead next, and if nothing is going to, why not.
+ *
+ * THE WHOLE POINT IS THE NEGATIVE CASES. "Tomorrow 9:05 AM" on a screen an
+ * agent opened because nothing seems to be happening reads as a broken
+ * product; "Quiet hours where they live · next call 9:05 AM" reads as a
+ * working one. The engine already knew every one of these reasons and threw
+ * them all away.
+ *
+ * Order matters: a live call outranks a pause, because it is a fact about
+ * right now, and an agent who pauses a lead mid-call needs to see that the
+ * call is still up.
+ */
+export function vcNextAction(input: {
+  enrollment: {
+    status?: string | null;
+    next_action_at?: string | null;
+    claimed_at?: string | null;
+    paused_at?: string | null;
+    last_gate_code?: string | null;
+  } | null | undefined;
+  campaign?: { active?: boolean | null; paused_at?: string | null } | null;
+  /** True when an ai_calls row for this lead is still in_progress. */
+  inFlight?: boolean;
+  now: Date;
+}): VcNextActionVerdict {
+  const e = input.enrollment || {};
+  const none = (kind: VcNextActionVerdict["kind"]): VcNextActionVerdict =>
+    ({ kind, at: null, code: null });
+
+  if (input.inFlight) return none("calling");
+
+  const status = norm(e.status);
+  if (status === "paused") return { kind: "paused_lead", at: e.paused_at || null, code: null };
+  if (status && status !== "active") return none("ended");
+
+  // A claim with nothing due is the shape of a call that has gone out and
+  // whose hangup has not come back yet. It is not an error and it is not a
+  // pause — it is thirty seconds of a phone ringing.
+  if (!e.next_action_at && e.claimed_at) return none("waiting_on_call");
+
+  // The campaign's own state comes AFTER the enrollment's, because a paused
+  // campaign whose lead is mid-call is still mid-call.
+  const c = input.campaign || {};
+  if (c.paused_at) return none("paused_campaign");
+  if (c.active === false) return none("campaign_off");
+
+  const at = asDate(e.next_action_at);
+  if (!at) return none("unknown");
+  if (at.getTime() <= input.now.getTime()) return { kind: "due", at: e.next_action_at || null, code: null };
+  return { kind: "scheduled", at: e.next_action_at || null, code: norm(e.last_gate_code) || null };
+}
+
+/**
+ * The sentence, given a time the caller has already formatted.
+ *
+ * Split from vcNextAction so the decision can be unit-tested and the clock
+ * formatting can stay where the reader's locale is.
+ */
+export function vcNextActionText(verdict: VcNextActionVerdict, whenText: string): string {
+  const when = String(whenText || "").trim();
+  switch (verdict.kind) {
+    case "calling":         return "Calling now…";
+    case "paused_lead":     return when ? `Paused ${when}` : "Paused";
+    case "paused_campaign": return "Campaign paused";
+    case "campaign_off":    return "Campaign switched off";
+    case "ended":           return "—";
+    case "waiting_on_call": return "Call in progress…";
+    case "due":             return "Due now";
+    case "scheduled": {
+      const reason = vcWaitReasonLabel(verdict.code);
+      const tail = when ? `next call ${when}` : "waiting";
+      return reason ? `${reason} · ${tail}` : (when || "Scheduled");
+    }
+    default:                return "—";
+  }
+}
+
+export interface VcLastCall {
+  outcome?: string | null;
+  status?: string | null;
+  ended_at?: string | null;
+  created_at?: string | null;
+}
+
+/**
+ * "No answer", "Appointment booked", "Calling now" — the last call's result,
+ * worded exactly as the lead row words it.
+ *
+ * Reads through leadEffectForOutcome so a call's result has ONE set of words
+ * in this app. A call still in progress is reported as such rather than as its
+ * placeholder outcome.
+ */
+export function vcLastCallLabel(call: VcLastCall | null | undefined): string {
+  if (!call) return "";
+  if (norm(call.status) === "in_progress") return "Calling now";
+  const disp = leadEffectForOutcome(call.outcome).disposition;
+  if (disp) return dispositionShortLabel(disp);
+  return norm(call.outcome) === "error" ? "Call failed" : "";
+}
+
+/** When the last call happened, for the relative stamp beside its result. */
+export function vcLastCallAt(call: VcLastCall | null | undefined): string | null {
+  if (!call) return null;
+  return call.ended_at || call.created_at || null;
+}
+
+export interface VcFeedEntry {
+  call_id: string;
+  lead_id: string | null;
+  /** The outcome this line is about, normalised. */
+  outcome: string;
+  /** good / bad / neutral, for the dot beside the line. */
+  tone: "good" | "bad" | "neutral";
+  /** "Booked an appointment with Lisa P." — the lead's name already in it. */
+  headline: string;
+  /** When it happened. */
+  at: string | null;
+  /** When this lead is next due, if the campaign is still working them. */
+  retry_at: string | null;
+}
+
+const FEED_TONE: Record<string, "good" | "bad" | "neutral"> = {
+  appointment_booked: "good",
+  transferred: "good",
+  qualified: "good",
+  dnc_request: "bad",
+  not_interested: "bad",
+  error: "bad",
+};
+
+/**
+ * One line of "what the AI is doing".
+ *
+ * Built from the ai_calls row that already exists — this feature adds NO
+ * second event-logging system beside ai_call_events, which is the Telnyx
+ * webhook's diagnostic trace and is service-role-only for good reasons.
+ *
+ * The name is handed in rather than looked up, because the browser holds the
+ * book in memory and the server does not, and a feed that needed a join per
+ * line would be a feed nobody could paginate.
+ */
+export function vcFeedEntry(
+  call: {
+    id?: string | null;
+    lead_id?: string | null;
+    outcome?: string | null;
+    status?: string | null;
+    ended_at?: string | null;
+    created_at?: string | null;
+    appointment_id?: string | null;
+  } | null | undefined,
+  ctx?: { leadName?: string | null; retryAt?: string | null },
+): VcFeedEntry {
+  const c = call || {};
+  const who = String((ctx && ctx.leadName) || "").trim() || "a lead";
+  const live = norm(c.status) === "in_progress";
+  const outcome = live ? "in_progress" : norm(c.outcome);
+
+  const headlines: Record<string, string> = {
+    in_progress:        `Calling ${who}…`,
+    appointment_booked: `Booked an appointment with ${who}`,
+    transferred:        `Transferred ${who} to you`,
+    qualified:          `Qualified ${who}`,
+    callback_requested: `${who} asked for a callback`,
+    dnc_request:        `${who} asked to stop — do-not-call recorded`,
+    not_interested:     `${who} is not interested`,
+    completed:          `Spoke with ${who}`,
+    no_answer:          `Called ${who} — no answer`,
+    voicemail:          `Called ${who} — voicemail`,
+    busy:               `Called ${who} — busy`,
+    error:              `Call to ${who} did not go through`,
+  };
+
+  return {
+    call_id: String(c.id || ""),
+    lead_id: c.lead_id ? String(c.lead_id) : null,
+    outcome: outcome || "",
+    tone: FEED_TONE[outcome] || "neutral",
+    headline: headlines[outcome] || `Called ${who}`,
+    at: c.ended_at || c.created_at || null,
+    // A retry is only worth naming while the campaign is still going to make
+    // one. A stopped enrollment's next_action_at is null, so this is null too.
+    retry_at: (ctx && ctx.retryAt) || null,
+  };
+}
+
+/**
+ * The whole feed, newest first.
+ *
+ * `limit` is applied here rather than in the query so the caller can hand in
+ * one page of calls and get a stable answer, and so the count in the header
+ * and the rows underneath it come from the same array.
+ */
+export function vcFeed(
+  calls: Array<Record<string, unknown>> | null | undefined,
+  ctx: {
+    leadName?: (leadId: string | null) => string;
+    retryAt?: (leadId: string | null) => string | null;
+    limit?: number;
+  },
+): VcFeedEntry[] {
+  const rows = (calls || []).slice();
+  rows.sort((a, b) => {
+    const at = asDate((a.ended_at || a.created_at) as string) || new Date(0);
+    const bt = asDate((b.ended_at || b.created_at) as string) || new Date(0);
+    return bt.getTime() - at.getTime();
+  });
+  const limit = Math.max(0, intOr(ctx.limit, 50));
+  return rows.slice(0, limit).map((c) => vcFeedEntry(c as never, {
+    leadName: ctx.leadName ? ctx.leadName((c.lead_id as string) || null) : "",
+    retryAt: ctx.retryAt ? ctx.retryAt((c.lead_id as string) || null) : null,
+  }));
+}
+
+// ------------------------------------------------------------
+// 12. Managing enrollments from the campaign — pause / resume / remove
+//
+// The same discipline as the manual enrollment door: ONE planner, called once,
+// and the preview is the plan without the write. A preview computed by
+// separate code is a preview that eventually lies, and these buttons make a
+// promise about somebody's live calling program.
+// ------------------------------------------------------------
+
+export interface VcActionPlanItem {
+  enrollment_id: string;
+  lead_id: string | null;
+  op: VcEnrollmentOp;
+}
+
+export interface VcActionPlan {
+  op: VcEnrollmentOp;
+  items: VcActionPlanItem[];
+  /** reason → count. Every id handed in lands in items or in here, never both. */
+  skipped: Record<string, number>;
+}
+
+const ACTION_SKIP_LABELS: Record<string, string> = {
+  not_found: "not yours",
+  not_active: "not running",
+  not_paused: "not paused",
+  already_ended: "already finished",
+  // The one that needs the most words: pausing releases a lead from the
+  // one-active-campaign rule, so somebody else may have taken them.
+  active_elsewhere: "now in another campaign",
+};
+
+/**
+ * Decide what pause / resume / remove means for a set of enrollments.
+ *
+ * PURE, and every rejection is REPORTED rather than dropped. "Nothing
+ * happened" on a bulk button is the failure mode that makes agents stop
+ * trusting bulk buttons.
+ */
+export function vcPlanEnrollmentAction(input: {
+  op: VcEnrollmentOp;
+  enrollment_ids: string[];
+  /** id → the row, already scoped to the caller. Missing means "not yours". */
+  byId: Map<string, { id: string; lead_id?: string | null; status?: string | null }>;
+  /** lead_id of every lead this agent has ACTIVE somewhere else right now. */
+  activeElsewhere?: Set<string>;
+}): VcActionPlan {
+  const op = (VC_ENROLLMENT_OPS as readonly string[]).includes(input.op) ? input.op : "pause";
+  const items: VcActionPlanItem[] = [];
+  const skipped: Record<string, number> = {};
+  const skip = (reason: string) => { skipped[reason] = (skipped[reason] || 0) + 1; };
+
+  const seen = new Set<string>();
+  for (const raw of input.enrollment_ids || []) {
+    const id = String(raw == null ? "" : raw);
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+
+    const row = input.byId.get(id);
+    if (!row) { skip("not_found"); continue; }
+    const status = norm(row.status);
+    const leadId = row.lead_id ? String(row.lead_id) : null;
+
+    if (op === "pause") {
+      if (status !== "active") { skip(status === "paused" ? "not_active" : "already_ended"); continue; }
+    } else if (op === "resume") {
+      if (status !== "paused") { skip("not_paused"); continue; }
+      // A paused enrollment does not hold the one-active-campaign slot, so
+      // the lead may have been added to something else while it was down.
+      // Resuming into that would break the partial unique index — and the
+      // agent would get a raw 23505 instead of a sentence.
+      if (leadId && input.activeElsewhere && input.activeElsewhere.has(leadId)) {
+        skip("active_elsewhere");
+        continue;
+      }
+    } else {
+      if (status !== "active" && status !== "paused") { skip("already_ended"); continue; }
+    }
+
+    items.push({ enrollment_id: id, lead_id: leadId, op });
+  }
+
+  return { op, items, skipped };
+}
+
+/**
+ * The sentence, in both tenses, from the same plan — exactly as the enrollment
+ * door does it. "3 will be paused · 1 not running".
+ */
+export function vcEnrollmentActionSentence(plan: VcActionPlan, tense: "will" | "did" = "will"): string {
+  const n = plan.items.length;
+  const verb: Record<VcEnrollmentOp, [string, string]> = {
+    pause:  ["will be paused", "paused"],
+    resume: ["will resume", "resumed"],
+    remove: ["will be removed", "removed"],
+  };
+  const [future, past] = verb[plan.op] || verb.pause;
+  const parts = [`${n} ${tense === "will" ? future : past}`];
+  const skips = Object.entries(plan.skipped || {})
+    .filter(([, v]) => intOr(v, 0) > 0)
+    .sort((a, b) => intOr(b[1], 0) - intOr(a[1], 0));
+  for (const [reason, count] of skips) {
+    parts.push(`${intOr(count, 0)} ${ACTION_SKIP_LABELS[reason] || String(reason).replace(/_/g, " ")}`);
+  }
+  return parts.join(" · ");
 }

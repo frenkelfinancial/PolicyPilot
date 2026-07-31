@@ -2,17 +2,20 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { toE164 } from "../_shared/phone.ts";
 import {
+  vcEnrollmentActionSentence,
   vcEnrollPlanSentence,
   vcEnrollSummary,
   vcEvaluateEnrollment,
   vcFirstStep,
   vcMatchesTriggerGroups,
+  vcPlanEnrollmentAction,
   vcPlanManualEnrollment,
   vcResolveNextDue,
   vcValidateTriggerGroups,
+  VC_ENROLLMENT_OPS,
   VC_ENROLL_TAG_FIELD,
 } from "../_shared/voice-campaign-core.ts";
-import type { VcEnrollPlan, VcStep } from "../_shared/voice-campaign-core.ts";
+import type { VcActionPlan, VcEnrollmentOp, VcEnrollPlan, VcStep } from "../_shared/voice-campaign-core.ts";
 
 // ============================================================
 // voice-campaign-manage — the enrollment actions a person can take.
@@ -24,8 +27,12 @@ import type { VcEnrollPlan, VcStep } from "../_shared/voice-campaign-core.ts";
 //               has nothing to look at.
 //   preview_enroll  what "Add to campaign" would do to this selection.
 //   enroll_leads    do it — an EXPLICIT list of leads, no rule involved.
-//   unenroll    take one lead out by hand.
-//   resume      clear a pause the tick set (empty wallet, plan, kill switch).
+//   enrollment_action  pause / resume / remove one lead's enrollment, or a
+//               selection of them, from the campaign's own Leads table.
+//               `preview: true` returns the counts without writing.
+//   resume      clear a pause the TICK set on the whole campaign (empty
+//               wallet, plan, kill switch). Not the same thing as resuming
+//               one lead — see enrollment_action.
 //
 // ---- The manual door (Prompt I) -------------------------------------------
 //
@@ -97,36 +104,149 @@ Deno.serve(async (req) => {
   let body: {
     action?: unknown; campaign_id?: unknown; enrollment_id?: unknown; lead_id?: unknown;
     lead_ids?: unknown; on_conflict?: unknown;
+    op?: unknown; enrollment_ids?: unknown; preview?: unknown;
   };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
   const action = typeof body.action === "string" ? body.action : "";
 
   // ------------------------------------------------------------
-  // unenroll — one lead, by hand.
+  // enrollment_action — pause / resume / remove, one lead or many.
+  //
+  // ONE code path, two endings, exactly like preview_enroll / enroll_leads:
+  // both build the plan with vcPlanEnrollmentAction() and only the write
+  // branch carries it out. These buttons act on somebody's live calling
+  // program, so the count the agent reads and the work the button does have to
+  // be the same decision rather than two implementations that agree today.
+  //
+  // WHAT EACH ONE MEANS
+  //   pause   status -> 'paused'. The tick's due query and vcClaimEnrollment
+  //           both require 'active', so a paused enrollment is simply never
+  //           picked up — no new flag for the engine to honour, and therefore
+  //           no way for the engine to forget to honour it.
+  //   resume  status -> 'active', and next_action_at repaired if it is null
+  //           (which is what a pause during a live call leaves behind).
+  //   remove  status -> 'stopped', stop_reason 'removed_by_user'. It does NOT
+  //           touch the do-not-call or suppression lists: "take them out of
+  //           this campaign" and "this person told me never to call again" are
+  //           different statements and collapsing them misreports both.
   // ------------------------------------------------------------
-  if (action === "unenroll") {
-    const enrollmentId = typeof body.enrollment_id === "string" ? body.enrollment_id : "";
-    if (!enrollmentId) return json({ error: "missing_enrollment_id" }, 400);
+  if (action === "enrollment_action") {
+    const op = (typeof body.op === "string" && (VC_ENROLLMENT_OPS as readonly string[]).includes(body.op))
+      ? body.op as VcEnrollmentOp
+      : null;
+    if (!op) return json({ error: "bad_op", detail: `op must be one of ${VC_ENROLLMENT_OPS.join(", ")}.` }, 400);
 
-    // Re-scoped to the caller. The picker is a convenience, not a boundary.
-    const { data: enr } = await sb.from("voice_campaign_enrollments")
-      .select("id, agent_id, status")
-      .eq("id", enrollmentId)
+    const write = body.preview !== true;
+    const ids = Array.isArray(body.enrollment_ids)
+      ? [...new Set(body.enrollment_ids.filter((v): v is string => typeof v === "string" && !!v))]
+      : [];
+    if (!ids.length) return json({ error: "no_enrollments", detail: "Select at least one lead." }, 400);
+    if (ids.length > MANUAL_SELECTION_MAX) {
+      return json({
+        error: "too_many_leads",
+        detail: `Up to ${MANUAL_SELECTION_MAX} at a time. Narrow the filter and do it in batches.`,
+      }, 422);
+    }
+
+    // Re-scoped to the caller. The ids came from a picker, and a picker is a
+    // convenience, not a boundary.
+    const { data: rows } = await sb.from("voice_campaign_enrollments")
+      .select("id, lead_id, status, campaign_id")
       .eq("agent_id", user.id)
-      .maybeSingle();
-    if (!enr) return json({ error: "not_found" }, 404);
-    if (enr.status !== "active") return json({ ok: true, already: enr.status });
+      .in("id", ids);
+    const byId = new Map((rows || []).map((r) => [r.id, r]));
 
-    await sb.from("voice_campaign_enrollments").update({
-      status: "stopped",
-      stop_reason: "manual",
-      next_action_at: null,
-      claimed_at: null,
-      completed_at: nowIso,
-      updated_at: nowIso,
-    }).eq("id", enrollmentId);
+    // Only resume needs this, and only for the leads in hand. Pausing releases
+    // a lead from the one-active-campaign rule (the partial unique index
+    // covers status = 'active' only), so somebody may have been added
+    // elsewhere in the meantime. Catching it here turns a raw 23505 into a
+    // sentence the agent can act on.
+    const activeElsewhere = new Set<string>();
+    if (op === "resume") {
+      const leadIds = [...new Set((rows || []).map((r) => r.lead_id).filter(Boolean))] as string[];
+      if (leadIds.length) {
+        const { data: live } = await sb.from("voice_campaign_enrollments")
+          .select("lead_id")
+          .eq("agent_id", user.id)
+          .eq("status", "active")
+          .in("lead_id", leadIds)
+          .limit(20000);
+        for (const r of live || []) if (r.lead_id) activeElsewhere.add(String(r.lead_id));
+      }
+    }
 
-    return json({ ok: true, status: "stopped", stop_reason: "manual" });
+    const plan: VcActionPlan = vcPlanEnrollmentAction({ op, enrollment_ids: ids, byId, activeElsewhere });
+
+    const shape = {
+      ok: true,
+      op,
+      would: plan.items.length,
+      skipped: plan.skipped,
+    };
+    if (!write) {
+      return json({ ...shape, preview: true, summary: vcEnrollmentActionSentence(plan, "will") });
+    }
+
+    const targetIds = plan.items.map((i) => i.enrollment_id);
+    let changed = 0;
+    if (targetIds.length) {
+      if (op === "pause") {
+        const { data: done, error } = await sb.from("voice_campaign_enrollments").update({
+          status: "paused",
+          paused_at: nowIso,
+          // The claim is released, because nothing is working this row any
+          // more. next_action_at is deliberately LEFT ALONE so resuming puts
+          // the lead back where it was in the queue rather than at the front.
+          claimed_at: null,
+          updated_at: nowIso,
+        }).in("id", targetIds).eq("agent_id", user.id).eq("status", "active").select("id");
+        if (error) return json({ error: "pause_failed", detail: error.message }, 500);
+        changed = (done || []).length;
+      } else if (op === "resume") {
+        // Two statements, because a pause taken while a call was in the air
+        // leaves next_action_at null — the tick clears it before dialing and
+        // the webhook's finalize refuses to advance a non-active enrollment.
+        // Resuming those without repairing the date would leave a lead active,
+        // never due, and never called again: the exact silent failure this
+        // whole screen exists to make impossible.
+        const { data: dated, error: e1 } = await sb.from("voice_campaign_enrollments").update({
+          status: "active", paused_at: null, claimed_at: null, updated_at: nowIso,
+        }).in("id", targetIds).eq("agent_id", user.id).eq("status", "paused")
+          .not("next_action_at", "is", null).select("id");
+        if (e1) return json({ error: "resume_failed", detail: e1.message }, 500);
+        const { data: repaired, error: e2 } = await sb.from("voice_campaign_enrollments").update({
+          status: "active", paused_at: null, claimed_at: null,
+          next_action_at: nowIso, updated_at: nowIso,
+        }).in("id", targetIds).eq("agent_id", user.id).eq("status", "paused")
+          .is("next_action_at", null).select("id");
+        if (e2) return json({ error: "resume_failed", detail: e2.message }, 500);
+        changed = (dated || []).length + (repaired || []).length;
+      } else {
+        const { data: done, error } = await sb.from("voice_campaign_enrollments").update({
+          status: "stopped",
+          // Distinct from 'manual' (what the old single-lead Unenroll button
+          // wrote) so the two remain tellable apart on every row that already
+          // carries one.
+          stop_reason: "removed_by_user",
+          next_action_at: null,
+          claimed_at: null,
+          paused_at: null,
+          completed_at: nowIso,
+          updated_at: nowIso,
+        }).in("id", targetIds).eq("agent_id", user.id).in("status", ["active", "paused"]).select("id");
+        if (error) return json({ error: "remove_failed", detail: error.message }, 500);
+        changed = (done || []).length;
+      }
+    }
+
+    return json({
+      ...shape,
+      preview: false,
+      // What actually changed, not what we asked to change — a row the tick
+      // ended a millisecond ago was never ours to touch.
+      changed,
+      summary: vcEnrollmentActionSentence(plan, "did"),
+    });
   }
 
   // ------------------------------------------------------------
