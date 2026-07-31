@@ -788,11 +788,73 @@ body.light #aiAvailPill{background:var(--bg2)}
 .cal-event:hover{background:var(--ds-color-success-bg);filter:brightness(1.1)}
 .cal-event-name{font-size:10.5px;font-weight:600;color:var(--ds-color-success);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .cal-event-ap{font-size:10px;color:var(--text3);font-family:var(--mono)}
+/* ── Multi-select lead filter (Status / Source / State) ──────────────────
+   A button that opens a checkbox list. Deliberately not a <select multiple>:
+   that control needs ctrl-click to add a second value, shows no "all" state,
+   and cannot carry a count badge. */
+.msf{position:relative;flex:1 1 auto}
+.msf-btn{
+  width:100%;display:flex;align-items:center;gap:6px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+  padding:8px 11px;color:var(--text);font-family:var(--sans);font-size:13px;
+  text-align:left;cursor:pointer;outline:none;
+  transition:border-color .14s}
+.msf-btn:hover{border-color:var(--border2)}
+.msf-btn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.msf.is-active .msf-btn{border-color:var(--accent)}
+.msf-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msf-badge{
+  flex-shrink:0;min-width:18px;height:18px;padding:0 5px;border-radius:9px;
+  background:var(--accent);color:#06121f;font-size:11px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;line-height:1}
+.msf-badge[hidden]{display:none}
+.msf-caret{flex-shrink:0;color:var(--text3);display:inline-flex}
+.msf-panel{
+  position:absolute;z-index:60;top:calc(100% + 4px);left:0;min-width:100%;
+  max-height:280px;overflow-y:auto;
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 12px 30px -12px rgba(0,0,0,.55);padding:4px}
+.msf-panel[hidden]{display:none}
+.msf-all{
+  display:block;width:100%;text-align:left;background:transparent;border:none;
+  border-bottom:1px solid var(--border);color:var(--text2);
+  font-family:var(--sans);font-size:12px;font-weight:600;
+  padding:7px 9px;margin-bottom:3px;cursor:pointer;border-radius:6px 6px 0 0}
+.msf-all:hover{background:var(--bg3);color:var(--text)}
+.msf-opt{
+  display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:6px;
+  font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap}
+.msf-opt:hover{background:var(--bg3)}
+.msf-opt input{width:15px;height:15px;flex-shrink:0;accent-color:var(--accent);cursor:pointer;margin:0}
+.msf-empty{padding:8px 9px;font-size:12px;color:var(--text3)}
+/* Chips row */
+.msf-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:12px}
+.msf-chips[hidden]{display:none}
+.msf-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--bg3);border:1px solid var(--border);border-radius:999px;
+  padding:3px 6px 3px 10px;font-size:11.5px;color:var(--text2)}
+.msf-chip b{font-weight:600;color:var(--text)}
+.msf-chip-x{
+  border:none;background:transparent;color:var(--text3);cursor:pointer;
+  font-size:14px;line-height:1;padding:0 2px;border-radius:50%}
+.msf-chip-x:hover{color:var(--text)}
+.msf-chips-clear{
+  border:none;background:transparent;color:var(--accent);cursor:pointer;
+  font-family:var(--sans);font-size:11.5px;font-weight:600;padding:3px 6px}
+.msf-chips-clear:hover{text-decoration:underline}
+
 /* Lead row (dense list) */
 .lead-row{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:10px;transition:border-color .15s;position:relative}
 .lead-row:hover{border-color:var(--border2)}
 .lead-row.sold{background:var(--ds-color-success-bg);border-color:var(--ds-color-success)!important}
 .lead-row.not_interested{opacity:.55}
+/* Selected row. This used to be an inline style.outline written only at
+   render time, which is why ticking one lead's own checkbox left the row
+   unhighlighted — nothing re-rendered. It is a class now, applied by
+   syncLeadSelectionUI() straight from selectedLeadIds, so the box and the
+   row can never disagree. */
+.lead-row.is-selected{outline:2px solid rgba(59,130,246,.5);outline-offset:0}
 /* ── Compact grid views ── */
 #lead-list-container.view-compact2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;align-items:start}
 #lead-list-container.view-compact2 .lead-row{margin-bottom:0}
@@ -929,8 +991,6 @@ body.light #aiAvailPill{background:var(--bg2)}
 .lead-act-btn.lead-text-btn--no_phone:hover{background:rgba(148,163,184,.18);border-color:rgba(148,163,184,.55);filter:none}
 .lead-act-btn.lead-text-btn--opted_out{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.32);color:#f87171}
 .lead-act-btn.lead-text-btn--opted_out:hover{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);filter:none}
-.lead-act-btn.lead-optin-btn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.4);color:#fbbf24;font-weight:600;width:100%}
-.lead-act-btn.lead-optin-btn:hover{background:rgba(245,158,11,.2);border-color:rgba(245,158,11,.7);filter:brightness(1.1)}
 .lead-act-btn.lead-aiconsent-btn{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:#34d399;font-weight:600}
 .lead-act-btn.lead-aiconsent-btn:hover{background:rgba(16,185,129,.2);border-color:rgba(16,185,129,.7);filter:brightness(1.1)}
 .lead-info-line{margin-bottom:6px;line-height:1.4}
@@ -1862,6 +1922,34 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .swiz-pc:hover{border-color:rgba(90,130,200,.85);box-shadow:0 0 0 2px rgba(90,130,200,.38),0 22px 56px -12px rgba(0,0,0,.72);transform:translateY(-5px) scale(1.018)}
 .swiz-pc.swiz-pc-feat:hover{border-color:rgba(143,194,247,.95);box-shadow:0 0 0 2.5px rgba(143,194,247,.38),0 26px 64px -12px rgba(143,194,247,.32);transform:translateY(-5px) scale(1.018)}
 .swiz-pc.swiz-pc-lead:hover{border-color:rgba(224,184,132,.9);box-shadow:0 0 0 2.5px rgba(224,184,132,.32),0 26px 64px -12px rgba(224,184,132,.30);transform:translateY(-5px) scale(1.018)}
+/* Keyboard focus — these cards are role="button" and tabbable, so the ring
+   has to be visible; the hover ring alone never appears for a keyboard user. */
+.swiz-pc:focus-visible{outline:3px solid #8FC2F7;outline-offset:3px}
+/* ── Press: the card is the Continue button now ─────────────────────────────
+   ~190ms of scale-down plus a check that flashes over the card, so a click
+   that navigates still feels like it landed. !important because the hover
+   and .selected rules above both set transform and would otherwise win while
+   the pointer is still on the card. */
+.swiz-pc.is-pressing{transform:scale(.972) !important;transition:transform 90ms cubic-bezier(.4,0,.2,1) !important}
+.swiz-pc.is-pressing::after{
+  content:'';position:absolute;inset:0;z-index:4;pointer-events:none;
+  background:rgba(143,194,247,.14);
+  animation:swiz-press-glow 190ms ease-out both}
+.swiz-pc.is-pressing::before{
+  content:'';position:absolute;top:50%;left:50%;z-index:5;pointer-events:none;
+  width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;
+  background:#8FC2F7 center/26px 26px no-repeat
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23061222' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  animation:swiz-press-check 190ms cubic-bezier(.34,1.56,.64,1) both}
+.swiz-pc.swiz-pc-lead.is-pressing::before{background-color:#E0B884}
+.swiz-pc.swiz-pc-lead.is-pressing::after{background:rgba(224,184,132,.14)}
+@keyframes swiz-press-glow{from{opacity:0}40%{opacity:1}to{opacity:0}}
+@keyframes swiz-press-check{from{opacity:0;transform:scale(.4)}55%{opacity:1;transform:scale(1.06)}to{opacity:0;transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){
+  /* No scale, no flash — the advance still happens, it just does not move. */
+  .swiz-pc.is-pressing{transform:none !important}
+  .swiz-pc.is-pressing::before,.swiz-pc.is-pressing::after{animation:none;opacity:0}
+}
 /* Selected ring */
 #signup-wizard .apc-plan-col.selected{box-shadow:0 0 0 3.5px #8FC2F7,0 0 28px rgba(143,194,247,.45),0 24px 60px -8px rgba(143,194,247,.38) !important;border-color:#8FC2F7 !important;transform:translateY(-7px) scale(1.028) !important}
 #signup-wizard .apc-plan-col.selected.swiz-pc-lead{box-shadow:0 0 0 3.5px #E0B884,0 0 28px rgba(224,184,132,.4),0 24px 60px -8px rgba(224,184,132,.35) !important;border-color:#E0B884 !important;transform:translateY(-7px) scale(1.028) !important}
@@ -2135,6 +2223,82 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
   }
 }
 
+/* ── Password rules checklist ─────────────────────────────────────────────
+   Ticks green as each rule is met. Rendered by pwChecklistHTML() under every
+   field that takes a new password, so all four of them teach the same rule. */
+.pw-rules{display:flex;flex-direction:column;gap:3px;margin-top:7px}
+.pw-rules:empty{display:none}
+.pw-rule{
+  display:flex;align-items:center;gap:6px;
+  font-family:var(--sans);font-size:11.5px;line-height:1.35;
+  color:var(--text3);transition:color .15s}
+.pw-rule.met{color:var(--ds-color-success,#5CC9A7)}
+.pw-rule-ico{display:inline-flex;align-items:center;justify-content:center;width:13px;flex-shrink:0;opacity:.65}
+.pw-rule.met .pw-rule-ico{opacity:1}
+
+/* ── "Verify to activate" gate ────────────────────────────────────────────
+   The full-screen confirm-your-email / verify-your-phone step, and the
+   inline lock the calling and texting screens show until it is done. */
+.vg-overlay{
+  position:fixed;inset:0;z-index:2002;display:none;
+  align-items:center;justify-content:center;padding:24px;
+  background:rgba(7,13,26,.86);backdrop-filter:blur(4px)}
+.vg-overlay.on{display:flex}
+.vg-card{
+  background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:30px 28px 24px;max-width:420px;width:100%;
+  box-shadow:0 24px 64px rgba(0,0,0,.45);font-family:var(--sans);text-align:center}
+.vg-ico{
+  width:54px;height:54px;border-radius:14px;margin:0 auto 18px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(143,194,247,.12);border:1px solid rgba(143,194,247,.32);color:var(--accent)}
+.vg-title{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.03em;margin-bottom:9px;line-height:1.2}
+.vg-sub{font-size:13.5px;color:var(--text2);line-height:1.6;margin-bottom:20px}
+.vg-sub strong{color:var(--text)}
+.vg-field{display:flex;flex-direction:column;gap:6px;text-align:left;margin-bottom:12px}
+.vg-field label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.vg-field input{
+  width:100%;box-sizing:border-box;background:var(--bg3);border:1px solid var(--border);
+  border-radius:10px;padding:11px 13px;color:var(--text);
+  font-family:var(--sans);font-size:14px;outline:none;transition:border-color .14s}
+.vg-field input:focus{border-color:var(--accent)}
+.vg-field input.vg-code{
+  font-family:var(--mono);font-size:22px;letter-spacing:.34em;text-align:center;padding:12px 13px}
+.vg-btn{
+  width:100%;padding:12px;border:none;border-radius:10px;cursor:pointer;
+  background:var(--accent);color:#061222;
+  font-family:var(--sans);font-size:14px;font-weight:700;letter-spacing:-.01em;
+  transition:filter .14s}
+.vg-btn:hover:not(:disabled){filter:brightness(1.08)}
+.vg-btn:disabled{opacity:.5;cursor:not-allowed}
+.vg-btn-s{
+  width:100%;margin-top:9px;padding:10px;border:1px solid var(--border);border-radius:10px;
+  background:transparent;color:var(--text2);cursor:pointer;
+  font-family:var(--sans);font-size:13px;font-weight:600}
+.vg-btn-s:hover:not(:disabled){color:var(--text);border-color:var(--border2)}
+.vg-btn-s:disabled{opacity:.45;cursor:not-allowed}
+.vg-link{
+  background:none;border:none;color:var(--text3);font-family:var(--sans);
+  font-size:12.5px;cursor:pointer;padding:8px;margin-top:6px}
+.vg-link:hover{color:var(--text2);text-decoration:underline}
+.vg-msg{font-size:12.5px;line-height:1.5;min-height:17px;margin:10px 0 2px}
+/* The inline lock on a gated feature. Same shape as the upgrade gate the app
+   already uses for tier-locked screens, so the pattern reads as familiar. */
+.vg-lock{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:14px 16px;margin-bottom:16px;border-radius:12px;
+  background:rgba(224,184,132,.10);border:1px solid rgba(224,184,132,.32);
+  font-family:var(--sans)}
+.vg-lock-ico{flex-shrink:0;color:var(--ds-color-warning,#E0B884);margin-top:1px}
+.vg-lock-body{min-width:0;flex:1}
+.vg-lock-t{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:3px}
+.vg-lock-s{font-size:12.5px;color:var(--text2);line-height:1.55}
+.vg-lock-btn{
+  margin-top:9px;padding:7px 14px;border:none;border-radius:8px;cursor:pointer;
+  background:var(--ds-color-warning,#E0B884);color:#1c1200;
+  font-family:var(--sans);font-size:12.5px;font-weight:700}
+.vg-lock-btn:hover{filter:brightness(1.07)}
+
 /* ── Dialer FAB — bottom-right circular launcher, visible on every page ── */
 .dialer-fab{
   position:fixed; right:24px; bottom:24px; z-index:1400;
@@ -2149,6 +2313,11 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 .dialer-fab.is-live{ background:#dc2626; box-shadow:0 10px 26px -6px rgba(220,38,38,.6), 0 2px 8px rgba(0,0,0,.25); animation:dialer-fab-pulse 1.6s ease-in-out infinite; }
 @keyframes dialer-fab-pulse{ 0%,100%{ box-shadow:0 10px 26px -6px rgba(220,38,38,.6), 0 0 0 0 rgba(220,38,38,.4); } 50%{ box-shadow:0 10px 26px -6px rgba(220,38,38,.6), 0 0 0 8px rgba(220,38,38,0); } }
 .dialer-fab[hidden]{ display:none; }
+/* Draggable: the browser's own touch panning and text selection both have to
+   be off, or a drag on mobile scrolls the page instead of moving the button. */
+.dialer-fab{ touch-action:none; user-select:none; -webkit-user-select:none; }
+.dialer-fab.is-dragging{ transition:none; cursor:grabbing; transform:scale(1.06); box-shadow:0 16px 34px -8px rgba(91,160,232,.6); }
+.dialer-fab.is-dragging:hover{ transform:scale(1.06); }
 
 /* ── Web Dialer, in its floating-widget presentation ─────────────────────
    Same #sec-webdialer markup as the full page — only repositioned/resized
@@ -2184,63 +2353,150 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 #sec-webdialer.dialer-floating .wd-display{ padding:0 6px 0 14px; }
 #sec-webdialer.dialer-floating .wd-backspace{ width:38px; height:38px; }
 #sec-webdialer .wd-header{ position:relative; }
-.wd-floating-close{
+/* The popup's two window controls live in ONE absolutely-positioned cluster
+   pinned to the header's top-right. Minimize (–) and expand (⤢) occupy the
+   SAME slot in that cluster — the widget's top-right corner — so collapsing
+   and re-expanding never moves the control the agent is aiming at. */
+.wd-float-btns{
   display:none; position:absolute; top:0; right:0;
+  align-items:center; gap:2px;
+}
+#sec-webdialer.dialer-floating .wd-float-btns{ display:flex; }
+.wd-floating-close,.wd-floating-min{
   width:30px; height:30px; border-radius:8px; border:none;
   background:transparent; color:var(--text2); cursor:pointer;
-  align-items:center; justify-content:center;
+  display:flex; align-items:center; justify-content:center; padding:0;
 }
-.wd-floating-close:hover{ background:rgba(255,255,255,.06); color:var(--text); }
-#sec-webdialer.dialer-floating .wd-floating-close{ display:flex; }
+.wd-floating-close:hover,.wd-floating-min:hover{ background:rgba(255,255,255,.06); color:var(--text); }
+body.light .wd-floating-close:hover,body.light .wd-floating-min:hover{ background:rgba(11,31,58,.06); }
+.wd-floating-close:focus-visible,.wd-floating-min:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
 
-/* ── Floating popup: dark theme ──────────────────────────────────────────
-   The full Web Dialer PAGE keeps its deliberately-white "device" card in both
-   themes (see .wd-dial-card below). The floating popup, however, sits over the
-   app's dark chrome, so in dark mode it should read as part of the app — same
-   dark card, tokens, DM Sans font and spacing as the Leads tab, not a white
-   rectangle. Scoped to the floating widget only, and only when NOT in light
-   mode. Higher specificity than the base #sec-webdialer rules, so these win
+/* ── Minimized: the popup collapses into a compact docked bar ────────────
+   The bar IS the widget — same element, same header cluster — so the expand
+   button lands exactly where the minimize button was. Everything else in
+   the widget is hidden; only caller, timer and status remain. */
+#sec-webdialer.dialer-floating.is-minimized{
+  top:auto; bottom:16px; right:auto;
+  left:50%; transform:translateX(-50%);
+  width:min(94vw,420px); max-height:none; overflow:visible;
+  padding:0; animation:none;
+}
+#sec-webdialer.dialer-floating.is-minimized .wd-wrap{ display:none; }
+#sec-webdialer.dialer-floating.is-minimized .wd-dock{ display:flex; }
+/* Header shrinks to nothing but its button cluster and overlays the bar's
+   top-right — hence the 4px inset and pointer-events dance. */
+#sec-webdialer.dialer-floating.is-minimized .wd-header{
+  position:absolute; top:4px; right:4px; left:auto; bottom:auto;
+  width:auto; min-height:0; margin:0; z-index:2; pointer-events:none;
+}
+#sec-webdialer.dialer-floating.is-minimized .wd-float-btns{ pointer-events:auto; }
+.wd-dock{
+  display:none; align-items:center; gap:10px;
+  padding:11px 44px 11px 14px;
+  background:var(--card); border:1px solid var(--border); border-radius:12px;
+  box-shadow:0 1px 2px rgba(0,0,0,.25), 0 16px 40px -18px rgba(0,0,0,.55);
+  font-family:var(--sans);
+}
+body:not(.light) .wd-dock{ background:var(--lg-card); border-color:var(--lg-border); }
+.wd-dock-dot{
+  flex-shrink:0; width:9px; height:9px; border-radius:50%;
+  background:var(--text3);
+}
+.wd-dock-dot.is-ringing{ background:#fbbf24; animation:wd-dock-pulse 1.2s ease-in-out infinite; }
+.wd-dock-dot.is-live{ background:#34d399; }
+.wd-dock-dot.is-ended{ background:#f87171; }
+@keyframes wd-dock-pulse{ 0%,100%{ opacity:1 } 50%{ opacity:.35 } }
+.wd-dock-main{ display:flex; flex-direction:column; gap:1px; min-width:0; flex:1; }
+.wd-dock-name{
+  font-size:13px; font-weight:600; color:var(--text);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.wd-dock-num{
+  font-size:11.5px; color:var(--text3);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.wd-dock-side{ display:flex; flex-direction:column; align-items:flex-end; gap:1px; flex-shrink:0; }
+.wd-dock-timer{ font-size:13px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; }
+.wd-dock-status{ font-size:11px; color:var(--text3); }
+@media (max-width:560px){ #sec-webdialer.dialer-floating.is-minimized{ width:calc(100vw - 24px); } }
+
+/* ── Web Dialer: dark theme ──────────────────────────────────────────────
+   ONE block for BOTH presentations. The popup used to be themed on its own
+   with a navy gradient (#101f38 → #0c1a30) while the full page kept a
+   hard-coded white "device" card in dark mode — two surfaces, two answers,
+   neither matching anything else in the app. Both now read from the --lg-*
+   grey/black family, which is what the Leads tab and the Summary page are
+   painted with, so the phone looks like part of the product wherever it is
+   shown. Scoped `body:not(.light)` and to #sec-webdialer, so light mode
+   keeps the original white device card untouched.
+
+   Higher specificity than the base #sec-webdialer rules below, so these win
    regardless of source order. */
-body:not(.light) #sec-webdialer.dialer-floating .wd-dial-card{
-  background:linear-gradient(180deg,#101f38,#0c1a30);
-  border:1px solid rgba(255,255,255,.06);
-  border-radius:10px;
+body:not(.light) #sec-webdialer .wd-dial-card{
+  background:var(--lg-card);
+  border:1px solid var(--lg-border);
   font-family:var(--sans);
   box-shadow:0 1px 2px rgba(0,0,0,.25), 0 16px 40px -18px rgba(0,0,0,.55);
 }
-body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg label{ color:var(--text3); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg input,
-body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg select{
-  background:var(--bg3); border-color:var(--border); color:var(--text);
+body:not(.light) #sec-webdialer .wd-caller-fg label{ color:var(--lg-caption); }
+body:not(.light) #sec-webdialer .wd-caller-fg input,
+body:not(.light) #sec-webdialer .wd-caller-fg select{
+  background:var(--lg-inner); border-color:var(--lg-border); color:var(--lg-text1);
 }
-body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg input::placeholder{ color:var(--text3); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg input:focus,
-body:not(.light) #sec-webdialer.dialer-floating .wd-caller-fg select:focus{ border-color:var(--accent); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-cs-timer{ color:var(--text3); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-display{
-  background:var(--bg3); border-color:var(--border);
+body:not(.light) #sec-webdialer .wd-caller-fg input::placeholder{ color:var(--lg-faint); }
+body:not(.light) #sec-webdialer .wd-caller-fg input:focus,
+body:not(.light) #sec-webdialer .wd-caller-fg select:focus{ border-color:var(--lg-blue-border); }
+body:not(.light) #sec-webdialer .wd-cs-timer{ color:var(--lg-text3); }
+body:not(.light) #sec-webdialer .wd-display{
+  background:var(--lg-inner); border-color:var(--lg-border);
 }
-body:not(.light) #sec-webdialer.dialer-floating .wd-number-prefix,
-body:not(.light) #sec-webdialer.dialer-floating .wd-number-input{ color:var(--text); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-number-input::placeholder{ color:var(--text3); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-backspace{ color:var(--text3); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-backspace:hover{ background:var(--bg3); color:var(--text); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-key{
-  background:var(--bg3); border-color:var(--border); color:var(--text);
+body:not(.light) #sec-webdialer .wd-number-prefix,
+body:not(.light) #sec-webdialer .wd-number-input{ color:var(--lg-text1); }
+body:not(.light) #sec-webdialer .wd-number-input::placeholder{ color:var(--lg-faint); }
+body:not(.light) #sec-webdialer .wd-backspace{ color:var(--lg-text3); }
+body:not(.light) #sec-webdialer .wd-backspace:hover{ background:var(--lg-inner); color:var(--lg-text1); }
+body:not(.light) #sec-webdialer .wd-key{
+  background:var(--lg-inner); border-color:var(--lg-border); color:var(--lg-text1);
 }
-body:not(.light) #sec-webdialer.dialer-floating .wd-key:hover{ background:var(--bg2); border-color:var(--border2); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-key-num{ color:var(--text); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-key-sub{ color:var(--text3); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-cs-btn{
-  background:var(--bg3); border-color:var(--border); color:var(--text2);
+body:not(.light) #sec-webdialer .wd-key:hover{ background:var(--lg-card); border-color:var(--lg-border-strong); }
+body:not(.light) #sec-webdialer .wd-key-num{ color:var(--lg-text1); }
+body:not(.light) #sec-webdialer .wd-key-sub{ color:var(--lg-caption); }
+body:not(.light) #sec-webdialer .wd-cs-btn{
+  background:var(--lg-inner); border-color:var(--lg-border); color:var(--lg-text2);
 }
-body:not(.light) #sec-webdialer.dialer-floating .wd-cs-btn:hover{ background:var(--bg2); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-cs-outcome-lbl{ color:var(--text3); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-out-btn{
-  background:var(--bg3); border-color:var(--border); color:var(--text);
+body:not(.light) #sec-webdialer .wd-cs-btn:hover{ background:var(--lg-card); }
+body:not(.light) #sec-webdialer .wd-cs-outcome-lbl{ color:var(--lg-text3); }
+body:not(.light) #sec-webdialer .wd-out-btn{
+  background:var(--lg-inner); border-color:var(--lg-border); color:var(--lg-text1);
 }
-body:not(.light) #sec-webdialer.dialer-floating .wd-out-btn:hover{ background:var(--bg2); }
-body:not(.light) #sec-webdialer.dialer-floating .wd-out-btn-skip{ color:var(--text3); }
+body:not(.light) #sec-webdialer .wd-out-btn:hover{ background:var(--lg-card); }
+body:not(.light) #sec-webdialer .wd-out-btn-skip{ color:var(--lg-text3); }
+/* The hangup button and the "Sold" outcome keep their own signal colours —
+   red and green mean something here and are not surfaces. */
+
+/* The rest of the full-page tab (Call Settings / Matched Lead / Call History)
+   sits beside the dial card, so it moves to the same grey family rather than
+   leaving a grey phone on navy cards. */
+body:not(.light) #sec-webdialer .card{ background:var(--lg-card); border-color:var(--lg-border); }
+body:not(.light) #sec-webdialer .card-title{ color:var(--lg-text1); }
+body:not(.light) #sec-webdialer .wd-hint,
+body:not(.light) #sec-webdialer .wd-history-empty,
+body:not(.light) #sec-webdialer .wd-history-time{ color:var(--lg-text3); }
+body:not(.light) #sec-webdialer .wd-history-num{ color:var(--lg-text1); }
+body:not(.light) #sec-webdialer .wd-history-dur{ color:var(--lg-text2); }
+body:not(.light) #sec-webdialer .wd-history-row{ border-bottom-color:var(--lg-divider); }
+body:not(.light) #sec-webdialer .wd-qa-btn{
+  background:var(--lg-card); border-color:var(--lg-border); color:var(--lg-text1);
+}
+body:not(.light) #sec-webdialer .wd-qa-btn:hover{ background:var(--lg-inner); border-color:var(--lg-border-strong); }
+body:not(.light) #sec-webdialer .wd-hist-toggle{ background:var(--lg-inner); border-color:var(--lg-border); }
+body:not(.light) #sec-webdialer .wd-hist-mode{ color:var(--lg-text3); }
+body:not(.light) #sec-webdialer .wd-hist-mode.active{ background:var(--lg-card); color:var(--lg-text1); }
+body:not(.light) #sec-webdialer .wd-header-title{ color:var(--lg-text1); }
+body:not(.light) #sec-webdialer .wd-header-sub{ color:var(--lg-text3); }
+/* Floating popup only: it overlays the app rather than sitting in a column,
+   so it trades the page card's big radius for the app's standard 10px. */
+body:not(.light) #sec-webdialer.dialer-floating .wd-dial-card{ border-radius:10px; }
 
 /* Post-call outcome picker — inline in the dial card, same footprint style
    as the rest of the Web Dialer widget. */
@@ -3067,6 +3323,14 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
     right:12px !important; bottom:calc(84px + env(safe-area-inset-bottom)) !important;
     width:min(88vw,360px) !important; max-height:calc(100vh - 108px) !important; max-width:calc(100vw - 24px) !important;
   }
+  /* The rule above is !important, so the docked bar has to restate its own
+     geometry at the same weight or it inherits the popup's corner. */
+  #sec-webdialer.dialer-floating.is-minimized{
+    left:12px !important; right:12px !important;
+    bottom:calc(12px + env(safe-area-inset-bottom)) !important;
+    width:auto !important; max-width:none !important; max-height:none !important;
+    transform:none !important;
+  }
   .dialer-fab{ right:16px; bottom:calc(16px + env(safe-area-inset-bottom)); }
 
   /* Topbar right — hide date on small screens */
@@ -3219,8 +3483,26 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ledger .lg-tscroll{overflow-x:auto}
 .ledger .lg-tmin{min-width:var(--lg-tmin,640px)}
 .ledger .lgm{font-family:'Spline Sans Mono',ui-monospace,'SFMono-Regular',Consolas,monospace}
-.ledger .lg-chip{transition:border-color .14s ease}
+/* Period chips on Summary. The visuals live HERE, not inline in the
+   renderer: "Past month…" / "Custom range…" are built by the shared
+   ppPeriodPickerHTML() and can only look identical to Daily/Weekly/
+   Monthly/Lifetime if all five read the same rule. They used to differ
+   because the four segmented buttons styled themselves with an inline
+   style attribute the picker never got. One box model, one .on state. */
+.ledger .lg-chip{
+  box-sizing:border-box;height:30px;padding:0 10px;
+  font-family:inherit;font-weight:500;font-size:12.5px;line-height:1;
+  background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2);
+  border-radius:6px;cursor:pointer;
+  transition:border-color .14s ease,color .14s ease}
+.ledger button.lg-chip{display:inline-flex;align-items:center;justify-content:center}
+/* .pp-pick's own padding rules are less specific than the line above, so the
+   <select> arrow gutter and the date fields have to be restated here. */
+.ledger select.lg-chip{padding:0 24px 0 10px}
+.ledger input.lg-chip[type=date]{padding:0 8px}
 .ledger .lg-chip:hover{border-color:var(--lg-blue-border)}
+.ledger .lg-chip.on{border-color:var(--lg-blue-border);color:var(--lg-blue)}
+.ledger .lg-chip:focus-visible{outline:2px solid var(--lg-blue);outline-offset:2px}
 .ledger .lg-btn{transition:background .14s ease}
 .ledger .lg-btn:hover{background:var(--lg-blue-deep) !important}
 .ledger .lg-rowh{transition:background .1s ease}
@@ -3776,7 +4058,26 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
 /* Force the toolbar/bulk form controls to the card colour (white in light,
    dark card in dark) so they match the lead boxes — overrides the inline
    background:var(--bg3) on these controls. */
-.ledger-leads #lead-search,.ledger-leads #lead-filter-status,.ledger-leads #lead-filter-source,.ledger-leads #lead-filter-state,.ledger-leads #lead-per-page,.ledger-leads #bulk-status-sel{background:var(--lg-card)!important}
+.ledger-leads #lead-search,.ledger-leads .msf-btn,.ledger-leads #lead-per-page,.ledger-leads #bulk-status-sel{background:var(--lg-card)!important}
+/* The multi-select filters ride the ledger palette like every other control
+   on this screen — one remap, same as the inputs above. */
+.ledger-leads .msf-btn{border-color:var(--lg-border);color:var(--lg-text1);border-radius:6px}
+.ledger-leads .msf-btn:hover{border-color:var(--lg-border-strong)}
+.ledger-leads .msf.is-active .msf-btn{border-color:var(--lg-blue-border)}
+.ledger-leads .msf-caret{color:var(--lg-caption)}
+.ledger-leads .msf-badge{background:var(--lg-blue);color:#fff}
+.ledger-leads .msf-panel{background:var(--lg-card);border-color:var(--lg-border)}
+.ledger-leads .msf-all{color:var(--lg-text2);border-bottom-color:var(--lg-divider)}
+.ledger-leads .msf-all:hover{background:var(--lg-inner);color:var(--lg-text1)}
+.ledger-leads .msf-opt{color:var(--lg-text1)}
+.ledger-leads .msf-opt:hover{background:var(--lg-inner)}
+.ledger-leads .msf-opt input{accent-color:var(--lg-blue)}
+.ledger-leads .msf-empty{color:var(--lg-caption)}
+.ledger-leads .msf-chip{background:var(--lg-inner);border-color:var(--lg-border);color:var(--lg-text2)}
+.ledger-leads .msf-chip b{color:var(--lg-text1)}
+.ledger-leads .msf-chip-x{color:var(--lg-caption)}
+.ledger-leads .msf-chip-x:hover{color:var(--lg-text1)}
+.ledger-leads .msf-chips-clear{color:var(--lg-blue)}
 
 /* Buttons */
 .ledger-leads .btn{font-family:var(--sans);font-weight:500}
@@ -3837,7 +4138,6 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
 .ledger-leads .lead-act-btn.lead-text-btn--unknown,
 .ledger-leads .lead-act-btn.lead-text-btn--no_phone{background:var(--lg-card);border-color:var(--lg-border);color:var(--lg-caption)}
 .ledger-leads .lead-act-btn.lead-text-btn--opted_out{background:var(--lg-red-soft);border-color:var(--lg-red-border);color:var(--lg-red)}
-.ledger-leads .lead-act-btn.lead-optin-btn{background:var(--lg-card);border-color:var(--lg-border-strong);color:var(--lg-text1)}
 .ledger-leads .lead-act-btn.tps-btn{background:var(--lg-card);border-color:var(--lg-blue-border);color:var(--lg-blue)}
 .ledger-leads .lead-act-btn.sold-btn:hover{background:var(--lg-green-soft);color:var(--lg-green)}
 .ledger-leads .lead-act-btn.quote-btn:hover,.ledger-leads .lead-act-btn.tps-btn:hover{background:var(--lg-blue-soft);color:var(--lg-blue)}
@@ -4019,7 +4319,7 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
     </div>
 
     <div class="auth-view" id="view-reset">
-      <div class="auth-field"><label>New password</label><input type="password" id="reset-pw" autocomplete="new-password" minlength="8"></div>
+      <div class="auth-field"><label>New password</label><input type="password" id="reset-pw" autocomplete="new-password" minlength="8" oninput="pwBindChecklist('reset-pw','reset-pw-rules')"><div class="pw-rules" id="reset-pw-rules"></div></div>
       <div class="auth-field"><label>Confirm new password</label><input type="password" id="reset-pw2" autocomplete="new-password" minlength="8"></div>
       <button class="auth-submit" onclick="authUpdatePassword()">Update password</button>
     </div>
@@ -4198,9 +4498,10 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
             <div class="swiz-f">
               <label for="signup-pw">Password</label>
               <div class="swiz-pw">
-                <input type="password" id="signup-pw" autocomplete="new-password" minlength="8" placeholder="8+ characters">
+                <input type="password" id="signup-pw" autocomplete="new-password" minlength="8" placeholder="8+ characters" oninput="pwBindChecklist('signup-pw','signup-pw-rules')">
                 <button type="button" class="swiz-eye" onclick="wizEye('signup-pw',this)">Show</button>
               </div>
+              <div class="pw-rules" id="signup-pw-rules"></div>
             </div>
             <div class="swiz-f">
               <label for="signup-pw2">Confirm Password</label>
@@ -4253,7 +4554,7 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
 
 
             <!-- ── BASIC PRODUCER ── -->
-            <div class="swiz-pc apc-plan-col" id="pricing-col-basic" data-tier="basic" data-plan-name="Basic Producer" onclick="wizSelectPlan(this)">
+            <div class="swiz-pc apc-plan-col" id="pricing-col-basic" data-tier="basic" role="button" tabindex="0" onkeydown="wizPlanKey(event,this)" data-plan-name="Basic Producer" onclick="wizChoosePlan(this)">
               <div class="swiz-pc-bar"></div>
               <div class="swiz-pc-badges"><span class="swiz-bdg trial">7-Day Free Trial</span></div>
               <div class="swiz-pc-head">
@@ -4280,11 +4581,11 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
                 <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Team Access</div>
                 <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Priority Support</div>
               </div>
-              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Start Free Trial</button>
+              <button class="swiz-pc-cta" tabindex="-1" aria-hidden="true">Start Free Trial</button>
             </div>
 
             <!-- ── PRO PRODUCER ── -->
-            <div class="swiz-pc swiz-pc-feat apc-plan-col" id="pricing-col-pro" data-tier="pro" data-plan-name="Pro Producer" onclick="wizSelectPlan(this)">
+            <div class="swiz-pc swiz-pc-feat apc-plan-col" id="pricing-col-pro" data-tier="pro" role="button" tabindex="0" onkeydown="wizPlanKey(event,this)" data-plan-name="Pro Producer" onclick="wizChoosePlan(this)">
               <div class="swiz-pc-bar"></div>
               <div class="swiz-pc-badges"><span class="swiz-bdg pop">Most Popular</span></div>
               <div class="swiz-pc-head">
@@ -4311,11 +4612,11 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
                 <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Team Access</div>
                 <div class="swiz-pf off"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2"><path d="M3 3l7 7M10 3l-7 7" stroke-linecap="round"/></svg>Priority Support</div>
               </div>
-              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Start Free Trial</button>
+              <button class="swiz-pc-cta" tabindex="-1" aria-hidden="true">Start Free Trial</button>
             </div>
 
             <!-- ── TEAM LEADER ── -->
-            <div class="swiz-pc swiz-pc-lead apc-plan-col" id="pricing-col-leader" data-tier="leader" data-plan-name="Team Leader" onclick="wizSelectPlan(this)">
+            <div class="swiz-pc swiz-pc-lead apc-plan-col" id="pricing-col-leader" data-tier="leader" role="button" tabindex="0" onkeydown="wizPlanKey(event,this)" data-plan-name="Team Leader" onclick="wizChoosePlan(this)">
               <div class="swiz-pc-bar"></div>
               <div class="swiz-pc-badges"><span class="swiz-bdg lead">Agency Leader</span></div>
               <div class="swiz-pc-head">
@@ -4342,18 +4643,18 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
                 <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Team Access</div>
                 <div class="swiz-pf on"><svg fill="none" viewBox="0 0 13 13" stroke="currentColor" stroke-width="2.2"><path d="M2 6.5l3 3 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>Priority Support</div>
               </div>
-              <button class="swiz-pc-cta" onclick="wizSelectPlan(this.closest('.swiz-pc'));event.stopPropagation()">Start Free Trial</button>
+              <button class="swiz-pc-cta" tabindex="-1" aria-hidden="true">Start Free Trial</button>
             </div>
 
           </div><!-- /.swiz-plans -->
 
           <div class="swiz-err" id="wiz-err-2" style="max-width:480px;margin:0 auto 16px"></div>
+          <!-- The Continue button was REMOVED 2026-07-31. Picking a plan IS
+               continuing — the card runs wizChoosePlan(), which does exactly
+               what Continue used to do. A second click to confirm a choice
+               already made is a step that only ever cost time. -->
           <div class="swiz-2-nav">
             <button class="swiz-btn-s" onclick="wizGoTo(1,true)">← Back</button>
-            <button class="swiz-btn-p" onclick="wizStep2Next()">
-              Continue
-              <svg width="15" height="15" fill="none" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </button>
           </div>
         </div>
       </div>
@@ -5477,38 +5778,33 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
               <input type="text" id="lead-search" placeholder="Search name, phone, email..." style="padding-left:32px;width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding-right:12px;height:36px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none" oninput="filterLeads()">
             </div>
           </div>
-          <div class="fg" style="min-width:140px;max-width:180px">
-            <select id="lead-filter-status" onchange="filterLeads()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;width:100%">
-              <option value="">All Statuses</option>
-              <option value="new">New</option>
-              <option value="called">Called</option>
-              <option value="no_answer">No Answer</option>
-              <option value="not_interested">Not Interested</option>
-              <option value="sold">Sold</option>
-              <option value="appointment">Appointment Set</option>
-              <option value="social_obj">Social Objection</option>
-              <option value="banking_obj">Banking Objection</option>
-            </select>
+          <!-- Status / Source / State are CHECKBOX multi-selects. Their
+               options are built by msfRender() from LEAD_FILTER_OPTIONS and
+               the live book, so the source list and the status list have one
+               definition each rather than one here and one in JS. -->
+          <div class="msf" id="msf-status" data-field="status" style="min-width:140px;max-width:200px">
+            <button type="button" class="msf-btn" onclick="msfToggleOpen('status')" aria-haspopup="listbox" aria-expanded="false">
+              <span class="msf-label">All Statuses</span>
+              <span class="msf-badge" hidden>0</span>
+              <span class="msf-caret" data-ico="caret-down" data-size="12"></span>
+            </button>
+            <div class="msf-panel" hidden role="listbox" aria-multiselectable="true"></div>
           </div>
-          <div class="fg" style="min-width:130px;max-width:170px">
-            <select id="lead-filter-source" onchange="filterLeads()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;width:100%">
-              <option value="">All Sources</option>
-            </select>
+          <div class="msf" id="msf-source" data-field="source" style="min-width:130px;max-width:190px">
+            <button type="button" class="msf-btn" onclick="msfToggleOpen('source')" aria-haspopup="listbox" aria-expanded="false">
+              <span class="msf-label">All Sources</span>
+              <span class="msf-badge" hidden>0</span>
+              <span class="msf-caret" data-ico="caret-down" data-size="12"></span>
+            </button>
+            <div class="msf-panel" hidden role="listbox" aria-multiselectable="true"></div>
           </div>
-          <div class="fg" style="min-width:120px;max-width:160px">
-            <select id="lead-filter-state" onchange="filterLeads()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-family:var(--sans);font-size:13px;outline:none;width:100%">
-              <option value="">All States</option>
-              <option>AL</option><option>AK</option><option>AZ</option><option>AR</option><option>CA</option>
-              <option>CO</option><option>CT</option><option>DE</option><option>FL</option><option>GA</option>
-              <option>HI</option><option>ID</option><option>IL</option><option>IN</option><option>IA</option>
-              <option>KS</option><option>KY</option><option>LA</option><option>ME</option><option>MD</option>
-              <option>MA</option><option>MI</option><option>MN</option><option>MS</option><option>MO</option>
-              <option>MT</option><option>NE</option><option>NV</option><option>NH</option><option>NJ</option>
-              <option>NM</option><option>NY</option><option>NC</option><option>ND</option><option>OH</option>
-              <option>OK</option><option>OR</option><option>PA</option><option>RI</option><option>SC</option>
-              <option>SD</option><option>TN</option><option>TX</option><option>UT</option><option>VT</option>
-              <option>VA</option><option>WA</option><option>WV</option><option>WI</option><option>WY</option>
-            </select>
+          <div class="msf" id="msf-state" data-field="state" style="min-width:120px;max-width:180px">
+            <button type="button" class="msf-btn" onclick="msfToggleOpen('state')" aria-haspopup="listbox" aria-expanded="false">
+              <span class="msf-label">All States</span>
+              <span class="msf-badge" hidden>0</span>
+              <span class="msf-caret" data-ico="caret-down" data-size="12"></span>
+            </button>
+            <div class="msf-panel" hidden role="listbox" aria-multiselectable="true"></div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap">
             <!-- View switcher -->
@@ -5529,6 +5825,9 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
                  the consent state has loaded — a "0 callable" that corrects
                  itself a second later reads as a broken account. -->
             <span style="font-size:12px;color:var(--text2)" id="lead-callable-count"></span>
+            <!-- Its texting twin. Different permission, different table,
+                 different number — same chip style, side by side. -->
+            <span style="font-size:12px;color:var(--text2)" id="lead-textable-count"></span>
             <select id="lead-per-page" onchange="setLeadsPerPage()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none">
               <option value="25">25/page</option>
               <option value="50" selected>50/page</option>
@@ -5542,6 +5841,10 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
             <button class="btn btn-p btn-sm" onclick="openImportModal()">+ Import Leads</button>
           </div>
         </div>
+        <!-- Active-selection chips. Empty (and hidden) when nothing is
+             narrowing the list, so the toolbar does not grow a permanent
+             second row. Rebuilt by msfRenderChips(). -->
+        <div class="msf-chips" id="lead-filter-chips" hidden></div>
       </div>
 
       <!-- Bulk action bar — shown when leads are selected -->
@@ -5772,9 +6075,29 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
       <div class="wd-header">
         <div class="wd-header-title">Web Dialer</div>
         <div class="wd-header-sub">Dial any number by hand — no lead required.</div>
-        <button type="button" class="wd-floating-close" id="wd-floating-close" aria-label="Close dialer" title="Close">
-          <span data-ico="x" data-size="16"></span>
-        </button>
+        <div class="wd-float-btns">
+          <button type="button" class="wd-floating-min" id="wd-floating-min" aria-label="Minimize dialer" title="Minimize" aria-expanded="true">
+            <span id="wd-floating-min-ico" data-ico="minus" data-size="16"></span>
+          </button>
+          <button type="button" class="wd-floating-close" id="wd-floating-close" aria-label="Close dialer" title="Close">
+            <span data-ico="x" data-size="16"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Minimized presentation: caller, live timer, status. Sibling of
+           .wd-wrap so the whole phone can be hidden without unmounting it —
+           the softphone keeps running, the call is never touched. -->
+      <div class="wd-dock" id="wd-dock">
+        <span class="wd-dock-dot" id="wd-dock-dot"></span>
+        <div class="wd-dock-main">
+          <div class="wd-dock-name" id="wd-dock-name">No active call</div>
+          <div class="wd-dock-num" id="wd-dock-num"></div>
+        </div>
+        <div class="wd-dock-side">
+          <span class="wd-dock-timer" id="wd-dock-timer">—</span>
+          <span class="wd-dock-status" id="wd-dock-status">Idle</span>
+        </div>
       </div>
 
       <div class="wd-wrap">
@@ -6019,7 +6342,8 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
             <div class="card-title" style="display:flex;align-items:center;gap:8px"><span data-ico="key" data-size="13"></span>Change Password</div>
             <div class="fg">
               <label>New Password</label>
-              <input type="password" id="stg-new-pw" placeholder="Min. 8 characters">
+              <input type="password" id="stg-new-pw" placeholder="8+ chars, a number and a symbol" oninput="pwBindChecklist('stg-new-pw','stg-pw-rules')">
+              <div class="pw-rules" id="stg-pw-rules"></div>
             </div>
             <div class="fg" style="margin-top:8px">
               <label>Confirm New Password</label>
@@ -6839,9 +7163,29 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
         </span>
       </label>
 
+      <!-- The SECOND attestation. A different permission, a different
+           sentence, ticked separately and NEVER pre-ticked: recording that
+           a lead may be called must not quietly record that they may be
+           texted. Leaving it alone records voice consent only, which is the
+           common case and the default. -->
+      <label class="vc-check" id="cs-sms-row" style="margin-top:12px;align-items:flex-start;gap:10px;line-height:1.55;padding-top:12px;border-top:1px solid var(--border)">
+        <input type="checkbox" id="cs-sms-attest" onchange="consentSyncButton()" style="margin-top:2px;flex-shrink:0">
+        <span style="font:13px/1.55 var(--sans);color:var(--text)">
+          I confirm these leads gave prior express written consent to receive text messages from me or my agency.
+          <span style="display:block;font-size:11.5px;color:var(--text3);margin-top:3px">
+            Optional. Leave it unticked to record calling consent only.
+          </span>
+        </span>
+      </label>
+
       <p style="font:11.5px/1.5 var(--sans);color:var(--text3);margin:12px 0 0">
         Stored with your name, the source above and the time, on every lead. Leads on your
         do-not-call list are skipped — a person who said stop cannot be consented back.
+      </p>
+      <p id="cs-sms-note" style="font:11.5px/1.5 var(--sans);color:var(--text3);margin:8px 0 0;display:none">
+        Text consent is recorded as <strong>your attestation</strong>, kept separate from consent
+        collected on your hosted opt-in page — that page stays the stronger record, and it is the one
+        the carrier registration points at.
       </p>
 
       <div id="cs-msg" style="font:12.5px var(--sans);color:var(--text2);margin-top:12px;min-height:16px"></div>
@@ -7868,19 +8212,58 @@ function wizStep1Next() {
   if (!phone)       return _wizErr(1, 'Phone number is required.');
   if (!email)       return _wizErr(1, 'Email is required.');
   if (!pw)          return _wizErr(1, 'Password is required.');
-  if (pw.length<8)  return _wizErr(1, 'Password must be at least 8 characters.');
+  if (!passwordOk(pw)) return _wizErr(1, passwordProblem(pw));
   if (pw !== pw2)   return _wizErr(1, 'Passwords do not match.');
   wizGoTo(2);
 }
 
 function wizSelectPlan(el) {
-  document.querySelectorAll('#signup-wizard .apc-plan-col').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('#signup-wizard .apc-plan-col').forEach(c => {
+    c.classList.remove('selected');
+    c.setAttribute('aria-pressed', 'false');
+  });
   el.classList.add('selected');
+  el.setAttribute('aria-pressed', 'true');
   const hidId = document.getElementById('signup-plan-id');
   const hidNm = document.getElementById('signup-plan-name-val');
   if (hidId) hidId.value = el.dataset.planId || el.dataset.tier || '';
   if (hidNm) hidNm.value = el.dataset.planName || '';
   _wizErr(2, '');
+}
+
+/**
+ * Picking a plan IS continuing.
+ *
+ * One handler behind the whole card, the card's CTA button and the keyboard,
+ * so every tier behaves identically and there is no second place for the
+ * "what happens next" logic to live. It selects, plays a short press with a
+ * check flash so the choice registers, then does exactly what the removed
+ * Continue button did — wizStep2Next(), unchanged.
+ *
+ * The advance is on a timer rather than on animationend: if the browser has
+ * animations off (prefers-reduced-motion collapses the durations to 0ms) the
+ * event may never fire, and a plan card that swallows the click is worse than
+ * one that skips the flourish.
+ */
+const WIZ_PRESS_MS = 190;
+let _wizChoosing = false;
+function wizChoosePlan(el) {
+  if (!el || _wizChoosing) return;       // ignore the double-click
+  wizSelectPlan(el);
+  _wizChoosing = true;
+  el.classList.add('is-pressing');
+  setTimeout(() => {
+    el.classList.remove('is-pressing');
+    _wizChoosing = false;
+    wizStep2Next();
+  }, WIZ_PRESS_MS);
+}
+
+/** Space and Enter, because these cards are role="button". */
+function wizPlanKey(e, el) {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  e.preventDefault();          // Space would otherwise scroll the panel
+  wizChoosePlan(el);
 }
 
 function wizStep2Next() {
@@ -8222,7 +8605,7 @@ async function authSignUp() {
   if (!last)           return authMsg('Last name is required.', 'err');
   if (!phone)          return authMsg('Phone number is required.', 'err');
   if (!email || !pw)   return authMsg('Email and password are required.', 'err');
-  if (pw.length < 8)  return authMsg('Password must be at least 8 characters.', 'err');
+  if (!passwordOk(pw)) return authMsg(passwordProblem(pw), 'err');
   if (pw !== pw2)      return authMsg('Passwords do not match.', 'err');
   if (!planId)         return authMsg('Please choose a plan to continue.', 'err');
   const meta = { first_name: first, last_name: last, phone_number: phone };
@@ -8507,6 +8890,87 @@ async function _autoCheckout(planId) {
   }
 }
 
+// <password-core>
+// ============================================================
+// PASSWORD RULES — one definition for every field that takes one
+// ============================================================
+// Signup (wizard step 1), the legacy signup form, the reset-link screen and
+// Settings → Change Password all validated separately, and all four said only
+// "at least 8 characters". They now share this block.
+//
+// MIRRORS supabase/functions/_shared/auth-verify.ts EXACTLY. The server copy
+// is the one a future server-side password path would use; this copy is what
+// the agent sees live as they type, which has to be the same rule or the
+// checklist is a lie. `supabase/functions/_shared/auth-verify.test.ts` runs
+// several hundred shared cases through both and compares. Change one, change
+// the other — same arrangement as pcNormalizeCode() and the AI call meter.
+//
+// Pure: no DOM, no globals. The renderer below it is the part that touches
+// the page.
+const PASSWORD_MIN_LENGTH = 8;
+
+/** ANY printable non-alphanumeric. A whitelist is why everyone appends "!". */
+function pwHasSpecialChar(pw) { return /[^A-Za-z0-9]/.test(pw || ''); }
+function pwHasNumber(pw)      { return /[0-9]/.test(pw || ''); }
+
+/** Every rule with its own met/not-met — that is what makes a live checklist. */
+function passwordRules(pw) {
+  const s = typeof pw === 'string' ? pw : '';
+  return [
+    { key: 'length',  label: 'At least ' + PASSWORD_MIN_LENGTH + ' characters', met: s.length >= PASSWORD_MIN_LENGTH },
+    { key: 'number',  label: 'At least one number',                             met: pwHasNumber(s) },
+    { key: 'special', label: 'At least one special character',                  met: pwHasSpecialChar(s) },
+  ];
+}
+
+function passwordOk(pw) { return passwordRules(pw).every(r => r.met); }
+
+/** One sentence naming everything still missing. '' when it passes. */
+function passwordProblem(pw) {
+  const missing = passwordRules(pw).filter(r => !r.met);
+  if (!missing.length) return '';
+  const parts = missing.map(r =>
+    r.key === 'length' ? PASSWORD_MIN_LENGTH + ' characters or more'
+    : r.key === 'number' ? 'a number'
+    : 'a special character');
+  const list = parts.length === 1
+    ? parts[0]
+    : parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
+  return 'Your password needs ' + list + '.';
+}
+// </password-core>
+
+/** The checklist markup. Ticks green the instant a rule is satisfied. */
+function pwChecklistHTML(pw) {
+  return passwordRules(pw).map(r =>
+    '<div class="pw-rule' + (r.met ? ' met' : '') + '">' +
+      '<span class="pw-rule-ico">' + (r.met
+        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+        : '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="7"/></svg>') +
+      '</span>' + escapeHTML(r.label) +
+    '</div>').join('');
+}
+
+/**
+ * Attaches a live checklist under a password field.
+ *
+ * Idempotent — safe to call on every render of the screen it lives on, which
+ * is how the wizard and the Settings card both get one without either of them
+ * having to know when the other mounted.
+ */
+function pwBindChecklist(inputId, listId) {
+  const inp = document.getElementById(inputId);
+  const list = document.getElementById(listId);
+  if (!inp || !list) return;
+  const paint = () => { list.innerHTML = pwChecklistHTML(inp.value || ''); };
+  if (!inp.dataset.pwBound) {
+    inp.dataset.pwBound = '1';
+    inp.addEventListener('input', paint);
+    inp.addEventListener('focus', paint);
+  }
+  paint();
+}
+
 async function authForgot() {
   const email = document.getElementById('signin-email').value.trim();
   if (!email) return authMsg('Enter your email above first, then click Forgot password.', 'err');
@@ -8520,11 +8984,302 @@ async function authForgot() {
 async function authUpdatePassword() {
   const pw = document.getElementById('reset-pw').value;
   const pw2 = document.getElementById('reset-pw2').value;
-  if (pw.length < 8) return authMsg('Password must be at least 8 characters.', 'err');
+  if (!passwordOk(pw)) return authMsg(passwordProblem(pw), 'err');
   if (pw !== pw2) return authMsg('Passwords do not match.', 'err');
   const { error } = await sb.auth.updateUser({ password: pw });
   if (error) return authMsg(error.message, 'err');
   authMsg('Password updated.', 'ok');
+}
+
+// ============================================================
+// VERIFY TO ACTIVATE — the email gate and the phone check
+// ============================================================
+// 🔴 GRANDFATHERING IS THE FIRST THING TO UNDERSTAND HERE. Migration 20260804
+// stamped `email_verified_at` and `phone_verified_at` on every agent row that
+// existed when it ran, so for all nine live accounts — the owner's included —
+// both `vgEmailVerified()` and `vgPhoneVerified()` are already true and
+// nothing below ever renders. This flow is for accounts created after that.
+//
+// Email is a HARD gate: signed in, but the dashboard stays behind an overlay
+// until the confirmation link is clicked. Phone is a SOFT one: the app works,
+// only calling and texting are locked, which is the same shape as the
+// tier-upgrade gate the app already uses.
+//
+// Nothing here decides entitlement on its own — `phone-verify` re-checks
+// server-side and `agents_protect_verification_columns` refuses a client
+// write to either column, so a devtools flip of these flags buys nothing.
+let _vgState = { phone_verified_at: null, email_verified_at: null, phone_e164: null, loaded: false };
+let _vgResendTimer = null;
+
+/**
+ * Email is confirmed if Supabase says so, OR if the grandfather column is set.
+ *
+ * Both, deliberately. auth.users.email_confirmed_at is the authority for a
+ * new signup; agents.email_verified_at is the migration's record that an
+ * older account predates this gate. Turning email confirmation on in the
+ * Supabase dashboard must not lock out someone who signed up before it.
+ */
+function vgEmailVerified() {
+  if (currentAgent && currentAgent.email_confirmed_at) return true;
+  if (currentAgent && currentAgent.confirmed_at) return true;   // older SDK field
+  return !!_vgState.email_verified_at;
+}
+function vgPhoneVerified() { return !!_vgState.phone_verified_at; }
+
+/** Loads both flags. Cheap, and the gate cannot be decided without it. */
+async function vgLoadState() {
+  if (!currentAgent || !currentAgent.id) return _vgState;
+  try {
+    const { data } = await sb.from('agents')
+      .select('email_verified_at, phone_verified_at, phone_e164')
+      .eq('id', currentAgent.id).maybeSingle();
+    _vgState = {
+      email_verified_at: (data && data.email_verified_at) || null,
+      phone_verified_at: (data && data.phone_verified_at) || null,
+      phone_e164:        (data && data.phone_e164) || null,
+      loaded: true,
+    };
+  } catch (e) {
+    // A failed load must NOT invent a lock. An agent who cannot reach the
+    // server is already having a bad time; adding a gate they cannot clear
+    // to it is the wrong answer, and the server-side check still holds.
+    console.warn('[verify] state load failed', e);
+    _vgState = { email_verified_at: 'unknown', phone_verified_at: 'unknown', phone_e164: null, loaded: false };
+  }
+  return _vgState;
+}
+
+/** Called after auth lands. Raises the email overlay if it is needed. */
+async function vgApplyGates() {
+  await vgLoadState();
+  const emailGate = document.getElementById('verify-email-gate');
+  if (!emailGate) return;
+  const needEmail = _vgState.loaded && !vgEmailVerified();
+  emailGate.classList.toggle('on', needEmail);
+  if (needEmail) {
+    const addr = document.getElementById('vg-email-addr');
+    if (addr) addr.textContent = (currentAgent && currentAgent.email) || 'your email';
+  }
+  vgRenderLocks();
+}
+
+async function vgRecheckEmail() {
+  const msg = document.getElementById('vg-email-msg');
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Checking…'; }
+  // getUser() re-reads from the server rather than the cached session, which
+  // is the whole point — the session in this tab predates the click.
+  try {
+    const { data } = await sb.auth.getUser();
+    if (data && data.user) currentAgent = data.user;
+  } catch (e) {}
+  await vgLoadState();
+  if (vgEmailVerified()) {
+    const gate = document.getElementById('verify-email-gate');
+    if (gate) gate.classList.remove('on');
+    if (msg) msg.textContent = '';
+    showToast('Email confirmed — welcome in', '#10b981');
+    vgRenderLocks();
+    return;
+  }
+  if (msg) { msg.style.color = 'var(--a3)'; msg.textContent = 'Not confirmed yet. Check your inbox, and your spam folder.'; }
+}
+
+async function vgResendEmail() {
+  const btn = document.getElementById('vg-email-resend');
+  const msg = document.getElementById('vg-email-msg');
+  const email = (currentAgent && currentAgent.email) || '';
+  if (!email) return;
+  if (btn) btn.disabled = true;
+  try {
+    const { error } = await sb.auth.resend({ type: 'signup', email });
+    if (error) throw error;
+    if (msg) { msg.style.color = 'var(--a2)'; msg.textContent = 'Sent. It can take a minute to arrive.'; }
+  } catch (e) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = (e && e.message) || 'Could not resend right now.'; }
+  } finally {
+    // A resend button that can be held down is a mail-bomb button.
+    setTimeout(() => { if (btn) btn.disabled = false; }, 30000);
+  }
+}
+
+// ---- Phone ----------------------------------------------------------------
+
+function vgPhoneStep(step) {
+  const send = document.getElementById('vg-phone-step-send');
+  const code = document.getElementById('vg-phone-step-code');
+  if (send) send.style.display = step === 'send' ? '' : 'none';
+  if (code) code.style.display = step === 'code' ? '' : 'none';
+  const msg = document.getElementById('vg-phone-msg');
+  if (msg) msg.textContent = '';
+  if (step === 'code') { const i = document.getElementById('vg-code-input'); if (i) { i.value = ''; i.focus(); } }
+}
+
+function vgOpenPhoneGate() {
+  const gate = document.getElementById('verify-phone-gate');
+  if (!gate) return;
+  gate.classList.add('on');
+  vgPhoneStep('send');
+  const inp = document.getElementById('vg-phone-input');
+  // Prefill from whatever the account already knows — the signup form asked
+  // for a phone number, so making them type it twice is pure friction.
+  if (inp && !inp.value) {
+    const known = _vgState.phone_e164
+      || (currentAgent && currentAgent.user_metadata && currentAgent.user_metadata.phone_number) || '';
+    if (known) inp.value = (typeof formatPhone === 'function' ? formatPhone(known) : known) || known;
+  }
+}
+function vgClosePhoneGate() {
+  const gate = document.getElementById('verify-phone-gate');
+  if (gate) gate.classList.remove('on');
+}
+
+function vgOnCodeInput(el) {
+  el.value = String(el.value || '').replace(/\D/g, '').slice(0, 6);
+  // Auto-submit on the sixth digit: everybody presses Verify anyway.
+  if (el.value.length === 6) vgCheckPhoneCode();
+}
+
+/** Counts the resend button down so the cooldown is visible, not mysterious. */
+function vgStartResendCooldown(seconds) {
+  const btn = document.getElementById('vg-code-resend');
+  if (!btn) return;
+  if (_vgResendTimer) clearInterval(_vgResendTimer);
+  let left = Math.max(0, Math.ceil(seconds || 0));
+  const paint = () => {
+    if (left <= 0) {
+      btn.disabled = false; btn.textContent = 'Send a new code';
+      clearInterval(_vgResendTimer); _vgResendTimer = null; return;
+    }
+    btn.disabled = true; btn.textContent = `Send a new code (${left}s)`;
+    left--;
+  };
+  paint();
+  _vgResendTimer = setInterval(paint, 1000);
+}
+
+async function vgSendPhoneCode(isResend) {
+  const msg = document.getElementById('vg-phone-msg');
+  const btn = document.getElementById(isResend ? 'vg-code-resend' : 'vg-phone-send');
+  const inp = document.getElementById('vg-phone-input');
+  const phone = (inp && inp.value.trim()) || _vgState.phone_e164 || '';
+  if (!phone) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Enter your mobile number.'; }
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Sending…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('phone-verify', { body: { action: 'send', phone } });
+    const body = data || {};
+    if (error && !body.error) throw new Error(error.message || 'Request failed');
+    if (body.error) {
+      if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = body.detail || body.error; }
+      if (body.error === 'too_soon') { vgPhoneStep('code'); vgStartResendCooldown(body.resend_wait_seconds); }
+      return;
+    }
+    if (body.already_verified) { await vgOnPhoneVerified(body.phone_e164); return; }
+    vgPhoneStep('code');
+    if (msg) {
+      msg.style.color = 'var(--text2)';
+      msg.textContent = 'Code sent to ' + ((typeof formatPhone === 'function' && formatPhone(body.phone_e164)) || body.phone_e164) + '.';
+    }
+    vgStartResendCooldown(45);
+  } catch (e) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Could not reach the server. Try again in a moment.'; }
+  } finally {
+    if (btn && btn.id === 'vg-phone-send') btn.disabled = false;
+  }
+}
+
+async function vgCheckPhoneCode() {
+  const msg = document.getElementById('vg-phone-msg');
+  const btn = document.getElementById('vg-code-submit');
+  const inp = document.getElementById('vg-code-input');
+  const code = (inp && inp.value.replace(/\D/g, '')) || '';
+  if (code.length !== 6) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Enter the 6-digit code from the text.'; }
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Checking…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('phone-verify', { body: { action: 'check', code } });
+    const body = data || {};
+    if (error && !body.error) throw new Error(error.message || 'Request failed');
+    if (body.error) {
+      if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = body.detail || body.error; }
+      if (inp) { inp.value = ''; inp.focus(); }
+      return;
+    }
+    await vgOnPhoneVerified(body.phone_e164);
+  } catch (e) {
+    if (msg) { msg.style.color = 'var(--a4)'; msg.textContent = 'Could not reach the server. Try again in a moment.'; }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function vgOnPhoneVerified(phone) {
+  await vgLoadState();
+  vgClosePhoneGate();
+  vgRenderLocks();
+  showToast('Phone verified — calling and texting are unlocked', '#10b981');
+}
+
+/**
+ * The inline locks. Paints (or clears) a banner at the top of every screen
+ * whose feature needs a verified phone.
+ *
+ * Banner, not a removed button: hiding the Power Dial button would leave an
+ * agent hunting for a feature they were sold. This says what is missing and
+ * gives them the one control that fixes it.
+ */
+const VG_LOCKED_AREAS = [
+  { host: 'sec-webdialer',  anchor: '.wd-header',  what: 'Calling' },
+  { host: 'sec-leads',      anchor: null,          what: 'Calling and texting' },
+  { host: 'sec-aidialer',   anchor: null,          what: 'The AI Sales Agent' },
+  { host: 'sec-messaging',  anchor: null,          what: 'Texting' },
+];
+
+function vgRenderLocks() {
+  // 'unknown' means the state never loaded; do not paint a lock we cannot
+  // be sure about, and never paint one for a grandfathered account.
+  const locked = _vgState.loaded && !vgPhoneVerified();
+  VG_LOCKED_AREAS.forEach(area => {
+    const host = document.getElementById(area.host);
+    if (!host) return;
+    const id = 'vg-lock-' + area.host;
+    let el = document.getElementById(id);
+    if (!locked) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.className = 'vg-lock';
+      el.innerHTML =
+        '<span class="vg-lock-ico"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>' +
+        '<div class="vg-lock-body"><div class="vg-lock-t">' + escapeHTML(area.what) + ' is locked until your phone is verified</div>' +
+        '<div class="vg-lock-s">We send one 6-digit text to a mobile number you own. It takes about twenty seconds.</div>' +
+        '<button type="button" class="vg-lock-btn" onclick="vgOpenPhoneGate()">Verify my phone</button></div>';
+      const anchor = area.anchor ? host.querySelector(area.anchor) : null;
+      if (anchor && anchor.nextSibling) host.insertBefore(el, anchor.nextSibling);
+      else host.insertBefore(el, host.firstChild);
+    }
+  });
+}
+
+/**
+ * The one question every calling/texting entry point asks before it acts.
+ * Returns true when the action may proceed.
+ *
+ * Advisory — the server checks too. This exists so the agent is told what to
+ * do instead of watching a button fail.
+ */
+function vgRequirePhone(featureLabel) {
+  if (!_vgState.loaded || vgPhoneVerified()) return true;
+  showToast((featureLabel || 'This') + ' needs a verified phone number', '#f59e0b');
+  vgOpenPhoneGate();
+  return false;
 }
 
 async function authSignOut() {
@@ -8756,6 +9511,10 @@ function subscribeAuth() {
         hideGate();
         if (!same) bootDashboard();
       }
+      // "Verify to activate". Fire-and-forget: it raises the email overlay
+      // over whatever the dashboard is doing, and every one of the nine
+      // pre-20260804 accounts is grandfathered so it raises nothing for them.
+      if (typeof vgApplyGates === 'function') vgApplyGates();
       // The softphone's Realtime subscription needs currentAgent.id
       // to scope its postgres_changes filter. _bindOnce calls
       // _initRealtime when the panel binds, but at that moment
@@ -8825,6 +9584,8 @@ const ICONS = {
   'caret-down': '<polyline points="6 9 12 15 18 9"/>',
   'sign-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
   'plus': '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  'minus': '<line x1="5" y1="12" x2="19" y2="12"/>',
+  'arrows-out': '<polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>',
   'eye': '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
   'percent': '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
   'tag': '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
@@ -12328,6 +13089,34 @@ const LOCAL_TO_ITK_TERM = {
 // ============================================================
 // Hydrated from namespaced storage in bootDashboard() once auth resolves.
 let policies = [];
+
+// 🔴 `window.policies` IS NOT AUTOMATIC, AND THIRTEEN READERS ASSUMED IT WAS.
+//
+// This script is a classic <script>, and a top-level `let` binds in the global
+// LEXICAL scope, not on the global OBJECT — unlike `var`. So a bare `policies`
+// reference resolved fine (the Policy Tracker, which is why the book always
+// looked right) while every `window.policies` read silently returned
+// `undefined`, fell through its `|| []`, and computed against an empty book.
+//
+// That is the bonus tracker's empty progress bars. It is also the pipeline
+// funnel, the persistency-health strip, the chargeback exposure figure, the
+// free-look watchlist, the greeting's month-to-date AP and the leaderboard
+// record nudges — all of them reading zero from a book with 23 policies in
+// it, and none of them erroring, because `[]` is a perfectly good array.
+//
+// Fixed once, here, rather than in thirteen places. An accessor rather than
+// switching to `var`, so the alias is explicit and cannot be quietly undone
+// by someone modernising a `var` back to a `let`. Both directions are wired:
+// the setter exists because `policies = remotePolicies` (bootDashboard) and
+// `policies = policies.filter(…)` (delete) reassign the binding, and a
+// getter-only property would leave a writer silently throwing in strict mode.
+try {
+  Object.defineProperty(window, 'policies', {
+    get() { return policies; },
+    set(v) { policies = v; },
+    configurable: true,
+  });
+} catch (e) { /* already defined — nothing to do */ }
 let ptFilter = { client:'', carrier:'', product:'', submitted:'', draft:'', status:'', subStart:'', subEnd:'' };
 let ptSort = '';
 let ptPage = 1;                       // Policy Tracker current page (Ledger pagination)
@@ -13574,7 +14363,6 @@ function findBonus(id) {
   return CARRIER_BONUSES.carriers.find(c => c.id === id) || null;
 }
 
-const NO_BONUS_STATUSES = new Set(['none_found', 'discontinued', 'expired']);
 const BONUS_DEFAULT_CARRIERS = ['americo', 'mutual_of_omaha', 'transamerica', 'ethos', 'corebridge', 'american_amicable'];
 
 // ---- "My Carriers" selection (Feature 1) ----
@@ -13601,6 +14389,20 @@ function toggleBonusCarrier(id) {
   renderUpcomingBonuses();
   if (typeof renderBonusTierIntel === 'function') renderBonusTierIntel();
 }
+
+// <bonus-core>
+// ============================================================
+// BONUS MATH — pure, and extracted verbatim by test/bonus-tracker.test.mjs
+// ============================================================
+// Everything between these sentinels is arithmetic over data that is handed
+// in: no DOM, no localStorage, no CARRIER_BONUSES lookup, no policy->carrier
+// resolution (that needs the COMP table, so it is passed IN as a function).
+// The payout shapes differ per carrier and must not be generalised — see
+// CLAUDE.md — so each one is pinned by its own test against the real tiers
+// in data/carrier_bonuses.json.
+
+// A program in one of these states is dead: no bar, no nudge, no number.
+const NO_BONUS_STATUSES = new Set(['none_found', 'discontinued', 'expired']);
 
 function bonusStatusBadge(status) {
   if (status === 'active_2026') return { label: 'Verified 2026', color: '#34d399' };
@@ -13646,9 +14448,19 @@ function _bonusPolicyDate(p) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function bonusProgress(bonus, win, pols) {
+/**
+ * The pure half. `idOf` resolves a policy to a bonus-carrier id and is passed
+ * in because the real resolver needs the COMP product table (to keep
+ * Corebridge GIWL out), which has no business inside the arithmetic.
+ *
+ * A policy counts when its date falls in [start, end) — half-open, like every
+ * other window in this app — and when its status qualifies. `policy_count`
+ * programs count PAID policies only; AP programs total issued + paid.
+ */
+function bonusProgressFrom(bonus, win, pols, idOf) {
+  if (!bonus || !win) return 0;
   const matches = (pols || []).filter(p => {
-    if (bonusCarrierIdForPolicy(p) !== bonus.id) return false;
+    if (idOf(p) !== bonus.id) return false;
     const d = _bonusPolicyDate(p);
     return d && d >= win.start && d < win.end;
   });
@@ -13766,7 +14578,20 @@ function bonusPayoutTiming(bonus) {
 function bonusIsComputable(bonus) {
   return !!bonus && (bonus.basis === 'annualized_premium' || bonus.basis === 'policy_count')
     && Array.isArray(bonus.tiers) && bonus.tiers.length > 0
-    && !NO_BONUS_STATUSES.has(bonus.status);
+    && !NO_BONUS_STATUSES.has(bonus.status)
+    // A program whose qualification period could not be parsed into a
+    // `window` cannot be placed in time, so there is no span to total
+    // production over and no bar to draw. Bankers Fidelity ("ongoing") and
+    // Oxford Life both reached the bar renderer this way and rendered the
+    // bare words "No tier data." — which is not what is wrong with them.
+    // They get the informational card instead.
+    && !!(bonus.window && bonus.window.type);
+}
+// </bonus-core>
+
+/** The app-facing wrapper: same maths, with the real carrier resolver bound. */
+function bonusProgress(bonus, win, pols) {
+  return bonusProgressFrom(bonus, win, pols, bonusCarrierIdForPolicy);
 }
 
 // Per-selected-carrier snapshot shared by the cards, the Upcoming widget,
@@ -13832,10 +14657,16 @@ function bonusCardHTML(s) {
 
   let body;
   if (!s.computable) {
+    // Three different reasons a carrier has no bar, and they are three
+    // different sentences. "No active bonus program" on a carrier that has
+    // one — just not one we can total — sends an agent away from money.
+    const portalOnly = b.bonus_type === 'portal_only' || b.status === 'portal_only' || (b.tiers || []).length === 0;
+    const unplaceable = !portalOnly && !NO_BONUS_STATUSES.has(b.status)
+      && Array.isArray(b.tiers) && b.tiers.length > 0;
     body = '<div class="alert alert-i" style="margin-top:8px"><span data-ico="info"></span><div>' +
-      (b.bonus_type === 'portal_only' || (b.tiers || []).length === 0
-        ? 'Program exists — tiers are on the carrier portal.'
-        : 'No active bonus program.') +
+      (portalOnly  ? 'Program exists — tiers are on the carrier portal.'
+     : unplaceable ? 'Program exists, but it has no fixed qualification period we can track against — check the carrier portal for where you stand.'
+     : 'No active bonus program.') +
       '</div></div>';
   } else if (s.closed) {
     const endLabel = new Date(b.window.end + 'T00:00:00').toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
@@ -14878,6 +15709,7 @@ function closeUpgradeGate() {
 }
 
 function guardedOpenPowerDialer() {
+  if (!vgRequirePhone('The Power Dialer')) return;
   if (_wizIsNative()) {
     showToast('Power Dialer is available on desktop — use Web Dialer here instead', '#f59e0b');
     return;
@@ -14891,6 +15723,7 @@ function guardedOpenPowerDialer() {
 }
 
 function guardedOpenPreviewDialer() {
+  if (!vgRequirePhone('Preview Dial')) return;
   if (_wizIsNative()) {
     showToast('Preview Dial is available on desktop — use Web Dialer here instead', '#f59e0b');
     return;
@@ -16741,7 +17574,9 @@ function renderSummary(){
   H += '<div style="display:flex;flex-direction:column;gap:16px;min-width:0">';
 
   // Period toggle
-  const chip = (p,label)=>{ const on=period===p; return '<button class="lg-chip lg-click" onclick="setLedgerPeriod(\''+p+'\')" style="padding:6px 10px;font-weight:500;font-size:12.5px;background:var(--lg-card);border:1px solid '+(on?'var(--lg-blue-border)':'var(--lg-border)')+';color:'+(on?'var(--lg-blue)':'var(--lg-text2)')+';border-radius:6px;cursor:pointer">'+label+'</button>'; };
+  // No inline styles here on purpose — .ledger .lg-chip is the one style path
+  // these four share with the month picker and the custom-range control.
+  const chip = (p,label)=> '<button class="lg-chip lg-click'+(period===p?' on':'')+'" onclick="setLedgerPeriod(\''+p+'\')">'+label+'</button>';
   H += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
     chip('daily','Daily')+chip('weekly','Weekly')+chip('monthly','Monthly')+chip('lifetime','Lifetime')+
     ppPeriodPickerHTML(period, 'setLedgerPeriod', '', 'lg-chip lg-click pp-pick')+
@@ -17531,28 +18366,92 @@ const TAB_STATUS_MAP = {
   not_interested: ['not_interested'],
 };
 
+// <leadfilter-core>
+// ============================================================
+// LEAD FILTER CORE — OR within a filter, AND across filters
+// ============================================================
+// Status, source and state are multi-selects. Picking "New" and "No Answer"
+// under Status means status IN (new, no_answer); adding "Facebook" under
+// Source narrows that to (new OR no_answer) AND (facebook). An EMPTY set is
+// "All" — it does not exclude anybody.
+//
+// This block exists because the predicate was written out by hand in THREE
+// places (filterLeads, filterLeads_silent, updateLeadTabCounts) and they had
+// already drifted: the phone search in one normalised digits and in the other
+// two did not. Every caller now goes through leadMatchesFilters(), so a lead
+// that the list shows and a lead that the tab counters count are decided by
+// the same code. Pure — no DOM, no globals — and extracted by
+// test/lead-filters.test.mjs.
+const LEAD_FILTER_FIELDS = ['status', 'source', 'state'];
+
+/** An empty selection for every field. The shape every consumer expects. */
+function leadFilterEmpty() {
+  const out = {};
+  LEAD_FILTER_FIELDS.forEach(f => { out[f] = new Set(); });
+  return out;
+}
+
+/** The value a lead presents for a given filter field. */
+function leadFilterValue(lead, field) {
+  if (!lead) return '';
+  if (field === 'status') return lead.status || 'new';
+  if (field === 'source') return lead.source || '';
+  if (field === 'state')  return String(lead.state || '').toUpperCase();
+  return '';
+}
+
+/** True when `lead` is admitted by ONE field's selection. Empty set = all. */
+function leadMatchesField(lead, field, chosen) {
+  if (!chosen || chosen.size === 0) return true;    // "All"
+  return chosen.has(leadFilterValue(lead, field));
+}
+
+/** Free-text search across the fields the box advertises. */
+function leadMatchesQuery(lead, q) {
+  if (!q) return true;
+  const needle = String(q).toLowerCase();
+  const digits = needle.replace(/\D/g, '');
+  const phone  = String(lead.phone || '');
+  return (String(lead.name  || '').toLowerCase().includes(needle))
+      || (digits && phone.replace(/\D/g, '').includes(digits))
+      || phone.includes(needle)
+      || (String(lead.email || '').toLowerCase().includes(needle))
+      || (String(lead.state || '').toLowerCase().includes(needle))
+      || (String(lead.city  || '').toLowerCase().includes(needle));
+}
+
+/**
+ * THE predicate. `sel` is {status:Set, source:Set, state:Set}; `tabSet` is the
+ * status sub-tab's allow-list or null for "All". `skipFields` lets the tab
+ * counters ask "what would this tab hold?" without the status filter
+ * shadowing its own answer.
+ */
+function leadMatchesFilters(lead, sel, q, tabSet, skipFields) {
+  if (!leadMatchesQuery(lead, q)) return false;
+  const skip = skipFields || [];
+  for (const field of LEAD_FILTER_FIELDS) {
+    if (skip.indexOf(field) !== -1) continue;
+    if (!leadMatchesField(lead, field, sel && sel[field])) return false;
+  }
+  if (tabSet && tabSet.indexOf(leadFilterValue(lead, 'status')) === -1) return false;
+  return true;
+}
+
+/** How many filters are actually narrowing anything — drives the chips row. */
+function leadFilterActiveCount(sel) {
+  return LEAD_FILTER_FIELDS.reduce((n, f) => n + ((sel && sel[f]) ? sel[f].size : 0), 0);
+}
+// </leadfilter-core>
+
+// The live selection. Deliberately NOT stored in the DOM: pagination,
+// re-renders and the select-all-across-pages path all re-read it, and a
+// <select>.value could only ever hold one answer per filter.
+let _leadFilterSel = leadFilterEmpty();
+
 function filterLeads() {
-  const q = (document.getElementById('lead-search').value || '').toLowerCase();
-  const status = document.getElementById('lead-filter-status').value;
-  const source = document.getElementById('lead-filter-source').value;
-  const state = document.getElementById('lead-filter-state').value;
-
-  filteredLeads = leads.filter(l => {
-    const matchQ = !q ||
-      (l.name||'').toLowerCase().includes(q) ||
-      (l.phone||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')) ||
-      (l.phone||'').includes(q) ||
-      (l.email||'').toLowerCase().includes(q) ||
-      (l.state||'').toLowerCase().includes(q) ||
-      (l.city||'').toLowerCase().includes(q);
-    const matchStatus = !status || (l.status || 'new') === status;
-    const matchSource = !source || (l.source || '') === source;
-    const matchState = !state || (l.state || '').toUpperCase() === state;
-    const tabSet = TAB_STATUS_MAP[currentLeadTab];
-    const matchTab = !tabSet || tabSet.includes(l.status || 'new');
-    return matchQ && matchStatus && matchSource && matchState && matchTab;
-  });
-
+  const q = (document.getElementById('lead-search')?.value || '').toLowerCase();
+  const tabSet = TAB_STATUS_MAP[currentLeadTab] || null;
+  filteredLeads = leads.filter(l => leadMatchesFilters(l, _leadFilterSel, q, tabSet));
   leadsCurrentPage = 1;
   renderLeads();
 }
@@ -17580,20 +18479,11 @@ function leadsTab(tabId, btnEl) {
 }
 
 function updateLeadTabCounts() {
-  const q      = (document.getElementById('lead-search')?.value || '').toLowerCase();
-  const source = document.getElementById('lead-filter-source')?.value || '';
-  const state  = document.getElementById('lead-filter-state')?.value  || '';
-  const pool = leads.filter(l => {
-    const matchQ = !q ||
-      (l.name||'').toLowerCase().includes(q) ||
-      (l.phone||'').includes(q) ||
-      (l.email||'').toLowerCase().includes(q) ||
-      (l.state||'').toLowerCase().includes(q) ||
-      (l.city||'').toLowerCase().includes(q);
-    const matchSource = !source || (l.source||'') === source;
-    const matchState  = !state  || (l.state||'').toUpperCase() === state;
-    return matchQ && matchSource && matchState;
-  });
+  const q = (document.getElementById('lead-search')?.value || '').toLowerCase();
+  // Same predicate as the list, minus the status filter and the tab itself —
+  // a tab counter that hid statuses the Status filter excluded would report
+  // zero on every tab the agent had filtered away.
+  const pool = leads.filter(l => leadMatchesFilters(l, _leadFilterSel, q, null, ['status']));
   const counts = { all: pool.length, new:0, no_answer:0, appointment:0, objections:0, not_interested:0 };
   for (const l of pool) {
     const s = l.status || 'new';
@@ -17660,30 +18550,167 @@ const BUILT_IN_SOURCES = [
   { value: 'other',       label: 'Other' },
 ];
 
-function populateLeadSourceFilter() {
-  const sel = document.getElementById('lead-filter-source');
-  if (!sel) return;
-  const current = sel.value;
-  const builtInValues = new Set(BUILT_IN_SOURCES.map(s => s.value));
+// ============================================================
+// MULTI-SELECT FILTERS (msf) — Status / Source / State
+// ============================================================
+// Three instances of one component. The options for each field come from ONE
+// place; the chosen values live in `_leadFilterSel` (never in the DOM), which
+// is why a selection survives pagination, a re-render, a tab switch and the
+// select-all-across-pages path without any of them having to know about it.
+const LEAD_STATUS_FILTER_OPTIONS = [
+  { value: 'new',            label: 'New' },
+  { value: 'called',         label: 'Called' },
+  { value: 'no_answer',      label: 'No Answer' },
+  { value: 'not_interested', label: 'Not Interested' },
+  { value: 'sold',           label: 'Sold' },
+  { value: 'appointment',    label: 'Appointment Set' },
+  { value: 'social_obj',     label: 'Social Objection' },
+  { value: 'banking_obj',    label: 'Banking Objection' },
+];
+const US_STATE_CODES = [
+  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
+  'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',
+  'SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
+];
+const MSF_ALL_LABEL = { status: 'All Statuses', source: 'All Sources', state: 'All States' };
+const MSF_FIELD_LABEL = { status: 'Status', source: 'Source', state: 'State' };
 
-  // Collect custom sources: from localStorage suggestions + actual lead data
-  const saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]');
+/** The option list for a field. Source is derived from the live book. */
+function msfOptions(field) {
+  if (field === 'status') return LEAD_STATUS_FILTER_OPTIONS;
+  if (field === 'state')  return US_STATE_CODES.map(s => ({ value: s, label: s }));
+  // Source: built-ins, then anything the agent's own leads or saved
+  // suggestions actually use. A value already CHOSEN is always listed, even
+  // if the last lead carrying it was just deleted — otherwise the filter
+  // would silently narrow to nothing with no way to see why.
+  const builtIn = new Set(BUILT_IN_SOURCES.map(s => s.value));
+  let saved = [];
+  try { saved = JSON.parse(localStorage.getItem('pp_lead_sources') || '[]'); } catch (e) {}
   const fromLeads = [...new Set((leads || []).map(l => l.source).filter(Boolean))];
-  const allCustom = [...new Set([...saved, ...fromLeads])].filter(s => !builtInValues.has(s));
+  const chosen = [..._leadFilterSel.source];
+  const custom = [...new Set([...saved, ...fromLeads, ...chosen])].filter(s => s && !builtIn.has(s));
+  return [...BUILT_IN_SOURCES, ...custom.map(s => ({ value: s, label: s }))];
+}
 
-  let html = '<option value="">All Sources</option>';
-  BUILT_IN_SOURCES.forEach(s => {
-    html += `<option value="${s.value}">${s.label}</option>`;
-  });
-  if (allCustom.length) {
-    html += '<optgroup label="Custom">';
-    allCustom.forEach(s => {
-      html += `<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`;
-    });
-    html += '</optgroup>';
+function msfLabelFor(field, value) {
+  const hit = msfOptions(field).find(o => o.value === value);
+  return hit ? hit.label : value;
+}
+
+/** Rebuilds one filter's button, badge and option panel from the selection. */
+function msfRender(field) {
+  const root = document.getElementById('msf-' + field);
+  if (!root) return;
+  const chosen = _leadFilterSel[field];
+  const opts = msfOptions(field);
+  const btn   = root.querySelector('.msf-btn');
+  const lbl   = root.querySelector('.msf-label');
+  const badge = root.querySelector('.msf-badge');
+  const panel = root.querySelector('.msf-panel');
+
+  if (lbl) {
+    lbl.textContent = chosen.size === 0 ? MSF_ALL_LABEL[field]
+                    : chosen.size === 1 ? msfLabelFor(field, [...chosen][0])
+                    : MSF_FIELD_LABEL[field];
   }
-  sel.innerHTML = html;
-  sel.value = current; // restore selection if still valid
+  if (badge) { badge.hidden = chosen.size < 2; badge.textContent = String(chosen.size); }
+  root.classList.toggle('is-active', chosen.size > 0);
+  if (btn) btn.setAttribute('aria-label',
+    chosen.size ? `${MSF_FIELD_LABEL[field]}: ${[...chosen].map(v => msfLabelFor(field, v)).join(', ')}`
+                : MSF_ALL_LABEL[field]);
+
+  if (panel) {
+    let html = `<button type="button" class="msf-all" onclick="msfClear('${field}')">${escapeHTML(MSF_ALL_LABEL[field])}</button>`;
+    html += opts.length ? opts.map(o =>
+      `<label class="msf-opt"><input type="checkbox" value="${escapeHTML(o.value)}"${chosen.has(o.value) ? ' checked' : ''}` +
+      ` onchange="msfSetOption('${field}',this.value,this.checked)">${escapeHTML(o.label)}</label>`).join('')
+      : '<div class="msf-empty">Nothing to filter by yet</div>';
+    panel.innerHTML = html;
+  }
+}
+
+/** The chips row: every active selection, individually removable. */
+function msfRenderChips() {
+  const row = document.getElementById('lead-filter-chips');
+  if (!row) return;
+  const total = leadFilterActiveCount(_leadFilterSel);
+  row.hidden = total === 0;
+  if (!total) { row.innerHTML = ''; return; }
+  let html = '';
+  LEAD_FILTER_FIELDS.forEach(field => {
+    [..._leadFilterSel[field]].forEach(v => {
+      html += `<span class="msf-chip"><b>${escapeHTML(MSF_FIELD_LABEL[field])}</b> ${escapeHTML(msfLabelFor(field, v))}` +
+        `<button type="button" class="msf-chip-x" title="Remove" aria-label="Remove ${escapeHTML(MSF_FIELD_LABEL[field])} ${escapeHTML(msfLabelFor(field, v))}"` +
+        ` onclick="msfSetOption('${field}','${escapeHTML(String(v)).replace(/'/g, '&#39;')}',false)">&times;</button></span>`;
+    });
+  });
+  html += `<button type="button" class="msf-chips-clear" onclick="msfClearAll()">Clear all filters</button>`;
+  row.innerHTML = html;
+}
+
+/** Repaints all three controls plus the chips. */
+function msfRenderAll() {
+  LEAD_FILTER_FIELDS.forEach(msfRender);
+  msfRenderChips();
+}
+
+function msfSetOption(field, value, on) {
+  if (!_leadFilterSel[field]) return;
+  if (on) _leadFilterSel[field].add(value);
+  else    _leadFilterSel[field].delete(value);
+  msfRenderAll();
+  filterLeads();
+}
+
+function msfClear(field) {
+  if (!_leadFilterSel[field]) return;
+  _leadFilterSel[field].clear();
+  msfCloseAll();
+  msfRenderAll();
+  filterLeads();
+}
+
+function msfClearAll() {
+  _leadFilterSel = leadFilterEmpty();
+  msfCloseAll();
+  msfRenderAll();
+  filterLeads();
+}
+
+function msfCloseAll(except) {
+  document.querySelectorAll('.msf').forEach(root => {
+    if (root.dataset.field === except) return;
+    const p = root.querySelector('.msf-panel'); if (p) p.hidden = true;
+    const b = root.querySelector('.msf-btn');   if (b) b.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function msfToggleOpen(field) {
+  const root = document.getElementById('msf-' + field);
+  if (!root) return;
+  const panel = root.querySelector('.msf-panel');
+  const willOpen = panel && panel.hidden;
+  msfCloseAll(field);
+  if (!panel) return;
+  if (willOpen) msfRender(field);   // refresh options (sources change as leads change)
+  panel.hidden = !willOpen;
+  const b = root.querySelector('.msf-btn');
+  if (b) b.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest || !e.target.closest('.msf')) msfCloseAll();
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') msfCloseAll(); });
+
+/**
+ * Kept under its original name — it is called from the import flow, the Add
+ * Lead modal and the initial load, all of which mean "the set of sources may
+ * have changed". It now repaints all three filters, because a source that
+ * disappeared must also disappear from the chips.
+ */
+function populateLeadSourceFilter() {
+  msfRenderAll();
 }
 
 function setLeadView(v) {
@@ -17772,20 +18799,11 @@ function renderLeads() {
     selectAllRow.style.display = 'none';
   }
 
-  // Update select-all checkbox
-  const pageIds = page.map(l => String(l.id));
-  const allPageSelected = pageIds.length > 0 && pageIds.every(id => selectedLeadIds.has(id));
-  const someSelected = pageIds.some(id => selectedLeadIds.has(id));
-  const selectAllCb = document.getElementById('lead-select-all');
-  if (selectAllCb) {
-    selectAllCb.checked = allPageSelected;
-    selectAllCb.indeterminate = !allPageSelected && someSelected;
-  }
-
   if (!filteredLeads.length) {
     container.innerHTML = '';
     empty.style.display = 'block';
-    updateBulkBar();
+    // Derives the (empty) header checkbox and the bulk bar from selectedLeadIds.
+    syncLeadSelectionUI();
     return;
   }
   empty.style.display = 'none';
@@ -17805,9 +18823,8 @@ function renderLeads() {
     const isChecked = selectedLeadIds.has(lid);
     const isExpanded = expandedLeadIds.has(lid);
     const div = document.createElement('div');
-    div.className = `lead-row ${isSold ? 'sold' : status==='not_interested'?'not_interested':''}${isExpanded?' expanded':''}`;
+    div.className = `lead-row ${isSold ? 'sold' : status==='not_interested'?'not_interested':''}${isExpanded?' expanded':''}${isChecked?' is-selected':''}`;
     div.dataset.lid = lid;
-    if (isChecked) div.style.outline = '2px solid rgba(59,130,246,.5)';
 
     const pillLabel = sc.label;
     const pillStyle = `color:${sc.color};background:${sc.bg};border-color:${sc.color}55`;
@@ -17845,12 +18862,14 @@ function renderLeads() {
     const _tx = leadTextingState(lead);
     const _txCls = _tx.code === 'ready' ? '' : ` lead-text-btn--${_tx.code}`;
     const _txBtn = `<button class="lead-act-btn lead-text-btn${_txCls}" data-lid="${lid}" title="${escapeHTML(_tx.label)}">Text</button>`;
-    // The fix for "no consent" is a click, not a support ticket. Only offered
-    // when there is an email to send it to — the opt-in link is emailed,
-    // never texted, because texting them is the thing we lack consent for.
-    const _optInBtn = (_tx.code === 'needs_optin' && lead.email)
-      ? `<button class="lead-act-btn lead-optin-btn" data-lid="${lid}" title="Email ${escapeHTML(lead.email)} a link to your opt-in page, so they can agree to texts themselves">Opt-in link</button>`
-      : '';
+    // The per-lead "Opt-in link" button was REMOVED 2026-07-31 (owner's
+    // decision). The hosted opt-in page at /a/<slug>/sms-opt-in and the
+    // `compliance-page` function behind it are untouched and still live —
+    // the carrier registration references that page and it remains the
+    // strongest evidence we can hold. What went away is the in-app button
+    // that emailed a lead a link to it. Text consent is now recorded the
+    // same way voice consent is: in the bulk Record-consent tool, behind its
+    // own separate attestation. See openConsentModal().
 
     // VOICE consent, which is a different permission from the texting one
     // above and is read from a different place — leads.tcpa_consent, the
@@ -17937,8 +18956,10 @@ function renderLeads() {
 
     if (leadView !== 'standard') {
       // ── Compact card (2-col or 4-col view) ──
-      div.className = `lead-row compact-card${isSold?' sold':status==='not_interested'?' not_interested':''}`;
-      if (isChecked) div.style.outline = '2px solid rgba(59,130,246,.5)';
+      // The compact card REBUILDS className from scratch, so it has to carry
+      // is-selected too — this line is why the highlight also went missing in
+      // the 2- and 4-column views.
+      div.className = `lead-row compact-card${isSold?' sold':status==='not_interested'?' not_interested':''}${isChecked?' is-selected':''}`;
 
       // Primary fields — always visible in card body
       const _pf = [
@@ -18030,7 +19051,6 @@ function renderLeads() {
             <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
             ${_txBtn}
-            ${_optInBtn}
             ${_aiConsentBtn}
           </div>
         </div>
@@ -18061,7 +19081,6 @@ function renderLeads() {
             <button class="lead-act-btn sold-btn lead-sold-btn${isSold?' disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
             ${_txBtn}
-            ${_optInBtn}
             ${_aiConsentBtn}
           </div>
           ${_moreHTML}
@@ -18108,7 +19127,6 @@ function renderLeads() {
             <button class="lead-act-btn sold-btn lead-sold-btn ${isSold?'disabled':''}" data-lid="${lid}" title="${isSold?'Already sold':'Submit as Sold'}">Sold</button>
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote — prefills from this lead">Quote</button>
             ${_txBtn}
-            ${_optInBtn}
             ${_aiConsentBtn}
           </div>
           <div class="lead-col lead-col-fields">
@@ -18126,6 +19144,11 @@ function renderLeads() {
     `;
     container.appendChild(div);
   });
+
+  // Rows were just built from selectedLeadIds, but run the one sync anyway so
+  // the header tri-state and the bulk bar come from the same code path a
+  // click does — a render and a click must not be able to disagree.
+  syncLeadSelectionUI();
 
   // Attach events via event delegation
   container.querySelectorAll('.lead-cb').forEach(cb => {
@@ -18179,12 +19202,6 @@ function renderLeads() {
       // explained in full and where the fix lives; a button that silently
       // does nothing teaches the agent nothing.
       smsOpenThread(e.currentTarget.dataset.lid);
-    });
-  });
-  container.querySelectorAll('.lead-optin-btn').forEach(btn => {
-    btn.addEventListener('click', e => {
-      e.stopPropagation();
-      smsSendOptInLink(e.currentTarget.dataset.lid, e.currentTarget);
     });
   });
   container.querySelectorAll('.lead-aiconsent-btn').forEach(btn => {
@@ -18927,6 +19944,9 @@ const softphone = (() => {
   }
 
   async function dial(leadId) {
+  // Locked until the phone check is done. Advisory only — the server checks
+  // too — but it names the missing step instead of letting a button fail.
+  if (typeof vgRequirePhone === 'function' && !vgRequirePhone('Click to call')) return;
     // `leads` is module-scoped (let leads = [] at top of this script tag),
     // so a bare reference works from inside the IIFE.
     const lead = (typeof leads !== 'undefined' ? leads : []).find(l => String(l.id) === String(leadId));
@@ -18944,6 +19964,9 @@ const softphone = (() => {
   // but with no lead attached, so _applyOutcome() no-ops (it requires a
   // leadId) and the outcome picker stays hidden after the call ends.
   async function dialNumber(phoneE164, displayName, callerIdOverride, callerNameOverride) {
+  // Locked until the phone check is done. Advisory only — the server checks
+  // too — but it names the missing step instead of letting a button fail.
+  if (typeof vgRequirePhone === 'function' && !vgRequirePhone('The Web Dialer')) return;
     if (!phoneE164) { showToast('Enter a valid phone number', '#dc2626'); return; }
     if (state.phase !== 'idle' && state.phase !== 'ended') {
       showToast('A call is already in progress.', '#dc2626');
@@ -19410,9 +20433,40 @@ const webDialer = (() => {
   // action row swaps (single call button ↔ hangup/mute/outcome) and the
   // elapsed-time readout appears above the display, driven purely by
   // polling softphone.state — there's no event bus for phase changes.
+  /**
+   * The minimized dock bar. Reads the SAME softphone.state the full call
+   * screen does, on the same 1s poll, so a minimized agent is never looking
+   * at a staler number than an expanded one.
+   */
+  function _renderDock(sp, phase) {
+    const dock = _el('wd-dock');
+    if (!dock) return;
+    const live    = (phase === 'ringing-out' || phase === 'ringing-in' || phase === 'connected');
+    const name    = sp.leadName || sp.phoneFmt || (live ? 'Unknown caller' : 'No active call');
+    const number  = (sp.phoneFmt && sp.phoneFmt !== name) ? sp.phoneFmt : '';
+    const status  = phase === 'connected' ? 'Connected'
+                  : (phase === 'ringing-out' || phase === 'ringing-in') ? 'Ringing'
+                  : phase === 'ended' ? 'Disconnected'
+                  : 'Idle';
+    const nameEl = _el('wd-dock-name');   if (nameEl)   nameEl.textContent   = name;
+    const numEl  = _el('wd-dock-num');    if (numEl)  { numEl.textContent    = number; numEl.style.display = number ? '' : 'none'; }
+    const stEl   = _el('wd-dock-status'); if (stEl)     stEl.textContent     = status;
+    const tmEl   = _el('wd-dock-timer');
+    if (tmEl) tmEl.textContent = (phase === 'connected') ? _fmtTimer(sp.durationSec || 0)
+                               : (phase === 'ended' && (sp.durationSec || 0) > 0) ? _fmtTimer(sp.durationSec)
+                               : live ? '—' : '—';
+    const dotEl = _el('wd-dock-dot');
+    if (dotEl) {
+      dotEl.classList.toggle('is-ringing', phase === 'ringing-out' || phase === 'ringing-in');
+      dotEl.classList.toggle('is-live',    phase === 'connected');
+      dotEl.classList.toggle('is-ended',   phase === 'ended');
+    }
+  }
+
   function _renderCallState() {
     const sp = (window.softphone && softphone.state) || {};
     const phase = sp.phase || 'idle';
+    _renderDock(sp, phase);
     // A call just ended against a lead (click-to-call from Leads/Phone
     // Book, not an ad hoc Web Dialer number) and lasted long enough to be
     // a real conversation — keep the call screen up to collect an outcome
@@ -19661,16 +20715,23 @@ const webDialer = (() => {
     });
     const addLeadBtn = _el('wd-add-lead-btn'); if (addLeadBtn) addLeadBtn.addEventListener('click', _addAsLead);
     const quoteBtn = _el('wd-quote-btn'); if (quoteBtn) quoteBtn.addEventListener('click', _openQuote);
-    // Floating-mode close (✕) — hangs up a live call rather than just
-    // hiding it (an active call shouldn't be dismissable without ending
-    // it), otherwise dismisses a finished/idle widget.
+    // Floating-mode close (✕) — a live call is HUNG UP FIRST, through the
+    // ordinary softphone.hangup() path, so the calls row closes, the minute
+    // report fires and the outcome logic runs exactly as it would if the
+    // agent had pressed the red button. Only then is the popup dismissed.
+    // Dismissing without that would leave a call up with nothing on screen.
     const floatClose = _el('wd-floating-close');
     if (floatClose) floatClose.addEventListener('click', () => {
       const sp = window.softphone;
       const phase = sp && sp.state && sp.state.phase;
       if (phase === 'connected' || phase === 'ringing-out' || phase === 'ringing-in') sp.hangup();
       else if (phase === 'ended') sp.close();
-      else if (typeof closeDialerWidget === 'function') closeDialerWidget();
+      if (typeof closeDialerWidget === 'function') closeDialerWidget();
+    });
+    // Floating-mode minimize (–) / expand (⤢) — same button slot, both ways.
+    const floatMin = _el('wd-floating-min');
+    if (floatMin) floatMin.addEventListener('click', () => {
+      if (typeof toggleDialerMinimized === 'function') toggleDialerMinimized();
     });
     const inp = _input();
     if (inp) {
@@ -19709,6 +20770,39 @@ window.webDialer = webDialer;
 // it into a fixed bottom-right card) so every #sec-webdialer-scoped style
 // and the webDialer module's own bindings/polling keep working unchanged
 // regardless of where it's being shown.
+// Minimized/expanded is a PERSISTED preference, not a per-open decision:
+// an agent who parked the dialer as a bar wants it to come back as a bar,
+// including after closing it. Only pressing expand clears it.
+const DIALER_MIN_KEY = 'pp_dialer_minimized';
+function isDialerMinimized() {
+  try { return localStorage.getItem(DIALER_MIN_KEY) === '1'; } catch (e) { return false; }
+}
+function setDialerMinimized(on) {
+  try { localStorage.setItem(DIALER_MIN_KEY, on ? '1' : '0'); } catch (e) {}
+  applyDialerMinimized();
+}
+/** Paints the stored preference onto the widget. Safe to call any time. */
+function applyDialerMinimized() {
+  const sec = document.getElementById('sec-webdialer');
+  if (!sec) return;
+  // Minimizing only means anything for the floating popup — the full Web
+  // Dialer tab is a page, not a window.
+  const on = sec.classList.contains('dialer-floating') && isDialerMinimized();
+  sec.classList.toggle('is-minimized', on);
+  const btn = document.getElementById('wd-floating-min');
+  const ico = document.getElementById('wd-floating-min-ico');
+  if (btn) {
+    btn.setAttribute('aria-label', on ? 'Expand dialer' : 'Minimize dialer');
+    btn.setAttribute('title', on ? 'Expand' : 'Minimize');
+    btn.setAttribute('aria-expanded', on ? 'false' : 'true');
+  }
+  // mountIcons() skips a slot that already holds an svg, so swap directly.
+  if (ico && typeof icon === 'function') ico.innerHTML = icon(on ? 'arrows-out' : 'minus', { size: 16 });
+  // The launcher must not sit on top of the bar.
+  if (typeof dfabApplySlot === 'function') dfabApplySlot();
+}
+function toggleDialerMinimized() { setDialerMinimized(!isDialerMinimized()); }
+
 function openDialerWidget() {
   const sec = document.getElementById('sec-webdialer');
   if (!sec) return;
@@ -19717,14 +20811,18 @@ function openDialerWidget() {
   const fab = document.getElementById('dialer-fab');
   if (fab) fab.classList.add('is-open');
   if (window.webDialer && typeof webDialer.render === 'function') webDialer.render();
+  applyDialerMinimized();
 }
 
 function closeDialerWidget() {
   const sec = document.getElementById('sec-webdialer');
   if (!sec || !sec.classList.contains('dialer-floating')) return;
-  sec.classList.remove('dialer-floating', 'active');
+  // .is-minimized comes off the element but NOT out of localStorage — the
+  // preference outlives the window.
+  sec.classList.remove('dialer-floating', 'active', 'is-minimized');
   const fab = document.getElementById('dialer-fab');
   if (fab) fab.classList.remove('is-open');
+  if (typeof dfabApplySlot === 'function') dfabApplySlot();
 }
 
 function toggleDialerWidget() {
@@ -19732,6 +20830,175 @@ function toggleDialerWidget() {
   if (sec && sec.classList.contains('dialer-floating')) closeDialerWidget();
   else openDialerWidget();
 }
+
+// ============================================================
+// DIALER FAB — draggable launcher with a six-slot snap grid
+// ============================================================
+// Four corners plus top-center and bottom-center. The button never comes to
+// rest anywhere else: an arbitrary xy would drift under a modal, a toast or
+// the sidebar on the next viewport it met. The inset from each edge is READ
+// OFF THE STYLESHEET rather than hard-coded, so the button keeps whatever
+// margin its CSS gives it — including the mobile media query's tighter
+// 16px + safe-area — and the two cannot fall out of step.
+const DFAB_SLOT_KEY = 'pp_dialer_fab_slot';
+const DFAB_SLOTS = ['tl', 'tc', 'tr', 'bl', 'bc', 'br'];
+const DFAB_DEFAULT_SLOT = 'br';   // where the button has always lived
+
+function dfabSlot() {
+  try {
+    const v = localStorage.getItem(DFAB_SLOT_KEY);
+    return DFAB_SLOTS.includes(v) ? v : DFAB_DEFAULT_SLOT;
+  } catch (e) { return DFAB_DEFAULT_SLOT; }
+}
+function dfabSetSlot(slot) {
+  if (!DFAB_SLOTS.includes(slot)) return;
+  try { localStorage.setItem(DFAB_SLOT_KEY, slot); } catch (e) {}
+  dfabApplySlot();
+}
+
+/** The stylesheet's own edge insets, measured with the inline overrides off. */
+function _dfabInsets(fab) {
+  const prev = {
+    left: fab.style.left, right: fab.style.right,
+    top: fab.style.top, bottom: fab.style.bottom, marginLeft: fab.style.marginLeft,
+  };
+  fab.style.left = ''; fab.style.right = ''; fab.style.top = ''; fab.style.bottom = ''; fab.style.marginLeft = '';
+  const cs = getComputedStyle(fab);
+  const x = parseFloat(cs.right)  || 24;
+  const y = parseFloat(cs.bottom) || 24;
+  fab.style.left = prev.left; fab.style.right = prev.right;
+  fab.style.top = prev.top; fab.style.bottom = prev.bottom; fab.style.marginLeft = prev.marginLeft;
+  return { x, y };
+}
+
+/** Where each slot's CENTER sits, in viewport coordinates. */
+function _dfabSlotCenters(fab) {
+  const ins = _dfabInsets(fab);
+  const w = fab.offsetWidth || 56, h = fab.offsetHeight || 56;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const lx = ins.x + w / 2, rx = vw - ins.x - w / 2, cx = vw / 2;
+  const ty = ins.y + h / 2, by = vh - ins.y - h / 2;
+  return { tl:{x:lx,y:ty}, tc:{x:cx,y:ty}, tr:{x:rx,y:ty},
+           bl:{x:lx,y:by}, bc:{x:cx,y:by}, br:{x:rx,y:by} };
+}
+
+/**
+ * Positions the launcher at its stored slot, then gets it out of the way of
+ * the minimized dialer bar if the two would overlap. The nudge is not
+ * remembered — the SLOT is what persists, so as soon as the bar goes away
+ * the button drops back to where the agent put it.
+ */
+function dfabApplySlot() {
+  const fab = document.getElementById('dialer-fab');
+  if (!fab) return;
+  const slot = dfabSlot();
+  const ins = _dfabInsets(fab);
+  const s = fab.style;
+  s.transition = '';
+  // Centers use a negative margin, not translateX: :hover and :active both
+  // animate `transform`, and a transform-based centering would be thrown
+  // across the screen the moment the pointer touched the button.
+  const isCenter = (slot === 'tc' || slot === 'bc');
+  if (isCenter) { s.left = '50%'; s.right = 'auto'; s.marginLeft = (-(fab.offsetWidth || 56) / 2) + 'px'; }
+  else { s.marginLeft = '0px';
+         if (slot === 'tl' || slot === 'bl') { s.left = ins.x + 'px'; s.right = 'auto'; }
+         else                                { s.right = ins.x + 'px'; s.left  = 'auto'; } }
+  const atTop = slot.charAt(0) === 't';
+  if (atTop) { s.top = ins.y + 'px'; s.bottom = 'auto'; }
+  else       { s.bottom = ins.y + 'px'; s.top = 'auto'; }
+
+  // Collision with the docked call bar. Measured, not assumed — the bar's
+  // width and position both change with the viewport.
+  if (!atTop) {
+    const sec = document.getElementById('sec-webdialer');
+    const showingBar = !!(sec && sec.classList.contains('dialer-floating') && sec.classList.contains('is-minimized'));
+    const dock = showingBar ? document.getElementById('wd-dock') : null;
+    if (dock && dock.offsetParent !== null) {
+      const f = fab.getBoundingClientRect(), d = dock.getBoundingClientRect();
+      const overlaps = f.left < d.right && f.right > d.left && f.top < d.bottom && f.bottom > d.top;
+      if (overlaps) s.bottom = (window.innerHeight - d.top + 12) + 'px';
+    }
+  }
+}
+
+(function initDialerFabDrag() {
+  const MOVE_THRESHOLD = 5;   // px before a press counts as a drag, not a click
+  let fab = null, dragging = false, moved = false;
+  let grabDX = 0, grabDY = 0;
+
+  function _point(e) {
+    const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    return t ? { x: t.clientX, y: t.clientY } : { x: e.clientX, y: e.clientY };
+  }
+
+  function onDown(e) {
+    fab = document.getElementById('dialer-fab');
+    if (!fab || (e.button !== undefined && e.button !== 0)) return;
+    const r = fab.getBoundingClientRect();
+    const p = _point(e);
+    grabDX = p.x - r.left; grabDY = p.y - r.top;
+    dragging = true; moved = false;
+    document.addEventListener('mousemove', onMove, { passive: false });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchend', onUp);
+    document.addEventListener('touchcancel', onUp);
+  }
+
+  function onMove(e) {
+    if (!dragging || !fab) return;
+    const p = _point(e);
+    const r = fab.getBoundingClientRect();
+    if (!moved && Math.abs(p.x - grabDX - r.left) + Math.abs(p.y - grabDY - r.top) < MOVE_THRESHOLD) return;
+    if (!moved) { moved = true; fab.classList.add('is-dragging'); }
+    e.preventDefault();
+    const w = fab.offsetWidth, h = fab.offsetHeight;
+    const x = Math.max(0, Math.min(window.innerWidth  - w, p.x - grabDX));
+    const y = Math.max(0, Math.min(window.innerHeight - h, p.y - grabDY));
+    const s = fab.style;
+    s.left = x + 'px'; s.top = y + 'px';
+    s.right = 'auto'; s.bottom = 'auto'; s.marginLeft = '0px';
+  }
+
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.removeEventListener('touchend', onUp);
+    document.removeEventListener('touchcancel', onUp);
+    if (!dragging) return;
+    dragging = false;
+    if (!fab) return;
+    if (!moved) return;   // a plain click — the onclick handler opens the dialer
+    fab.classList.remove('is-dragging');
+    // Snap to whichever of the six slots the button's centre is nearest.
+    const r = fab.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const centers = _dfabSlotCenters(fab);
+    let best = DFAB_DEFAULT_SLOT, bestD = Infinity;
+    DFAB_SLOTS.forEach(k => {
+      const c = centers[k];
+      const d = (c.x - cx) * (c.x - cx) + (c.y - cy) * (c.y - cy);
+      if (d < bestD) { bestD = d; best = k; }
+    });
+    // A drag must not also read as a press on the button underneath.
+    const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+    fab.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => fab.removeEventListener('click', swallow, { capture: true }), 0);
+    dfabSetSlot(best);
+  }
+
+  function bind() {
+    const el = document.getElementById('dialer-fab');
+    if (!el) return;
+    el.addEventListener('mousedown', onDown);
+    el.addEventListener('touchstart', onDown, { passive: true });
+    dfabApplySlot();
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else setTimeout(bind, 0);
+  window.addEventListener('resize', () => { if (!dragging) dfabApplySlot(); });
+})();
 
 // Pulses the FAB red while a call is live, so an agent who minimized the
 // widget (or never opened it) can still see something's in progress.
@@ -19798,12 +21065,32 @@ function voiceCallableCount() {
   return n;
 }
 
+/**
+ * How many of this agent's leads may be TEXTED.
+ *
+ * The texting twin of voiceCallableCount(), and deliberately a separate
+ * function reading a separate store: `_leadConsent` is `consent_records`
+ * (what runComplianceGate reads), `_voiceConsent` is `leads.tcpa_consent`
+ * (what ai-call-start's gate 3 reads). One number per permission, because
+ * they are genuinely different numbers.
+ *
+ * Returns null — not 0 — before the consent map has loaded, so the header can
+ * stay blank rather than claim nobody is textable.
+ */
+function textableCount() {
+  if (!_leadConsent || !_leadConsent.loaded) return null;
+  let n = 0;
+  for (const l of leads) if (leadSmsCapable(l)) n++;
+  return n;
+}
+
 // "87 of 122 callable". Rendered in the leads header and read by the campaign
 // banner — one definition, so the two screens cannot disagree about whether
-// this account can dial anybody.
+// this account can dial anybody. Also paints the textable chip beside it.
 function updateCallableCount() {
   const el = document.getElementById('lead-callable-count');
   if (!el) return;
+  updateTextableCount();
   if (!_voiceConsent.loaded) { el.textContent = ''; return; }
   const total = leads.length;
   const ok = voiceCallableCount();
@@ -19813,6 +21100,22 @@ function updateCallableCount() {
   el.title = 'The AI Sales Agent may only call a lead with recorded TCPA consent. ' +
     'Select leads and press “Record consent” to log the consent you already hold.';
   syncConsentNotice();
+}
+
+/** The second chip: how much of the book can be texted. Same style, own store. */
+function updateTextableCount() {
+  const el = document.getElementById('lead-textable-count');
+  if (!el) return;
+  const ok = textableCount();
+  // Blank until loaded, for the same reason the callable chip is: a "0
+  // textable" that corrects itself a second later reads as a broken account.
+  if (ok === null) { el.textContent = ''; return; }
+  const total = leads.length;
+  el.innerHTML = ok === 0
+    ? '<span style="color:var(--text3)">0 of ' + total + ' textable</span>'
+    : '<strong>' + ok + '</strong> of ' + total + ' textable';
+  el.title = 'Texting needs its own written consent, recorded separately from calling consent. ' +
+    'Select leads and tick the text-message box in “Record consent”, or send them your hosted opt-in page.';
 }
 
 // The same sentence, in the AI dialer area. One function so the two screens
@@ -19825,9 +21128,11 @@ function syncConsentNotice() {
 
 function clearBulkSelection() {
   selectedLeadIds.clear();
-  const cb = document.getElementById('lead-select-all');
-  if (cb) { cb.checked = false; cb.indeterminate = false; }
-  renderLeads();
+  // No hand-written checkbox reset here — syncLeadSelectionUI() derives every
+  // box, every row highlight and the tri-state header from the (now empty)
+  // Set, so "deselect all" clears the highlights the same instant it clears
+  // the ticks.
+  syncLeadSelectionUI();
 }
 
 function updateBulkBar() {
@@ -19945,6 +21250,10 @@ function openConsentModal() {
   if (!modal) return;
   document.getElementById('cs-count').textContent = n + ' lead' + (n !== 1 ? 's' : '');
   document.getElementById('cs-attest').checked = false;
+  // UNTICKED EVERY TIME. Not remembered, not defaulted, not carried over from
+  // the last batch — an agent must decide about text consent deliberately,
+  // for these leads, on this press.
+  document.getElementById('cs-sms-attest').checked = false;
   document.getElementById('cs-source').value = 'vendor_optin';
   document.getElementById('cs-detail').value = '';
   const msg = document.getElementById('cs-msg');
@@ -19983,6 +21292,14 @@ function consentSyncButton() {
   const key = document.getElementById('cs-source').value;
   const detail = (document.getElementById('cs-detail').value || '').trim();
   const needsDetail = key === 'vendor_optin' || key === 'other';
+  // The TEXT box does not gate the button — it is additive. The calling
+  // attestation is the one that has to be ticked, because that is what this
+  // tool is for.
+  const sms = !!(document.getElementById('cs-sms-attest') || {}).checked;
+  const note = document.getElementById('cs-sms-note');
+  if (note) note.style.display = sms ? '' : 'none';
+  const label = document.getElementById('cs-confirm');
+  if (label) label.textContent = sms ? 'Record calling + texting consent' : 'Record consent';
   btn.disabled = !attested || !key || (needsDetail && !detail);
 }
 
@@ -20009,6 +21326,10 @@ async function consentConfirm() {
   if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Recording…'; }
 
   try {
+    // `sms_attestation` is sent as a literal boolean, and only when the
+    // second box is actually ticked — the server writes no consent_records
+    // row for anything else.
+    const smsAttested = !!(document.getElementById('cs-sms-attest') || {}).checked;
     const { data, error } = await sb.functions.invoke('leads-consent', {
       body: {
         action: 'grant',
@@ -20016,6 +21337,7 @@ async function consentConfirm() {
         consent_source: document.getElementById('cs-source').value,
         consent_source_detail: (document.getElementById('cs-detail').value || '').trim(),
         attestation: true,
+        sms_attestation: smsAttested,
       },
     });
     if (error) throw new Error((data && data.detail) || error.message || 'Request failed');
@@ -20028,11 +21350,16 @@ async function consentConfirm() {
     if (unsynced) skips.push(unsynced + ' not synced');
 
     await loadVoiceConsent();
+    // Text consent lives in a different table read by a different loader, so
+    // it needs its own refresh before the Text buttons can turn green.
+    if (smsAttested && typeof smsLoadLeadConsent === 'function') await smsLoadLeadConsent();
     updateCallableCount();
     renderLeads();
     closeConsentModal();
+    const smsGranted = (data && data.sms_granted) || 0;
     showToast(
       granted + ' lead' + (granted !== 1 ? 's' : '') + ' now callable by AI' +
+      (smsAttested ? ' · ' + smsGranted + ' textable' : '') +
       (skips.length ? ' · skipped ' + skips.join(', ') : ''),
       granted ? '#10b981' : '#f59e0b',
     );
@@ -20053,12 +21380,19 @@ async function consentConfirm() {
  * are different statements, and collapsing them either over- or under-reports
  * what the consumer actually said. This stops the calls — gate 3 refuses
  * immediately — and records why.
+ *
+ * It DOES also withdraw text consent, but only the rows this agent's own
+ * attestation created (source = 'agent_attestation'). A consumer who ticked
+ * the box on the hosted opt-in page said that for themselves; the agent
+ * deciding their attestation was wrong does not un-say it for them.
  */
 async function revokeLeadConsent(clientId) {
   const st = _voiceConsent.byClientId.get(String(clientId));
   if (!st || !st.leadId) return;
-  if (!confirm('Withdraw AI-calling consent for this lead?\n\nThe AI will stop calling them immediately. ' +
-      'This does NOT add them to your do-not-call list — use Suppress for that.')) return;
+  if (!confirm('Withdraw consent for this lead?\n\nThe AI will stop calling them immediately, and any ' +
+      'text consent you recorded by attestation is withdrawn too. Consent they gave on your own opt-in ' +
+      'page is left alone — that was theirs to give.\n\nThis does NOT add them to your do-not-call list ' +
+      '— use Suppress for that.')) return;
   try {
     const { data, error } = await sb.functions.invoke('leads-consent', {
       body: { action: 'revoke', lead_ids: [st.leadId], note: 'Withdrawn from the lead record' },
@@ -20066,9 +21400,11 @@ async function revokeLeadConsent(clientId) {
     if (error) throw new Error((data && data.detail) || error.message);
     if (data && data.error) throw new Error(data.detail || data.error);
     await loadVoiceConsent();
+    if (typeof smsLoadLeadConsent === 'function') await smsLoadLeadConsent();
     updateCallableCount();
     renderLeads();
-    showToast('Consent withdrawn — the AI will not call them', '#f59e0b');
+    const sms = (data && data.sms_revoked) || 0;
+    showToast('Consent withdrawn — the AI will not call them' + (sms ? ', and text consent is withdrawn too' : ''), '#f59e0b');
   } catch (err) {
     showToast('Could not withdraw: ' + (err.message || err), '#dc2626');
   }
@@ -20106,54 +21442,70 @@ async function bulkDelete() {
   filterLeads();
 }
 
+/**
+ * ONE source of truth for "this lead is selected": the `selectedLeadIds` Set.
+ *
+ * Everything the agent can see about selection — the row's highlight, its own
+ * checkbox, the header select-all tri-state, and the bulk bar — is DERIVED
+ * here, and only here, by reading that Set. Nothing else may write a row's
+ * highlight or a checkbox's `.checked`.
+ *
+ * This is the A4 root cause. The highlight used to be an inline
+ * `div.style.outline` written once, during renderLeads(). toggleSelectAll()
+ * re-rendered, so select-all appeared to work; toggleLeadSelect() did not, so
+ * a lead's own checkbox ticked but its row never lit up — and unticking after
+ * a select-all left the outline behind. Two writers, two behaviours, one of
+ * them wrong. Now there is one writer and it runs on every path.
+ */
+function syncLeadSelectionUI() {
+  const container = document.getElementById('lead-list-container');
+  if (container) {
+    container.querySelectorAll('.lead-row').forEach(row => {
+      const on = selectedLeadIds.has(String(row.dataset.lid || ''));
+      row.classList.toggle('is-selected', on);
+      const cb = row.querySelector('.lead-cb');
+      if (cb && cb.checked !== on) cb.checked = on;
+    });
+  }
+  // Header select-all reflects only the CURRENT page, which is what its
+  // label promises ("Select all on this page").
+  filterLeads_silent();
+  const start = (leadsCurrentPage - 1) * leadsPerPage;
+  const pageIds = filteredLeads.slice(start, start + leadsPerPage).map(l => String(l.id));
+  const allSelected  = pageIds.length > 0 && pageIds.every(id => selectedLeadIds.has(id));
+  const someSelected = pageIds.some(id => selectedLeadIds.has(id));
+  const selectAllCb = document.getElementById('lead-select-all');
+  if (selectAllCb) { selectAllCb.checked = allSelected; selectAllCb.indeterminate = !allSelected && someSelected; }
+  updateBulkBar();
+}
+
 function toggleSelectAll(checked) {
   filterLeads_silent();
   const start = (leadsCurrentPage - 1) * leadsPerPage;
   const pageIds = filteredLeads.slice(start, start + leadsPerPage).map(l => String(l.id));
   if (checked) pageIds.forEach(id => selectedLeadIds.add(id));
   else pageIds.forEach(id => selectedLeadIds.delete(id));
-  renderLeads();
+  syncLeadSelectionUI();
 }
 
 function selectAllPages() {
   filterLeads_silent();
   filteredLeads.forEach(l => selectedLeadIds.add(String(l.id)));
-  renderLeads();
+  syncLeadSelectionUI();
 }
 
 function toggleLeadSelect(lid, checked) {
   lid = String(lid);
   if (checked) selectedLeadIds.add(lid);
   else selectedLeadIds.delete(lid);
-  updateBulkBar();
-  filterLeads_silent();
-  const start = (leadsCurrentPage - 1) * leadsPerPage;
-  const pageIds = filteredLeads.slice(start, start + leadsPerPage).map(l => String(l.id));
-  const allSelected = pageIds.length > 0 && pageIds.every(id => selectedLeadIds.has(id));
-  const someSelected = pageIds.some(id => selectedLeadIds.has(id));
-  const cb = document.getElementById('lead-select-all');
-  if (cb) { cb.checked = allSelected; cb.indeterminate = !allSelected && someSelected; }
+  syncLeadSelectionUI();
 }
 
+/** filterLeads() without the re-render — recomputes `filteredLeads` only. */
 function filterLeads_silent() {
   const q = (document.getElementById('lead-search')?.value || '').toLowerCase();
-  const status = document.getElementById('lead-filter-status')?.value || '';
-  const source = document.getElementById('lead-filter-source')?.value || '';
-  const state = document.getElementById('lead-filter-state')?.value || '';
-  filteredLeads = leads.filter(l => {
-    const matchQ = !q ||
-      (l.name||'').toLowerCase().includes(q) ||
-      (l.phone||'').includes(q) ||
-      (l.email||'').toLowerCase().includes(q) ||
-      (l.state||'').toLowerCase().includes(q) ||
-      (l.city||'').toLowerCase().includes(q);
-    const matchStatus = !status || (l.status||'new') === status;
-    const matchSource = !source || (l.source||'') === source;
-    const matchState = !state || (l.state||'').toUpperCase() === state;
-    const tabSet = TAB_STATUS_MAP[currentLeadTab];
-    const matchTab = !tabSet || tabSet.includes(l.status || 'new');
-    return matchQ && matchStatus && matchSource && matchState && matchTab;
-  });
+  const tabSet = TAB_STATUS_MAP[currentLeadTab] || null;
+  filteredLeads = leads.filter(l => leadMatchesFilters(l, _leadFilterSel, q, tabSet));
 }
 
 function updateLeadStatus(lid, status) {
@@ -27894,7 +29246,10 @@ function nav(id) {
   const dialerSec = document.getElementById('sec-webdialer');
   const dialerWasFloating = !!(dialerSec && dialerSec.classList.contains('dialer-floating'));
   if (id === 'webdialer' && dialerWasFloating) {
-    dialerSec.classList.remove('dialer-floating');
+    // .is-minimized goes with it: the full page is not a window, so it has
+    // nothing to minimize into. The stored preference is left alone, so
+    // re-opening the popup later still comes back as a bar.
+    dialerSec.classList.remove('dialer-floating', 'is-minimized');
     const fabEl = document.getElementById('dialer-fab');
     if (fabEl) fabEl.classList.remove('is-open');
   }
@@ -32174,7 +33529,7 @@ async function saveAccountPassword() {
   const pw  = document.getElementById('stg-new-pw').value;
   const pw2 = document.getElementById('stg-new-pw2').value;
   const msg = document.getElementById('stg-pw-msg');
-  if (pw.length < 8) { msg.style.color = 'var(--a4)'; msg.textContent = 'Password must be at least 8 characters.'; return; }
+  if (!passwordOk(pw)) { msg.style.color = 'var(--a4)'; msg.textContent = passwordProblem(pw); return; }
   if (pw !== pw2)    { msg.style.color = 'var(--a4)'; msg.textContent = 'Passwords do not match.'; return; }
   const { error } = await sb.auth.updateUser({ password: pw });
   if (error) { msg.style.color = 'var(--a4)'; msg.textContent = error.message; return; }
@@ -32875,7 +34230,7 @@ function a2pRenderCompliancePanel() {
     `<div style="font-size:11.5px;color:var(--text3);line-height:1.6;margin:-4px 0 8px">
        Send this to anyone you want to be able to text. They tick the box themselves and we record exactly
        what they saw — that record is what the carriers accept, and the lack of one is what got our own
-       campaign turned down. There is an <strong>Opt-in link</strong> button on every lead row that emails it.
+       campaign turned down. Copy the link below and send it however you already reach them.
      </div>
      <div style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text3);margin-top:8px;padding-top:10px;border-top:1px solid var(--border)">
        <span data-ico="check-circle" data-size="13" style="color:var(--a2)"></span>
@@ -33276,52 +34631,15 @@ function leadSmsCapable(lead) {
   return leadTextingState(lead).code === 'ready';
 }
 
-// ------------------------------------------------------------
-// "Send opt-in link" — email the lead their agent's hosted opt-in page.
-//
-// Email is permitted under the consent already captured on the lead vendor's
-// form. Texting them to ask is not — that is the exact finding that got the
-// campaign rejected, and it is why this action is an email and only an email.
-// ------------------------------------------------------------
-async function smsSendOptInLink(leadId, btn) {
-  const lead = leads.find(l => String(l.id) === String(leadId));
-  if (!lead) return;
-
-  if (!lead.email) {
-    showToast('No email address on this lead — add one to send the opt-in link', '#f59e0b');
-    return;
-  }
-
-  const original = btn ? btn.textContent : '';
-  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
-  try {
-    const { data, error } = await sb.functions.invoke('messaging-send-optin-invite', {
-      body: {
-        contact_email: lead.email,
-        contact_phone: lead.phone || '',
-        first_name: lead.first_name || (lead.name || '').split(' ')[0] || '',
-      },
-    });
-    if (error) {
-      const body = await _a2pErrBody(error);
-      showToast(_a2pErrText(body), '#ef4444');
-      return;
-    }
-    if (data && data.already_consented) {
-      showToast('Already opted in — you can text them now', '#10b981');
-      await smsLoadLeadConsent();
-      renderLeads();
-      return;
-    }
-    showToast(`Opt-in link emailed to ${lead.email}`, '#10b981');
-  } catch (e) {
-    showToast('Could not reach the server. Try again in a moment.', '#ef4444');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = original || 'Opt-in link'; }
-  }
-}
+// The in-app "email them the opt-in link" action was REMOVED 2026-07-31
+// (owner's decision). The hosted page and the `messaging-send-optin-invite`
+// / `compliance-page` functions behind it are deployed and untouched — the
+// carrier registration points at that page. What went away is the button.
+// Agents copy the link out of the SMS thread, and record consent they already
+// hold through the bulk Record-consent tool's SMS attestation.
 
 async function smsOpenThread(leadId) {
+  if (typeof vgRequirePhone === 'function' && !vgRequirePhone('Texting')) return;
   const lead = leads.find(l => String(l.id) === String(leadId));
   if (!lead) return;
   const phone = toE164(lead.phone || '');
@@ -33534,10 +34852,10 @@ function smsConsentPromptHTML(weak) {
          when, and from where — that is the evidence the carriers asked for, and it is the reason our own
          campaign was turned down without it.
        </div>
-       ${hasEmail
-         ? `<button class="btn btn-p btn-sm" id="sms-optin-btn" onclick="smsSendOptInLinkFromThread(this)">Email the opt-in link</button>
-            <div style="font-size:11.5px;color:var(--text3);margin-top:6px">Goes to ${escHTML(lead.email)}. Email is fine under the consent we already have — texting them to ask is the part we cannot do.</div>`
-         : `<div style="font-size:12px;color:var(--text3);margin-bottom:8px">This lead has no email address, so there is nothing to send the link to. Add one on their row, or read them the link over the phone.</div>`}
+       <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px">
+         Copy the link and send it however you already reach them. Texting them to ask is the one thing
+         we cannot do — that is the consent we are missing.
+       </div>
        <div style="font-size:11.5px;margin-top:9px;word-break:break-all">
          <a href="${escHTML(optInUrl)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">${escHTML(optInUrl)}</a>
          <button class="btn btn-sm" style="margin-left:6px;padding:2px 8px" onclick="navigator.clipboard&&navigator.clipboard.writeText('${escHTML(optInUrl)}').then(()=>showToast('Link copied','#10b981'))">Copy</button>
@@ -33578,13 +34896,6 @@ function smsConsentPromptHTML(weak) {
         </div>
       </details>
     </div></div>`;
-}
-
-/** "Email the opt-in link" from inside the thread — same call as the lead row. */
-async function smsSendOptInLinkFromThread(btn) {
-  await smsSendOptInLink(_smsThread.leadId, btn);
-  await smsLoadLeadConsent();
-  await smsLoadThread();
 }
 
 async function smsRecordConsent() {
@@ -35507,6 +36818,64 @@ document.addEventListener('DOMContentLoaded', () => {
 <button type="button" id="dialer-fab" class="dialer-fab" onclick="toggleDialerWidget()" aria-label="Open Web Dialer" title="Web Dialer">
   <span data-ico="phone" data-size="24"></span>
 </button>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     VERIFY TO ACTIVATE
+     Two gates, one overlay. Email is a hard gate: the account exists and is
+     signed in, but nothing is usable until the confirmation link is clicked.
+     Phone is a soft gate: the app works, but calling and texting are locked
+     until the code is entered — reusing the same lock pattern as the
+     tier-upgrade gate so the shape is already familiar.
+     🔴 Every account that existed at migration 20260804 is grandfathered
+     past both, so nothing here can lock out anyone using the product today.
+     ══════════════════════════════════════════════════════════════════════ -->
+<div class="vg-overlay" id="verify-email-gate">
+  <div class="vg-card">
+    <div class="vg-ico"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+    <div class="vg-title">Confirm your email</div>
+    <div class="vg-sub">
+      Your account is created. We sent a confirmation link to
+      <strong id="vg-email-addr">your email</strong> — click it, then come back here.
+    </div>
+    <div class="vg-msg" id="vg-email-msg"></div>
+    <button class="vg-btn" id="vg-email-check" onclick="vgRecheckEmail()">I've confirmed — continue</button>
+    <button class="vg-btn-s" id="vg-email-resend" onclick="vgResendEmail()">Resend the confirmation email</button>
+    <button class="vg-link" onclick="authSignOut()">Sign out</button>
+  </div>
+</div>
+
+<div class="vg-overlay" id="verify-phone-gate">
+  <div class="vg-card">
+    <div class="vg-ico"><svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2.5"/><line x1="10.5" y1="18" x2="13.5" y2="18"/></svg></div>
+    <div class="vg-title" id="vg-phone-title">Verify your phone</div>
+    <div class="vg-sub" id="vg-phone-sub">
+      Calling and texting stay locked until we've confirmed a mobile number you can read a text on.
+      We'll send you a 6-digit code.
+    </div>
+
+    <div id="vg-phone-step-send">
+      <div class="vg-field">
+        <label for="vg-phone-input">Mobile number</label>
+        <input type="tel" id="vg-phone-input" placeholder="(555) 123-4567" autocomplete="tel">
+      </div>
+      <button class="vg-btn" id="vg-phone-send" onclick="vgSendPhoneCode()">Send code</button>
+    </div>
+
+    <div id="vg-phone-step-code" style="display:none">
+      <div class="vg-field">
+        <label for="vg-code-input">6-digit code</label>
+        <input type="text" id="vg-code-input" class="vg-code" inputmode="numeric" autocomplete="one-time-code"
+               maxlength="6" placeholder="000000" oninput="vgOnCodeInput(this)">
+      </div>
+      <button class="vg-btn" id="vg-code-submit" onclick="vgCheckPhoneCode()">Verify</button>
+      <button class="vg-btn-s" id="vg-code-resend" onclick="vgSendPhoneCode(true)">Send a new code</button>
+      <button class="vg-link" onclick="vgPhoneStep('send')">Use a different number</button>
+    </div>
+
+    <div class="vg-msg" id="vg-phone-msg"></div>
+    <button class="vg-link" id="vg-phone-later" onclick="vgClosePhoneGate()">Not now — I'll do this later</button>
+  </div>
+</div>
 
 <!-- Stripe Embedded Checkout Modal -->
 <div id="stripe-checkout-modal" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(7,13,26,.82);align-items:center;justify-content:center;padding:20px">
