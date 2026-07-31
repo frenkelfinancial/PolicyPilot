@@ -547,6 +547,85 @@ door". Tests: `npm run test:ai` (`voice-campaign-enroll.test.ts`) and
   nothing in an overlay. An `.overlay` copy was added; that also gave the
   Record-consent modal the flex layout its inline styles always assumed.
 
+### Phase 7 — mission control + what a call does to the lead (2026-08-05)
+
+Prompt J. Schema: `20260805_campaign_mission_control.sql`. Docs:
+`docs/campaign-mission-control.md`. Tests: `npm run test:ai`
+(`ai-lead-effect.test.ts`, `voice-campaign-mission.test.ts`) and
+`npm run test:mission`.
+
+- **🔴 `ppSetLeadStatus()` IS THE ONLY PLACE THIS BROWSER WRITES A LEAD
+  STATUS.** There were five, and that was fine right up until the AI started
+  writing statuses too. `sbUpsertAllLeads()` re-upserts every lead's `data`
+  blob from memory on every save, so a status the server wrote at 2:04 PM was
+  erased at 2:05 PM by a stale copy of the old one — not by a conflicting
+  decision, by an echo. A status now travels with **`status_at` +
+  `status_source`**; a deliberate edit stamps fresh and wins. A test asserts
+  nothing else assigns a status onto a lead.
+- **🔴 `leads_preserve_ai_status()` is the database half of the ordering
+  guard, and it is what makes a server-side status STICK.** Two enforcement
+  points for one rule on purpose: `aiStatusVerdict()` in
+  `_shared/ai-lead-effect.ts` decides not to write, and the trigger stops the
+  write being undone. Browser writes only (`auth.role()`), it only ever
+  protects a status whose `status_source = 'ai'`, and it parses stamps through
+  **`pp_jsonb_ts()`** — a bare `::timestamptz` on a malformed jsonb string
+  raises inside a BEFORE trigger and takes the agent's whole save with it.
+- **A MISSED CALL IS NOT A PIPELINE EVENT.** `no_answer` / `voicemail` / `busy`
+  change no status, ever. A six-step campaign dialling somebody five times
+  would otherwise walk that lead back to "No Answer" on every attempt and the
+  leads board would become a log of the robot's afternoon. **`sold` is human,
+  always** — nothing writes it and nothing writes over it. `dnc_request` raises
+  the flag and leaves the status alone: burying "do not call me" in a pipeline
+  column is how it stops being visible as a legal instruction. `error` gets no
+  disposition at all — it means WE broke, and a disposition would be a lie on
+  the consumer's record.
+- **The mapping covers all twelve values of `ai_calls_outcome_check`, including
+  the ones whose answer is "nothing"**, and a test compares the table against
+  the constraint's own list. Nothing may invent a status: every written value
+  is checked against `STATUS_CONFIG`, and `appointment_booked` writes the same
+  `appointment` the lifecycle campaigns trigger on so there are not two
+  appointment vocabularies one click apart.
+- **`applyLeadEffect()` runs BEFORE `recordCampaignCallResult()`** in the
+  webhook's finalize, so the enrollment's stop evaluation reads the lead as it
+  now stands. It never throws — it runs after the wallet debit, and a
+  bookkeeping failure must not make Telnyx replay a paid, finished call.
+- **`last_gate_code` is DISPLAY ONLY and is cleared the moment a call goes
+  out** (in the tick when it dials, in `recordCampaignCallResult` when it
+  finishes). `vcHandleGateRejection()` already knew why it deferred and threw
+  it away, so "Tomorrow 9:05 AM" was the only thing a stalled campaign could
+  say — which reads as broken. The engine branches on the plan, never on this
+  column; a stale reason outliving its wait is the one thing it must not do.
+- **Pause needs no new engine flag.** `status='paused'` is already excluded by
+  the tick's due query and by `vcClaimEnrollment` (both require `'active'`), so
+  there is nothing for the engine to forget to honour. **Pause leaves
+  `next_action_at` alone** so resume returns the lead to its place in the queue
+  — and **resume repairs a NULL one**, which is what a pause taken mid-call
+  leaves behind; without that the lead is active, never due, and never called
+  again. Resume also re-checks `one_active_uidx` (partial on `active`, so
+  pausing releases the lead) and returns a sentence instead of a raw 23505.
+- **`removed_by_user` ≠ `manual` ≠ `moved_by_user`.** Three stop reasons that
+  must stay tellable apart. Remove never deletes and never touches `dnc_list`
+  or `suppression_list` — "out of this campaign" and "never call me" are
+  different statements.
+- **`voice_campaign_enrollments` is STILL SELECT-only for `authenticated`** and
+  the migration adds no write policy. A "pause" button is not a good enough
+  reason to let a browser write a standing instruction to phone a consumer.
+  **Preview and write are the same call with one flag**, same as the manual
+  door.
+- **The feed reads `ai_calls` — there is NO second event log.**
+  `ai_call_events` is the Telnyx diagnostic trace (service-role-only, no
+  `agent_id`) and a test asserts the browser never reads it. The only schema
+  addition is `ai_calls_campaign_created_idx`. **A live call reports itself as
+  live whatever the outcome column says** — the row is `in_progress` from dial
+  until hangup, so a feed trusting the column would announce a result mid-call.
+- **Polling stops when nobody is looking** — section `.active` AND
+  `visibilityState === 'visible'`, on both the campaign screen (10s) and
+  `leadEffectsSync()` (60s). The sync is newest-stamp-wins in both directions
+  and writes **localStorage only**; pushing it back would be a whole-book
+  upsert to tell the server what it already knows.
+- **Row click reuses the EXISTING lead view** (`nav('leads')` +
+  `expandedLeadIds`), and renders no lead markup of its own.
+
 ### SMS consent joins the attestation tool + verify-to-activate (added 2026-07-31)
 
 Prompt H. Schema: `20260804_sms_attestation_and_verification.sql`. Docs:

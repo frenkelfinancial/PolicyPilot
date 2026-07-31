@@ -14,6 +14,12 @@ Tests: `npm run test:ai` (core + flow) and `npm run test:voicecampaigns`
 Closes `docs/ORION_GAP_ANALYSIS.md` § 1.3, the largest single gap in that
 teardown.
 
+**Watching a campaign work, and what a call does to the lead, are in
+`docs/campaign-mission-control.md`** (Prompt J, 2026-08-05) — the Leads table,
+the activity feed, pause/resume/remove, and the outcome → lead-status mapping
+with the ordering guard that keeps a browser's whole-book re-upsert from
+erasing it.
+
 ## The product, in one paragraph
 
 Today a human picks leads and presses run. A campaign instead *watches the
