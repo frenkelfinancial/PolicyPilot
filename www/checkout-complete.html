@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Payment complete · Producer Stack</title>
+<!--
+  ============================================================
+  checkout-complete.html — where every Stripe Checkout lands.
+
+  WHY THIS FILE EXISTS
+  Stripe's success_url used to be `app.html?checkout=…`, so finishing a
+  purchase redirected the little 540×760 popup into the ENTIRE dashboard.
+  Two of the four return states had no handler at all — a wallet top-up
+  (`checkout=topup_success`) matched no branch in app.html's DOMContentLoaded
+  chain and was not in its popup-close guard either, so it booted the whole
+  app inside the popup and sat there. That is the state the owner described.
+
+  This page is the terminal state instead: it says what happened, tells the
+  opener so the real tab can refresh itself, and gets out of the way.
+
+  IT VERIFIES NOTHING AND GRANTS NOTHING. Fulfillment is 100% the Stripe
+  webhook's job (supabase/functions/stripe-webhook) — this page never reads a
+  session id, never calls an API, and is safe to open by hand with any query
+  string at all. Everything below is cosmetic plus one postMessage.
+
+  SELF-CONTAINED on purpose: no styles.css, no fonts, no images. It lives for
+  about two and a half seconds on the far side of a payment, and a blocked or
+  slow asset request is the one thing that could leave it blank.
+  ============================================================
+-->
+<style>
+  /* Palette lifted from app.html's :root and body.light so this reads as the
+     same product. Duplicated rather than linked — see the note above. */
+  :root{
+    --bg:#05091a; --card:#0a1225; --border:rgba(255,255,255,.08);
+    --text:#EBF0FB; --text2:#9FB3D0;
+    --good:#4BBFA0; --good-bg:rgba(75,191,160,.12);
+    --quiet:#9FB3D0; --quiet-bg:rgba(159,179,208,.10);
+    --sans:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg:#F4F8FD; --card:#FFFFFF; --border:#c8d3df;
+    --text:#1a2332; --text2:#445566;
+    --good:#2C5F4F; --good-bg:rgba(44,95,79,.10);
+    --quiet:#7a8fa3; --quiet-bg:rgba(122,143,163,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:var(--sans); background:var(--bg); color:var(--text);
+    display:flex; align-items:center; justify-content:center; padding:24px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .card{
+    width:100%; max-width:420px; background:var(--card);
+    border:1px solid var(--border); border-radius:20px;
+    padding:40px 32px 32px; text-align:center;
+    box-shadow:0 18px 50px rgba(0,0,0,.18);
+  }
+  .mark{
+    width:72px; height:72px; margin:0 auto 22px; border-radius:50%;
+    background:var(--good-bg); display:flex; align-items:center; justify-content:center;
+    animation:pop 420ms cubic-bezier(.34,1.56,.64,1) both;
+  }
+  body[data-state="cancelled"] .mark{ background:var(--quiet-bg); }
+  .mark svg{ width:36px; height:36px; stroke:var(--good); fill:none;
+             stroke-width:2.5; stroke-linecap:round; stroke-linejoin:round; }
+  body[data-state="cancelled"] .mark svg{ stroke:var(--quiet); }
+  .mark svg path,.mark svg line{
+    stroke-dasharray:48; stroke-dashoffset:48;
+    animation:draw 420ms cubic-bezier(.16,1,.3,1) 140ms forwards;
+  }
+  h1{ margin:0 0 10px; font-size:24px; font-weight:700; letter-spacing:-.01em; }
+  .detail{ margin:0; font-size:15px; line-height:1.55; color:var(--text2); }
+  .small{ margin:26px 0 0; font-size:12.5px; color:var(--text2); opacity:.75; }
+  /* Revealed only when window.close() turns out to be blocked. */
+  .fallback{ display:none; margin-top:24px; }
+  body[data-close="blocked"] .fallback{ display:block; }
+  body[data-close="blocked"] .small{ display:none; }
+  .btn{
+    display:inline-block; padding:11px 22px; border-radius:10px;
+    background:var(--good); color:#fff; font:600 14px var(--sans);
+    text-decoration:none;
+  }
+  html[data-theme="light"] .btn{ color:#fff; }
+  @keyframes pop{ from{ transform:scale(.6); opacity:0 } to{ transform:scale(1); opacity:1 } }
+  @keyframes draw{ to{ stroke-dashoffset:0 } }
+  @media (prefers-reduced-motion: reduce){
+    .mark,.mark svg path,.mark svg line{ animation:none; stroke-dashoffset:0 }
+  }
+</style>
+</head>
+<body>
+  <main class="card" role="status" aria-live="polite">
+    <div class="mark" id="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <h1 id="headline">Payment complete</h1>
+    <p class="detail" id="detail">You're all set.</p>
+    <p class="small">You can close this window.</p>
+    <div class="fallback">
+      <a class="btn" id="return-btn" href="/app.html">Return to Producer Stack →</a>
+    </div>
+  </main>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---- Theme -------------------------------------------------------------
+  // Mirrors applyTheme() in app.html exactly, including its default: anything
+  // that is not the string 'dark' is light. Same key, same rule — a page that
+  // guessed differently would flash the wrong theme on the way out of a
+  // payment, which is the last impression this flow leaves.
+  try {
+    var saved = localStorage.getItem('pp_theme');
+    document.documentElement.setAttribute('data-theme', saved === 'dark' ? 'dark' : 'light');
+  } catch (_) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+
+  var params = new URLSearchParams(location.search);
+  var type = (params.get('type') || '').trim().toLowerCase();
+
+  // ---- What this page says ----------------------------------------------
+  // One table. The default is deliberately vague rather than wrong: an
+  // unrecognised type still completed a payment, and claiming it was a plan
+  // when it was a top-up is worse than saying nothing specific.
+  var COPY = {
+    subscription: { headline: 'Payment complete', detail: 'Your plan is active.' },
+    topup:        { headline: 'Payment complete', detail: 'Funds added to your wallet.' },
+    number:       { headline: 'Payment complete', detail: 'Your new number is being set up.' },
+    cancelled:    { headline: 'Checkout canceled', detail: 'No charge was made.' }
+  };
+  var DEFAULT = { headline: 'Payment complete', detail: "You're all set." };
+
+  var cancelled = type === 'cancelled';
+  var copy = COPY[type] || DEFAULT;
+
+  document.getElementById('headline').textContent = copy.headline;
+  document.getElementById('detail').textContent = copy.detail;
+  document.title = copy.headline + ' · Producer Stack';
+  if (cancelled) {
+    document.body.setAttribute('data-state', 'cancelled');
+    // An X, not a tick. Nothing was bought.
+    document.getElementById('mark').innerHTML =
+      '<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/>' +
+      '<line x1="6" y1="6" x2="18" y2="18"/></svg>';
+  }
+
+  // ---- Tell the tab that opened us --------------------------------------
+  //
+  // Three channels, because exactly one of them is reliable in any given
+  // situation and none is reliable in all three:
+  //   • window.opener — the normal popup case, and the only one the app's
+  //     existing subscription listeners already understand.
+  //   • BroadcastChannel — same-origin, survives a lost opener reference.
+  //   • localStorage — fires a `storage` event in every other tab of this
+  //     origin, and works in browsers with no BroadcastChannel.
+  //
+  // The app de-duplicates by nonce, so all three firing is not three toasts.
+  var payload = {
+    type: 'pp_checkout_result',
+    result: cancelled ? 'cancelled' : 'complete',
+    checkout: type || 'unknown',
+    nonce: String(Date.now()) + '.' + Math.random().toString(36).slice(2, 10)
+  };
+
+  try {
+    if (window.opener && !window.opener.closed) {
+      window.opener.postMessage(payload, '*');
+
+      // BACKWARD COMPATIBILITY, deliberately narrow. These two strings drive
+      // _wizPaymentComplete() and _goToSuccessUrl() in app.html — the signup
+      // wizard and the paywall. They must fire for a SUBSCRIPTION and must
+      // NOT fire for a top-up: a wallet purchase completing the signup wizard
+      // would walk someone into the dashboard on a plan they never bought.
+      if (!cancelled && (type === 'subscription' || type === '')) {
+        window.opener.postMessage({ type: 'stripe_checkout_complete' }, '*');
+      } else if (cancelled) {
+        window.opener.postMessage({ type: 'stripe_checkout_cancelled' }, '*');
+      }
+    }
+  } catch (_) {}
+
+  try {
+    if ('BroadcastChannel' in window) {
+      var ch = new BroadcastChannel('pp_checkout');
+      ch.postMessage(payload);
+      setTimeout(function () { try { ch.close(); } catch (_) {} }, 1000);
+    }
+  } catch (_) {}
+
+  try {
+    localStorage.setItem('pp_checkout_signal', JSON.stringify(payload));
+  } catch (_) {}
+
+  // ---- Then get out of the way ------------------------------------------
+  //
+  // window.close() only works on a script-opened window. When it is refused —
+  // someone opened this URL directly, or the browser severed the opener — the
+  // page stays exactly as it is and offers a way back. What must never happen
+  // again is a bare dashboard booting inside a 540px popup, and this page
+  // cannot do that: it contains no app.
+  var CLOSE_AFTER_MS = 2500;
+  setTimeout(function () {
+    try { window.close(); } catch (_) {}
+    // A window that actually closed stops running timers, so anything that
+    // fires after this point is proof that close() was refused.
+    setTimeout(function () {
+      document.body.setAttribute('data-close', 'blocked');
+    }, 400);
+  }, CLOSE_AFTER_MS);
+})();
+</script>
+</body>
+</html>

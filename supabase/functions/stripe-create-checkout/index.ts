@@ -38,6 +38,19 @@ async function ensureDownlineDiscountCoupon(stripeHdrs: Record<string, string>) 
 // REQUIRED Supabase secrets:
 //   STRIPE_SECRET_KEY  — sk_live_... or sk_test_...
 //   APP_URL            — e.g. https://producerstackcrm.com (for success/cancel redirects)
+//
+// WHERE CHECKOUT LANDS (changed 2026-07-31, Prompt K)
+// Every success_url and cancel_url below points at /checkout-complete.html
+// with a `type` param, NOT at app.html. Sending the popup back into app.html
+// redirected a 540px window into the entire dashboard, and two of the four
+// return states had no handler at all — `checkout=topup_success` matched no
+// branch and was not in the popup-close guard, so a wallet top-up booted the
+// whole app inside the popup and stayed there.
+//
+// NO {CHECKOUT_SESSION_ID} is passed any more. It was only ever decoration
+// here: nothing read it, the page grants nothing, and fulfillment is 100% the
+// stripe-webhook's job. Adding it back would put a session id in a URL that
+// buys nobody anything.
 serve(async (req) => {
   const CORS = corsHeaders(req.headers.get("origin"));
   function json(body: unknown, status = 200) {
@@ -128,8 +141,8 @@ serve(async (req) => {
       "line_items[0][price_data][product]":               billingConfig.stripe_topup_product_id,
       "line_items[0][price_data][unit_amount]":           String(cents),
       "line_items[0][quantity]":                          "1",
-      "success_url":                                      `${APP_URL}/app.html?checkout=topup_success&session_id={CHECKOUT_SESSION_ID}`,
-      "cancel_url":                                       `${APP_URL}/app.html?checkout=cancelled`,
+      "success_url":                                      `${APP_URL}/checkout-complete.html?type=topup`,
+      "cancel_url":                                       `${APP_URL}/checkout-complete.html?type=cancelled`,
       "metadata[supabase_user_id]":                       user.id,
       "metadata[amount_mills]":                           String(amountMills),
       "payment_intent_data[metadata][supabase_user_id]":  user.id,
@@ -195,8 +208,8 @@ serve(async (req) => {
       "mode":                                              "subscription",
       "line_items[0][price]":                             billingConfig.stripe_numbers_price_id,
       "line_items[0][quantity]":                          "1",
-      "success_url":                                      `${APP_URL}/app.html?checkout=number_success&session_id={CHECKOUT_SESSION_ID}`,
-      "cancel_url":                                       `${APP_URL}/app.html?checkout=cancelled`,
+      "success_url":                                      `${APP_URL}/checkout-complete.html?type=number`,
+      "cancel_url":                                       `${APP_URL}/checkout-complete.html?type=cancelled`,
       "metadata[supabase_user_id]":                       user.id,
       "subscription_data[metadata][supabase_user_id]":    user.id,
     });
@@ -338,8 +351,8 @@ serve(async (req) => {
     "mode":                                             "subscription",
     [`line_items[0][price]`]:                          plan.stripe_price_id,
     [`line_items[0][quantity]`]:                       "1",
-    "success_url":                                     `${APP_URL}/app.html?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-    "cancel_url":                                      `${APP_URL}/app.html?checkout=cancelled`,
+    "success_url":                                     `${APP_URL}/checkout-complete.html?type=subscription`,
+    "cancel_url":                                      `${APP_URL}/checkout-complete.html?type=cancelled`,
     [`metadata[supabase_user_id]`]:                    user.id,
     [`metadata[plan_id]`]:                             plan.id,
     [`metadata[area_code]`]:                           areaCode,

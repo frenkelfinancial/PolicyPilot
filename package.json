@@ -25,7 +25,7 @@
     "test:persistency": "node --test \"test/persistency.test.mjs\"",
     "test:recon": "node --test \"test/reconciliation.test.mjs\"",
     "test:referrals": "node --test \"test/referrals.test.mjs\"",
-    "test": "npm run test:email && npm run test:messaging && npm run test:ai && npm run test:compliance && npm run test:a2p && npm run test:leadtransfer && npm run test:team && npm run test:backoffice && npm run test:producercodes && npm run test:bob && npm run test:commissions && npm run test:persistency && npm run test:recon && npm run test:referrals && npm run test:leaderboards && npm run test:identity && npm run test:aimeter && npm run test:voicecampaigns && npm run test:defaultcampaigns && npm run test:mission && npm run test:leadfilters && npm run test:dialer && npm run test:auth && npm run test:bonus && npm run check",
+    "test": "npm run test:email && npm run test:messaging && npm run test:ai && npm run test:compliance && npm run test:a2p && npm run test:leadtransfer && npm run test:team && npm run test:backoffice && npm run test:producercodes && npm run test:bob && npm run test:commissions && npm run test:persistency && npm run test:recon && npm run test:referrals && npm run test:leaderboards && npm run test:identity && npm run test:aimeter && npm run test:voicecampaigns && npm run test:defaultcampaigns && npm run test:mission && npm run test:leadfilters && npm run test:dialer && npm run test:auth && npm run test:bonus && npm run test:checkout && npm run check",
     "prebuild": "node scripts/prebuild.js",
     "sync:ai-assistant": "node scripts/sync-ai-assistant.mjs",
     "build": "npx cap sync",
@@ -37,7 +37,8 @@
     "test:identity": "node --test \"test/identity-periods.test.mjs\"",
     "test:bonus": "node --test \"test/bonus-tracker.test.mjs\"",
     "test:dialer": "node --test \"test/web-dialer.test.mjs\"",
-    "test:mission": "node --test \"test/campaign-mission-control.test.mjs\""
+    "test:mission": "node --test \"test/campaign-mission-control.test.mjs\"",
+    "test:checkout": "node --test \"test/checkout-complete.test.mjs\""
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",

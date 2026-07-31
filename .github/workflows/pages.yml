@@ -53,6 +53,9 @@ jobs:
             terms-of-service.html
             support.html
             power-dialer.html
+            # Stripe's success_url / cancel_url for every checkout flow. If
+            # this is not served, a completed payment lands on a 404.
+            checkout-complete.html
             styles.css
             manifest.json
             sw.js

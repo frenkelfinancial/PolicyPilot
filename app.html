@@ -39099,6 +39099,68 @@ async function _recheckSubscription() {
   } catch(_) {}
 }
 
+// ============================================================
+// CHECKOUT RESULTS — one listener for every kind of purchase
+//
+// checkout-complete.html is where all three Stripe flows now land, and it
+// reports back on three channels because exactly one of them works in any
+// given situation and none works in all three: window.opener.postMessage (the
+// ordinary popup), BroadcastChannel (opener reference lost), and a
+// localStorage write (every other tab of this origin, and browsers with no
+// BroadcastChannel). All three firing is normal — `_ppSeenCheckout` is what
+// makes that one toast instead of three.
+//
+// The legacy `stripe_checkout_complete` / `stripe_checkout_cancelled` messages
+// are NOT handled here. They belong to the subscription flow's own mounted
+// listeners (_wizOpenStripePopup and _openStripeCheckoutPopup), which resolve
+// a pending signup or paywall, and re-handling them here would run those
+// transitions twice.
+// ============================================================
+const _ppSeenCheckout = new Set();
+
+function _ppHandleCheckoutResult(payload) {
+  if (!payload || payload.type !== 'pp_checkout_result') return;
+  const nonce = String(payload.nonce || '');
+  if (nonce) {
+    if (_ppSeenCheckout.has(nonce)) return;
+    _ppSeenCheckout.add(nonce);
+  }
+  if (payload.result !== 'complete') return;   // a cancel is the opener's business
+
+  const kind = String(payload.checkout || '');
+  // A top-up and a number purchase both change what the Phone Book shows, and
+  // renderPhoneBook() re-reads wallet_accounts as well as the numbers — one
+  // call refreshes the balance and the list together.
+  if (kind === 'topup' || kind === 'number') {
+    showToast('Payment received', '#10b981');
+    if (typeof renderPhoneBook === 'function') renderPhoneBook();
+    if (kind === 'number' && window.softphone && typeof softphone.resetWebRTC === 'function') {
+      softphone.resetWebRTC();
+    }
+  } else if (kind === 'subscription') {
+    // Usually already resolved by the mounted listener above; this is the
+    // path for a tab that was reloaded while checkout was open.
+    showToast('Payment received', '#10b981');
+    if (typeof _recheckSubscription === 'function') _recheckSubscription();
+  }
+}
+
+function _ppListenForCheckout() {
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin) return;
+    _ppHandleCheckoutResult(e.data);
+  });
+  try {
+    if ('BroadcastChannel' in window) {
+      new BroadcastChannel('pp_checkout').onmessage = (e) => _ppHandleCheckoutResult(e.data);
+    }
+  } catch (_) {}
+  window.addEventListener('storage', (e) => {
+    if (e.key !== 'pp_checkout_signal' || !e.newValue) return;
+    try { _ppHandleCheckoutResult(JSON.parse(e.newValue)); } catch (_) {}
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const _cp = new URLSearchParams(location.search);
   // If we're the Stripe return URL inside a popup — notify parent then close.
@@ -39107,12 +39169,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // merchant" arrow, which navigates the popup to cancel_url). Without this,
   // an authenticated-but-unpaid session could load the whole app inside the
   // small popup window and reach the dashboard without ever completing payment.
-  if ((_cp.get('checkout') === 'success' || _cp.get('checkout') === 'cancelled') && window.opener && !window.opener.closed) {
-    const msgType = _cp.get('checkout') === 'success' ? 'stripe_checkout_complete' : 'stripe_checkout_cancelled';
-    try { window.opener.postMessage({ type: msgType }, '*'); } catch(_) {}
+  //
+  // LEGACY PATH ONLY as of 2026-07-31 — new checkouts land on
+  // checkout-complete.html and never reach app.html at all. It stays for the
+  // Stripe sessions that were already open when that shipped, and
+  // topup_success / number_success were ADDED to it: they were missing, which
+  // is exactly why a wallet top-up used to boot the whole dashboard in a
+  // 540px popup and sit there.
+  const _cpv = _cp.get('checkout');
+  if (['success', 'cancelled', 'topup_success', 'number_success'].includes(_cpv)
+      && window.opener && !window.opener.closed) {
+    // Only a SUBSCRIPTION may send the legacy strings: they resolve the signup
+    // wizard and the paywall, and a wallet top-up completing the signup wizard
+    // would walk someone into the dashboard on a plan they never bought. The
+    // other two report on the typed channel, which is what _ppHandleCheckoutResult
+    // routes by kind.
+    const _legacy = _cpv === 'success' ? 'stripe_checkout_complete'
+                  : _cpv === 'cancelled' ? 'stripe_checkout_cancelled' : null;
+    try {
+      if (_legacy) {
+        window.opener.postMessage({ type: _legacy }, '*');
+      } else {
+        window.opener.postMessage({
+          type: 'pp_checkout_result',
+          result: 'complete',
+          checkout: _cpv === 'topup_success' ? 'topup' : 'number',
+          nonce: String(Date.now()) + '.legacy',
+        }, '*');
+      }
+    } catch(_) {}
     setTimeout(() => window.close(), 400);
     return;
   }
+  _ppListenForCheckout();
   applyTheme();              // ensure login screen matches saved theme before auth resolves
   restoreSectionFromCache(); // swap visible section before paint to avoid Summary flash
   // Flag so bootDashboard knows to retry the plan fetch if webhook hasn't fired yet.

@@ -17,6 +17,10 @@ const pages = [
   'support.html',
   'privacy-policy.html',
   'terms-of-service.html',
+  // Stripe's return page for every checkout flow. On native the hosted
+  // checkout opens in the system browser and returns here, so it has to exist
+  // in the bundle as well as on the public site.
+  'checkout-complete.html',
 ];
 
 for (const file of [...pages, 'manifest.json', 'sw.js', 'styles.css']) {
