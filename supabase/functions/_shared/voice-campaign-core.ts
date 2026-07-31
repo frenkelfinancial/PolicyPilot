@@ -627,6 +627,14 @@ export interface VcCampaign {
   stop_on_sold?: boolean | null;
   stop_on_answered?: boolean | null;
   stop_answer_talk_secs?: number | null;
+  // The rule and the four enrollment triggers. Read by vcCampaignTag() and
+  // vcAutoEnrollPhrase() — the manual door's fine print and the card copy —
+  // and by nothing that decides whether a call goes out.
+  trigger_groups?: unknown;
+  auto_enroll_new_leads?: boolean | null;
+  trigger_on_sold?: boolean | null;
+  trigger_on_appointment_booked?: boolean | null;
+  trigger_on_missed_appointment?: boolean | null;
 }
 
 export interface VcStopVerdict {
@@ -849,7 +857,298 @@ const SKIP_LABELS: Record<string, string> = {
   already_enrolled: "already in a campaign",
   no_phone: "no phone",
   appointment_too_soon: "appointment too soon to remind",
+  // Added with the manual "Add to campaign" door (Prompt I). The bulk action
+  // hands over an explicit list of leads, so it can fail in two ways the
+  // rule-driven sweep never could: a lead this campaign has already run, and
+  // an id the server has never heard of.
+  already_this_campaign: "already in this campaign",
+  not_found: "not synced yet",
 };
+
+// ------------------------------------------------------------
+// 4b. Manual enrollment — the "Add to campaign" door
+//
+// WHY THIS EXISTS. Until now a lead reached a campaign only through the
+// trigger rules: invisible plumbing that an agent has to understand tags to
+// operate. This is the other door — select leads, press a button — and it
+// sits ON TOP of the engine rather than beside it. Every hard gate is the
+// same function the sweep uses (vcEvaluateEnrollment); what is new here is
+// only the bookkeeping around an EXPLICIT list of leads.
+//
+// The planner below is the whole point of the split: `preview_enroll` and
+// `enroll_leads` are the same call with a flag, so the sentence the modal
+// shows before you press the button is produced by the code that then runs.
+// A preview that is computed separately from the action is a preview that
+// eventually lies.
+// ------------------------------------------------------------
+
+/**
+ * The ONE lead field the manual door will ever write.
+ *
+ * `campaign_tag` is canonical and this app created it (20260803) — nothing
+ * else has ever written it, so setting it cannot destroy an existing value
+ * that meant something else. The other four VC_TAG_FIELDS emphatically do
+ * carry real data: `coverage_wanted` holds dollar amounts and `source` holds
+ * vendor names in the production book. Writing either would corrupt the book
+ * to tidy up a join.
+ */
+export const VC_ENROLL_TAG_FIELD = "campaign_tag";
+
+/**
+ * The single `campaign_tag` value this campaign's rule names, or "".
+ *
+ * Used for two things: the modal's fine print ("also tags these leads Final
+ * Expense") and the tag write itself. Deliberately conservative —
+ *
+ *   * ONLY a positive (`is`) condition on `campaign_tag` counts. A rule
+ *     written as `lead_type is veteran` gets NO tag write, because
+ *     `lead_type` is virtual and resolves through `coverage_wanted` first:
+ *     "make the lead match" would mean writing a coverage amount of
+ *     "veteran".
+ *   * TWO DIFFERENT tag values across the groups is ambiguous, and ambiguous
+ *     means no write. Picking the first would silently re-tag a book on a
+ *     detail nobody was shown.
+ *
+ * The twelve shipped lead-type campaigns all name exactly one, as group 1.
+ */
+export function vcCampaignTag(campaign: VcCampaign | null | undefined): string {
+  const groups = vcNormalizeGroups(campaign ? campaign.trigger_groups : null);
+  let found = "";
+  for (const g of groups) {
+    for (const c of g.conditions) {
+      if (c.op !== "is") continue;
+      if (String(c.field || "").trim() !== VC_ENROLL_TAG_FIELD) continue;
+      const v = norm(c.value);
+      if (!v) continue;
+      if (found && found !== v) return "";   // ambiguous → write nothing
+      found = v;
+    }
+  }
+  return found;
+}
+
+/**
+ * "final_expense" → "Final Expense". What a person calls the tag.
+ *
+ * A word of three letters or fewer is upper-cased rather than capitalised,
+ * because in this vocabulary they are acronyms without exception — IUL, VA,
+ * WL, UL, GUL, MP, FEX. "Iul" is not a word and reads as a typo on the one
+ * screen whose whole job is to be plain.
+ */
+export function vcTagLabel(tag: string | null | undefined): string {
+  const t = String(tag == null ? "" : tag).trim().replace(/[_-]+/g, " ");
+  if (!t) return "";
+  return t.split(/\s+/)
+    .map((w) => (w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(" ");
+}
+
+/**
+ * How this campaign fills itself, in one plain sentence.
+ *
+ * Part 4 of the brief: the automation already exists and is invisible, which
+ * is why an agent cannot tell an auto-filling campaign from a dormant one.
+ * This is HELPER COPY ONLY — it renames nothing and reads only fields the
+ * tick's sweep already branches on, so it cannot drift into describing a
+ * behaviour the engine does not have.
+ *
+ * Note `auto_enroll_new_leads` sweeps every matching lead the campaign has
+ * not seen, not only ones created since — so the phrase says "leads", not
+ * "new leads". Saying "new" would be a promise the engine over-delivers on.
+ */
+export function vcAutoEnrollPhrase(campaign: VcCampaign | null | undefined): string {
+  const c: VcCampaign = campaign || {};
+  const tag = vcCampaignTag(campaign);
+  const who = tag ? `leads tagged ${vcTagLabel(tag)}` : "leads matching your rules";
+  const parts: string[] = [];
+  if (c.auto_enroll_new_leads === true) parts.push(`Auto-enrolls: ${who}`);
+  if (c.trigger_on_sold === true) parts.push("Fills when a lead is marked Sold");
+  if (c.trigger_on_appointment_booked === true) parts.push("Fills when an appointment is booked");
+  if (c.trigger_on_missed_appointment === true) parts.push("Fills when an appointment is marked no-show");
+  // No trigger at all is not a broken campaign — six of the twelve shipped
+  // ones are close to it — but an agent staring at an empty Enrollments tab
+  // deserves to be told which of the two doors this campaign has.
+  if (!parts.length) return "Only leads you add by hand.";
+  return parts.join(" · ") + ".";
+}
+
+/** What the manual door decided to do with one lead. */
+export interface VcEnrollPlanItem {
+  lead_id: string;
+  /** "enroll" — a fresh enrollment. "move" — stop an active one elsewhere first. */
+  action: "enroll" | "move";
+  /** The enrollment being stopped, on a move. */
+  from_enrollment_id: string | null;
+  current_step_position: number;
+  next_action_at: string;
+  appointment_id: string | null;
+  /** The tag this enrollment implies, or "" — same value for every item. */
+  tag: string;
+}
+
+export interface VcEnrollPlan {
+  items: VcEnrollPlanItem[];
+  /** reason → count. Every id handed in lands in items or in here, never both. */
+  skipped: Record<string, number>;
+  /** Of `items`, how many are moves. */
+  moves: number;
+  /** Leads blocked ONLY by missing consent — the "Record consent first" link. */
+  no_consent_lead_ids: string[];
+  tag: string;
+  /** Leads that would be tagged: enrollable ones that do not already carry it. */
+  tag_lead_ids: string[];
+  truncated: number;
+}
+
+/**
+ * Decide what "Add these leads to this campaign" means, for one press.
+ *
+ * PURE. Every fact it needs is handed in, which is what lets the preview and
+ * the write be the same call — and lets the whole matrix be unit-tested
+ * without a database.
+ *
+ * ORDER MATTERS and is not arbitrary:
+ *   1. not_found       — an id the caller does not own. Reported, never ignored.
+ *   2. already in THIS campaign — the engine never re-runs a lead through a
+ *      campaign it has already seen, in any status. Saying so is kinder than
+ *      an enrollment that silently does not appear.
+ *   3. the shared gate  — consent, DNC, suppression, phone. vcEvaluateEnrollment,
+ *      with `activeElsewhere` withheld so that conflict is decided here.
+ *   4. active elsewhere — SKIP (default) or MOVE, the agent's choice.
+ *   5. no reachable step — an appointment-anchored campaign whose moment has gone.
+ *
+ * Consent is checked BEFORE the already-in-a-campaign conflict on purpose: a
+ * lead with no consent cannot be moved anywhere, and telling the agent "2 are
+ * already in another campaign" about a lead that could never be called either
+ * way sends them to fix the wrong thing.
+ */
+export function vcPlanManualEnrollment(input: {
+  lead_ids: string[];
+  leads: VcLead[];
+  steps: VcStep[];
+  now: Date;
+  /** lead_id → true for any enrollment this campaign has ever had. */
+  seenInThisCampaign: Set<string>;
+  /** lead_id → the ACTIVE enrollment elsewhere, if any. */
+  activeElsewhere: Map<string, { id: string; campaign_id: string }>;
+  /** lead_id → true when the lead's phone is on a suppression list. */
+  suppressed: Set<string>;
+  /** lead_id → true when the lead has a usable phone number. */
+  hasPhone: Set<string>;
+  /** lead_id → the soonest scheduled future appointment, for anchored campaigns. */
+  appointments: Map<string, { id: string; starts_at: string }>;
+  onConflict: "skip" | "move";
+  campaign: VcCampaign | null | undefined;
+  limit: number;
+}): VcEnrollPlan {
+  const byId = new Map<string, VcLead>();
+  for (const l of input.leads || []) if (l && l.id) byId.set(String(l.id), l);
+
+  const tag = vcCampaignTag(input.campaign);
+  const items: VcEnrollPlanItem[] = [];
+  const skipped: Record<string, number> = {};
+  const noConsent: string[] = [];
+  const tagLeads: string[] = [];
+  let truncated = 0;
+  const skip = (reason: string) => { skipped[reason] = (skipped[reason] || 0) + 1; };
+
+  // The same lead offered twice is one lead. Deduped here rather than at the
+  // edge so the counts add up to the number of DISTINCT leads, which is what
+  // the sentence claims.
+  const ids: string[] = [];
+  const seenId = new Set<string>();
+  for (const raw of input.lead_ids || []) {
+    const id = String(raw == null ? "" : raw);
+    if (!id || seenId.has(id)) continue;
+    seenId.add(id);
+    ids.push(id);
+  }
+
+  for (const id of ids) {
+    const lead = byId.get(id);
+    if (!lead) { skip("not_found"); continue; }
+    if (input.seenInThisCampaign.has(id)) { skip("already_this_campaign"); continue; }
+
+    const verdict = vcEvaluateEnrollment({
+      lead,
+      hasPhone: input.hasPhone.has(id),
+      suppressed: input.suppressed.has(id),
+      // Withheld deliberately — the conflict is this function's decision to
+      // make, because only here is "move them" an available answer.
+      activeElsewhere: false,
+    });
+    if (!verdict.ok) {
+      const reason = verdict.reason || "skipped";
+      if (reason === "no_consent") noConsent.push(id);
+      skip(reason);
+      continue;
+    }
+
+    const conflict = input.activeElsewhere.get(id) || null;
+    if (conflict && input.onConflict !== "move") { skip("already_enrolled"); continue; }
+
+    if (items.length >= Math.max(0, intOr(input.limit, 0))) { truncated++; continue; }
+
+    const appt = input.appointments.get(id) || null;
+    const due = vcResolveNextDue({
+      steps: input.steps,
+      now: input.now,
+      appointmentAt: appt ? appt.starts_at : null,
+    });
+    if (!due.step || !due.dueAt) { skip("appointment_too_soon"); continue; }
+
+    items.push({
+      lead_id: id,
+      action: conflict ? "move" : "enroll",
+      from_enrollment_id: conflict ? conflict.id : null,
+      current_step_position: intOr(due.step.position, 1),
+      next_action_at: due.dueAt,
+      appointment_id: appt ? appt.id : null,
+      tag,
+    });
+    // Only a lead that is actually being enrolled gets tagged, and only when
+    // it does not already carry the tag. Tagging a lead the gate refused
+    // would change their data for a campaign they were never added to.
+    if (tag && norm(vcLeadFieldValue(lead, VC_ENROLL_TAG_FIELD)) !== tag) tagLeads.push(id);
+  }
+
+  return {
+    items,
+    skipped,
+    moves: items.filter((i) => i.action === "move").length,
+    no_consent_lead_ids: noConsent,
+    tag,
+    tag_lead_ids: tagLeads,
+    truncated,
+  };
+}
+
+/**
+ * The sentence the modal shows before the button is pressed, and the toast
+ * after — same function, so the promise and the receipt cannot word it
+ * differently. Present tense for the preview, past for the result.
+ *
+ * "12 will be enrolled · 2 moved from another campaign · 3 no consent"
+ */
+export function vcEnrollPlanSentence(plan: VcEnrollPlan, tense: "will" | "did" = "will"): string {
+  const fresh = plan.items.length - plan.moves;
+  const parts: string[] = [];
+  if (tense === "will") {
+    parts.push(`${fresh} will be enrolled`);
+    if (plan.moves) parts.push(`${plan.moves} will move from another campaign`);
+  } else {
+    parts.push(`${fresh} enrolled`);
+    if (plan.moves) parts.push(`${plan.moves} moved from another campaign`);
+  }
+  const skips = Object.entries(plan.skipped || {})
+    .filter(([, n]) => intOr(n, 0) > 0)
+    .sort((a, b) => intOr(b[1], 0) - intOr(a[1], 0));
+  for (const [reason, n] of skips) {
+    parts.push(`${intOr(n, 0)} ${SKIP_LABELS[reason] || String(reason).replace(/_/g, " ")}`);
+  }
+  if (plan.truncated) parts.push(`${plan.truncated} over the limit`);
+  return parts.join(" · ");
+}
 
 // ------------------------------------------------------------
 // 5. Drip rate
@@ -1202,6 +1501,10 @@ export function vcStopReasonLabel(reason: string | null | undefined): string {
     not_callable: "Not callable",
     lead_missing: "Lead removed",
     manual: "Unenrolled by hand",
+    // Distinct from `manual` on purpose: this lead is still being worked,
+    // just somewhere else. Reading it as "unenrolled by hand" would make a
+    // move look like a loss on both campaigns' Enrollments tabs.
+    moved_by_user: "Moved to another campaign",
     campaign_deleted: "Campaign removed",
     appointment_cancelled: "Appointment cancelled",
     appointment_passed: "Appointment has been and gone",
