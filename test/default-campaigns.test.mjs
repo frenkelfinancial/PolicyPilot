@@ -47,6 +47,10 @@ const START    = read('supabase/functions/ai-call-start/index.ts');
 const WEBHOOK  = read('supabase/functions/ai-call-webhook/index.ts');
 const DOC      = read('docs/ai-assistant-script-v1.md');
 
+/** Drops comment lines so a rule stated in prose is not mistaken for code. */
+const stripLineComments = (src, markers) => src
+  .split('\n').filter(l => !markers.some(m => l.trim().startsWith(m))).join('\n');
+
 // ------------------------------------------------------------
 // The seed JSON, straight out of the migration. One copy, and this is it.
 // ------------------------------------------------------------
@@ -661,9 +665,17 @@ test('the consent ledger is append-only: SELECT and nothing else, and nothing de
   assert.match(policies[0], /for select using \(auth\.uid\(\) = agent_id\)/);
   assert.ok(!/delete\s+from\s+public\.lead_consent_events/i.test(MIG));
   assert.ok(!/\.delete\(/.test(CONSENT), 'leads-consent must never delete anything');
-  // Every path writes a row, including a revoke.
+  // Every path writes a row: grant/voice, grant/sms, revoke/voice, revoke/sms.
+  // Four since 20260804 added the text-consent channel; it was two.
   const inserts = CONSENT.match(/from\("lead_consent_events"\)\s*\.insert\(/g) || [];
-  assert.equal(inserts.length, 2, 'both grant and revoke record an event');
+  assert.equal(inserts.length, 4, 'grant and revoke each record an event per channel');
+  // And every one of them names its channel explicitly — a defaulted channel
+  // would file a text-consent event as a voice one and lose the distinction
+  // the column exists to keep.
+  const channels = CONSENT.match(/channel:\s*"(voice|sms)"/g) || [];
+  assert.equal(channels.length, 4, 'each ledger insert states its channel');
+  assert.equal(channels.filter(c => c.includes('voice')).length, 2);
+  assert.equal(channels.filter(c => c.includes('sms')).length, 2);
 });
 
 test('the browser cannot write consent columns at all — the endpoint is the only door', () => {
@@ -696,8 +708,65 @@ test('voice consent and TEXT consent stay separate permissions', () => {
   // _leadConsent is the texting state, read from consent_records and used by
   // the SMS gate. _voiceConsent is leads.tcpa_consent, read by ai-call-start's
   // gate 3. Recording one must never widen the other.
+  //
+  // AMENDED 2026-07-31 (owner's decision, prompt H/D2). leads-consent may now
+  // write consent_records — but ONLY behind a second, separately-ticked
+  // attestation. The rule was never "this function must not touch that
+  // table"; it was "recording calling consent must not silently record
+  // texting consent". That is what the assertions below pin.
   assert.match(APP, /let _voiceConsent = /);
-  assert.ok(!/from\("consent_records"\)/.test(CONSENT),
-    'leads-consent must not write the texting evidence table');
   assert.match(MIG, /Separate from consent_records on purpose/);
+});
+
+test('🔴 a text-consent row is written ONLY behind its own attestation flag', () => {
+  // The flag is a LITERAL boolean compare. `truthy` would let the string
+  // "false", or a stray 1 from some future caller, opt a consumer in.
+  assert.match(CONSENT, /const wantsSms = body\.sms_attestation === true;/);
+
+  // There is exactly one insert into consent_records, and it is inside the
+  // `if (wantsSms)` branch. Sliced by index rather than by regex so a future
+  // second insert somewhere else in the file fails this rather than hiding.
+  const insertRe = /from\("consent_records"\)\s*\.insert\(/g;
+  const inserts = CONSENT.match(insertRe) || [];
+  assert.equal(inserts.length, 1, 'exactly one consent_records insert');
+  const branchStart = CONSENT.indexOf('if (wantsSms) {');
+  const insertAt = CONSENT.search(/from\("consent_records"\)\s*\.insert\(/);
+  assert.ok(branchStart > 0, 'the wantsSms branch exists');
+  assert.ok(insertAt > branchStart, 'the consent_records insert sits inside the wantsSms branch');
+
+  // The two grades of evidence stay tellable apart forever.
+  assert.match(CONSENT, /export const SMS_ATTESTATION_SOURCE = "agent_attestation";/);
+  assert.match(CONSENT, /consent_method: "agent_attested"/);
+  assert.ok(!/consent_method:\s*"web_form"/.test(CONSENT),
+    'only the hosted opt-in page may write the web_form grade');
+
+  // The gate needs express_written when sms_require_written_consent is on,
+  // which it is — anything weaker records a row the composer would refuse.
+  assert.match(CONSENT, /consent_type:\s*"express_written"/);
+});
+
+test('the modal never pre-ticks the text attestation, and it does not gate the button', () => {
+  assert.match(APP, /id="cs-sms-attest"/);
+  // Reset on EVERY open, not just the first.
+  assert.match(APP, /document\.getElementById\('cs-sms-attest'\)\.checked = false;/);
+  // The HTML checkbox itself carries no `checked`.
+  const el = APP.match(/<input type="checkbox" id="cs-sms-attest"[^>]*>/);
+  assert.ok(el && !/\bchecked\b/.test(el[0]), 'cs-sms-attest must not ship checked');
+  // Voice-only must stay possible: the disabled expression reads the CALLING
+  // attestation and the source, never the SMS one.
+  const sync = APP.slice(APP.indexOf('function consentSyncButton()'),
+                         APP.indexOf('async function consentConfirm()'));
+  assert.match(sync, /btn\.disabled = !attested \|\| !key \|\| \(needsDetail && !detail\);/);
+});
+
+test('revoking pulls back the attested text consent, but never the consumer\'s own opt-in', () => {
+  // Scoped to rows this tool wrote. A web_form row is the consumer's own
+  // statement and is not the agent's to withdraw.
+  assert.match(CONSENT, /\.eq\("source", SMS_ATTESTATION_SOURCE\)/);
+  // Still never touches the stronger lists. Comment-stripped: the function's
+  // own header explains at length that it does not, and a naive grep for the
+  // table name matches that prose.
+  const code = stripLineComments(CONSENT, ['//', '*', '/*']);
+  assert.ok(!/from\("dnc_list"\)\s*\.insert/.test(code), 'revoke must never add a DNC row');
+  assert.ok(!/suppression_list/.test(code), 'revoke must never touch suppression_list');
 });

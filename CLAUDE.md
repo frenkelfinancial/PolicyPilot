@@ -469,9 +469,15 @@ Autonomy layer (added 07/2026):
   append-only `lead_consent_events` row carrying that sentence verbatim. The
   Phase 1 AI test rig goes through it too — exempting it would have left a hole
   shaped like that one function.
-- **Revoking consent NEVER touches `dnc_list` or `suppression_list`**, and
-  `leads-consent` never writes `consent_records`: voice consent and text consent
-  are different permissions and recording one must not widen the other.
+- **Revoking consent NEVER touches `dnc_list` or `suppression_list`.** Voice
+  consent and text consent are different permissions and recording one must
+  not widen the other. **AMENDED 2026-07-31 (owner's decision, prompt H/D2):**
+  `leads-consent` may now write `consent_records` — but ONLY when the request
+  carries the literal `sms_attestation: true`, from a **second, separate,
+  never-pre-ticked** checkbox in the Record-consent modal. The rule was never
+  "this function must not touch that table"; it was "recording calling consent
+  must not silently record texting consent", and that is what the tests pin.
+  Voice-only is the default and the common case. See the § below.
 - **All twelve ship ACTIVE, and the screen has to say so.** With no consented
   leads they enrol nobody, so a calm banner says exactly that on both the
   Campaigns page and the AI dialer, from one `voiceCallableCount()`. It
@@ -483,6 +489,105 @@ Autonomy layer (added 07/2026):
   purchase paths (`telnyx-buy-number`, `-provision-number`, `-replace-number`)
   get it from the column default and name it nowhere — one default beats three
   call sites that have to remember. Per-number opt-out is in the Phone Book.
+
+### SMS consent joins the attestation tool + verify-to-activate (added 2026-07-31)
+
+Prompt H. Schema: `20260804_sms_attestation_and_verification.sql`. Docs:
+`docs/auth-verification.md`. Tests: `npm run test:auth`, `npm run test:bonus`,
+`npm run test:leadfilters`.
+
+- **🔴 THE PER-LEAD "OPT-IN LINK" BUTTON IS GONE, THE HOSTED PAGE IS NOT.**
+  Owner's decision. `/a/<slug>/sms-opt-in`, `compliance-page` and
+  `messaging-send-optin-invite` are untouched and still deployed — the carrier
+  registration points at that page and it remains the strongest evidence we
+  hold. What went away is the in-app button that emailed a lead a link to it,
+  plus `smsSendOptInLink()` and the SMS thread's "Email the opt-in link".
+  Agents copy the link out of the thread instead. Tests assert the button
+  class, the sender and the thread button are all absent.
+- **🔴 TEXT CONSENT IS WRITTEN ONLY BEHIND `sms_attestation === true`** — a
+  literal boolean compare, not a truthy one, so a stray `1` or the string
+  `"false"` cannot opt a consumer in. Exactly ONE `consent_records` insert
+  exists in `leads-consent` and it lives inside that branch; a test slices the
+  file by index to prove it. The box is un-ticked on **every** open of the
+  modal, never remembered.
+- **The row written is the shape the SEND GATE already reads** —
+  `consent_type='express_written'` (anything weaker and the composer refuses
+  it), differing from the hosted page only in `consent_method`
+  (`agent_attested`, never `web_form`) and `source`
+  (`SMS_ATTESTATION_SOURCE = 'agent_attestation'`, a fixed matchable string,
+  not free text). Those two columns are how the grades of evidence stay
+  tellable apart forever, which is what carrier review turned on.
+- **`lead_consent_events.channel`** (`voice` | `sms`, default `voice`) is new.
+  All four ledger inserts name their channel explicitly — a defaulted one
+  would file a text event as a voice event and lose the distinction.
+- **Revoking pulls back attested text consent, scoped to
+  `source = 'agent_attestation'`.** A `web_form` row is the consumer's own
+  statement; an agent deciding their attestation was wrong does not un-say it
+  for them. Still never touches `dnc_list` or `suppression_list`.
+- **🔴 EVERY AGENT THAT EXISTED AT 20260804 IS GRANDFATHERED** past both the
+  email and phone gates — 9 of 9, verified at apply time. That is why both
+  columns are nullable timestamps and not `boolean not null default false`; a
+  default would have locked out all nine live agents including the owner. The
+  migration must never gain a blanket re-lock.
+- **`agents_protect_verification_columns` has NO admin exemption**, unlike the
+  `phone_numbers`/`agents` denylist guards. "An administrator marked this
+  phone verified" is not a verification.
+- **`phone_verifications` stores a HASH and never the code**
+  (`sha256(code + ':' + row.id)`), is SELECT-only, and enforces ~10 min / 5
+  attempts / 45s resend **server-side**. Used-expired-exhausted is decided
+  BEFORE the hash comparison so a dead code cannot be timed apart from a wrong
+  one. Never add an INSERT/UPDATE policy: a client that can bump `attempts`
+  can brute-force six digits at leisure.
+- **`PLATFORM_SMS_FROM` must be a number on a messaging profile.** Only
+  `+12029981783` qualifies on this account; `+12029703699` is rejected 400 /
+  40305 *before queuing*. It has no 10DLC campaign yet — see
+  `docs/auth-verification.md` § "Owner action — the sending number".
+- **The password rule has ONE definition, two copies** —
+  `_shared/auth-verify.ts` and the `// <password-core>` block — pinned by a
+  several-hundred-case parity test. Same arrangement as `pcNormalizeCode()`.
+
+### 🔴 `window.policies` is an explicit alias, and it has to stay one
+
+- `let policies = []` at the top level of a classic `<script>` binds in the
+  global **lexical** scope, not on the global **object**. So `window.policies`
+  was `undefined`, and **thirteen** readers fell through their `|| []` and
+  computed against an empty book while erroring nowhere: the bonus tracker's
+  progress bars, the pipeline funnel, persistency health, chargeback exposure,
+  the free-look watchlist, the greeting's MTD AP and the leaderboard record
+  nudges. The Policy Tracker used the bare `policies` and always looked right,
+  which is why it went unnoticed.
+- Fixed once with an `Object.defineProperty(window, 'policies', …)` accessor
+  beside the declaration — **not** by switching to `var`, so the alias is
+  explicit and cannot be undone by someone modernising a `var` back to a
+  `let`. **The setter is load-bearing**: `bootDashboard()` does
+  `policies = remotePolicies` and the delete path does
+  `policies = policies.filter(…)`; a getter-only property makes those throw.
+- `bonusIsComputable()` now also requires a parsed `window` — Bankers Fidelity
+  ("ongoing") and Oxford Life reached the bar renderer without one and printed
+  "No tier data.", which is not what is wrong with them.
+- The pure bonus math lives in `// <bonus-core>` and takes the policy→carrier
+  resolver **as a parameter**, because the real one needs the COMP table to
+  keep Corebridge GIWL out. Payout shapes are pinned per carrier against the
+  real tiers — cliff (MoO/Americo), banded-flat-not-cumulative (Am-Am), banded
+  percent (American Home Life), policy-count with an unparseable "up to" rung
+  (Corebridge). Do not generalise them.
+
+### Leads screen — filters and selection (2026-07-31)
+
+- **Status / Source / State are multi-selects.** OR within a filter, AND
+  across filters, empty set means "All". ONE predicate —
+  `leadMatchesFilters()` in `// <leadfilter-core>` — replaces three
+  hand-written copies that had already drifted (one normalised the phone
+  number before searching it, two did not). `filterLeads`,
+  `filterLeads_silent` and `updateLeadTabCounts` all go through it; a test
+  asserts they do and that the old `lead-filter-*` selects are gone.
+- **The selection lives in `_leadFilterSel`, never in the DOM** — which is
+  what makes it survive pagination, re-renders and select-all-across-pages.
+- **"Selected" has ONE writer: `syncLeadSelectionUI()`**, deriving the row
+  class, the checkbox, the header tri-state and the bulk bar from
+  `selectedLeadIds`. The highlight used to be an inline `style.outline`
+  written only at render time, so a lead's own checkbox never lit its row —
+  and the compact views carried a second copy of the same bug.
 
 ## Identity — a person has a name, not an address
 
