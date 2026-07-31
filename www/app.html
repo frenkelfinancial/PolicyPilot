@@ -5088,6 +5088,36 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
         #sec-voice-campaigns table.vc-tbl th{text-align:left;font:600 11.5px var(--sans);color:var(--text3);text-transform:uppercase;letter-spacing:.04em;padding:0 10px 8px;border-bottom:1px solid var(--border)}
         #sec-voice-campaigns table.vc-tbl td{padding:10px;border-bottom:1px solid var(--border);color:var(--text2)}
         #sec-voice-campaigns .vc-empty{font:13px/1.6 var(--sans);color:var(--text2);padding:26px 0;text-align:center}
+
+        /* ---- Mission control: the campaign's own Leads table + feed ---- */
+        #sec-voice-campaigns .vc-lead-row{cursor:pointer}
+        #sec-voice-campaigns .vc-lead-row:hover{background:var(--bg3)}
+        #sec-voice-campaigns .vc-lead-row.is-sel{background:rgba(99,102,241,.08)}
+        #sec-voice-campaigns .vc-lead-name{color:var(--text);font-weight:600}
+        #sec-voice-campaigns .vc-lead-sub{color:var(--text3);font:11.5px var(--sans);font-variant-numeric:tabular-nums}
+        #sec-voice-campaigns .vc-chip{display:inline-block;font:11px var(--sans);border:1px solid var(--border);
+          border-radius:999px;padding:2px 8px;color:var(--text2);background:var(--bg3);white-space:nowrap}
+        #sec-voice-campaigns .vc-chip[data-tone="good"]{color:#059669;background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.45)}
+        #sec-voice-campaigns .vc-chip[data-tone="bad"]{color:#dc2626;background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.40)}
+        #sec-voice-campaigns .vc-chip[data-tone="warn"]{color:#b45309;background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.45)}
+        /* "Calling now" has to be findable at a glance on a table of 25 rows. */
+        #sec-voice-campaigns .vc-live{color:#059669;font-weight:600}
+        #sec-voice-campaigns .vc-live::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;
+          background:#10b981;margin-right:6px;vertical-align:middle;animation:vcPulse 1.4s ease-in-out infinite}
+        @keyframes vcPulse{0%,100%{opacity:1}50%{opacity:.25}}
+        #sec-voice-campaigns .vc-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+        #sec-voice-campaigns .vc-seg button{border:none;background:var(--card);color:var(--text2);
+          font:600 12px var(--sans);padding:6px 11px;cursor:pointer}
+        #sec-voice-campaigns .vc-seg button.active{background:var(--accent);color:#fff}
+        #sec-voice-campaigns .vc-bulkbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;
+          padding:9px 12px;border:1px solid var(--accent);border-radius:10px;background:rgba(99,102,241,.07)}
+        #sec-voice-campaigns .vc-feed-item{display:flex;gap:10px;padding:9px 2px;border-bottom:1px solid var(--border);
+          font:12.5px/1.55 var(--sans);color:var(--text2);cursor:pointer}
+        #sec-voice-campaigns .vc-feed-item:hover{background:var(--bg3)}
+        #sec-voice-campaigns .vc-feed-dot{width:8px;height:8px;border-radius:50%;background:var(--text3);margin-top:6px;flex-shrink:0}
+        #sec-voice-campaigns .vc-feed-dot[data-tone="good"]{background:#10b981}
+        #sec-voice-campaigns .vc-feed-dot[data-tone="bad"]{background:#ef4444}
+        #sec-voice-campaigns .vc-feed-when{color:var(--text3);white-space:nowrap;font-variant-numeric:tabular-nums}
       </style>
 
       <!-- ---------- LIST ---------- -->
@@ -5115,21 +5145,30 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
 
       <!-- ---------- EDITOR ---------- -->
       <div id="vcamp-editView" style="display:none">
-        <div class="card" style="max-width:900px">
+        <div class="card" style="max-width:1080px">
           <div class="card-head">
             <div class="kpi-label" id="vcamp-editTitle">Campaign</div>
             <button class="vc-btn" onclick="vcampCloseEditor()">&larr; All campaigns</button>
           </div>
 
+          <!--
+            LEADS FIRST, and it opens there. A campaign's own screen used to
+            open on the rule builder, which is the thing an agent touches once
+            and then never again; what they come back for is "is it working,
+            and who is it calling". Enrollments was the last tab and was called
+            by the name of a database table.
+          -->
           <div class="vc-tabs">
-            <button class="vc-tab active" data-vctab="settings"    onclick="vcampTab('settings')">Settings</button>
+            <button class="vc-tab active" data-vctab="enrollments" onclick="vcampTab('enrollments')">Leads</button>
+            <button class="vc-tab"        data-vctab="activity"    onclick="vcampTab('activity')">Activity</button>
             <button class="vc-tab"        data-vctab="steps"       onclick="vcampTab('steps')">Steps</button>
-            <button class="vc-tab"        data-vctab="enrollments" onclick="vcampTab('enrollments')">Enrollments</button>
+            <button class="vc-tab"        data-vctab="settings"    onclick="vcampTab('settings')">Settings</button>
           </div>
 
-          <div id="vcamp-pane-settings"></div>
+          <div id="vcamp-pane-enrollments"></div>
+          <div id="vcamp-pane-activity" style="display:none"></div>
           <div id="vcamp-pane-steps" style="display:none"></div>
-          <div id="vcamp-pane-enrollments" style="display:none"></div>
+          <div id="vcamp-pane-settings" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -7301,6 +7340,49 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
       <div class="frow" style="margin-top:14px;justify-content:flex-end;gap:8px">
         <button class="btn btn-s btn-sm" onclick="closeAddToCampaignModal()">Cancel</button>
         <button class="btn btn-p btn-sm" id="atc-confirm" onclick="atcConfirm()" disabled>Add to campaign</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!--
+  ONE AI CALL, in full: what happened, what the assistant gathered, the
+  summary and the transcript. Reachable from the campaign's Leads table, its
+  activity feed, and the lead row itself, so "what did the robot actually say
+  to my client" is never more than one click from wherever the question
+  occurs. The body is built by aiCallDetailHTML(), the same function the AI
+  test panel renders with.
+-->
+<div class="overlay" id="vcampCallModal" onclick="if(event.target===this)vcampCloseCall()">
+  <div class="modal" style="width:640px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <div class="mhdr">
+      <div class="mtitle" id="vcampCall-title">Call</div>
+      <button class="mclose" onclick="vcampCloseCall()" data-ico="x" data-size="14"></button>
+    </div>
+    <div id="vcampCall-body" style="padding:6px 0 0">
+      <div style="font:12.5px var(--sans);color:var(--text3)">Loading&hellip;</div>
+    </div>
+  </div>
+</div>
+
+<!--
+  The confirm step for pause / resume / remove on a selection. Same shape as
+  Add to campaign: the server previews, the agent reads the count, the button
+  does exactly that. These act on somebody's live calling program.
+-->
+<div class="overlay" id="vcampBulkModal" onclick="if(event.target===this)vcampCloseBulk()">
+  <div class="modal" style="width:520px;max-width:95vw">
+    <div class="mhdr">
+      <div class="mtitle" id="vcampBulk-title">Confirm</div>
+      <button class="mclose" onclick="vcampCloseBulk()" data-ico="x" data-size="14"></button>
+    </div>
+    <div style="padding:6px 0 0">
+      <p id="vcampBulk-lede" style="font:13px/1.6 var(--sans);color:var(--text2);margin:0 0 12px"></p>
+      <div id="vcampBulk-preview" style="font:12.5px/1.6 var(--sans);color:var(--text);min-height:20px"></div>
+      <div id="vcampBulk-msg" style="font:12.5px var(--sans);color:var(--text2);margin-top:10px;min-height:16px"></div>
+      <div class="frow" style="margin-top:14px;justify-content:flex-end;gap:8px">
+        <button class="btn btn-s btn-sm" onclick="vcampCloseBulk()">Cancel</button>
+        <button class="btn btn-p btn-sm" id="vcampBulk-confirm" onclick="vcampBulkConfirm()" disabled>Confirm</button>
       </div>
     </div>
   </div>
@@ -13474,7 +13556,7 @@ async function submitAsSold() {
   if (soldLeadId) {
     const lead = leads.find(l => String(l.id) === soldLeadId);
     if (lead) {
-      lead.status = 'sold';
+      ppSetLeadStatus(lead, 'sold');
       lead.soldPolicyId = policy.id;
       saveLeads();
       logLeadStatusActivity(lead, 'sold');
@@ -18495,6 +18577,32 @@ const STATUS_CONFIG = {
   banking_obj:    { label:'Banking Objection', color:'#a78bfa', bg:'rgba(167,139,250,.12)', inDropdown:true  },
 };
 
+/**
+ * THE ONE PLACE THIS BROWSER WRITES A LEAD STATUS.
+ *
+ * There were five, and that was fine right up until the AI started writing
+ * statuses too. `leads.data` is re-upserted for the ENTIRE book from memory on
+ * every save (sbUpsertAllLeads), so a status the server wrote at 2:04 PM is
+ * erased at 2:05 PM by a stale copy of the old one — unless the two can be
+ * told apart. `status_at` + `status_source` are what tells them apart, and
+ * leads_preserve_ai_status() (20260805) is what enforces it in the database:
+ * a deliberate edit carries a fresh stamp and goes through, an echo does not.
+ *
+ * So every human status change has to stamp, and "every" is only checkable if
+ * there is one writer. A test asserts nothing else assigns `.status =` on a
+ * lead.
+ *
+ * It does NOT save — the caller decides whether this is one change or five
+ * hundred, and bulkSetStatus must not fire five hundred whole-book upserts.
+ */
+function ppSetLeadStatus(lead, status, opts) {
+  if (!lead || !status) return false;
+  lead.status = status;
+  lead.status_at = new Date().toISOString();
+  lead.status_source = (opts && opts.source) || 'human';
+  return true;
+}
+
 // Lead status transitions that feed the Activity Pulse funnel
 // (Dials -> Contacts -> Appts -> Apps -> Issued). "Dials" are logged
 // separately at the click-to-call button.
@@ -19035,6 +19143,11 @@ function renderLeads() {
   if (!_voiceConsentTried && currentAgent) {
     _voiceConsentTried = true;
     loadVoiceConsent().then(() => { updateCallableCount(); renderLeads(); });
+    // And the other half of the AI's answer: the statuses and dispositions it
+    // wrote while this tab was open. Started here rather than at boot because
+    // this is the screen those values are rendered on.
+    leadEffectsSync();
+    leadEffectsStartPolling();
   }
   updateCallableCount();
   const container = document.getElementById('lead-list-container');
@@ -19156,6 +19269,34 @@ function renderLeads() {
     // "not consented", which the callable count already says once for the
     // whole book.
     const _vc = voiceConsentFor(lead);
+
+    // ---- What the AI did on its last call, and whether this person has
+    // asked us to stop. Both are answers to "did the AI update the status?" —
+    // the disposition is the part the status deliberately does NOT carry (a
+    // no-answer is not a pipeline stage), and do-not-call is a legal
+    // instruction that must be obvious at a glance rather than buried.
+    const _dispTones = {
+      good:    'color:#059669;background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.45)',
+      bad:     'color:#dc2626;background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.40)',
+      neutral: 'color:var(--text2);background:var(--bg3);border-color:var(--border)',
+    };
+    const _dispChip = (() => {
+      const label = dispositionShortLabel(lead.ai_disposition);
+      if (!label) return '';
+      const when = vcRelTime(lead.ai_disposition_at, new Date());
+      const tone = _dispTones[dispositionTone(lead.ai_disposition)] || _dispTones.neutral;
+      return `<span class="lead-ai-disp" title="${escapeHTML('AI call: ' + dispositionLabel(lead.ai_disposition) + (when ? ' · ' + when : ''))}" ` +
+        `style="display:inline-block;font:11px var(--sans);border:1px solid;border-radius:999px;padding:2px 8px;${tone}">` +
+        `AI · ${escapeHTML(label)}${when ? ' · ' + escapeHTML(when) : ''}</span>`;
+    })();
+    const _dncChip = (_vc && _vc.dnc)
+      ? `<span class="lead-dnc-chip" title="${escapeHTML('On your do-not-call list. Nothing in this app will dial or text them.')}" ` +
+        `style="display:inline-block;font:600 11px var(--sans);border:1px solid rgba(239,68,68,.5);border-radius:999px;padding:2px 8px;color:#dc2626;background:rgba(239,68,68,.12)">Do not call</span>`
+      : '';
+    const _flagChips = (_dncChip || _dispChip)
+      ? `<div class="lead-flag-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${_dncChip}${_dispChip}</div>`
+      : '';
+
     const _aiConsentBtn = (_vc && _vc.consent)
       ? `<button class="lead-act-btn lead-aiconsent-btn" data-lid="${lid}" title="${escapeHTML(
             'Consented for AI calling' + (_vc.source ? ' — ' + _vc.source : '') +
@@ -19211,6 +19352,11 @@ function renderLeads() {
       // Transfer provenance — rendered as its own meta chip above, and the
       // raw id/timestamp are plumbing the agent should never be shown.
       'receivedFrom','receivedFromId','receivedAt',
+      // The status stamp and the AI's disposition. Both are RENDERED — the
+      // stamp as part of the status the dropdown already shows, the
+      // disposition as its own chip — and neither is a field anybody should
+      // be able to type an ISO timestamp into from the field panel.
+      'status_at','status_source','ai_disposition','ai_disposition_at',
     ]);
     const allFields = [
       {lbl:'Received on', val:receivedStr||new Date().toLocaleDateString('en-US'), key:null},
@@ -19281,6 +19427,9 @@ function renderLeads() {
       // Shared bits used by both compact layouts.
       const _cbHTML = `<input type="checkbox" class="lead-check lead-cb" data-lid="${lid}" ${isChecked?'checked':''} title="Select lead" style="flex-shrink:0">`;
       const _nameHTML = `<div class="cmpct-name" title="${escapeHTML(lead.name||'Unknown')}">${escapeHTML(lead.name||'Unknown')}</div>`;
+      // Both compact views carry the same two chips as the wide one. Leaving
+      // them out of the dense layouts is how a do-not-call flag becomes
+      // invisible to exactly the agent working fastest.
       const _statusHTML = `<select class="cmpct-status-btn lead-disposition-sel lead-disposition-cb lead-pill--${status}" data-lid="${lid}" title="Set status">
             ${Object.entries(STATUS_CONFIG).filter(([,c])=>c.inDropdown).map(([v,c])=>`<option value="${v}"${status===v?' selected':''}>${escapeHTML(c.label)}</option>`).join('')}
             ${!STATUS_CONFIG[status]?.inDropdown ? `<option value="${status}" selected>${escapeHTML(sc.label)}</option>` : ''}
@@ -19316,6 +19465,7 @@ function renderLeads() {
               ${_nameHTML}
             </div>
             ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
+            ${_flagChips}
             ${_vis2.length ? `<div class="cmpct-fields">${_vis2.map(_fld2).join('')}</div>` : ''}
             ${_hid2.length ? `<button class="cmpct-more-btn" onclick="event.stopPropagation();const c=this.closest('.compact-card');c.classList.toggle('cmpct-open');this.textContent=c.classList.contains('cmpct-open')?'▲ Less':'▼ More'">▼ More</button>` : ''}
             ${_hid2.length ? `<div class="cmpct-extra">${_hid2.map(_fld2).join('')}</div>` : ''}
@@ -19350,6 +19500,7 @@ function renderLeads() {
         <div class="cmpct4-body">
           <div class="cmpct4-info">
             ${phoneFmt ? `<div class="cmpct-phone">${escapeHTML(phoneFmt)}</div>` : ''}
+            ${_flagChips}
             ${_pfHTML ? `<div class="cmpct-fields">${_pfHTML}</div>` : ''}
           </div>
           <textarea class="cmpct-notes cmpct4-notes lead-notes-cb" data-lid="${lid}" placeholder="Notes…">${escapeHTML(lead.notes||'')}</textarea>
@@ -19386,6 +19537,7 @@ function renderLeads() {
             ${dobVal ? `<div class="lead-bday-row"><span class="lead-field-label">Birthday</span>&nbsp;${escapeHTML(dobVal)}</div>` : ''}
             <div class="lead-quote-row"><span class="lead-field-label">Quote</span>&nbsp;<span style="color:${lead.quote?'var(--text2)':'var(--lg-faint)'}">${lead.quote?escapeHTML(String(lead.quote)):'Not set'}</span></div>
             ${localTime ? `<div class="lead-localtime-row"><span class="lead-field-label">Local time</span>&nbsp;${escapeHTML(localTime)}</div>` : ''}
+            ${_flagChips}
             ${tpsHref ? `<a href="${tpsHref}" class="lead-act-btn tps-btn" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">TruePeopleSearch</a>` : ''}
           </div>
           <div class="lead-col lead-col-notes">
@@ -20348,7 +20500,7 @@ const softphone = (() => {
       } else if (typeof leads !== 'undefined') {
         const lead = leads.find(l => String(l.id) === String(lid));
         if (lead) {
-          lead.status = status;
+          ppSetLeadStatus(lead, status);
           if (typeof saveLeads === 'function') saveLeads();
           if (typeof renderLeads === 'function') renderLeads();
         }
@@ -21335,6 +21487,132 @@ function voiceConsentFor(lead) {
   return _voiceConsent.byClientId.get(String(lead.id)) || null;
 }
 
+// ============================================================
+// LEAD EFFECT SYNC — pulling the AI's verdicts back into the book
+//
+// ai-call-webhook writes the outcome of every AI call into `leads.data`
+// (status / status_at / status_source / ai_disposition — see
+// _shared/ai-lead-effect.ts). The database keeps that write safe from being
+// erased (leads_preserve_ai_status, 20260805), but a tab that has been open
+// since before the call still shows the OLD status, and a stale screen is its
+// own kind of wrong: an agent watching a campaign work needs the leads list to
+// agree with it.
+//
+// So this pulls the five keys back. Cheap on purpose — five jsonb fields, not
+// the whole book — and it applies ONLY what is newer, so a change the agent
+// made a second ago is never walked backwards by an answer that was already
+// in flight. Nothing here upserts: the server already has these values, and a
+// whole-book write would be both wasteful and a chance to lose something else.
+// ============================================================
+let _leadEffectTimer = null;
+let _leadEffectBusy = false;
+
+const LEAD_EFFECT_SELECT =
+  'client_id, dnc, ' +
+  'st:data->>status, st_at:data->>status_at, st_src:data->>status_source, ' +
+  'disp:data->>ai_disposition, disp_at:data->>ai_disposition_at';
+
+async function leadEffectsSync() {
+  if (!currentAgent || _leadEffectBusy || !Array.isArray(leads) || !leads.length) return 0;
+  _leadEffectBusy = true;
+  let rows = null;
+  try {
+    const { data, error } = await sb.from('leads')
+      .select(LEAD_EFFECT_SELECT)
+      .eq('agent_id', currentAgent.id)
+      .range(0, 9999);
+    if (error) throw error;
+    rows = (data || []).map(r => ({
+      client_id: r.client_id, dnc: r.dnc,
+      status: r.st, status_at: r.st_at, status_source: r.st_src,
+      ai_disposition: r.disp, ai_disposition_at: r.disp_at,
+    }));
+  } catch (err) {
+    // The jsonb-arrow select is the cheap path, not the only one. If this
+    // PostgREST cannot alias an arrow expression, fall back to the same query
+    // the boot already makes rather than losing the feature over syntax.
+    console.warn('[leadeffect] narrow select failed, falling back', err && err.message);
+    try {
+      const { data, error } = await sb.from('leads')
+        .select('client_id, data, dnc')
+        .eq('agent_id', currentAgent.id)
+        .range(0, 9999);
+      if (error) throw error;
+      rows = (data || []).map(r => ({
+        client_id: r.client_id, dnc: r.dnc,
+        status: (r.data || {}).status,
+        status_at: (r.data || {}).status_at,
+        status_source: (r.data || {}).status_source,
+        ai_disposition: (r.data || {}).ai_disposition,
+        ai_disposition_at: (r.data || {}).ai_disposition_at,
+      }));
+    } catch (err2) {
+      console.warn('[leadeffect] sync failed', err2 && err2.message);
+      _leadEffectBusy = false;
+      return 0;
+    }
+  }
+  _leadEffectBusy = false;
+
+  const byClient = new Map();
+  for (const r of rows) if (r.client_id) byClient.set(String(r.client_id), r);
+
+  let changed = 0;
+  for (const lead of leads) {
+    const r = byClient.get(String(lead.id));
+    if (!r) continue;
+    // NEWER WINS, in both directions. The server's copy is only applied when
+    // its stamp is strictly later than the one in memory — otherwise a sync
+    // that lands a second after the agent picked a status would undo them.
+    const localAt = Date.parse(lead.status_at || '') || 0;
+    const remoteAt = Date.parse(r.status_at || '') || 0;
+    if (r.status && remoteAt > localAt) {
+      lead.status = r.status;
+      lead.status_at = r.status_at;
+      lead.status_source = r.status_source || 'ai';
+      changed++;
+    }
+    const localDisp = Date.parse(lead.ai_disposition_at || '') || 0;
+    const remoteDisp = Date.parse(r.ai_disposition_at || '') || 0;
+    if (r.ai_disposition && remoteDisp > localDisp) {
+      lead.ai_disposition = r.ai_disposition;
+      lead.ai_disposition_at = r.ai_disposition_at;
+      changed++;
+    }
+    // The do-not-call flag is a column, not part of `data`, so it rides the
+    // consent map the leads list already reads.
+    const vc = _voiceConsent.byClientId.get(String(lead.id));
+    if (vc) vc.dnc = r.dnc === true;
+  }
+
+  if (changed) {
+    // localStorage only. These values came FROM the server; pushing them back
+    // would be a whole-book write to tell it something it already knows.
+    try { localStorage.setItem(k('pp_leads'), JSON.stringify(leads)); } catch (_) {}
+    if (typeof filterLeads_silent === 'function') filterLeads_silent();
+    const sec = document.getElementById('sec-leads');
+    if (sec && sec.classList.contains('active') && typeof renderLeads === 'function') renderLeads();
+  }
+  return changed;
+}
+
+/**
+ * Poll while somebody is actually looking.
+ *
+ * A hidden tab syncs nothing — the AI calls all day and a backgrounded browser
+ * has no reason to keep asking about it. Coming back into view syncs at once,
+ * which is the moment the answer is wanted.
+ */
+function leadEffectsStartPolling() {
+  if (_leadEffectTimer) return;
+  _leadEffectTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') leadEffectsSync();
+  }, 60000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') leadEffectsSync();
+  });
+}
+
 /** How many of this agent's leads the AI is allowed to phone. */
 function voiceCallableCount() {
   let n = 0;
@@ -21711,7 +21989,29 @@ async function consentConfirm() {
 // so the sentence shown and the work done cannot drift apart.
 // ============================================================
 let _atcCampaigns = { rows: [], loaded: false };
-let _atcState = { campaignId: null, conflict: 'skip', preview: null, busy: false, seq: 0 };
+let _atcState = {
+  campaignId: null, conflict: 'skip', preview: null, busy: false, seq: 0,
+  // Set only when the door was opened with an explicit list of lead UUIDs —
+  // today that is the campaign screen's "Move to another campaign", where the
+  // leads were picked from a campaign's own table rather than from the leads
+  // tab's selection. Everything downstream is identical; only where the ids
+  // come from differs, which is why this is a field and not a second modal.
+  explicitLeadIds: null,
+  label: '',
+  onDone: null,
+};
+
+/**
+ * The leads this door is about to act on.
+ *
+ * ONE resolver, so the preview and the confirm can never disagree about who is
+ * in the selection — which they would the first time somebody added a caller
+ * and only remembered one of the two.
+ */
+function atcSelectionIds() {
+  if (_atcState.explicitLeadIds) return { ids: _atcState.explicitLeadIds.slice(), unsynced: 0 };
+  return atcResolveLeadIds(selectedLeadIds);
+}
 
 /**
  * The agent's campaigns, for any of the three pickers.
@@ -21791,20 +22091,27 @@ async function atcEnroll(opts) {
   }
 }
 
-async function openAddToCampaignModal() {
-  const n = selectedLeadIds.size;
+async function openAddToCampaignModal(opts) {
+  const explicit = opts && Array.isArray(opts.leadIds) && opts.leadIds.length ? opts.leadIds.slice() : null;
+  const n = explicit ? explicit.length : selectedLeadIds.size;
   if (!n) return;
   const modal = document.getElementById('addToCampaignModal');
   if (!modal) return;
-  document.getElementById('atc-count').textContent = n + ' lead' + (n !== 1 ? 's' : '');
+  document.getElementById('atc-count').textContent = (opts && opts.label) || (n + ' lead' + (n !== 1 ? 's' : ''));
+  _atcState.explicitLeadIds = explicit;
+  _atcState.label = (opts && opts.label) || '';
+  _atcState.onDone = (opts && opts.onDone) || null;
   // The conflict choice defaults to Skip on every open. It is a decision
   // about somebody else's campaign and must be taken deliberately each time.
-  _atcState.conflict = 'skip';
+  // The one exception is a MOVE opened from a campaign's own Leads table,
+  // where every lead in hand is by definition already in a campaign and Skip
+  // would preview "nothing will happen".
+  _atcState.conflict = (opts && opts.conflict === 'move') ? 'move' : 'skip';
   _atcState.preview = null;
   _atcState.busy = false;
-  const skipRadio = document.querySelector('input[name="atc-conflict-mode"][value="skip"]');
-  if (skipRadio) skipRadio.checked = true;
-  document.getElementById('atc-conflict').style.display = 'none';
+  const modeRadio = document.querySelector('input[name="atc-conflict-mode"][value="' + _atcState.conflict + '"]');
+  if (modeRadio) modeRadio.checked = true;
+  document.getElementById('atc-conflict').style.display = _atcState.conflict === 'move' ? '' : 'none';
   document.getElementById('atc-preview').innerHTML = '';
   document.getElementById('atc-tagnote').style.display = 'none';
   const msg = document.getElementById('atc-msg');
@@ -21823,6 +22130,12 @@ async function openAddToCampaignModal() {
 function closeAddToCampaignModal() {
   const modal = document.getElementById('addToCampaignModal');
   if (modal) modal.classList.remove('open');
+  // Dropped on every close, the same rule the consent modal's scope follows:
+  // a stale explicit list would act on leads the agent is no longer looking
+  // at the next time they press the button from the leads tab.
+  _atcState.explicitLeadIds = null;
+  _atcState.label = '';
+  _atcState.onDone = null;
 }
 
 /** The picker body — shared shape with the importer's and Add Lead's. */
@@ -21885,7 +22198,7 @@ async function atcRefreshPreview() {
   const conflictBox = document.getElementById('atc-conflict');
   if (!_atcState.campaignId) return;
 
-  const { ids, unsynced } = atcResolveLeadIds(selectedLeadIds);
+  const { ids, unsynced } = atcSelectionIds();
   _atcState.preview = null;
   atcSyncButton();
   if (!ids.length) {
@@ -21967,10 +22280,22 @@ function atcRecordConsentFirst() {
   const ids = (p && p.no_consent_lead_ids) || [];
   if (!ids.length) return;
   const campaignId = _atcState.campaignId;
+  // Everything the close is about to drop, so the door comes back the way it
+  // was opened — a move from a campaign's Leads table must not return as a
+  // plain leads-tab add.
+  const reopen = {
+    leadIds: _atcState.explicitLeadIds ? _atcState.explicitLeadIds.slice() : null,
+    conflict: _atcState.conflict,
+    label: _atcState.label,
+    onDone: _atcState.onDone,
+  };
   closeAddToCampaignModal();
   openConsentModal({
     leadIds: ids,
-    onDone: () => { _atcState.campaignId = campaignId; openAddToCampaignModal(); },
+    onDone: () => {
+      _atcState.campaignId = campaignId;
+      openAddToCampaignModal(reopen.leadIds ? reopen : { conflict: reopen.conflict, onDone: reopen.onDone });
+    },
   });
 }
 
@@ -21978,8 +22303,9 @@ async function atcConfirm() {
   const btn = document.getElementById('atc-confirm');
   const msg = document.getElementById('atc-msg');
   if (!btn || btn.disabled || !_atcState.campaignId) return;
-  const { ids } = atcResolveLeadIds(selectedLeadIds);
+  const { ids } = atcSelectionIds();
   if (!ids.length) return;
+  const done = _atcState.onDone;
 
   _atcState.busy = true;
   atcSyncButton();
@@ -22008,6 +22334,9 @@ async function atcConfirm() {
   if (typeof vcampState === 'object' && vcampState && document.getElementById('vcamp-list') && vcampState.campaigns) {
     await vcampLoad();
   }
+  // Read BEFORE the close cleared it. The campaign screen uses this to drop
+  // the selection it just moved out from under itself.
+  if (typeof done === 'function') done(data);
 }
 
 /**
@@ -22112,7 +22441,7 @@ function bulkSetStatus() {
   const count = selectedLeadIds.size;
   if (!count) return;
   leads.forEach(l => {
-    if (selectedLeadIds.has(String(l.id))) l.status = status;
+    if (selectedLeadIds.has(String(l.id))) ppSetLeadStatus(l, status);
   });
   saveLeads();
   document.getElementById('bulk-status-sel').value = '';
@@ -22207,7 +22536,7 @@ function filterLeads_silent() {
 function updateLeadStatus(lid, status) {
   lid = String(lid);
   const lead = leads.find(l => String(l.id) === lid);
-  if (lead) { lead.status = status; saveLeads(); renderLeads(); }
+  if (lead) { ppSetLeadStatus(lead, status); saveLeads(); renderLeads(); }
 }
 
 function saveLeadNote(lid, text) {
@@ -22595,7 +22924,7 @@ function setLeadStatusQuick(lid, status) {
   lid = String(lid);
   const lead = leads.find(l => String(l.id) === lid);
   if (!lead) return;
-  lead.status = status;
+  ppSetLeadStatus(lead, status);
   saveLeads();
   renderLeads();
   logLeadStatusActivity(lead, status);
@@ -28281,6 +28610,136 @@ function aiPaceBannerText(numberCount) {
 // </ai-meter-core>
 
 // ============================================================
+// LEAD EFFECT CORE — what an AI call outcome does to the lead.
+//
+// Mirrors the pure half of supabase/functions/_shared/ai-lead-effect.ts, which
+// is where the mapping is APPLIED (in ai-call-webhook's finalize block). This
+// copy exists because three screens have to word the same fact: the campaign's
+// Leads table, its activity feed, and the chip on the lead row itself.
+//
+// The two rules worth re-reading before editing the table: a missed call is
+// not a pipeline event (no_answer / voicemail change no status, or a six-step
+// campaign would rewrite a lead's status five times), and `sold` is human,
+// always — nothing here writes it and nothing here writes over it.
+//
+// PURE: no DOM, no network, no storage, no app globals.
+// ============================================================
+// <leadeffect-core>
+const LEAD_STATUSES = [
+  'new', 'called', 'no_answer', 'not_interested',
+  'sold', 'appointment', 'social_obj', 'banking_obj',
+];
+const LEAD_STATUS_HUMAN_ONLY = ['sold'];
+
+// The keys a status write travels with. `status_at` + `status_source` are what
+// let the database tell a deliberate edit from a stale whole-book re-upsert —
+// see leads_preserve_ai_status() in 20260805.
+const AI_LEAD_EFFECT_KEYS = [
+  'status', 'status_at', 'status_source', 'ai_disposition', 'ai_disposition_at',
+];
+
+const LEAD_EFFECT_NONE = { status: null, dnc: false, disposition: null };
+
+const LEAD_EFFECTS = {
+  appointment_booked: { status: 'appointment',    dnc: false, disposition: 'appointment_booked' },
+  not_interested:     { status: 'not_interested', dnc: false, disposition: 'not_interested' },
+  dnc_request:        { status: null, dnc: true,  disposition: 'dnc_request' },
+  transferred:        { status: null, dnc: false, disposition: 'transferred' },
+  qualified:          { status: null, dnc: false, disposition: 'qualified' },
+  callback_requested: { status: null, dnc: false, disposition: 'callback_requested' },
+  completed:          { status: null, dnc: false, disposition: 'completed' },
+  no_answer:          { status: null, dnc: false, disposition: 'no_answer' },
+  voicemail:          { status: null, dnc: false, disposition: 'voicemail' },
+  busy:               { status: null, dnc: false, disposition: 'busy' },
+  // `error` means WE broke. Hanging a disposition on the consumer for our own
+  // failure would be a lie on their record.
+  error:              LEAD_EFFECT_NONE,
+  in_progress:        LEAD_EFFECT_NONE,
+};
+
+function _leNorm(v) {
+  return typeof v === 'string' ? v.trim().toLowerCase() : '';
+}
+
+function leadEffectForOutcome(outcome) {
+  const e = LEAD_EFFECTS[_leNorm(outcome)];
+  return e ? { status: e.status, dnc: e.dnc, disposition: e.disposition } : { ...LEAD_EFFECT_NONE };
+}
+
+function leadEffectOutcomes() { return Object.keys(LEAD_EFFECTS).sort(); }
+
+const LEAD_DISPOSITION_LABELS = {
+  appointment_booked: 'Booked an appointment',
+  not_interested:     'Not interested',
+  dnc_request:        'Asked not to be called',
+  transferred:        'Transferred to you',
+  qualified:          'Qualified',
+  callback_requested: 'Asked for a callback',
+  completed:          'Spoke with the AI',
+  no_answer:          'No answer',
+  voicemail:          'Voicemail',
+  busy:               'Busy',
+};
+const LEAD_DISPOSITION_SHORT = {
+  appointment_booked: 'Appointment booked',
+  not_interested:     'Not interested',
+  dnc_request:        'Do not call',
+  transferred:        'Transferred',
+  qualified:          'Qualified',
+  callback_requested: 'Callback asked',
+  completed:          'Talked',
+  no_answer:          'No answer',
+  voicemail:          'Voicemail',
+  busy:               'Busy',
+};
+
+function dispositionLabel(d) { return LEAD_DISPOSITION_LABELS[_leNorm(d)] || ''; }
+function dispositionShortLabel(d) { return LEAD_DISPOSITION_SHORT[_leNorm(d)] || ''; }
+
+function dispositionTone(d) {
+  const v = _leNorm(d);
+  if (v === 'appointment_booked' || v === 'transferred' || v === 'qualified') return 'good';
+  if (v === 'dnc_request' || v === 'not_interested') return 'bad';
+  return 'neutral';
+}
+
+function _leTime(v) {
+  if (!v) return null;
+  const d = v instanceof Date ? v : new Date(v);
+  const t = d.getTime();
+  return isFinite(t) ? t : null;
+}
+
+/**
+ * THE ORDERING GUARD, browser copy.
+ *
+ * An AI outcome must never overwrite a decision a person took while the call
+ * was in the air. Mirrored here rather than left on the server because the
+ * screen has to be able to SAY why a status did not move — "you changed it
+ * during the call" is a very different sentence from "nothing happened".
+ */
+function aiStatusVerdict(input) {
+  const effect = (input && input.effect) || LEAD_EFFECT_NONE;
+  if (!effect.status) return { apply: false, reason: 'no_status_change' };
+  if (LEAD_STATUSES.indexOf(effect.status) < 0) return { apply: false, reason: 'unknown_status' };
+
+  const current = _leNorm(input.leadStatus);
+  if (LEAD_STATUS_HUMAN_ONLY.indexOf(current) >= 0) return { apply: false, reason: 'human_only_status' };
+  if (current === effect.status) return { apply: false, reason: 'already_set' };
+
+  const stampedAt = _leTime(input.leadStatusAt);
+  const startedAt = _leTime(input.callStartedAt);
+  if (stampedAt !== null && startedAt !== null && stampedAt > startedAt) {
+    return {
+      apply: false,
+      reason: _leNorm(input.leadStatusSource) === 'ai' ? 'newer_ai_verdict' : 'human_set_after_call',
+    };
+  }
+  return { apply: true, reason: 'applied' };
+}
+// </leadeffect-core>
+
+// ============================================================
 // VOICE CAMPAIGN CORE — the browser half of the campaign engine's rules.
 //
 // Mirrors supabase/functions/_shared/voice-campaign-core.ts. app.html has no
@@ -28353,6 +28812,9 @@ const VC_STOP_LABELS = {
   not_callable: 'Not callable',
   lead_missing: 'Lead removed',
   manual: 'Unenrolled by hand',
+  // What the campaign screen's Remove button writes, kept distinct from the
+  // older `manual` so rows carrying either stay tellable apart forever.
+  removed_by_user: 'Removed by hand',
   // Distinct from `manual`: this lead is still being worked, just elsewhere.
   moved_by_user: 'Moved to another campaign',
   campaign_deleted: 'Campaign removed',
@@ -28705,6 +29167,169 @@ function vcAutoEnrollPhrase(campaign) {
   if (c.trigger_on_missed_appointment === true) parts.push('Fills when an appointment is marked no-show');
   if (!parts.length) return 'Only leads you add by hand.';
   return parts.join(' · ') + '.';
+}
+
+// ---- Mission control: what the campaign screen says ------------------------
+//
+// A campaign used to be a rule builder with a count on it. These turn it into
+// something an agent can WATCH — which leads it is calling, what happened on
+// each one, what is next, and (the part that did not exist at all) WHY a lead
+// that is not being called is not being called.
+//
+// Locale-free on purpose: none of them format a clock time. They return the
+// instant and the renderer formats it, because a parity test comparing
+// toLocaleString output would be testing the test runner's ICU data.
+
+const VC_ENROLLMENT_OPS = ['pause', 'resume', 'remove'];
+
+function vcStepProgressLabel(position, steps) {
+  const total = vcStepsSorted(steps).length;
+  const pos = Math.max(1, vcInt(position, 1));
+  if (!total) return 'No steps';
+  return 'Step ' + Math.min(pos, total) + ' of ' + total;
+}
+
+// Whole units only, largest that fits. A screen refreshing every ten seconds
+// must not flicker between "1.9h" and "1.8h".
+function vcRelTime(when, now) {
+  const t = vcAsDate(when);
+  if (!t) return '';
+  const deltaMs = t.getTime() - now.getTime();
+  const ahead = deltaMs > 0;
+  const secs = Math.floor(Math.abs(deltaMs) / 1000);
+  if (secs < 45) return 'just now';
+  const mins = Math.floor(secs / 60);
+  let n, unit;
+  if (mins < 60) { n = Math.max(1, mins); unit = 'm'; }
+  else if (mins < 60 * 24) { n = Math.floor(mins / 60); unit = 'h'; }
+  else { n = Math.floor(mins / (60 * 24)); unit = 'd'; }
+  return ahead ? 'in ' + n + unit : n + unit + ' ago';
+}
+
+const VC_WAIT_REASONS = {
+  quiet_hours: 'Quiet hours where they live',
+  daily_cap_reached: 'Your daily call limit',
+  retry_soon: 'A hiccup on the line — retrying',
+};
+function vcWaitReasonLabel(code) { return VC_WAIT_REASONS[vcNorm(code)] || ''; }
+
+/**
+ * What happens to this lead next, and if nothing is going to, why not.
+ *
+ * THE NEGATIVE CASES ARE THE WHOLE POINT. "Tomorrow 9:05 AM" on a screen an
+ * agent opened because nothing seems to be happening reads as a broken
+ * product. The engine already knew every one of these reasons and threw them
+ * all away.
+ */
+function vcNextAction(input) {
+  const e = (input && input.enrollment) || {};
+  const none = (kind) => ({ kind, at: null, code: null });
+
+  if (input && input.inFlight) return none('calling');
+
+  const status = vcNorm(e.status);
+  if (status === 'paused') return { kind: 'paused_lead', at: e.paused_at || null, code: null };
+  if (status && status !== 'active') return none('ended');
+
+  // A claim with nothing due is a call that has gone out and whose hangup has
+  // not come back yet — not an error, and not a pause.
+  if (!e.next_action_at && e.claimed_at) return none('waiting_on_call');
+
+  const c = (input && input.campaign) || {};
+  if (c.paused_at) return none('paused_campaign');
+  if (c.active === false) return none('campaign_off');
+
+  const at = vcAsDate(e.next_action_at);
+  if (!at) return none('unknown');
+  if (at.getTime() <= input.now.getTime()) return { kind: 'due', at: e.next_action_at || null, code: null };
+  return { kind: 'scheduled', at: e.next_action_at || null, code: vcNorm(e.last_gate_code) || null };
+}
+
+function vcNextActionText(verdict, whenText) {
+  const when = String(whenText == null ? '' : whenText).trim();
+  switch (verdict && verdict.kind) {
+    case 'calling':         return 'Calling now…';
+    case 'paused_lead':     return when ? 'Paused ' + when : 'Paused';
+    case 'paused_campaign': return 'Campaign paused';
+    case 'campaign_off':    return 'Campaign switched off';
+    case 'ended':           return '—';
+    case 'waiting_on_call': return 'Call in progress…';
+    case 'due':             return 'Due now';
+    case 'scheduled': {
+      const reason = vcWaitReasonLabel(verdict.code);
+      const tail = when ? 'next call ' + when : 'waiting';
+      return reason ? reason + ' · ' + tail : (when || 'Scheduled');
+    }
+    default:                return '—';
+  }
+}
+
+// The last call's result, worded exactly as the lead row words it — one set of
+// words per fact, through leadEffectForOutcome.
+function vcLastCallLabel(call) {
+  if (!call) return '';
+  if (vcNorm(call.status) === 'in_progress') return 'Calling now';
+  const disp = leadEffectForOutcome(call.outcome).disposition;
+  if (disp) return dispositionShortLabel(disp);
+  return vcNorm(call.outcome) === 'error' ? 'Call failed' : '';
+}
+function vcLastCallAt(call) {
+  if (!call) return null;
+  return call.ended_at || call.created_at || null;
+}
+
+const VC_FEED_TONE = {
+  appointment_booked: 'good', transferred: 'good', qualified: 'good',
+  dnc_request: 'bad', not_interested: 'bad', error: 'bad',
+};
+
+/**
+ * One line of "what the AI is doing", built from the ai_calls row that already
+ * exists. This feature adds NO second event log beside ai_call_events, which
+ * is the Telnyx webhook's diagnostic trace and service-role-only.
+ */
+function vcFeedEntry(call, ctx) {
+  const c = call || {};
+  const who = String((ctx && ctx.leadName) || '').trim() || 'a lead';
+  const live = vcNorm(c.status) === 'in_progress';
+  const outcome = live ? 'in_progress' : vcNorm(c.outcome);
+  const headlines = {
+    in_progress:        'Calling ' + who + '…',
+    appointment_booked: 'Booked an appointment with ' + who,
+    transferred:        'Transferred ' + who + ' to you',
+    qualified:          'Qualified ' + who,
+    callback_requested: who + ' asked for a callback',
+    dnc_request:        who + ' asked to stop — do-not-call recorded',
+    not_interested:     who + ' is not interested',
+    completed:          'Spoke with ' + who,
+    no_answer:          'Called ' + who + ' — no answer',
+    voicemail:          'Called ' + who + ' — voicemail',
+    busy:               'Called ' + who + ' — busy',
+    error:              'Call to ' + who + ' did not go through',
+  };
+  return {
+    call_id: String(c.id || ''),
+    lead_id: c.lead_id ? String(c.lead_id) : null,
+    outcome: outcome || '',
+    tone: VC_FEED_TONE[outcome] || 'neutral',
+    headline: headlines[outcome] || ('Called ' + who),
+    at: c.ended_at || c.created_at || null,
+    retry_at: (ctx && ctx.retryAt) || null,
+  };
+}
+
+function vcFeed(calls, ctx) {
+  const rows = (calls || []).slice();
+  rows.sort((a, b) => {
+    const at = vcAsDate(a.ended_at || a.created_at) || new Date(0);
+    const bt = vcAsDate(b.ended_at || b.created_at) || new Date(0);
+    return bt.getTime() - at.getTime();
+  });
+  const limit = Math.max(0, vcInt(ctx && ctx.limit, 50));
+  return rows.slice(0, limit).map(c => vcFeedEntry(c, {
+    leadName: ctx && ctx.leadName ? ctx.leadName(c.lead_id || null) : '',
+    retryAt: ctx && ctx.retryAt ? ctx.retryAt(c.lead_id || null) : null,
+  }));
 }
 
 // "12 leads enrolled, 3 skipped: no consent"
@@ -29526,9 +30151,16 @@ async function aiTestRenderAppointment(appointmentId) {
   el.appendChild(box);
 }
 
-function aiTestRenderCall(row) {
-  const el = document.getElementById('aiTest-status');
-  if (!el) return;
+/**
+ * ONE AI call, rendered.
+ *
+ * Split out of aiTestRenderCall so the campaign screen can show a transcript
+ * without a second copy of this markup. The test panel and the campaign's
+ * Leads table are asking the identical question — what happened on that call
+ * — and two answers to it would drift the moment either grew a field.
+ */
+function aiCallDetailHTML(row) {
+  if (!row) return '<div style="font:13px var(--sans);color:var(--text3)">Call not found.</div>';
   const inProg   = row.status === 'in_progress';
   const dur      = (row.duration_secs != null) ? (row.duration_secs + 's') : '—';
   const answered = row.answered_at ? new Date(row.answered_at).toLocaleTimeString() : '—';
@@ -29540,10 +30172,6 @@ function aiTestRenderCall(row) {
     ['Billed minutes', (row.billed_minutes != null) ? String(row.billed_minutes) : '—'],
     ['Voice', row.voice || 'assistant default'],
   ];
-  // Phase 2: how far the warm transfer got. Named in plain words, because
-  // "agent_declined" vs "agent_no_answer" is the difference between "you
-  // pressed the wrong key" and "your phone never rang", and both look like
-  // "it didn't work" from the outside.
   if (row.transfer_status) {
     lines.push(['Transfer', AI_TRANSFER_LABELS[row.transfer_status] || row.transfer_status]);
     if (row.transfer_to) lines.push(['Transfer to', row.transfer_to]);
@@ -29551,15 +30179,14 @@ function aiTestRenderCall(row) {
   let html = '<div style="display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font:13px/1.5 var(--sans)">';
   for (const [k, v] of lines) html += '<div style="color:var(--text2)">' + k + '</div><div style="font-weight:600">' + _aiTestEsc(v) + '</div>';
   html += '</div>';
-  if (row.appointment_id) aiTestRenderAppointment(row.appointment_id);
   if (row.qualification && typeof row.qualification === 'object') {
     const q = row.qualification;
-    const rows = AI_QUALIFICATION_FIELDS
+    const qrows = AI_QUALIFICATION_FIELDS
       .filter(([k]) => q[k] != null && String(q[k]).trim() !== '')
       .map(([k, label]) => '<div style="color:var(--text2)">' + label + '</div><div style="font-weight:600">' + _aiTestEsc(String(q[k])) + '</div>');
-    if (rows.length) {
+    if (qrows.length) {
       html += '<div style="margin-top:14px"><div style="color:var(--text2);font:13px var(--sans);margin-bottom:6px">Qualification</div>' +
-        '<div style="display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font:13px/1.5 var(--sans)">' + rows.join('') + '</div></div>';
+        '<div style="display:grid;grid-template-columns:auto 1fr;gap:5px 16px;font:13px/1.5 var(--sans)">' + qrows.join('') + '</div></div>';
     }
   }
   if (row.error_detail) {
@@ -29575,7 +30202,17 @@ function aiTestRenderCall(row) {
     html += '<div style="margin-top:14px"><div style="color:var(--text2);font:13px var(--sans);margin-bottom:4px">Transcript</div>' +
             '<pre style="margin:0;padding:10px;border-radius:8px;background:rgba(127,127,127,.12);overflow:auto;max-height:320px;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-word">' + _aiTestEsc(t) + '</pre></div>';
   }
-  el.innerHTML = html;
+  return html;
+}
+
+function aiTestRenderCall(row) {
+  const el = document.getElementById('aiTest-status');
+  if (!el) return;
+  // The body is aiCallDetailHTML's, shared with the campaign screen. What
+  // stays here is the one thing that is genuinely test-panel-only: the
+  // appointment card, which is a second fetch into a second element.
+  if (row.appointment_id) aiTestRenderAppointment(row.appointment_id);
+  el.innerHTML = aiCallDetailHTML(row);
 }
 
 // 4 · List the caller's own ai_call wallet_ledger rows (RLS: wallet_ledger_select_own).
@@ -29678,13 +30315,66 @@ let vcampState = {
   enrollments: {},    // campaignId -> [enrollment]
   slotsInUse: 0,
   editingId: null,
-  tab: 'settings',
+  // Leads, not Settings. The rule builder is a thing an agent touches once;
+  // "who is it calling and what happened" is what they come back for.
+  tab: 'enrollments',
   draft: null,        // the campaign being edited, as an editable copy
   draftSteps: [],
   busy: false,
+
+  // ---- Mission control -----------------------------------------------------
+  /** ai_calls for the campaign currently open, newest first. */
+  calls: [],
+  /** campaign_id -> calls placed today (the agent's own day). */
+  todayByCampaign: {},
+  /** campaign_id -> calls in the air right now. */
+  liveByCampaign: {},
+  /** lead_id -> true while a call for that lead is in progress. */
+  liveLeads: {},
+  /** Which enrollments are ticked, by enrollment id. Survives re-renders. */
+  sel: new Set(),
+  leadFilter: 'active',
+  leadSearch: '',
+  leadPage: 1,
 };
 
-function vcampOnShow() { vcampLoad(); }
+const VCAMP_PAGE_SIZE = 25;
+/** How many of a campaign's calls the Leads table and the feed read. */
+const VCAMP_CALL_WINDOW = 500;
+const VCAMP_FEED_LIMIT = 50;
+
+function vcampOnShow() { vcampLoad(); vcampStartPolling(); }
+
+// ============================================================
+// POLLING — ~10s while this tab is actually on screen.
+//
+// A campaign is the one screen in this app where the interesting thing happens
+// without the agent doing anything, so it is the one screen that has to move
+// by itself. It stops when the section is hidden and when the browser tab is:
+// an agent who leaves this open in a background window all afternoon should
+// not be paying for a query every ten seconds to render nothing.
+// ============================================================
+let _vcampPollTimer = null;
+function vcampStartPolling() {
+  if (_vcampPollTimer) return;
+  _vcampPollTimer = setInterval(() => {
+    const sec = document.getElementById('sec-voice-campaigns');
+    if (!sec || !sec.classList.contains('active')) return;
+    if (document.visibilityState !== 'visible') return;
+    if (vcampState.busy) return;
+    vcampLoad({ quiet: true });
+  }, 10000);
+}
+function vcampStopPolling() {
+  if (_vcampPollTimer) { clearInterval(_vcampPollTimer); _vcampPollTimer = null; }
+}
+
+/** Midnight in the agent's own browser — the same day `agents.timezone` means. */
+function vcampDayStartIso() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
+}
 
 /**
  * Make sure this agent has the twelve shipped campaigns.
@@ -29705,8 +30395,21 @@ async function vcampEnsureDefaults() {
   catch (err) { console.warn('[vcamp] seed defaults', err); }
 }
 
-async function vcampLoad() {
+let _vcampLoading = false;
+async function vcampLoad(opts) {
   if (!currentAgent) return;
+  const quiet = !!(opts && opts.quiet);
+  // A ten-second poll and a hand on Refresh must not run four queries twice.
+  if (_vcampLoading) return;
+  _vcampLoading = true;
+  try {
+    await vcampLoadInner(quiet);
+  } finally {
+    _vcampLoading = false;
+  }
+}
+
+async function vcampLoadInner(quiet) {
   await vcampEnsureDefaults();
   // The banner needs to know whether this account can dial anybody at all.
   if (!_voiceConsentTried) { _voiceConsentTried = true; await loadVoiceConsent(); }
@@ -29730,14 +30433,18 @@ async function vcampLoad() {
         .order('position', { ascending: true }),
       sb.from('voice_campaign_enrollments')
         .select('id, campaign_id, lead_id, status, current_step_position, next_action_at, stop_reason, ' +
-                'calls_placed, answers, appointments, enrolled_at, enrolled_by')
+                'calls_placed, answers, appointments, enrolled_at, enrolled_by, ' +
+                // Mission control: a paused lead, a claim held by a live call,
+                // and WHY a scheduled lead is waiting.
+                'paused_at, claimed_at, last_gate_code, last_call_at, last_ai_call_id')
         .eq('agent_id', currentAgent.id)
         .order('enrolled_at', { ascending: false })
         .limit(2000),
-      // Live campaign calls — the slot indicator. Campaign calls only: a manual
-      // test-rig call is a different queue and does not consume a slot.
+      // Live campaign calls — the slot indicator AND the "Calling now" numbers
+      // on the cards. Campaign calls only: a manual test-rig call is a
+      // different queue and does not consume a slot.
       sb.from('ai_calls')
-        .select('id, status, created_at, ended_at')
+        .select('id, lead_id, campaign_id, status, created_at, ended_at')
         .eq('agent_id', currentAgent.id)
         .eq('status', 'in_progress')
         .not('campaign_id', 'is', null)
@@ -29753,15 +30460,74 @@ async function vcampLoad() {
     for (const e of eRes.data || []) {
       (vcampState.enrollments[e.campaign_id] = vcampState.enrollments[e.campaign_id] || []).push(e);
     }
-    vcampState.slotsInUse = vcSlotsInUse(callRes.data || [], new Date());
+
+    const now = new Date();
+    const inflight = callRes.data || [];
+    vcampState.slotsInUse = vcSlotsInUse(inflight, now);
+    // A row still `in_progress` past the stale window is a lost hangup
+    // webhook, not a live conversation — the same window the slot count uses,
+    // so a stuck row cannot leave "Calling now" burning on a card for ever.
+    const liveRows = inflight.filter(c => vcSlotsInUse([c], now) === 1);
+    vcampState.liveByCampaign = {};
+    vcampState.liveLeads = {};
+    for (const c of liveRows) {
+      if (c.campaign_id) vcampState.liveByCampaign[c.campaign_id] = (vcampState.liveByCampaign[c.campaign_id] || 0) + 1;
+      if (c.lead_id) vcampState.liveLeads[String(c.lead_id)] = true;
+    }
   } catch (err) {
     console.warn('[vcamp] load failed', err);
-    if (list) list.innerHTML = '<div class="vc-empty">Could not load campaigns.</div>';
+    if (list && !quiet) list.innerHTML = '<div class="vc-empty">Could not load campaigns.</div>';
     return;
   }
+
+  // Today's calls, per campaign — the second live number on every card.
+  // Counted in the browser off one small query rather than one count query
+  // per campaign, which on twelve default campaigns would be twelve.
+  try {
+    const { data } = await sb.from('ai_calls')
+      .select('campaign_id')
+      .eq('agent_id', currentAgent.id)
+      .eq('direction', 'outbound')
+      .not('campaign_id', 'is', null)
+      .gte('created_at', vcampDayStartIso())
+      .limit(2000);
+    const today = {};
+    for (const r of data || []) if (r.campaign_id) today[r.campaign_id] = (today[r.campaign_id] || 0) + 1;
+    vcampState.todayByCampaign = today;
+  } catch (err) {
+    console.warn('[vcamp] today counts', err);
+  }
+
+  // The open campaign's own calls — the Leads table's "last call" column and
+  // the whole activity feed. Scoped to one campaign so the window can be
+  // generous without reading the account's entire call history.
+  if (vcampState.editingId) await vcampLoadCalls(vcampState.editingId);
+
+  // The AI writes lead statuses server-side; this is the screen most likely to
+  // be open when it happens.
+  if (typeof leadEffectsSync === 'function') leadEffectsSync();
+
   vcampRenderSlots();
   if (vcampState.editingId) vcampRenderEditor();
   else vcampRenderList();
+}
+
+/** One campaign's recent calls, newest first. */
+async function vcampLoadCalls(campaignId) {
+  if (!currentAgent || !campaignId) { vcampState.calls = []; return; }
+  try {
+    const { data, error } = await sb.from('ai_calls')
+      .select('id, lead_id, outcome, status, created_at, ended_at, appointment_id, summary, campaign_step')
+      .eq('agent_id', currentAgent.id)
+      .eq('campaign_id', campaignId)
+      .order('created_at', { ascending: false })
+      .limit(VCAMP_CALL_WINDOW);
+    if (error) throw error;
+    vcampState.calls = data || [];
+  } catch (err) {
+    console.warn('[vcamp] calls', err);
+    vcampState.calls = [];
+  }
 }
 
 function vcampRenderSlots() {
@@ -29820,9 +30586,16 @@ function vcampRenderList() {
     const paused = !!c.paused_at;
     const tone = paused ? 'warn' : (c.active ? 'on' : '');
     const statusText = paused ? 'Paused' : (c.active ? 'Active' : 'Off');
+    // THE TWO LIVE NUMBERS. Everything else on this card is a lifetime total,
+    // which tells an agent what a campaign has done and nothing about whether
+    // it is doing it. "Calling now" only appears when it is true — a permanent
+    // "Calling now: 0" is a card that always looks idle.
+    const live  = vcampState.liveByCampaign[c.id] || 0;
+    const today = vcampState.todayByCampaign[c.id] || 0;
     return '<div class="vc-card">' +
       '<div class="vc-row">' +
         '<div class="vc-name" onclick="vcampOpen(\'' + _aiTestEsc(c.id) + '\')">' + _aiTestEsc(c.name) + '</div>' +
+        (live ? '<span class="vc-live" style="font:12px var(--sans)">Calling now: ' + live + '</span>' : '') +
         (c.dry_run ? '<span class="vc-pill" data-tone="dry">Dry run</span>' : '') +
         '<span class="vc-pill"' + (tone ? ' data-tone="' + tone + '"' : '') + '>' + statusText + '</span>' +
         '<label class="vc-check" style="margin:0">' +
@@ -29844,6 +30617,7 @@ function vcampRenderList() {
       '<div class="vc-stats">' +
         '<div class="vc-stat"><b>' + steps.length + '</b>steps</div>' +
         '<div class="vc-stat"><b>' + stats.active + '</b>enrolled</div>' +
+        '<div class="vc-stat"><b>' + today + '</b>calls today</div>' +
         '<div class="vc-stat"><b>' + stats.calls + '</b>calls placed</div>' +
         '<div class="vc-stat"><b>' + stats.answers + '</b>answers</div>' +
         '<div class="vc-stat"><b>' + stats.appointments + '</b>appointments</div>' +
@@ -29872,8 +30646,21 @@ async function vcampNew() {
 function vcampOpen(id) {
   const c = vcampState.campaigns.filter(x => x.id === id)[0];
   if (!c) return;
+  const switching = vcampState.editingId !== id;
   vcampState.editingId = id;
-  vcampState.tab = 'settings';
+  vcampState.tab = 'enrollments';
+  if (switching) {
+    // A selection belongs to the campaign it was made in, and so does a page
+    // number and a search. Carrying any of them across would offer to pause
+    // enrollments the agent is no longer looking at.
+    vcampState.sel = new Set();
+    vcampState.leadFilter = 'active';
+    vcampState.leadSearch = '';
+    vcampState.leadPage = 1;
+    vcampState.calls = [];
+  }
+  vcampLoadCalls(id).then(() => { if (vcampState.editingId === id) vcampRenderEditor(); });
+  vcampStartPolling();
   // An editable COPY. Nothing is written until Save, so a half-typed rule
   // never reaches the database and never reaches the tick.
   vcampState.draft = JSON.parse(JSON.stringify(c));
@@ -29888,15 +30675,21 @@ function vcampOpen(id) {
 function vcampCloseEditor() {
   vcampState.editingId = null;
   vcampState.draft = null;
+  // A selection is about a campaign you are looking at. Carrying one back to
+  // the list would leave a bulk action armed against a screen that is gone.
+  vcampState.sel = new Set();
+  vcampState.calls = [];
   vcampRenderList();
 }
+
+const VCAMP_TABS = ['enrollments', 'activity', 'steps', 'settings'];
 
 function vcampTab(tab) {
   vcampState.tab = tab;
   document.querySelectorAll('#sec-voice-campaigns .vc-tab').forEach(b => {
     b.classList.toggle('active', b.getAttribute('data-vctab') === tab);
   });
-  ['settings', 'steps', 'enrollments'].forEach(t => {
+  VCAMP_TABS.forEach(t => {
     const el = document.getElementById('vcamp-pane-' + t);
     if (el) el.style.display = (t === tab ? '' : 'none');
   });
@@ -29911,6 +30704,7 @@ function vcampRenderEditor() {
   vcampRenderSettings();
   vcampRenderSteps();
   vcampRenderEnrollments();
+  vcampRenderActivity();
   vcampTab(vcampState.tab);
 }
 
@@ -30283,6 +31077,118 @@ async function vcampSaveSteps() {
 }
 
 // ---------- Enrollments tab ----------
+// ============================================================
+// THE CAMPAIGN'S OWN LEADS TABLE
+//
+// What a campaign was missing was not a feature, it was the answer to "is this
+// thing working". The card said "23 enrolled" and the Enrollments tab listed
+// enrollment rows by database column — including, until this round, a Lead
+// column that showed a dash for every single row, because it compared the
+// enrollment's lead UUID against the browser's own client id and those are
+// different identifiers.
+//
+// So: names, numbers, where each lead is in the sequence, what happened on the
+// last call, what happens next — and when nothing happens next, WHY.
+// ============================================================
+
+/** enrollment lead_id (a uuid) -> the in-memory lead object. */
+function vcampLeadIndex() {
+  const byUuid = new Map();
+  if (typeof leads === 'undefined' || !Array.isArray(leads)) return byUuid;
+  for (const l of leads) {
+    const st = _voiceConsent.byClientId.get(String(l.id));
+    if (st && st.leadId) byUuid.set(String(st.leadId), l);
+  }
+  return byUuid;
+}
+
+/** lead_id -> that lead's most recent call in this campaign. */
+function vcampLastCallIndex() {
+  const byLead = new Map();
+  // vcampState.calls is already newest-first, so the first one wins.
+  for (const call of vcampState.calls || []) {
+    const id = call.lead_id ? String(call.lead_id) : '';
+    if (!id || byLead.has(id)) continue;
+    byLead.set(id, call);
+  }
+  return byLead;
+}
+
+function vcampLeadDisplayName(lead) {
+  if (!lead) return 'Unknown lead';
+  return lead.name || ((lead.first_name || '') + ' ' + (lead.last_name || '')).trim() || 'Unknown lead';
+}
+
+/** A clock time a person reads, not an ISO string. */
+function vcampWhen(iso) {
+  const d = vcAsDate(iso);
+  if (!d) return '';
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const sameDay = d.getTime() >= today.getTime() && d.getTime() < today.getTime() + 86400000;
+  return sameDay
+    ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+const VCAMP_FILTERS = [
+  { key: 'active', label: 'Active',  match: s => s === 'active' },
+  { key: 'paused', label: 'Paused',  match: s => s === 'paused' },
+  { key: 'ended',  label: 'Finished', match: s => s === 'stopped' || s === 'completed' },
+  { key: 'all',    label: 'All',     match: () => true },
+];
+
+function vcampFilteredEnrollments(campaignId) {
+  const rows = vcampState.enrollments[campaignId] || [];
+  const f = VCAMP_FILTERS.filter(x => x.key === vcampState.leadFilter)[0] || VCAMP_FILTERS[3];
+  const q = String(vcampState.leadSearch || '').trim().toLowerCase();
+  const byUuid = vcampLeadIndex();
+  // Digits are matched separately from text so "5551234" finds
+  // "(555) 123-4567" — the same courtesy leadMatchesFilters() extends on the
+  // leads tab, and the reason it exists there is that nobody types a phone
+  // number the way it is stored.
+  const qDigits = q.replace(/\D/g, '');
+  return rows.filter(e => {
+    if (!f.match(vcNorm(e.status))) return false;
+    if (!q) return true;
+    const lead = byUuid.get(String(e.lead_id));
+    const hay = (vcampLeadDisplayName(lead) + ' ' + ((lead && lead.phone) || '')).toLowerCase();
+    if (hay.indexOf(q) >= 0) return true;
+    if (!qDigits) return false;
+    return String((lead && lead.phone) || '').replace(/\D/g, '').indexOf(qDigits) >= 0;
+  });
+}
+
+function vcampSetFilter(key) {
+  vcampState.leadFilter = key;
+  vcampState.leadPage = 1;
+  vcampRenderEnrollments();
+}
+function vcampSearch(value) {
+  vcampState.leadSearch = value;
+  vcampState.leadPage = 1;
+  vcampRenderEnrollments();
+}
+function vcampGoPage(n) {
+  vcampState.leadPage = Math.max(1, n);
+  vcampRenderEnrollments();
+}
+function vcampToggleSel(enrollmentId, on) {
+  if (on) vcampState.sel.add(enrollmentId); else vcampState.sel.delete(enrollmentId);
+  vcampRenderEnrollments();
+}
+function vcampToggleSelAll(on) {
+  const c = vcampState.draft;
+  if (!c) return;
+  // Everything the CURRENT filter and search match, not merely the page in
+  // view — the same rule the leads tab's select-all follows, and the reason
+  // the selection lives in state rather than in the DOM.
+  for (const e of vcampFilteredEnrollments(c.id)) {
+    if (on) vcampState.sel.add(e.id); else vcampState.sel.delete(e.id);
+  }
+  vcampRenderEnrollments();
+}
+function vcampClearSel() { vcampState.sel = new Set(); vcampRenderEnrollments(); }
+
 function vcampRenderEnrollments() {
   const pane = document.getElementById('vcamp-pane-enrollments');
   const c = vcampState.draft;
@@ -30310,42 +31216,428 @@ function vcampRenderEnrollments() {
     return;
   }
 
-  const leadName = (id) => {
-    const l = (typeof leads !== 'undefined' && Array.isArray(leads))
-      ? leads.filter(x => String(x.id) === String(id))[0] : null;
-    if (!l) return '—';
-    return l.name || ((l.first_name || '') + ' ' + (l.last_name || '')).trim() || '—';
-  };
-  const when = (iso) => {
-    if (!iso) return '—';
-    const d = new Date(iso);
-    return isNaN(d.getTime()) ? '—' : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-  };
+  // Once there ARE leads, the table is the point and the explainer is in the
+  // way. It shrinks to the one sentence that is still worth having on a screen
+  // somebody checks hourly: how this campaign fills itself.
+  const howCompact =
+    '<div style="font:11.5px/1.5 var(--sans);color:var(--text3);margin:0 0 12px">' +
+      _aiTestEsc(vcAutoEnrollPhrase(c)) +
+      ' Add more by hand from the Leads tab.' +
+    '</div>';
 
-  pane.innerHTML = how + '<table class="vc-tbl"><thead><tr>' +
-    '<th>Lead</th><th>Status</th><th>Step</th><th>Next action</th><th>Calls</th><th></th>' +
-    '</tr></thead><tbody>' +
-    rows.map(e => '<tr>' +
-      '<td style="color:var(--text)">' + _aiTestEsc(leadName(e.lead_id)) + '</td>' +
-      '<td>' + _aiTestEsc(e.status) +
-        (e.stop_reason ? ' <span style="color:var(--text3)">· ' + _aiTestEsc(vcStopReasonLabel(e.stop_reason)) + '</span>' : '') + '</td>' +
-      '<td>' + vcInt(e.current_step_position, 0) + '</td>' +
-      '<td>' + _aiTestEsc(e.status === 'active' ? when(e.next_action_at) : '—') + '</td>' +
-      '<td>' + vcInt(e.calls_placed, 0) + '</td>' +
-      '<td>' + (e.status === 'active'
-        ? '<button class="vc-btn" onclick="vcampUnenroll(\'' + _aiTestEsc(e.id) + '\')">Unenroll</button>'
-        : '') + '</td>' +
-      '</tr>').join('') +
-    '</tbody></table>';
+  // A poll every ten seconds redraws this pane. If the agent is mid-word in
+  // the search box when it lands, the box has to come back with the same text
+  // and the same caret — otherwise the screen that exists to be watched is
+  // also the screen you cannot type into.
+  const active = document.activeElement;
+  const searchFocused = !!(active && active.id === 'vcamp-leadSearch');
+  const caret = searchFocused ? active.selectionStart : null;
+
+  const now = new Date();
+  const byUuid = vcampLeadIndex();
+  const lastCallByLead = vcampLastCallIndex();
+  const counts = {};
+  for (const f of VCAMP_FILTERS) counts[f.key] = rows.filter(e => f.match(vcNorm(e.status))).length;
+
+  const filtered = vcampFilteredEnrollments(c.id);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / VCAMP_PAGE_SIZE));
+  const page = Math.min(Math.max(1, vcampState.leadPage), totalPages);
+  vcampState.leadPage = page;
+  const pageRows = filtered.slice((page - 1) * VCAMP_PAGE_SIZE, page * VCAMP_PAGE_SIZE);
+
+  const selectedHere = filtered.filter(e => vcampState.sel.has(e.id)).length;
+  const allChecked = filtered.length > 0 && selectedHere === filtered.length;
+
+  const toolbar =
+    '<div class="vc-row" style="margin:0 0 12px;justify-content:space-between">' +
+      '<span class="vc-seg">' +
+        VCAMP_FILTERS.map(f =>
+          '<button class="' + (vcampState.leadFilter === f.key ? 'active' : '') + '" ' +
+          'onclick="vcampSetFilter(\'' + f.key + '\')">' + f.label + ' ' + (counts[f.key] || 0) + '</button>').join('') +
+      '</span>' +
+      '<span style="display:flex;gap:8px;align-items:center">' +
+        '<input type="text" id="vcamp-leadSearch" placeholder="Search name or number…" ' +
+          'value="' + _aiTestEsc(vcampState.leadSearch || '') + '" ' +
+          'oninput="vcampSearch(this.value)" style="width:210px;margin:0">' +
+        '<button class="vc-btn" onclick="vcampLoad()">Refresh</button>' +
+      '</span>' +
+    '</div>';
+
+  // The bulk bar only exists when there is a selection to act on.
+  const bulk = vcampState.sel.size
+    ? '<div class="vc-bulkbar">' +
+        '<strong style="font:600 12.5px var(--sans);color:var(--text)">' + vcampState.sel.size + ' selected</strong>' +
+        '<button class="vc-btn" onclick="vcampBulk(\'pause\')">Pause</button>' +
+        '<button class="vc-btn" onclick="vcampBulk(\'resume\')">Resume</button>' +
+        '<button class="vc-btn" onclick="vcampMoveSelected()">Move to another campaign</button>' +
+        '<button class="vc-btn" onclick="vcampBulk(\'remove\')">Remove from campaign</button>' +
+        '<button class="vc-btn" onclick="vcampClearSel()">Clear</button>' +
+      '</div>'
+    : '';
+
+  const body = pageRows.map(e => {
+    const leadId = String(e.lead_id || '');
+    const lead = byUuid.get(leadId);
+    const status = vcNorm(e.status);
+    const isSel = vcampState.sel.has(e.id);
+    const live = !!vcampState.liveLeads[leadId];
+
+    // ---- Who ----
+    const name = vcampLeadDisplayName(lead);
+    const phone = lead && lead.phone ? (typeof formatPhone === 'function' ? formatPhone(lead.phone) : lead.phone) : '';
+    const unsynced = !lead
+      ? '<span class="vc-lead-sub" title="This lead has not loaded into this browser yet — refresh the Leads tab.">not loaded</span>'
+      : '';
+
+    // ---- Where they are in YOUR pipeline (their lead status, not the
+    // enrollment's). The enrollment's own state is in the Next call column,
+    // so showing the row status here twice would waste the one column an
+    // agent actually scans.
+    const sc = (typeof STATUS_CONFIG !== 'undefined' && lead)
+      ? (STATUS_CONFIG[lead.status || 'new'] || STATUS_CONFIG.new) : null;
+    const statusChip = sc
+      ? '<span class="vc-chip" style="color:' + sc.color + ';background:' + sc.bg + ';border-color:' + sc.color + '55">' +
+        _aiTestEsc(sc.label) + '</span>'
+      : '<span class="vc-lead-sub">—</span>';
+
+    // ---- Progress ----
+    const progress = _aiTestEsc(vcStepProgressLabel(e.current_step_position, vcampState.steps[c.id] || []));
+
+    // ---- Last call ----
+    const lastCall = lastCallByLead.get(leadId) || null;
+    const lastLabel = vcLastCallLabel(lastCall);
+    const lastWhen = vcRelTime(vcLastCallAt(lastCall), now);
+    const lastCell = lastLabel
+      ? '<span class="vc-chip" data-tone="' + dispositionTone(leadEffectForOutcome(lastCall && lastCall.outcome).disposition) + '">' +
+          _aiTestEsc(lastLabel) + '</span>' +
+        (lastWhen ? ' <span class="vc-lead-sub">' + _aiTestEsc(lastWhen) + '</span>' : '') +
+        (lastCall && lastCall.id
+          ? ' <a href="#" onclick="event.stopPropagation();vcampOpenCall(\'' + _aiTestEsc(lastCall.id) + '\');return false" ' +
+            'style="color:var(--lg-blue);font:11.5px var(--sans);text-decoration:none">transcript</a>'
+          : '')
+      : '<span class="vc-lead-sub">' + (vcInt(e.calls_placed, 0) ? 'no result yet' : 'not called yet') + '</span>';
+
+    // ---- Next call, or why not ----
+    // The campaign's LIVE state, not the editable draft: the draft is a copy
+    // taken when the editor opened and may carry unsaved edits, while
+    // "Campaign paused" is a fact about right now that the tick may have
+    // written thirty seconds ago.
+    const liveCampaign = vcampState.campaigns.filter(x => x.id === c.id)[0] || c;
+    const verdict = vcNextAction({
+      enrollment: e,
+      campaign: { active: liveCampaign.active, paused_at: liveCampaign.paused_at },
+      inFlight: live,
+      now,
+    });
+    const whenText = verdict.kind === 'paused_lead'
+      ? vcRelTime(verdict.at, now)
+      : (verdict.at ? vcampWhen(verdict.at) : '');
+    let nextCell = _aiTestEsc(vcNextActionText(verdict, whenText));
+    if (verdict.kind === 'calling') nextCell = '<span class="vc-live">Calling now…</span>';
+    else if (status === 'stopped' || status === 'completed') {
+      nextCell = '<span class="vc-lead-sub">' +
+        _aiTestEsc(vcStopReasonLabel(e.stop_reason) || (status === 'completed' ? 'Finished the sequence' : 'Stopped')) +
+        '</span>';
+    }
+
+    // ---- What you can do about it ----
+    const actions = status === 'active'
+      ? '<button class="vc-btn" onclick="event.stopPropagation();vcampRowAction(\'' + _aiTestEsc(e.id) + '\',\'pause\')">Pause</button>' +
+        '<button class="vc-btn" onclick="event.stopPropagation();vcampRowAction(\'' + _aiTestEsc(e.id) + '\',\'remove\')">Remove</button>'
+      : status === 'paused'
+        ? '<button class="vc-btn" onclick="event.stopPropagation();vcampRowAction(\'' + _aiTestEsc(e.id) + '\',\'resume\')">Resume</button>' +
+          '<button class="vc-btn" onclick="event.stopPropagation();vcampRowAction(\'' + _aiTestEsc(e.id) + '\',\'remove\')">Remove</button>'
+        : '';
+
+    return '<tr class="vc-lead-row' + (isSel ? ' is-sel' : '') + '" ' +
+        'onclick="vcampOpenLead(\'' + _aiTestEsc(leadId) + '\')" title="Open this lead">' +
+      '<td style="width:26px" onclick="event.stopPropagation()">' +
+        '<input type="checkbox" ' + (isSel ? 'checked' : '') +
+        ' onchange="vcampToggleSel(\'' + _aiTestEsc(e.id) + '\', this.checked)"></td>' +
+      '<td><div class="vc-lead-name">' + _aiTestEsc(name) + '</div>' +
+        (phone ? '<div class="vc-lead-sub">' + _aiTestEsc(phone) + '</div>' : unsynced) + '</td>' +
+      '<td>' + statusChip + '</td>' +
+      '<td class="vc-lead-sub">' + progress + '</td>' +
+      '<td>' + lastCell + '</td>' +
+      '<td>' + nextCell + '</td>' +
+      '<td style="white-space:nowrap;text-align:right">' + actions + '</td>' +
+    '</tr>';
+  }).join('');
+
+  const pager = totalPages > 1
+    ? '<div class="vc-row" style="margin-top:12px;justify-content:space-between">' +
+        '<span class="vc-lead-sub">' + filtered.length + ' lead' + (filtered.length === 1 ? '' : 's') +
+          ' · page ' + page + ' of ' + totalPages + '</span>' +
+        '<span style="display:flex;gap:6px">' +
+          '<button class="vc-btn" ' + (page <= 1 ? 'disabled' : '') + ' onclick="vcampGoPage(' + (page - 1) + ')">&larr; Prev</button>' +
+          '<button class="vc-btn" ' + (page >= totalPages ? 'disabled' : '') + ' onclick="vcampGoPage(' + (page + 1) + ')">Next &rarr;</button>' +
+        '</span>' +
+      '</div>'
+    : '';
+
+  pane.innerHTML = howCompact + toolbar + bulk +
+    (pageRows.length
+      ? '<table class="vc-tbl"><thead><tr>' +
+          '<th style="width:26px"><input type="checkbox" ' + (allChecked ? 'checked' : '') +
+            ' onchange="vcampToggleSelAll(this.checked)" title="Select everything this filter matches"></th>' +
+          '<th>Lead</th><th>Lead status</th><th>Progress</th><th>Last call</th><th>Next call</th><th></th>' +
+        '</tr></thead><tbody>' + body + '</tbody></table>'
+      : '<div class="vc-empty">No leads match that filter.</div>') +
+    pager;
+
+  if (searchFocused) {
+    const el = document.getElementById('vcamp-leadSearch');
+    if (el) { el.focus(); try { el.setSelectionRange(caret, caret); } catch (_) {} }
+  }
 }
 
-async function vcampUnenroll(enrollmentId) {
-  const resp = await sb.functions.invoke('voice-campaign-manage', {
-    body: { action: 'unenroll', enrollment_id: enrollmentId },
+// ============================================================
+// WHAT THE AI IS DOING — the activity feed
+//
+// Built entirely from the ai_calls rows that already exist. No second event
+// log: ai_call_events is the Telnyx webhook's diagnostic trace, service-role
+// only and full of payload shapes, and a product feature reading it would
+// either need it opened up or need a duplicate of it.
+// ============================================================
+function vcampRenderActivity() {
+  const pane = document.getElementById('vcamp-pane-activity');
+  const c = vcampState.draft;
+  if (!pane || !c) return;
+
+  const now = new Date();
+  const byUuid = vcampLeadIndex();
+  const enrByLead = new Map();
+  for (const e of vcampState.enrollments[c.id] || []) enrByLead.set(String(e.lead_id), e);
+
+  const entries = vcFeed(vcampState.calls || [], {
+    leadName: (leadId) => vcampLeadDisplayName(byUuid.get(String(leadId))),
+    retryAt: (leadId) => {
+      const e = enrByLead.get(String(leadId));
+      return e && vcNorm(e.status) === 'active' ? (e.next_action_at || null) : null;
+    },
+    limit: VCAMP_FEED_LIMIT,
   });
-  if (resp.error) { showToast('Could not unenroll', '#dc2626'); return; }
-  showToast('Unenrolled', '#10b981');
+
+  const head =
+    '<div style="font:12px/1.6 var(--sans);color:var(--text2);background:var(--bg3);border:1px solid var(--border);' +
+    'border-radius:10px;padding:11px 13px;margin:0 0 14px">' +
+      '<strong style="color:var(--text)">What this campaign has been doing.</strong> ' +
+      'The last ' + VCAMP_FEED_LIMIT + ' calls it placed, newest first. Click any line to read the transcript.' +
+    '</div>';
+
+  if (!entries.length) {
+    pane.innerHTML = head + '<div class="vc-empty">No calls yet. When this campaign dials somebody, it shows up here.</div>';
+    return;
+  }
+
+  pane.innerHTML = head + entries.map(en => {
+    const when = vcampWhen(en.at);
+    const rel = vcRelTime(en.at, now);
+    // A retry is only worth naming while the campaign is still going to make
+    // one — a stopped enrollment has no next_action_at, so this stays empty.
+    const retry = en.retry_at ? ' · retry ' + vcampWhen(en.retry_at) : '';
+    return '<div class="vc-feed-item" onclick="vcampOpenCall(\'' + _aiTestEsc(en.call_id) + '\')">' +
+      '<span class="vc-feed-dot" data-tone="' + en.tone + '"></span>' +
+      '<span style="flex:1;min-width:0">' +
+        '<span style="color:var(--text)">' + _aiTestEsc(en.headline) + '</span>' +
+        (retry ? '<span class="vc-lead-sub">' + _aiTestEsc(retry) + '</span>' : '') +
+        (en.lead_id
+          ? ' <a href="#" onclick="event.stopPropagation();vcampOpenLead(\'' + _aiTestEsc(en.lead_id) + '\');return false" ' +
+            'style="color:var(--lg-blue);font:11.5px var(--sans);text-decoration:none">open lead</a>'
+          : '') +
+      '</span>' +
+      '<span class="vc-feed-when" title="' + _aiTestEsc(when) + '">' + _aiTestEsc(rel || when) + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+// ============================================================
+// Acting on one lead, or on a selection
+//
+// Everything goes through voice-campaign-manage. voice_campaign_enrollments is
+// SELECT-only for the browser on purpose — an enrollment is a standing
+// instruction to phone a consumer — so there is no version of these buttons
+// that writes a row directly, and a "pause" is not a good enough reason to
+// open that door.
+// ============================================================
+let _vcampBulk = { op: null, ids: [], preview: null, busy: false };
+
+async function vcampEnrollmentAction(op, enrollmentIds, preview) {
+  const body = {
+    action: 'enrollment_action',
+    op,
+    enrollment_ids: enrollmentIds,
+    preview: !!preview,
+  };
+  try {
+    const resp = await sb.functions.invoke('voice-campaign-manage', { body });
+    if (resp.error && resp.error.context && typeof resp.error.context.json === 'function') {
+      const parsed = await resp.error.context.json().catch(() => null);
+      if (parsed) return parsed;
+    }
+    if (resp.error) return { error: 'request_failed', detail: resp.error.message || 'Request failed' };
+    return resp.data;
+  } catch (err) {
+    return { error: 'network_error', detail: (err && err.message) || String(err) };
+  }
+}
+
+/**
+ * A single row's button. No confirm step, because one lead is a small, visible
+ * and reversible thing — pause is undone by resume, and remove is undone by
+ * adding them back. The bulk versions DO confirm, because forty are not.
+ */
+async function vcampRowAction(enrollmentId, op) {
+  const data = await vcampEnrollmentAction(op, [enrollmentId], false);
+  if (!data || data.error) {
+    showToast((data && (data.detail || data.error)) || 'Could not do that', '#dc2626');
+    return;
+  }
+  const said = { pause: 'Paused', resume: 'Resumed', remove: 'Removed from campaign' };
+  showToast(data.changed ? said[op] : (data.summary || 'Nothing changed'), data.changed ? '#10b981' : '#f59e0b');
+  vcampState.sel.delete(enrollmentId);
   await vcampLoad();
+}
+
+function vcampBulk(op) {
+  const ids = [...vcampState.sel];
+  if (!ids.length) return;
+  _vcampBulk = { op, ids, preview: null, busy: false };
+
+  const modal = document.getElementById('vcampBulkModal');
+  const title = document.getElementById('vcampBulk-title');
+  const lede = document.getElementById('vcampBulk-lede');
+  const pv = document.getElementById('vcampBulk-preview');
+  const msg = document.getElementById('vcampBulk-msg');
+  const btn = document.getElementById('vcampBulk-confirm');
+  if (!modal) return;
+
+  const copy = {
+    pause:  ['Pause these leads', 'A paused lead stays in the campaign and keeps its place in the sequence — the AI simply does not call them until you resume.'],
+    resume: ['Resume these leads', 'They go back into the queue where they left off. Anyone due already will be picked up on the next pass.'],
+    remove: ['Remove from campaign', 'This ends their enrollment. It does NOT add them to your do-not-call list — “stop this campaign” and “never call me again” are different things.'],
+  }[op] || ['Confirm', ''];
+  if (title) title.textContent = copy[0];
+  if (lede) lede.textContent = copy[1];
+  if (pv) pv.textContent = 'Checking…';
+  if (msg) { msg.textContent = ''; msg.style.color = 'var(--text2)'; }
+  if (btn) { btn.disabled = true; btn.textContent = copy[0]; }
+  modal.classList.add('open');
+
+  // The preview is a REAL call to the same endpoint the button runs, with the
+  // write flag off — same discipline as Add to campaign. The count the agent
+  // reads is therefore the count the button will produce, not a second
+  // implementation's opinion of it.
+  vcampEnrollmentAction(op, ids, true).then(data => {
+    if (_vcampBulk.op !== op) return;
+    if (!data || data.error) {
+      if (pv) pv.innerHTML = '<span style="color:#dc2626">' + _aiTestEsc((data && (data.detail || data.error)) || 'Could not check.') + '</span>';
+      return;
+    }
+    _vcampBulk.preview = data;
+    if (pv) pv.innerHTML = '<strong>' + _aiTestEsc(data.summary || '') + '</strong>';
+    if (btn) { btn.disabled = !data.would; btn.textContent = copy[0] + (data.would ? ' (' + data.would + ')' : ''); }
+  });
+}
+
+function vcampCloseBulk() {
+  const modal = document.getElementById('vcampBulkModal');
+  if (modal) modal.classList.remove('open');
+  _vcampBulk = { op: null, ids: [], preview: null, busy: false };
+}
+
+async function vcampBulkConfirm() {
+  const btn = document.getElementById('vcampBulk-confirm');
+  const msg = document.getElementById('vcampBulk-msg');
+  if (!_vcampBulk.op || _vcampBulk.busy || !_vcampBulk.ids.length) return;
+  _vcampBulk.busy = true;
+  if (btn) btn.disabled = true;
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Working…'; }
+
+  const data = await vcampEnrollmentAction(_vcampBulk.op, _vcampBulk.ids, false);
+  _vcampBulk.busy = false;
+  if (!data || data.error) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = (data && (data.detail || data.error)) || 'Could not do that.'; }
+    if (btn) btn.disabled = false;
+    return;
+  }
+  vcampCloseBulk();
+  showToast(data.summary || 'Done', data.changed ? '#10b981' : '#f59e0b');
+  vcampState.sel = new Set();
+  await vcampLoad();
+}
+
+/**
+ * Move a selection into another campaign — through the SAME modal, planner and
+ * endpoint the Leads tab's "Add to campaign" uses, with the conflict choice
+ * preset to Move.
+ *
+ * These leads are by definition already in a campaign (this one), so every one
+ * of them is a conflict; opening the door on Skip would show a preview that
+ * says nothing will happen.
+ */
+function vcampMoveSelected() {
+  const c = vcampState.draft;
+  if (!c || !vcampState.sel.size) return;
+  const rows = (vcampState.enrollments[c.id] || []).filter(e => vcampState.sel.has(e.id));
+  const leadIds = [...new Set(rows.map(e => String(e.lead_id)).filter(Boolean))];
+  if (!leadIds.length) return;
+  openAddToCampaignModal({
+    leadIds,
+    conflict: 'move',
+    label: leadIds.length + ' lead' + (leadIds.length === 1 ? '' : 's') + ' from ' + (c.name || 'this campaign'),
+    onDone: () => { vcampState.sel = new Set(); vcampLoad(); },
+  });
+}
+
+/** Open one AI call in full — summary, qualification, transcript. */
+async function vcampOpenCall(callId) {
+  const modal = document.getElementById('vcampCallModal');
+  const bodyEl = document.getElementById('vcampCall-body');
+  if (!modal || !bodyEl || !callId) return;
+  bodyEl.innerHTML = '<div style="font:12.5px var(--sans);color:var(--text3)">Loading&hellip;</div>';
+  modal.classList.add('open');
+  try {
+    const { data, error } = await sb.from('ai_calls')
+      .select('id, status, outcome, answered_at, duration_secs, billed_minutes, summary, transcript, ' +
+              'started_at, ended_at, error_detail, voice, transfer_status, transfer_to, qualification, appointment_id')
+      .eq('id', callId)
+      .maybeSingle();
+    if (error) throw error;
+    bodyEl.innerHTML = aiCallDetailHTML(data);
+  } catch (err) {
+    bodyEl.innerHTML = '<div style="font:13px var(--sans);color:#dc2626">Could not load that call: ' +
+      _aiTestEsc((err && err.message) || String(err)) + '</div>';
+  }
+}
+function vcampCloseCall() {
+  const modal = document.getElementById('vcampCallModal');
+  if (modal) modal.classList.remove('open');
+}
+
+/**
+ * Open the lead this row is about — in the EXISTING lead view, never a second
+ * one. The leads tab is where a lead is edited, dialled, texted, quoted and
+ * sold; a campaign-shaped copy of it would be a second place to keep in sync
+ * and a second place to fix.
+ *
+ * Searching by phone rather than clearing the filters: it is exact, it leaves
+ * whatever the agent had set up on that tab alone, and the box on screen then
+ * explains why only one lead is listed.
+ */
+function vcampOpenLead(leadUuid) {
+  if (!leadUuid) return;
+  const lead = vcampLeadIndex().get(String(leadUuid));
+  if (!lead) { showToast('That lead has not loaded in this browser yet', '#f59e0b'); return; }
+  nav('leads');
+  const box = document.getElementById('lead-search');
+  if (box) box.value = lead.phone || lead.name || '';
+  if (typeof expandedLeadIds !== 'undefined') expandedLeadIds.add(String(lead.id));
+  if (typeof filterLeads === 'function') filterLeads();
+  setTimeout(() => {
+    const row = document.querySelector('.lead-row[data-lid="' + (window.CSS && CSS.escape ? CSS.escape(String(lead.id)) : String(lead.id)) + '"]');
+    if (row && row.scrollIntoView) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 80);
 }
 
 function nav(id) {
