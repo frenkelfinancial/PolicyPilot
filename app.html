@@ -8942,6 +8942,52 @@ function authMsg(text, kind) {
   m.className = 'auth-msg' + (text ? ' show ' + (kind || 'err') : '');
 }
 
+// Turns a Supabase auth failure into a sentence somebody can act on.
+//
+// 🔴 A MESSAGE THAT NAMES NOTHING IS WORSE THAN NO MESSAGE. supabase-js builds
+// an AuthApiError's message as
+//   data.msg || data.message || data.error_description || data.error || JSON.stringify(data)
+// and JSON.stringify({}) is "{}" — so an auth error body carrying none of those
+// keys reaches the screen as the literal two characters `{}`. A real customer
+// was shown exactly that when sign-up began failing, on the step where they
+// hand over money. It named nothing, could not be searched for, and was
+// indistinguishable from a broken button.
+// `what` is the calling context ('signup' | 'signin' | 'email' | ''). It only
+// ever changes the WORDING — "your account wasn't created" is worth saying on
+// sign-up and is a lie on a password reset.
+function _authErrorMessage(error, what) {
+  const raw    = (error && error.message != null) ? String(error.message).trim() : '';
+  const code   = (error && (error.code || error.error_code)) || '';
+  const status = (error && error.status) || 0;
+  const tag    = [status ? 'HTTP ' + status : '', code].filter(Boolean).join(', ');
+  const paren  = tag ? ' (' + tag + ')' : '';
+  const useless = !raw || raw === '{}' || raw === '[object Object]' || raw === 'null' || raw === 'undefined';
+
+  // GoTrue could not send its mail. Retrying will not help — this is
+  // project-level email configuration, and on sign-up it also means no
+  // account exists, which is the thing worth telling somebody.
+  if (/error sending/i.test(raw) && /mail/i.test(raw)) {
+    return what === 'signup'
+      ? "We couldn't send your confirmation email, so the account wasn't created. This one is on us — please contact support and we'll get you set up."
+      : "We couldn't send that email — this one is on us. Please contact support.";
+  }
+  // "Failed to fetch" = the request never reached the auth server (CORS
+  // rejection, ad-blocker, or no connection).
+  if (/failed to fetch/i.test(raw)) {
+    return "Couldn't reach the server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com.";
+  }
+  // Say plainly whose fault a 5xx is, and keep the identifiers so a screenshot
+  // is enough to debug from.
+  if (status >= 500 || code === 'unexpected_failure') {
+    if (!useless) return raw + paren;
+    return `Something went wrong on our side${paren}` +
+      (what === 'signup' ? ' and your account was not created.' : '.') +
+      ' Please contact support.';
+  }
+  if (useless) return `That didn't work${paren}. Please try again — if it keeps happening, contact support.`;
+  return raw;
+}
+
 function togglePw(id, btn) {
   const inp = document.getElementById(id);
   if (!inp) return;
@@ -8960,7 +9006,7 @@ async function authSignIn() {
     if (msg.includes('invalid login') || msg.includes('invalid credentials') || msg.includes('email not confirmed')) {
       return authMsg('Incorrect email or password. If you just created your account, check your inbox and click the confirmation link first.', 'err');
     }
-    return authMsg(error.message, 'err');
+    return authMsg(_authErrorMessage(error, 'signin'), 'err');
   }
   // onAuthStateChange handles the rest
 }
@@ -8974,7 +9020,7 @@ async function authSignInWithGoogle() {
     options: { redirectTo: window.location.origin + window.location.pathname }
   });
   if (error) {
-    authMsg(error.message, 'err');
+    authMsg(_authErrorMessage(error, 'signin'), 'err');
     if (btn) btn.disabled = false;
   }
 }
@@ -9003,7 +9049,7 @@ async function authSignUp() {
   meta.pending_plan_id   = planId;
   meta.pending_plan_name = planNm;
   const { data: signUpData, error } = await sb.auth.signUp({ email, password: pw, options: { data: meta } });
-  if (error) return authMsg(error.message, 'err');
+  if (error) return authMsg(_authErrorMessage(error, 'signup'), 'err');
   try { localStorage.setItem('pp_pending_plan_id',   planId); } catch(_) {}
   try { localStorage.setItem('pp_pending_plan_name', planNm); } catch(_) {}
   if (agCode) { try { localStorage.setItem('pp_pending_agency_code', agCode); } catch(_) {} }
@@ -9431,7 +9477,7 @@ async function authForgot() {
   const { error } = await sb.auth.resetPasswordForEmail(email, {
     redirectTo: window.location.origin + window.location.pathname
   });
-  if (error) return authMsg(error.message, 'err');
+  if (error) return authMsg(_authErrorMessage(error, 'email'), 'err');
   authMsg('Reset email sent. Check your inbox.', 'ok');
 }
 
@@ -9441,7 +9487,7 @@ async function authUpdatePassword() {
   if (!passwordOk(pw)) return authMsg(passwordProblem(pw), 'err');
   if (pw !== pw2) return authMsg('Passwords do not match.', 'err');
   const { error } = await sb.auth.updateUser({ password: pw });
-  if (error) return authMsg(error.message, 'err');
+  if (error) return authMsg(_authErrorMessage(error, ''), 'err');
   authMsg('Password updated.', 'ok');
 }
 

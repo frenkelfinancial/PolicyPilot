@@ -401,6 +401,60 @@ test('🔴 a checkout error can never render a message that names nothing', () =
   assert.match(fn(new TypeError('Failed to fetch')), /Couldn't reach the payment server/);
 });
 
+test('🔴 an auth error can never render a message that names nothing either', () => {
+  // The reported "{}" was NOT the checkout catch — it was sb.auth.signUp().
+  // supabase-js builds AuthApiError.message as
+  //   data.msg || data.message || data.error_description || data.error || JSON.stringify(data)
+  // and JSON.stringify({}) is "{}". wizSubmit then sees wiz-err-3 lit, returns
+  // early, and never calls checkout at all — which is exactly why no Stripe
+  // modal appeared.
+  const m = APP.match(/function _authErrorMessage\(error, what\) \{([\s\S]*?)\n\}/);
+  assert.ok(m, 'app.html must define _authErrorMessage');
+  // eslint-disable-next-line no-new-func
+  const fn = new Function(`function _authErrorMessage(error, what) {${m[1]}\n}; return _authErrorMessage;`)();
+
+  for (const useless of ['{}', '[object Object]', '', '  ', 'null', 'undefined']) {
+    const out = fn({ message: useless }, 'signup');
+    assert.ok(out && out.length > 12, `"${useless}" must be replaced, got: ${out}`);
+    assert.ok(!/^(\{\}|\[object Object\]|null|undefined)$/.test(out));
+  }
+  assert.ok(fn(undefined, 'signup').length > 12);
+  assert.ok(fn({}, 'signup').length > 12);
+
+  // The EXACT body the live auth server returned while sign-up was broken.
+  const real = { message: 'Error sending confirmation email', status: 500, code: 'unexpected_failure' };
+  const said = fn(real, 'signup');
+  assert.match(said, /confirmation email/i);
+  assert.match(said, /wasn't created/i, 'it must say the account does not exist, so nobody retries forever');
+
+  // ...and the SAME mail failure on a password reset must NOT claim an account
+  // was not created. That would be a lie.
+  const reset = fn({ message: 'Error sending recovery email', status: 500 }, 'email');
+  assert.ok(!/account/i.test(reset), `reset wording must not mention an account: ${reset}`);
+  assert.match(reset, /couldn't send/i);
+
+  // A 500 with no usable message still says whose fault it is and keeps the
+  // identifiers, so a screenshot is enough to debug from.
+  const blind = fn({ message: '{}', status: 500, code: 'unexpected_failure' }, 'signup');
+  assert.match(blind, /on our side/i);
+  assert.match(blind, /HTTP 500/);
+  assert.match(blind, /unexpected_failure/);
+
+  // A real, useful message is passed through untouched.
+  assert.equal(fn({ message: 'User already registered' }, 'signup'), 'User already registered');
+  assert.match(fn({ message: 'Failed to fetch' }, 'signup'), /Couldn't reach the server/);
+});
+
+test('every auth error path actually uses it', () => {
+  // sign-up, sign-in, Google OAuth, forgot-password, update-password.
+  // authForgot() matters as much as sign-up here: resetPasswordForEmail also
+  // sends mail, so the same broken SMTP surfaces there too.
+  assert.ok(!/authMsg\(error\.message, 'err'\)/.test(APP_CODE),
+    'no auth path may render a raw supabase error message');
+  const uses = APP_CODE.match(/_authErrorMessage\(error, '[a-z]*'\)/g) || [];
+  assert.equal(uses.length, 5);
+});
+
 test('the wizard reads the body as text, so a non-JSON error is still legible', () => {
   // resp.json() THROWS on an empty or non-JSON body — before the resp.ok check
   // runs — so a 502 returning an HTML error page surfaced as a parse error.
