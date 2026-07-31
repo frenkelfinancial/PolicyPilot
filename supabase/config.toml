@@ -55,6 +55,21 @@ verify_jwt = false
 [functions.telnyx-call-status]
 verify_jwt = false
 
+# email-verify: the six-digit email check on step 1 of sign-up. Its "send" and
+# "check" actions run BEFORE the account exists, so there is no session and no
+# JWT for the platform to verify — a gate here would make sign-up impossible,
+# not safer. Its third action, "claim", validates a real user token itself
+# (sb.auth.getUser) exactly the way stripe-create-checkout does.
+#
+# Because it is openly reachable it enforces its own bounds instead: 45s
+# between sends and 5/hour per ADDRESS, 20/hour per IP, ~10 min and 5 attempts
+# per code. Those live in _shared/auth-verify.ts and are pinned by
+# test/email-verification.test.mjs. After any deploy, an unauthenticated POST
+# with a bad action must answer {"error":"unknown_action"} — that is the
+# function's own check replying, i.e. proof the platform gate is still off.
+[functions.email-verify]
+verify_jwt = false
+
 [functions.wallet-renew-numbers]
 verify_jwt = false
 

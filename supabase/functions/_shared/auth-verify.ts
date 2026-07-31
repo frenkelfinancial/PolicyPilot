@@ -222,3 +222,78 @@ export function verificationSmsText(code: string): string {
   return `${code} is your Producer Stack verification code. It expires in 10 minutes. ` +
     `We will never ask you for this code.`;
 }
+
+// ============================================================
+// EMAIL verification — the same six-digit rules, a different channel.
+//
+// 🔴 THE EMAIL ENDPOINT IS REACHED WITHOUT A SESSION, AND THAT IS THE WHOLE
+// DIFFERENCE. Phone verification happens inside the app, so `phone-verify`
+// takes its agent from the JWT and the JWT is the rate limit — one account,
+// one target. Email verification happens on the FIRST page of sign-up, before
+// any account exists, so `email-verify` has no caller identity to trust and
+// will send mail to whatever address it is handed.
+//
+// That makes it an open relay unless it is bounded, so it is bounded twice:
+// per ADDRESS (nobody can be mail-bombed) and per IP (nobody can spray many
+// addresses). The per-address cooldown is the shared 45s; these two hourly
+// ceilings exist only for the unauthenticated path.
+// ============================================================
+
+/** Sends allowed to ONE address in a rolling hour. Protects the recipient. */
+export const EMAIL_MAX_SENDS_PER_ADDRESS_HOUR = 5;
+
+/** Sends allowed from ONE IP in a rolling hour. Protects everyone else. */
+export const EMAIL_MAX_SENDS_PER_IP_HOUR = 20;
+
+/** The rolling window both ceilings are measured over. */
+export const EMAIL_SEND_WINDOW_MS = 60 * 60 * 1000;
+
+/**
+ * Lower-cased and trimmed. Stored and compared in this form ONLY, so that
+ * `Jane@Example.com` cannot hold a second, separate quota from
+ * `jane@example.com` — or, worse, verify one address and sign up with another
+ * that differs only in case.
+ */
+export function normalizeEmail(input: unknown): string {
+  return String(input ?? "").trim().toLowerCase();
+}
+
+/**
+ * Deliberately permissive: one @, something either side, a dot in the domain,
+ * no whitespace. This is a cheap shape check to avoid minting a code for
+ * obvious rubbish — the real proof of an address is that a code sent to it
+ * comes back, which is the entire point of the feature.
+ */
+export function isWellFormedEmail(input: unknown): boolean {
+  const e = normalizeEmail(input);
+  if (e.length < 6 || e.length > 254) return false;
+  return /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(e);
+}
+
+/** Subject line. Carries the code so it is readable from a notification. */
+export function verificationEmailSubject(code: string): string {
+  return `${code} is your Producer Stack verification code`;
+}
+
+/** Plain-text body — one definition, shared with the HTML part below. */
+export function verificationEmailText(code: string): string {
+  return `${code} is your Producer Stack verification code.\n\n` +
+    `Enter it on the sign-up page to confirm your email address. ` +
+    `It expires in 10 minutes.\n\n` +
+    `We will never ask you for this code. If you did not request it, ignore this email.`;
+}
+
+/**
+ * The HTML part. `code` is injected into markup, so it is re-derived from the
+ * digits rather than interpolated raw — the value is ours and always six
+ * digits, and this keeps it that way if that ever stops being true.
+ */
+export function verificationEmailHtml(code: string): string {
+  const safe = normalizeCode(code);
+  return `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;padding:24px">
+  <p style="font-size:15px;color:#0f172a;margin:0 0 18px">Confirm your email address to finish setting up your Producer Stack account.</p>
+  <div style="font-size:34px;font-weight:700;letter-spacing:8px;text-align:center;padding:18px;background:#f1f5f9;border-radius:12px;color:#0f172a">${safe}</div>
+  <p style="font-size:13px;color:#475569;margin:18px 0 0">This code expires in 10 minutes. We will never ask you for it.</p>
+  <p style="font-size:13px;color:#94a3b8;margin:10px 0 0">If you did not request this, you can ignore this email.</p>
+</div>`;
+}

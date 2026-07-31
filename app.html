@@ -1930,6 +1930,20 @@ body:not(.light) .auth-logo-img{filter:brightness(0) invert(1) brightness(.95)}
 .swiz-eye:hover{color:var(--accent)}
 .swiz-opt-lbl{font-size:11.5px;color:var(--text3);margin:12px 0 10px}
 .swiz-err{font-size:12.5px;padding:9px 13px;border-radius:8px;margin:10px 0 0;display:none;background:var(--ds-color-danger-bg);color:var(--ds-color-danger);border:1px solid rgba(224,123,123,.15)}
+/* Email verification on step 1. The button sits beside the input, so the row
+   is a flex pair and the input keeps its own full-width styling. */
+.swiz-ev-row,.swiz-ev-code{display:flex;gap:8px;align-items:stretch}
+.swiz-ev-code{margin-top:8px}
+.swiz-ev-btn{flex:none;white-space:nowrap;background:var(--bg2);border:1.5px solid var(--border);border-radius:10px;padding:0 14px;font-size:13px;font-weight:600;color:var(--text);font-family:var(--sans);cursor:pointer;transition:border-color .18s,color .18s,opacity .18s}
+.swiz-ev-btn:hover:not(:disabled){border-color:var(--accent)}
+.swiz-ev-btn:disabled{opacity:.5;cursor:not-allowed}
+.swiz-ev-msg{font-size:12px;margin-top:6px;display:none}
+.swiz-ev-msg.on{display:block;color:var(--text3)}
+.swiz-ev-msg.err{display:block;color:var(--ds-color-danger)}
+.swiz-ev-msg.ok{display:block;color:#10b981;font-weight:600}
+/* A verified address is stated on the field itself, not only in a message —
+   the message is transient and this is a precondition for continuing. */
+.swiz-ev-row.verified input{border-color:#10b981}
 .swiz-err.on{display:block}
 .swiz-err.ok{background:var(--ds-color-success-bg);color:var(--ds-color-success);border-color:rgba(92,201,167,.15)}
 .swiz-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:28px}
@@ -4549,7 +4563,19 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
             </div>
             <div class="swiz-f">
               <label for="signup-email">Email</label>
-              <input type="email" id="signup-email" autocomplete="email" placeholder="you@example.com">
+              <div class="swiz-ev-row">
+                <input type="email" id="signup-email" autocomplete="email" placeholder="you@example.com" oninput="evEmailChanged()">
+                <button type="button" class="swiz-ev-btn" id="ev-send-btn" onclick="evSendCode()">Verify</button>
+              </div>
+              <!-- Revealed by evSetState('sent'). Never pre-shown: an empty code
+                   box above an address nobody has asked to verify reads as an
+                   error the user has already made. -->
+              <div class="swiz-ev-code" id="ev-code-wrap" style="display:none">
+                <input type="text" id="ev-code" inputmode="numeric" autocomplete="one-time-code"
+                       maxlength="6" placeholder="6-digit code" oninput="evCodeChanged()">
+                <button type="button" class="swiz-ev-btn" id="ev-check-btn" onclick="evCheckCode()">Confirm</button>
+              </div>
+              <div class="swiz-ev-msg" id="ev-msg"></div>
             </div>
           </div>
           <div class="swiz-grid">
@@ -8591,6 +8617,189 @@ function wizEye(id, btn) {
   btn.textContent = show ? 'Hide' : 'Show';
 }
 
+// ── Email verification on step 1 ────────────────────────────────────────────
+//
+// 🔴 THE ADDRESS IS PROVED BEFORE THE ACCOUNT EXISTS. That is why the whole
+// exchange lives on this page and why `email-verify`'s send/check actions are
+// unauthenticated — there is no session yet to authenticate with. The upside is
+// that no unverified account is ever created, so there is no gate, no banner
+// and nothing to chase afterwards.
+//
+// `_evVerified` holds the address that was PROVED, not a boolean. Editing the
+// email after verifying must revoke it, and comparing addresses is the only
+// way to notice — a flag would stay true while the field said something else,
+// which is exactly how somebody verifies one address and signs up with another.
+let _evVerified = null;     // the normalized address proved, or null
+let _evSentTo   = null;     // the address a code was last sent to
+let _evCooldown = 0;        // setInterval id for the resend countdown
+
+const evNormEmail = (s) => String(s || '').trim().toLowerCase();
+
+function evMsg(text, kind) {
+  const el = document.getElementById('ev-msg');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'swiz-ev-msg' + (text ? ' ' + (kind || 'on') : '');
+}
+
+/** Single writer for every piece of verification UI. */
+function evSetState(state) {
+  const row   = document.querySelector('.swiz-ev-row');
+  const send  = document.getElementById('ev-send-btn');
+  const wrap  = document.getElementById('ev-code-wrap');
+  const check = document.getElementById('ev-check-btn');
+  if (!row || !send || !wrap) return;
+  row.classList.toggle('verified', state === 'verified');
+  wrap.style.display = (state === 'sent') ? 'flex' : 'none';
+  send.textContent = state === 'verified' ? 'Verified' :
+                     state === 'sent'     ? 'Resend'   : 'Verify';
+  send.disabled = (state === 'verified' || state === 'sending');
+  if (check) check.disabled = (state === 'checking');
+}
+
+/** Editing the address revokes the proof. */
+function evEmailChanged() {
+  const cur = evNormEmail((document.getElementById('signup-email') || {}).value);
+  if (_evVerified && cur !== _evVerified) {
+    _evVerified = null;
+    evSetState(cur === _evSentTo ? 'sent' : 'idle');
+    evMsg('Email changed — verify this address to continue.', 'err');
+    return;
+  }
+  if (!_evVerified && cur !== _evSentTo) { evSetState('idle'); evMsg(''); }
+}
+
+function evCodeChanged() {
+  const el = document.getElementById('ev-code');
+  if (el) el.value = el.value.replace(/\D/g, '').slice(0, 6);
+}
+
+function evStartCooldown(seconds) {
+  const send = document.getElementById('ev-send-btn');
+  if (!send) return;
+  if (_evCooldown) clearInterval(_evCooldown);
+  let left = Math.max(0, seconds | 0);
+  const tick = () => {
+    if (_evVerified) { clearInterval(_evCooldown); _evCooldown = 0; return; }
+    if (left <= 0) {
+      clearInterval(_evCooldown); _evCooldown = 0;
+      send.disabled = false; send.textContent = 'Resend';
+      return;
+    }
+    send.disabled = true;
+    send.textContent = `Resend in ${left}s`;
+    left--;
+  };
+  tick();
+  _evCooldown = setInterval(tick, 1000);
+}
+
+async function evSendCode() {
+  const email = evNormEmail((document.getElementById('signup-email') || {}).value);
+  if (!email) return evMsg('Enter your email address first.', 'err');
+  evSetState('sending');
+  evMsg('Sending your code…', 'on');
+  try {
+    const { data, error } = await sb.functions.invoke('email-verify', {
+      body: { action: 'send', email },
+    });
+    // invoke() surfaces a non-2xx as `error` with the body hidden behind a
+    // Response, so the retry_after on a 429 has to be read back out of it.
+    if (error) {
+      const detail = await evInvokeDetail(error);
+      if (detail.error === 'resend_too_soon') {
+        _evSentTo = email; evSetState('sent');
+        evMsg('A code was just sent — check your inbox.', 'on');
+        return evStartCooldown(detail.retry_after || 45);
+      }
+      evSetState(_evSentTo === email ? 'sent' : 'idle');
+      return evMsg(evVerifyMessage(detail), 'err');
+    }
+    if (!data || !data.ok) { evSetState('idle'); return evMsg('Could not send the code. Please try again.', 'err'); }
+    _evSentTo = email;
+    evSetState('sent');
+    evMsg('Code sent — check your inbox. It expires in 10 minutes.', 'on');
+    evStartCooldown(45);
+    const box = document.getElementById('ev-code');
+    if (box) { box.value = ''; box.focus(); }
+  } catch (e) {
+    evSetState('idle');
+    evMsg('Could not reach the server. Check your connection and try again.', 'err');
+  }
+}
+
+async function evCheckCode() {
+  const email = evNormEmail((document.getElementById('signup-email') || {}).value);
+  const code  = ((document.getElementById('ev-code') || {}).value || '').replace(/\D/g, '');
+  if (code.length !== 6) return evMsg('Enter the 6-digit code from your email.', 'err');
+  evSetState('checking');
+  evMsg('Checking…', 'on');
+  try {
+    const { data, error } = await sb.functions.invoke('email-verify', {
+      body: { action: 'check', email, code },
+    });
+    if (error) {
+      evSetState('sent');
+      return evMsg(evVerifyMessage(await evInvokeDetail(error)), 'err');
+    }
+    if (!data || !data.verified) { evSetState('sent'); return evMsg('That code did not match. Try again.', 'err'); }
+    _evVerified = email;
+    evSetState('verified');
+    evMsg('Email verified.', 'ok');
+    if (_evCooldown) { clearInterval(_evCooldown); _evCooldown = 0; }
+  } catch (e) {
+    evSetState('sent');
+    evMsg('Could not reach the server. Check your connection and try again.', 'err');
+  }
+}
+
+/**
+ * Turns "this ADDRESS was proved" into "this ACCOUNT is verified", once the
+ * account exists. The server reads the address from the JWT and ignores
+ * anything we send, which is what stops one account claiming another's
+ * verification — so there is deliberately no email in this body.
+ */
+async function evClaimVerification() {
+  const { data: sd } = await sb.auth.getSession();
+  if (!sd || !sd.session) return false;
+  const { data, error } = await sb.functions.invoke('email-verify', {
+    body: { action: 'claim' },
+  });
+  return !error && !!(data && data.claimed);
+}
+
+/** Pulls the JSON body back out of a functions.invoke() error. */
+async function evInvokeDetail(error) {
+  try {
+    if (error && error.context && typeof error.context.json === 'function') {
+      return await error.context.json();
+    }
+  } catch (_) {}
+  return {};
+}
+
+/** One place turning a server code into a sentence. */
+function evVerifyMessage(d) {
+  const e = (d && d.error) || '';
+  if (e === 'invalid_email')       return 'That email address does not look right.';
+  if (e === 'too_many_requests')   return d.detail || 'Too many codes requested. Try again in an hour.';
+  if (e === 'email_send_failed' || e === 'email_not_configured')
+    return "We couldn't send the code — this one is on us. Please contact support.";
+  // These four are codeUsable()'s own reason strings. Its `detail` is written
+  // for the SMS gate ("this number"), so the email wording is stated here.
+  if (e === 'expired')             return 'That code expired. Send a new one.';
+  if (e === 'already_used')        return 'That code was already used. Send a new one.';
+  if (e === 'too_many_attempts')   return 'Too many wrong attempts. Send a new code.';
+  if (e === 'no_code')             return 'Send a code to your email first.';
+  if (e === 'incorrect_code') {
+    const n = d.attempts_remaining;
+    return typeof n === 'number' && n > 0
+      ? `That code did not match. ${n} attempt${n === 1 ? '' : 's'} left.`
+      : 'That code did not match.';
+  }
+  return 'Verification failed. Please try again.';
+}
+
 function wizStep1Next() {
   _wizErr(1, '');
   const v = id => (document.getElementById(id) || {}).value || '';
@@ -8601,6 +8810,12 @@ function wizStep1Next() {
   if (!last)        return _wizErr(1, 'Last name is required.');
   if (!phone)       return _wizErr(1, 'Phone number is required.');
   if (!email)       return _wizErr(1, 'Email is required.');
+  // 🔴 The address must be PROVED, and proved for the address currently in the
+  // box. Comparing rather than checking a flag is what stops somebody
+  // verifying one address and then editing the field before continuing.
+  if (evNormEmail(email) !== _evVerified) {
+    return _wizErr(1, 'Verify your email address to continue — press Verify and enter the 6-digit code.');
+  }
   if (!pw)          return _wizErr(1, 'Password is required.');
   if (!passwordOk(pw)) return _wizErr(1, passwordProblem(pw));
   if (pw !== pw2)   return _wizErr(1, 'Passwords do not match.');
@@ -9074,6 +9289,13 @@ async function authSignUp() {
   if (signUpData && signUpData.session) {
     // Email auto-confirmed — wizard handles Stripe inline; legacy callers use _autoCheckout
     currentAgent = signUpData.session.user;
+    // Bind the address proved on step 1 to this brand-new account. The email
+    // comes from the JWT server-side, never from us, so this call cannot claim
+    // somebody else's verification. It is awaited but never allowed to throw:
+    // a failure here must not cost somebody the account they just paid to
+    // create — agents.email_verified_at simply stays null and the address is
+    // still provably verified in email_verifications.
+    try { await evClaimVerification(); } catch (_) {}
     if (!_wizPaymentPending) await _autoCheckout(planId);
   } else {
     // Email verification required — sign in after confirming, then auto-checkout kicks in

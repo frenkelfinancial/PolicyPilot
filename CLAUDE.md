@@ -965,6 +965,60 @@ Prompt H. Schema: `20260804_sms_attestation_and_verification.sql`. Docs:
 - **An opt-out must NEVER be conditional on resolving the agent.** `dnc_list` is the single enforcement point — `runComplianceGate()` reads it for every send; nothing reads `inbound_messages.is_opt_out`. `messaging-inbound-webhook` resolves the agent in four passes (exact `e164` → last-10 `e164` → the prior outbound message on the same pair → legacy caller ID) and, if all four miss, writes a **global** `dnc_list` row and still sends the confirmation. Restoring an `&& agentId` guard there silently drops consumer STOPs — it did exactly that until 2026-07-28.
 - **The Telnyx fleet is larger than `phone_numbers`.** As of 2026-07-28: 8 DIDs live, 6 rows. `+12029703699` (shared caller ID) and `+12625099123` (dialer host) are in neither `phone_numbers` nor `agents.signalwire_caller_id`. Assume inbound can arrive on a number the DB does not know.
 
+## Email verification at sign-up (6-digit, step 1)
+
+- **🔴 THE ADDRESS IS PROVED BEFORE THE ACCOUNT EXISTS.** The Verify button and
+  code box live on the wizard's "Tell us about you" panel, and
+  `wizStep1Next()` refuses to advance until the address in the box has been
+  proved. So no unverified account is ever created — there is no post-signup
+  gate, no banner and nothing to chase. Schema:
+  `20260809_email_verification.sql`. Tests: `npm run test:emailverify`.
+- **🔴 `email-verify`'s `send` and `check` ARE UNAUTHENTICATED, AND THAT IS THE
+  DESIGN.** There is no session at step 1, so `verify_jwt = false` in
+  `config.toml` is load-bearing. It means the function will mail whatever
+  address it is handed, so it is bounded three ways instead: **45s + 5/hour per
+  ADDRESS** (nobody is mail-bombed), **20/hour per IP** (nobody sprays a list),
+  and ~10 min / 5 attempts per code. All server-side; the browser only counts
+  down a button. After a deploy an unauthenticated POST with a bad action must
+  answer `{"error":"unknown_action"}` — that is the function's own check
+  replying, i.e. proof the platform gate is still off.
+- **🔴 VERIFYING AN ADDRESS IS NOT VERIFYING AN ACCOUNT.** `check` stamps
+  `verified_at` on a row keyed to the ADDRESS and stops. `claim` is the separate
+  authenticated step after sign-up: it takes the email **from the JWT, never
+  from the body**, and only then writes `agents.email_verified_at`. Reading the
+  address from the body would let anyone with an account claim a verification
+  somebody else earned. A test asserts `claim` contains no `body.email` and that
+  `email_verified_at` is written in exactly one place.
+- **`_evVerified` holds the ADDRESS proved, not a boolean.** Editing the email
+  after verifying revokes it, and comparing addresses is the only way to notice
+  — a flag stays true while the field says something else, which is how somebody
+  verifies one address and signs up with another.
+- **`email_verifications` has RLS on and NOT ONE POLICY**, plus the grants
+  revoked. A browser that could read it could read code hashes; one that could
+  write it could forge a verification. Every access is the service role. Do not
+  add a policy. It stores a **hash, never the code**, salted with the row's own
+  id — same as `phone_verifications`.
+- **The code rules are SHARED with `phone-verify`**, not a second copy —
+  `generateCode`, `hashCode`, `codeUsable`, `resendAllowed`, the expiry and the
+  attempt ceiling all come from `_shared/auth-verify.ts`. Only the **reason**
+  from `codeUsable` crosses the wire: its `detail` is SMS wording ("this
+  number"), and the whole verdict object in `error` is not the string every
+  caller assumes. Email wording lives in `evVerifyMessage()`.
+- **A row is claimed, never deleted.** `claimed_by` is set once, guarded by
+  re-applying `.is('claimed_by', null)` on the UPDATE so two concurrent claims
+  cannot both win. A used verification is evidence. **A failed send DOES delete
+  its row** — a code nobody received must not shadow the next cooldown or burn
+  an hourly slot.
+- **An account with nothing to claim is not an error** (`no_verified_address`).
+  Google sign-in and every pre-existing account never had a step-1
+  verification, and the nine agents alive at `20260804` are already backfilled.
+- **Supabase's "Confirm email" is OFF** (`mailer_autoconfirm` on), which is what
+  lets `signUp()` return a session so checkout mounts inline. That also means
+  `auth.users.email_confirmed_at` is stamped for everyone and is **no longer
+  evidence of anything** — `agents.email_verified_at` is the real record.
+  `sb.auth.resend({type:'signup'})` errors on an already-confirmed user, so
+  `vgResendEmail()` is dead code on this path.
+
 ## Stripe checkout
 
 - **🔴 `stripe-webhook` IS 100% OF FULFILLMENT, IN BOTH UI MODES.** Embedded
