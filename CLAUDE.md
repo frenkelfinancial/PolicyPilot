@@ -626,6 +626,62 @@ Prompt J. Schema: `20260805_campaign_mission_control.sql`. Docs:
 - **Row click reuses the EXISTING lead view** (`nav('leads')` +
   `expandedLeadIds`), and renders no lead markup of its own.
 
+## AI texting agent (SMS-1, added 2026-07-31)
+
+- **Read `docs/sms-ai-responder.md` before touching anything named `sms-ai-*`,
+  `smsai*`, `sms_conversations`, `sms_messages`, `sms_nudges` or
+  `sms_ai_settings`.** Schema: `20260806_sms_ai_responder.sql`. Tests:
+  `npm run test:ai` (`sms-ai-core.test.ts`) and `npm run test:smsai`.
+- **🔴 IT NEVER INITIATES.** Every path into `sms-ai-respond` starts with an
+  inbound message from somebody whose SMS consent is already recorded. The
+  nudges continue a conversation the lead started and stop the instant they say
+  anything, including "stop".
+- **🔴 THE AI GATE IS NOT THE SEND GATE.** `runComplianceGate()` still runs on
+  the send itself. `smsAiGate()` is an EARLIER, STRICTER refusal — never remove
+  the later one because "we already checked". Gate order is
+  1 stop_keyword → 2 opted_out → 3 no_consent → 4 empty → 5 account_disabled
+  → 6 upgrade_required → 7 conversation_closed → 8 ai_muted → 9
+  type_disabled → 10 no_lead. The two that protect a CONSUMER sit above every
+  gate that protects the business, deliberately.
+- **`public.messages` / `public.inbound_messages` are the BILLING and PROVIDER
+  records and were NOT replaced.** `sms_messages` is the conversation record and
+  points at both. `messages.hold_ledger_id` is what wallet_settle/void resolve
+  against; `inbound_messages.provider_event_id` is what makes Telnyx retries
+  idempotent.
+- **A custom-pair hit is sent VERBATIM with no model call.** Longest trigger
+  wins; a genuine tie is ambiguous and falls to the model; **a blank trigger is
+  dropped because every string contains the empty string**. The editor drops
+  exactly what the server drops — a parity test compares them.
+- **The compliance paragraph in `buildSystemPrompt()` is not style.** Same rule
+  as voice: asked whether it is a person, it answers immediately and plainly
+  that it is an **automated assistant**. A test asserts it survives every tone
+  and emoji combination.
+- **Booking by text uses the SAME machinery as voice** —
+  `parseAppointmentTime()`, `ai_appointments`, `buildConfirmSms()` — with
+  `source='ai_text'`. The model passes the lead's WORDS, never a timestamp.
+  `sms_confirm_status` is never null on success or failure.
+- **🔴 THE NUDGE SWEEPER IS ITS OWN WORKER.** `messaging-timeout-sweep` is a
+  WALLET-HOLD VOIDER, not a nudge sweeper — it voids holds with no DLR and
+  sends nothing. Extending it would put outbound messaging inside a billing
+  reconciler. A test asserts neither mentions the other's tables.
+  `sms-ai-nudge-sweep` is pg_cron jobid 23, every 10 min, `SMS_AI_CRON_SECRET`,
+  `verify_jwt = false`.
+- **Nudges are DEFERRED, never dropped** — 9am–8pm lead-local, never Sunday,
+  stricter than `tcpa.ts` and not a replacement for it. Offsets are from the
+  LEAD'S LAST MESSAGE, and **a step that is off is SKIPPED, not a stop**.
+- **🔴 STOP now does all four things.** It did two (suppress + confirm from the
+  originating number); it closed no conversation and cancelled no scheduled
+  sends because neither existed. Both now do, in
+  `closeConversationForOptOut()`, which runs **after** the `dnc_list` write so a
+  failure there cannot lose the suppression.
+- **A person typing mutes the AI on that thread** (`agent_takeover`); `system`
+  sends do not, or a successful booking would silence it. The toggle goes
+  through `sms-ai-manage` — `sms_conversations` is SELECT-only for the browser
+  — and **turning it back on cannot reopen a conversation an opt-out closed**.
+- **`sms_ai_settings` is the ONLY owner-writable table here** (wording, not
+  permission to send), with `agent_id` derived by trigger and the 20-pair cap
+  as a CHECK constraint. Everything else is SELECT-only.
+
 ### SMS consent joins the attestation tool + verify-to-activate (added 2026-07-31)
 
 Prompt H. Schema: `20260804_sms_attestation_and_verification.sql`. Docs:

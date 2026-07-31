@@ -82,6 +82,21 @@ verify_jwt = false
 [functions.messaging-timeout-sweep]
 verify_jwt = false
 
+# sms-ai-nudge-sweep is the AI texting agent's quiet-lead follow-up worker,
+# called by pg_cron with Bearer SMS_AI_CRON_SECRET — a shared secret, not a
+# Supabase-signed JWT, so the platform gate has to be off for the function's
+# own check to be the one that answers. Same arrangement as the sweeper above
+# it, which it is deliberately NOT part of: that one voids wallet holds and
+# sends nothing (see the header of sms-ai-nudge-sweep/index.ts).
+#
+# Its siblings are NOT listed here on purpose. sms-ai-respond is called by
+# messaging-inbound-webhook presenting the SERVICE ROLE KEY, which IS a valid
+# Supabase JWT, so it keeps the platform default and stays unreachable from a
+# browser. sms-ai-manage is called by the agent's browser with a real session
+# JWT and keeps the default too.
+[functions.sms-ai-nudge-sweep]
+verify_jwt = false
+
 # a2p-status-poll has TWO callers and must stay verify_jwt = false for the
 # first of them: pg_cron (Bearer WALLET_CRON_SECRET, not a Supabase JWT) and,
 # since the status wizard shipped, the signed-in agent's browser hitting

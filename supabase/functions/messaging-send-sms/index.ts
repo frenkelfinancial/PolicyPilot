@@ -3,6 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { runComplianceGate, resolveTextingNumber } from "../_shared/messaging-shared.ts";
 import { sendMessageCore } from "../_shared/messaging-send-core.ts";
 import { corsHeaders } from "../_shared/cors.ts";
+import {
+  appendMessage,
+  autoMuteIfAgentWrote,
+  cancelNudges,
+  getOrCreateConversation,
+} from "../_shared/sms-thread.ts";
 
 // Authorize-then-capture SMS send: compliance gate (A2P approved, consent,
 // not on DNC, within TCPA quiet hours) -> shared send core (wallet_hold ->
@@ -83,6 +89,40 @@ serve(async (req) => {
 
   if (!result.ok) return json({ error: result.error, detail: result.detail }, result.httpStatus);
 
+  // ------------------------------------------------------------
+  // The conversation record, and the takeover it implies.
+  //
+  // This endpoint is only ever reached by a PERSON typing into the composer —
+  // the AI sends through sms-ai-respond and the sweeper, both of which append
+  // their own rows with sent_by 'ai'. So a send here means the agent has
+  // stepped in, and the AI mutes itself on that thread until they turn it back
+  // on. Two of them answering the same person is worse than neither.
+  //
+  // Best-effort and after the send: the message has gone and been billed by
+  // this point, and failing the response over a thread row would tell the
+  // agent their text did not send when it did.
+  // ------------------------------------------------------------
+  let conversationId: string | null = null;
+  let aiMuted = false;
+  try {
+    const conv = await getOrCreateConversation(sb, {
+      agentId: user.id, contactPhone: to, agentNumber: fromNumber,
+    });
+    conversationId = conv?.id ?? null;
+    if (conversationId) {
+      await appendMessage(sb, {
+        conversationId, agentId: user.id, direction: "outbound", sentBy: "agent",
+        body: text, messageId: result.messageId,
+        providerMessageId: result.providerMessageId, status: "sent",
+      });
+      aiMuted = await autoMuteIfAgentWrote(sb, conversationId, "agent");
+      // A thread the agent is working by hand gets no robot follow-ups.
+      await cancelNudges(sb, conversationId, "ai_muted");
+    }
+  } catch (e) {
+    console.error("[messaging-send-sms] thread write failed:", (e as Error)?.message);
+  }
+
   return json({
     ok: true,
     message_id: result.messageId,
@@ -90,5 +130,7 @@ serve(async (req) => {
     hold_id: result.holdLedgerId,
     segments: result.segments,
     amount_mills: result.amountMills,
+    conversation_id: conversationId,
+    ai_muted: aiMuted,
   });
 });

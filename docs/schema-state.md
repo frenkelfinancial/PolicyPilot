@@ -2799,3 +2799,49 @@ afterwards swept 9 agents and 108 campaigns and did nothing.
   is that a positive `status is <sold|appointment|chargeback|lapsed>` now counts
   as a narrowing condition. `status is new` still does not, and that exclusion
   is why `status` is absent from `tag_fields` in the first place.
+
+---
+
+## 20260805_campaign_mission_control.sql — APPLIED 2026-07-31
+
+Prompt J. Verified in-database at apply time: 2 new columns, 1 trigger, 2
+functions, 1 index, **0 write policies** on `voice_campaign_enrollments`.
+
+- `voice_campaign_enrollments.paused_at` and `.last_gate_code` — both display
+  only. `status = 'paused'` is what actually holds a lead (the tick's due query
+  and `vcClaimEnrollment` already required `'active'`); `last_gate_code` is
+  cleared the moment a call goes out, in both places that place one.
+- `leads_preserve_ai_status()` + `pp_jsonb_ts()` — the database half of the AI
+  ordering guard, and the thing that makes a server-side status write STICK
+  against `sbUpsertAllLeads()`'s whole-book re-upsert. Browser writes only
+  (`auth.role()`), guards only a status whose `status_source = 'ai'`. Probed
+  live against a real row in a rolled-back transaction: stale echo refused,
+  echo with no stamp refused, fresh human edit wins, unparseable stamp does not
+  raise.
+- `ai_calls_campaign_created_idx` for the activity feed.
+
+## 20260806_sms_ai_responder.sql — APPLIED 2026-07-31
+
+Prompt SMS-1. Verified in-database at apply time: 4 tables, **0 non-SELECT
+policies** on `sms_conversations` / `sms_messages` / `sms_nudges`, 4 policies on
+`sms_ai_settings` (owner-writable by design), `agents.sms_ai_enabled` present
+and true for all 9 agents, `ai_appointments.sms_conversation_id` present, both
+key unique indexes present.
+
+- `public.messages` and `public.inbound_messages` are NOT replaced and NOT
+  migrated. They stay the BILLING and PROVIDER records — `messages.hold_ledger_id`
+  is what `wallet_settle`/`wallet_void` resolve against, and
+  `inbound_messages.provider_event_id` carries the unique index that makes
+  Telnyx retries idempotent. `sms_messages` is the CONVERSATION record and
+  points at both.
+- `sms_ai_settings` is the only owner-writable table here — it holds wording
+  preferences, and nothing in it can cause a message to be sent. `agent_id` is
+  DERIVED by `sms_ai_settings_set_agent()` from `auth.uid()`, never accepted
+  from the client. The 20-pair cap is a CHECK constraint as well as an editor
+  rule, because the table is owner-writable.
+- `sms_nudges_one_scheduled_uidx` is partial on `status = 'scheduled'` — one
+  live follow-up per conversation, and it is also what stops two sweeps sending
+  the same nudge.
+- A text booking lands in the SAME `ai_appointments` table as a call, with
+  `source = 'ai_text'` and `ai_call_id` left null. There is no second
+  appointments table.

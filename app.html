@@ -728,6 +728,26 @@ body.light #aiAvailPill{background:var(--bg2)}
 .a2p-urlrow code{flex:1;min-width:200px;font-size:11.5px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:7px 9px;overflow-x:auto;white-space:nowrap}
 /* SMS thread */
 .sms-thread{display:flex;flex-direction:column;gap:10px;padding:4px 2px;overflow-y:auto;flex:1;min-height:180px}
+/* Who wrote it. Small, quiet, and only ever on a message we sent — see the
+   note in smsRenderThread about legacy rows carrying no sent_by. */
+.sms-ai-chip{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.04em;
+  padding:1px 5px;border-radius:4px;margin-right:6px;vertical-align:1px;
+  background:rgba(91,159,232,.18);color:var(--accent)}
+.sms-ai-chip.sys{background:rgba(159,179,208,.16);color:var(--text2)}
+/* SMS AI settings */
+.smsai-types{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.smsai-type{padding:6px 11px;border-radius:7px;font:500 12px var(--sans);cursor:pointer;
+  background:var(--bg3);border:1px solid var(--border);color:var(--text2)}
+.smsai-type.on{border-color:var(--accent);color:var(--accent)}
+.smsai-type .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;background:var(--green)}
+.smsai-type.off .dot{background:var(--text3)}
+.smsai-pair{display:flex;gap:8px;margin-bottom:8px;align-items:flex-start}
+.smsai-pair input,.smsai-pair textarea{font:inherit;font-size:12.5px;padding:7px 9px;border-radius:6px;
+  background:var(--bg3);border:1px solid var(--border);color:var(--text);width:100%}
+.smsai-pair .t{flex:0 0 34%}
+.smsai-pair .a{flex:1}
+.smsai-pair button{flex:0 0 auto;background:none;border:none;color:var(--text3);cursor:pointer;padding:6px}
+.smsai-pair button:hover{color:var(--coral)}
 .sms-row{display:flex;flex-direction:column;max-width:78%}
 .sms-row.out{align-self:flex-end;align-items:flex-end}
 .sms-row.in{align-self:flex-start;align-items:flex-start}
@@ -6358,6 +6378,7 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
         <button class="tab" data-stg-tab="carriers" onclick="settingsTab('carriers',this)"><span data-ico="buildings" data-size="14" style="margin-right:6px"></span>Carriers</button>
         <button class="tab" data-stg-tab="integrations" onclick="settingsTab('integrations',this)"><span data-ico="key" data-size="14" style="margin-right:6px"></span>Integrations</button>
         <button class="tab" data-stg-tab="texting" onclick="settingsTab('texting',this)"><span data-ico="chat-dots" data-size="14" style="margin-right:6px"></span>Texting</button>
+        <button class="tab" data-stg-tab="smsai" onclick="settingsTab('smsai',this)"><span data-ico="robot" data-size="14" style="margin-right:6px"></span>SMS AI</button>
         <button class="tab" data-stg-tab="codes" onclick="settingsTab('codes',this)"><span data-ico="tag" data-size="14" style="margin-right:6px"></span>Producer Codes</button>
       </div>
 
@@ -6772,6 +6793,40 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
            number. Nothing in here ever blocks the rest of the app — an agent
            whose registration is pending keeps quoting, dialling and tracking
            exactly as before. -->
+      <!-- ============================================================
+           SETTINGS -> SMS AI
+           Panels are resolved structurally (#sec-settings > [id^="stg-"]),
+           so this is one edit, not two. See settingsPanels().
+           ============================================================ -->
+      <div id="stg-smsai" style="display:none">
+        <div class="card">
+          <div class="card-title" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+            <div style="display:flex;align-items:center;gap:8px"><span data-ico="robot" data-size="13"></span>AI Texting Agent</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2);font-weight:400">
+              <input type="checkbox" id="smsai-account-on" onchange="smsaiSaveAccount()">
+              Answer inbound texts automatically
+            </label>
+          </div>
+          <div style="font-size:12.5px;color:var(--text2);line-height:1.65;margin-bottom:4px">
+            When someone who has given text consent replies, the assistant answers within seconds —
+            using your wording where you've set it, booking appointments, and pulling you in the moment
+            they ask for a person. You can take over any conversation at any time; the assistant steps
+            back the moment you type.
+          </div>
+          <div id="smsai-gate-note" style="display:none;margin-top:10px"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Settings per campaign type</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+            Each of your campaign types can sound different. <b>Default</b> covers any conversation
+            that isn't part of a campaign.
+          </div>
+          <div class="smsai-types" id="smsai-types"></div>
+          <div id="smsai-editor"></div>
+        </div>
+      </div>
+
       <div id="stg-texting" style="display:none">
 
         <div class="card">
@@ -8246,6 +8301,10 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
       </div>
       <button class="mclose" onclick="smsCloseThread()" data-ico="x" data-size="14"></button>
     </div>
+    <!-- The AI's state on THIS thread. Hidden until a conversation row exists,
+         because before the first message there is nothing to say. -->
+    <div id="sms-ai-bar" style="display:none"></div>
+    <div id="sms-hot-banner" style="display:none"></div>
     <div id="sms-thread-gate"></div>
     <div class="sms-thread" id="sms-thread-body">
       <div style="font-size:12px;color:var(--text3);text-align:center;padding:20px 0">Loading…</div>
@@ -32504,6 +32563,7 @@ function settingsTab(id, el) {
   if (id === 'integrations') renderIntegrationsPanels();
   if (id === 'texting') a2pRenderTextingTab();
   if (id === 'codes') pcRenderTab();
+  if (id === 'smsai') smsaiLoad();
 }
 
 // Deep-link into Settings > Texting from anywhere (the SMS composer's gate
@@ -36976,6 +37036,357 @@ function smsCountSegments(text) {
 // ============================================================
 let _leadConsent = { byPhone: new Map(), dnc: new Set(), requireWritten: true, loaded: false };
 
+// ============================================================
+// SMS AI — the browser half.
+//
+// Mirrors supabase/functions/_shared/sms-ai-core.ts. app.html has no build
+// step and no module system, so the duplication is unavoidable; what is
+// avoidable is DRIFT, and test/sms-ai-responder.test.mjs runs a shared table
+// of cases through both. Same arrangement as vcamp-core and the AI meter.
+//
+// Only the parts the SCREEN needs are mirrored: the type list and its labels,
+// the option lists, and the pair rules — because the editor has to refuse the
+// same pair the server would drop, and show the same 20-row cap.
+//
+// PURE: no DOM, no network, no storage, no app globals.
+// ============================================================
+// <smsai-core>
+const SMS_AI_TYPES = [
+  'default',
+  'appointment_reminder', 'no_show_followup', 'customer_care_sold',
+  'emergency_contact', 'beneficiary_referral', 'chargeback_recovery',
+  'veteran_lead', 'final_expense', 'mortgage_protection',
+  'iul', 'general_life', 'trucker',
+];
+const SMS_AI_TYPE_LABELS = {
+  default: 'Default',
+  appointment_reminder: 'Appointment Reminder',
+  no_show_followup: 'No-Show Follow-Up',
+  customer_care_sold: 'Customer Care',
+  emergency_contact: 'Emergency Contact',
+  beneficiary_referral: 'Beneficiary Referral',
+  chargeback_recovery: 'Chargeback Recovery',
+  veteran_lead: 'Veteran Leads',
+  final_expense: 'Final Expense',
+  mortgage_protection: 'Mortgage Protection',
+  iul: 'IUL',
+  general_life: 'General Life',
+  trucker: 'Trucker',
+};
+const SMS_AI_TONES = ['professional', 'friendly', 'casual'];
+const SMS_AI_LENGTHS = ['brief', 'medium'];
+const SMS_AI_MAX_PAIRS = 20;
+
+function smsaiDefaults(campaignType) {
+  return {
+    campaign_type: campaignType || 'default',
+    enabled: true, tone: 'friendly', reply_length: 'brief', emojis: false,
+    nudge_8h: true, nudge_24h: true, nudge_48h: false, nudge_7d: false,
+    appointment_minutes: 30, appointment_label: 'Consultation',
+    custom_pairs: [],
+  };
+}
+
+/**
+ * Trim, drop the empties, cap at 20.
+ *
+ * A pair with a blank trigger would match EVERY message — every string
+ * contains the empty string — so the AI would answer "what are your hours"
+ * with whatever happened to be in that row. Dropping them is the bug fix, not
+ * tidying, and the editor has to do it too or it shows a row the server will
+ * silently ignore.
+ */
+function smsaiNormalizePairs(pairs) {
+  const out = [];
+  for (const p of pairs || []) {
+    const trigger = String((p && p.trigger) == null ? '' : p.trigger).trim();
+    const answer  = String((p && p.answer)  == null ? '' : p.answer).trim();
+    if (!trigger || !answer) continue;
+    out.push({ trigger: trigger.slice(0, 120), answer: answer.slice(0, 480) });
+    if (out.length >= SMS_AI_MAX_PAIRS) break;
+  }
+  return out;
+}
+
+function smsaiNormalize(row) {
+  const d = smsaiDefaults(row && row.campaign_type);
+  if (!row) return d;
+  const pick = (v, f) => (v === undefined || v === null ? f : v);
+  const tone = String(row.tone || '');
+  const len  = String(row.reply_length || '');
+  const mins = parseInt(row.appointment_minutes, 10);
+  return {
+    campaign_type: d.campaign_type,
+    enabled: pick(row.enabled, d.enabled) === true,
+    tone: SMS_AI_TONES.indexOf(tone) >= 0 ? tone : d.tone,
+    reply_length: SMS_AI_LENGTHS.indexOf(len) >= 0 ? len : d.reply_length,
+    emojis: pick(row.emojis, d.emojis) === true,
+    nudge_8h:  pick(row.nudge_8h,  d.nudge_8h)  === true,
+    nudge_24h: pick(row.nudge_24h, d.nudge_24h) === true,
+    nudge_48h: pick(row.nudge_48h, d.nudge_48h) === true,
+    nudge_7d:  pick(row.nudge_7d,  d.nudge_7d)  === true,
+    appointment_minutes: isFinite(mins) ? Math.min(240, Math.max(5, Math.round(mins))) : d.appointment_minutes,
+    appointment_label: (String(row.appointment_label || '').trim() || d.appointment_label).slice(0, 60),
+    custom_pairs: smsaiNormalizePairs(Array.isArray(row.custom_pairs) ? row.custom_pairs : []),
+  };
+}
+
+/** Which steps this row wants. A step that is OFF is skipped, never a stop. */
+function smsaiNudgeSteps(s) {
+  const want = [s.nudge_8h, s.nudge_24h, s.nudge_48h, s.nudge_7d];
+  const out = [];
+  for (let i = 0; i < want.length; i++) if (want[i]) out.push(i + 1);
+  return out;
+}
+
+const SMSAI_NUDGE_LABELS = { 1: '8 hours', 2: '24 hours', 3: '48 hours', 4: '7 days' };
+
+/** "Follows up after 8 hours and 24 hours." — or says plainly that it doesn't. */
+function smsaiNudgePhrase(s) {
+  const steps = smsaiNudgeSteps(s).map(n => SMSAI_NUDGE_LABELS[n]);
+  if (!steps.length) return 'No follow-ups — the assistant replies but never chases.';
+  if (steps.length === 1) return 'Follows up once, after ' + steps[0] + '.';
+  return 'Follows up after ' + steps.slice(0, -1).join(', ') + ' and ' + steps[steps.length - 1] + '.';
+}
+// </smsai-core>
+
+// ---- The Settings -> SMS AI screen ----------------------------------------
+let _smsai = { rows: {}, type: 'default', accountOn: true, loaded: false, busy: false };
+
+async function smsaiLoad() {
+  if (!currentAgent || !currentAgent.id) return;
+  const [aRes, sRes] = await Promise.all([
+    sb.from('agents').select('sms_ai_enabled').eq('id', currentAgent.id).maybeSingle(),
+    sb.from('sms_ai_settings').select('*').eq('agent_id', currentAgent.id),
+  ]);
+  _smsai.accountOn = !aRes.data || aRes.data.sms_ai_enabled !== false;
+  _smsai.rows = {};
+  for (const r of sRes.data || []) _smsai.rows[r.campaign_type] = smsaiNormalize(r);
+  _smsai.loaded = true;
+
+  const cb = document.getElementById('smsai-account-on');
+  if (cb) cb.checked = _smsai.accountOn;
+  smsaiRenderTypes();
+  smsaiRenderEditor();
+  smsaiRenderGateNote();
+}
+
+/**
+ * The honest banner.
+ *
+ * The responder cannot answer anybody who has not recorded SMS consent, so an
+ * agent with none would otherwise turn this on and watch nothing happen.
+ * Reuses the count the campaigns screen already computes.
+ */
+function smsaiRenderGateNote() {
+  const el = document.getElementById('smsai-gate-note');
+  if (!el) return;
+  const n = typeof textableCount === 'function' ? textableCount() : null;
+  if (n === null || n > 0) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML =
+    '<div style="padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);' +
+      'font-size:12px;color:var(--text2);line-height:1.6">' +
+      'No one in your book has recorded text consent yet, so there is nothing for the assistant to reply to. ' +
+      'Record consent from a lead’s row, or share your opt-in link, and it starts working immediately.' +
+    '</div>';
+}
+
+function smsaiCurrent() {
+  return _smsai.rows[_smsai.type] || smsaiDefaults(_smsai.type);
+}
+
+function smsaiRenderTypes() {
+  const box = document.getElementById('smsai-types');
+  if (!box) return;
+  box.innerHTML = SMS_AI_TYPES.map(t => {
+    const s = _smsai.rows[t];
+    // A type with no row yet is shown as ON, because that is what it is: the
+    // defaults apply and the assistant answers. Showing it as off would be a
+    // lie about what happens when a text arrives.
+    const on = !s || s.enabled;
+    return '<button class="smsai-type' + (t === _smsai.type ? ' on' : '') + (on ? '' : ' off') + '" ' +
+      'onclick="smsaiPick(\'' + t + '\')"><span class="dot"></span>' +
+      escHTML(SMS_AI_TYPE_LABELS[t] || t) + '</button>';
+  }).join('');
+}
+
+function smsaiPick(t) {
+  _smsai.type = t;
+  smsaiRenderTypes();
+  smsaiRenderEditor();
+}
+
+function smsaiRenderEditor() {
+  const box = document.getElementById('smsai-editor');
+  if (!box) return;
+  const s = smsaiCurrent();
+  const sel = (id, opts, val) =>
+    '<select id="' + id + '" onchange="smsaiEdit()" class="lg-chip" style="height:32px">' +
+    opts.map(o => '<option value="' + o[0] + '"' + (o[0] === val ? ' selected' : '') + '>' + o[1] + '</option>').join('') +
+    '</select>';
+  const chk = (id, on, label) =>
+    '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);margin-right:14px">' +
+    '<input type="checkbox" id="' + id + '"' + (on ? ' checked' : '') + ' onchange="smsaiEdit()">' + label + '</label>';
+
+  box.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">' +
+      chk('smsai-enabled', s.enabled, '<b>Answer texts for ' + escHTML(SMS_AI_TYPE_LABELS[_smsai.type] || _smsai.type) + '</b>') +
+    '</div>' +
+
+    '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">' +
+      '<div><div class="lbl">Tone</div>' + sel('smsai-tone',
+        [['professional', 'Professional'], ['friendly', 'Friendly'], ['casual', 'Casual']], s.tone) + '</div>' +
+      '<div><div class="lbl">Reply length</div>' + sel('smsai-length',
+        [['brief', 'Brief (1 sentence)'], ['medium', 'Medium (2–3)']], s.reply_length) + '</div>' +
+      '<div><div class="lbl">Appointment length</div>' +
+        '<input type="number" id="smsai-mins" min="5" max="240" step="5" value="' + s.appointment_minutes + '" ' +
+        'onchange="smsaiEdit()" class="lg-chip" style="height:32px;width:90px"></div>' +
+      '<div style="flex:1;min-width:160px"><div class="lbl">Appointment name</div>' +
+        '<input type="text" id="smsai-label" maxlength="60" value="' + escHTML(s.appointment_label) + '" ' +
+        'onchange="smsaiEdit()" class="lg-chip" style="height:32px;width:100%"></div>' +
+    '</div>' +
+
+    '<div style="margin-bottom:14px">' + chk('smsai-emojis', s.emojis, 'Allow emojis') + '</div>' +
+
+    '<div style="margin-bottom:6px" class="lbl">Follow up if they go quiet</div>' +
+    '<div style="margin-bottom:6px">' +
+      chk('smsai-n1', s.nudge_8h,  '8 hours') + chk('smsai-n2', s.nudge_24h, '24 hours') +
+      chk('smsai-n3', s.nudge_48h, '48 hours') + chk('smsai-n4', s.nudge_7d,  '7 days') +
+    '</div>' +
+    '<div style="font-size:11.5px;color:var(--text3);margin-bottom:18px">' +
+      escHTML(smsaiNudgePhrase(s)) + ' Follow-ups only go out 9am–8pm their time, never on a Sunday, ' +
+      'and stop the moment they reply, book, or ask to stop.' +
+    '</div>' +
+
+    '<div class="lbl">Your own answers</div>' +
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:10px">' +
+      'When a lead’s message contains the trigger, the assistant uses your answer — word for word. ' +
+      'Up to ' + SMS_AI_MAX_PAIRS + '.' +
+    '</div>' +
+    '<div id="smsai-pairs">' + smsaiPairsHTML(s.custom_pairs) + '</div>' +
+    '<button class="btn btn-sm btn-g" onclick="smsaiAddPair()" style="margin-top:4px">+ Add answer</button>' +
+
+    '<div style="margin-top:18px;display:flex;align-items:center;gap:10px">' +
+      '<button class="btn btn-p btn-sm" id="smsai-save" onclick="smsaiSave()">Save</button>' +
+      '<span id="smsai-saved" style="font-size:12px;color:var(--green);display:none">Saved</span>' +
+    '</div>';
+}
+
+function smsaiPairsHTML(pairs) {
+  const list = (pairs || []).slice();
+  if (!list.length) return '<div style="font-size:12px;color:var(--text3);margin-bottom:8px">No answers yet.</div>';
+  return list.map((p, i) =>
+    '<div class="smsai-pair">' +
+      '<input class="t" type="text" maxlength="120" placeholder="if they mention…" value="' + escHTML(p.trigger) + '" oninput="smsaiEdit()">' +
+      '<textarea class="a" rows="2" maxlength="480" placeholder="reply with this, word for word" oninput="smsaiEdit()">' + escHTML(p.answer) + '</textarea>' +
+      '<button onclick="smsaiRemovePair(' + i + ')" title="Remove" data-ico="trash" data-size="14"></button>' +
+    '</div>').join('');
+}
+
+/** Read the form back into memory. Never saves — that is the button's job. */
+function smsaiEdit() {
+  const s = smsaiCurrent();
+  const v = id => document.getElementById(id);
+  s.enabled = !!(v('smsai-enabled') || {}).checked;
+  s.tone = (v('smsai-tone') || {}).value || s.tone;
+  s.reply_length = (v('smsai-length') || {}).value || s.reply_length;
+  s.emojis = !!(v('smsai-emojis') || {}).checked;
+  s.nudge_8h  = !!(v('smsai-n1') || {}).checked;
+  s.nudge_24h = !!(v('smsai-n2') || {}).checked;
+  s.nudge_48h = !!(v('smsai-n3') || {}).checked;
+  s.nudge_7d  = !!(v('smsai-n4') || {}).checked;
+  const mins = parseInt((v('smsai-mins') || {}).value, 10);
+  if (isFinite(mins)) s.appointment_minutes = Math.min(240, Math.max(5, mins));
+  s.appointment_label = String((v('smsai-label') || {}).value || '').trim() || 'Consultation';
+
+  const rows = document.querySelectorAll('#smsai-pairs .smsai-pair');
+  const pairs = [];
+  rows.forEach(r => pairs.push({
+    trigger: (r.querySelector('.t') || {}).value || '',
+    answer:  (r.querySelector('.a') || {}).value || '',
+  }));
+  // Kept RAW in memory so a half-typed row does not vanish under the cursor;
+  // normalized on save, which is where the blank-trigger rule has to hold.
+  s.custom_pairs_raw = pairs;
+  _smsai.rows[_smsai.type] = s;
+  smsaiRenderTypes();
+  const saved = document.getElementById('smsai-saved');
+  if (saved) saved.style.display = 'none';
+}
+
+function smsaiAddPair() {
+  const s = smsaiCurrent();
+  const raw = (s.custom_pairs_raw || s.custom_pairs || []).slice();
+  if (raw.length >= SMS_AI_MAX_PAIRS) {
+    showToast('That is the ' + SMS_AI_MAX_PAIRS + '-answer limit', '#f59e0b');
+    return;
+  }
+  raw.push({ trigger: '', answer: '' });
+  s.custom_pairs = raw;
+  s.custom_pairs_raw = raw;
+  _smsai.rows[_smsai.type] = s;
+  const box = document.getElementById('smsai-pairs');
+  if (box) { box.innerHTML = smsaiPairsHTML(raw); mountIcons(box); }
+}
+
+function smsaiRemovePair(i) {
+  const s = smsaiCurrent();
+  const raw = (s.custom_pairs_raw || s.custom_pairs || []).slice();
+  raw.splice(i, 1);
+  s.custom_pairs = raw;
+  s.custom_pairs_raw = raw;
+  _smsai.rows[_smsai.type] = s;
+  const box = document.getElementById('smsai-pairs');
+  if (box) { box.innerHTML = smsaiPairsHTML(raw); mountIcons(box); }
+  smsaiEdit();
+}
+
+async function smsaiSaveAccount() {
+  const cb = document.getElementById('smsai-account-on');
+  if (!cb || !currentAgent) return;
+  const on = !!cb.checked;
+  const { error } = await sb.from('agents').update({ sms_ai_enabled: on }).eq('id', currentAgent.id);
+  if (error) { cb.checked = !on; showToast('Could not save that', '#dc2626'); return; }
+  _smsai.accountOn = on;
+  showToast(on ? 'AI texting on' : 'AI texting off', on ? '#10b981' : '#6b7280');
+}
+
+async function smsaiSave() {
+  if (_smsai.busy || !currentAgent) return;
+  _smsai.busy = true;
+  const btn = document.getElementById('smsai-save');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    smsaiEdit();
+    const s = smsaiCurrent();
+    // The blank-trigger rule applies here, not in the editor: a row being
+    // typed is not yet a mistake.
+    const pairs = smsaiNormalizePairs(s.custom_pairs_raw || s.custom_pairs);
+    // agent_id is DERIVED by a trigger from auth.uid() — deliberately not sent.
+    const { error } = await sb.from('sms_ai_settings').upsert({
+      campaign_type: _smsai.type,
+      enabled: s.enabled, tone: s.tone, reply_length: s.reply_length, emojis: s.emojis,
+      nudge_8h: s.nudge_8h, nudge_24h: s.nudge_24h, nudge_48h: s.nudge_48h, nudge_7d: s.nudge_7d,
+      appointment_minutes: s.appointment_minutes, appointment_label: s.appointment_label,
+      custom_pairs: pairs,
+      agent_id: currentAgent.id,
+    }, { onConflict: 'agent_id,campaign_type' });
+    if (error) throw error;
+    s.custom_pairs = pairs;
+    delete s.custom_pairs_raw;
+    _smsai.rows[_smsai.type] = s;
+    smsaiRenderEditor();
+    const saved = document.getElementById('smsai-saved');
+    if (saved) { saved.style.display = ''; setTimeout(() => { saved.style.display = 'none'; }, 2200); }
+  } catch (e) {
+    showToast((e && e.message) || 'Could not save', '#dc2626');
+  } finally {
+    _smsai.busy = false;
+    if (btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  }
+}
+
 async function smsLoadLeadConsent() {
   if (!currentAgent || !currentAgent.id) return;
   try {
@@ -37060,7 +37471,7 @@ async function smsOpenThread(leadId) {
   if (!lead) return;
   const phone = toE164(lead.phone || '');
 
-  _smsThread = { leadId: String(leadId), lead, phone: phone || '', items: [], gate: null, from: null, timers: [] };
+  _smsThread = { leadId: String(leadId), lead, phone: phone || '', items: [], gate: null, from: null, timers: [], conv: null };
 
   const m = document.getElementById('smsThreadModal');
   document.getElementById('sms-thread-name').textContent = lead.name || [lead.first_name, lead.last_name].filter(Boolean).join(' ') || 'Lead';
@@ -37070,10 +37481,13 @@ async function smsOpenThread(leadId) {
   document.getElementById('sms-composer').style.display = 'none';
   const ta = document.getElementById('sms-composer-text');
   if (ta) ta.value = '';
+  document.getElementById('sms-ai-bar').style.display = 'none';
+  document.getElementById('sms-hot-banner').style.display = 'none';
   m.classList.add('open');
   mountIcons(m);
 
   await smsLoadThread();
+  smsStartThreadPoll();
 }
 
 function smsCloseThread() {
@@ -37081,6 +37495,7 @@ function smsCloseThread() {
   if (m) m.classList.remove('open');
   (_smsThread.timers || []).forEach(t => clearTimeout(t));
   _smsThread.timers = [];
+  smsStopThreadPoll();
 }
 
 async function smsLoadThread() {
@@ -37099,7 +37514,12 @@ async function smsLoadThread() {
   // be the first place it is ever needed, so load it on demand.
   if (!_a2pState.loaded) await a2pLoad();
 
-  const [outRes, inRes, consentRes, dncRes, cfgRes] = await Promise.all([
+  const [convRes, outRes, inRes, consentRes, dncRes, cfgRes] = await Promise.all([
+    // The conversation record (2026-07-31, SMS-1). It carries sent_by, the
+    // full body, and the AI's state on this thread.
+    sb.from('sms_conversations')
+      .select('id, status, ai_muted, ai_muted_reason, hot, hot_reason, nudge_step')
+      .eq('agent_id', currentAgent.id).eq('contact_phone', phone).maybeSingle(),
     sb.from('messages')
       .select('id, channel, to_address, from_number, body_preview, segments, status, created_at, delivered_at, failed_reason')
       .eq('agent_id', currentAgent.id).eq('to_address', phone).in('channel', ['sms', 'mms'])
@@ -37124,9 +37544,37 @@ async function smsLoadThread() {
   // schema keeps the whole text, so a long message renders truncated. The
   // ellipsis is the honest tell; storing full bodies is a schema decision,
   // not something to paper over here.
+  _smsThread.conv = convRes.data || null;
+
+  // The conversation record where there is one, the two legacy tables where
+  // there is not. Both are read on purpose: sms_messages only starts at this
+  // round, so a thread that predates it would otherwise appear to begin the
+  // day the feature shipped. Legacy rows are dropped when the conversation
+  // already carries them — sms_messages points at both by id.
+  let convItems = [];
+  const seenLegacy = new Set();
+  if (_smsThread.conv) {
+    const { data: rows } = await sb.from('sms_messages')
+      .select('id, direction, sent_by, body, status, failed_reason, created_at, message_id, inbound_message_id')
+      .eq('conversation_id', _smsThread.conv.id)
+      .order('created_at', { ascending: true }).limit(300);
+    convItems = (rows || []).map(r => {
+      if (r.message_id) seenLegacy.add('o' + r.message_id);
+      if (r.inbound_message_id) seenLegacy.add('i' + r.inbound_message_id);
+      return {
+        dir: r.direction === 'inbound' ? 'in' : 'out',
+        at: r.created_at, text: r.body || '', status: r.status,
+        failed: r.failed_reason, sentBy: r.sent_by, id: 'c' + r.id,
+      };
+    });
+  }
+
   const items = [
-    ...(outRes.data || []).map(r => ({ dir: 'out', at: r.created_at, text: r.body_preview || '', status: r.status, failed: r.failed_reason, id: 'o' + r.id })),
-    ...(inRes.data  || []).map(r => ({ dir: 'in',  at: r.created_at, text: r.body_preview || '', optOut: r.is_opt_out, id: 'i' + r.id })),
+    ...convItems,
+    ...(outRes.data || []).filter(r => !seenLegacy.has('o' + r.id))
+      .map(r => ({ dir: 'out', at: r.created_at, text: r.body_preview || '', status: r.status, failed: r.failed_reason, id: 'o' + r.id })),
+    ...(inRes.data  || []).filter(r => !seenLegacy.has('i' + r.id))
+      .map(r => ({ dir: 'in',  at: r.created_at, text: r.body_preview || '', optOut: r.is_opt_out, id: 'i' + r.id })),
   ].sort((a, b) => new Date(a.at) - new Date(b.at));
   _smsThread.items = items;
 
@@ -37137,6 +37585,129 @@ async function smsLoadThread() {
 
   smsRenderThread();
   smsRenderGate();
+  smsRenderAiBar();
+}
+
+// ============================================================
+// THE AI's STATE ON THIS THREAD
+//
+// One bar, one switch, one banner. The switch goes through sms-ai-manage —
+// sms_conversations is SELECT-only for the browser, because an AI that
+// answers a consumer on the agent's behalf is not something a page should be
+// able to reconfigure with a PATCH.
+// ============================================================
+function smsRenderAiBar() {
+  const bar = document.getElementById('sms-ai-bar');
+  const hot = document.getElementById('sms-hot-banner');
+  const c = _smsThread.conv;
+  if (!bar || !hot) return;
+
+  if (!c) { bar.style.display = 'none'; hot.style.display = 'none'; return; }
+
+  const closed = c.status === 'closed';
+  const on = !closed && !c.ai_muted;
+  // Why it is off matters: "you replied, so I stepped back" and "they opted
+  // out" are very different and the agent must not have to guess.
+  const why = {
+    agent_takeover: 'paused because you replied',
+    agent_toggle:   'switched off',
+    opted_out:      'stopped — they opted out',
+    booked:         'paused after booking',
+  }[c.ai_muted_reason] || 'off';
+
+  bar.style.display = '';
+  bar.innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:10px;' +
+      'border:1px solid var(--border);border-radius:8px;background:var(--bg3);flex-wrap:wrap">' +
+      '<span class="sms-ai-chip" style="' + (on ? '' : 'opacity:.55') + '">AI</span>' +
+      '<span style="font-size:12px;color:var(--text2);flex:1;min-width:120px">' +
+        (on ? 'AI replies are on for this conversation.'
+            : 'AI replies are ' + escHTML(why) + '.') +
+      '</span>' +
+      (closed
+        ? '<span style="font-size:11.5px;color:var(--text3)">Closed</span>'
+        : '<button class="btn btn-sm ' + (on ? 'btn-g' : 'btn-p') + '" onclick="smsToggleAi(' + (on ? 'false' : 'true') + ')">' +
+            (on ? 'Turn AI off' : 'Turn AI back on') + '</button>') +
+    '</div>';
+
+  if (c.hot && !closed) {
+    hot.style.display = '';
+    hot.innerHTML =
+      '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:10px;' +
+        'border:1px solid var(--gold);border-radius:8px;background:rgba(212,169,106,.10);flex-wrap:wrap">' +
+        '<span data-ico="fire" data-size="14" style="color:var(--gold)"></span>' +
+        '<span style="font-size:12px;color:var(--text);flex:1;min-width:120px"><b>Wants to talk to you</b>' +
+          (c.hot_reason ? ' — ' + escHTML(c.hot_reason) : '') + '</span>' +
+        '<button class="btn btn-sm btn-g" onclick="smsClearHot()">Got it</button>' +
+      '</div>';
+    if (window.mountIcons) mountIcons();
+  } else {
+    hot.style.display = 'none';
+  }
+}
+
+async function smsToggleAi(enabled) {
+  const c = _smsThread.conv;
+  if (!c) return;
+  const { data, error } = await sb.functions.invoke('sms-ai-manage', {
+    body: { action: 'set_ai', conversation_id: c.id, enabled: !!enabled },
+  });
+  if (error || !data || data.error) {
+    showToast((data && data.detail) || 'Could not change that', '#dc2626');
+    return;
+  }
+  showToast(enabled ? 'AI replies on' : 'AI replies off', enabled ? '#10b981' : '#6b7280');
+  await smsLoadThread();
+}
+
+async function smsClearHot() {
+  const c = _smsThread.conv;
+  if (!c) return;
+  await sb.functions.invoke('sms-ai-manage', { body: { action: 'clear_hot', conversation_id: c.id } });
+  _smsThread.conv.hot = false;
+  smsRenderAiBar();
+  smsUpdateHotBadge();
+}
+
+/**
+ * The badge on the Messages nav item.
+ *
+ * Counts threads the AI has flagged and the agent has not acknowledged. One
+ * query, run on load and after any change — the point of an alert is that it
+ * is visible from somewhere other than the conversation it is about.
+ */
+async function smsUpdateHotBadge() {
+  if (!currentAgent || !currentAgent.id) return;
+  let n = 0;
+  try {
+    const { count } = await sb.from('sms_conversations')
+      .select('id', { count: 'exact', head: true })
+      .eq('agent_id', currentAgent.id).eq('hot', true).eq('status', 'open');
+    n = count || 0;
+  } catch (_) { return; }
+  const el = document.getElementById('sms-hot-badge');
+  if (el) {
+    el.textContent = n > 9 ? '9+' : String(n);
+    el.style.display = n ? '' : 'none';
+  }
+}
+
+// Poll while the thread is open — the AI answers without anybody clicking, so
+// this is one of the few screens that has to move by itself. Stops when the
+// modal closes and when the browser tab is hidden, same rule as the campaign
+// screen's poll.
+let _smsThreadPoll = null;
+function smsStartThreadPoll() {
+  if (_smsThreadPoll) return;
+  _smsThreadPoll = setInterval(() => {
+    const m = document.getElementById('smsThreadModal');
+    if (!m || !m.classList.contains('open')) return;
+    if (document.visibilityState !== 'visible') return;
+    smsLoadThread();
+  }, 10000);
+}
+function smsStopThreadPoll() {
+  if (_smsThreadPoll) { clearInterval(_smsThreadPoll); _smsThreadPoll = null; }
 }
 
 // Mirrors the ORDER of runComplianceGate() so what the agent sees and what
@@ -37393,9 +37964,18 @@ function smsRenderThread() {
     } else {
       meta = escHTML(time) + (it.optOut ? ' · opted out' : '');
     }
+    // WHO WROTE IT. Only shown where it is not obvious: an outbound message
+    // with no sent_by is a legacy row from before the conversation model and
+    // was, by definition, typed by a person — labelling those "agent" would
+    // be a claim the data does not support, so they get nothing.
+    const chip = it.dir === 'out' && it.sentBy === 'ai'
+      ? '<span class="sms-ai-chip">AI</span>'
+      : it.dir === 'out' && it.sentBy === 'system'
+      ? '<span class="sms-ai-chip sys">Auto</span>'
+      : '';
     return sep + `
       <div class="sms-row ${it.dir}${it.optOut ? ' optout' : ''}">
-        <div class="sms-bubble">${escHTML(it.text)}</div>
+        <div class="sms-bubble">${chip}${escHTML(it.text)}</div>
         <div class="sms-meta">${meta}</div>
       </div>`;
   }).join('');

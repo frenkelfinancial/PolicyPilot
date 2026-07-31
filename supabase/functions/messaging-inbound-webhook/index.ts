@@ -1,8 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyTelnyxSignature } from "../_shared/webhook-verify.ts";
 import { toE164 } from "../_shared/phone.ts";
+import { isOptOutKeyword } from "../_shared/sms-ai-core.ts";
+import {
+  appendMessage,
+  cancelNudges,
+  closeConversationForOptOut,
+  getOrCreateConversation,
+} from "../_shared/sms-thread.ts";
 
-const OPT_OUT_KEYWORDS = new Set(["STOP", "UNSUBSCRIBE", "CANCEL", "END", "QUIT"]);
+// The keyword list now lives in _shared/sms-ai-core.ts so the responder's gate
+// and this webhook cannot disagree about what an opt-out is. The rule is
+// unchanged: the WHOLE body, trimmed and uppercased, equal to one of the five
+// words. "please stop by on Tuesday" is not an opt-out and suppressing that
+// lead would be the worse error.
 const OPT_OUT_CONFIRMATION =
   "You have been unsubscribed and will not receive further messages from this number.";
 
@@ -91,7 +102,7 @@ Deno.serve(async (req) => {
     if (existing) return new Response(JSON.stringify({ ok: true, deduped: true }), { status: 200 });
   }
 
-  const isOptOut = OPT_OUT_KEYWORDS.has(text.toUpperCase());
+  const isOptOut = isOptOutKeyword(text);
 
   // ------------------------------------------------------------
   // Resolve which agent this inbound belongs to.
@@ -163,7 +174,7 @@ Deno.serve(async (req) => {
     inReplyToMessageId = lastOutbound?.id ?? null;
   }
 
-  await sb.from("inbound_messages").insert({
+  const { data: inboundRow } = await sb.from("inbound_messages").insert({
     agent_id:               agentId,
     channel:                "sms",
     from_address:            fromNumber,
@@ -172,7 +183,65 @@ Deno.serve(async (req) => {
     in_reply_to_message_id:  inReplyToMessageId,
     is_opt_out:              isOptOut,
     provider_event_id:       providerEventId,
-  });
+  }).select("id").maybeSingle();
+
+  // ------------------------------------------------------------
+  // THE CONVERSATION (added 2026-07-31, SMS-1).
+  //
+  // inbound_messages above stays exactly as it was — it is the PROVIDER record
+  // and its unique index on provider_event_id is what makes Telnyx's retries
+  // idempotent. This block writes the CONVERSATION record beside it, which is
+  // the thing that can be read as a thread and can say who wrote each message.
+  //
+  // Everything here is best-effort and wrapped: an inbound webhook that throws
+  // gets retried by Telnyx, and re-running the opt-out path below is not free.
+  // The thread is worth having; it is not worth risking the STOP for.
+  // ------------------------------------------------------------
+  let conversationId: string | null = null;
+  let leadId: string | null = null;
+
+  if (agentId) {
+    try {
+      // Match the lead by phone the same way the inbound CALL path does.
+      // A texter we have never seen is not invented as a lead here — the
+      // conversation exists regardless, and the agent can add them.
+      const { data: leadRows } = await sb.from("leads")
+        .select("id, data")
+        .eq("agent_id", agentId)
+        .limit(2000);
+      const want = last10Digits(fromNumber);
+      const hit = (leadRows || []).find((l: { data?: { phone?: string } }) =>
+        last10Digits(l.data?.phone) === want && want.length === 10);
+      leadId = hit?.id ?? null;
+
+      const conv = await getOrCreateConversation(sb, {
+        agentId,
+        contactPhone: fromNumber,
+        leadId,
+        agentNumber: toNumber,
+      });
+      conversationId = conv?.id ?? null;
+
+      if (conversationId) {
+        await appendMessage(sb, {
+          conversationId,
+          agentId,
+          direction: "inbound",
+          sentBy: "lead",
+          body: text,
+          inboundMessageId: inboundRow?.id ?? null,
+          providerMessageId: providerEventId,
+        });
+        // Any reply at all cancels a pending follow-up. This runs for EVERY
+        // inbound, including an opt-out and including a message the AI will
+        // not answer — "they replied" is the fact that matters, not what they
+        // said or whether we say anything back.
+        await cancelNudges(sb, conversationId, isOptOut ? "opted_out" : "lead_replied");
+      }
+    } catch (e) {
+      console.error("[messaging-inbound-webhook] threading failed:", (e as Error)?.message);
+    }
+  }
 
   // ------------------------------------------------------------
   // OPT-OUT IS PROCESSED WHETHER OR NOT WE KNOW WHOSE NUMBER IT IS.
@@ -238,6 +307,75 @@ Deno.serve(async (req) => {
           ...(TELNYX_MSG_PROFILE_ID ? { messaging_profile_id: TELNYX_MSG_PROFILE_ID } : {}),
         }),
       }).catch((err) => console.error("[messaging-inbound-webhook] opt-out confirmation send failed:", err));
+
+      // The confirmation is ours but nobody chose the words — 'system', not
+      // 'agent', so it does not read as a takeover and does not auto-mute
+      // anything. (The thread is being closed anyway; this keeps the record
+      // honest about who said what.)
+      if (conversationId) {
+        await appendMessage(sb, {
+          conversationId, agentId: agentId!, direction: "outbound",
+          sentBy: "system", body: OPT_OUT_CONFIRMATION, status: "sent",
+        }).catch(() => {});
+      }
+    }
+
+    // ------------------------------------------------------------
+    // THE OTHER TWO THINGS A STOP HAS TO DO.
+    //
+    // The brief asked us to verify this path "closes the conversation, cancels
+    // scheduled sends, suppresses, and sends a confirmation from the
+    // originating number — verify it does all four, fix what's missing".
+    //
+    // It did TWO. It suppressed (the dnc_list write above, including the
+    // global fallback for an unattributable number) and it confirmed from the
+    // originating number (`from: toNumber`). It closed no conversation and
+    // cancelled no scheduled sends because, before this round, there were no
+    // conversations and nothing was ever scheduled. Both now exist, so both
+    // are now real obligations and both are discharged here.
+    //
+    // Note the ordering: this runs AFTER the dnc_list write, never before. If
+    // this block throws, the suppression has already happened — which is the
+    // half that legally matters.
+    // ------------------------------------------------------------
+    if (conversationId) {
+      try {
+        const closed = await closeConversationForOptOut(sb, conversationId);
+        console.log(`[messaging-inbound-webhook] opt-out closed conversation ${conversationId}, cancelled ${closed.cancelled} scheduled send(s)`);
+      } catch (e) {
+        console.error("[messaging-inbound-webhook] opt-out conversation close failed:", (e as Error)?.message);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------
+  // Hand the message to the AI responder.
+  //
+  // FIRE AND FORGET, and never for an opt-out. Telnyx expects this webhook to
+  // answer promptly and a model call is not prompt, so the reply is composed
+  // in sms-ai-respond, which presents the service role key as its bearer —
+  // the same arrangement voice-campaign-tick uses to call ai-call-start, and
+  // the reason that function can stay verify_jwt = true and unreachable from a
+  // browser.
+  //
+  // Every gate the responder needs is re-read there, deliberately: consent,
+  // DNC, the plan, the mute. Nothing about whether to answer is decided here.
+  // ------------------------------------------------------------
+  let aiDispatched = false;
+  if (!isOptOut && conversationId && agentId && text) {
+    try {
+      const url = `${SUPABASE_URL}/functions/v1/sms-ai-respond`;
+      // Not awaited to completion — the response is discarded and Telnyx gets
+      // its 200 either way. The catch is here so an unreachable responder
+      // cannot turn into an unhandled rejection that fails the webhook.
+      fetch(url, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId, text, inbound_message_id: inboundRow?.id ?? null }),
+      }).catch((err) => console.error("[messaging-inbound-webhook] responder dispatch failed:", err));
+      aiDispatched = true;
+    } catch (e) {
+      console.error("[messaging-inbound-webhook] responder dispatch threw:", (e as Error)?.message);
     }
   }
 
@@ -246,6 +384,8 @@ Deno.serve(async (req) => {
     opted_out: isOptOut,
     agent_matched: !!agentId,
     matched_by: matchedBy,
+    conversation_id: conversationId,
+    ai_dispatched: aiDispatched,
     ...(isOptOut ? { dnc_scope: agentId ? "agent" : "global" } : {}),
   }), { status: 200 });
 });
