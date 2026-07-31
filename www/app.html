@@ -821,9 +821,20 @@ body.light #aiAvailPill{background:var(--bg2)}
   font-family:var(--sans);font-size:12px;font-weight:600;
   padding:7px 9px;margin-bottom:3px;cursor:pointer;border-radius:6px 6px 0 0}
 .msf-all:hover{background:var(--bg3);color:var(--text)}
+/* Search inside a filter panel (Source / State). Sticky so it stays put
+   while a fifty-item state list scrolls under it. */
+.msf-search-wrap{position:sticky;top:0;z-index:1;background:var(--card);padding:1px 1px 5px}
+.msf-search{
+  width:100%;box-sizing:border-box;
+  background:var(--bg3);border:1px solid var(--border);border-radius:6px;
+  padding:6px 9px;color:var(--text);font-family:var(--sans);font-size:12.5px;
+  outline:none;transition:border-color .14s}
+.msf-search:focus{border-color:var(--accent)}
+.msf-search::placeholder{color:var(--text3)}
 .msf-opt{
   display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:6px;
   font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap}
+.msf-opt[hidden]{display:none}
 .msf-opt:hover{background:var(--bg3)}
 .msf-opt input{width:15px;height:15px;flex-shrink:0;accent-color:var(--accent);cursor:pointer;margin:0}
 .msf-empty{padding:8px 9px;font-size:12px;color:var(--text3)}
@@ -2353,28 +2364,57 @@ body.light .stg-carrier-toggle{background:#d0dcea;border-color:#b0c4d8}
 #sec-webdialer.dialer-floating .wd-display{ padding:0 6px 0 14px; }
 #sec-webdialer.dialer-floating .wd-backspace{ width:38px; height:38px; }
 #sec-webdialer .wd-header{ position:relative; }
-/* The popup's two window controls live in ONE absolutely-positioned cluster
-   pinned to the header's top-right. Minimize (–) and expand (⤢) occupy the
-   SAME slot in that cluster — the widget's top-right corner — so collapsing
-   and re-expanding never moves the control the agent is aiming at. */
+/* ── The popup's window controls ─────────────────────────────────────────
+   THREE buttons, never all visible at once: minimize, expand, close. They
+   are separate elements toggled by CSS rather than one button whose icon is
+   swapped in JS — an icon swap has exactly one failure mode, which is
+   showing the wrong glyph, and it showed a "–" on the minimized bar. With
+   two elements and a `display` rule keyed off .is-minimized, "both at once"
+   stops being a state the markup can express.
+
+   The cluster overlays the TOP-RIGHT OF THE PHONE ITSELF, not the strip
+   above it. In floating mode the header is pulled out of flow so the card
+   rises to the top of the popup and the buttons sit on its corner. */
 .wd-float-btns{
   display:none; position:absolute; top:0; right:0;
-  align-items:center; gap:2px;
+  align-items:center; gap:2px; z-index:6;
 }
 #sec-webdialer.dialer-floating .wd-float-btns{ display:flex; }
-.wd-floating-close,.wd-floating-min{
+.wd-floating-close,.wd-floating-min,.wd-floating-expand{
   width:30px; height:30px; border-radius:8px; border:none;
   background:transparent; color:var(--text2); cursor:pointer;
   display:flex; align-items:center; justify-content:center; padding:0;
 }
-.wd-floating-close:hover,.wd-floating-min:hover{ background:rgba(255,255,255,.06); color:var(--text); }
-body.light .wd-floating-close:hover,body.light .wd-floating-min:hover{ background:rgba(11,31,58,.06); }
-.wd-floating-close:focus-visible,.wd-floating-min:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+.wd-floating-close:hover,.wd-floating-min:hover,.wd-floating-expand:hover{
+  background:rgba(255,255,255,.06); color:var(--text);
+}
+body.light .wd-floating-close:hover,
+body.light .wd-floating-min:hover,
+body.light .wd-floating-expand:hover{ background:rgba(11,31,58,.06); }
+.wd-floating-close:focus-visible,
+.wd-floating-min:focus-visible,
+.wd-floating-expand:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+/* Expanded shows minimize; minimized shows expand. Exactly one, always. */
+#sec-webdialer.dialer-floating .wd-floating-expand{ display:none; }
+#sec-webdialer.dialer-floating.is-minimized .wd-floating-min{ display:none; }
+#sec-webdialer.dialer-floating.is-minimized .wd-floating-expand{ display:flex; }
+
+/* Expanded: the header leaves the flow so .wd-wrap starts at the top of the
+   popup's padding box, and the cluster lands 6px inside the dial card's
+   top-right corner rather than floating in the gap above it. */
+#sec-webdialer.dialer-floating .wd-header{
+  position:absolute; top:14px; right:14px; left:auto;
+  width:auto; min-height:0; margin:0; z-index:6; pointer-events:none;
+}
+#sec-webdialer.dialer-floating .wd-float-btns{ pointer-events:auto; }
+/* …and the card grows a top strip for them to sit in, so they never crowd
+   the Caller ID Name field underneath. */
+#sec-webdialer.dialer-floating .wd-dial-card{ padding-top:42px; }
 
 /* ── Minimized: the popup collapses into a compact docked bar ────────────
-   The bar IS the widget — same element, same header cluster — so the expand
-   button lands exactly where the minimize button was. Everything else in
-   the widget is hidden; only caller, timer and status remain. */
+   The bar IS the widget — same element, same cluster — so expand lands
+   exactly where minimize was. Everything else is hidden; only caller,
+   timer and status remain. */
 #sec-webdialer.dialer-floating.is-minimized{
   top:auto; bottom:16px; right:auto;
   left:50%; transform:translateX(-50%);
@@ -2383,13 +2423,7 @@ body.light .wd-floating-close:hover,body.light .wd-floating-min:hover{ backgroun
 }
 #sec-webdialer.dialer-floating.is-minimized .wd-wrap{ display:none; }
 #sec-webdialer.dialer-floating.is-minimized .wd-dock{ display:flex; }
-/* Header shrinks to nothing but its button cluster and overlays the bar's
-   top-right — hence the 4px inset and pointer-events dance. */
-#sec-webdialer.dialer-floating.is-minimized .wd-header{
-  position:absolute; top:4px; right:4px; left:auto; bottom:auto;
-  width:auto; min-height:0; margin:0; z-index:2; pointer-events:none;
-}
-#sec-webdialer.dialer-floating.is-minimized .wd-float-btns{ pointer-events:auto; }
+#sec-webdialer.dialer-floating.is-minimized .wd-header{ top:4px; right:4px; }
 .wd-dock{
   display:none; align-items:center; gap:10px;
   padding:11px 44px 11px 14px;
@@ -4069,6 +4103,10 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
 .ledger-leads .msf-panel{background:var(--lg-card);border-color:var(--lg-border)}
 .ledger-leads .msf-all{color:var(--lg-text2);border-bottom-color:var(--lg-divider)}
 .ledger-leads .msf-all:hover{background:var(--lg-inner);color:var(--lg-text1)}
+.ledger-leads .msf-search-wrap{background:var(--lg-card)}
+.ledger-leads .msf-search{background:var(--lg-inner)!important;border-color:var(--lg-border);color:var(--lg-text1)}
+.ledger-leads .msf-search:focus{border-color:var(--lg-blue-border)}
+.ledger-leads .msf-search::placeholder{color:var(--lg-caption)}
 .ledger-leads .msf-opt{color:var(--lg-text1)}
 .ledger-leads .msf-opt:hover{background:var(--lg-inner)}
 .ledger-leads .msf-opt input{accent-color:var(--lg-blue)}
@@ -6075,9 +6113,15 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
       <div class="wd-header">
         <div class="wd-header-title">Web Dialer</div>
         <div class="wd-header-sub">Dial any number by hand — no lead required.</div>
+        <!-- Two buttons for one job, shown one at a time by CSS. See the
+             .wd-float-btns rules: a single icon-swapping button is what put
+             a "–" on the minimized bar. -->
         <div class="wd-float-btns">
-          <button type="button" class="wd-floating-min" id="wd-floating-min" aria-label="Minimize dialer" title="Minimize" aria-expanded="true">
-            <span id="wd-floating-min-ico" data-ico="minus" data-size="16"></span>
+          <button type="button" class="wd-floating-min" id="wd-floating-min" aria-label="Minimize dialer" title="Minimize">
+            <span data-ico="minus" data-size="16"></span>
+          </button>
+          <button type="button" class="wd-floating-expand" id="wd-floating-expand" aria-label="Expand dialer" title="Expand">
+            <span data-ico="arrows-out" data-size="16"></span>
           </button>
           <button type="button" class="wd-floating-close" id="wd-floating-close" aria-label="Close dialer" title="Close">
             <span data-ico="x" data-size="16"></span>
@@ -6095,7 +6139,7 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
           <div class="wd-dock-num" id="wd-dock-num"></div>
         </div>
         <div class="wd-dock-side">
-          <span class="wd-dock-timer" id="wd-dock-timer">—</span>
+          <span class="wd-dock-timer" id="wd-dock-timer"></span>
           <span class="wd-dock-status" id="wd-dock-status">Idle</span>
         </div>
       </div>
@@ -18575,6 +18619,31 @@ const US_STATE_CODES = [
 const MSF_ALL_LABEL = { status: 'All Statuses', source: 'All Sources', state: 'All States' };
 const MSF_FIELD_LABEL = { status: 'Status', source: 'Source', state: 'State' };
 
+/**
+ * Which filters get a search box inside their panel.
+ *
+ * Source and State only. State is fifty options and Source grows with every
+ * vendor an agent has ever imported from, so both are a scroll-and-hunt;
+ * Status is a fixed eight and a search box over eight things is furniture.
+ */
+const MSF_SEARCHABLE = ['source', 'state'];
+/**
+ * The live search term per filter, held OUT of the DOM for the same reason
+ * the selection is: ticking a box re-renders the panel, and a term that
+ * lived in the input's value would be wiped every time — which is exactly
+ * when it is most wanted, halfway through picking six states.
+ */
+const _msfSearch = { source: '', state: '' };
+
+/** Case-insensitive substring, over both the value and the label. */
+function msfOptionMatches(opt, term) {
+  if (!term) return true;
+  const t = term.trim().toLowerCase();
+  if (!t) return true;
+  return String(opt.label || '').toLowerCase().includes(t)
+      || String(opt.value || '').toLowerCase().includes(t);
+}
+
 /** The option list for a field. Source is derived from the live book. */
 function msfOptions(field) {
   if (field === 'status') return LEAD_STATUS_FILTER_OPTIONS;
@@ -18620,12 +18689,82 @@ function msfRender(field) {
                 : MSF_ALL_LABEL[field]);
 
   if (panel) {
+    const term = _msfSearch[field] || '';
+    // Order inside the panel: the "All …" clear row, then the search box,
+    // then the options — so the box sits directly above the first key, which
+    // is where you look for it.
     let html = `<button type="button" class="msf-all" onclick="msfClear('${field}')">${escapeHTML(MSF_ALL_LABEL[field])}</button>`;
+    if (MSF_SEARCHABLE.indexOf(field) !== -1) {
+      html += `<div class="msf-search-wrap">` +
+        `<input type="text" class="msf-search" id="msf-search-${field}" autocomplete="off" ` +
+        `placeholder="Search ${escapeHTML(String(MSF_FIELD_LABEL[field]).toLowerCase())}…" ` +
+        `value="${escapeHTML(term)}" ` +
+        // Typing must NOT re-render the panel — that would blur the input on
+        // every keystroke. It only shows and hides rows already in the DOM.
+        `oninput="msfSearchInput('${field}',this.value)" ` +
+        `onkeydown="msfSearchKey(event,'${field}')">` +
+        `</div>`;
+    }
+    // Every option is rendered; a non-matching one is hidden, not dropped, so
+    // clearing the box costs nothing and a ticked-but-filtered-out option is
+    // still really there in the selection.
+    const visible = opts.filter(o => msfOptionMatches(o, term));
     html += opts.length ? opts.map(o =>
-      `<label class="msf-opt"><input type="checkbox" value="${escapeHTML(o.value)}"${chosen.has(o.value) ? ' checked' : ''}` +
+      `<label class="msf-opt"${msfOptionMatches(o, term) ? '' : ' hidden'}>` +
+      `<input type="checkbox" value="${escapeHTML(o.value)}"${chosen.has(o.value) ? ' checked' : ''}` +
       ` onchange="msfSetOption('${field}',this.value,this.checked)">${escapeHTML(o.label)}</label>`).join('')
       : '<div class="msf-empty">Nothing to filter by yet</div>';
+    if (opts.length && !visible.length) {
+      html += `<div class="msf-empty">No ${escapeHTML(String(MSF_FIELD_LABEL[field]).toLowerCase())} matches “${escapeHTML(term)}”</div>`;
+    }
     panel.innerHTML = html;
+  }
+}
+
+/**
+ * Filters the open panel as the agent types.
+ *
+ * Hides and shows the rows that are already there rather than re-rendering:
+ * replacing the panel's innerHTML would destroy the very input being typed
+ * into and drop focus after the first character.
+ */
+function msfSearchInput(field, term) {
+  _msfSearch[field] = term || '';
+  const root = document.getElementById('msf-' + field);
+  if (!root) return;
+  const opts = msfOptions(field);
+  const byValue = new Map(opts.map(o => [o.value, o]));
+  let shown = 0;
+  root.querySelectorAll('.msf-opt').forEach(lbl => {
+    const cb = lbl.querySelector('input');
+    const o = cb ? byValue.get(cb.value) : null;
+    const on = !o || msfOptionMatches(o, _msfSearch[field]);
+    lbl.hidden = !on;
+    if (on) shown++;
+  });
+  // The "no matches" line is rebuilt rather than kept in sync — it is one
+  // element and it has to carry the term the agent actually typed.
+  const panel = root.querySelector('.msf-panel');
+  const old = panel && panel.querySelector('.msf-noresult');
+  if (old) old.remove();
+  if (panel && opts.length && shown === 0) {
+    const d = document.createElement('div');
+    d.className = 'msf-empty msf-noresult';
+    d.textContent = 'No ' + String(MSF_FIELD_LABEL[field]).toLowerCase() + ' matches “' + _msfSearch[field] + '”';
+    panel.appendChild(d);
+  }
+}
+
+/** Escape clears the search before it closes the panel; Enter just holds. */
+function msfSearchKey(e, field) {
+  if (e.key === 'Enter') { e.preventDefault(); return; }
+  if (e.key !== 'Escape') return;
+  if (_msfSearch[field]) {
+    e.stopPropagation();          // the document handler would close the panel
+    e.preventDefault();
+    const inp = document.getElementById('msf-search-' + field);
+    if (inp) inp.value = '';
+    msfSearchInput(field, '');
   }
 }
 
@@ -18665,6 +18804,10 @@ function msfSetOption(field, value, on) {
 function msfClear(field) {
   if (!_leadFilterSel[field]) return;
   _leadFilterSel[field].clear();
+  // The search term goes with it. A term left behind on a closed panel
+  // silently narrows the option list the next time it opens, and the agent
+  // has no memory of typing it.
+  if (field in _msfSearch) _msfSearch[field] = '';
   msfCloseAll();
   msfRenderAll();
   filterLeads();
@@ -18672,6 +18815,7 @@ function msfClear(field) {
 
 function msfClearAll() {
   _leadFilterSel = leadFilterEmpty();
+  Object.keys(_msfSearch).forEach(f => { _msfSearch[f] = ''; });
   msfCloseAll();
   msfRenderAll();
   filterLeads();
@@ -18696,6 +18840,12 @@ function msfToggleOpen(field) {
   panel.hidden = !willOpen;
   const b = root.querySelector('.msf-btn');
   if (b) b.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+  // Opening a searchable filter puts the caret in the box — the reason to
+  // open State at all is usually to find one state.
+  if (willOpen && MSF_SEARCHABLE.indexOf(field) !== -1) {
+    const inp = document.getElementById('msf-search-' + field);
+    if (inp) setTimeout(() => { inp.focus(); inp.select(); }, 0);
+  }
 }
 
 document.addEventListener('click', (e) => {
@@ -20452,9 +20602,11 @@ const webDialer = (() => {
     const numEl  = _el('wd-dock-num');    if (numEl)  { numEl.textContent    = number; numEl.style.display = number ? '' : 'none'; }
     const stEl   = _el('wd-dock-status'); if (stEl)     stEl.textContent     = status;
     const tmEl   = _el('wd-dock-timer');
+    // Blank, not an em dash, when there is no elapsed time to show. A stray
+    // "—" sitting on the bar reads as a control.
     if (tmEl) tmEl.textContent = (phase === 'connected') ? _fmtTimer(sp.durationSec || 0)
                                : (phase === 'ended' && (sp.durationSec || 0) > 0) ? _fmtTimer(sp.durationSec)
-                               : live ? '—' : '—';
+                               : '';
     const dotEl = _el('wd-dock-dot');
     if (dotEl) {
       dotEl.classList.toggle('is-ringing', phase === 'ringing-out' || phase === 'ringing-in');
@@ -20728,11 +20880,12 @@ const webDialer = (() => {
       else if (phase === 'ended') sp.close();
       if (typeof closeDialerWidget === 'function') closeDialerWidget();
     });
-    // Floating-mode minimize (–) / expand (⤢) — same button slot, both ways.
+    // Minimize (–) and expand (⤢) are separate buttons sharing one slot —
+    // CSS shows whichever the current state calls for.
     const floatMin = _el('wd-floating-min');
-    if (floatMin) floatMin.addEventListener('click', () => {
-      if (typeof toggleDialerMinimized === 'function') toggleDialerMinimized();
-    });
+    if (floatMin) floatMin.addEventListener('click', () => setDialerMinimized(true));
+    const floatExpand = _el('wd-floating-expand');
+    if (floatExpand) floatExpand.addEventListener('click', () => setDialerMinimized(false));
     const inp = _input();
     if (inp) {
       inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') placeCall(); });
@@ -20788,19 +20941,15 @@ function applyDialerMinimized() {
   // Minimizing only means anything for the floating popup — the full Web
   // Dialer tab is a page, not a window.
   const on = sec.classList.contains('dialer-floating') && isDialerMinimized();
+  // This class is the ONLY thing that decides which control is on screen —
+  // CSS shows minimize or expand off the back of it. Nothing swaps an icon,
+  // so there is no state in which both are visible.
   sec.classList.toggle('is-minimized', on);
-  const btn = document.getElementById('wd-floating-min');
-  const ico = document.getElementById('wd-floating-min-ico');
-  if (btn) {
-    btn.setAttribute('aria-label', on ? 'Expand dialer' : 'Minimize dialer');
-    btn.setAttribute('title', on ? 'Expand' : 'Minimize');
-    btn.setAttribute('aria-expanded', on ? 'false' : 'true');
-  }
-  // mountIcons() skips a slot that already holds an svg, so swap directly.
-  if (ico && typeof icon === 'function') ico.innerHTML = icon(on ? 'arrows-out' : 'minus', { size: 16 });
   // The launcher must not sit on top of the bar.
   if (typeof dfabApplySlot === 'function') dfabApplySlot();
 }
+/** Kept for the console and any future keyboard shortcut; the buttons each
+ *  call setDialerMinimized() with the state they mean, rather than toggling. */
 function toggleDialerMinimized() { setDialerMinimized(!isDialerMinimized()); }
 
 function openDialerWidget() {

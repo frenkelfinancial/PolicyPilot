@@ -228,6 +228,88 @@ test('the selection lives in JS, not in the DOM — which is what survives pagin
   assert.match(all, /filteredLeads\.forEach/);
 });
 
+// ============================================================
+// 8b. THE SEARCH INSIDE THE SOURCE AND STATE PANELS
+// ============================================================
+
+test('Source and State get a search box; Status does not', () => {
+  assert.match(APP, /const MSF_SEARCHABLE = \['source', 'state'\];/);
+  // Fifty states and an ever-growing vendor list are a scroll-and-hunt.
+  // Eight statuses are not, and a search box over eight things is furniture.
+  assert.ok(!/MSF_SEARCHABLE[^\n]*'status'/.test(APP));
+});
+
+test('the box sits directly above the first option, under the "All …" row', () => {
+  const fn = APP.slice(APP.indexOf('function msfRender(field)'),
+                       APP.indexOf('/** The chips row'));
+  const allAt    = fn.indexOf('class="msf-all"');
+  const searchAt = fn.indexOf('class="msf-search"');
+  const optAt    = fn.indexOf('class="msf-opt"');
+  assert.ok(allAt > 0 && searchAt > 0 && optAt > 0);
+  assert.ok(allAt < searchAt, 'the clear row comes first');
+  assert.ok(searchAt < optAt, 'the search box comes before the first key');
+});
+
+test('typing hides rows instead of re-rendering — otherwise focus is lost', () => {
+  // Rebuilding the panel's innerHTML would destroy the input being typed
+  // into and drop the caret after the first character.
+  const fn = APP.slice(APP.indexOf('function msfSearchInput(field, term)'),
+                       APP.indexOf('/** Escape clears the search'));
+  assert.match(fn, /root\.querySelectorAll\('\.msf-opt'\)\.forEach/);
+  assert.match(fn, /lbl\.hidden = !on;/);
+  assert.ok(!/msfRender\(/.test(fn), 'the search must not re-render the panel');
+  assert.match(APP, /\.msf-opt\[hidden\]\{display:none\}/);
+});
+
+test('the term lives outside the DOM, so ticking a box does not wipe it', () => {
+  // msfSetOption -> msfRenderAll rebuilds every panel. A term held in the
+  // input's value would vanish exactly when it is most wanted — halfway
+  // through picking six states.
+  assert.match(APP, /const _msfSearch = \{ source: '', state: '' \};/);
+  const fn = APP.slice(APP.indexOf('function msfRender(field)'),
+                       APP.indexOf('/** The chips row'));
+  assert.match(fn, /const term = _msfSearch\[field\] \|\| '';/);
+  assert.match(fn, /value="\$\{escapeHTML\(term\)\}"/);
+});
+
+test('a filtered-out option is hidden, never dropped from the panel', () => {
+  // Dropping it would mean a ticked option could disappear from the list
+  // while still being in the selection.
+  const fn = APP.slice(APP.indexOf('function msfRender(field)'),
+                       APP.indexOf('/** The chips row'));
+  assert.match(fn, /html \+= opts\.length \? opts\.map/, 'every option is still rendered');
+  assert.match(fn, /msfOptionMatches\(o, term\) \? '' : ' hidden'/);
+});
+
+test('clearing a filter clears its search term too', () => {
+  const one = APP.slice(APP.indexOf('function msfClear(field)'), APP.indexOf('function msfClearAll()'));
+  assert.match(one, /if \(field in _msfSearch\) _msfSearch\[field\] = '';/);
+  const all = APP.slice(APP.indexOf('function msfClearAll()'), APP.indexOf('function msfCloseAll('));
+  assert.match(all, /Object\.keys\(_msfSearch\)\.forEach\(f => \{ _msfSearch\[f\] = ''; \}\);/);
+});
+
+test('matching is case-insensitive and covers the value as well as the label', () => {
+  // State options are value === label ("TX"), but a source can be
+  // "direct_mail" labelled "Direct Mail" — typing either should find it.
+  const fn = APP.slice(APP.indexOf('function msfOptionMatches(opt, term)'),
+                       APP.indexOf('/** The option list for a field'));
+  assert.match(fn, /\.toLowerCase\(\)/);
+  assert.match(fn, /opt\.label[\s\S]{0,80}includes\(t\)/);
+  assert.match(fn, /opt\.value[\s\S]{0,80}includes\(t\)/);
+  assert.match(fn, /if \(!term\) return true;/, 'an empty term matches everything');
+});
+
+test('opening a searchable panel puts the caret in the box', () => {
+  // Sliced by length, not by a following marker: `document.addEventListener`
+  // appears many times earlier in the file and indexOf would find one of
+  // those, silently producing an empty slice that matches nothing.
+  const at = APP.indexOf('function msfToggleOpen(field)');
+  assert.ok(at > 0, 'msfToggleOpen must exist');
+  const fn = APP.slice(at, at + 900);
+  assert.match(fn, /MSF_SEARCHABLE\.indexOf\(field\) !== -1/);
+  assert.match(fn, /inp\.focus\(\)/);
+});
+
 test('the leadfilter core is pure — no DOM, network, storage or app globals', () => {
   const m = APP.match(/\/\/ <leadfilter-core>([\s\S]*?)\/\/ <\/leadfilter-core>/);
   const body = stripLineComments(m[1], ['//', '*', '/*']);
