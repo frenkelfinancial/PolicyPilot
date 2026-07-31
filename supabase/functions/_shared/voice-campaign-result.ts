@@ -65,7 +65,7 @@ export async function recordCampaignCallResult(
 
   try {
     const { data: enr } = await sb.from("voice_campaign_enrollments")
-      .select("id, campaign_id, agent_id, lead_id, status, current_step_position, step_attempts, answers, appointments")
+      .select("id, campaign_id, agent_id, lead_id, status, current_step_position, step_attempts, answers, appointments, appointment_id")
       .eq("id", call.enrollment_id)
       .maybeSingle();
     // A stopped/completed enrollment does not come back to life because a call
@@ -75,15 +75,22 @@ export async function recordCampaignCallResult(
       return { applied: false, reason: enr ? `enrollment_${enr.status}` : "enrollment_missing" };
     }
 
-    const [{ data: campaign }, { data: steps }, { data: lead }] = await Promise.all([
+    const [{ data: campaign }, { data: steps }, { data: lead }, { data: appt }] = await Promise.all([
       sb.from("voice_campaigns")
-        .select("id, name, active, stop_on_appointment_booked, stop_on_sold, stop_on_answered, stop_answer_talk_secs")
+        .select("id, name, active, campaign_goal, stop_on_appointment_booked, stop_on_sold, stop_on_answered, stop_answer_talk_secs")
         .eq("id", enr.campaign_id).maybeSingle(),
       sb.from("voice_campaign_steps")
-        .select("id, position, step_type, wait_value, wait_unit, drip_rate")
+        .select("id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes")
         .eq("campaign_id", enr.campaign_id).order("position", { ascending: true }),
       call.lead_id
         ? sb.from("leads").select("id, data, dnc").eq("id", call.lead_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      // The appointment an anchored campaign is counting down to. Read here
+      // rather than passed in, because the reminder that runs NEXT has to be
+      // measured against the appointment as it stands now — somebody may have
+      // moved it while this very call was in the air.
+      enr.appointment_id
+        ? sb.from("ai_appointments").select("id, starts_at").eq("id", enr.appointment_id).maybeSingle()
         : Promise.resolve({ data: null }),
     ]);
 
@@ -118,6 +125,7 @@ export async function recordCampaignCallResult(
       leadSold,
       leadDnc: lead?.dnc === true,
       now: endedAt,
+      appointmentAt: (appt as { starts_at?: string | null } | null)?.starts_at ?? null,
     });
 
     const patch: Record<string, unknown> = {

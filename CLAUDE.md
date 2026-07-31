@@ -414,6 +414,69 @@ Autonomy layer (added 07/2026):
   `on conflict (agent_id, seed_key) where seed_key is not null` — which
   PostgREST cannot express. **The seeder runs as SQL or in an edge function,
   never as a browser upsert.**
+### Phase 5 — the 12 pre-built campaigns + bulk consent (added 2026-07-30)
+
+- **Read `docs/voice-campaigns-defaults.md` before touching anything named
+  `vc_seed_*`, `vc_default_campaigns`, `voice_campaign_seed_state`,
+  `campaign_goal`, `lead_consent_events` or `leads-consent`.** Schema:
+  `20260803_default_voice_campaigns.sql`. Closes `ORION_GAP_ANALYSIS.md` § 1.4.
+- **🔴 THE TOMBSTONE IS WHAT MAKES A DELETE STICK.** `voice_campaign_seed_state`
+  records that a default was OFFERED, and nothing automatic ever removes a row.
+  Presence cannot be keyed on the campaign itself: an agent who DELETED one
+  looks exactly like an agent who never had it, and re-creating it would restart
+  a program that phones consumers. The seeder contains no `UPDATE`, no
+  `DO UPDATE` and no `DELETE`; three tests and a production dry run pin
+  re-run-adds-nothing, no-overwrite and no-resurrection.
+- **`campaign_tag` is the canonical field, and this round created it.** The
+  production book carries NO `lead_type`, `type`, `tags` or `campaign_tag`;
+  `coverage_wanted` holds DOLLAR AMOUNTS and `source` holds vendor names — so
+  the virtual `lead_type` chain matches almost nobody. Each lead-type campaign
+  takes the canonical tag as group 1 and the natural vendor words as further OR
+  groups. Settable from the Add Lead modal, the CSV importer and `lead-ingest`.
+  **`military_status` was deliberately NOT added to `VC_TAG_FIELDS`** — its
+  values are one vendor's dropdown wording.
+- **The tag guard now accepts `status` for FOUR values only** — `sold`,
+  `appointment`, `chargeback`, `lapsed` — because six of the twelve are
+  lifecycle campaigns bounded by their trigger, not by a lead-type tag.
+  **`status is new` still does not count**; that exclusion is the whole reason
+  `status` was left out originally. Same four in `// <vcamp-core>`,
+  `voice-campaign-core.ts` and `voice_campaigns_validate()`; a test compares all
+  three.
+- **`sort_order` is load-bearing, not cosmetic.** The seeder writes twelve rows
+  in ONE transaction so `created_at` ties, and three of them trigger on the same
+  sale while a lead may be ACTIVE in only one campaign. It is what makes
+  Customer Care → Emergency Contact → Beneficiary Referral a stated queue rather
+  than a race. The tick orders by it.
+- **An anchored step whose moment has passed is SKIPPED, never fired late.**
+  `steps.anchor`/`offset_minutes` + `vcResolveNextDue()`. A lead with no
+  surviving reminder is not enrolled at all. **The Steps tab must keep carrying
+  `anchor`/`offset_minutes` through its save** — that tab deletes and
+  re-inserts every row, so dropping them turns "the day before" into
+  "immediately".
+- **`campaign_goal` changes ONLY the reason clause.** The opener and
+  `I'm an assistant calling on behalf of {agent} with {agency}.` are identical
+  on every call, because that part IS the disclosure. The column is
+  CHECK-constrained and `ai-call-start` normalises an unknown value to
+  `qualify`. **The assistant branches on the spoken phrases, not on a dynamic
+  variable** — `assistant.dynamic_variables` is what 503'd on the greeting's
+  critical path. Reword a clause in `buildReasonClause()` and you must reword
+  the matching bullet in `docs/ai-assistant-script-v1.md` in the same commit.
+- **🔴 `leads.tcpa_consent` IS NO LONGER WRITABLE FROM A BROWSER.**
+  `leads_protect_consent_columns` — and it has **NO admin exemption**, unlike
+  the `phone_numbers`/`agents` guards, because it records what a CONSUMER
+  agreed to. `leads-consent` (agent from the JWT, no agent id in the body) is
+  the only door; it requires the unticked-by-default attestation and writes an
+  append-only `lead_consent_events` row carrying that sentence verbatim. The
+  Phase 1 AI test rig goes through it too — exempting it would have left a hole
+  shaped like that one function.
+- **Revoking consent NEVER touches `dnc_list` or `suppression_list`**, and
+  `leads-consent` never writes `consent_records`: voice consent and text consent
+  are different permissions and recording one must not widen the other.
+- **All twelve ship ACTIVE, and the screen has to say so.** With no consented
+  leads they enrol nobody, so a calm banner says exactly that on both the
+  Campaigns page and the AI dialer, from one `voiceCallableCount()`. It
+  disappears when it stops being true.
+
 - **`ai_inbound_enabled` now DEFAULTS TRUE** and is backfilled for every
   agent-owned number (20260802b). The power-dialer host (`+12625099123`) is
   excluded by e164 and forced false if it ever lands in the table. All three

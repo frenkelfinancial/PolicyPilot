@@ -6,7 +6,7 @@ import {
   vcEvaluateEnrollment,
   vcFirstStep,
   vcMatchesTriggerGroups,
-  vcStepDueAt,
+  vcResolveNextDue,
   vcValidateTriggerGroups,
 } from "../_shared/voice-campaign-core.ts";
 import type { VcStep } from "../_shared/voice-campaign-core.ts";
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
   if (!campaignId) return json({ error: "missing_campaign_id" }, 400);
 
   const { data: campaign } = await sb.from("voice_campaigns")
-    .select("id, agent_id, name, trigger_groups")
+    .select("id, agent_id, name, trigger_groups, trigger_on_appointment_booked")
     .eq("id", campaignId)
     .eq("agent_id", user.id)
     .maybeSingle();
@@ -141,10 +141,11 @@ Deno.serve(async (req) => {
   }
 
   const { data: stepRows } = await sb.from("voice_campaign_steps")
-    .select("id, position, step_type, wait_value, wait_unit, drip_rate")
+    .select("id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes")
     .eq("campaign_id", campaignId)
     .order("position", { ascending: true });
-  const first = vcFirstStep((stepRows || []) as VcStep[]);
+  const steps = (stepRows || []) as VcStep[];
+  const first = vcFirstStep(steps);
   if (!first) {
     return json({ error: "no_steps", detail: "Add at least one step before enrolling anyone." }, 422);
   }
@@ -161,6 +162,25 @@ Deno.serve(async (req) => {
   const seenIds     = new Set((seen || []).map((r) => r.lead_id));
   const activeIds   = new Set((activeAnywhere || []).map((r) => r.lead_id));
   const suppressed  = new Set((suppRows || []).map((r) => r.phone_e164));
+
+  // An appointment-anchored campaign counts down to a specific meeting, so
+  // "re-evaluate the book" means "find everyone with one still ahead of them".
+  // Read the same way the tick's sweep reads it — future and scheduled only —
+  // so the button and the cron cannot disagree about who is eligible.
+  const upcomingAppt = new Map<string, { id: string; starts_at: string }>();
+  if (campaign.trigger_on_appointment_booked === true) {
+    const { data: rows } = await sb.from("ai_appointments")
+      .select("id, lead_id, starts_at")
+      .eq("agent_id", user.id)
+      .eq("status", "scheduled")
+      .gt("starts_at", nowIso)
+      .order("starts_at", { ascending: true })
+      .limit(2000);
+    for (const r of rows || []) {
+      if (!r.lead_id || !r.starts_at) continue;
+      if (!upcomingAppt.has(r.lead_id)) upcomingAppt.set(r.lead_id, { id: r.id, starts_at: r.starts_at });
+    }
+  }
 
   let matched = 0;
   const skipped: Record<string, number> = {};
@@ -189,14 +209,25 @@ Deno.serve(async (req) => {
       skipped[verdict.reason || "skipped"] = (skipped[verdict.reason || "skipped"] || 0) + 1;
       continue;
     }
+    const appt = upcomingAppt.get(lead.id) || null;
+    // Anchored steps whose moment has already gone are skipped, never fired
+    // late; a lead with nothing left to fire is not enrolled at all.
+    const firstDue = vcResolveNextDue({
+      steps, now, appointmentAt: appt ? appt.starts_at : null,
+    });
+    if (!firstDue.step || !firstDue.dueAt) {
+      skipped.appointment_too_soon = (skipped.appointment_too_soon || 0) + 1;
+      continue;
+    }
     rows.push({
       campaign_id: campaignId,
       agent_id: user.id,
       lead_id: lead.id,
       status: "active",
-      current_step_position: first.position,
+      current_step_position: firstDue.step.position,
       step_attempts: 0,
-      next_action_at: vcStepDueAt(now, first).toISOString(),
+      next_action_at: firstDue.dueAt,
+      appointment_id: appt ? appt.id : null,
       enrolled_by: "reevaluate",
       enrolled_at: nowIso,
       updated_at: nowIso,

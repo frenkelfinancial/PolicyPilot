@@ -2687,3 +2687,115 @@ it.
   `enrollment_id`**, denormalised on purpose: the drip throttle counts calls per
   (campaign, step) over a rolling window and that must be one indexed query, and
   a campaign's stats must survive an enrollment being deleted with its lead.
+
+---
+
+## Applied — `20260803_default_voice_campaigns.sql` (2026-07-31T04:3xZ)
+
+Applied by: Claude (Opus 5), `supabase db query --linked -f <wrapped>` with
+`begin;`/`commit;` around the whole file. **Additive only** — new columns, two
+new tables, four new functions, two new triggers, one `CREATE OR REPLACE` of
+`voice_campaigns_validate()`, and a backfill that only INSERTs. No `DROP`, no
+`TRUNCATE`, no `DELETE`, nothing in `auth.*` / `storage.*`. No approval needed
+under the rules at the top of this file.
+
+Read `docs/voice-campaigns-defaults.md` for the decisions.
+
+### Audit before → after
+
+| Object | Before | After |
+|---|---|---|
+| `voice_campaigns.sort_order` | absent | present, `not null default 100` |
+| `voice_campaigns.campaign_goal` | absent | present + `voice_campaigns_goal_check` (7 values or NULL) |
+| `voice_campaigns.trigger_on_appointment_booked` | absent | present, `not null default false` |
+| `voice_campaign_steps.anchor` / `offset_minutes` | absent | present, `previous_step` / `0`, both CHECK-constrained |
+| `voice_campaign_enrollments.appointment_id` | absent | present, FK → `ai_appointments` `on delete set null` |
+| `public.voice_campaign_seed_state` | absent | present, RLS on, **1 policy, SELECT only** |
+| `public.lead_consent_events` | absent | present, RLS on, **1 policy, SELECT only** |
+| `vc_default_campaigns()` | absent | present |
+| `vc_seed_default_campaigns()` / `_for(uuid)` | absent | both present; `_for` REVOKEd from `public`/`anon`/`authenticated` |
+| trigger `agents_seed_voice_campaigns` | absent | present, AFTER INSERT on `public.agents` |
+| trigger `leads_protect_consent_columns` | absent | present, BEFORE INSERT OR UPDATE on `public.leads` |
+| `voice_campaigns` rows | 0 | **108** (9 agents × 12) |
+| `voice_campaign_steps` rows | 0 | **612** (9 × 68) |
+| `voice_campaign_enrollments` rows | 0 | 0 |
+| `leads` with `tcpa_consent` | 0 | 0 |
+| `voice_campaign_enrollments` policies | SELECT only | **SELECT only, unchanged** |
+
+### Behavioural checks — 11/11 pass
+
+Run inside a transaction and **rolled back**, against Jace's real agent id.
+
+| # | Check | Result |
+|---|---|---|
+| 1a | re-running the seeder creates nothing | `was_created` count **0** |
+| 1b | …and the campaign count is unchanged | **12** |
+| 2a | after deactivating + renaming one, a re-seed creates nothing | **0** |
+| 2b | …and the edit survives | `active=false name="MY EDITED NAME"` |
+| 3a | after **deleting** one, a re-seed creates nothing | **0** |
+| 3b | …and the deleted campaign **does not come back** | **0 rows** |
+| 3c | …total stays at 11, not 12 | **11** |
+| 4a | `status is new` refused by the DB trigger | refused |
+| 4b | `status is sold` accepted | accepted |
+| 4c | `status is_not sold` refused | refused |
+| 4d | `state is TX` alone refused | refused |
+
+Plus the shape that landed: Appointment Reminder steps
+`1:appointment@-1440, 2:appointment@-120`; `sort_order` 10…120 with the twelve
+names in the intended order; goals present = `care, chargeback,
+emergency_contact, qualify, rebook, referral, remind`.
+
+### The consent column guard — 3/3 pass
+
+`auth.role()` is **JWT-derived**, not the Postgres role, which is what makes the
+guard fire for a PostgREST request and not for a service-role edge function.
+Tested by setting `request.jwt.claims` inside a rolled-back transaction:
+
+| Claims | Statement | Result |
+|---|---|---|
+| `{"role":"authenticated","sub":<jace>}` | `set tcpa_consent=true, source, at` | **silently reverted** — `consent=false source=(null)` |
+| `{"role":"service_role"}` | the same statement | **applied** — `consent=true` |
+| `{"role":"authenticated","sub":<jace>}` | `set data=…, tcpa_consent=false` | data edit applied, **consent survived** |
+
+Jace's own account **is** an admin, and this guard deliberately has no admin
+exemption — so that first row is also the proof that an admin cannot assert
+consent either.
+
+### Live end-to-end, no phone rang
+
+All twelve of Jace's campaigns were set `dry_run = true` for the duration and
+**restored to `false` afterwards**. A synthetic consented lead
+(`+18085550147`, Hawaii — inside the lead-local window at 04:35 UTC so gate 4
+was genuinely exercised) was consented through the **real `leads-consent`
+endpoint with a real user JWT**, enrolled by the **live pg_cron tick** into
+exactly one campaign (Final Expense, via `lead_type is final expense`), and
+dry-run dialed through the full six-gate chain with
+`campaign_goal: "qualify"` in the assistant vars and the caller ID rotated to
+the mature number (recommended 150, used 11, headroom 139).
+
+**Cleaned up:** enrollment stopped, lead deleted (its `lead_consent_events`
+cascaded), `dry_run` restored. Final state verified: 12 active · 0 dry-run ·
+0 paused · **0 active enrollments anywhere** · **0 queued** · 0 leads with
+consent in the whole database · **0 campaign calls ever placed**. A clean tick
+afterwards swept 9 agents and 108 campaigns and did nothing.
+
+### Notes worth keeping
+
+- **The tombstone table is the whole idempotency story.** Presence is keyed on
+  `voice_campaign_seed_state (agent_id, seed_key)`, not on the campaign,
+  because a DELETED campaign is indistinguishable from one never seeded — and
+  resurrecting one restarts a program that phones consumers. Nothing automatic
+  removes a tombstone row; deleting one by hand is how a default is re-offered.
+- **The seeder's OUT columns are `campaign_seed_key` / `was_created`, not
+  `seed_key` / `created`.** plpgsql substitutes its own variables into SQL, and
+  a variable named `seed_key` would shadow the COLUMN of that name in
+  `on conflict (agent_id, seed_key)` — the one statement the idempotency rests
+  on.
+- **The agent-creation hook is on `public.agents`, not inside
+  `auth.handle_new_user()`**, and it swallows its own exceptions. Every path
+  that creates an agent goes through that table, and a sign-up must never fail
+  because a default campaign did not insert.
+- **`voice_campaigns_validate()` was replaced, not extended.** The only change
+  is that a positive `status is <sold|appointment|chargeback|lapsed>` now counts
+  as a narrowing condition. `status is new` still does not, and that exclusion
+  is why `status` is absent from `tag_fields` in the first place.

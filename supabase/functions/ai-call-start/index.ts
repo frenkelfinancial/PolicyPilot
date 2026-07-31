@@ -60,6 +60,14 @@ import {
 // function stays verify_jwt = true (it is NOT in supabase/config.toml) — the
 // service key is itself a valid Supabase JWT, so the platform gate is
 // satisfied by the same header. Do not relax that.
+// Mirrors VC_CAMPAIGN_GOALS in _shared/voice-campaign-core.ts. Kept as a set
+// here rather than imported so this function's gate chain stays free of the
+// campaign engine — the dependency runs one way, and it is the campaign that
+// depends on the gate.
+const VALID_CAMPAIGN_GOALS = new Set([
+  "qualify", "remind", "rebook", "care", "emergency_contact", "referral", "chargeback",
+]);
+
 serve(async (req) => {
   const CORS = corsHeaders(req.headers.get("origin"));
   function json(body: unknown, status = 200) {
@@ -103,7 +111,7 @@ serve(async (req) => {
   let body: {
     lead_id?: unknown; caller_id?: unknown; agent_id?: unknown;
     enrollment_id?: unknown; campaign_id?: unknown; campaign_step?: unknown;
-    campaign_name?: unknown; dry_run?: unknown;
+    campaign_name?: unknown; campaign_goal?: unknown; dry_run?: unknown;
   };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
@@ -134,6 +142,16 @@ serve(async (req) => {
   const campaignStep = isInternal && Number.isFinite(Number(body.campaign_step))
     ? Math.trunc(Number(body.campaign_step)) : null;
   const campaignName = isInternal && typeof body.campaign_name === "string" ? body.campaign_name.trim() : "";
+  // WHY the campaign is calling. Picks the reason clause of the spoken
+  // greeting and a branch of the assistant's instructions. Gated on the
+  // internal flag like every other campaign field, and normalised HERE rather
+  // than trusted: an unrecognised goal must land on the qualification script,
+  // never on no script at all.
+  const campaignGoal = isInternal && typeof body.campaign_goal === "string"
+    ? (VALID_CAMPAIGN_GOALS.has(body.campaign_goal.trim().toLowerCase())
+        ? body.campaign_goal.trim().toLowerCase()
+        : "qualify")
+    : "";
 
   // DRY RUN — internal callers only. Runs every gate in order and stops at the
   // dial. It writes no ai_calls row, places no call and costs nothing, which
@@ -399,6 +417,9 @@ serve(async (req) => {
     // write is a phrase they would have to explain to a lead.
     campaign_name: campaignName,
     campaign_step: campaignStep !== null ? String(campaignStep) : "",
+    // "" for a manual / test-rig call, which buildGreeting() reads as the
+    // qualification opener — the only one that existed before campaigns did.
+    campaign_goal: campaignGoal,
   };
 
   // ---- Dry run: everything above happened, nothing below does -------------

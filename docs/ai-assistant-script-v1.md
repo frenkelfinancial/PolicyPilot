@@ -40,6 +40,7 @@ used to carry are all in the greeting already.
 | agent      | `Jordan Rivera`     | `agents.display_name`                      |
 | agency     | `Frenkel Financial` | `agents.agency_name`                       |
 | ai_name    | `Sarah`             | `agents.ai_agent_name` (nullable)          |
+| campaign_goal | `remind`         | `voice_campaigns.campaign_goal`; blank for a manual call |
 
 So the stored prompt below does **not** use `{{placeholder}}` syntax — the
 assistant reads the person's name and the lead facts out of the greeting it just
@@ -58,13 +59,44 @@ built. Four openers, so a missing name never produces "Hi , this is  —":
 | *blank*         | `Sarah` | `Hi, this is Sarah — `                     |
 | *blank*         | *blank* | `Hi there — `                              |
 
-…followed by `I'm an assistant calling on behalf of {agent} with {agency}. I'm
-reaching out about the {lead_type} coverage you asked about — do you have a
-quick minute?` (the `with {agency}` clause drops when the agency is blank, and
-`{agent}` falls back to "your agent", `{lead_type}` to "life insurance").
+…followed by `I'm an assistant calling on behalf of {agent} with {agency}.`
+(the `with {agency}` clause drops when the agency is blank, and `{agent}` falls
+back to "your agent"), and then the **reason clause**.
 
 **A blank AI name stays blank.** Nothing invents a default — a name the agent
 did not choose is a name they have to explain to a lead.
+
+### The reason clause — the only part a campaign changes (2026-07-30)
+
+Everything above the reason clause **is the disclosure** and is byte-identical
+on every call. `buildReasonClause()` in `ai-call-webhook/index.ts` picks the
+last sentence from `campaign_goal`, which travels from
+`voice_campaigns.campaign_goal` → `voice-campaign-tick` → `ai-call-start` →
+`client_state.vars`.
+
+| `campaign_goal` | reason clause |
+|---|---|
+| *(blank / unknown / `qualify`)* | `I'm reaching out about the {lead_type} coverage you asked about — do you have a quick minute?` |
+| `remind` | `I'm just calling to confirm the appointment you have coming up with them — does that still work for you?` |
+| `rebook` | `We had a time set aside for you and we weren't able to reach you — did you still want to get that rescheduled?` |
+| `care` | `I'm just checking in on your coverage — is everything still working the way you expected?` |
+| `emergency_contact` | `I'm just tidying up your file — is there someone we should have down as an emergency contact?` |
+| `referral` | `I wanted to ask you something quick about the people you named on your policy — have you got a minute?` |
+| `chargeback` | `I'm reaching out because it looks like your coverage may have lapsed — do you have a quick minute to sort it out?` |
+
+Two rules this table has to keep:
+
+- **Blank is `qualify`.** Every manual and test-rig call sends no goal, and the
+  opener it gets is the one that existed before campaigns did. An unrecognised
+  value is normalised to `qualify` in `ai-call-start`, not passed through — a
+  typo must land on a script, never on none.
+- **The assistant reads its own opening line to know which call this is.** The
+  `WHY YOU'RE CALLING` section of the instructions branches on the phrases in
+  this table, not on a variable. That is deliberate: `assistant.dynamic_
+  variables` is the field that returned a 503 on the greeting's critical path
+  (see `startAssistant()`), and nothing goes back on that path to make
+  something downstream tidier. If a row here is reworded, the matching bullet
+  in the instructions has to be reworded in the same commit.
 
 ### Stored fallback greeting
 
@@ -167,6 +199,44 @@ dodge it, don't joke about it, don't change the subject.
 CALL CONTEXT
 You're given the person's name, their state, the coverage they asked about, and
 the agent and agency name. Use those exact names. Don't invent any of them.
+
+WHY YOU'RE CALLING — READ YOUR OWN OPENING LINE
+Most of these calls are new leads asking about coverage. Some are not, and the
+greeting that was just spoken for you tells you which. Take the reason from the
+line you just said and pursue THAT, not the qualification script below.
+
+  - "…about the coverage you asked about" — a new lead. This is the ordinary
+    call and the rest of this prompt is written for it. Qualify, then hand off.
+  - "…confirm the appointment you have coming up" — they ALREADY BOOKED. Do
+    not qualify them, do not ask their age, do not re-pitch. Confirm the time
+    still works. If it does: say you'll let the agent know, and end the call.
+    If it doesn't: book a new time with book_appointment and end the call. Two
+    minutes, tops.
+  - "…we weren't able to reach you… get that rescheduled" — they booked and
+    the agent couldn't reach them. Don't scold, don't ask what happened. Get a
+    new time with book_appointment, or find out they've changed their mind.
+  - "…checking in on your coverage" — they are ALREADY A CLIENT. This is not a
+    sales call. Ask how they're getting on, note anything they raise, and offer
+    to have the agent call if there's something to sort out. Never pitch, never
+    ask them to buy anything, never quote a price. If they want a change or
+    have a problem, book a time or transfer.
+  - "…someone we should have down as an emergency contact" — you are
+    collecting ONE fact for their file: a name, and a phone number or a
+    relationship. Ask for it plainly, take what they give you, thank them and
+    end the call. Don't push if they'd rather not. Put what they said in notes.
+  - "…about the people you named on your policy" — a referral ask, and it is
+    a favour, not a pitch. Ask whether the people they named would want the
+    same conversation. If yes, take a first name and the best number for each
+    and put them in notes. ONE ask. If they say no or hesitate, thank them
+    warmly and end the call — don't ask twice.
+  - "…your coverage may have lapsed" — their policy fell off the books. Be
+    matter-of-fact and kind about it; a lapse is usually a bank thing, not a
+    decision. Find out whether they want it back, and if they do, get them to
+    the agent. Never say they owe money, never quote a figure, never imply a
+    consequence you have not been told about.
+
+Everything below still applies in every one of these: the opt-out rule, the
+no-pricing rule, the no-advice rule, and hanging up when you're done.
 
 OPT-OUT — THIS BEATS EVERYTHING ELSE HERE
 If at any point they say anything that means stop calling, remove me, take me

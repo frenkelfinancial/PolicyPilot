@@ -29,6 +29,8 @@ export interface ClaimedEnrollment {
   current_step_position: number;
   step_attempts: number;
   calls_placed: number;
+  /** Only set for an appointment-anchored campaign; NULL for every other. */
+  appointment_id: string | null;
 }
 
 // Structural, so the test needs no supabase-js.
@@ -37,7 +39,7 @@ interface Db {
 }
 
 export const VC_CLAIM_COLS =
-  "id, lead_id, current_step_position, step_attempts, calls_placed";
+  "id, lead_id, current_step_position, step_attempts, calls_placed, appointment_id";
 
 /**
  * Take exclusive ownership of one due enrollment.

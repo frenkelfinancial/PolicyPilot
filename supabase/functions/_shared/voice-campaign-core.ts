@@ -100,11 +100,61 @@ export const VC_TAG_FIELDS = [
   "source",
 ];
 
+/**
+ * Lead statuses that ALSO count as narrowing the audience (20260803).
+ *
+ * Six of the twelve shipped campaigns are LIFECYCLE campaigns — call the
+ * client we just sold, remind the person whose appointment is tomorrow, chase
+ * the one who did not show. Their audience is bounded by a terminal status and
+ * by the trigger, not by a lead-type tag, and under the original rule they
+ * could not be expressed at all.
+ *
+ * FOUR VALUES, and the exclusions are the point. Each of these describes
+ * people who have already been through something. `status is new` still does
+ * not count — it describes every fresh row in the book, which is the exact
+ * reason `status` was left out of VC_TAG_FIELDS in the first place — and
+ * neither do `called`, `no_answer` or `not_interested`.
+ */
+export const VC_LIFECYCLE_STATUSES = ["sold", "appointment", "chargeback", "lapsed"];
+
 /** Wait units a step may use. */
 export const VC_WAIT_UNITS = ["minutes", "hours", "days"];
 
 /** Step types. */
 export const VC_STEP_TYPES = ["call", "double_dial"];
+
+/**
+ * What a step's timing is measured FROM.
+ *
+ * `previous_step` — every hand-made step, and the engine's original and only
+ * behaviour: due `wait_value`/`wait_unit` after the previous step completed.
+ * `appointment` — due at the enrollment's appointment plus `offset_minutes`
+ * (negative = before). The Appointment Reminder campaign is the only shipped
+ * user; nothing else needs it and nothing else should grow one casually.
+ */
+export const VC_STEP_ANCHORS = ["previous_step", "appointment"];
+
+/**
+ * Why a campaign calls — the branch the assistant takes.
+ *
+ * A reminder call, a qualification call, a customer-care check-in and a
+ * referral ask cannot open with the same sentence. This value picks the REASON
+ * CLAUSE of the spoken greeting and a branch of the assistant's instructions.
+ * Everything else about the opening line — who is speaking, on whose behalf,
+ * and that it is an assistant — is identical in every branch, because that
+ * part is the disclosure.
+ *
+ * An unrecognised value is `qualify`, which is also what NULL means.
+ */
+export const VC_CAMPAIGN_GOALS = [
+  "qualify",
+  "remind",
+  "rebook",
+  "care",
+  "emergency_contact",
+  "referral",
+  "chargeback",
+];
 
 /** Enrollment statuses. */
 export const VC_ENROLLMENT_STATUSES = ["active", "completed", "stopped", "paused"];
@@ -263,13 +313,29 @@ export interface VcValidation {
 }
 
 /**
+ * Does this condition NARROW the audience?
+ *
+ * A positive condition on a lead-type / campaign-tag field, or on `status`
+ * with one of the four lifecycle values. `is_not` never counts, in either
+ * case — that is the whole point of the guard.
+ */
+export function vcIsNarrowingCondition(cond: VcCondition | null | undefined): boolean {
+  if (!cond || cond.op !== "is") return false;
+  const field = String(cond.field || "").trim();
+  if (VC_TAG_FIELDS.includes(field)) return true;
+  if (field === "status" && VC_LIFECYCLE_STATUSES.includes(norm(cond.value))) return true;
+  return false;
+}
+
+/**
  * The rule that keeps a campaign from calling the whole book.
  *
- * Every group needs at least one POSITIVE (`is`) condition on a tag/lead-type
- * field. `is_not` does not count and that is the whole point: "lead type is not
- * trucker" excludes a sliver and admits everyone else, which is exactly the
- * rule someone types when they mean "everyone but truckers" and exactly the
- * campaign nobody meant to build.
+ * Every group needs at least one POSITIVE (`is`) condition that NARROWS —
+ * either a tag/lead-type field, or `status` set to one of the four lifecycle
+ * values. `is_not` does not count and that is the whole point: "lead type is
+ * not trucker" excludes a sliver and admits everyone else, which is exactly
+ * the rule someone types when they mean "everyone but truckers" and exactly
+ * the campaign nobody meant to build.
  */
 export function vcValidateTriggerGroups(raw: unknown): VcValidation {
   const groups = vcNormalizeGroups(raw);
@@ -294,9 +360,10 @@ export function vcValidateTriggerGroups(raw: unknown): VcValidation {
       err = 'A condition can only be "is" or "is not".';
     } else if (g.conditions.some((c) => !c.value)) {
       err = "Every condition needs a value.";
-    } else if (!g.conditions.some((c) => c.op === "is" && VC_TAG_FIELDS.includes(c.field))) {
-      err = "Every group must name a lead type or campaign tag with an “is” condition " +
-        `(${VC_TAG_FIELDS.join(", ")}) — otherwise this campaign could call your whole book.`;
+    } else if (!g.conditions.some((c) => vcIsNarrowingCondition(c))) {
+      err = "Every group must narrow who gets called with an “is” condition — either a lead type " +
+        `or campaign tag (${VC_TAG_FIELDS.join(", ")}), or a lifecycle status ` +
+        `(status is ${VC_LIFECYCLE_STATUSES.join(", ")}) — otherwise this campaign could call your whole book.`;
     }
     groupErrors.push(err);
     if (err && !firstError) firstError = err;
@@ -316,6 +383,10 @@ export interface VcStep {
   wait_value?: number | null;
   wait_unit?: string | null;
   drip_rate?: VcDripRate | null;
+  /** "previous_step" (default) or "appointment". See VC_STEP_ANCHORS. */
+  anchor?: string | null;
+  /** Only read for an "appointment" anchor. Negative = before. */
+  offset_minutes?: number | null;
 }
 
 export interface VcDripRate {
@@ -352,17 +423,121 @@ export function vcWaitMs(value: unknown, unit: unknown): number {
   return n * per;
 }
 
+/** Is this step timed against the appointment rather than the previous step? */
+export function vcStepIsAnchored(step: VcStep | null | undefined): boolean {
+  return !!step && norm(step.anchor) === "appointment";
+}
+
 /**
- * When a step becomes due, measured from when the PREVIOUS step completed.
+ * The instant an appointment-anchored step wants, or null with no appointment.
  *
- * A zero wait is due immediately, which is what "call within a minute" degrades
+ * `offset_minutes` is NEGATIVE for "before", which is what every reminder is.
+ * Null is a real answer and the callers treat it as one: a campaign anchored
+ * to an appointment that does not exist has nothing to schedule, and guessing
+ * an instant would be inventing a reminder for a meeting nobody booked.
+ */
+export function vcAnchoredDueAt(
+  step: VcStep | null | undefined,
+  appointmentAt: string | Date | null | undefined,
+): Date | null {
+  const at = asDate(appointmentAt ?? null);
+  if (!at || !step) return null;
+  return new Date(at.getTime() + intOr(step.offset_minutes, 0) * 60_000);
+}
+
+/**
+ * When a step becomes due.
+ *
+ * For the ordinary anchor, measured from when the PREVIOUS step completed. A
+ * zero wait is due immediately, which is what "call within a minute" degrades
  * to if someone types 0 — the drip rate, the slot limit and the gate chain are
  * what actually pace it.
+ *
+ * For an appointment anchor, measured from the appointment. With no
+ * appointment in hand it falls back to `from`, which is only reachable if a
+ * caller skipped vcResolveNextDue(); every caller in this codebase uses that
+ * instead, precisely so "there is no appointment" is answered rather than
+ * papered over.
  */
-export function vcStepDueAt(from: string | Date, step: VcStep | null | undefined): Date {
+export function vcStepDueAt(
+  from: string | Date,
+  step: VcStep | null | undefined,
+  ctx?: { appointmentAt?: string | Date | null },
+): Date {
   const base = asDate(from) || new Date();
   if (!step) return base;
+  if (vcStepIsAnchored(step)) {
+    return vcAnchoredDueAt(step, ctx?.appointmentAt ?? null) || base;
+  }
   return new Date(base.getTime() + vcWaitMs(step.wait_value, step.wait_unit));
+}
+
+export interface VcDueResolution {
+  /** The step that should run next, or null when there is nothing left. */
+  step: VcStep | null;
+  /** ISO instant it becomes due, or null. */
+  dueAt: string | null;
+  /** Positions passed over because their anchored moment had already gone. */
+  skipped: number[];
+  reason: "ok" | "no_steps" | "all_past" | "no_appointment";
+}
+
+/**
+ * The next step that can still be run, and when.
+ *
+ * THIS IS WHERE "NEVER FIRED LATE" LIVES. An appointment-anchored step whose
+ * moment has passed is SKIPPED, not delayed: a reminder delivered after the
+ * appointment is a robot telling somebody they are about to miss something
+ * they have already missed, and it is worse than saying nothing. A campaign
+ * enrolled ninety minutes before the appointment has missed the day-before
+ * step and lands straight on the two-hours-before one; enrolled ten minutes
+ * before, it has missed both and completes without dialing at all.
+ *
+ * Ordinary steps are never skipped — their due time is computed forward from
+ * `now`, so it is always in the future by construction.
+ *
+ * `fromPosition` is EXCLUSIVE: pass the position that just ran, or 0/null to
+ * resolve the first step at enrollment.
+ */
+export function vcResolveNextDue(input: {
+  steps: VcStep[] | null | undefined;
+  fromPosition?: number | null;
+  now: Date;
+  appointmentAt?: string | Date | null;
+}): VcDueResolution {
+  const from = intOr(input.fromPosition, 0);
+  const all = vcStepsSorted(input.steps);
+  const candidates = from > 0 ? all.filter((s) => intOr(s.position, 0) > from) : all;
+  const skipped: number[] = [];
+
+  for (const step of candidates) {
+    if (!vcStepIsAnchored(step)) {
+      return {
+        step,
+        dueAt: vcStepDueAt(input.now, step).toISOString(),
+        skipped,
+        reason: "ok",
+      };
+    }
+    const due = vcAnchoredDueAt(step, input.appointmentAt ?? null);
+    if (!due) {
+      // No appointment to count down to. Nothing about waiting makes this
+      // resolvable, so say so rather than scheduling a call at "now".
+      return { step: null, dueAt: null, skipped, reason: "no_appointment" };
+    }
+    if (due.getTime() <= input.now.getTime()) {
+      skipped.push(intOr(step.position, 0));
+      continue;
+    }
+    return { step, dueAt: due.toISOString(), skipped, reason: "ok" };
+  }
+
+  return {
+    step: null,
+    dueAt: null,
+    skipped,
+    reason: skipped.length ? "all_past" : "no_steps",
+  };
 }
 
 /** Plain-English wait, for the Steps tab and the Enrollments table. */
@@ -373,6 +548,27 @@ export function vcWaitLabel(step: VcStep | null | undefined): string {
   const u = typeof step.wait_unit === "string" ? step.wait_unit.toLowerCase() : "minutes";
   const unit = UNIT_MS[u] ? u : "minutes";
   return `${n} ${n === 1 ? unit.replace(/s$/, "") : unit}`;
+}
+
+/**
+ * How a step is scheduled, in one phrase, for the Steps tab.
+ *
+ * Anchored steps read backwards from the appointment because that is how a
+ * person says it — "the day before", not "-1440 minutes".
+ */
+export function vcStepScheduleLabel(step: VcStep | null | undefined): string {
+  if (!step) return "immediately";
+  if (!vcStepIsAnchored(step)) return vcWaitLabel(step);
+  const mins = intOr(step.offset_minutes, 0);
+  if (mins === 0) return "at the appointment";
+  const abs = Math.abs(mins);
+  const side = mins < 0 ? "before" : "after";
+  let n: number;
+  let unit: string;
+  if (abs % 1440 === 0)   { n = abs / 1440; unit = "day"; }
+  else if (abs % 60 === 0) { n = abs / 60;  unit = "hour"; }
+  else                     { n = abs;       unit = "minute"; }
+  return `${n} ${n === 1 ? unit : unit + "s"} ${side} the appointment`;
 }
 
 // ------------------------------------------------------------
@@ -426,6 +622,7 @@ export interface VcCampaign {
   name?: string | null;
   active?: boolean | null;
   dry_run?: boolean | null;
+  campaign_goal?: string | null;
   stop_on_appointment_booked?: boolean | null;
   stop_on_sold?: boolean | null;
   stop_on_answered?: boolean | null;
@@ -491,6 +688,8 @@ export interface VcAdvance {
   stop_reason: string | null;
   /** Which branch fired — carried into the tick's trace. */
   decision: "stopped" | "double_dial_retry" | "next_step" | "completed";
+  /** Anchored steps passed over because their moment had gone. */
+  skipped?: number[];
 }
 
 /**
@@ -508,6 +707,8 @@ export function vcAdvanceAfterCall(input: {
   leadSold?: boolean;
   leadDnc?: boolean;
   now: Date;
+  /** The enrollment's appointment, for appointment-anchored steps. */
+  appointmentAt?: string | Date | null;
 }): VcAdvance {
   const { campaign, steps, enrollment, call, now } = input;
 
@@ -545,8 +746,18 @@ export function vcAdvanceAfterCall(input: {
     };
   }
 
-  const next = vcNextStep(steps, pos);
-  if (!next) {
+  // vcResolveNextDue, not vcNextStep: an appointment-anchored step whose
+  // moment has already gone is skipped rather than fired late, and running out
+  // of steps that way completes the enrollment exactly as running out of steps
+  // any other way does.
+  const resolved = vcResolveNextDue({
+    steps,
+    fromPosition: pos,
+    now,
+    appointmentAt: input.appointmentAt ?? null,
+  });
+
+  if (!resolved.step || !resolved.dueAt) {
     return {
       status: "completed",
       current_step_position: pos,
@@ -554,16 +765,18 @@ export function vcAdvanceAfterCall(input: {
       next_action_at: null,
       stop_reason: null,
       decision: "completed",
+      skipped: resolved.skipped,
     };
   }
 
   return {
     status: "active",
-    current_step_position: intOr(next.position, 0),
+    current_step_position: intOr(resolved.step.position, 0),
     step_attempts: 0,
-    next_action_at: vcStepDueAt(now, next).toISOString(),
+    next_action_at: resolved.dueAt,
     stop_reason: null,
     decision: "next_step",
+    skipped: resolved.skipped,
   };
 }
 
@@ -635,6 +848,7 @@ const SKIP_LABELS: Record<string, string> = {
   suppressed: "suppressed",
   already_enrolled: "already in a campaign",
   no_phone: "no phone",
+  appointment_too_soon: "appointment too soon to remind",
 };
 
 // ------------------------------------------------------------
@@ -925,7 +1139,21 @@ export function vcCampaignVars(campaign: VcCampaign | null | undefined, step: Vc
     campaign_name: name,
     campaign_step: pos > 0 ? String(pos) : "",
     campaign_step_type: step ? (norm(step.step_type) || "call") : "",
+    campaign_goal: vcCampaignGoal(campaign),
   };
+}
+
+/**
+ * The campaign's goal, normalised — `qualify` for anything unrecognised.
+ *
+ * Unlike `campaign_name`, blank does NOT stay blank here: an unset goal is a
+ * hand-made campaign, and a hand-made campaign is a qualification call. The
+ * name is a phrase the agent wrote and the assistant might repeat; the goal is
+ * an internal switch nobody hears, so defaulting it invents nothing.
+ */
+export function vcCampaignGoal(campaign: VcCampaign | null | undefined): string {
+  const raw = norm((campaign as { campaign_goal?: unknown } | null | undefined)?.campaign_goal);
+  return VC_CAMPAIGN_GOALS.includes(raw) ? raw : "qualify";
 }
 
 // ------------------------------------------------------------
@@ -975,6 +1203,8 @@ export function vcStopReasonLabel(reason: string | null | undefined): string {
     lead_missing: "Lead removed",
     manual: "Unenrolled by hand",
     campaign_deleted: "Campaign removed",
+    appointment_cancelled: "Appointment cancelled",
+    appointment_passed: "Appointment has been and gone",
   };
   return map[r] || reason || "";
 }

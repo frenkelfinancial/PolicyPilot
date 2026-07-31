@@ -629,18 +629,31 @@ test("a window that never opens gives up after the horizon instead of spinning",
 // 12. Assistant context and stats
 // ============================================================
 
-test("campaign vars carry the name and step, and blank stays blank", () => {
+test("campaign vars carry the name, step and goal — blank NAME stays blank, blank GOAL does not", () => {
+  // The name is a phrase the agent wrote and the assistant might repeat, so a
+  // default would be a phrase they have to explain to a lead. The goal is an
+  // internal switch nobody hears, so defaulting it to `qualify` invents
+  // nothing — and leaving it blank would mean an unrecognised value landed on
+  // no script at all.
   assert.deepEqual(
-    vcCampaignVars({ name: "Veteran Lead" }, { position: 2, step_type: "double_dial" }),
-    { campaign_name: "Veteran Lead", campaign_step: "2", campaign_step_type: "double_dial" },
+    vcCampaignVars({ name: "Veteran Lead", campaign_goal: "qualify" }, { position: 2, step_type: "double_dial" }),
+    { campaign_name: "Veteran Lead", campaign_step: "2", campaign_step_type: "double_dial", campaign_goal: "qualify" },
+  );
+  assert.deepEqual(
+    vcCampaignVars({ name: "Appointment Reminder", campaign_goal: "remind" }, { position: 1, step_type: "call" }),
+    { campaign_name: "Appointment Reminder", campaign_step: "1", campaign_step_type: "call", campaign_goal: "remind" },
   );
   assert.deepEqual(
     vcCampaignVars({ name: "" }, null),
-    { campaign_name: "", campaign_step: "", campaign_step_type: "" },
+    { campaign_name: "", campaign_step: "", campaign_step_type: "", campaign_goal: "qualify" },
   );
   assert.deepEqual(
     vcCampaignVars(null, null),
-    { campaign_name: "", campaign_step: "", campaign_step_type: "" },
+    { campaign_name: "", campaign_step: "", campaign_step_type: "", campaign_goal: "qualify" },
+  );
+  assert.deepEqual(
+    vcCampaignVars({ name: "x", campaign_goal: "nonsense" }, null).campaign_goal,
+    "qualify",
   );
 });
 

@@ -931,6 +931,8 @@ body.light #aiAvailPill{background:var(--bg2)}
 .lead-act-btn.lead-text-btn--opted_out:hover{background:rgba(239,68,68,.16);border-color:rgba(239,68,68,.5);filter:none}
 .lead-act-btn.lead-optin-btn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.4);color:#fbbf24;font-weight:600;width:100%}
 .lead-act-btn.lead-optin-btn:hover{background:rgba(245,158,11,.2);border-color:rgba(245,158,11,.7);filter:brightness(1.1)}
+.lead-act-btn.lead-aiconsent-btn{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:#34d399;font-weight:600}
+.lead-act-btn.lead-aiconsent-btn:hover{background:rgba(16,185,129,.2);border-color:rgba(16,185,129,.7);filter:brightness(1.1)}
 .lead-info-line{margin-bottom:6px;line-height:1.4}
 .lead-info-line .lbl{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;font-weight:600;display:block;margin-bottom:1px}
 .lead-info-line .val{font-size:12px;color:var(--text2)}
@@ -4599,6 +4601,14 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
             <input type="checkbox" id="aiMeter-noCap" onchange="aiMeterToggleNoCap()"> No cap
           </label>
         </div>
+        <!-- The same honest notice the Campaigns page carries, in the one other
+             place an agent looks to find out why the AI is not calling. Hidden
+             the moment it stops being true (see updateCallableCount). -->
+        <div class="aim-note" id="aim-consent-note" style="display:none">
+          <strong>Your campaigns are live</strong> &mdash; they&rsquo;ll begin calling automatically as soon as
+          you have leads with recorded consent.
+          <a href="#" onclick="nav('leads');return false" style="color:var(--lg-blue);font-weight:600">Record consent &rarr;</a>
+        </div>
         <div class="aim-note">
           Your cap is yours &mdash; raise it, lower it, or switch it off. The recommendation above is
           only advice: going past it never blocks a call, but a number that keeps a heavy pace is the
@@ -5515,6 +5525,10 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
             </div>
             <div style="width:1px;height:18px;background:var(--border)"></div>
             <span style="font-size:12px;color:var(--text3)" id="lead-count-display">0 leads</span>
+            <!-- How many of the book the AI is allowed to phone. Empty until
+                 the consent state has loaded — a "0 callable" that corrects
+                 itself a second later reads as a broken account. -->
+            <span style="font-size:12px;color:var(--text2)" id="lead-callable-count"></span>
             <select id="lead-per-page" onchange="setLeadsPerPage()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text);font-family:var(--sans);font-size:12px;outline:none">
               <option value="25">25/page</option>
               <option value="50" selected>50/page</option>
@@ -5545,6 +5559,8 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
           <option value="banking_obj">Banking Objection</option>
         </select>
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
+        <div style="width:1px;height:22px;background:var(--border)"></div>
+        <button class="btn btn-sm" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px;font-weight:600" onclick="openConsentModal()" title="Record that these leads consented to be called by phone — required before the AI will dial them"><span data-ico="shield-check" data-size="14"></span>Record consent</button>
         <div class="js-desktop-only-dialer" style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
         <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="3" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/><rect x="7.5" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
@@ -6784,6 +6800,60 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
 </div>
 
 <!-- ADD LEAD MANUALLY MODAL -->
+<!-- ============================================================
+     RECORD CONSENT — bulk, and deliberately effortful.
+     The attestation is NOT pre-ticked and Record stays disabled until it is:
+     the agent is putting their name to a statement about what a consumer
+     agreed to, and the sentence they tick is stored verbatim on every row.
+     ============================================================ -->
+<div class="overlay" id="consentModal" onclick="if(event.target===this)closeConsentModal()">
+  <div class="modal" style="width:560px;max-width:95vw">
+    <div class="mhdr"><div class="mtitle">Record consent</div><button class="mclose" onclick="closeConsentModal()" data-ico="x" data-size="14"></button></div>
+    <div style="padding:6px 0 0">
+      <p style="font:13px/1.6 var(--sans);color:var(--text2);margin:0 0 14px">
+        The AI Sales Agent will only call a lead with recorded consent. This records the consent
+        you already hold for <strong id="cs-count">0 leads</strong> — it does not create any.
+      </p>
+
+      <div class="fg">
+        <label>Where did the consent come from?</label>
+        <select id="cs-source" onchange="consentSourceChange()">
+          <option value="vendor_optin">Lead vendor opt-in form</option>
+          <option value="web_form">My own web form</option>
+          <option value="inbound_call">They called me</option>
+          <option value="existing_client">Existing client</option>
+          <option value="other">Something else</option>
+        </select>
+      </div>
+
+      <div class="fg" style="margin-top:10px;display:none" id="cs-detail-wrap">
+        <label id="cs-detail-label">Which lead vendor? (required)</label>
+        <input type="text" id="cs-detail" autocomplete="off" oninput="consentSyncButton()"
+          placeholder="e.g. the vendor whose form they filled in">
+      </div>
+
+      <label class="vc-check" style="margin-top:16px;align-items:flex-start;gap:10px;line-height:1.55">
+        <input type="checkbox" id="cs-attest" onchange="consentSyncButton()" style="margin-top:2px;flex-shrink:0">
+        <span style="font:13px/1.55 var(--sans);color:var(--text)">
+          I confirm these leads gave prior express consent to be contacted by phone by me or my agency.
+        </span>
+      </label>
+
+      <p style="font:11.5px/1.5 var(--sans);color:var(--text3);margin:12px 0 0">
+        Stored with your name, the source above and the time, on every lead. Leads on your
+        do-not-call list are skipped — a person who said stop cannot be consented back.
+      </p>
+
+      <div id="cs-msg" style="font:12.5px var(--sans);color:var(--text2);margin-top:12px;min-height:16px"></div>
+
+      <div class="frow" style="margin-top:14px;justify-content:flex-end;gap:8px">
+        <button class="btn btn-s btn-sm" onclick="closeConsentModal()">Cancel</button>
+        <button class="btn btn-p btn-sm" id="cs-confirm" onclick="consentConfirm()" disabled>Record consent</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="addLeadModal" onclick="if(event.target===this)closeAddLeadModal()">
   <div class="modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto">
     <div class="mhdr"><div class="mtitle">Add Lead</div><button class="mclose" onclick="closeAddLeadModal()" data-ico="x" data-size="14"></button></div>
@@ -6849,6 +6919,22 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
             style="width:100%;box-sizing:border-box">
           <datalist id="al-source-datalist"></datalist>
         </div>
+      </div>
+      <!-- The canonical field the twelve shipped voice campaigns match on.
+           Nothing else in this app has ever written it, and every lead-type
+           campaign's first trigger group is `campaign_tag is <value>`. -->
+      <div class="fg" style="margin-top:10px">
+        <label>Campaign Tag <span style="color:var(--text3);font-weight:400">(optional — routes this lead to a voice campaign)</span></label>
+        <select id="al-campaign-tag" autocomplete="off">
+          <option value="">-- None --</option>
+          <option value="veteran">Veteran</option>
+          <option value="final_expense">Final Expense</option>
+          <option value="mortgage_protection">Mortgage Protection</option>
+          <option value="iul">IUL</option>
+          <option value="general_life">General Life</option>
+          <option value="trucker">Trucker</option>
+          <option value="chargeback">Chargeback (recovery)</option>
+        </select>
       </div>
       <div class="fg" style="margin-top:10px">
         <label>Notes <span style="color:var(--text3);font-weight:400">(optional)</span></label>
@@ -17636,6 +17722,16 @@ function renderLeads() {
   filterLeads_silent();
   updateLeadTabCounts();
   updateLeadKpis();
+  // Voice consent lives in a COLUMN, not in leads.data, so the in-memory book
+  // does not carry it. Loaded once, then re-rendered — the header count is
+  // deliberately blank rather than "0 callable" until it arrives.
+  // `_voiceConsentTried`, not `.loaded`: a failed load leaves `.loaded` false
+  // for ever, and re-rendering off it would spin.
+  if (!_voiceConsentTried && currentAgent) {
+    _voiceConsentTried = true;
+    loadVoiceConsent().then(() => { updateCallableCount(); renderLeads(); });
+  }
+  updateCallableCount();
   const container = document.getElementById('lead-list-container');
   const empty = document.getElementById('leads-empty');
   const totalPages = Math.ceil(filteredLeads.length / leadsPerPage);
@@ -17756,6 +17852,20 @@ function renderLeads() {
       ? `<button class="lead-act-btn lead-optin-btn" data-lid="${lid}" title="Email ${escapeHTML(lead.email)} a link to your opt-in page, so they can agree to texts themselves">Opt-in link</button>`
       : '';
 
+    // VOICE consent, which is a different permission from the texting one
+    // above and is read from a different place — leads.tcpa_consent, the
+    // column ai-call-start's gate 3 reads. Shown only when it is TRUE,
+    // because it is also the only way to take it back: an absent chip means
+    // "not consented", which the callable count already says once for the
+    // whole book.
+    const _vc = voiceConsentFor(lead);
+    const _aiConsentBtn = (_vc && _vc.consent)
+      ? `<button class="lead-act-btn lead-aiconsent-btn" data-lid="${lid}" title="${escapeHTML(
+            'Consented for AI calling' + (_vc.source ? ' — ' + _vc.source : '') +
+            '. Click to withdraw. This does not add them to your do-not-call list.',
+          )}">AI ✓</button>`
+      : '';
+
     const nameSubParts = [];
     if (firstName) nameSubParts.push(`First: ${escapeHTML(firstName)}`);
     if (lastName)  nameSubParts.push(`Last: ${escapeHTML(lastName)}`);
@@ -17791,6 +17901,7 @@ function renderLeads() {
       military_branch:'Military Branch', military_status:'Military Status',
       gender:'Gender', age:'Age', beneficiary:'Beneficiary',
       coverage_wanted:'Coverage Wanted', marital_status:'Marital Status',
+      campaign_tag:'Campaign Tag',
     };
     // Fields rendered elsewhere in the card — don't duplicate in the field panel
     const _skipInPanel = new Set([
@@ -17920,6 +18031,7 @@ function renderLeads() {
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
             ${_txBtn}
             ${_optInBtn}
+            ${_aiConsentBtn}
           </div>
         </div>
         `;
@@ -17950,6 +18062,7 @@ function renderLeads() {
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote">Quote</button>
             ${_txBtn}
             ${_optInBtn}
+            ${_aiConsentBtn}
           </div>
           ${_moreHTML}
         </div>
@@ -17996,6 +18109,7 @@ function renderLeads() {
             <button class="lead-act-btn quote-btn lead-quick-quote-btn" data-lid="${lid}" title="Quick Quote — prefills from this lead">Quote</button>
             ${_txBtn}
             ${_optInBtn}
+            ${_aiConsentBtn}
           </div>
           <div class="lead-col lead-col-fields">
             <div class="lead-received-icons">
@@ -18071,6 +18185,12 @@ function renderLeads() {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       smsSendOptInLink(e.currentTarget.dataset.lid, e.currentTarget);
+    });
+  });
+  container.querySelectorAll('.lead-aiconsent-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      revokeLeadConsent(e.currentTarget.dataset.lid);
     });
   });
   container.querySelectorAll('.lead-edit-info-btn').forEach(btn => {
@@ -19623,6 +19743,86 @@ function _syncDialerFabLiveState() {
 }
 setInterval(_syncDialerFabLiveState, 1000);
 
+// ============================================================
+// VOICE CONSENT — the state behind "87 of 122 callable"
+//
+// `leads.tcpa_consent` is a COLUMN, not part of `leads.data`, so the in-memory
+// book knows nothing about it. One query loads it for the whole book, keyed by
+// client_id (what the UI selects with) and carrying the row's uuid (what the
+// leads-consent endpoint takes).
+//
+// SEPARATE FROM `_leadConsent`, which is the TEXTING state and is read out of
+// `consent_records`. Voice consent and text consent are different permissions
+// — `runComplianceGate` reads one, `ai-call-start`'s gate 3 reads the other —
+// and collapsing them into one green tick would let recording one silently
+// widen the other.
+// ============================================================
+let _voiceConsent = { byClientId: new Map(), loaded: false };
+let _voiceConsentTried = false;
+
+async function loadVoiceConsent() {
+  if (!currentAgent) return _voiceConsent;
+  try {
+    const { data, error } = await sb.from('leads')
+      .select('id, client_id, tcpa_consent, tcpa_consent_source, tcpa_consent_at, dnc')
+      .eq('agent_id', currentAgent.id)
+      .range(0, 9999);
+    if (error) throw error;
+    const map = new Map();
+    for (const r of data || []) {
+      if (!r.client_id) continue;
+      map.set(String(r.client_id), {
+        leadId: r.id,
+        consent: r.tcpa_consent === true,
+        source: r.tcpa_consent_source || '',
+        at: r.tcpa_consent_at || null,
+        dnc: r.dnc === true,
+      });
+    }
+    _voiceConsent = { byClientId: map, loaded: true };
+  } catch (err) {
+    console.warn('[consent] load failed', err);
+  }
+  return _voiceConsent;
+}
+
+function voiceConsentFor(lead) {
+  if (!lead) return null;
+  return _voiceConsent.byClientId.get(String(lead.id)) || null;
+}
+
+/** How many of this agent's leads the AI is allowed to phone. */
+function voiceCallableCount() {
+  let n = 0;
+  for (const v of _voiceConsent.byClientId.values()) if (v.consent && !v.dnc) n++;
+  return n;
+}
+
+// "87 of 122 callable". Rendered in the leads header and read by the campaign
+// banner — one definition, so the two screens cannot disagree about whether
+// this account can dial anybody.
+function updateCallableCount() {
+  const el = document.getElementById('lead-callable-count');
+  if (!el) return;
+  if (!_voiceConsent.loaded) { el.textContent = ''; return; }
+  const total = leads.length;
+  const ok = voiceCallableCount();
+  el.innerHTML = ok === 0
+    ? '<span style="color:var(--text3)">0 of ' + total + ' callable by AI</span>'
+    : '<strong>' + ok + '</strong> of ' + total + ' callable by AI';
+  el.title = 'The AI Sales Agent may only call a lead with recorded TCPA consent. ' +
+    'Select leads and press “Record consent” to log the consent you already hold.';
+  syncConsentNotice();
+}
+
+// The same sentence, in the AI dialer area. One function so the two screens
+// cannot end up saying different things about the same account.
+function syncConsentNotice() {
+  const note = document.getElementById('aim-consent-note');
+  if (!note) return;
+  note.style.display = (_voiceConsent.loaded && voiceCallableCount() === 0) ? '' : 'none';
+}
+
 function clearBulkSelection() {
   selectedLeadIds.clear();
   const cb = document.getElementById('lead-select-all');
@@ -19710,6 +19910,168 @@ function syncBulkBarFloat() {
     _bulkBarSentinel._bound = true;
   }
   update();
+}
+
+// ============================================================
+// BULK CONSENT — the tool that turns a book into a callable book
+//
+// Every one of the twelve shipped voice campaigns is live and correct and will
+// enrol nobody, because ai-call-start's gate 3 refuses any lead without
+// recorded TCPA consent and no lead in this book has ever carried it. The
+// consent genuinely exists — it is on the vendor's form, or the web form, or
+// the inbound call — it has simply never been written down anywhere the gate
+// can see.
+//
+// THE FRICTION IS THE FEATURE. The attestation box is not pre-ticked and the
+// Record button stays disabled until it is, because what the agent is doing
+// here is putting their name to a statement about what a consumer agreed to.
+// A pre-ticked box would make that a formality, and the sentence they tick is
+// stored verbatim on every row this writes.
+//
+// The write itself is server-side (`leads-consent`): `leads.tcpa_consent` is
+// unwritable from the browser since 20260803, precisely so that this modal is
+// the only door.
+// ============================================================
+
+/** Must match CONSENT_ATTESTATION in supabase/functions/leads-consent. */
+const CONSENT_ATTESTATION_TEXT =
+  'I confirm these leads gave prior express consent to be contacted by phone ' +
+  'by me or my agency.';
+
+function openConsentModal() {
+  const n = selectedLeadIds.size;
+  if (!n) return;
+  const modal = document.getElementById('consentModal');
+  if (!modal) return;
+  document.getElementById('cs-count').textContent = n + ' lead' + (n !== 1 ? 's' : '');
+  document.getElementById('cs-attest').checked = false;
+  document.getElementById('cs-source').value = 'vendor_optin';
+  document.getElementById('cs-detail').value = '';
+  const msg = document.getElementById('cs-msg');
+  if (msg) { msg.textContent = ''; msg.style.color = 'var(--text2)'; }
+  consentSourceChange();
+  consentSyncButton();
+  modal.classList.add('open');
+}
+
+function closeConsentModal() {
+  const modal = document.getElementById('consentModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function consentSourceChange() {
+  const key = document.getElementById('cs-source').value;
+  const wrap = document.getElementById('cs-detail-wrap');
+  const label = document.getElementById('cs-detail-label');
+  const input = document.getElementById('cs-detail');
+  const needsName = key === 'vendor_optin';
+  const showsDetail = needsName || key === 'other';
+  if (wrap) wrap.style.display = showsDetail ? '' : 'none';
+  if (label) {
+    label.textContent = needsName
+      ? 'Which lead vendor? (required)'
+      : 'Describe the source (required)';
+  }
+  if (input) input.placeholder = needsName ? 'e.g. the vendor whose form they filled in' : 'Where the consent came from';
+  consentSyncButton();
+}
+
+function consentSyncButton() {
+  const btn = document.getElementById('cs-confirm');
+  if (!btn) return;
+  const attested = document.getElementById('cs-attest').checked;
+  const key = document.getElementById('cs-source').value;
+  const detail = (document.getElementById('cs-detail').value || '').trim();
+  const needsDetail = key === 'vendor_optin' || key === 'other';
+  btn.disabled = !attested || !key || (needsDetail && !detail);
+}
+
+async function consentConfirm() {
+  const btn = document.getElementById('cs-confirm');
+  const msg = document.getElementById('cs-msg');
+  if (!btn || btn.disabled) return;
+
+  // client_id -> uuid. The endpoint takes leads.id; the UI selects client_id.
+  // A selected lead the consent map has never seen is one that has not synced
+  // yet, and is reported rather than silently dropped.
+  const ids = [];
+  let unsynced = 0;
+  for (const cid of selectedLeadIds) {
+    const st = _voiceConsent.byClientId.get(String(cid));
+    if (st && st.leadId) ids.push(st.leadId); else unsynced++;
+  }
+  if (!ids.length) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = 'None of the selected leads have synced to the server yet.'; }
+    return;
+  }
+
+  btn.disabled = true;
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Recording…'; }
+
+  try {
+    const { data, error } = await sb.functions.invoke('leads-consent', {
+      body: {
+        action: 'grant',
+        lead_ids: ids,
+        consent_source: document.getElementById('cs-source').value,
+        consent_source_detail: (document.getElementById('cs-detail').value || '').trim(),
+        attestation: true,
+      },
+    });
+    if (error) throw new Error((data && data.detail) || error.message || 'Request failed');
+    if (data && data.error) throw new Error(data.detail || data.error);
+
+    const granted = (data && data.granted) || 0;
+    const skips = Object.entries((data && data.skipped) || {})
+      .filter(([, v]) => v > 0)
+      .map(([k, v]) => v + ' ' + (VC_SKIP_LABELS[k] || k.replace(/_/g, ' ')));
+    if (unsynced) skips.push(unsynced + ' not synced');
+
+    await loadVoiceConsent();
+    updateCallableCount();
+    renderLeads();
+    closeConsentModal();
+    showToast(
+      granted + ' lead' + (granted !== 1 ? 's' : '') + ' now callable by AI' +
+      (skips.length ? ' · skipped ' + skips.join(', ') : ''),
+      granted ? '#10b981' : '#f59e0b',
+    );
+    // The campaigns screen leads with "you have no consented leads"; that
+    // sentence has just stopped being true.
+    if (typeof vcampState === 'object' && vcampState && document.getElementById('vcamp-list')) vcampRenderList();
+  } catch (err) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = err.message || String(err); }
+    btn.disabled = false;
+  }
+}
+
+/**
+ * Take one lead back out.
+ *
+ * Deliberately does NOT touch the do-not-call or suppression lists. "I was
+ * wrong to think I had consent" and "this person told me never to call again"
+ * are different statements, and collapsing them either over- or under-reports
+ * what the consumer actually said. This stops the calls — gate 3 refuses
+ * immediately — and records why.
+ */
+async function revokeLeadConsent(clientId) {
+  const st = _voiceConsent.byClientId.get(String(clientId));
+  if (!st || !st.leadId) return;
+  if (!confirm('Withdraw AI-calling consent for this lead?\n\nThe AI will stop calling them immediately. ' +
+      'This does NOT add them to your do-not-call list — use Suppress for that.')) return;
+  try {
+    const { data, error } = await sb.functions.invoke('leads-consent', {
+      body: { action: 'revoke', lead_ids: [st.leadId], note: 'Withdrawn from the lead record' },
+    });
+    if (error) throw new Error((data && data.detail) || error.message);
+    if (data && data.error) throw new Error(data.detail || data.error);
+    await loadVoiceConsent();
+    updateCallableCount();
+    renderLeads();
+    showToast('Consent withdrawn — the AI will not call them', '#f59e0b');
+  } catch (err) {
+    showToast('Could not withdraw: ' + (err.message || err), '#dc2626');
+  }
 }
 
 function bulkSetStatus() {
@@ -20858,6 +21220,7 @@ const FIELD_OPTIONS = [
   { value:'military_status',  label:'Military Status' },
   { value:'beneficiary',      label:'Beneficiary' },
   { value:'coverage_wanted',  label:'Coverage Wanted' },
+  { value:'campaign_tag',     label:'Campaign Tag (routes to a voice campaign)' },
   { value:'notes',            label:'Notes / Comments' },
   { value:'custom',           label:'+ Add Custom Field…' },
 ];
@@ -20895,6 +21258,10 @@ const FIELD_ALIASES = {
   source:     ['source','lead source','lead_source','origin','campaign','list source','listsource'],
   military_branch: ['military branch','branch','militarybranch'],
   military_status: ['military status','militarystatus','service status','veteran status'],
+  // 'campaign' is deliberately NOT here — it is already claimed by `source`,
+  // and a vendor's "campaign" column is usually their ad campaign, not a
+  // lead type.
+  campaign_tag: ['campaign tag','campaigntag','lead type','leadtype','lead_type','vertical','product type'],
   notes:      ['notes','comment','comments','remarks','note'],
 };
 
@@ -20917,7 +21284,7 @@ function detectFieldForHeader(header) {
   // 'name' so headers like "First Name" don't get pulled into Full Name by the
   // substring 'name'.
   const order = [
-    'first_name','last_name','military_branch','military_status',
+    'first_name','last_name','military_branch','military_status','campaign_tag',
     'phone','email','state','address','city','zip',
     'dob','age','source','notes','name',
   ];
@@ -21272,7 +21639,7 @@ function detectFieldMap(headers) { return {}; } // legacy stub
 
 function openAddLeadModal() {
   ['al-first','al-last','al-phone','al-email','al-dob','al-state',
-   'al-address','al-city','al-zip','al-notes'].forEach(id => {
+   'al-address','al-city','al-zip','al-notes','al-campaign-tag'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -21406,6 +21773,7 @@ function saveManualLead() {
     ? (document.getElementById('al-source-custom-input')?.value || '').trim()
     : (_srcSel?.value || '').trim();
   const notes  = (document.getElementById('al-notes').value  || '').trim();
+  const campaignTag = (document.getElementById('al-campaign-tag')?.value || '').trim();
   const msg    = document.getElementById('al-msg');
   if (msg) msg.textContent = '';
 
@@ -21452,6 +21820,10 @@ function saveManualLead() {
     zip:             zip      || undefined,
     notes:           notes   || undefined,
     source:          source  || 'manual',
+    // The canonical field the shipped voice campaigns match on. Undefined
+    // rather than '' when unset: `is_not` on a MISSING field is true, and an
+    // empty string is a value that matches nothing and excludes nothing.
+    campaign_tag:    campaignTag || undefined,
     customFields:    customFields.length ? customFields : undefined,
     status:          'new',
     importedAt:      new Date().toISOString(),
@@ -21537,6 +21909,7 @@ function importCSVLeads() {
       source: get(row, 'source') || importSourceInput || 'imported',
       military_branch: get(row, 'military_branch'),
       military_status: get(row, 'military_status'),
+      campaign_tag: get(row, 'campaign_tag'),
       notes: get(row, 'notes'),
       customFields: customFields.length ? customFields : undefined,
       status: 'new',
@@ -25577,6 +25950,23 @@ const VC_STEP_TYPES = ['call', 'double_dial'];
 // of these, so no rule can be saved that matches the whole book.
 const VC_TAG_FIELDS = ['campaign_tag', 'tags', 'lead_type', 'coverage_wanted', 'source'];
 
+// Statuses that ALSO narrow the audience (20260803). Six of the twelve shipped
+// campaigns are lifecycle campaigns — call the client we just sold, remind the
+// person whose appointment is tomorrow — and their audience is bounded by a
+// terminal status, not by a lead-type tag. FOUR VALUES, and the exclusions are
+// the point: `status is new` describes every fresh row in the book, which is
+// exactly why `status` is not in VC_TAG_FIELDS.
+const VC_LIFECYCLE_STATUSES = ['sold', 'appointment', 'chargeback', 'lapsed'];
+
+// What a step's timing is measured from.
+const VC_STEP_ANCHORS = ['previous_step', 'appointment'];
+
+// Why a campaign calls — picks the reason clause of the spoken greeting and a
+// branch of the assistant's instructions. Anything unrecognised is 'qualify'.
+const VC_CAMPAIGN_GOALS = [
+  'qualify', 'remind', 'rebook', 'care', 'emergency_contact', 'referral', 'chargeback',
+];
+
 const VC_UNIT_MS = { minutes: 60000, hours: 3600000, days: 86400000 };
 
 const VC_SKIP_LABELS = {
@@ -25585,6 +25975,7 @@ const VC_SKIP_LABELS = {
   suppressed: 'suppressed',
   already_enrolled: 'already in a campaign',
   no_phone: 'no phone',
+  appointment_too_soon: 'appointment too soon to remind',
 };
 
 const VC_STOP_LABELS = {
@@ -25596,6 +25987,8 @@ const VC_STOP_LABELS = {
   lead_missing: 'Lead removed',
   manual: 'Unenrolled by hand',
   campaign_deleted: 'Campaign removed',
+  appointment_cancelled: 'Appointment cancelled',
+  appointment_passed: 'Appointment has been and gone',
 };
 
 function vcAsDate(v) {
@@ -25677,6 +26070,17 @@ function vcMatchesTriggerGroups(lead, raw) {
   return groups.some(g => g.conditions.length > 0 && g.conditions.every(c => vcConditionMatches(lead, c)));
 }
 
+// Does this condition NARROW who gets called? A positive condition on a
+// tag/lead-type field, or on `status` with one of the four lifecycle values.
+// `is_not` never counts, in either case — that is the whole point of the guard.
+function vcIsNarrowingCondition(cond) {
+  if (!cond || cond.op !== 'is') return false;
+  const field = String(cond.field || '').trim();
+  if (VC_TAG_FIELDS.indexOf(field) !== -1) return true;
+  if (field === 'status' && VC_LIFECYCLE_STATUSES.indexOf(vcNorm(cond.value)) !== -1) return true;
+  return false;
+}
+
 function vcValidateTriggerGroups(raw) {
   const groups = vcNormalizeGroups(raw);
   const groupErrors = [];
@@ -25694,14 +26098,23 @@ function vcValidateTriggerGroups(raw) {
     else if (g.conditions.some(c => !c.field)) err = 'Every condition needs a field.';
     else if (g.conditions.some(c => c.op !== 'is' && c.op !== 'is_not')) err = 'A condition can only be "is" or "is not".';
     else if (g.conditions.some(c => !c.value)) err = 'Every condition needs a value.';
-    else if (!g.conditions.some(c => c.op === 'is' && VC_TAG_FIELDS.indexOf(c.field) !== -1)) {
-      err = 'Every group must name a lead type or campaign tag with an “is” condition ' +
-        '(' + VC_TAG_FIELDS.join(', ') + ') — otherwise this campaign could call your whole book.';
+    else if (!g.conditions.some(c => vcIsNarrowingCondition(c))) {
+      err = 'Every group must narrow who gets called with an “is” condition — either a lead type ' +
+        'or campaign tag (' + VC_TAG_FIELDS.join(', ') + '), or a lifecycle status ' +
+        '(status is ' + VC_LIFECYCLE_STATUSES.join(', ') + ') — otherwise this campaign could call your whole book.';
     }
     groupErrors.push(err);
     if (err && !firstError) firstError = err;
   });
   return { ok: !firstError, error: firstError, groupErrors };
+}
+
+// The campaign's goal, normalised. Unlike campaign_name, blank does NOT stay
+// blank: an unset goal is a hand-made campaign, and a hand-made campaign is a
+// qualification call. Nobody hears this value, so defaulting it invents nothing.
+function vcCampaignGoal(campaign) {
+  const raw = vcNorm(campaign && campaign.campaign_goal);
+  return VC_CAMPAIGN_GOALS.indexOf(raw) !== -1 ? raw : 'qualify';
 }
 
 function vcWaitMs(value, unit) {
@@ -25713,10 +26126,53 @@ function vcWaitMs(value, unit) {
   return n * per;
 }
 
-function vcStepDueAt(from, step) {
+function vcStepIsAnchored(step) {
+  return !!step && vcNorm(step.anchor) === 'appointment';
+}
+
+// The instant an appointment-anchored step wants, or null with no appointment.
+// offset_minutes is NEGATIVE for "before", which is what every reminder is.
+// Null is a real answer: a campaign anchored to an appointment that does not
+// exist has nothing to schedule, and guessing would invent a reminder for a
+// meeting nobody booked.
+function vcAnchoredDueAt(step, appointmentAt) {
+  const at = vcAsDate(appointmentAt === undefined ? null : appointmentAt);
+  if (!at || !step) return null;
+  return new Date(at.getTime() + vcInt(step.offset_minutes, 0) * 60000);
+}
+
+function vcStepDueAt(from, step, ctx) {
   const base = vcAsDate(from) || new Date();
   if (!step) return base;
+  if (vcStepIsAnchored(step)) {
+    return vcAnchoredDueAt(step, ctx && ctx.appointmentAt) || base;
+  }
   return new Date(base.getTime() + vcWaitMs(step.wait_value, step.wait_unit));
+}
+
+// THIS IS WHERE "NEVER FIRED LATE" LIVES. An appointment-anchored step whose
+// moment has passed is SKIPPED, not delayed — a reminder delivered after the
+// appointment tells somebody they are about to miss something they already
+// missed. Ordinary steps are never skipped: their due time is computed forward
+// from `now`, so it is in the future by construction.
+// `fromPosition` is EXCLUSIVE; pass 0/null to resolve the first step.
+function vcResolveNextDue(input) {
+  const from = vcInt(input.fromPosition, 0);
+  const all = vcStepsSorted(input.steps);
+  const candidates = from > 0 ? all.filter(s => vcInt(s.position, 0) > from) : all;
+  const skipped = [];
+  const apptAt = input.appointmentAt === undefined ? null : input.appointmentAt;
+
+  for (const step of candidates) {
+    if (!vcStepIsAnchored(step)) {
+      return { step: step, dueAt: vcStepDueAt(input.now, step).toISOString(), skipped: skipped, reason: 'ok' };
+    }
+    const due = vcAnchoredDueAt(step, apptAt);
+    if (!due) return { step: null, dueAt: null, skipped: skipped, reason: 'no_appointment' };
+    if (due.getTime() <= input.now.getTime()) { skipped.push(vcInt(step.position, 0)); continue; }
+    return { step: step, dueAt: due.toISOString(), skipped: skipped, reason: 'ok' };
+  }
+  return { step: null, dueAt: null, skipped: skipped, reason: skipped.length ? 'all_past' : 'no_steps' };
 }
 
 function vcWaitLabel(step) {
@@ -25726,6 +26182,23 @@ function vcWaitLabel(step) {
   const u = typeof step.wait_unit === 'string' ? step.wait_unit.toLowerCase() : 'minutes';
   const unit = VC_UNIT_MS[u] ? u : 'minutes';
   return n + ' ' + (n === 1 ? unit.replace(/s$/, '') : unit);
+}
+
+// How a step is scheduled, in one phrase. Anchored steps read backwards from
+// the appointment because that is how a person says it — "the day before", not
+// "-1440 minutes".
+function vcStepScheduleLabel(step) {
+  if (!step) return 'immediately';
+  if (!vcStepIsAnchored(step)) return vcWaitLabel(step);
+  const mins = vcInt(step.offset_minutes, 0);
+  if (mins === 0) return 'at the appointment';
+  const abs = Math.abs(mins);
+  const side = mins < 0 ? 'before' : 'after';
+  let n, unit;
+  if (abs % 1440 === 0)    { n = abs / 1440; unit = 'day'; }
+  else if (abs % 60 === 0) { n = abs / 60;   unit = 'hour'; }
+  else                     { n = abs;        unit = 'minute'; }
+  return n + ' ' + (n === 1 ? unit : unit + 's') + ' ' + side + ' the appointment';
 }
 
 function vcStepsSorted(steps) {
@@ -25877,6 +26350,13 @@ function aiTestOnShow() {
   aiTestLoadTransferNumber();
   aiTestLoadReceipts();
   aiMeterLoad();
+  // Why the AI is not calling anybody, when it is not calling anybody.
+  if (!_voiceConsentTried && currentAgent) {
+    _voiceConsentTried = true;
+    loadVoiceConsent().then(syncConsentNotice);
+  } else {
+    syncConsentNotice();
+  }
 }
 
 // ============================================================
@@ -26362,8 +26842,17 @@ async function aiTestLoadExistingLead() {
   } catch (_) { /* non-fatal */ }
 }
 
-// 1 · Upsert the test lead: consented, not DNC, pointing at the tester's cell.
-// Same shape as the SQL block (a): data blob + tcpa/dnc/timezone columns.
+// 1 · Upsert the test lead: pointing at the tester's cell, then consented
+// THROUGH THE SAME DOOR EVERY OTHER LEAD USES.
+//
+// This used to set tcpa_consent/_source/_at inline on the upsert. Since
+// 20260803 those three columns are unwritable from a browser — the whole
+// point of the guard is that consent cannot be asserted without the
+// attestation and the audit row — so the row is written first and the consent
+// is recorded by the leads-consent endpoint, which stores the attestation and
+// the source exactly as it would for a real lead. The test rig is not a
+// special case, and making it one would have meant the guard had a hole in it
+// shaped like this function.
 async function aiTestCreateLead() {
   const phEl = document.getElementById('aiTest-phone');
   const btn  = document.getElementById('aiTest-createBtn');
@@ -26376,9 +26865,6 @@ async function aiTestCreateLead() {
     agent_id: currentAgent.id,
     client_id: AI_TEST_CLIENT_ID,
     data: { id: AI_TEST_CLIENT_ID, name: 'AI Test (my cell)', phone: e164, state: 'TX', coverage_wanted: 'final expense' },
-    tcpa_consent: true,
-    tcpa_consent_source: 'phase1 in-app test panel — verbal consent recorded by tester',
-    tcpa_consent_at: new Date().toISOString(),
     dnc: false,
     dnc_at: null,
     lead_timezone: tz || null,
@@ -26386,10 +26872,33 @@ async function aiTestCreateLead() {
   const { data, error } = await sb.from('leads')
     .upsert(row, { onConflict: 'agent_id,client_id' })
     .select('id').maybeSingle();
-  if (btn) { btn.disabled = false; btn.textContent = 'Create / update test lead'; }
-  if (error) { showToast('Could not save test lead: ' + error.message, '#dc2626'); return; }
+  if (error) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Create / update test lead'; }
+    showToast('Could not save test lead: ' + error.message, '#dc2626');
+    return;
+  }
   aiTestState.leadId = data ? data.id : null;
-  showToast('Test lead ready (consent on, DNC cleared)', '#10b981');
+
+  let consented = false;
+  try {
+    const res = await sb.functions.invoke('leads-consent', {
+      body: {
+        action: 'grant',
+        lead_ids: [aiTestState.leadId],
+        consent_source: 'other',
+        consent_source_detail: 'In-app AI test panel — this is the tester’s own cell',
+        attestation: true,
+      },
+    });
+    consented = !!(res.data && res.data.granted);
+  } catch (_) { /* reported below */ }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Create / update test lead'; }
+  _voiceConsentTried = false;
+  showToast(
+    consented ? 'Test lead ready (consent recorded, DNC cleared)' : 'Test lead saved, but consent was not recorded',
+    consented ? '#10b981' : '#f59e0b',
+  );
   aiTestLoadExistingLead();
 }
 
@@ -26725,19 +27234,46 @@ let vcampState = {
 
 function vcampOnShow() { vcampLoad(); }
 
+/**
+ * Make sure this agent has the twelve shipped campaigns.
+ *
+ * IDEMPOTENT AND RESPECTFUL, on the server: presence is keyed on
+ * voice_campaign_seed_state, so calling this on every visit adds nothing after
+ * the first time and never reactivates, overwrites or resurrects a campaign
+ * the agent deactivated, edited or deleted. It exists as a call from here as
+ * well as an agent-creation trigger because the trigger deliberately swallows
+ * its own failures — a sign-up must never fail over a default campaign — and
+ * this is what repairs an agent it swallowed one for.
+ */
+let _vcampSeedTried = false;
+async function vcampEnsureDefaults() {
+  if (_vcampSeedTried || !currentAgent) return;
+  _vcampSeedTried = true;
+  try { await sb.rpc('vc_seed_default_campaigns'); }
+  catch (err) { console.warn('[vcamp] seed defaults', err); }
+}
+
 async function vcampLoad() {
   if (!currentAgent) return;
+  await vcampEnsureDefaults();
+  // The banner needs to know whether this account can dial anybody at all.
+  if (!_voiceConsentTried) { _voiceConsentTried = true; await loadVoiceConsent(); }
   const list = document.getElementById('vcamp-list');
   try {
     const [cRes, sRes, eRes, callRes] = await Promise.all([
       sb.from('voice_campaigns')
-        .select('id, name, description, active, dry_run, trigger_groups, auto_enroll_new_leads, ' +
-                'trigger_on_missed_appointment, trigger_on_sold, stop_on_appointment_booked, ' +
+        .select('id, name, description, active, dry_run, sort_order, campaign_goal, trigger_groups, ' +
+                'auto_enroll_new_leads, trigger_on_missed_appointment, trigger_on_sold, ' +
+                'trigger_on_appointment_booked, stop_on_appointment_booked, ' +
                 'stop_on_sold, stop_on_answered, stop_answer_talk_secs, paused_at, pause_reason, seed_key, created_at')
         .eq('agent_id', currentAgent.id)
+        // sort_order, not created_at: the seeder writes twelve rows in one
+        // transaction, so created_at is identical across all of them and the
+        // cards would shuffle on every refresh.
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
       sb.from('voice_campaign_steps')
-        .select('id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate')
+        .select('id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes')
         .eq('agent_id', currentAgent.id)
         .order('position', { ascending: true }),
       sb.from('voice_campaign_enrollments')
@@ -26799,14 +27335,34 @@ function vcampRenderList() {
   if (!list) return;
 
   if (!vcampState.campaigns.length) {
-    // Deliberately one line and a button. The next round fills this with twelve
-    // ready-made campaigns; a clever empty screen would only be in the way.
     list.innerHTML = '<div class="vc-empty">No campaigns yet. ' +
       '<button class="vc-btn primary" style="margin-left:8px" onclick="vcampNew()">New campaign</button></div>';
     return;
   }
 
-  list.innerHTML = vcampState.campaigns.map(c => {
+  // ---- The honest notice ---------------------------------------------------
+  //
+  // Twelve campaigns are live from the first minute of the account, and every
+  // call any of them places still passes ai-call-start's full gate chain — of
+  // which gate 3 refuses any lead without recorded TCPA consent. So on a book
+  // with no consent on file they are live, correct, and will enrol nobody.
+  //
+  // Shipping them active is defensible. Shipping them active without saying so
+  // is not: an agent who sees twelve green cards and no calls has been misled
+  // by their own product. So the banner says the true thing, calmly, and links
+  // to the one screen that changes it. It disappears the moment it stops being
+  // true — a permanent nag is a banner people stop reading.
+  const callable = _voiceConsent.loaded ? voiceCallableCount() : null;
+  const anyActive = vcampState.campaigns.some(c => c.active && !c.paused_at);
+  const banner = (callable === 0 && anyActive)
+    ? '<div class="vc-banner" style="margin-bottom:14px">' +
+        '<strong>Your campaigns are live</strong> — they’ll begin calling automatically as soon as ' +
+        'you have leads with recorded consent. ' +
+        '<button class="vc-btn" style="margin-left:8px" onclick="nav(\'leads\')">Record consent &rarr;</button>' +
+      '</div>'
+    : '';
+
+  list.innerHTML = banner + vcampState.campaigns.map(c => {
     const stats = vcCampaignStats(vcampState.enrollments[c.id] || []);
     const steps = vcampState.steps[c.id] || [];
     const paused = !!c.paused_at;
@@ -26957,6 +27513,7 @@ function vcampRenderSettings() {
   html += chk('auto_enroll_new_leads', 'Auto-enroll new leads');
   html += chk('trigger_on_missed_appointment', 'Trigger on missed appointment');
   html += chk('trigger_on_sold', 'Trigger when lead is sold');
+  html += chk('trigger_on_appointment_booked', 'Trigger when an appointment is booked');
   html += '<div style="height:8px"></div>';
   html += chk('stop_on_appointment_booked', 'Stop on appointment booked');
   html += chk('stop_on_sold', 'Stop when lead is sold');
@@ -27024,6 +27581,7 @@ async function vcampSaveSettings() {
     auto_enroll_new_leads: !!c.auto_enroll_new_leads,
     trigger_on_missed_appointment: !!c.trigger_on_missed_appointment,
     trigger_on_sold: !!c.trigger_on_sold,
+    trigger_on_appointment_booked: !!c.trigger_on_appointment_booked,
     stop_on_appointment_booked: !!c.stop_on_appointment_booked,
     stop_on_sold: !!c.stop_on_sold,
     stop_on_answered: !!c.stop_on_answered,
@@ -27126,6 +27684,7 @@ function vcampRenderSteps() {
 
   steps.forEach((s, i) => {
     const drip = s.drip_rate || null;
+    const anchored = vcStepIsAnchored(s);
     html += '<div class="vc-group">' +
       '<div class="vc-group-head">Step ' + (i + 1) +
         '<span style="float:right">' +
@@ -27139,13 +27698,23 @@ function vcampRenderSteps() {
           '<option value="call"' + (s.step_type === 'call' ? ' selected' : '') + '>Call</option>' +
           '<option value="double_dial"' + (s.step_type === 'double_dial' ? ' selected' : '') + '>Double-Dial (2 attempts)</option>' +
         '</select>' +
-        '<span style="font:12.5px var(--sans);color:var(--text2)">Wait</span>' +
-        '<input type="number" min="0" max="9999" step="1" style="width:80px" value="' + vcInt(s.wait_value, 0) + '" ' +
-          'oninput="vcampStep(' + i + ',\'wait_value\',parseInt(this.value,10)||0)">' +
-        '<select onchange="vcampStep(' + i + ',\'wait_unit\',this.value)">' +
-          VC_WAIT_UNITS.map(u => '<option value="' + u + '"' + (s.wait_unit === u ? ' selected' : '') + '>' + u + '</option>').join('') +
-        '</select>' +
-        '<span style="font:12.5px var(--sans);color:var(--text2)">before this step</span>' +
+        // An appointment-anchored step is timed backwards from a fixed instant,
+        // so a "wait N units" control would be a lie. It is shown in words and
+        // its anchor/offset ride through the save untouched — the Steps tab
+        // deletes and re-inserts every row, so a control that did not carry
+        // them would silently convert the reminders into relative waits.
+        (anchored
+          ? '<span style="font:12.5px var(--sans);color:var(--text2)">' +
+              _aiTestEsc(vcStepScheduleLabel(s)) +
+            '</span>' +
+            '<span class="vc-pill" data-tone="dry" title="Timed from the appointment, not from the previous step. A reminder whose moment has passed is skipped, never sent late.">Anchored</span>'
+          : '<span style="font:12.5px var(--sans);color:var(--text2)">Wait</span>' +
+            '<input type="number" min="0" max="9999" step="1" style="width:80px" value="' + vcInt(s.wait_value, 0) + '" ' +
+              'oninput="vcampStep(' + i + ',\'wait_value\',parseInt(this.value,10)||0)">' +
+            '<select onchange="vcampStep(' + i + ',\'wait_unit\',this.value)">' +
+              VC_WAIT_UNITS.map(u => '<option value="' + u + '"' + (s.wait_unit === u ? ' selected' : '') + '>' + u + '</option>').join('') +
+            '</select>' +
+            '<span style="font:12.5px var(--sans);color:var(--text2)">before this step</span>') +
       '</div>' +
       '<label class="vc-check" style="margin-top:6px">' +
         '<input type="checkbox" ' + (vcDripActive(drip) ? 'checked' : '') + ' onchange="vcampToggleDrip(' + i + ',this.checked)"> Drip rate' +
@@ -27191,7 +27760,10 @@ function vcampToggleDrip(i, on) {
   vcampRenderSteps();
 }
 function vcampAddStep() {
-  vcampState.draftSteps.push({ id: null, step_type: 'call', wait_value: 2, wait_unit: 'hours', drip_rate: null });
+  vcampState.draftSteps.push({
+    id: null, step_type: 'call', wait_value: 2, wait_unit: 'hours',
+    anchor: 'previous_step', offset_minutes: 0, drip_rate: null,
+  });
   vcampRenderSteps();
 }
 function vcampRemoveStep(i) {
@@ -27227,6 +27799,12 @@ async function vcampSaveSteps() {
         step_type: VC_STEP_TYPES.indexOf(s.step_type) !== -1 ? s.step_type : 'call',
         wait_value: Math.max(0, vcInt(s.wait_value, 0)),
         wait_unit: VC_WAIT_UNITS.indexOf(s.wait_unit) !== -1 ? s.wait_unit : 'minutes',
+        // Carried through, not rebuilt. Saving this tab deletes and re-inserts
+        // every row, so dropping these two would quietly turn the Appointment
+        // Reminder's "the day before" into "immediately" the first time anyone
+        // opened its Steps tab and pressed Save.
+        anchor: VC_STEP_ANCHORS.indexOf(s.anchor) !== -1 ? s.anchor : 'previous_step',
+        offset_minutes: vcInt(s.offset_minutes, 0),
         drip_rate: vcDripActive(s.drip_rate) ? s.drip_rate : null,
       }));
       const { error: insErr } = await sb.from('voice_campaign_steps').insert(rows);

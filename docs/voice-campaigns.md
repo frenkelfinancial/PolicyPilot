@@ -269,6 +269,28 @@ The pg_cron job was live throughout, firing every minute — `"nothing active"`
 before the campaign existed, a full sweep while it did, and clean zero-work
 ticks after it stopped. All synthetic rows were deleted afterwards.
 
+## The twelve pre-built campaigns — SHIPPED
+
+**Done, 2026-07-30.** `docs/voice-campaigns-defaults.md` +
+`supabase/migrations/20260803_default_voice_campaigns.sql`. What changed in
+*this* engine to carry them:
+
+- **`sort_order`** on `voice_campaigns`, and the tick now orders by it. Load
+  bearing: three of the twelve trigger on the same sale, and a lead may be
+  active in only one campaign, so without an order the winner was arbitrary.
+- **`trigger_on_appointment_booked`**, a fourth enrollment trigger, plus
+  `voice_campaign_enrollments.appointment_id`.
+- **Appointment-anchored steps** — `steps.anchor` / `offset_minutes` and
+  `vcResolveNextDue()`, which SKIPS an anchored step whose moment has passed
+  rather than firing it late.
+- **`campaign_goal`**, which picks the reason clause of the spoken greeting.
+- **The tag guard accepts four lifecycle statuses** (`sold`, `appointment`,
+  `chargeback`, `lapsed`) as narrowing conditions. `status is new` still does
+  not. See that doc § 3.
+
+The notes below are the brief that round was written against; they are kept
+because the reasoning still holds.
+
 ## What the next round (12 pre-built campaigns) needs from this engine
 
 Everything a campaign is, is columns plus one jsonb rule blob, so a default is

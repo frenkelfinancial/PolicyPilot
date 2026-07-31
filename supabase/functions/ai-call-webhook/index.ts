@@ -1234,8 +1234,48 @@ export function buildGreeting(vars: Record<string, string>): string {
     ? `I'm an assistant calling on behalf of ${agent} with ${agency}.`
     : `I'm an assistant calling on behalf of ${agent}.`;
 
-  return `${opener}${behalf} I'm reaching out about the ${type} coverage ` +
-    `you asked about — do you have a quick minute?`;
+  return `${opener}${behalf} ${buildReasonClause(vars, type)}`;
+}
+
+/**
+ * WHY this call is happening — the one part of the opening line that changes.
+ *
+ * Everything before it is identical in every branch, and deliberately so: the
+ * opener, and `I'm an assistant calling on behalf of {agent} with {agency}`,
+ * ARE the disclosure. The reason clause is what a person actually needs to
+ * hear next, and a reminder call, a check-in, a referral ask and a
+ * qualification call need four different ones. Ringing somebody two hours
+ * before an appointment they already booked to ask about "the coverage you
+ * asked about" is a robot that has not been told what it is doing.
+ *
+ * Every branch ends in ONE question, because the assistant's instructions say
+ * one question then stop, and the greeting is its first turn.
+ *
+ * An unknown or absent goal is the qualification opener — the only one that
+ * existed before campaigns did, and what every manual and test-rig call gets.
+ */
+export function buildReasonClause(vars: Record<string, string>, type: string): string {
+  const goal = (typeof vars.campaign_goal === "string" ? vars.campaign_goal : "").trim().toLowerCase();
+  switch (goal) {
+    case "remind":
+      return "I'm just calling to confirm the appointment you have coming up with them — " +
+        "does that still work for you?";
+    case "rebook":
+      return "We had a time set aside for you and we weren't able to reach you — " +
+        "did you still want to get that rescheduled?";
+    case "care":
+      return "I'm just checking in on your coverage — is everything still working the way you expected?";
+    case "emergency_contact":
+      return "I'm just tidying up your file — is there someone we should have down as an emergency contact?";
+    case "referral":
+      return "I wanted to ask you something quick about the people you named on your policy — " +
+        "have you got a minute?";
+    case "chargeback":
+      return "I'm reaching out because it looks like your coverage may have lapsed — " +
+        "do you have a quick minute to sort it out?";
+    default:
+      return `I'm reaching out about the ${type} coverage you asked about — do you have a quick minute?`;
+  }
 }
 
 /**

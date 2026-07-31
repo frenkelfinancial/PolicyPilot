@@ -20,10 +20,10 @@ import {
   vcMatchesTriggerGroups,
   vcNextAllowedInstant,
   vcPickCallerId,
+  vcResolveNextDue,
   vcSlotsFree,
   vcSlotsInUse,
   vcStepAt,
-  vcStepDueAt,
   vcStepsSorted,
 } from "../_shared/voice-campaign-core.ts";
 import type { VcStep } from "../_shared/voice-campaign-core.ts";
@@ -123,12 +123,21 @@ Deno.serve(async (req) => {
   // ------------------------------------------------------------
   let campQ = sb.from("voice_campaigns")
     .select(
-      "id, agent_id, name, active, dry_run, trigger_groups, auto_enroll_new_leads, " +
-      "trigger_on_missed_appointment, trigger_on_sold, stop_on_appointment_booked, " +
+      "id, agent_id, name, active, dry_run, sort_order, campaign_goal, trigger_groups, " +
+      "auto_enroll_new_leads, trigger_on_missed_appointment, trigger_on_sold, " +
+      "trigger_on_appointment_booked, stop_on_appointment_booked, " +
       "stop_on_sold, stop_on_answered, stop_answer_talk_secs, paused_at, pause_reason",
     )
     .eq("active", true)
-    .is("paused_at", null);
+    .is("paused_at", null)
+    // DETERMINISTIC ORDER, and it is load-bearing rather than cosmetic. Three
+    // of the twelve shipped campaigns trigger on the same event (a client was
+    // sold) while a lead may be ACTIVE in only one voice campaign at a time —
+    // so without an order, WHICH of the three enrols a newly-sold client is
+    // whatever PostgreSQL returned first, and it could differ minute to
+    // minute. With one, they form a stated queue.
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true });
   if (scopeAgent)    campQ = campQ.eq("agent_id", scopeAgent);
   if (scopeCampaign) campQ = campQ.eq("id", scopeCampaign);
 
@@ -215,7 +224,7 @@ Deno.serve(async (req) => {
     // ---------- 3. Due ------------------------------------------------------
     const staleIso = new Date(now.getTime() - VC_CLAIM_LEASE_SECS * 1000).toISOString();
     const { data: due } = await sb.from("voice_campaign_enrollments")
-      .select("id, campaign_id, agent_id, lead_id, status, current_step_position, step_attempts, next_action_at, claimed_at")
+      .select("id, campaign_id, agent_id, lead_id, status, current_step_position, step_attempts, next_action_at, claimed_at, appointment_id")
       .eq("agent_id", agentId)
       .eq("status", "active")
       .in("campaign_id", campaignIds)
@@ -228,7 +237,7 @@ Deno.serve(async (req) => {
 
     // Steps, once, for every campaign this agent is running.
     const { data: allSteps } = await sb.from("voice_campaign_steps")
-      .select("id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate")
+      .select("id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes")
       .in("campaign_id", campaignIds)
       .order("position", { ascending: true });
     const stepsByCampaign = new Map<string, VcStep[]>();
@@ -251,6 +260,17 @@ Deno.serve(async (req) => {
     for (const c of todaysCalls || []) {
       const e = typeof c.from_e164 === "string" ? c.from_e164 : "";
       if (e) usage[e] = (usage[e] || 0) + 1;
+    }
+
+    // Appointment times for the appointment-anchored enrollments in this
+    // batch, in one query. vcResolveNextDue needs them to decide whether the
+    // next reminder still has a moment left, or has been overtaken.
+    const apptIds = [...new Set((due || []).map((e) => e.appointment_id).filter(Boolean))] as string[];
+    const apptAt = new Map<string, string>();
+    if (apptIds.length) {
+      const { data: appts } = await sb.from("ai_appointments")
+        .select("id, starts_at").in("id", apptIds);
+      for (const a of appts || []) if (a.starts_at) apptAt.set(a.id, a.starts_at);
     }
 
     // Campaigns paused mid-loop must stop being dialed within the same tick.
@@ -318,6 +338,10 @@ Deno.serve(async (req) => {
         campaign_id:   campaign.id,
         campaign_step: step.position,
         campaign_name: vars.campaign_name,
+        // WHY this call is happening. Picks the reason clause of the spoken
+        // greeting and a branch of the assistant's instructions — a reminder
+        // call and a referral ask cannot open with the same sentence.
+        campaign_goal: vars.campaign_goal,
       };
       if (caller) payload.caller_id = caller.e164;
       if (isDry)  payload.dry_run = true;
@@ -362,6 +386,7 @@ Deno.serve(async (req) => {
             },
             call: { outcome: "no_answer", answered_at: null, ended_at: null },
             now,
+            appointmentAt: claimed.appointment_id ? apptAt.get(claimed.appointment_id) || null : null,
           });
           await applyAdvance(claimed.id, adv, { countCall: true });
           say({
@@ -453,7 +478,7 @@ Deno.serve(async (req) => {
   // ============================================================
   async function sweepStops(agentId: string, campaign: Record<string, unknown>) {
     const { data: active } = await sb.from("voice_campaign_enrollments")
-      .select("id, lead_id")
+      .select("id, lead_id, appointment_id")
       .eq("campaign_id", campaign.id as string)
       .eq("status", "active")
       .limit(1000);
@@ -466,6 +491,19 @@ Deno.serve(async (req) => {
         ? sb.from("ai_appointments").select("lead_id, status").in("lead_id", leadIds).eq("status", "scheduled")
         : Promise.resolve({ data: [] as Array<{ lead_id: string }> }),
     ]);
+
+    // The appointments an ANCHORED campaign is counting down to. A reminder
+    // whose meeting was cancelled — or has already happened — is a robot
+    // phoning somebody about something that is not going to happen, or has
+    // already been and gone. Both stop the enrollment by name rather than
+    // leaving it queued against an instant that will never arrive.
+    const anchorIds = [...new Set(active.map((e) => e.appointment_id).filter(Boolean))] as string[];
+    const anchorRows = new Map<string, { status: string | null; starts_at: string | null }>();
+    if (anchorIds.length) {
+      const { data: rows } = await sb.from("ai_appointments")
+        .select("id, status, starts_at").in("id", anchorIds);
+      for (const r of rows || []) anchorRows.set(r.id, { status: r.status, starts_at: r.starts_at });
+    }
 
     const leadById = new Map((leads || []).map((l) => [l.id, l]));
     const booked   = new Set((appts || []).map((a) => a.lead_id));
@@ -480,6 +518,14 @@ Deno.serve(async (req) => {
       else if (lead.dnc === true) reason = "dnc";
       else if (campaign.stop_on_appointment_booked && booked.has(enr.lead_id)) reason = "appointment_booked";
       else if (campaign.stop_on_sold && String((lead.data as Record<string, unknown> | null)?.status || "").toLowerCase() === "sold") reason = "sold";
+      else if (enr.appointment_id) {
+        const appt = anchorRows.get(enr.appointment_id);
+        if (!appt || String(appt.status || "").toLowerCase() !== "scheduled") {
+          reason = "appointment_cancelled";
+        } else if (appt.starts_at && new Date(appt.starts_at).getTime() <= now.getTime()) {
+          reason = "appointment_passed";
+        }
+      }
 
       if (reason) {
         totals.stopped++;
@@ -496,7 +542,8 @@ Deno.serve(async (req) => {
     const wantsAuto    = campaign.auto_enroll_new_leads === true;
     const wantsMissed  = campaign.trigger_on_missed_appointment === true;
     const wantsSold    = campaign.trigger_on_sold === true;
-    if (!wantsAuto && !wantsMissed && !wantsSold) return;
+    const wantsBooked  = campaign.trigger_on_appointment_booked === true;
+    if (!wantsAuto && !wantsMissed && !wantsSold && !wantsBooked) return;
 
     const steps = await stepsFor(campaign.id as string);
     const first = vcFirstStep(steps);
@@ -504,9 +551,12 @@ Deno.serve(async (req) => {
 
     // Leads this campaign has already seen (any status) — enrolling somebody a
     // second time after they completed is a decision, not a side effect.
+    // (The one exception is the appointment re-arm below, which is that
+    // decision, taken deliberately and for one campaign shape only.)
     const { data: seen } = await sb.from("voice_campaign_enrollments")
-      .select("lead_id").eq("campaign_id", campaign.id as string).limit(20000);
-    const seenIds = new Set((seen || []).map((r) => r.lead_id));
+      .select("id, lead_id, status, appointment_id")
+      .eq("campaign_id", campaign.id as string).limit(20000);
+    const seenByLead = new Map((seen || []).map((r) => [r.lead_id, r]));
 
     // Leads active in ANY campaign — the one-active-campaign rule, checked
     // before we write rather than discovered by a unique-violation.
@@ -529,6 +579,27 @@ Deno.serve(async (req) => {
       noShowLeads = new Set((rows || []).map((r) => r.lead_id).filter(Boolean) as string[]);
     }
 
+    // The next SCHEDULED appointment per lead, for an anchored campaign. Only
+    // future ones: a reminder for a meeting that already happened is the one
+    // thing this campaign shape must never produce, and filtering here means
+    // the skip rule in vcResolveNextDue is a second line of defence rather
+    // than the only one.
+    const upcomingAppt = new Map<string, { id: string; starts_at: string }>();
+    if (wantsBooked) {
+      const { data: rows } = await sb.from("ai_appointments")
+        .select("id, lead_id, starts_at")
+        .eq("agent_id", agentId)
+        .eq("status", "scheduled")
+        .gt("starts_at", nowIso)
+        .order("starts_at", { ascending: true })
+        .limit(2000);
+      for (const r of rows || []) {
+        if (!r.lead_id || !r.starts_at) continue;
+        // Ascending, so the FIRST one seen for a lead is the soonest.
+        if (!upcomingAppt.has(r.lead_id)) upcomingAppt.set(r.lead_id, { id: r.id, starts_at: r.starts_at });
+      }
+    }
+
     // The suppression list, once. It is small and global-or-mine.
     const { data: suppRows } = await sb.from("suppression_list")
       .select("phone_e164")
@@ -540,12 +611,14 @@ Deno.serve(async (req) => {
     const skipped: Record<string, number> = {};
     const toInsert: Record<string, unknown>[] = [];
 
+    let rearmed = 0;
+
     for (const lead of book) {
       if (enrolled >= ENROLL_LIMIT_PER_CAMPAIGN) break;
-      if (seenIds.has(lead.id)) continue;
 
       const d = (lead.data || {}) as Record<string, unknown>;
       const soldNow = String(d.status || "").toLowerCase() === "sold";
+      const appt = upcomingAppt.get(lead.id) || null;
 
       // Which trigger, if any, admits this lead. The rule ALWAYS has to match:
       // "trigger when sold" narrows a campaign's audience, it does not replace
@@ -557,7 +630,49 @@ Deno.serve(async (req) => {
       if (wantsAuto) by = "auto";
       if (!by && wantsMissed && noShowLeads.has(lead.id)) by = "missed_appointment";
       if (!by && wantsSold && soldNow) by = "sold";
+      if (!by && wantsBooked && appt) by = "appointment_booked";
       if (!by) continue;
+
+      // ---- Already seen? ---------------------------------------------------
+      //
+      // Normally that is the end of it. The ONE exception is an appointment-
+      // anchored campaign whose previous run counted down to a DIFFERENT
+      // appointment: a client who booked in March, was reminded, and books
+      // again in June should be reminded again. Re-enrolling is not possible —
+      // (campaign_id, lead_id) is unique — so the finished row is RESET in
+      // place, against the new appointment.
+      const prior = seenByLead.get(lead.id);
+      if (prior) {
+        const canRearm =
+          wantsBooked && appt &&
+          prior.status !== "active" &&
+          prior.appointment_id !== appt.id;
+        if (!canRearm) continue;
+        if (activeIds.has(lead.id)) {
+          skipped.already_enrolled = (skipped.already_enrolled || 0) + 1;
+          continue;
+        }
+        const reFirst = vcResolveNextDue({ steps, now, appointmentAt: appt.starts_at });
+        if (!reFirst.step || !reFirst.dueAt) {
+          skipped.appointment_too_soon = (skipped.appointment_too_soon || 0) + 1;
+          continue;
+        }
+        await sb.from("voice_campaign_enrollments").update({
+          status: "active",
+          current_step_position: reFirst.step.position,
+          step_attempts: 0,
+          next_action_at: reFirst.dueAt,
+          claimed_at: null,
+          stop_reason: null,
+          completed_at: null,
+          appointment_id: appt.id,
+          enrolled_by: "appointment_booked",
+          updated_at: nowIso,
+        }).eq("id", prior.id);
+        activeIds.add(lead.id);
+        rearmed++;
+        continue;
+      }
 
       const phone = toE164(String(d.phone || ""));
       const verdict = vcEvaluateEnrollment({
@@ -571,20 +686,43 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // When the first step runs. For an ordinary campaign this is "now plus
+      // the step's wait". For an appointment-anchored one it is computed
+      // backwards from the appointment, and a lead enrolled after every
+      // reminder's moment has passed is NOT enrolled at all — a dead
+      // enrollment on the Enrollments tab reads as a promise the product is
+      // not going to keep.
+      const firstDue = vcResolveNextDue({
+        steps, now, appointmentAt: appt ? appt.starts_at : null,
+      });
+      if (!firstDue.step || !firstDue.dueAt) {
+        skipped.appointment_too_soon = (skipped.appointment_too_soon || 0) + 1;
+        continue;
+      }
+
       toInsert.push({
         campaign_id: campaign.id,
         agent_id: agentId,
         lead_id: lead.id,
         status: "active",
-        current_step_position: first.position,
+        current_step_position: firstDue.step.position,
         step_attempts: 0,
-        next_action_at: vcStepDueAt(now, first).toISOString(),
+        next_action_at: firstDue.dueAt,
+        appointment_id: appt ? appt.id : null,
         enrolled_by: by,
         enrolled_at: nowIso,
         updated_at: nowIso,
       });
       activeIds.add(lead.id);
       enrolled++;
+    }
+
+    if (rearmed) {
+      totals.enrolled += rearmed;
+      say({
+        agent_id: agentId, campaign_id: campaign.id as string,
+        event: "rearmed", detail: { count: rearmed },
+      });
     }
 
     if (toInsert.length) {
@@ -611,7 +749,7 @@ Deno.serve(async (req) => {
   // ============================================================
   async function stepsFor(campaignId: string): Promise<VcStep[]> {
     const { data } = await sb.from("voice_campaign_steps")
-      .select("id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate")
+      .select("id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes")
       .eq("campaign_id", campaignId)
       .order("position", { ascending: true });
     return vcStepsSorted((data || []) as VcStep[]);

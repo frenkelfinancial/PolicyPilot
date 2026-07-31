@@ -86,6 +86,13 @@ const FIELD_ALIASES: Record<string, string> = {
   veteran: "military_status",
   // Beneficiary
   beneficiary_name: "beneficiary",
+  // Campaign tag — the canonical field the shipped voice campaigns match on
+  // (20260803). A vendor that already sends a lead type routes straight into
+  // the right campaign with no mapping at all. `campaign` is deliberately NOT
+  // aliased here: for most vendors that is their AD campaign, not a lead type.
+  lead_type: "campaign_tag", leadtype: "campaign_tag",
+  campaign_tag: "campaign_tag", vertical: "campaign_tag",
+  product_type: "campaign_tag",
   // Notes / comments
   comments: "notes", comment: "notes",
   // Marital status
@@ -98,7 +105,7 @@ const INTERNAL_FIELDS = new Set([
   "name", "first_name", "last_name", "phone", "email",
   "state", "dob", "age", "gender", "address", "city", "zip",
   "military_status", "military_branch", "coverage_wanted",
-  "beneficiary", "marital_status", "notes",
+  "beneficiary", "marital_status", "notes", "campaign_tag",
   // Metadata — don't bucket into customFields
   "source", "status", "importedAt", "id", "received_at",
 ]);
@@ -223,6 +230,12 @@ Deno.serve(async (req) => {
     military_status:  mapped.military_status  || undefined,
     military_branch:  mapped.military_branch  || undefined,
     coverage_wanted:  mapped.coverage_wanted  || undefined,
+    // Normalised to the canonical snake_case value the seeded campaigns use,
+    // so "Final Expense" and "final expense" both route. An unrecognised
+    // value is kept verbatim — a hand-made campaign may well match it.
+    campaign_tag:     mapped.campaign_tag
+      ? String(mapped.campaign_tag).trim().toLowerCase().replace(/[\s-]+/g, "_")
+      : undefined,
     beneficiary:      mapped.beneficiary      || undefined,
     marital_status:   mapped.marital_status   || undefined,
     notes:            mapped.notes            || "",
