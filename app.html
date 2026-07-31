@@ -8455,6 +8455,19 @@ function authShowView(view) {
 }
 
 // Auto-activate signup view when landing page links here with ?view=signup
+//
+// 🔴 tryShow() IS DEFERRED A TICK, AND THAT IS NOT COSMETIC. #auth-gate is
+// markup at ~line 4269, i.e. already in the DOM by the time this IIFE runs
+// inside the script block that starts at ~8424 — so the old synchronous
+// tryShow() reached authShowView('signup') -> authLoadSignupPlans() while
+// `let _signupPlansLoaded` (declared ~500 lines further down, in this same
+// block) was still in its temporal dead zone. authLoadSignupPlans is async,
+// so the ReferenceError surfaced as an unhandled REJECTION rather than a
+// crash: the script finished evaluating, but the plan prices and every card's
+// dataset.planId never loaded, and landing directly on ?view=signup left the
+// wizard unable to select a plan until something called it a second time.
+// Deferring past the current task guarantees every top-level binding this
+// path can touch has been initialised — not just this one.
 (function(){
   const p = new URLSearchParams(location.search);
   if (p.get('view') === 'signup') {
@@ -8464,7 +8477,7 @@ function authShowView(view) {
       if (gate.classList.contains('hidden')) { setTimeout(tryShow, 80); return; }
       authShowView('signup');
     };
-    tryShow();
+    setTimeout(tryShow, 0);
   }
 })();
 
@@ -8520,6 +8533,28 @@ function _wizErr(n, msg) {
   if (!el) return;
   el.textContent = msg || '';
   el.classList.toggle('on', !!msg);
+}
+
+// Turns a checkout failure into a sentence somebody can act on.
+//
+// 🔴 A MESSAGE THAT NAMES NOTHING IS WORSE THAN NO MESSAGE. This path used to
+// render `e.message` raw, so an error whose message was empty, or an object
+// that stringified to "{}" / "[object Object]", was shown to a paying customer
+// verbatim — unsearchable, unreportable, and indistinguishable from a bug in
+// the button. Anything that carries no information is replaced by a sentence
+// that says what to do next.
+function _checkoutFailureMessage(e) {
+  const raw = (e && e.message != null) ? String(e.message).trim() : '';
+  // "Failed to fetch" = the request never reached stripe-create-checkout (CORS
+  // rejection, ad-blocker, or no connection). See
+  // docs/audit-2026-07-09-calling-and-topup.md.
+  if (/failed to fetch/i.test(raw)) {
+    return "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com.";
+  }
+  if (!raw || raw === '{}' || raw === '[object Object]' || raw === 'null' || raw === 'undefined') {
+    return 'Payment setup failed. Please try again — if it keeps happening, open the browser console and send us what it says.';
+  }
+  return raw;
 }
 
 function wizEye(id, btn) {
@@ -8668,8 +8703,20 @@ async function wizSubmit() {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sd.session.access_token}`, 'apikey': SUPABASE_ANON_KEY },
       body: JSON.stringify({ plan_id: planId, ...(embedded ? { ui: 'embedded' } : {}) }),
     });
-    const result = await resp.json();
-    if (!resp.ok) throw new Error((result.detail ? result.error + ' — ' + result.detail : result.error) || 'checkout_failed');
+    // Read as TEXT first. resp.json() THROWS on an empty or non-JSON body —
+    // before the resp.ok check ever runs — so a 502 that returned an HTML
+    // error page used to surface as a JSON parse error, and an error object
+    // that stringified to nothing useful surfaced as a bare "{}". Neither
+    // names anything a human can act on or search for.
+    const rawBody = await resp.text();
+    let result = {};
+    try { result = rawBody ? JSON.parse(rawBody) : {}; } catch (_) { result = {}; }
+    if (!resp.ok) {
+      const parts = [result.error, result.detail].filter(Boolean);
+      throw new Error(parts.length
+        ? parts.join(' — ')
+        : `checkout_failed (HTTP ${resp.status}${rawBody ? ': ' + rawBody.slice(0, 200) : ', empty response'})`);
+    }
     // client_secret BEFORE url, so a stale server that ignores the flag lands
     // on the working hosted path instead of a blank modal.
     if (result.client_secret) {
@@ -8701,13 +8748,7 @@ async function wizSubmit() {
     bootDashboard();
   } catch(e) {
     _wizPaymentPending = false;
-    // "Failed to fetch" = request blocked before reaching stripe-create-checkout
-    // (CORS rejection, ad-blocker, or no connection); show something actionable
-    // instead of the raw TypeError. See docs/audit-2026-07-09-calling-and-topup.md.
-    const _msg = (e && /failed to fetch/i.test(e.message || ''))
-      ? "Couldn't reach the payment server — check your internet connection and any ad-blocker/VPN, and make sure you're using the app at https://producerstackcrm.com."
-      : (e.message || 'Payment setup failed. Please try again.');
-    _wizErr(3, _msg);
+    _wizErr(3, _checkoutFailureMessage(e));
     if (btn) {
       btn.disabled = false;
       btn.innerHTML = '<svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/></svg> Create Account &amp; Continue to Payment';

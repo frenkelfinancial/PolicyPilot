@@ -347,6 +347,71 @@ test('Stripe.js and the publishable key are both present', () => {
 // 6. THE COMMENT THAT WAS A LIE
 // ============================================================
 
+// ============================================================
+// 7. GETTING INTO CHECKOUT AT ALL
+// ============================================================
+
+test('🔴 the ?view=signup entry point does not run during script evaluation', () => {
+  // #auth-gate is markup at ~line 4269, so it is ALREADY in the DOM when this
+  // IIFE runs inside the script block starting at ~8424. A synchronous
+  // tryShow() therefore reached authShowView('signup') -> authLoadSignupPlans()
+  // while `let _signupPlansLoaded` — declared ~500 lines further down in the
+  // SAME block — was still in its temporal dead zone. Because
+  // authLoadSignupPlans is async the ReferenceError became an unhandled
+  // rejection, so the script finished evaluating and nothing looked broken,
+  // but no plan price and no card's dataset.planId ever loaded.
+  const at = APP_CODE.indexOf("p.get('view') === 'signup'");
+  assert.ok(at > -1, 'the ?view=signup auto-activate IIFE must still be there');
+  const body = APP_CODE.slice(at, at + 420);
+  assert.match(body, /setTimeout\(tryShow, 0\);/, 'the first attempt must be deferred a tick');
+  assert.ok(!/\n\s*tryShow\(\);/.test(body), 'never call tryShow() synchronously');
+});
+
+test('the guard is real: the binding really is declared after the entry point', () => {
+  // If this ever stops being true the deferral is merely harmless rather than
+  // load-bearing — but it is true today, and it is why the bug existed.
+  const entry = APP.indexOf("p.get('view') === 'signup'");
+  const decl = APP.indexOf('let _signupPlansLoaded = false;');
+  const gate = APP.indexOf('<div id="auth-gate">');
+  const script = APP.indexOf('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2');
+  assert.ok(entry > -1 && decl > -1 && gate > -1 && script > -1);
+  assert.ok(decl > entry, '_signupPlansLoaded is declared AFTER the ?view=signup entry point');
+  assert.ok(gate < script, '#auth-gate markup precedes the script, so it is found immediately');
+});
+
+test('🔴 a checkout error can never render a message that names nothing', () => {
+  // "{}" was shown to a paying customer verbatim: unsearchable, unreportable,
+  // and indistinguishable from a broken button.
+  const m = APP.match(/function _checkoutFailureMessage\(e\) \{([\s\S]*?)\n\}/);
+  assert.ok(m, 'app.html must define _checkoutFailureMessage');
+  // eslint-disable-next-line no-new-func
+  const fn = new Function(`function _checkoutFailureMessage(e) {${m[1]}\n}; return _checkoutFailureMessage;`)();
+  for (const useless of ['{}', '[object Object]', '', '   ', 'null', 'undefined']) {
+    const out = fn(new Error(useless));
+    assert.ok(/try again/i.test(out), `"${useless}" must not reach the user, got: ${out}`);
+    assert.ok(!/^\{\}$/.test(out));
+  }
+  // No message at all, and a non-Error, are both handled.
+  assert.match(fn(undefined), /try again/i);
+  assert.match(fn({}), /try again/i);
+  // A real message survives untouched.
+  assert.equal(fn(new Error('plan_not_found')), 'plan_not_found');
+  assert.equal(fn(new Error('checkout_session_failed — No such price')), 'checkout_session_failed — No such price');
+  // The network case still gets its own actionable sentence.
+  assert.match(fn(new TypeError('Failed to fetch')), /Couldn't reach the payment server/);
+});
+
+test('the wizard reads the body as text, so a non-JSON error is still legible', () => {
+  // resp.json() THROWS on an empty or non-JSON body — before the resp.ok check
+  // runs — so a 502 returning an HTML error page surfaced as a parse error.
+  const at = APP_CODE.indexOf('async function wizSubmit()');
+  const body = APP_CODE.slice(at, APP_CODE.indexOf('function _wizIsNative()'));
+  assert.match(body, /const rawBody = await resp\.text\(\);/);
+  assert.match(body, /try \{ result = rawBody \? JSON\.parse\(rawBody\) : \{\}; \} catch \(_\) \{ result = \{\}; \}/);
+  assert.match(body, /HTTP \$\{resp\.status\}/, 'an unnamed failure must still carry its status code');
+  assert.match(body, /_checkoutFailureMessage\(e\)/);
+});
+
 test('the signup wizard no longer claims to do something it does not', () => {
   // The comment read "now mount Stripe embedded checkout inline on this same
   // page" directly above a call to _wizOpenStripePopup().
