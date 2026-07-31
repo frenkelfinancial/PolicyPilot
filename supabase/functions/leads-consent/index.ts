@@ -39,6 +39,26 @@ import { toE164 } from "../_shared/phone.ts";
 //     revoked at a level an attestation cannot reach back through. Same rule,
 //     same reasoning, as messaging-consent-record.
 //
+// ---- TEXT consent, added 2026-07-31 (owner's decision) --------------------
+//
+// This function used to write nothing but voice consent, and the rule was
+// stated as "leads-consent never writes consent_records". That rule existed
+// to stop recording one permission from silently widening the other, and
+// that is still exactly the rule — what changed is HOW it is enforced.
+//
+// The Record-consent modal now carries TWO separate attestations. The voice
+// one is required and unchanged. The text one is optional, unticked every
+// time the modal opens, and arrives as `sms_attestation: true`. ONLY when
+// that literal boolean is present does a `consent_records` row get written.
+// Voice-only remains the default and the common case.
+//
+// The row written is the same shape the hosted opt-in page writes — same
+// table, same `consent_type` — so the existing send gate accepts it with no
+// change. It differs in `consent_method` ('agent_attested', not 'web_form')
+// and in `source` (the fixed string 'agent_attestation'), which is what
+// keeps the two grades of evidence apart forever. The hosted page is still
+// the stronger record and still the primary path.
+//
 // ---- What revoking does NOT do -------------------------------------------
 //
 // It does not touch `dnc_list` or `suppression_list`. Suppression is a
@@ -47,11 +67,18 @@ import { toE164 } from "../_shared/phone.ts";
 // them either over- or under-reports what the consumer actually said. Revoking
 // stops the calls (gate 3 refuses immediately) and records why.
 //
+// Revoking DOES now also revoke text consent — but only the rows this tool
+// itself wrote (`source = 'agent_attestation'`). A consumer who ticked the
+// box on the hosted opt-in page said that themselves, and an agent deciding
+// their own attestation was wrong does not un-say it.
+//
 // Request:
-//   { action: "grant", lead_ids: [uuid…], consent_source, attestation: true }
+//   { action: "grant", lead_ids: [uuid…], consent_source, attestation: true,
+//     sms_attestation?: true }
 //   { action: "revoke", lead_ids: [uuid…], note? }
 // Response:
-//   { ok, granted|revoked, skipped: {reason: n}, results: [{lead_id, ok, reason}] }
+//   { ok, granted|revoked, sms_granted|sms_revoked,
+//     skipped: {reason: n}, results: [{lead_id, ok, reason}] }
 // ============================================================
 
 /** Leads one press of the button may touch. */
@@ -68,6 +95,32 @@ const MAX_LEADS = 2000;
 export const CONSENT_ATTESTATION =
   "I confirm these leads gave prior express consent to be contacted by phone " +
   "by me or my agency.";
+
+/**
+ * The SECOND attestation — texting. A separate sentence for a separate
+ * permission, ticked separately, stored separately.
+ *
+ * It is deliberately stronger wording than the voice one ("prior express
+ * WRITTEN consent"), because that is what the TCPA requires for marketing
+ * SMS and what `runComplianceGate` demands: `consent_type='express_written'`
+ * whenever billing_config.sms_require_written_consent is on, which it is.
+ */
+export const SMS_CONSENT_ATTESTATION =
+  "I confirm these leads gave prior express written consent to receive text " +
+  "messages from me or my agency.";
+
+/**
+ * What goes in `consent_records.source` for a row written from here.
+ *
+ * A FIXED, MATCHABLE STRING, not free text. The hosted opt-in page writes
+ * `consent_method='web_form'` with the disclosure, the page URL and the IP;
+ * this writes `consent_method='agent_attested'` with this source. The two
+ * grades of evidence have to stay tellable apart for as long as the rows
+ * exist — carrier review turned on exactly that distinction — and a
+ * `where source = 'agent_attestation'` has to keep finding all of them.
+ * The provenance the agent named goes in the ledger event, not in here.
+ */
+export const SMS_ATTESTATION_SOURCE = "agent_attestation";
 
 /** Sources the modal offers. Free text is allowed — this is the shortlist. */
 const KNOWN_SOURCES = [
@@ -104,6 +157,7 @@ Deno.serve(async (req) => {
   let body: {
     action?: unknown; lead_ids?: unknown; consent_source?: unknown;
     consent_source_detail?: unknown; attestation?: unknown; note?: unknown;
+    sms_attestation?: unknown;
   };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
 
@@ -149,9 +203,11 @@ Deno.serve(async (req) => {
   if (action === "revoke") {
     const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : "";
     let revoked = 0;
+    let smsRevoked = 0;
 
     for (const lead of leads || []) {
       const d = (lead.data || {}) as Record<string, unknown>;
+      const phone = toE164(String(d.phone || ""));
       const { error } = await sb.from("leads").update({
         tcpa_consent: false,
         tcpa_consent_source: null,
@@ -167,16 +223,57 @@ Deno.serve(async (req) => {
         lead_id: lead.id,
         client_id: lead.client_id,
         action: "revoked",
+        channel: "voice",
         consent_source: null,
         attestation_text: note || null,
-        contact_phone: toE164(String(d.phone || "")) || null,
+        contact_phone: phone || null,
         lead_name: typeof d.name === "string" ? d.name : null,
       });
       revoked++;
+
+      // ---- TEXT consent comes back too --------------------------------
+      // Withdrawing consent has to withdraw ALL of it. A revoke that left
+      // the texting row standing would mean "stop calling them" quietly
+      // also meant "keep texting them", which is not what anybody clicking
+      // Withdraw believes they are asking for.
+      //
+      // ONLY the rows this tool wrote are touched (`source =
+      // 'agent_attestation'`). A consumer who ticked the box on the hosted
+      // opt-in page gave that consent themselves; an agent deciding their
+      // own attestation was wrong does not un-say what the consumer said.
+      // consent_records is append-only in the sense that a GRANT is never
+      // overwritten — setting revoked_at is how the gate is told to stop,
+      // and it is the same field an inbound STOP uses.
+      if (phone) {
+        const { data: mine } = await sb.from("consent_records")
+          .select("id")
+          .eq("agent_id", user.id)
+          .eq("contact_phone", phone)
+          .eq("source", SMS_ATTESTATION_SOURCE)
+          .is("revoked_at", null);
+        if (mine && mine.length) {
+          await sb.from("consent_records")
+            .update({ revoked_at: nowIso })
+            .in("id", mine.map((r: { id: string }) => r.id));
+          await sb.from("lead_consent_events").insert({
+            agent_id: user.id,
+            lead_id: lead.id,
+            client_id: lead.client_id,
+            action: "revoked",
+            channel: "sms",
+            consent_source: null,
+            attestation_text: note || null,
+            contact_phone: phone,
+            lead_name: typeof d.name === "string" ? d.name : null,
+          });
+          smsRevoked++;
+        }
+      }
+
       results.push({ lead_id: lead.id, ok: true });
     }
 
-    return json({ ok: true, action: "revoke", revoked, skipped, results });
+    return json({ ok: true, action: "revoke", revoked, sms_revoked: smsRevoked, skipped, results });
   }
 
   // ============================================================
@@ -228,7 +325,23 @@ Deno.serve(async (req) => {
     }
   }
 
+  // ---- The SECOND attestation: text messages -------------------------------
+  //
+  // 🔴 OPT-IN, AND ONLY OPT-IN. Absent, false, or anything other than the
+  // literal boolean true means no text consent is recorded — recording that
+  // a lead may be CALLED must never, on any code path, also record that they
+  // may be TEXTED. Voice-only is the default and stays fully supported; the
+  // modal's second checkbox is unticked every time it opens.
+  //
+  // When it IS ticked the row written is the same shape the hosted opt-in
+  // page writes — the table the send gate actually reads — differing only in
+  // `consent_method` ('agent_attested' vs 'web_form') and `source`
+  // (SMS_ATTESTATION_SOURCE), which is how the two grades of evidence stay
+  // distinguishable forever.
+  const wantsSms = body.sms_attestation === true;
+
   let granted = 0;
+  let smsGranted = 0;
   for (const lead of leads || []) {
     const d = (lead.data || {}) as Record<string, unknown>;
     const phone = toE164(String(d.phone || ""));
@@ -253,14 +366,67 @@ Deno.serve(async (req) => {
       lead_id: lead.id,
       client_id: lead.client_id,
       action: "granted",
+      channel: "voice",
       consent_source: source,
       attestation_text: CONSENT_ATTESTATION,
       contact_phone: phone,
       lead_name: typeof d.name === "string" ? d.name : null,
     });
     granted++;
+
+    if (wantsSms) {
+      // The DNC checks above already ran and this lead passed them, so the
+      // "a person who said STOP cannot be consented back" rule that
+      // messaging-consent-record enforces holds here for free.
+      //
+      // Skip when the most recent row already says the same thing: a second
+      // identical grant changes no behaviour and only adds noise to the
+      // evidence trail an auditor reads.
+      const { data: latest } = await sb.from("consent_records")
+        .select("id, consent_type, revoked_at")
+        .eq("agent_id", user.id)
+        .eq("contact_phone", phone)
+        .order("captured_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const alreadyCovered = latest && !latest.revoked_at && latest.consent_type === "express_written";
+
+      if (!alreadyCovered) {
+        const { error: smsErr } = await sb.from("consent_records").insert({
+          agent_id:       user.id,
+          contact_phone:  phone,
+          consent_type:   "express_written",
+          consent_method: "agent_attested",
+          source:         SMS_ATTESTATION_SOURCE,
+          captured_at:    nowIso,
+        });
+        // A failed text-consent write must NOT fail the voice grant that
+        // already succeeded — it is a second, optional permission. It is
+        // counted separately so the toast can be honest about the difference.
+        if (!smsErr) {
+          await sb.from("lead_consent_events").insert({
+            agent_id: user.id,
+            lead_id: lead.id,
+            client_id: lead.client_id,
+            action: "granted",
+            channel: "sms",
+            consent_source: source,
+            attestation_text: SMS_CONSENT_ATTESTATION,
+            contact_phone: phone,
+            lead_name: typeof d.name === "string" ? d.name : null,
+          });
+          smsGranted++;
+        }
+      } else {
+        smsGranted++;   // already textable; the agent's intent is satisfied
+      }
+    }
+
     results.push({ lead_id: lead.id, ok: true });
   }
 
-  return json({ ok: true, action: "grant", granted, source, skipped, results });
+  return json({
+    ok: true, action: "grant", granted, source, skipped, results,
+    sms_requested: wantsSms, sms_granted: smsGranted,
+  });
 });
