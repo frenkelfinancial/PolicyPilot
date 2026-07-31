@@ -354,6 +354,131 @@ Notes for whoever writes the seeder:
   is one indexed query over `voice_campaigns (active)`, and only enrollments
   that are actually due are read.
 
+## The manual door — "Add to campaign" (added 2026-07-31)
+
+Until this round a lead reached a campaign one way: it carried the right tag,
+the rule caught it, the tick enrolled it. That is good automation and
+completely invisible plumbing at the same time — **an agent who does not know
+what a trigger group is cannot use any of it.** So there are now two obvious
+doors on top of the same engine, and the trigger system is untouched
+underneath.
+
+Three entry points, one implementation:
+
+| Where | Calls |
+|---|---|
+| Leads tab → select → **Add to campaign** | `atcConfirm()` → `atcEnroll()` |
+| CSV importer, step 5 | `csvApplyCampaign()` → `atcEnrollByClientIds()` → `atcEnroll()` |
+| Add Lead modal → **Add to campaign** | `saveManualLead()` → `atcEnrollByClientIds()` → `atcEnroll()` |
+
+`atcEnroll()` is the only place in the browser that builds an enrollment
+request, and a test asserts the strings `'enroll_leads'` and `'preview_enroll'`
+each appear exactly once in `app.html`.
+
+### The preview IS the action
+
+`preview_enroll` and `enroll_leads` in `voice-campaign-manage` are the same
+call with one flag. Both build a plan with `vcPlanManualEnrollment()`; only the
+second writes it. A test asserts the planner is called **once** in that block
+and that the `if (!write)` split happens after it.
+
+This matters because the modal makes a promise — *"12 will be enrolled · 2 will
+move from another campaign · 3 no consent"* — and `vcEnrollPlanSentence()`
+renders both that promise and the receipt from the same plan, in two tenses.
+
+### What the door does NOT do
+
+**It is not a way around consent.** The planner calls `vcEvaluateEnrollment()`,
+the same function the tick's sweep calls: no consent, DNC, suppression, no
+phone, already active elsewhere. `ai-call-start`'s full chain still runs on
+every resulting call. A test asserts the browser contains no copy of any of it
+— not the gate, not the planner, not a suppression-list query.
+
+**It does not validate the trigger rule.** `vcValidateTriggerGroups` exists to
+stop a *rule* matching a whole book by accident. This door has no rule; the
+agent named the leads. Demanding a valid trigger group here would block exactly
+the case the feature was built for.
+
+### Skip or move
+
+A lead may be active in one voice campaign at a time. When some of the
+selection already are, the modal offers a choice — **default Skip**, because
+moving ends a campaign somebody set up. Move stops the old enrollment with
+`stop_reason = 'moved_by_user'` (distinct from `manual`, which reads
+"Unenrolled by hand" and would make a move look like a loss on both cards) and
+then enrols here.
+
+**The stop is written before the insert.** The opposite order leaves a window
+in which the lead is active in two campaigns and a tick firing inside it dials
+them from both. A test asserts the ordering.
+
+Consent is checked **above** the conflict: a lead with no consent is reported
+as "no consent", never as "already in another campaign". Telling an agent to
+resolve a conflict for somebody nobody may call sends them to fix the wrong
+thing.
+
+### The tag write, and its two hard limits
+
+Adding leads by hand to *Final Expense* also sets their `campaign_tag`, so the
+rule and the manual selection agree about who belongs there and the assistant
+says the right lead type on the call. `vcCampaignTag()` decides, and it is
+deliberately conservative:
+
+- **`campaign_tag` is the only field ever written.** The other four
+  `VC_TAG_FIELDS` carry real data in the production book — `coverage_wanted`
+  holds dollar amounts, `source` holds vendor names. A rule written as
+  `lead_type is veteran` therefore produces **no** tag write, because
+  `lead_type` is virtual and resolves through `coverage_wanted` first: "make
+  the lead match" would mean writing a coverage amount of "veteran".
+- **Two different `campaign_tag` values across the groups is ambiguous, and
+  ambiguous writes nothing.** Picking the first would silently re-tag a book on
+  a detail nobody was shown.
+
+**It is written twice, on purpose.** `sbUpsertAllLeads()` re-upserts the entire
+book from memory on every save, so a server-only write to `leads.data` is
+erased the next time the agent edits anything — the same trap that keeps
+appointments out of `leads.data`. The server's write makes the tag true for the
+tick immediately; `atcApplyTagLocally()` makes it survive. Both derive the value
+from `vcCampaignTag()`, so they cannot write different things.
+
+### The importer is now the whole setup
+
+Upload → Map → Import → **Consent** → **Campaign**. Both new steps are optional
+and both reuse an existing implementation rather than growing a second one:
+
+- The consent step **opens the same Record-consent modal** the leads tab opens,
+  scoped to the leads that import just created (`_csvChain.importedIds`). Same
+  two attestations, same source field, same `leads-consent` endpoint — the
+  sentence an agent puts their name to exists in one place. A test pins the
+  `leads-consent` call-site count at three (bulk grant, per-lead revoke, AI test
+  rig) so the importer cannot quietly become a fourth.
+- The import itself is **committed before either step runs**, which is what
+  makes them safe to skip: closing the modal at step 4 still leaves a perfectly
+  good book.
+
+`openConsentModal({leadIds, label, onDone})` is the seam. `onDone` receives the
+server's answer, or **null** when the modal was cancelled — that difference is
+how the importer tells "they recorded consent" from "they changed their mind".
+The scope is dropped on every close, before the callback runs; a stale one would
+record consent against the wrong leads on the next ordinary press of the button.
+
+### Saying so on screen
+
+Every summary ends with the same clause: **"calls begin automatically at the
+next allowed time."** Assignment is not dialing, and an agent who adds 200 leads
+and then hears nothing for an hour has to be able to tell "it is working" from
+"it is broken" — quiet hours, the daily cap, the slot limit and the step timing
+that separate the two are all invisible from the leads tab.
+
+`vcAutoEnrollPhrase()` puts the automation on the card in one line
+("Auto-enrolls: leads tagged Veteran", "Fills when an appointment is marked
+no-show", or **"Only leads you add by hand."**), and the Enrollments tab opens
+with a two-sentence "How leads get here". Helper copy only — it reads only the
+fields the tick's sweep branches on, so it cannot describe behaviour the engine
+does not have. Note it says "leads", not "new leads": `auto_enroll_new_leads`
+sweeps every matching lead the campaign has not seen, so "new" would be a
+promise the engine over-delivers on.
+
 ## Known-fragile
 
 - **The slot count is per agent, campaign calls only.** A manual test-rig call
@@ -374,4 +499,12 @@ Notes for whoever writes the seeder:
   but a book larger than that needs paging.
 - **The engine never re-enrolls a lead a campaign has already seen**, in any
   status. Re-running somebody through a finished campaign is a deliberate act
-  that has no button yet.
+  that has no button yet. The manual door reports this as its own skip reason
+  ("already in this campaign") rather than appearing to do nothing.
+- **Moving a lead whose current call is still connected** stops the old
+  enrollment underneath a live call. `recordCampaignCallResult()` refuses to
+  advance a stopped enrollment, so nothing is corrupted and no second call goes
+  out from the old campaign — but the new campaign's step 1 could come due
+  while the old call is still up. The per-agent slot limit bounds the damage to
+  one extra concurrent call, and the narrowness of the window is why this is
+  documented rather than guarded.

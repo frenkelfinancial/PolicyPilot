@@ -37,6 +37,8 @@ const EXPORTS = [
   'vcStepAt', 'vcNextStep', 'vcDripActive',
   'vcSlotsInUse', 'vcSlotsFree', 'vcSlotsLabel',
   'vcCampaignStats', 'vcStopReasonLabel', 'vcEnrollSummary',
+  // The manual "Add to campaign" door's screen-side half.
+  'VC_ENROLL_TAG_FIELD', 'vcCampaignTag', 'vcTagLabel', 'vcAutoEnrollPhrase',
 ];
 
 function loadCore() {
@@ -372,4 +374,176 @@ test('steps derive their agent from the campaign, never from the client', () => 
 test('ai_calls links back to the enrollment that asked for the call', () => {
   assert.ok(/alter table public\.ai_calls[\s\S]{0,400}enrollment_id uuid/.test(MIG));
   assert.ok(MIG.includes('campaign_step integer'));
+});
+
+// ============================================================
+// 4. THE MANUAL DOOR — "Add to campaign"
+//
+// Three entry points (a leads-tab selection, the CSV importer, the Add Lead
+// modal) that must all be the SAME door. The bug this section exists to
+// prevent is the obvious one: a second way in that forgets a gate.
+// ============================================================
+
+const MANAGE = readFileSync(join(ROOT, 'supabase/functions/voice-campaign-manage/index.ts'), 'utf8');
+
+test('the tag rule and the card copy agree between browser and server', () => {
+  const campaigns = [
+    null,
+    {},
+    { trigger_groups: [{ conditions: [{ field: 'campaign_tag', op: 'is', value: 'final_expense' }] }] },
+    { trigger_groups: [{ conditions: [{ field: 'campaign_tag', op: 'is_not', value: 'veteran' }] }] },
+    { trigger_groups: [{ conditions: [{ field: 'lead_type', op: 'is', value: 'veteran' }] }] },
+    { trigger_groups: [{ conditions: [{ field: 'coverage_wanted', op: 'is', value: '25000' }] }] },
+    {
+      trigger_groups: [
+        { conditions: [{ field: 'campaign_tag', op: 'is', value: 'veteran' }] },
+        { conditions: [{ field: 'campaign_tag', op: 'is', value: 'trucker' }] },
+      ],
+    },
+    {
+      trigger_groups: [
+        { conditions: [{ field: 'campaign_tag', op: 'is', value: 'iul' }] },
+        { conditions: [{ field: 'lead_type', op: 'is', value: 'iul' }] },
+      ],
+      auto_enroll_new_leads: true,
+    },
+    { trigger_on_sold: true, trigger_groups: [{ conditions: [{ field: 'status', op: 'is', value: 'sold' }] }] },
+    { trigger_on_missed_appointment: true },
+    { trigger_on_appointment_booked: true },
+    { auto_enroll_new_leads: true, trigger_on_sold: true, trigger_on_appointment_booked: true, trigger_on_missed_appointment: true },
+  ];
+  for (const c of campaigns) {
+    const label = JSON.stringify(c);
+    assert.equal(B.vcCampaignTag(c), SRV.vcCampaignTag(c), `vcCampaignTag disagrees on ${label}`);
+    assert.equal(B.vcAutoEnrollPhrase(c), SRV.vcAutoEnrollPhrase(c), `vcAutoEnrollPhrase disagrees on ${label}`);
+  }
+  for (const tag of ['', null, 'iul', 'veteran', 'final_expense', 'mortgage-protection', 'GENERAL_LIFE', '  trucker  ']) {
+    assert.equal(B.vcTagLabel(tag), SRV.vcTagLabel(tag), `vcTagLabel disagrees on ${JSON.stringify(tag)}`);
+  }
+  assert.equal(B.VC_ENROLL_TAG_FIELD, SRV.VC_ENROLL_TAG_FIELD);
+});
+
+test('the only lead field the manual door writes is campaign_tag', () => {
+  // The other four VC_TAG_FIELDS carry real data in the production book —
+  // coverage_wanted holds dollar amounts, source holds vendor names. Writing
+  // either to tidy up a join would corrupt the book.
+  assert.equal(SRV.VC_ENROLL_TAG_FIELD, 'campaign_tag');
+  for (const f of SRV.VC_TAG_FIELDS) {
+    if (f === 'campaign_tag') continue;
+    assert.equal(SRV.vcCampaignTag({ trigger_groups: [{ conditions: [{ field: f, op: 'is', value: 'x' }] }] }), '',
+      `a rule on ${f} must never produce a tag write`);
+  }
+});
+
+test('the browser holds NO copy of the enrollment gate', () => {
+  // Consent, DNC, suppression and the one-active-campaign rule are decided by
+  // vcEvaluateEnrollment on the server, once. A browser-side re-derivation
+  // would be a second opinion that drifts, and the drift would be in the
+  // direction of showing a green button for a call the server refuses.
+  //
+  // Comments are stripped: naming the server's function in a comment that
+  // explains WHY it is not here is the opposite of the problem.
+  const code = APP.split('\n').filter(l => !l.trim().startsWith('//') && !l.trim().startsWith('*')).join('\n');
+  assert.ok(!code.includes('vcEvaluateEnrollment'), 'the gate belongs to the server');
+  assert.ok(!code.includes('vcPlanManualEnrollment'), 'the planner belongs to the server');
+  assert.ok(!/from\('suppression_list'\)/.test(code),
+    'the browser cannot see the suppression list and must not pretend to');
+});
+
+test('all three doors go through one function, and it goes through the endpoint', () => {
+  // atcEnroll() is the single place the browser asks for an enrollment.
+  const previews = APP.match(/action:\s*opts\.preview\s*\?\s*'preview_enroll'\s*:\s*'enroll_leads'/g) || [];
+  assert.equal(previews.length, 1, 'exactly one place builds the enroll request');
+
+  // Nobody else names the actions.
+  assert.equal((APP.match(/'enroll_leads'/g) || []).length, 1);
+  assert.equal((APP.match(/'preview_enroll'/g) || []).length, 1);
+
+  // And the three doors all reach it.
+  for (const caller of ['atcConfirm', 'atcEnrollByClientIds']) {
+    assert.ok(APP.includes(`function ${caller}`) || APP.includes(`async function ${caller}`), `${caller} must exist`);
+  }
+  assert.ok(/async function atcConfirm[\s\S]{0,2000}atcEnroll\(/.test(APP), 'the leads-tab door calls atcEnroll');
+  assert.ok(/async function atcEnrollByClientIds[\s\S]{0,1500}atcEnroll\(/.test(APP), 'the importer / Add Lead door calls atcEnroll');
+  assert.ok(/async function saveManualLead[\s\S]{0,6000}atcEnrollByClientIds\(/.test(APP), 'the Add Lead modal chains in');
+  assert.ok(/async function csvApplyCampaign[\s\S]{0,1200}atcEnrollByClientIds\(/.test(APP), 'the importer chains in');
+});
+
+test('the leads tab offers the button beside Record consent', () => {
+  assert.ok(APP.includes('onclick="openAddToCampaignModal()"'), 'the bulk bar needs the door');
+  const bar = APP.slice(APP.indexOf('id="lead-bulk-bar"'), APP.indexOf('id="lead-select-all-row"'));
+  assert.ok(bar.includes('openConsentModal()'));
+  assert.ok(bar.includes('openAddToCampaignModal()'), 'and it must be IN the bulk bar, next to consent');
+});
+
+test('the importer records consent through the consent tool, not a copy of it', () => {
+  // "One implementation, never two" — the importer's consent step opens the
+  // same modal, so the sentence the agent puts their name to exists once.
+  assert.ok(/function csvOpenConsentStep[\s\S]{0,1200}openConsentModal\(/.test(APP));
+  // Exactly THREE leads-consent call sites, and the importer added none of
+  // them: the bulk modal's grant, the per-lead revoke, and the Phase 1 AI
+  // test rig (which goes through this endpoint deliberately — exempting it
+  // would have left a hole shaped like that one function).
+  assert.equal((APP.match(/invoke\('leads-consent'/g) || []).length, 3,
+    'the importer must not add a fourth leads-consent call site');
+  // And the attestation still appears once, in the modal's markup.
+  assert.equal(
+    (APP.match(/gave prior express consent to be contacted by phone/g) || []).length, 2,
+    'the sentence lives in the modal and in the constant that mirrors the server — nowhere else',
+  );
+});
+
+test('a chained consent scope is always cleared', () => {
+  // A stale scope would record consent against the wrong leads on the next
+  // ordinary press of the button — the worst bug this modal could have.
+  const fn = APP.slice(APP.indexOf('function closeConsentModal'), APP.indexOf('function consentSourceChange'));
+  assert.ok(fn.includes('_consentScope = null'), 'closing must drop the scope');
+  assert.ok(fn.indexOf('_consentScope = null') < fn.indexOf('if (back)'),
+    'and drop it BEFORE handing control back, so a callback cannot inherit it');
+});
+
+test('the server takes the agent from the JWT for the new actions too', () => {
+  const block = MANAGE.slice(MANAGE.indexOf('preview_enroll'), MANAGE.indexOf('reevaluate — run the rules'));
+  assert.ok(!/body\.agent_id/.test(MANAGE), 'there is no agent id in the body, ever');
+  for (const scoped of ['.eq("agent_id", user.id)']) {
+    assert.ok(block.includes(scoped), 'every read is re-scoped to the caller');
+  }
+  assert.ok(block.includes('.eq("id", campaignId)') && block.includes('.eq("agent_id", user.id)'),
+    'the campaign id is a selection, not a boundary');
+});
+
+test('preview and write are the same plan', () => {
+  const block = MANAGE.slice(MANAGE.indexOf('if (action === "preview_enroll"'), MANAGE.indexOf('// reevaluate — run the rules'));
+  assert.equal((block.match(/vcPlanManualEnrollment\(/g) || []).length, 1,
+    'one planner call serves both actions — a second would be a preview that drifts');
+  assert.ok(block.indexOf('if (!write)') > block.indexOf('vcPlanManualEnrollment('),
+    'the split happens AFTER the plan is made, not before');
+});
+
+test('a move stops the old enrollment before the new one is written', () => {
+  const block = MANAGE.slice(MANAGE.indexOf('// ---- Write ---'), MANAGE.indexOf('// ---- The tag ---'));
+  assert.ok(block.includes('"moved_by_user"'), 'a move is recorded as a move');
+  assert.ok(block.indexOf('moved_by_user') < block.indexOf('.upsert(rows'),
+    'the opposite order leaves a window where the lead is active in two campaigns at once');
+  assert.ok(block.includes('.eq("status", "active")'), 'only an ACTIVE enrollment can be moved');
+});
+
+test('the manual door reimplements no CALL-TIME gate', () => {
+  // Same rule the tick lives under: consent/DNC/suppression are decided by
+  // vcEvaluateEnrollment, and everything about money, quiet hours and caps
+  // belongs to ai-call-start.
+  for (const forbidden of [
+    'balance_mills', 'wallet_accounts', 'ai_daily_call_cap', 'evaluateDailyPace',
+    'isWithinAllowedHours', 'api.telnyx.com',
+  ]) {
+    assert.ok(!MANAGE.includes(forbidden), `voice-campaign-manage must not reference ${forbidden}`);
+  }
+});
+
+test('the enrolled_by value the manual door writes is one the schema allows', () => {
+  const allowed = MIG.match(/enrolled_by\s+text not null default 'auto'\s*\n?\s*check \(enrolled_by in \(([^)]*)\)\)/);
+  assert.ok(allowed, 'the CHECK constraint must still be there');
+  const values = allowed[1].split(',').map(s => s.trim().replace(/'/g, ''));
+  assert.ok(values.includes('manual'), 'manual must be a permitted enrolled_by');
+  assert.ok(/enrolled_by: "manual"/.test(MANAGE), 'and it is what the manual door writes');
 });

@@ -490,6 +490,63 @@ Autonomy layer (added 07/2026):
   get it from the column default and name it nowhere — one default beats three
   call sites that have to remember. Per-number opt-out is in the Phone Book.
 
+### Phase 6 — "Add to campaign": leads reach campaigns without tags (2026-07-31)
+
+Prompt I. No schema change. Docs: `docs/voice-campaigns.md` § "The manual
+door". Tests: `npm run test:ai` (`voice-campaign-enroll.test.ts`) and
+`npm run test:voicecampaigns`.
+
+- **🔴 `preview_enroll` AND `enroll_leads` ARE THE SAME CALL WITH ONE FLAG.**
+  Both build a plan with `vcPlanManualEnrollment()`; only the second writes
+  it. A test asserts the planner appears exactly once in that block and that
+  the `if (!write)` split comes after it. A preview computed by separate code
+  is a preview that eventually lies, and this modal's whole job is to promise
+  what the button will do.
+- **The door is not a way around consent.** The planner calls
+  `vcEvaluateEnrollment()` — the same function the tick's sweep calls — and
+  `ai-call-start`'s chain still runs per call. A test asserts `app.html`
+  contains no copy of the gate, the planner, or a `suppression_list` query.
+  It deliberately does NOT run `vcValidateTriggerGroups`: that guard stops a
+  *rule* matching a whole book, and this door has no rule.
+- **THREE DOORS, ONE FUNCTION.** Leads tab (`atcConfirm`), CSV importer and
+  Add Lead modal (both via `atcEnrollByClientIds`) all reach `atcEnroll()`.
+  `'enroll_leads'` and `'preview_enroll'` each appear exactly once in
+  `app.html`; a test pins it.
+- **Move writes `stop_reason = 'moved_by_user'`, and the stop goes BEFORE the
+  insert.** The reverse order leaves a window where the lead is active in two
+  campaigns and a tick inside it dials from both. `moved_by_user` is distinct
+  from `manual` on purpose — "Unenrolled by hand" would make a move look like
+  a loss on both cards. Default is **Skip**; moving ends a campaign somebody
+  set up. Consent is checked ABOVE the conflict, so a lead with no consent is
+  never reported as "already in another campaign".
+- **🔴 `campaign_tag` IS THE ONLY LEAD FIELD THIS EVER WRITES**
+  (`VC_ENROLL_TAG_FIELD`). A rule on `lead_type` yields NO tag — it is virtual
+  and resolves through `coverage_wanted`, which holds DOLLAR AMOUNTS in this
+  book. Two different tag values across groups is ambiguous and writes
+  nothing. **The tag is written twice on purpose** — server-side for the tick,
+  and by `atcApplyTagLocally()` because `sbUpsertAllLeads()` re-upserts the
+  whole book from memory and would erase a server-only `leads.data` write.
+  Same trap that keeps appointments out of `leads.data`.
+- **The importer's consent step OPENS THE EXISTING MODAL**, scoped to
+  `_csvChain.importedIds`. One implementation, never two: a test pins the
+  `invoke('leads-consent')` call-site count at **three** (bulk grant, per-lead
+  revoke, AI test rig). `openConsentModal({leadIds, label, onDone})` is the
+  seam and `onDone` gets **null on cancel** — that is how the importer tells a
+  recorded consent from a change of mind. `_consentScope` is dropped on every
+  close, before the callback; a stale one records consent against the wrong
+  leads.
+- **Every summary ends "calls begin automatically at the next allowed time."**
+  Assignment is not dialing, and the quiet hours / cap / slot limit / step
+  timing that explain the gap are invisible from the leads tab.
+- **`vcAutoEnrollPhrase()` says "leads", not "new leads"** —
+  `auto_enroll_new_leads` sweeps every matching lead the campaign has not
+  seen. A campaign with no trigger reads **"Only leads you add by hand."**,
+  which is the whole point: a dormant campaign and an auto-filling one used to
+  look identical.
+- `.vc-check` / `.vc-pill` are declared under `#sec-voice-campaigns` and so do
+  nothing in an overlay. An `.overlay` copy was added; that also gave the
+  Record-consent modal the flex layout its inline styles always assumed.
+
 ### SMS consent joins the attestation tool + verify-to-activate (added 2026-07-31)
 
 Prompt H. Schema: `20260804_sms_attestation_and_verification.sql`. Docs:
