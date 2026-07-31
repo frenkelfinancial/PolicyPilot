@@ -5902,6 +5902,7 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
         <button class="btn btn-p btn-sm" onclick="bulkSetStatus()">Apply Status</button>
         <div style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px;font-weight:600" onclick="openConsentModal()" title="Record that these leads consented to be called by phone — required before the AI will dial them"><span data-ico="shield-check" data-size="14"></span>Record consent</button>
+        <button class="btn btn-sm" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px;font-weight:600" onclick="openAddToCampaignModal()" title="Put these leads into one of your voice campaigns — the AI works them through its steps automatically"><span data-ico="megaphone" data-size="14"></span>Add to campaign</button>
         <div class="js-desktop-only-dialer" style="width:1px;height:22px;background:var(--border)"></div>
         <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPowerDialer()"><span data-ico="phone" data-size="14"></span>Power Dial</button>
         <button class="btn btn-sm js-desktop-only-dialer" style="background:var(--lg-card);border:1px solid var(--lg-blue-border);color:var(--lg-blue);display:inline-flex;align-items:center;gap:6px" onclick="guardedOpenPreviewDialer()"><svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="flex-shrink:0"><rect x="3" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/><rect x="7.5" y="1.5" width="2.5" height="10" rx="1" fill="currentColor"/></svg>Preview Dial</button>
@@ -7242,6 +7243,69 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
   </div>
 </div>
 
+<!-- The campaign look, made available inside MODALS.
+     `.vc-check` / `.vc-pill` are declared under `#sec-voice-campaigns`, so
+     they do nothing in an overlay — which is why the Record-consent modal's
+     existing `vc-check` labels have never picked up their own flex layout.
+     Declared here for `.overlay` as well, so the campaign picker and the
+     consent modal look like the screen they came from. -->
+<style>
+  .overlay .vc-check{display:flex;align-items:center;gap:8px;font:13px var(--sans);color:var(--text);margin-bottom:9px;cursor:pointer}
+  .overlay .vc-pill{font:11.5px var(--sans);border-radius:999px;padding:3px 10px;white-space:nowrap;border:1px solid var(--border);color:var(--text2);background:var(--bg3)}
+  .overlay .vc-pill[data-tone="on"]{border-color:rgba(16,185,129,.45);color:#059669;background:rgba(16,185,129,.12)}
+  .overlay .vc-pill[data-tone="warn"]{border-color:rgba(245,158,11,.45);color:#b45309;background:rgba(245,158,11,.12)}
+  .overlay #atc-list label:hover{background:var(--bg3)}
+</style>
+
+<!-- ============================================================
+     ADD TO CAMPAIGN — the door that does not require understanding tags.
+     Until this existed, a lead reached a campaign only through the trigger
+     rules: select leads, press a button, and the same engine does the rest.
+     The PREVIEW is a real server call to the same planner the confirm button
+     runs, so the sentence here and the outcome cannot differ.
+     ============================================================ -->
+<div class="overlay" id="addToCampaignModal" onclick="if(event.target===this)closeAddToCampaignModal()">
+  <div class="modal" style="width:600px;max-width:95vw;max-height:90vh;overflow-y:auto">
+    <div class="mhdr"><div class="mtitle">Add to campaign</div><button class="mclose" onclick="closeAddToCampaignModal()" data-ico="x" data-size="14"></button></div>
+    <div style="padding:6px 0 0">
+      <p style="font:13px/1.6 var(--sans);color:var(--text2);margin:0 0 14px">
+        The AI will work <strong id="atc-count">0 leads</strong> through this campaign's steps.
+        Consent is still required &mdash; a lead without it is skipped, not called.
+      </p>
+
+      <div id="atc-list" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:6px">
+        <div style="font:12.5px var(--sans);color:var(--text3);padding:14px;text-align:center">Loading campaigns&hellip;</div>
+      </div>
+
+      <!-- Only rendered once a preview says somebody is already in another
+           campaign. A choice about a situation that does not exist is noise. -->
+      <div id="atc-conflict" style="display:none;margin-top:14px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:10px">
+        <div style="font:600 12.5px var(--sans);color:var(--text);margin-bottom:8px" id="atc-conflict-head">Some of these leads are already in another campaign</div>
+        <label class="vc-check" style="margin:0 0 6px"><input type="radio" name="atc-conflict-mode" value="skip" checked onchange="atcSetConflict('skip')"> Skip leads already in a campaign</label>
+        <label class="vc-check" style="margin:0"><input type="radio" name="atc-conflict-mode" value="move" onchange="atcSetConflict('move')"> Move them into this campaign</label>
+        <div style="font:11.5px/1.5 var(--sans);color:var(--text3);margin-top:7px">
+          Moving stops their current campaign cleanly and starts them here at step 1. A lead is only ever in one voice campaign at a time.
+        </div>
+      </div>
+
+      <div id="atc-preview" style="margin-top:14px;min-height:20px;font:12.5px/1.6 var(--sans);color:var(--text2)"></div>
+      <div id="atc-tagnote" style="font:11.5px/1.5 var(--sans);color:var(--text3);margin-top:8px;display:none"></div>
+
+      <p style="font:11.5px/1.5 var(--sans);color:var(--text3);margin:12px 0 0">
+        Adding leads does not dial anyone straight away. Calls are paced by the campaign's own steps,
+        your daily call limit and each lead's local quiet hours.
+      </p>
+
+      <div id="atc-msg" style="font:12.5px var(--sans);color:var(--text2);margin-top:10px;min-height:16px"></div>
+
+      <div class="frow" style="margin-top:14px;justify-content:flex-end;gap:8px">
+        <button class="btn btn-s btn-sm" onclick="closeAddToCampaignModal()">Cancel</button>
+        <button class="btn btn-p btn-sm" id="atc-confirm" onclick="atcConfirm()" disabled>Add to campaign</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="addLeadModal" onclick="if(event.target===this)closeAddLeadModal()">
   <div class="modal" style="width:680px;max-width:95vw;max-height:90vh;overflow-y:auto">
     <div class="mhdr"><div class="mtitle">Add Lead</div><button class="mclose" onclick="closeAddLeadModal()" data-ico="x" data-size="14"></button></div>
@@ -7324,6 +7388,18 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
           <option value="chargeback">Chargeback (recovery)</option>
         </select>
       </div>
+      <!-- The third door into a campaign. Optional, and it enforces the same
+           consent rule as the other two — a lead with none is enrolled by
+           nobody, and this says so instead of failing quietly. -->
+      <div class="fg" style="margin-top:10px">
+        <label>Add to campaign <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <select id="al-campaign" autocomplete="off">
+          <option value="">-- None --</option>
+        </select>
+        <div style="font-size:11.5px;color:var(--text3);margin-top:5px">
+          The AI works them through the campaign's steps. Recorded consent is required before it will dial.
+        </div>
+      </div>
       <div class="fg" style="margin-top:10px">
         <label>Notes <span style="color:var(--text3);font-weight:400">(optional)</span></label>
         <textarea id="al-notes" rows="2" placeholder="Source, context, anything to remember…" autocomplete="off" style="resize:vertical"></textarea>
@@ -7340,6 +7416,10 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
       </div>
 
       <div id="al-msg" style="font-size:12px;color:#dc2626;margin-top:8px;min-height:18px"></div>
+      <!-- Shown when the lead saved but the campaign part did not take. The
+           only reason an agent can clear from here is missing consent, so
+           that is the only one that gets a link. -->
+      <div id="al-campaign-nudge" style="display:none;margin-top:8px;padding:11px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:8px"></div>
       <div id="al-dupe-warning" style="display:none;margin-top:10px;padding:11px 14px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:8px">
         <div style="font-size:12.5px;font-weight:600;color:var(--ds-color-warning);margin-bottom:8px;display:flex;align-items:center;gap:6px"><span data-ico="warning" data-size="13"></span><span id="al-dupe-msg"></span></div>
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--text2)">
@@ -7361,11 +7441,16 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
     <div class="mhdr"><div class="mtitle">Import Leads</div><button class="mclose" onclick="closeImportModal()" data-ico="x" data-size="14"></button></div>
     <div class="alert alert-i" style="margin-bottom:16px"><span data-ico="lightbulb"></span><div>Upload a CSV or Excel file (.xlsx). Column headers are auto-detected — we match Name, Phone, DOB, State, Military Status, and other common fields automatically.</div></div>
 
-    <!-- Step indicator -->
+    <!-- Step indicator. Five steps since the importer became the one-stop
+         setup: upload → map → import → consent → campaign. The last two are
+         both skippable and both write through the same endpoints the leads
+         tab uses — there is no second implementation of either. -->
     <div id="csv-step-indicator" style="display:flex;gap:0;margin-bottom:20px">
-      <div id="csv-step-1-ind" style="flex:1;text-align:center;padding:8px;font-size:12px;font-weight:600;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);border-radius:8px 0 0 8px;color:var(--ds-color-info)">Step 1: Upload File</div>
-      <div id="csv-step-2-ind" style="flex:1;text-align:center;padding:8px;font-size:12px;font-weight:600;background:var(--bg3);border:1px solid var(--border);border-left:none;color:var(--text3)">Step 2: Map Columns</div>
-      <div id="csv-step-3-ind" style="flex:1;text-align:center;padding:8px;font-size:12px;font-weight:600;background:var(--bg3);border:1px solid var(--border);border-left:none;border-radius:0 8px 8px 0;color:var(--text3)">Step 3: Confirm &amp; Import</div>
+      <div id="csv-step-1-ind" style="flex:1;text-align:center;padding:8px;font-size:11.5px;font-weight:600;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);border-radius:8px 0 0 8px;color:var(--ds-color-info)">1. Upload</div>
+      <div id="csv-step-2-ind" style="flex:1;text-align:center;padding:8px;font-size:11.5px;font-weight:600;background:var(--bg3);border:1px solid var(--border);border-left:none;color:var(--text3)">2. Map</div>
+      <div id="csv-step-3-ind" style="flex:1;text-align:center;padding:8px;font-size:11.5px;font-weight:600;background:var(--bg3);border:1px solid var(--border);border-left:none;color:var(--text3)">3. Import</div>
+      <div id="csv-step-4-ind" style="flex:1;text-align:center;padding:8px;font-size:11.5px;font-weight:600;background:var(--bg3);border:1px solid var(--border);border-left:none;color:var(--text3)">4. Consent</div>
+      <div id="csv-step-5-ind" style="flex:1;text-align:center;padding:8px;font-size:11.5px;font-weight:600;background:var(--bg3);border:1px solid var(--border);border-left:none;border-radius:0 8px 8px 0;color:var(--text3)">5. Campaign</div>
     </div>
 
     <!-- STEP 1: Upload -->
@@ -7430,6 +7515,48 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
       <div class="flex gap8">
         <button class="btn btn-s btn-sm" onclick="goToCSVStep(2)">← Back to Mapping</button>
         <button class="btn btn-g" onclick="importCSVLeads()" id="csv-import-btn" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="check" data-size="14"></span>Import All Leads</button>
+      </div>
+    </div>
+
+    <!-- STEP 4: Consent.
+         The leads are already imported by the time this shows — everything
+         from here is additive, and skipping leaves a perfectly good book.
+         The button opens the SAME Record-consent modal the leads tab uses,
+         scoped to the leads just imported: same two attestations, same
+         source field, same leads-consent endpoint. Duplicating that markup
+         here would put the sentence an agent puts their name to in two
+         places, and the two would eventually differ. -->
+    <div id="csv-step-4" style="display:none">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px" id="csv-consent-title">Imported</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">
+        The AI Sales Agent only calls leads with recorded consent. Record the consent you already hold for this batch — or skip and do it later.
+      </div>
+      <div id="csv-consent-state" style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12.5px;color:var(--text2);line-height:1.6"></div>
+      <div class="flex gap8">
+        <button class="btn btn-s btn-sm" onclick="csvSkipConsent()">Skip for now</button>
+        <button class="btn btn-p" id="csv-consent-btn" onclick="csvOpenConsentStep()" style="display:inline-flex;align-items:center;gap:6px"><span data-ico="shield-check" data-size="14"></span>Record consent</button>
+      </div>
+    </div>
+
+    <!-- STEP 5: Campaign. Optional, and the skip is as prominent as the
+         action — an agent who does not want a campaign must not feel they
+         have failed to finish the wizard. -->
+    <div id="csv-step-5" style="display:none">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">Add these leads to a campaign?</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:14px">
+        Optional. You can always do this later from the leads tab — select leads and press “Add to campaign”.
+      </div>
+      <div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:12px">
+        <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:8px">Campaign</label>
+        <select id="csv-campaign" style="width:100%;padding:8px 12px;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:13px;outline:none" onchange="csvCampaignChange()">
+          <option value="">-- None --</option>
+        </select>
+        <div id="csv-campaign-hint" style="font-size:11.5px;color:var(--text3);margin-top:8px;line-height:1.55"></div>
+      </div>
+      <div id="csv-campaign-msg" style="font-size:12.5px;color:var(--text2);margin-bottom:12px;min-height:16px"></div>
+      <div class="flex gap8">
+        <button class="btn btn-s btn-sm" onclick="csvFinishImport(null)">Skip — just import them</button>
+        <button class="btn btn-p" id="csv-campaign-btn" onclick="csvApplyCampaign()" disabled style="display:inline-flex;align-items:center;gap:6px"><span data-ico="megaphone" data-size="14"></span>Add to campaign</button>
       </div>
     </div>
   </div>
@@ -9634,6 +9761,7 @@ const ICONS = {
   'percent': '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
   'tag': '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
   'funnel': '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+  'megaphone': '<path d="M3 11v2a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1Z"/><path d="M15.5 8.5a4 4 0 0 1 0 7"/><path d="M18.5 5.5a8 8 0 0 1 0 13"/>',
   'x-circle': '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
   'zap': '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
   'arrows-clockwise': '<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/>',
@@ -21392,12 +21520,33 @@ const CONSENT_ATTESTATION_TEXT =
   'I confirm these leads gave prior express consent to be contacted by phone ' +
   'by me or my agency.';
 
-function openConsentModal() {
-  const n = selectedLeadIds.size;
-  if (!n) return;
+/**
+ * Scope for one open of the modal, when something CHAINED into it.
+ *
+ * Normally this tool works on the leads-tab selection. "Record consent first
+ * →" in the Add to campaign modal, and the CSV importer's consent step, both
+ * hand it an explicit list of lead uuids instead — narrower than the
+ * selection on purpose, so a chain does not re-attest for leads that already
+ * have consent and pad the evidence trail with events nobody asked for.
+ *
+ * ALWAYS cleared on close. A stale scope would silently record consent
+ * against the wrong leads on the next ordinary press of the button, which is
+ * the worst bug this modal could have.
+ */
+let _consentScope = null;
+
+function openConsentModal(opts) {
+  _consentScope = (opts && Array.isArray(opts.leadIds) && opts.leadIds.length)
+    ? { leadIds: opts.leadIds.slice(), onDone: typeof opts.onDone === 'function' ? opts.onDone : null,
+        label: opts.label || '' }
+    : null;
+  const n = _consentScope ? _consentScope.leadIds.length : selectedLeadIds.size;
+  if (!n) { _consentScope = null; return; }
   const modal = document.getElementById('consentModal');
   if (!modal) return;
-  document.getElementById('cs-count').textContent = n + ' lead' + (n !== 1 ? 's' : '');
+  document.getElementById('cs-count').textContent =
+    (_consentScope && _consentScope.label ? _consentScope.label + ' — ' : '') +
+    n + ' lead' + (n !== 1 ? 's' : '');
   document.getElementById('cs-attest').checked = false;
   // UNTICKED EVERY TIME. Not remembered, not defaulted, not carried over from
   // the last batch — an agent must decide about text consent deliberately,
@@ -21415,6 +21564,15 @@ function openConsentModal() {
 function closeConsentModal() {
   const modal = document.getElementById('consentModal');
   if (modal) modal.classList.remove('open');
+  // Cancelling a chain returns to where it came from, so the agent does not
+  // lose the campaign they had picked; the scope is dropped either way. The
+  // callback receives the server's answer, or NULL when the modal was
+  // cancelled — which is how a caller tells "they recorded consent" from
+  // "they changed their mind", and the importer needs that difference.
+  const back = _consentScope && _consentScope.onDone;
+  const result = (_consentScope && _consentScope.result) || null;
+  _consentScope = null;
+  if (back) back(result);
 }
 
 function consentSourceChange() {
@@ -21460,11 +21618,18 @@ async function consentConfirm() {
   // client_id -> uuid. The endpoint takes leads.id; the UI selects client_id.
   // A selected lead the consent map has never seen is one that has not synced
   // yet, and is reported rather than silently dropped.
-  const ids = [];
+  //
+  // Unless something chained in with an explicit list — those are already
+  // uuids, and are exactly the leads the caller determined needed this.
+  let ids = [];
   let unsynced = 0;
-  for (const cid of selectedLeadIds) {
-    const st = _voiceConsent.byClientId.get(String(cid));
-    if (st && st.leadId) ids.push(st.leadId); else unsynced++;
+  if (_consentScope) {
+    ids = _consentScope.leadIds.slice();
+  } else {
+    for (const cid of selectedLeadIds) {
+      const st = _voiceConsent.byClientId.get(String(cid));
+      if (st && st.leadId) ids.push(st.leadId); else unsynced++;
+    }
   }
   if (!ids.length) {
     if (msg) { msg.style.color = '#dc2626'; msg.textContent = 'None of the selected leads have synced to the server yet.'; }
@@ -21504,6 +21669,10 @@ async function consentConfirm() {
     if (smsAttested && typeof smsLoadLeadConsent === 'function') await smsLoadLeadConsent();
     updateCallableCount();
     renderLeads();
+    // Stamped BEFORE the close, because closeConsentModal() is what hands it
+    // to whoever chained in. A cancel never reaches here, so a cancel stays
+    // null and the caller can tell the two apart.
+    if (_consentScope) _consentScope.result = data;
     closeConsentModal();
     const smsGranted = (data && data.sms_granted) || 0;
     showToast(
@@ -21519,6 +21688,384 @@ async function consentConfirm() {
     if (msg) { msg.style.color = '#dc2626'; msg.textContent = err.message || String(err); }
     btn.disabled = false;
   }
+}
+
+// ============================================================
+// ADD TO CAMPAIGN — the second door, and the one that needs no tags.
+//
+// A campaign has always filled itself from trigger rules: a lead arrives
+// carrying the right tag, the tick notices, the calls begin. That is good
+// automation and invisible plumbing at the same time, and an agent who does
+// not know what a trigger group is cannot use any of it.
+//
+// This is the same engine reached by pointing at leads. THREE doors share it:
+// this one (a selection on the leads tab), the CSV importer, and the Add Lead
+// modal. All three call atcEnroll() → voice-campaign-manage, because an
+// enrollment is a standing instruction to phone a consumer and
+// `voice_campaign_enrollments` is SELECT-only for the browser on purpose.
+//
+// WHAT THE BROWSER DOES NOT DECIDE: whether a lead may be enrolled. Consent,
+// DNC, suppression and the one-active-campaign rule are the server's
+// vcEvaluateEnrollment() — the same function the cron's sweep uses. The
+// preview below is a real call to the same planner the confirm button runs,
+// so the sentence shown and the work done cannot drift apart.
+// ============================================================
+let _atcCampaigns = { rows: [], loaded: false };
+let _atcState = { campaignId: null, conflict: 'skip', preview: null, busy: false, seq: 0 };
+
+/**
+ * The agent's campaigns, for any of the three pickers.
+ *
+ * Seeds the twelve defaults first — the importer may well be the first thing
+ * a brand-new agent touches, and an empty picker on that screen reads as
+ * "campaigns are not set up yet" when in fact they ship with the account.
+ */
+async function atcLoadCampaigns(force) {
+  if (!currentAgent) return [];
+  if (_atcCampaigns.loaded && !force) return _atcCampaigns.rows;
+  if (typeof vcampEnsureDefaults === 'function') await vcampEnsureDefaults();
+  const { data, error } = await sb.from('voice_campaigns')
+    .select('id, name, description, active, paused_at, pause_reason, sort_order, seed_key, ' +
+            'trigger_groups, auto_enroll_new_leads, trigger_on_sold, ' +
+            'trigger_on_appointment_booked, trigger_on_missed_appointment')
+    .eq('agent_id', currentAgent.id)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (error) { console.warn('[atc] load campaigns', error); return _atcCampaigns.rows; }
+  _atcCampaigns = { rows: data || [], loaded: true };
+  return _atcCampaigns.rows;
+}
+
+/**
+ * client_id → the server's lead uuid, for a set of selected leads.
+ *
+ * The UI selects by client_id; every endpoint takes leads.id. A lead the
+ * consent map has never seen has not synced yet, and is REPORTED rather than
+ * quietly dropped — same rule the consent modal follows.
+ */
+function atcResolveLeadIds(clientIds) {
+  const ids = [];
+  let unsynced = 0;
+  for (const cid of clientIds) {
+    const st = _voiceConsent.byClientId.get(String(cid));
+    if (st && st.leadId) ids.push(st.leadId); else unsynced++;
+  }
+  return { ids, unsynced };
+}
+
+/** The reverse map, for chaining a uuid list back into the consent modal. */
+function atcClientIdsFor(leadIds) {
+  const want = new Set((leadIds || []).map(String));
+  const out = [];
+  for (const [cid, st] of _voiceConsent.byClientId) {
+    if (st && st.leadId && want.has(String(st.leadId))) out.push(cid);
+  }
+  return out;
+}
+
+/**
+ * ONE call for all three doors: preview or write.
+ *
+ * Returns the server's body either way. Every caller renders the server's own
+ * counts — nothing here recomputes what would happen, because a second
+ * implementation of "who is eligible" is precisely what this endpoint exists
+ * to prevent.
+ */
+async function atcEnroll(opts) {
+  const body = {
+    action: opts.preview ? 'preview_enroll' : 'enroll_leads',
+    campaign_id: opts.campaignId,
+    lead_ids: opts.leadIds,
+    on_conflict: opts.conflict === 'move' ? 'move' : 'skip',
+  };
+  try {
+    const resp = await sb.functions.invoke('voice-campaign-manage', { body });
+    if (resp.error && resp.error.context && typeof resp.error.context.json === 'function') {
+      const parsed = await resp.error.context.json().catch(() => null);
+      if (parsed) return parsed;
+    }
+    if (resp.error) return { error: 'request_failed', detail: resp.error.message || 'Request failed' };
+    return resp.data;
+  } catch (err) {
+    return { error: 'network_error', detail: (err && err.message) || String(err) };
+  }
+}
+
+async function openAddToCampaignModal() {
+  const n = selectedLeadIds.size;
+  if (!n) return;
+  const modal = document.getElementById('addToCampaignModal');
+  if (!modal) return;
+  document.getElementById('atc-count').textContent = n + ' lead' + (n !== 1 ? 's' : '');
+  // The conflict choice defaults to Skip on every open. It is a decision
+  // about somebody else's campaign and must be taken deliberately each time.
+  _atcState.conflict = 'skip';
+  _atcState.preview = null;
+  _atcState.busy = false;
+  const skipRadio = document.querySelector('input[name="atc-conflict-mode"][value="skip"]');
+  if (skipRadio) skipRadio.checked = true;
+  document.getElementById('atc-conflict').style.display = 'none';
+  document.getElementById('atc-preview').innerHTML = '';
+  document.getElementById('atc-tagnote').style.display = 'none';
+  const msg = document.getElementById('atc-msg');
+  if (msg) { msg.textContent = ''; msg.style.color = 'var(--text2)'; }
+  atcSyncButton();
+  modal.classList.add('open');
+
+  // The consent map is what turns a selection into lead ids. On the leads tab
+  // it is loaded already; opening this modal on a cold page must not send an
+  // empty list to the server.
+  if (!_voiceConsent.loaded) await loadVoiceConsent();
+  await atcRenderCampaignList();
+  if (_atcState.campaignId) atcPickCampaign(_atcState.campaignId);
+}
+
+function closeAddToCampaignModal() {
+  const modal = document.getElementById('addToCampaignModal');
+  if (modal) modal.classList.remove('open');
+}
+
+/** The picker body — shared shape with the importer's and Add Lead's. */
+function atcCampaignRowsHTML(campaigns, selectedId, nameAttr) {
+  return campaigns.map(c => {
+    const paused = !!c.paused_at;
+    const state = paused ? 'Paused' : (c.active ? 'Active' : 'Off');
+    const tone = paused ? 'warn' : (c.active ? 'on' : '');
+    // The description the agent wrote, else the plain-English line about how
+    // it fills itself. Never both — the card is where both appear.
+    const line = (c.description || '').trim() || vcAutoEnrollPhrase(c);
+    return '<label class="vc-check" style="align-items:flex-start;gap:9px;padding:9px 10px;margin:0;border-radius:8px;cursor:pointer">' +
+      '<input type="radio" name="' + nameAttr + '" value="' + _aiTestEsc(c.id) + '"' +
+        (c.id === selectedId ? ' checked' : '') +
+        ' onchange="atcPickCampaign(\'' + _aiTestEsc(c.id) + '\')" style="margin-top:3px;flex-shrink:0">' +
+      '<span style="min-width:0">' +
+        '<span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">' +
+          '<span style="font:600 13px var(--sans);color:var(--text)">' + _aiTestEsc(c.name || 'Untitled') + '</span>' +
+          '<span class="vc-pill"' + (tone ? ' data-tone="' + tone + '"' : '') + '>' + state + '</span>' +
+        '</span>' +
+        '<span style="display:block;font:11.5px/1.5 var(--sans);color:var(--text3);margin-top:2px">' + _aiTestEsc(line) + '</span>' +
+      '</span>' +
+    '</label>';
+  }).join('');
+}
+
+async function atcRenderCampaignList() {
+  const list = document.getElementById('atc-list');
+  if (!list) return;
+  const campaigns = await atcLoadCampaigns();
+  if (!campaigns.length) {
+    list.innerHTML = '<div style="font:12.5px/1.6 var(--sans);color:var(--text3);padding:14px;text-align:center">' +
+      'No campaigns yet. <button class="btn btn-s btn-sm" style="margin-left:6px" ' +
+      'onclick="closeAddToCampaignModal();nav(\'voice-campaigns\')">Open Campaigns</button></div>';
+    return;
+  }
+  list.innerHTML = atcCampaignRowsHTML(campaigns, _atcState.campaignId, 'atc-campaign');
+}
+
+function atcSetConflict(mode) {
+  _atcState.conflict = mode === 'move' ? 'move' : 'skip';
+  atcRefreshPreview();
+}
+
+function atcPickCampaign(id) {
+  _atcState.campaignId = id;
+  atcRefreshPreview();
+}
+
+/**
+ * Ask the server what this would do.
+ *
+ * `seq` guards against a slow answer for a campaign the agent has already
+ * moved off — clicking down a list of twelve fires twelve previews and the
+ * last one clicked must win, not the last one to come back.
+ */
+async function atcRefreshPreview() {
+  const pv = document.getElementById('atc-preview');
+  const tagNote = document.getElementById('atc-tagnote');
+  const conflictBox = document.getElementById('atc-conflict');
+  if (!_atcState.campaignId) return;
+
+  const { ids, unsynced } = atcResolveLeadIds(selectedLeadIds);
+  _atcState.preview = null;
+  atcSyncButton();
+  if (!ids.length) {
+    if (pv) pv.innerHTML = '<span style="color:#dc2626">None of the selected leads have synced to the server yet.</span>';
+    return;
+  }
+  if (pv) pv.textContent = 'Checking…';
+
+  const seq = ++_atcState.seq;
+  const data = await atcEnroll({
+    preview: true, campaignId: _atcState.campaignId, leadIds: ids, conflict: _atcState.conflict,
+  });
+  if (seq !== _atcState.seq) return;   // a later click already won
+
+  if (!data || data.error) {
+    if (pv) pv.innerHTML = '<span style="color:#dc2626">' + _aiTestEsc((data && (data.detail || data.error)) || 'Could not check.') + '</span>';
+    return;
+  }
+  _atcState.preview = data;
+
+  // The choice only appears when it is a real choice. Note it is offered
+  // whenever the SKIP preview found conflicts — switching to Move re-previews
+  // and the bucket empties, so the box has to survive its own success.
+  const conflicts = (data.skipped && data.skipped.already_enrolled) || 0;
+  const showConflict = conflicts > 0 || _atcState.conflict === 'move';
+  if (conflictBox) conflictBox.style.display = showConflict ? '' : 'none';
+
+  let html = '<strong style="color:var(--text)">' + _aiTestEsc(data.summary || '') + '</strong>';
+  if (unsynced) html += '<span style="color:var(--text3)"> · ' + unsynced + ' not synced yet</span>';
+  // The one skip an agent can actually clear from here, so it gets a door.
+  const noConsent = (data.skipped && data.skipped.no_consent) || 0;
+  if (noConsent) {
+    html += '<div style="margin-top:7px">' +
+      '<a href="#" onclick="atcRecordConsentFirst();return false" style="color:var(--lg-blue);font-weight:600;text-decoration:none">' +
+      'Record consent first &rarr;</a>' +
+      '<span style="color:var(--text3)"> for the ' + noConsent + ' without it</span></div>';
+  }
+  // A paused or switched-off campaign still ACCEPTS leads — they queue and go
+  // the moment it resumes. Saying so beats both silence and a refusal.
+  if (data.campaign && data.campaign.paused) {
+    html += '<div style="margin-top:7px;color:var(--ds-color-warning)">This campaign is paused — they will be enrolled and wait until you resume it.</div>';
+  } else if (data.campaign && !data.campaign.active) {
+    html += '<div style="margin-top:7px;color:var(--ds-color-warning)">This campaign is switched off — they will be enrolled and wait until you switch it on.</div>';
+  }
+  if (pv) pv.innerHTML = html;
+
+  // The fine print, and it is not decoration: this write changes lead data.
+  if (tagNote) {
+    if (data.tag && data.would_tag > 0) {
+      tagNote.style.display = '';
+      tagNote.innerHTML = 'Also tags ' + data.would_tag + ' lead' + (data.would_tag !== 1 ? 's' : '') +
+        ' <strong>' + _aiTestEsc(vcTagLabel(data.tag)) + '</strong>, so this campaign’s own rules agree about who belongs in it.';
+    } else {
+      tagNote.style.display = 'none';
+    }
+  }
+  atcSyncButton();
+}
+
+function atcSyncButton() {
+  const btn = document.getElementById('atc-confirm');
+  if (!btn) return;
+  const p = _atcState.preview;
+  const n = p ? (p.would_enroll || 0) + (p.would_move || 0) : 0;
+  btn.disabled = _atcState.busy || !p || n === 0;
+  btn.textContent = n > 0 ? 'Add ' + n + ' lead' + (n !== 1 ? 's' : '') : 'Add to campaign';
+}
+
+/**
+ * Chain into the consent tool and come back.
+ *
+ * Scoped to exactly the leads the preview said were blocked on consent, so
+ * this does not re-attest for leads that already have it — the endpoint would
+ * write an event row for each of those, and an evidence trail padded with
+ * re-attestations nobody chose is a worse trail.
+ */
+function atcRecordConsentFirst() {
+  const p = _atcState.preview;
+  const ids = (p && p.no_consent_lead_ids) || [];
+  if (!ids.length) return;
+  const campaignId = _atcState.campaignId;
+  closeAddToCampaignModal();
+  openConsentModal({
+    leadIds: ids,
+    onDone: () => { _atcState.campaignId = campaignId; openAddToCampaignModal(); },
+  });
+}
+
+async function atcConfirm() {
+  const btn = document.getElementById('atc-confirm');
+  const msg = document.getElementById('atc-msg');
+  if (!btn || btn.disabled || !_atcState.campaignId) return;
+  const { ids } = atcResolveLeadIds(selectedLeadIds);
+  if (!ids.length) return;
+
+  _atcState.busy = true;
+  atcSyncButton();
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Adding…'; }
+
+  const data = await atcEnroll({
+    preview: false, campaignId: _atcState.campaignId, leadIds: ids, conflict: _atcState.conflict,
+  });
+  _atcState.busy = false;
+
+  if (!data || data.error) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = (data && (data.detail || data.error)) || 'Could not add.'; }
+    atcSyncButton();
+    return;
+  }
+
+  // The tag, written a second time, locally. sbUpsertAllLeads() re-upserts the
+  // whole book from memory on every save, so the server's write to leads.data
+  // would be erased the next time the agent edits anything — this is what
+  // makes it survive. Both sides derive the value from vcCampaignTag().
+  if (data.tag && data.tagged > 0) atcApplyTagLocally(ids, data.tag);
+
+  closeAddToCampaignModal();
+  showToast(atcResultToast(data), (data.enrolled || data.moved) ? '#10b981' : '#f59e0b');
+  await loadVoiceConsent();
+  if (typeof vcampState === 'object' && vcampState && document.getElementById('vcamp-list') && vcampState.campaigns) {
+    await vcampLoad();
+  }
+}
+
+/**
+ * The receipt, mirroring the preview.
+ *
+ * The last clause is the one that matters: assignment is not dialing. An
+ * agent who adds 200 leads and hears no phone ring for an hour has to be able
+ * to tell "it is working" from "it is broken", and the quiet hours, the daily
+ * cap and the step timing that separate the two are invisible from here.
+ */
+function atcResultToast(data) {
+  const bits = [];
+  if (data.enrolled) bits.push(data.enrolled + ' added');
+  if (data.moved) bits.push(data.moved + ' moved over');
+  if (!bits.length) return data.summary || 'Nothing to add';
+  let s = bits.join(' · ') + ' to ' + ((data.campaign && data.campaign.name) || 'the campaign');
+  if (data.tagged) s += ' · ' + data.tagged + ' tagged ' + vcTagLabel(data.tag);
+  return s + ' — calls begin automatically at the next allowed time.';
+}
+
+/**
+ * Enroll leads the browser knows by CLIENT id — the importer's and Add Lead's
+ * door, where the leads were created a moment ago and may not exist server-side
+ * yet.
+ *
+ * The two awaits at the top are the whole reason this is a separate function:
+ * `saveLeads()` pushes to Supabase fire-and-forget, and `_voiceConsent` is what
+ * turns a client id into the uuid the endpoint takes. Skipping either one
+ * enrolls nobody and reports nothing, which is the failure mode this feature
+ * exists to remove.
+ */
+async function atcEnrollByClientIds(clientIds, campaignId, opts) {
+  const { error: upErr } = await sbUpsertAllLeads();
+  if (upErr) return { data: { error: 'sync_failed', detail: upErr.message }, ids: [] };
+  await loadVoiceConsent();
+  const { ids, unsynced } = atcResolveLeadIds(clientIds);
+  if (!ids.length) {
+    return { data: { error: 'not_synced', detail: 'Those leads have not reached the server yet.' }, ids: [], unsynced };
+  }
+  const data = await atcEnroll({
+    preview: false, campaignId, leadIds: ids, conflict: (opts && opts.conflict) || 'skip',
+  });
+  if (data && data.tag && data.tagged > 0) atcApplyTagLocally(ids, data.tag);
+  return { data, ids, unsynced };
+}
+
+/** Write the campaign tag into the in-memory book and persist it. */
+function atcApplyTagLocally(leadIds, tag) {
+  const clientIds = new Set(atcClientIdsFor(leadIds).map(String));
+  let touched = 0;
+  for (const l of leads) {
+    if (!clientIds.has(String(l.id))) continue;
+    if (String(l[VC_ENROLL_TAG_FIELD] || '') === tag) continue;
+    l[VC_ENROLL_TAG_FIELD] = tag;
+    touched++;
+  }
+  if (touched) saveLeads();
+  return touched;
 }
 
 /**
@@ -22857,6 +23404,8 @@ function finishCSVParse(file, rows) {
 
 function openImportModal() {
   csvParsedData = []; csvHeaders = []; csvUserMapping = {}; csvCustomLabels = {};
+  // A stale chain would consent or enroll the PREVIOUS import's leads.
+  _csvChain = null;
   const fi = document.getElementById('csv-file-input'); if (fi) fi.value = '';
   const info = document.getElementById('csv-upload-info'); if (info) info.style.display = 'none';
   const srcInput = document.getElementById('csv-import-source');
@@ -22912,11 +23461,15 @@ function _populateImportSourceDatalist() {
 }
 function closeImportModal() {
   document.getElementById('importModal').classList.remove('open');
+  // Closing part-way through the chain is a legitimate way to finish: the
+  // leads are already imported and both remaining steps are optional. Drop
+  // the chain so the next import cannot inherit this one's lead ids.
+  _csvChain = null;
 }
 
 function goToCSVStep(step) {
   // Step indicator updates
-  [1,2,3].forEach(n => {
+  [1,2,3,4,5].forEach(n => {
     const ind = document.getElementById(`csv-step-${n}-ind`);
     const sec = document.getElementById(`csv-step-${n}`);
     if (sec) sec.style.display = n === step ? 'block' : 'none';
@@ -22938,6 +23491,8 @@ function goToCSVStep(step) {
   });
   if (step === 2) buildColMapper();
   if (step === 3) buildConfirmView();
+  if (step === 4) csvRenderConsentStep();
+  if (step === 5) csvRenderCampaignStep();
 }
 
 function buildColMapper() {
@@ -23159,9 +23714,35 @@ function openAddLeadModal() {
   if (dupeWarn) dupeWarn.style.display = 'none';
   const dupeAnyway = document.getElementById('al-dupe-anyway');
   if (dupeAnyway) dupeAnyway.checked = false;
+  const camp = document.getElementById('al-campaign');
+  if (camp) camp.value = '';
+  atcFillCampaignSelect('al-campaign');
   const modal = document.getElementById('addLeadModal');
   if (modal) modal.classList.add('open');
   setTimeout(() => { const f = document.getElementById('al-first'); if (f) f.focus(); }, 0);
+}
+
+/**
+ * Fill a plain <select> with the agent's campaigns.
+ *
+ * Used by the Add Lead modal and the importer's campaign step. Async and
+ * fire-and-forget: the picker is optional on both screens, so a slow load
+ * costs nothing but an empty dropdown for a moment — it must never hold up
+ * a form the agent is trying to fill in.
+ */
+async function atcFillCampaignSelect(selectId, opts) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const campaigns = await atcLoadCampaigns();
+  const keep = sel.value;
+  let html = '<option value="">' + ((opts && opts.noneLabel) || '-- None --') + '</option>';
+  for (const c of campaigns) {
+    const paused = !!c.paused_at;
+    const state = paused ? ' (paused)' : (c.active ? '' : ' (off)');
+    html += '<option value="' + escapeHTML(c.id) + '">' + escapeHTML((c.name || 'Untitled') + state) + '</option>';
+  }
+  sel.innerHTML = html;
+  if (keep) sel.value = keep;
 }
 
 function closeAddLeadModal() {
@@ -23259,7 +23840,7 @@ function updateCSVImportBtnLabel() {
   if (btn) btn.innerHTML = icon('check', {size:14}) + 'Import ' + count + ' Leads';
 }
 
-function saveManualLead() {
+async function saveManualLead() {
   const first  = (document.getElementById('al-first').value  || '').trim();
   const last   = (document.getElementById('al-last').value   || '').trim();
   const phone  = (document.getElementById('al-phone').value  || '').trim();
@@ -23275,8 +23856,12 @@ function saveManualLead() {
     : (_srcSel?.value || '').trim();
   const notes  = (document.getElementById('al-notes').value  || '').trim();
   const campaignTag = (document.getElementById('al-campaign-tag')?.value || '').trim();
+  const campaignId  = (document.getElementById('al-campaign')?.value || '').trim();
   const msg    = document.getElementById('al-msg');
-  if (msg) msg.textContent = '';
+  if (msg) { msg.textContent = ''; msg.style.color = '#dc2626'; }
+  const nudge = document.getElementById('al-campaign-nudge');
+  if (nudge) { nudge.style.display = 'none'; nudge.innerHTML = ''; }
+  _alPendingCampaign = null;
 
   if (!first) { if (msg) msg.textContent = 'First name is required.'; return; }
   if (!phone) { if (msg) msg.textContent = 'Phone is required.'; return; }
@@ -23345,8 +23930,90 @@ function saveManualLead() {
   }
   leadsCurrentPage = 1;
   renderLeads();
+
+  // ---- The optional third door --------------------------------------------
+  // No campaign picked is the common case and closes exactly as before.
+  if (!campaignId) {
+    closeAddLeadModal();
+    showToast(`Added ${name}`, '#10b981');
+    return;
+  }
+
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Added. Adding to the campaign…'; }
+  const { data } = await atcEnrollByClientIds([lead.id], campaignId);
+  const added = (data && ((data.enrolled || 0) + (data.moved || 0))) || 0;
+  if (added > 0) {
+    closeAddLeadModal();
+    showToast(`Added ${name} to ${(data.campaign && data.campaign.name) || 'the campaign'} — ` +
+      'calls begin automatically at the next allowed time.', '#10b981');
+    return;
+  }
+
+  // ---- Nothing happened, and the agent has to be told why -----------------
+  // The lead IS saved — only the campaign part did not take. Failing silently
+  // here would leave somebody believing the AI is about to phone a lead it
+  // will never touch, which is the exact confusion this whole feature is
+  // supposed to end.
+  const noConsent = (data && data.skipped && data.skipped.no_consent) || 0;
+  if (noConsent && nudge) {
+    if (msg) msg.textContent = '';
+    // The lead id, campaign and name go in STATE, not into the onclick.
+    // escapeHTML turns an apostrophe into &#39;, which the browser decodes
+    // before the JS in an attribute is parsed — so a lead called O'Brien
+    // would have produced a syntax error instead of a nudge.
+    _alPendingCampaign = { clientId: String(lead.id), campaignId, name };
+    nudge.style.display = 'block';
+    nudge.innerHTML =
+      '<div style="font-size:12.5px;font-weight:600;color:var(--ds-color-warning);margin-bottom:5px">' +
+        escapeHTML(name) + ' was saved, but not added to the campaign.</div>' +
+      '<div style="font-size:12px;color:var(--text2);line-height:1.55">' +
+        'The AI only calls leads with recorded consent. ' +
+        '<a href="#" onclick="alRecordConsentThenEnroll();return false" ' +
+          'style="color:var(--lg-blue);font-weight:600;text-decoration:none">Record consent &rarr;</a>' +
+        ' and they go straight in.</div>';
+    return;
+  }
+
   closeAddLeadModal();
-  showToast(`Added ${name}`, '#10b981');
+  showToast(`Added ${name} — not added to the campaign: ` +
+    ((data && (data.summary || data.detail || data.error)) || 'no eligible leads'), '#f59e0b');
+}
+
+/**
+ * The Add Lead nudge's chain: record consent for this one lead, then put them
+ * in the campaign they were meant for. Same consent endpoint, same enrollment
+ * endpoint — the nudge is a shortcut through the two doors, not a third path.
+ *
+ * Takes no arguments: what it acts on lives in `_alPendingCampaign`, because
+ * a lead's NAME cannot safely be round-tripped through an onclick attribute.
+ */
+let _alPendingCampaign = null;
+
+function alRecordConsentThenEnroll() {
+  const pending = _alPendingCampaign;
+  if (!pending) return;
+  const st = _voiceConsent.byClientId.get(String(pending.clientId));
+  if (!st || !st.leadId) { showToast('That lead has not synced yet — try again in a moment.', '#f59e0b'); return; }
+  openConsentModal({
+    leadIds: [st.leadId],
+    label: pending.name,
+    onDone: async (result) => {
+      // NULL means the consent modal was cancelled. A cancel must not produce
+      // a second "could not add" message about a thing the agent just decided
+      // not to do.
+      if (!result) return;
+      _alPendingCampaign = null;
+      const { data } = await atcEnrollByClientIds([pending.clientId], pending.campaignId);
+      const added = (data && ((data.enrolled || 0) + (data.moved || 0))) || 0;
+      if (added > 0) {
+        closeAddLeadModal();
+        showToast(pending.name + ' added to ' + ((data.campaign && data.campaign.name) || 'the campaign') +
+          ' — calls begin automatically at the next allowed time.', '#10b981');
+      } else {
+        showToast('Still could not add them: ' + ((data && (data.summary || data.detail)) || 'not eligible'), '#f59e0b');
+      }
+    },
+  });
 }
 
 function importCSVLeads() {
@@ -23380,6 +24047,11 @@ function importCSVLeads() {
 
   const skipDupes = document.getElementById('csv-skip-dupes')?.checked !== false;
   let imported = 0, skipped = 0;
+  // The client ids of exactly the leads THIS press created. Consent and
+  // campaign assignment are scoped to them and to nothing else in the book —
+  // an importer that quietly consented the whole book would be a catastrophe
+  // wearing a progress bar.
+  const importedIds = [];
   csvParsedData.forEach(row => {
     let name = get(row, 'name');
     if (!name) {
@@ -23417,6 +24089,7 @@ function importCSVLeads() {
       importedAt: new Date().toISOString(),
     };
     leads.unshift(lead);
+    importedIds.push(lead.id);
     imported++;
   });
 
@@ -23437,15 +24110,205 @@ function importCSVLeads() {
   }
 
   saveLeads();
-  // Reset import UI
+  // Reset the FILE half of the wizard only. Steps 4 and 5 still have work to
+  // do and they work off importedIds, not off the parsed rows.
   csvParsedData = []; csvHeaders = []; csvUserMapping = {}; csvCustomLabels = {};
   document.getElementById('csv-file-input').value = '';
   document.getElementById('csv-upload-info').style.display = 'none';
-  goToCSVStep(1);
-
-  showToast(`${imported} lead${imported!==1?'s':''} imported${skipped>0?`, ${skipped} duplicate${skipped>1?'s':''} skipped`:''}`, '#10b981');
-  closeImportModal();
   filterLeads();
+
+  // ---- Hand off to consent, then campaign --------------------------------
+  // The import itself is DONE and committed at this point. Everything that
+  // follows is additive and skippable, which is what makes it safe to put
+  // after the write rather than before it: an agent who closes the modal
+  // here still has their leads.
+  _csvChain = {
+    importedIds,
+    imported,
+    dupesSkipped: skipped,
+    consent: null,
+    campaign: null,
+  };
+  if (!imported) {
+    showToast(`No leads imported${skipped > 0 ? ` — ${skipped} duplicate${skipped > 1 ? 's' : ''} skipped` : ''}`, '#f59e0b');
+    closeImportModal();
+    goToCSVStep(1);
+    return;
+  }
+  goToCSVStep(4);
+}
+
+// ============================================================
+// IMPORT CHAIN — steps 4 and 5: consent, then campaign.
+//
+// The importer is now the one-stop setup the brief asked for: import →
+// consent → campaign → done. Both new steps are OPTIONAL and both reuse an
+// existing implementation rather than growing a second one —
+//
+//   consent   opens the SAME Record-consent modal the leads tab opens,
+//             scoped to the leads this import created. Same two attestations,
+//             same source field, same leads-consent endpoint, one copy of the
+//             sentence the agent puts their name to.
+//   campaign  goes through atcEnrollByClientIds() → voice-campaign-manage,
+//             the same door the leads tab and the Add Lead modal use.
+//
+// _csvChain is the only state, and it is rebuilt from scratch by every
+// import — a stale importedIds list would consent or enroll the wrong batch.
+// ============================================================
+let _csvChain = null;
+
+function csvRenderConsentStep() {
+  if (!_csvChain) return;
+  const title = document.getElementById('csv-consent-title');
+  const state = document.getElementById('csv-consent-state');
+  const n = _csvChain.importedIds.length;
+  if (title) {
+    title.textContent = `${_csvChain.imported} lead${_csvChain.imported !== 1 ? 's' : ''} imported` +
+      (_csvChain.dupesSkipped ? ` · ${_csvChain.dupesSkipped} duplicate${_csvChain.dupesSkipped !== 1 ? 's' : ''} skipped` : '');
+  }
+  if (!state) return;
+  if (_csvChain.consent) {
+    const g = _csvChain.consent.granted || 0;
+    state.innerHTML = '<strong style="color:var(--ds-color-success)">Consent recorded for ' + g +
+      ' lead' + (g !== 1 ? 's' : '') + '.</strong>' +
+      (_csvChain.consent.sms_granted ? ' ' + _csvChain.consent.sms_granted + ' can also be texted.' : '');
+  } else {
+    state.innerHTML = 'Recording consent for these <strong>' + n + '</strong> lead' + (n !== 1 ? 's' : '') +
+      ' is what lets the AI call them. It records the consent you already hold — it does not create any, ' +
+      'and leads on your do-not-call list are skipped.';
+  }
+}
+
+function csvOpenConsentStep() {
+  if (!_csvChain) return;
+  csvWithLeadIds(async (ids) => {
+    if (!ids.length) {
+      showToast('Those leads have not reached the server yet — try again in a moment.', '#f59e0b');
+      return;
+    }
+    openConsentModal({
+      leadIds: ids,
+      label: 'Just imported',
+      // `result` is null when the modal was cancelled, which is how skipping
+      // from inside it behaves exactly like pressing Skip out here.
+      onDone: (result) => {
+        if (result) _csvChain.consent = result;
+        csvRenderConsentStep();
+        if (result) goToCSVStep(5);
+      },
+    });
+  });
+}
+
+function csvSkipConsent() { goToCSVStep(5); }
+
+/**
+ * Resolve the imported client ids to server uuids, syncing first.
+ *
+ * `saveLeads()` pushed fire-and-forget, so the rows may not be there yet and
+ * `_voiceConsent` certainly does not know their uuids. Both awaits are load
+ * bearing — without them this step silently operates on an empty list.
+ */
+async function csvWithLeadIds(fn) {
+  const btns = ['csv-consent-btn', 'csv-campaign-btn'].map(id => document.getElementById(id)).filter(Boolean);
+  btns.forEach(b => { b.disabled = true; });
+  try {
+    await sbUpsertAllLeads();
+    await loadVoiceConsent();
+    const { ids } = atcResolveLeadIds(_csvChain.importedIds);
+    await fn(ids);
+  } catch (err) {
+    showToast('Could not sync those leads: ' + ((err && err.message) || err), '#dc2626');
+  } finally {
+    btns.forEach(b => { b.disabled = false; });
+    csvCampaignChange();
+  }
+}
+
+function csvRenderCampaignStep() {
+  const msg = document.getElementById('csv-campaign-msg');
+  if (msg) { msg.textContent = ''; msg.style.color = 'var(--text2)'; }
+  const sel = document.getElementById('csv-campaign');
+  if (sel) sel.value = '';
+  atcFillCampaignSelect('csv-campaign', { noneLabel: '-- No campaign --' });
+  csvCampaignChange();
+}
+
+function csvCampaignChange() {
+  const sel = document.getElementById('csv-campaign');
+  const btn = document.getElementById('csv-campaign-btn');
+  const hint = document.getElementById('csv-campaign-hint');
+  const id = sel ? sel.value : '';
+  if (btn) btn.disabled = !id;
+  if (!hint) return;
+  const c = _atcCampaigns.rows.filter(x => x.id === id)[0];
+  if (!c) {
+    hint.textContent = 'Leads without a campaign sit in your book until you dial them or add them to one later.';
+    return;
+  }
+  const tag = vcCampaignTag(c);
+  hint.innerHTML = escapeHTML(vcAutoEnrollPhrase(c)) +
+    (tag ? ' These leads will also be tagged <strong>' + escapeHTML(vcTagLabel(tag)) + '</strong>.' : '') +
+    (!_csvChain || !_csvChain.consent
+      ? '<br><span style="color:var(--ds-color-warning)">Leads with no recorded consent are enrolled by nobody — the AI will not call them.</span>'
+      : '');
+}
+
+async function csvApplyCampaign() {
+  const sel = document.getElementById('csv-campaign');
+  const msg = document.getElementById('csv-campaign-msg');
+  const btn = document.getElementById('csv-campaign-btn');
+  const campaignId = sel ? sel.value : '';
+  if (!campaignId || !_csvChain) return;
+  if (btn) btn.disabled = true;
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Adding to the campaign…'; }
+
+  const { data } = await atcEnrollByClientIds(_csvChain.importedIds, campaignId);
+  if (btn) btn.disabled = false;
+  if (!data || data.error) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = (data && (data.detail || data.error)) || 'Could not add.'; }
+    return;
+  }
+  const added = (data.enrolled || 0) + (data.moved || 0);
+  if (!added) {
+    // Not an error — usually every lead is missing consent, which is a thing
+    // the agent can go and fix. Say which it is rather than a bare failure.
+    if (msg) {
+      msg.style.color = 'var(--ds-color-warning)';
+      msg.textContent = 'Nobody was added: ' + (data.summary || 'no eligible leads') +
+        '. Your leads are imported either way.';
+    }
+    return;
+  }
+  csvFinishImport(data);
+}
+
+/**
+ * One summary, and the last clause is the important one.
+ *
+ * Assignment is not dialing. An agent who imports 214 leads, assigns a
+ * campaign and then hears nothing for an hour has to be able to tell "it is
+ * working" from "it is broken" — and quiet hours, the daily cap, the slot
+ * limit and the step timing that separate the two are all invisible from
+ * here. So the sentence says so, in one plain clause, every time.
+ */
+function csvFinishImport(campaignData) {
+  const chain = _csvChain || { imported: 0, dupesSkipped: 0, consent: null };
+  const parts = [`${chain.imported} lead${chain.imported !== 1 ? 's' : ''} imported`];
+  if (chain.dupesSkipped) parts.push(`${chain.dupesSkipped} duplicate${chain.dupesSkipped !== 1 ? 's' : ''} skipped`);
+  if (chain.consent && chain.consent.granted) parts.push(`consent recorded for ${chain.consent.granted}`);
+  let tail = '';
+  if (campaignData) {
+    const added = (campaignData.enrolled || 0) + (campaignData.moved || 0);
+    parts.push(`${added} added to ${(campaignData.campaign && campaignData.campaign.name) || 'the campaign'}`);
+    tail = ' — calls begin automatically at the next allowed time.';
+  }
+  _csvChain = null;
+  closeImportModal();
+  goToCSVStep(1);
+  showToast(parts.join(' · ') + tail, '#10b981');
+  filterLeads();
+  if (typeof updateCallableCount === 'function') updateCallableCount();
 }
 
 function cancelCSVImport() {
@@ -27477,6 +28340,9 @@ const VC_SKIP_LABELS = {
   already_enrolled: 'already in a campaign',
   no_phone: 'no phone',
   appointment_too_soon: 'appointment too soon to remind',
+  // The manual "Add to campaign" door's two extra ways to be skipped.
+  already_this_campaign: 'already in this campaign',
+  not_found: 'not synced yet',
 };
 
 const VC_STOP_LABELS = {
@@ -27487,10 +28353,20 @@ const VC_STOP_LABELS = {
   not_callable: 'Not callable',
   lead_missing: 'Lead removed',
   manual: 'Unenrolled by hand',
+  // Distinct from `manual`: this lead is still being worked, just elsewhere.
+  moved_by_user: 'Moved to another campaign',
   campaign_deleted: 'Campaign removed',
   appointment_cancelled: 'Appointment cancelled',
   appointment_passed: 'Appointment has been and gone',
 };
+
+// THE ONE LEAD FIELD THE MANUAL DOOR WILL EVER WRITE. `campaign_tag` is
+// canonical and this app created it — nothing else has ever written it, so
+// setting it cannot destroy a value that meant something else. The other four
+// VC_TAG_FIELDS carry real data in the production book (`coverage_wanted`
+// holds dollar amounts, `source` holds vendor names) and writing either to
+// tidy up a join would corrupt it.
+const VC_ENROLL_TAG_FIELD = 'campaign_tag';
 
 function vcAsDate(v) {
   if (v === null || v === undefined || v === '') return null;
@@ -27754,6 +28630,81 @@ function vcStopReasonLabel(reason) {
   const r = vcNorm(reason);
   if (!r) return '';
   return VC_STOP_LABELS[r] || reason || '';
+}
+
+// ---- The manual "Add to campaign" door -----------------------------------
+//
+// The PLANNER is deliberately server-only (vcPlanManualEnrollment in
+// voice-campaign-core.ts): it needs the suppression list and every enrollment
+// row, which the browser does not hold, and the preview is a real call to the
+// same function the button runs. What lives here is only what the SCREEN has
+// to say before that call — the tag a campaign implies, and how a campaign
+// fills itself.
+
+/**
+ * The single `campaign_tag` value this campaign's rule names, or ''.
+ *
+ * Conservative twice over: only a positive (`is`) condition on `campaign_tag`
+ * counts — a rule written as `lead_type is veteran` gets nothing, because
+ * `lead_type` is virtual and resolves through `coverage_wanted` first, so
+ * "make the lead match" would mean writing a coverage amount of "veteran" —
+ * and two DIFFERENT tag values across the groups is ambiguous, which means no
+ * write at all rather than a silent guess.
+ */
+function vcCampaignTag(campaign) {
+  const groups = vcNormalizeGroups(campaign && campaign.trigger_groups);
+  let found = '';
+  for (const g of groups) {
+    for (const c of g.conditions) {
+      if (c.op !== 'is') continue;
+      if (String(c.field || '').trim() !== VC_ENROLL_TAG_FIELD) continue;
+      const v = vcNorm(c.value);
+      if (!v) continue;
+      if (found && found !== v) return '';
+      found = v;
+    }
+  }
+  return found;
+}
+
+/**
+ * "final_expense" → "Final Expense". What a person calls the tag.
+ *
+ * A word of three letters or fewer is upper-cased rather than capitalised —
+ * in this vocabulary they are acronyms without exception (IUL, VA, WL, UL,
+ * GUL, MP, FEX), and "Iul" reads as a typo on the one screen whose whole job
+ * is to be plain.
+ */
+function vcTagLabel(tag) {
+  const t = String(tag == null ? '' : tag).trim().replace(/[_-]+/g, ' ');
+  if (!t) return '';
+  return t.split(/\s+/)
+    .map(w => (w.length <= 3 ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(' ');
+}
+
+/**
+ * How this campaign fills itself, in one plain sentence.
+ *
+ * The automation already exists and is invisible, which is why an agent
+ * cannot tell an auto-filling campaign from a dormant one. HELPER COPY ONLY:
+ * it renames nothing and reads only the fields the tick's sweep branches on,
+ * so it cannot describe a behaviour the engine does not have.
+ *
+ * `auto_enroll_new_leads` sweeps every matching lead the campaign has not
+ * seen, not only ones created since — so this says "leads", not "new leads".
+ */
+function vcAutoEnrollPhrase(campaign) {
+  const c = campaign || {};
+  const tag = vcCampaignTag(campaign);
+  const who = tag ? 'leads tagged ' + vcTagLabel(tag) : 'leads matching your rules';
+  const parts = [];
+  if (c.auto_enroll_new_leads === true) parts.push('Auto-enrolls: ' + who);
+  if (c.trigger_on_sold === true) parts.push('Fills when a lead is marked Sold');
+  if (c.trigger_on_appointment_booked === true) parts.push('Fills when an appointment is booked');
+  if (c.trigger_on_missed_appointment === true) parts.push('Fills when an appointment is marked no-show');
+  if (!parts.length) return 'Only leads you add by hand.';
+  return parts.join(' · ') + '.';
 }
 
 // "12 leads enrolled, 3 skipped: no consent"
@@ -28881,6 +29832,15 @@ function vcampRenderList() {
         '<button class="vc-btn" onclick="vcampOpen(\'' + _aiTestEsc(c.id) + '\')">Edit</button>' +
       '</div>' +
       (c.description ? '<div class="vc-desc">' + _aiTestEsc(c.description) + '</div>' : '') +
+      // HOW THIS CAMPAIGN FILLS ITSELF, in one plain sentence. The triggers
+      // are real automation and completely invisible — an agent could not
+      // tell an auto-filling campaign from a dormant one, which is why
+      // campaigns read as magic that either works or does not. Helper copy
+      // only: it renames nothing and reads only the fields the tick's sweep
+      // branches on, so it cannot describe behaviour the engine lacks.
+      '<div class="vc-desc" style="color:var(--text3);font-size:11.5px;margin-top:5px">' +
+        _aiTestEsc(vcAutoEnrollPhrase(c)) +
+        ' You can also add leads by hand from the Leads tab.</div>' +
       '<div class="vc-stats">' +
         '<div class="vc-stat"><b>' + steps.length + '</b>steps</div>' +
         '<div class="vc-stat"><b>' + stats.active + '</b>enrolled</div>' +
@@ -29329,8 +30289,23 @@ function vcampRenderEnrollments() {
   if (!pane || !c) return;
   const rows = vcampState.enrollments[c.id] || [];
 
+  // HOW LEADS GET HERE — the two doors, named. The automatic one has always
+  // existed and has always been invisible; the manual one is new. Stating
+  // both is the difference between a campaign that looks broken when it is
+  // idle and one an agent can actually reason about. Copy only — it renames
+  // no field and changes no rule.
+  const how =
+    '<div style="font:12px/1.6 var(--sans);color:var(--text2);background:var(--bg3);border:1px solid var(--border);' +
+    'border-radius:10px;padding:11px 13px;margin:0 0 14px">' +
+      '<strong style="color:var(--text)">How leads get here.</strong> ' +
+      'Automatically: ' + _aiTestEsc(vcAutoEnrollPhrase(c).replace(/\.$/, '')) + '. ' +
+      'By hand: select leads on the Leads tab and press <strong>Add to campaign</strong>, ' +
+      'or pick this campaign while importing a CSV — either way the same consent, ' +
+      'quiet-hours and daily-limit rules apply before anyone is dialled.' +
+    '</div>';
+
   if (!rows.length) {
-    pane.innerHTML = '<div class="vc-empty">Nobody is in this campaign yet. ' +
+    pane.innerHTML = how + '<div class="vc-empty">Nobody is in this campaign yet. ' +
       'Switch on “Auto-enroll new leads”, or press “Re-evaluate leads now” on the Settings tab to run the rules over your existing book.</div>';
     return;
   }
@@ -29347,7 +30322,7 @@ function vcampRenderEnrollments() {
     return isNaN(d.getTime()) ? '—' : d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   };
 
-  pane.innerHTML = '<table class="vc-tbl"><thead><tr>' +
+  pane.innerHTML = how + '<table class="vc-tbl"><thead><tr>' +
     '<th>Lead</th><th>Status</th><th>Step</th><th>Next action</th><th>Calls</th><th></th>' +
     '</tr></thead><tbody>' +
     rows.map(e => '<tr>' +
