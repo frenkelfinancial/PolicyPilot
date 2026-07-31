@@ -30916,7 +30916,7 @@ function vcampDayStartIso() {
 }
 
 /**
- * Make sure this agent has the twelve shipped campaigns.
+ * Make sure this agent has the twenty-four shipped campaigns.
  *
  * IDEMPOTENT AND RESPECTFUL, on the server: presence is keyed on
  * voice_campaign_seed_state, so calling this on every visit adds nothing after
@@ -30925,6 +30925,11 @@ function vcampDayStartIso() {
  * well as an agent-creation trigger because the trigger deliberately swallows
  * its own failures — a sign-up must never fail over a default campaign — and
  * this is what repairs an agent it swallowed one for.
+ *
+ * TWO CALLS, NOT ONE, and they are independent: the twelve calling campaigns
+ * ship ACTIVE and the twelve texting ones ship OFF, so they are two different
+ * promises to the agent and a failure of either must not take the other with
+ * it. Neither RPC names an agent; both anchor on auth.uid().
  */
 let _vcampSeedTried = false;
 async function vcampEnsureDefaults() {
@@ -30932,6 +30937,8 @@ async function vcampEnsureDefaults() {
   _vcampSeedTried = true;
   try { await sb.rpc('vc_seed_default_campaigns'); }
   catch (err) { console.warn('[vcamp] seed defaults', err); }
+  try { await sb.rpc('vc_seed_default_sms_campaigns'); }
+  catch (err) { console.warn('[vcamp] seed sms defaults', err); }
 }
 
 let _vcampLoading = false;
@@ -31292,8 +31299,66 @@ function vcampRenderList() {
         ? '<div class="vc-banner">' + _aiTestEsc(c.pause_reason || 'Paused.') +
           ' <button class="vc-btn" style="margin-left:8px" onclick="vcampResume(\'' + _aiTestEsc(c.id) + '\')">Resume</button></div>'
         : '') +
+      // A TEXT CAMPAIGN THAT IS NOT RUNNING SAYS SO, IN ONE SENTENCE, WITH THE
+      // SWITCH BESIDE IT.
+      //
+      // The twelve shipped text campaigns arrive switched off — every step
+      // written, nothing sent — so on a new account this is twelve of the
+      // twenty-four cards, and "Off" on its own reads as something that failed
+      // rather than something waiting for a decision.
+      //
+      // "Off" is the pill's own word for active = false and "Paused" is
+      // reserved for an engine pause that has a reason attached. They are
+      // different states and the card must not blur them: a paused campaign
+      // hit a wall, an off one has not been asked to start.
+      (!c.active && !paused && isSms
+        ? '<div class="vc-banner">Not turned on yet &mdash; switch it on when you\'ve read the messages. ' +
+          'Once it is on, texts only go to leads with recorded text consent. ' +
+          '<button class="vc-btn primary" style="margin-left:8px" onclick="vcampTurnOn(\'' + _aiTestEsc(c.id) + '\')">Turn on</button></div>'
+        : '') +
       '</div>';
   }).join('');
+}
+
+/**
+ * The one-click switch on an off text campaign's card.
+ *
+ * Deliberately the SAME path as the Active checkbox rather than a second one:
+ * a button that could start a campaign without the confirm below would make
+ * the confirm decorative, and a test asserts there is no such path.
+ */
+function vcampTurnOn(id) {
+  return vcampToggleActive(id, true);
+}
+
+/**
+ * 🔴 THE ONE QUESTION ASKED BEFORE A TEXT CAMPAIGN STARTS.
+ *
+ * Switching one on is a standing instruction to message consumers on a
+ * schedule, and the twelve shipped ones were written by us rather than by the
+ * agent holding the licence. So it asks once, and the question restates the
+ * only thing that actually bounds it — recorded text consent — because that is
+ * the fact an agent is most likely to assume they already have.
+ *
+ * It states the audience the rule will sweep, from the same
+ * vcAutoEnrollPhrase() the card shows, so the sentence cannot describe
+ * behaviour the engine does not have. A calling campaign does not get this: it
+ * is the existing behaviour, it has shipped live since 20260803, and adding a
+ * confirm to it now would be a change nobody asked for.
+ */
+function vcampConfirmTurnOn(c) {
+  if (!c || vcChannel(c) !== 'sms') return true;
+  const n = textableCount();
+  const who = n === null
+    ? ''
+    : (n === 0
+      ? '\n\nRight now none of your leads has recorded text consent, so this will enrol nobody until some do.'
+      : '\n\n' + n + ' of your leads currently has recorded text consent.');
+  return confirm(
+    'Turn on “' + (c.name || 'this campaign') + '”?\n\n' +
+    'It will text leads on a schedule, and it only ever texts a lead with ' +
+    'recorded text consent who has not opted out.' + who,
+  );
 }
 
 /**
@@ -31597,6 +31662,10 @@ async function vcampToggleActive(id, on) {
     if (vcChannel(c) === 'sms') {
       const sv = vcValidateSmsSteps(steps);
       if (!sv.ok) { showToast(sv.error, '#dc2626'); await vcampLoad(); return; }
+      // …and then the one question. Asked LAST, after every reason it could
+      // fail anyway, so an agent is never asked to confirm something that was
+      // going to be refused.
+      if (!vcampConfirmTurnOn(c)) { await vcampLoad(); return; }
     }
   }
   // Switching a paused campaign back on clears the pause: the agent has seen

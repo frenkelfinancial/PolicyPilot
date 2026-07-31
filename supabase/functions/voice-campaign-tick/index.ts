@@ -31,6 +31,7 @@ import {
   vcResolveNextDue,
   vcSlotsFree,
   vcSlotsInUse,
+  vcSmsHoldWouldMissAnchor,
   vcStepAt,
   vcStepIsActionable,
   vcStepsSorted,
@@ -366,6 +367,10 @@ Deno.serve(async (req) => {
           agentId, campaign, enr, step, steps,
           thread: threads.get(String(enr.id)) || null,
           agent: agent as Record<string, unknown> | null,
+          // Only the Appointment Reminder has one. It is what stops the
+          // live-conversation hold from deferring "your call is in an hour"
+          // past the call.
+          appointmentAt: enr.appointment_id ? apptAt.get(enr.appointment_id) || null : null,
           pausedThisTick, staleIso,
         });
         if (acted) sentThisAgent++;
@@ -953,6 +958,8 @@ Deno.serve(async (req) => {
     steps: VcStep[];
     thread: VcSmsThreadFacts | null;
     agent: Record<string, unknown> | null;
+    /** The appointment an anchored reminder is counting down to, if any. */
+    appointmentAt?: string | null;
     pausedThisTick: Set<string>;
     staleIso: string;
   }): Promise<boolean> {
@@ -1003,6 +1010,41 @@ Deno.serve(async (req) => {
     // holding" instead of a bare future timestamp, which reads as broken.
     const hold = vcEvaluateSmsHold({ campaign, thread, now });
     if (hold.hold) {
+      // 🔴 …EXCEPT WHEN HOLDING WOULD MAKE AN ANCHORED STEP ARRIVE LATE.
+      //
+      // "Your call is in about an hour", deferred 24 hours because they texted
+      // us, is a reminder for something that already happened. An anchored step
+      // whose moment falls inside the hold is SKIPPED instead — the same rule
+      // vcResolveNextDue() applies at enrollment, reached here by the other
+      // door. The enrollment stays alive on whatever step still has a moment
+      // left, and the conversation is still not talked over, because the step
+      // that would have talked over it is the one being dropped.
+      if (vcSmsHoldWouldMissAnchor({
+        step, holdUntil: hold.until, appointmentAt: ctx.appointmentAt || null,
+      })) {
+        const next = vcResolveNextDue({
+          steps, fromPosition: step.position, now, appointmentAt: ctx.appointmentAt || null,
+        });
+        if (!next.step || !next.dueAt) {
+          await finishEnrollment(enrId, "completed", null);
+        } else {
+          await sb.from("voice_campaign_enrollments").update({
+            current_step_position: next.step.position,
+            step_attempts: 0,
+            next_action_at: next.dueAt,
+            claimed_at: null,
+            last_gate_code: hold.reason,
+            updated_at: nowIso,
+          }).eq("id", enrId);
+        }
+        say({
+          agent_id: agentId, campaign_id: campaignId, enrollment_id: enrId,
+          event: "sms_anchor_skipped_not_held",
+          detail: { reason: hold.reason, skipped: step.position, next: next.step ? next.step.position : null },
+        });
+        return false;
+      }
+
       totals.held++;
       await sb.from("voice_campaign_enrollments").update({
         next_action_at: hold.until,

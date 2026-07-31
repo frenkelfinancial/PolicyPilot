@@ -706,6 +706,63 @@ Prompt SMS-2. Schema: `20260807_sms_campaigns.sql`. Docs:
   pre-existing 10DLC gap, and the one thing between this feature and a live
   send.
 
+### Phase 9 — the twelve pre-written text campaigns (SMS-3, added 2026-07-31)
+
+Prompt SMS-3. Schema: `20260808_default_sms_campaigns.sql`. Docs:
+`docs/sms-campaigns-defaults.md`. Tests: `npm run test:defaultsms`.
+
+- **🔴 THE TWELVE TEXT CAMPAIGNS SHIP `active = false`. THE TWELVE VOICE ONES
+  SHIP ACTIVE.** Owner's decision, and the asymmetry is the reason: a calling
+  campaign on a book with no consented leads dials nobody, so shipping it live
+  costs nothing; a text arrives on a phone and stays there, and the agent did
+  not write the wording. Never "helpfully" flip these on. The seeder's campaign
+  insert writes `false` LITERALLY rather than reading the default's flag.
+- **🔴 THE SEED KEYS ARE `SMS_AI_TYPES` MINUS `default`, CHARACTER FOR
+  CHARACTER** (`final_expense`, not `sms_final_expense_v1`). `voice-campaign-tick`
+  passes `seed_key` straight through as the conversation's `campaign_type` and
+  `loadSettings()` matches it EXACTLY with a **silent fallback to `default`** —
+  so a drifted key does not error, it answers that whole campaign in the wrong
+  voice for ever. A test compares the two lists. They cannot collide with the
+  voice defaults' `*_v1` keys, which is what lets one
+  `voice_campaign_seed_state` table carry both channels.
+- **Every trigger group and every enrollment-trigger flag is byte-identical to
+  the voice sibling's** and a test `deepEqual`s them. One definition of "this is
+  a veteran lead" per book.
+- **`stop_on_reply` is FALSE on exactly two: Customer Care and Appointment
+  Reminder.** A check-in sequence that ends when a client says "thanks" never
+  runs, and "see you then" must not cancel the day-of reminder. Both still hold
+  on a live conversation and both still stop on STOP/DNC.
+- **🔴 EVERY BODY IS PLAIN ASCII AND A TEST ENFORCES IT.** One em dash, curly
+  quote or emoji forces the whole message to UCS-2 — 67 characters a segment
+  instead of 153 — on every send for ever. 201 of the 209 messages are one
+  segment; none needs three. (`defaultSmsAiSettings()` has `emojis: false` for
+  all thirteen types, which is why there are none.)
+- **The opt-out rule is mechanical: position 1, every `position % 5 === 1`, and
+  the first message after a gap of ≥ 45 days.** A separate test renders those
+  steps with EVERY variable resolving to nothing and asserts the opt-out
+  survives — a merge fallback must not be able to eat it.
+- **🔴 BENEFICIARY REFERRAL ASKS THE CLIENT AND NEVER TEXTS A BENEFICIARY.** It
+  triggers on `status is sold` and asks the insured to pass the agent's number
+  on. This must not become the door that routes around
+  `referralsFromPolicy()`'s deliberate no-consent rule.
+- **🔴 A LIVE-CONVERSATION HOLD MUST NOT FIRE AN ANCHORED REMINDER LATE** —
+  the one engine change this round. `vcSmsHoldWouldMissAnchor()` in
+  voice-campaign-core; when true the tick SKIPS the step via `vcResolveNextDue`
+  instead of holding it. Without it, a lead who texts on Monday morning gets
+  "your call is in about an hour" on Tuesday. SMS-2 could not hit this — there
+  was no anchored text campaign until now.
+- **There is deliberately no `{{appointmentTime}}` merge variable.** The value
+  exists on the enrollment, but rendering it for a consumer means picking a
+  timezone and getting that wrong on a reminder is worse than not stating it.
+  The anchored offsets let the copy say "in about 4 hours" truthfully instead.
+- **"Off" is not "Paused".** The pill says `Off` for `active = false` and
+  `Paused` only for an engine pause with a reason. An off text campaign gains a
+  line and a `Turn on` button; `vcampTurnOn()` routes through
+  `vcampToggleActive()` so it cannot skip `vcampConfirmTurnOn()`.
+- **`agents_seed_sms_campaigns` is a SECOND trigger on `public.agents`**, not an
+  edit to the voice one — a change to the text seeder must not be able to break
+  sign-up seeding for the calling campaigns.
+
 ## AI texting agent (SMS-1, added 2026-07-31)
 
 - **Read `docs/sms-ai-responder.md` before touching anything named `sms-ai-*`,

@@ -2845,3 +2845,56 @@ key unique indexes present.
 - A text booking lands in the SAME `ai_appointments` table as a call, with
   `source = 'ai_text'` and `ai_call_id` left null. There is no second
   appointments table.
+
+## 20260807_sms_campaigns.sql — APPLIED (confirmed 2026-07-31, backfilled entry)
+
+Prompt SMS-2. The apply itself happened in the SMS-2 round; this entry was
+written in the SMS-3 round, which re-verified every object it depends on
+in-database before building on it.
+
+```
+voice_campaigns.channel / stop_on_reply / pause_on_active_conversation   3/3 present
+voice_campaign_steps.body / media_url                                    2/2 present
+voice_campaign_enrollments_one_active_uidx  ->  (lead_id, channel) WHERE status='active'
+voice_campaign_enrollments non-SELECT policies                           0
+```
+
+- **There are NO new campaign tables.** `voice_campaigns` grew a `channel`; a
+  row with `channel = 'sms'` IS a texting campaign. The `voice_` prefix is
+  historical — see `docs/sms-campaigns.md`.
+- **`voice_campaign_enrollments` stays SELECT-only** and the channel column
+  makes an INSERT policy strictly worse than before: a browser that could write
+  an enrollment could now also choose which of a lead's two channel slots to
+  occupy. Do not add one.
+- The `enrolled_by` CHECK was widened to include `appointment_booked` — a value
+  `voice-campaign-tick`'s appointment re-arm path had been writing since
+  `20260803` against a constraint that never allowed it, failing silently inside
+  a sweep that swallows its errors.
+
+## 20260808_default_sms_campaigns.sql — APPLIED 2026-07-31
+
+Prompt SMS-3. Dry-run applied inside `begin; … ; rollback;` first, then for
+real. Verified in-database at apply time:
+
+```
+before   9 agents · 108 campaigns (108 voice, 97 active) · 108 seed rows · 0 enrollments
+after    216 campaigns (108 voice UNCHANGED + 108 sms, 0 sms active)
+         1,881 sms_message steps · 216 seed rows · 0 enrollments
+         vc_default_sms_campaigns / vc_seed_default_sms_campaigns_for /
+         vc_seed_default_sms_campaigns                     all present
+         trigger agents_seed_sms_campaigns on public.agents present, enabled
+```
+
+- **🔴 ALL 108 SEEDED TEXT CAMPAIGNS ARE `active = false`** and an unscoped tick
+  afterwards reported `campaigns: 97` — the voice twelve across nine agents and
+  nothing else. An off campaign is not read, not swept and enrols nobody.
+- **No new table.** It adds three functions, one trigger and rows. The tombstone
+  is the EXISTING `voice_campaign_seed_state`; the twelve SMS seed keys are the
+  bare `SMS_AI_TYPES` names and cannot collide with the voice twelve's `*_v1`.
+- **Idempotency and the three promises proved against the real data** in a
+  rolled-back transaction: a seeded campaign switched on, renamed and rewritten
+  kept all three across three further re-seeds; a deleted one was not
+  resurrected (107 rows, not 108); no new tombstones.
+- No `DROP`, no `TRUNCATE`, no `DELETE`, nothing touching `auth.*` or
+  `storage.*`. The only `UPDATE` in the seeder is the activate step, keyed on
+  the id it just created, and it does not fire for any of the twelve.

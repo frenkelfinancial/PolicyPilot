@@ -2575,6 +2575,41 @@ export function vcEvaluateSmsHold(input: {
   return none;
 }
 
+/**
+ * 🔴 WOULD HOLDING THIS STEP MAKE IT ARRIVE AFTER THE MOMENT IT DESCRIBES?
+ *
+ * The hold above moves the due time forward. For an ordinary step that is
+ * exactly right — the lead still gets Thursday's message, just not on top of
+ * their own sentence. For an APPOINTMENT-ANCHORED step it is not: "your call is
+ * in about an hour" deferred by a day is a robot telling somebody they are
+ * about to miss something they already missed, which is the one failure
+ * vcResolveNextDue()'s skip rule exists to prevent. Reached here by a different
+ * door, so it has to be closed here too.
+ *
+ * SMS-2 could not hit this — there was no anchored text campaign. SMS-3's
+ * Appointment Reminder is seven anchored steps, so it can.
+ *
+ * True means: do not hold this one. Skip past it with vcResolveNextDue() from
+ * this position, exactly as an already-passed step is skipped at enrollment.
+ * The enrollment is not stopped and the conversation is still not talked over —
+ * the next step that has not gone stale is simply the one that runs.
+ */
+export function vcSmsHoldWouldMissAnchor(input: {
+  step: VcStep | null | undefined;
+  /** The instant the hold would come back at. */
+  holdUntil: string | Date | null | undefined;
+  appointmentAt?: string | Date | null;
+}): boolean {
+  if (!vcStepIsAnchored(input.step)) return false;
+  const until = asDate(input.holdUntil === undefined ? null : input.holdUntil);
+  if (!until) return false;
+  const due = vcAnchoredDueAt(input.step, input.appointmentAt ?? null);
+  // No appointment means there is no moment to be late for; that case is
+  // already answered by vcResolveNextDue() returning `no_appointment`.
+  if (!due) return false;
+  return due.getTime() <= until.getTime();
+}
+
 // ------------------------------------------------------------
 // 13d. Stopping a text sequence
 // ------------------------------------------------------------

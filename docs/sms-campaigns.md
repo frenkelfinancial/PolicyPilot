@@ -399,7 +399,18 @@ See the seed format below.
   enrollment's `conversation_id`, which is set on the first send. A campaign
   message sent before that column existed would show as "a lead".
 
-## What SMS-3 needs from this engine
+## What SMS-3 needs from this engine — SHIPPED
+
+**Done, 2026-07-31.** `docs/sms-campaigns-defaults.md` +
+`supabase/migrations/20260808_default_sms_campaigns.sql`. Twelve default text
+campaigns, seeded for every agent **switched off**, keyed on the twelve
+`SMS_AI_TYPES` values exactly. The engine change that round needed was one
+function: `vcSmsHoldWouldMissAnchor()`, because the hold below would otherwise
+defer an appointment-anchored reminder past its own appointment — a case that
+could not arise until there was an anchored TEXT campaign.
+
+The contract SMS-3 was written against, unchanged:
+
 
 Everything a campaign is, is columns plus one jsonb rule blob, so a default is a
 JSON object and nothing else — exactly as the voice defaults are. `seed_key` is

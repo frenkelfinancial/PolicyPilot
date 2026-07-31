@@ -44,6 +44,7 @@ import {
   vcResolveNextDue,
   vcSmsDailyByNumber,
   vcSmsFeedEntry,
+  vcSmsHoldWouldMissAnchor,
   vcSmsMeterSentence,
   vcStepIsActionable,
   vcStepTypesFor,
@@ -884,4 +885,75 @@ test("🔴 the text meter counts and does not cap", () => {
   for (const word of ["limit", "cap", "recommend", "over", "warn"]) {
     assert.ok(!s.toLowerCase().includes(word), `the meter sentence must not say "${word}"`);
   }
+});
+
+// ------------------------------------------------------------
+// The hold, meeting an appointment-anchored step (added SMS-3)
+// ------------------------------------------------------------
+
+test("🔴 a hold must not defer an anchored reminder past the appointment", () => {
+  const appt = "2026-08-10T15:00:00.000Z";
+  const hourBefore = {
+    position: 5, step_type: "sms_message", anchor: "appointment",
+    offset_minutes: -60, body: "in about an hour",
+  };
+  const dayBefore = {
+    position: 3, step_type: "sms_message", anchor: "appointment",
+    offset_minutes: -1440, body: "tomorrow",
+  };
+  const ordinary = {
+    position: 2, step_type: "sms_message", wait_value: 2, wait_unit: "days", body: "hi",
+  };
+
+  // They texted us at 09:00 the day before, so the window closes at 09:00 on
+  // the day AFTER the appointment. Both reminders would land after their own
+  // moment; neither may be held.
+  const until = "2026-08-11T09:00:00.000Z";
+  assert.equal(vcSmsHoldWouldMissAnchor({ step: hourBefore, holdUntil: until, appointmentAt: appt }), true);
+  assert.equal(vcSmsHoldWouldMissAnchor({ step: dayBefore,  holdUntil: until, appointmentAt: appt }), true);
+
+  // A hold that expires with the moment still ahead is the hold doing its job.
+  assert.equal(
+    vcSmsHoldWouldMissAnchor({ step: hourBefore, holdUntil: "2026-08-10T13:00:00.000Z", appointmentAt: appt }),
+    false,
+  );
+  // Exactly ON the moment counts as missing it: a reminder sent at the instant
+  // it describes is not a reminder.
+  assert.equal(
+    vcSmsHoldWouldMissAnchor({ step: hourBefore, holdUntil: "2026-08-10T14:00:00.000Z", appointmentAt: appt }),
+    true,
+  );
+
+  // An ordinary step has no moment to miss, so the hold is always right for it.
+  assert.equal(vcSmsHoldWouldMissAnchor({ step: ordinary, holdUntil: until, appointmentAt: appt }), false);
+  // And with no appointment there is nothing to be late for — vcResolveNextDue
+  // already answers that case with `no_appointment`.
+  assert.equal(vcSmsHoldWouldMissAnchor({ step: hourBefore, holdUntil: until, appointmentAt: null }), false);
+  assert.equal(vcSmsHoldWouldMissAnchor({ step: null, holdUntil: until, appointmentAt: appt }), false);
+  assert.equal(vcSmsHoldWouldMissAnchor({ step: hourBefore, holdUntil: null, appointmentAt: appt }), false);
+});
+
+test("skipping a stale anchored step lands on the next one that still has a moment", () => {
+  // What the tick does with the verdict above: resolve forward from the step it
+  // refused to hold. The enrollment stays alive, and the conversation is still
+  // not talked over — the step that would have talked over it is the one gone.
+  const appt = "2026-08-10T15:00:00.000Z";
+  const steps = [
+    { position: 1, step_type: "sms_message", anchor: "appointment", offset_minutes: -1440, body: "a" },
+    { position: 2, step_type: "sms_message", anchor: "appointment", offset_minutes: -60,   body: "b" },
+    { position: 3, step_type: "sms_message", anchor: "appointment", offset_minutes: 45,    body: "c" },
+  ];
+  const next = vcResolveNextDue({
+    steps, fromPosition: 2, now: new Date("2026-08-10T14:30:00.000Z"), appointmentAt: appt,
+  });
+  assert.equal(next.step.position, 3);
+  assert.equal(next.dueAt, "2026-08-10T15:45:00.000Z");
+
+  // And when nothing is left, there is nothing left: the tick completes the
+  // enrollment rather than leaving a row that re-asks every minute for ever.
+  const done = vcResolveNextDue({
+    steps, fromPosition: 3, now: new Date("2026-08-10T14:30:00.000Z"), appointmentAt: appt,
+  });
+  assert.equal(done.step, null);
+  assert.equal(done.reason, "no_steps");
 });
