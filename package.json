@@ -9,7 +9,7 @@
     "check:update-baseline": "node scripts/check-app.mjs --update-baseline app.html",
     "test:email": "node --test \"supabase/functions/_shared/email/*.test.ts\"",
     "test:messaging": "node --test \"supabase/functions/_shared/segments.test.ts\" \"supabase/functions/_shared/tcpa.test.ts\" \"supabase/functions/_shared/phone.test.ts\" \"supabase/functions/_shared/messaging-shared.test.ts\" \"supabase/functions/_shared/messaging-send-core.test.ts\" \"supabase/functions/_shared/broadcast-gate.test.ts\" \"supabase/functions/_shared/broadcast-pacing.test.ts\" \"supabase/functions/_shared/csv.test.ts\" \"supabase/functions/_shared/leads.test.ts\"",
-    "test:ai": "node --test \"supabase/functions/_shared/ai-minute-billing.test.ts\" \"supabase/functions/_shared/ai-call-billing.test.ts\" \"supabase/functions/_shared/ai-call-outcome.test.ts\" \"supabase/functions/_shared/ai-appointment.test.ts\" \"supabase/functions/_shared/ai-assistant-start.test.ts\" \"supabase/functions/_shared/ai-inbound.test.ts\" \"supabase/functions/_shared/ai-inbound-flow.test.ts\" \"supabase/functions/_shared/ai-inbound-webhook.test.ts\" \"supabase/functions/_shared/ai-call-meter.test.ts\" \"supabase/functions/_shared/voice-campaign-core.test.ts\" \"supabase/functions/_shared/voice-campaign-flow.test.ts\" \"supabase/functions/_shared/voice-campaign-enroll.test.ts\" \"supabase/functions/_shared/ai-lead-effect.test.ts\" \"supabase/functions/_shared/voice-campaign-mission.test.ts\" \"supabase/functions/_shared/sms-ai-core.test.ts\"",
+    "test:ai": "node --test \"supabase/functions/_shared/ai-minute-billing.test.ts\" \"supabase/functions/_shared/ai-call-billing.test.ts\" \"supabase/functions/_shared/ai-call-outcome.test.ts\" \"supabase/functions/_shared/ai-appointment.test.ts\" \"supabase/functions/_shared/ai-assistant-start.test.ts\" \"supabase/functions/_shared/ai-inbound.test.ts\" \"supabase/functions/_shared/ai-inbound-flow.test.ts\" \"supabase/functions/_shared/ai-inbound-webhook.test.ts\" \"supabase/functions/_shared/ai-call-meter.test.ts\" \"supabase/functions/_shared/voice-campaign-core.test.ts\" \"supabase/functions/_shared/voice-campaign-flow.test.ts\" \"supabase/functions/_shared/voice-campaign-enroll.test.ts\" \"supabase/functions/_shared/ai-lead-effect.test.ts\" \"supabase/functions/_shared/voice-campaign-mission.test.ts\" \"supabase/functions/_shared/sms-ai-core.test.ts\" \"supabase/functions/_shared/campaign-sms.test.ts\"",
     "test:aimeter": "node --test \"test/ai-meter.test.mjs\"",
     "test:voicecampaigns": "node --test \"test/voice-campaigns.test.mjs\"",
     "test:defaultcampaigns": "node --test \"test/default-campaigns.test.mjs\"",
@@ -25,7 +25,7 @@
     "test:persistency": "node --test \"test/persistency.test.mjs\"",
     "test:recon": "node --test \"test/reconciliation.test.mjs\"",
     "test:referrals": "node --test \"test/referrals.test.mjs\"",
-    "test": "npm run test:email && npm run test:messaging && npm run test:ai && npm run test:compliance && npm run test:a2p && npm run test:leadtransfer && npm run test:team && npm run test:backoffice && npm run test:producercodes && npm run test:bob && npm run test:commissions && npm run test:persistency && npm run test:recon && npm run test:referrals && npm run test:leaderboards && npm run test:identity && npm run test:aimeter && npm run test:voicecampaigns && npm run test:defaultcampaigns && npm run test:mission && npm run test:leadfilters && npm run test:dialer && npm run test:auth && npm run test:bonus && npm run test:checkout && npm run test:smsai && npm run check",
+    "test": "npm run test:email && npm run test:messaging && npm run test:ai && npm run test:compliance && npm run test:a2p && npm run test:leadtransfer && npm run test:team && npm run test:backoffice && npm run test:producercodes && npm run test:bob && npm run test:commissions && npm run test:persistency && npm run test:recon && npm run test:referrals && npm run test:leaderboards && npm run test:identity && npm run test:aimeter && npm run test:voicecampaigns && npm run test:defaultcampaigns && npm run test:mission && npm run test:leadfilters && npm run test:dialer && npm run test:auth && npm run test:bonus && npm run test:checkout && npm run test:smsai && npm run test:smscampaigns && npm run check",
     "prebuild": "node scripts/prebuild.js",
     "sync:ai-assistant": "node scripts/sync-ai-assistant.mjs",
     "build": "npx cap sync",
@@ -39,7 +39,8 @@
     "test:dialer": "node --test \"test/web-dialer.test.mjs\"",
     "test:mission": "node --test \"test/campaign-mission-control.test.mjs\"",
     "test:checkout": "node --test \"test/checkout-complete.test.mjs\"",
-    "test:smsai": "node --test \"test/sms-ai-responder.test.mjs\""
+    "test:smsai": "node --test \"test/sms-ai-responder.test.mjs\"",
+    "test:smscampaigns": "node --test \"test/sms-campaigns.test.mjs\""
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",

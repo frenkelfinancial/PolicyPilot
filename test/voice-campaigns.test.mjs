@@ -322,7 +322,14 @@ test('activation validates the rule before it can be switched on', () => {
     fn.indexOf('vcValidateTriggerGroups') < fn.indexOf(".update("),
     'and it must run BEFORE the write',
   );
-  assert.ok(fn.includes('steps.length'), 'a campaign with no steps can never do anything');
+  // "Has steps" became "has a step that DOES something" when a step could be a
+  // bare `wait` (20260807). A text campaign made of nothing but waits passes a
+  // count check, then enrols people and messages none of them for ever while
+  // showing green — so the weaker test is the one that would have shipped it.
+  assert.ok(
+    fn.includes('vcFirstActionableStep(steps)'),
+    'a campaign with nothing to do can never do anything',
+  );
 });
 
 test('the per-number inbound toggle is scoped to the signed-in agent', () => {

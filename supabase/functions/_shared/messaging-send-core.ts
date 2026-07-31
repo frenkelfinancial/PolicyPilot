@@ -33,7 +33,26 @@ export interface SendMessageParams {
   fromNumber: string;
   text: string;
   mediaUrls?: string[];
-  consentId: string;
+  /**
+   * The consent_records row this send rests on.
+   *
+   * NULL is permitted for the one class of send that is not to a consumer: a
+   * campaign Send Test, which goes to a number the agent has already proved is
+   * their own. `messages.consent_id` is a nullable column, so this records the
+   * truth — there is no consent record, because none is needed to text
+   * yourself — rather than pointing at somebody else's row to satisfy a type.
+   * Every send to a LEAD goes through runComplianceGate and therefore always
+   * carries one.
+   */
+  consentId: string | null;
+  /**
+   * Prepended to `body_preview` only, never to the message itself.
+   *
+   * Exists so a Send Test is identifiable in the message log while the text a
+   * carrier receives stays byte-identical to what a lead would get — which is
+   * the entire point of a test send.
+   */
+  previewPrefix?: string;
 }
 
 export interface SendMessageDeps {
@@ -91,7 +110,10 @@ export async function sendMessageCore(
     channel,
     to_address:   to,
     from_number:  fromNumber,
-    body_preview: bodyPreview(text || (mediaUrls.length ? `[${mediaUrls.length} attachment(s)]` : "")),
+    body_preview: bodyPreview(
+      (params.previewPrefix || "") +
+      (text || (mediaUrls.length ? `[${mediaUrls.length} attachment(s)]` : "")),
+    ),
     segments,
     status:       "queued",
     consent_id:   consentId,

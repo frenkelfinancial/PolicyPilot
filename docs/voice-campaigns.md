@@ -514,3 +514,25 @@ promise the engine over-delivers on.
   while the old call is still up. The per-agent slot limit bounds the damage to
   one extra concurrent call, and the narrowness of the window is why this is
   documented rather than guarded.
+
+## The text channel — SHIPPED
+
+**Done, 2026-07-31.** `docs/sms-campaigns.md` +
+`supabase/migrations/20260807_sms_campaigns.sql`. `voice_campaigns` grew a
+`channel`, and a row with `channel = 'sms'` is a texting campaign run by
+**this same engine** — same trigger sweep, same enrollment model, same claim,
+same drip arithmetic, same manual door, same `seed_key`.
+
+What changed here, and it is only three things:
+
+- **Slots are voice-only.** The tick used to return early for the whole agent
+  when three calls were in the air; that would have silently stopped every text
+  campaign on the account.
+- **`vcResolveNextDue()` folds a `wait` step** into the next actionable step.
+  A voice campaign cannot contain one, so `folded` is always empty here and
+  every due time in this document is unchanged — pinned by a test.
+- **`vcEvaluateEnrollment()` takes a `channel`**, defaulting to `voice`, and
+  the one-active index moved to `(lead_id, channel)`. A lead may be active in
+  one calling campaign AND one texting campaign, never two of either.
+
+Everything else in this file still describes both channels.

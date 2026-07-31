@@ -4951,6 +4951,14 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
         <div class="aim-rec" id="aiMeter-rec">Loading today&rsquo;s pace&hellip;</div>
         <div class="aim-chips" id="aiMeter-chips"></div>
         <div class="aim-banner" id="aiMeter-banner" style="display:none"></div>
+        <!-- Texts sent today, per number. COUNTED AND NOT CAPPED: there is no
+             daily text limit of ours. The ~300/number/day call recommendation
+             exists because a number that DIALS too much gets spam-labelled;
+             texting throughput is carrier-assigned per 10DLC campaign, and the
+             sole-proprietor ~1,000/day ceiling is enforced by the send gate
+             with its own message. A second invented number here would be
+             advice nobody can support. -->
+        <div class="aim-note" id="aiMeter-sms" style="display:none"></div>
 
         <div class="aim-settings">
           <label for="aiMeter-capInput">Daily cap</label>
@@ -5081,6 +5089,11 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
         #sec-voice-campaigns .vc-pill[data-tone="on"]{border-color:rgba(16,185,129,.45);color:#059669;background:rgba(16,185,129,.12)}
         #sec-voice-campaigns .vc-pill[data-tone="warn"]{border-color:rgba(245,158,11,.45);color:#b45309;background:rgba(245,158,11,.12)}
         #sec-voice-campaigns .vc-pill[data-tone="dry"]{border-color:rgba(37,99,235,.45);color:#2563eb;background:rgba(37,99,235,.10)}
+        /* The channel badge. Two colours that are not the green/amber the
+           status pill beside it uses, so "which kind of campaign" and "is it
+           running" never read as the same axis. */
+        #sec-voice-campaigns .vc-pill[data-tone="voice"]{border-color:rgba(99,102,241,.45);color:#4f46e5;background:rgba(99,102,241,.10)}
+        #sec-voice-campaigns .vc-pill[data-tone="sms"]{border-color:rgba(14,165,233,.45);color:#0284c7;background:rgba(14,165,233,.10)}
         #sec-voice-campaigns .vc-slots{display:inline-flex;gap:4px;align-items:center;margin-left:6px}
         #sec-voice-campaigns .vc-slot{width:9px;height:9px;border-radius:50%;background:rgba(127,127,127,.3)}
         #sec-voice-campaigns .vc-slot.on{background:#10b981}
@@ -5144,21 +5157,25 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
       <div id="vcamp-listView">
         <div class="card" style="max-width:900px">
           <div class="card-head">
-            <div class="kpi-label">Voice Campaigns</div>
+            <div class="kpi-label">Campaigns</div>
             <span class="ds-trend" data-tone="static" id="vcamp-slotsChip">0/3 ACTIVE</span>
           </div>
           <p style="font:13px/19px var(--sans);color:var(--text2);margin:0 0 16px">
-            A campaign watches your book and calls on its own &mdash; new lead arrives, call within a minute,
-            no answer, try again in two hours. Every call still passes consent, DNC, quiet hours, your daily
-            cap and your wallet before it dials.
+            A campaign watches your book and works it on its own &mdash; new lead arrives, call within a minute,
+            no answer, try again in two hours; or a text now, another in two days, another next week.
+            Every call passes consent, DNC, quiet hours, your daily cap and your wallet before it dials,
+            and every text passes your texting registration, that lead&rsquo;s own written text consent,
+            the do-not-contact list and quiet hours before it sends.
           </p>
           <div class="vc-row" style="margin-bottom:16px">
-            <button class="vc-btn primary" onclick="vcampNew()">New campaign</button>
+            <button class="vc-btn primary" onclick="vcampNew('voice')">New calling campaign</button>
+            <button class="vc-btn primary" onclick="vcampNew('sms')">New text campaign</button>
             <button class="vc-btn" onclick="vcampLoad()">Refresh</button>
             <span class="vc-pill" id="vcamp-slotsPill">0/3 active
               <span class="vc-slots" id="vcamp-slotDots"></span>
             </span>
           </div>
+          <div class="vc-row" id="vcamp-channelFilter" style="margin:-6px 0 16px"></div>
           <div id="vcamp-list"><div class="vc-empty">Loading&hellip;</div></div>
         </div>
       </div>
@@ -21892,7 +21909,15 @@ function openConsentModal(opts) {
   document.getElementById('cs-source').value = 'vendor_optin';
   document.getElementById('cs-detail').value = '';
   const msg = document.getElementById('cs-msg');
-  if (msg) { msg.textContent = ''; msg.style.color = 'var(--text2)'; }
+  if (msg) {
+    // A caller may explain WHY it sent the agent here — the text campaign door
+    // does, because the box that unblocks it is the second one and nothing on
+    // this screen otherwise says so. It is a NOTE AND NOT A PRE-TICK: the
+    // text-consent box is unticked on every open, never remembered and never
+    // set for somebody, because it attests to what a consumer agreed to.
+    msg.textContent = (opts && opts.note) || '';
+    msg.style.color = 'var(--text2)';
+  }
   consentSourceChange();
   consentSyncButton();
   modal.classList.add('open');
@@ -22084,7 +22109,7 @@ async function atcLoadCampaigns(force) {
   if (_atcCampaigns.loaded && !force) return _atcCampaigns.rows;
   if (typeof vcampEnsureDefaults === 'function') await vcampEnsureDefaults();
   const { data, error } = await sb.from('voice_campaigns')
-    .select('id, name, description, active, paused_at, pause_reason, sort_order, seed_key, ' +
+    .select('id, name, description, active, channel, paused_at, pause_reason, sort_order, seed_key, ' +
             'trigger_groups, auto_enroll_new_leads, trigger_on_sold, ' +
             'trigger_on_appointment_booked, trigger_on_missed_appointment')
     .eq('agent_id', currentAgent.id)
@@ -22213,6 +22238,11 @@ function atcCampaignRowsHTML(campaigns, selectedId, nameAttr) {
       '<span style="min-width:0">' +
         '<span style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">' +
           '<span style="font:600 13px var(--sans);color:var(--text)">' + _aiTestEsc(c.name || 'Untitled') + '</span>' +
+          // The channel decides which consent the picked leads need, so it has
+          // to be on the row an agent is choosing from — not discovered from
+          // the skip counts underneath after they have chosen.
+          '<span class="vc-pill" data-tone="' + (vcChannel(c) === 'sms' ? 'sms' : 'voice') + '">' +
+            (vcChannel(c) === 'sms' ? '💬 Text' : '📞 Voice') + '</span>' +
           '<span class="vc-pill"' + (tone ? ' data-tone="' + tone + '"' : '') + '>' + state + '</span>' +
         '</span>' +
         '<span style="display:block;font:11.5px/1.5 var(--sans);color:var(--text3);margin-top:2px">' + _aiTestEsc(line) + '</span>' +
@@ -22288,11 +22318,16 @@ async function atcRefreshPreview() {
   let html = '<strong style="color:var(--text)">' + _aiTestEsc(data.summary || '') + '</strong>';
   if (unsynced) html += '<span style="color:var(--text3)"> · ' + unsynced + ' not synced yet</span>';
   // The one skip an agent can actually clear from here, so it gets a door.
-  const noConsent = (data.skipped && data.skipped.no_consent) || 0;
+  // Two skip reasons feed it, because the two channels need different consent
+  // and the wording has to say which — sending somebody to tick the calling
+  // box when their text campaign is blocked is worse than saying nothing.
+  const noVoice = (data.skipped && data.skipped.no_consent) || 0;
+  const noText  = (data.skipped && data.skipped.no_sms_consent) || 0;
+  const noConsent = noVoice + noText;
   if (noConsent) {
     html += '<div style="margin-top:7px">' +
       '<a href="#" onclick="atcRecordConsentFirst();return false" style="color:var(--lg-blue);font-weight:600;text-decoration:none">' +
-      'Record consent first &rarr;</a>' +
+      'Record ' + (noText ? 'text ' : '') + 'consent first &rarr;</a>' +
       '<span style="color:var(--text3)"> for the ' + noConsent + ' without it</span></div>';
   }
   // A paused or switched-off campaign still ACCEPTS leads — they queue and go
@@ -22348,9 +22383,19 @@ function atcRecordConsentFirst() {
     label: _atcState.label,
     onDone: _atcState.onDone,
   };
+  // A text campaign is blocked by the SECOND attestation, and nothing in the
+  // consent modal says which box this trip was for. The note says it. It is
+  // deliberately not a pre-tick: that box attests to what a consumer agreed
+  // to, and it is unticked on every open, never remembered and never set on
+  // somebody's behalf.
+  const forText = (p && p.channel) === 'sms';
   closeAddToCampaignModal();
   openConsentModal({
     leadIds: ids,
+    note: forText
+      ? 'This campaign sends text messages — tick the text-message box as well as the calling one, ' +
+        'or these leads will still be skipped.'
+      : '',
     onDone: () => {
       _atcState.campaignId = campaignId;
       openAddToCampaignModal(reopen.leadIds ? reopen : { conflict: reopen.conflict, onDone: reopen.onDone });
@@ -22413,7 +22458,12 @@ function atcResultToast(data) {
   if (!bits.length) return data.summary || 'Nothing to add';
   let s = bits.join(' · ') + ' to ' + ((data.campaign && data.campaign.name) || 'the campaign');
   if (data.tagged) s += ' · ' + data.tagged + ' tagged ' + vcTagLabel(data.tag);
-  return s + ' — calls begin automatically at the next allowed time.';
+  // The clause that matters: assignment is not sending. An agent who adds 200
+  // leads and hears nothing for an hour has to be able to tell "it is working"
+  // from "it is broken", and the quiet hours, the drip rate and the step
+  // timing that separate the two are invisible from here.
+  return s + ' — ' + (data.channel === 'sms' ? 'texts' : 'calls') +
+    ' begin automatically at the next allowed time.';
 }
 
 /**
@@ -28826,7 +28876,29 @@ const VC_SLOT_LIMIT = 3;
 const VC_INFLIGHT_STALE_SECS = 2400;
 const VC_DOUBLE_DIAL_ATTEMPTS = 2;
 const VC_WAIT_UNITS = ['minutes', 'hours', 'days'];
-const VC_STEP_TYPES = ['call', 'double_dial'];
+
+// THE TABLE IS STILL CALLED voice_campaigns AND THAT IS HISTORICAL. A row with
+// channel = 'sms' is a texting campaign, run by the same tick, the same
+// enrollment model and the same stop machinery as a calling one. Chosen over
+// parallel sms_* tables so there is exactly one of each of those rather than
+// two that can drift. See docs/sms-campaigns.md.
+const VC_CHANNELS = ['voice', 'sms'];
+function vcChannel(campaign) {
+  const raw = vcNorm(campaign && campaign.channel);
+  return VC_CHANNELS.indexOf(raw) !== -1 ? raw : 'voice';
+}
+function vcChannelLabel(channel) { return vcNorm(channel) === 'sms' ? 'Text' : 'Voice'; }
+function vcChannelVerb(channel) { return vcNorm(channel) === 'sms' ? 'text' : 'call'; }
+
+const VC_VOICE_STEP_TYPES = ['call', 'double_dial'];
+const VC_SMS_STEP_TYPES = ['sms_message', 'wait'];
+const VC_STEP_TYPES = VC_VOICE_STEP_TYPES.concat(VC_SMS_STEP_TYPES);
+function vcStepTypesFor(channel) {
+  return vcNorm(channel) === 'sms' ? VC_SMS_STEP_TYPES.slice() : VC_VOICE_STEP_TYPES.slice();
+}
+// A `wait` step does not act — vcResolveNextDue folds its delay into the next
+// real step rather than waking up to do nothing.
+function vcStepIsActionable(step) { return !!step && vcNorm(step.step_type) !== 'wait'; }
 
 // THE GUARD. A trigger group must contain at least one `is` condition on one
 // of these, so no rule can be saved that matches the whole book.
@@ -28853,6 +28925,11 @@ const VC_UNIT_MS = { minutes: 60000, hours: 3600000, days: 86400000 };
 
 const VC_SKIP_LABELS = {
   no_consent: 'no consent',
+  // Worded differently from `no_consent` on purpose: they are cleared by
+  // different actions — the calling attestation, and the text-message box
+  // beside it. "3 no consent" on a text campaign sends an agent to tick the
+  // wrong one.
+  no_sms_consent: 'no text consent',
   dnc: 'on DNC',
   suppressed: 'suppressed',
   already_enrolled: 'already in a campaign',
@@ -28879,6 +28956,14 @@ const VC_STOP_LABELS = {
   campaign_deleted: 'Campaign removed',
   appointment_cancelled: 'Appointment cancelled',
   appointment_passed: 'Appointment has been and gone',
+  // ---- Text campaigns ----
+  // The good ending, and it has to read like one: stop_on_reply fires on the
+  // outcome the whole sequence was for, so wording it as a failure would make
+  // a working campaign's Finished tab look like a graveyard.
+  replied: 'They wrote back',
+  opted_out: 'Replied STOP',
+  conversation_closed: 'Conversation closed',
+  no_sms_consent: 'No text consent',
 };
 
 // THE ONE LEAD FIELD THE MANUAL DOOR WILL EVER WRITE. `campaign_tag` is
@@ -29054,23 +29139,38 @@ function vcStepDueAt(from, step, ctx) {
 // missed. Ordinary steps are never skipped: their due time is computed forward
 // from `now`, so it is in the future by construction.
 // `fromPosition` is EXCLUSIVE; pass 0/null to resolve the first step.
+// AND THIS IS WHERE A `wait` STEP DISAPPEARS. A wait does no work, so its delay
+// is FOLDED into the next actionable step's due time rather than being woken up
+// for: "send / wait 2 days / send" and one step with a two-day wait produce the
+// identical schedule. A voice campaign cannot contain a wait step (the database
+// refuses one), so `folded` is always empty there and voice pacing is untouched.
 function vcResolveNextDue(input) {
   const from = vcInt(input.fromPosition, 0);
   const all = vcStepsSorted(input.steps);
   const candidates = from > 0 ? all.filter(s => vcInt(s.position, 0) > from) : all;
   const skipped = [];
+  const folded = [];
+  let foldedMs = 0;
   const apptAt = input.appointmentAt === undefined ? null : input.appointmentAt;
 
   for (const step of candidates) {
+    if (!vcStepIsActionable(step)) {
+      foldedMs += vcWaitMs(step.wait_value, step.wait_unit);
+      folded.push(vcInt(step.position, 0));
+      continue;
+    }
     if (!vcStepIsAnchored(step)) {
-      return { step: step, dueAt: vcStepDueAt(input.now, step).toISOString(), skipped: skipped, reason: 'ok' };
+      // The folded waits move the BASE; the step's own wait applies on top, so
+      // the two compose rather than one silently replacing the other.
+      const base = new Date(input.now.getTime() + foldedMs);
+      return { step: step, dueAt: vcStepDueAt(base, step).toISOString(), skipped: skipped, folded: folded, reason: 'ok' };
     }
     const due = vcAnchoredDueAt(step, apptAt);
-    if (!due) return { step: null, dueAt: null, skipped: skipped, reason: 'no_appointment' };
+    if (!due) return { step: null, dueAt: null, skipped: skipped, folded: folded, reason: 'no_appointment' };
     if (due.getTime() <= input.now.getTime()) { skipped.push(vcInt(step.position, 0)); continue; }
-    return { step: step, dueAt: due.toISOString(), skipped: skipped, reason: 'ok' };
+    return { step: step, dueAt: due.toISOString(), skipped: skipped, folded: folded, reason: 'ok' };
   }
-  return { step: null, dueAt: null, skipped: skipped, reason: skipped.length ? 'all_past' : 'no_steps' };
+  return { step: null, dueAt: null, skipped: skipped, folded: folded, reason: skipped.length ? 'all_past' : 'no_steps' };
 }
 
 function vcWaitLabel(step) {
@@ -29103,6 +29203,12 @@ function vcStepsSorted(steps) {
   return (steps || []).slice().sort((a, b) => vcInt(a.position, 0) - vcInt(b.position, 0));
 }
 function vcFirstStep(steps) { return vcStepsSorted(steps)[0] || null; }
+// What "does this campaign have steps?" has to mean now that a step can be a
+// bare `wait`. A text campaign of nothing but waits HAS steps, passes any count
+// check, and would enrol people and message none of them for ever.
+function vcFirstActionableStep(steps) {
+  return vcStepsSorted(steps).filter(s => vcStepIsActionable(s))[0] || null;
+}
 function vcStepAt(steps, position) {
   return vcStepsSorted(steps).filter(s => vcInt(s.position, 0) === vcInt(position, 0))[0] || null;
 }
@@ -29132,17 +29238,27 @@ function vcSlotsLabel(inUse) {
   return Math.max(0, Math.min(VC_SLOT_LIMIT, vcInt(inUse, 0))) + '/' + VC_SLOT_LIMIT + ' active';
 }
 
+// Both channels' counters are summed and the CARD picks which to show. They are
+// separate columns rather than one shared "attempts" because "Calls placed: 4"
+// on a campaign that has never dialled anybody is a small lie, and a card full
+// of numbers only works if an agent believes all of them.
 function vcCampaignStats(enrollments) {
-  const out = { enrolled: 0, active: 0, completed: 0, stopped: 0, calls: 0, answers: 0, appointments: 0 };
+  const out = {
+    enrolled: 0, active: 0, paused: 0, completed: 0, stopped: 0,
+    calls: 0, answers: 0, appointments: 0, messages: 0, replies: 0,
+  };
   for (const e of enrollments || []) {
     out.enrolled++;
     const st = vcNorm(e.status);
     if (st === 'active') out.active++;
+    else if (st === 'paused') out.paused++;
     else if (st === 'completed') out.completed++;
     else if (st === 'stopped') out.stopped++;
     out.calls += Math.max(0, vcInt(e.calls_placed, 0));
     out.answers += Math.max(0, vcInt(e.answers, 0));
     out.appointments += Math.max(0, vcInt(e.appointments, 0));
+    out.messages += Math.max(0, vcInt(e.messages_sent, 0));
+    out.replies += Math.max(0, vcInt(e.replies, 0));
   }
   return out;
 }
@@ -29269,6 +29385,15 @@ const VC_WAIT_REASONS = {
   quiet_hours: 'Quiet hours where they live',
   daily_cap_reached: 'Your daily call limit',
   retry_soon: 'A hiccup on the line — retrying',
+  // ---- Text campaigns ----
+  // THESE TWO ARE THE WHOLE REASON THE HOLD IS VISIBLE. A drip that has gone
+  // quiet because the lead is mid-conversation is the campaign working exactly
+  // as designed, and with nothing on screen it is indistinguishable from one
+  // that has broken.
+  live_conversation: 'They’re mid-conversation — holding',
+  agent_takeover: 'You’re handling this thread',
+  daily_limit_reached: 'Your carrier’s daily text limit',
+  a2p_not_approved: 'Texting registration not approved yet',
 };
 function vcWaitReasonLabel(code) { return VC_WAIT_REASONS[vcNorm(code)] || ''; }
 
@@ -29304,19 +29429,22 @@ function vcNextAction(input) {
   return { kind: 'scheduled', at: e.next_action_at || null, code: vcNorm(e.last_gate_code) || null };
 }
 
-function vcNextActionText(verdict, whenText) {
+// `channel` defaults to 'voice', so every pre-existing call site produces the
+// byte-identical string it always did — a test pins all nine kinds.
+function vcNextActionText(verdict, whenText, channel) {
   const when = String(whenText == null ? '' : whenText).trim();
+  const sms = vcNorm(channel) === 'sms';
   switch (verdict && verdict.kind) {
-    case 'calling':         return 'Calling now…';
+    case 'calling':         return sms ? 'Sending now…' : 'Calling now…';
     case 'paused_lead':     return when ? 'Paused ' + when : 'Paused';
     case 'paused_campaign': return 'Campaign paused';
     case 'campaign_off':    return 'Campaign switched off';
     case 'ended':           return '—';
-    case 'waiting_on_call': return 'Call in progress…';
+    case 'waiting_on_call': return sms ? 'Sending…' : 'Call in progress…';
     case 'due':             return 'Due now';
     case 'scheduled': {
       const reason = vcWaitReasonLabel(verdict.code);
-      const tail = when ? 'next call ' + when : 'waiting';
+      const tail = when ? 'next ' + (sms ? 'text ' : 'call ') + when : 'waiting';
       return reason ? reason + ' · ' + tail : (when || 'Scheduled');
     }
     default:                return '—';
@@ -29404,6 +29532,311 @@ function vcEnrollSummary(enrolled, skipped) {
     ? [VC_SKIP_LABELS[entries[0][0]] || entries[0][0]]
     : entries.map(e => e[1] + ' ' + (VC_SKIP_LABELS[e[0]] || e[0]));
   return head + ', ' + total + ' skipped: ' + parts.join(', ');
+}
+
+// ============================================================
+// TEXT CAMPAIGNS — the screen-side half
+//
+// Mirrors section 13 of _shared/voice-campaign-core.ts. What is NOT mirrored is
+// deliberate and is the same list as ever: no enrollment gate, no compliance
+// check, no planner. Those are the server's, because a browser copy of "who may
+// be texted" is a second answer to a question that must only have one.
+// ============================================================
+
+// The six variables a message body may carry. Each names a field that genuinely
+// exists on a lead or an agent — a palette offering {{policyNumber}} would be a
+// promise the book cannot keep. EVERY FALLBACK IS NON-BLANK: a blank leaves
+// "Hi , just checking in" on somebody's phone.
+const VC_MERGE_VARS = [
+  { key: 'firstName',      label: 'First name',      sample: 'Maria',           fallback: 'there',         source: 'the lead’s first name' },
+  { key: 'agentName',      label: 'Your name',       sample: 'Jordan Reyes',    fallback: 'your agent',    source: 'your display name in Settings' },
+  { key: 'companyName',    label: 'Your agency',     sample: 'Reyes Financial', fallback: 'our office',    source: 'your agency name in Settings' },
+  { key: 'carrier',        label: 'Carrier',         sample: 'Mutual of Omaha', fallback: 'your carrier',  source: 'the lead’s carrier field' },
+  { key: 'coverageAmount', label: 'Coverage amount', sample: '$25,000',         fallback: 'your coverage', source: 'the lead’s coverage field' },
+  { key: 'agentPhone',     label: 'Your number',     sample: '(262) 509-9123',  fallback: 'this number',   source: 'the number this campaign texts from' },
+];
+
+const VC_MERGE_BY_KEY = {};
+for (const v of VC_MERGE_VARS) VC_MERGE_BY_KEY[v.key.toLowerCase()] = v;
+
+function vcMergeIssues(body) {
+  const unknown = [];
+  const used = [];
+  const text = String(body == null ? '' : body);
+  const re = /\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const known = VC_MERGE_BY_KEY[m[1].toLowerCase()];
+    if (known) { if (used.indexOf(known.key) === -1) used.push(known.key); }
+    else if (unknown.indexOf(m[1]) === -1) unknown.push(m[1]);
+  }
+  return { unknown: unknown, used: used };
+}
+
+function vcTidyMerged(text) {
+  return String(text == null ? '' : text)
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/[ \t]+([,.!?;:])/g, '$1')
+    .replace(/\(\s*\)/g, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim();
+}
+
+// 🔴 A RAW {{…}} NEVER REACHES A PHONE. A known variable with no value gets its
+// fallback; an unknown one is removed entirely. Leaving the braces in would be
+// the most obviously broken thing this feature could do.
+function renderMergeVars(body, values) {
+  const vals = values || {};
+  const src = String(body == null ? '' : body);
+  const out = src.replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, function (_full, raw) {
+    const known = VC_MERGE_BY_KEY[String(raw).toLowerCase()];
+    if (!known) return '';
+    const v = vals[known.key];
+    const s = v === null || v === undefined ? '' : String(v).trim();
+    return s || known.fallback;
+  });
+  return vcTidyMerged(out);
+}
+
+function vcMergePreview(body) {
+  const sample = {};
+  for (const v of VC_MERGE_VARS) sample[v.key] = v.sample;
+  return renderMergeVars(body, sample);
+}
+
+// THE SAME RULE AS ppAgentName(), and it matters more here: that one protects
+// what a colleague sees on a leaderboard, this one decides what a CONSUMER is
+// told the agent is called. agents.display_name is null for most of the
+// production book and the historical fallback was the login email.
+function vcPersonName(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s) return '';
+  if (s.indexOf('@') === -1) return s;
+  const local = s.split('@')[0] || '';
+  const cleaned = local.replace(/[._\-+]+/g, ' ').replace(/\d+/g, ' ').trim();
+  if (!cleaned) return '';
+  return cleaned.split(/\s+/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function vcPrettyPhone(e164) {
+  const s = String(e164 == null ? '' : e164).trim();
+  const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(s);
+  return m ? '(' + m[1] + ') ' + m[2] + '-' + m[3] : s;
+}
+
+function vcMergeValues(input) {
+  const src = input || {};
+  const d = ((src.lead && src.lead.data) || {});
+  const first = String(d.first_name == null ? '' : d.first_name).trim();
+  const whole = String(d.name == null ? '' : d.name).trim();
+  return {
+    firstName: vcPersonName(first || whole.split(/\s+/)[0] || ''),
+    agentName: vcPersonName(src.agentName),
+    companyName: String(src.agencyName == null ? '' : src.agencyName).trim(),
+    carrier: String(d.carrier == null ? '' : d.carrier).trim(),
+    coverageAmount: String(
+      d.coverage_wanted != null ? d.coverage_wanted : (d.coverage_amount == null ? '' : d.coverage_amount),
+    ).trim(),
+    agentPhone: vcPrettyPhone(src.fromE164),
+  };
+}
+
+// Measured against the PREVIEW, not the raw body: {{coverageAmount}} is
+// seventeen characters of template and about seven of message, and an agent
+// shown the template's length would write to the wrong budget. The segment
+// counter is passed IN so this block stays executable standalone by the tests.
+function vcBodyStats(body, opts) {
+  const rendered = vcMergePreview(body);
+  const counter = opts && opts.countSegments;
+  const info = counter
+    ? counter(rendered)
+    : { segments: rendered.length ? Math.max(1, Math.ceil(rendered.length / 153)) : 0, encoding: 'GSM7' };
+  const media = String((opts && opts.mediaUrl) == null ? '' : opts.mediaUrl).trim();
+  return {
+    chars: rendered.length,
+    segments: rendered.length ? Math.max(1, vcInt(info.segments, 1)) : 0,
+    encoding: info.encoding || 'GSM7',
+    unicode: (info.encoding || 'GSM7') !== 'GSM7',
+    mms: !!media,
+  };
+}
+
+// The browser half of the rule voice_campaigns_validate() enforces in the
+// database. Two enforcement points on purpose, the same arrangement the tag
+// rule has: this one produces a sentence in the editor, that one refuses the
+// write whatever produced it.
+function vcValidateSmsSteps(steps) {
+  const all = vcStepsSorted(steps);
+  const msgs = all.filter(s => vcNorm(s.step_type) === 'sms_message');
+  const groupErrors = [];
+  let firstError = null;
+  for (const s of all) {
+    let err = null;
+    if (vcNorm(s.step_type) === 'sms_message') {
+      if (!String(s.body == null ? '' : s.body).trim()) err = 'This step has no message text.';
+      else {
+        const issues = vcMergeIssues(s.body);
+        if (issues.unknown.length) {
+          err = 'There is no such variable as {{' + issues.unknown[0] + '}}. Pick one from the list: ' +
+            VC_MERGE_VARS.map(v => '{{' + v.key + '}}').join(', ') + '.';
+        }
+      }
+    }
+    groupErrors.push(err);
+    if (err && !firstError) firstError = err;
+  }
+  if (!firstError && !msgs.length) {
+    firstError = all.length
+      ? 'This campaign only waits — add a message step, or it will enrol people and never text them.'
+      : 'Add at least one message step.';
+  }
+  return { ok: !firstError, error: firstError, groupErrors: groupErrors };
+}
+
+const VC_SMS_CONVERSATION_WINDOW_HOURS = 24;
+const VC_SMS_TAKEOVER_RECHECK_MINUTES = 60;
+
+// 🔴 NOT A STOP AND NOT A PAUSE. The enrollment stays active on the same step;
+// only the due time moves. A lead who asks a question on Tuesday still gets
+// Thursday's step on Thursday — just not on top of their own sentence.
+function vcEvaluateSmsHold(input) {
+  const none = { hold: false, reason: null, until: null };
+  const campaign = (input && input.campaign) || {};
+  if (campaign.pause_on_active_conversation === false) return none;
+  const t = input && input.thread;
+  if (!t) return none;
+  // A closed thread is not a live conversation — it is an opt-out, which is a
+  // stop, decided above this by vcEvaluateSmsStop.
+  if (vcNorm(t.status) === 'closed') return none;
+  if (t.ai_muted === true && vcNorm(t.ai_muted_reason) === 'agent_takeover') {
+    return {
+      hold: true, reason: 'agent_takeover',
+      until: new Date(input.now.getTime() + VC_SMS_TAKEOVER_RECHECK_MINUTES * 60000).toISOString(),
+    };
+  }
+  const last = vcAsDate(t.last_inbound_at === undefined ? null : t.last_inbound_at);
+  if (last) {
+    const expires = last.getTime() + VC_SMS_CONVERSATION_WINDOW_HOURS * 3600000;
+    if (expires > input.now.getTime()) {
+      return { hold: true, reason: 'live_conversation', until: new Date(expires).toISOString() };
+    }
+  }
+  return none;
+}
+
+// The ORDER carries the same meaning as the voice version: the refusals that
+// protect a CONSUMER sit above every rule that is a campaign setting.
+function vcEvaluateSmsStop(input) {
+  const campaign = (input && input.campaign) || {};
+  const thread = input && input.thread;
+  if (input.leadDnc === true || input.onDncList === true) return { stop: true, reason: 'dnc' };
+  if (thread && vcNorm(thread.status) === 'closed') {
+    return { stop: true, reason: vcNorm(thread.closed_reason) === 'opted_out' ? 'opted_out' : 'conversation_closed' };
+  }
+  if (campaign.stop_on_appointment_booked && input.leadBooked === true) {
+    return { stop: true, reason: 'appointment_booked' };
+  }
+  if (campaign.stop_on_sold && input.leadSold === true) return { stop: true, reason: 'sold' };
+  // Default TRUE — an unset column reads as "yes", the safe direction.
+  if (campaign.stop_on_reply !== false) {
+    const since = vcAsDate(input.enrolledAt === undefined ? null : input.enrolledAt);
+    const last = vcAsDate(thread && thread.last_inbound_at !== undefined ? thread.last_inbound_at : null);
+    if (last && (!since || last.getTime() > since.getTime())) return { stop: true, reason: 'replied' };
+  }
+  return { stop: false, reason: null };
+}
+
+// Delivery is a real distinction on SMS in a way it is not on a call: a text
+// Telnyx accepted and a carrier silently dropped looks identical from here
+// unless the receipt is read.
+function vcMessageStatusLabel(msg) {
+  if (!msg) return '';
+  if (msg.delivered_at) return 'Delivered';
+  const st = vcNorm(msg.status);
+  if (st === 'failed') return 'Did not send';
+  if (st === 'sent' || st === 'queued') return 'Sent';
+  return st ? st.charAt(0).toUpperCase() + st.slice(1) : '';
+}
+function vcMessageAt(msg) {
+  if (!msg) return null;
+  return msg.delivered_at || msg.created_at || null;
+}
+
+// Built from the sms_messages rows that already exist — NO second event log,
+// exactly as the voice feed adds none beside ai_calls. An inbound line is
+// included and is the most important line on the screen: it is the moment a
+// drip turned into a conversation.
+function vcSmsFeedEntry(msg, ctx) {
+  const m = msg || {};
+  const who = String((ctx && ctx.leadName) || '').trim() || 'a lead';
+  const inbound = vcNorm(m.direction) === 'inbound';
+  const failed = vcNorm(m.status) === 'failed';
+  const preview = String(m.body == null ? '' : m.body).replace(/\s+/g, ' ').trim().slice(0, 80);
+  let outcome, headline, tone;
+  if (inbound) {
+    outcome = 'replied'; tone = 'good';
+    headline = preview ? who + ' replied: “' + preview + '”' : who + ' replied';
+  } else if (failed) {
+    outcome = 'failed'; tone = 'bad';
+    headline = 'Text to ' + who + ' did not send';
+  } else if (m.delivered_at) {
+    outcome = 'delivered'; tone = 'neutral';
+    headline = preview ? 'Delivered to ' + who + ': “' + preview + '”' : 'Delivered to ' + who;
+  } else {
+    outcome = 'sent'; tone = 'neutral';
+    headline = preview ? 'Texted ' + who + ': “' + preview + '”' : 'Texted ' + who;
+  }
+  return {
+    call_id: String(m.id || ''),
+    lead_id: m.lead_id ? String(m.lead_id) : null,
+    outcome: outcome, tone: tone, headline: headline,
+    at: m.delivered_at || m.created_at || null,
+    retry_at: (ctx && ctx.retryAt) || null,
+  };
+}
+
+function vcSmsFeed(messages, ctx) {
+  const rows = (messages || []).slice();
+  rows.sort((a, b) => {
+    const at = vcAsDate(a.created_at) || new Date(0);
+    const bt = vcAsDate(b.created_at) || new Date(0);
+    return bt.getTime() - at.getTime();
+  });
+  const limit = Math.max(0, vcInt(ctx && ctx.limit, 50));
+  return rows.slice(0, limit).map(m => vcSmsFeedEntry(m, {
+    leadName: ctx && ctx.leadName ? ctx.leadName(m.lead_id || null) : '',
+    retryAt: ctx && ctx.retryAt ? ctx.retryAt(m.lead_id || null) : null,
+  }));
+}
+
+// 🔴 THERE IS NO TEXT CAP THIS ROUND AND THIS DOES NOT MAKE ONE. The ~300/day
+// call recommendation exists because a number that DIALS too much gets
+// spam-labelled. Texting throughput is carrier-assigned per 10DLC campaign, and
+// the sole-proprietor ~1,000/day ceiling is already refused by
+// runComplianceGate with its own message and its own reset time. Inventing a
+// second, made-up number here would be advice nobody can support. So: count,
+// and say the count.
+function vcSmsDailyByNumber(messages) {
+  const by = {};
+  for (const m of messages || []) {
+    const e = m && typeof m.from_number === 'string' ? m.from_number.trim() : '';
+    if (!e) continue;
+    by[e] = (by[e] || 0) + 1;
+  }
+  return Object.keys(by)
+    .sort((a, b) => (by[b] - by[a]) || (a < b ? -1 : a > b ? 1 : 0))
+    .map(e164 => ({ e164: e164, sent: by[e164] }));
+}
+
+function vcSmsMeterSentence(rows) {
+  const list = rows || [];
+  const total = list.reduce((s, r) => s + Math.max(0, vcInt(r.sent, 0)), 0);
+  if (!list.length || !total) return 'No texts sent today.';
+  const n = list.filter(r => vcInt(r.sent, 0) > 0).length;
+  return total + ' text' + (total === 1 ? '' : 's') + ' sent today' +
+    (n > 1 ? ' across ' + n + ' numbers.' : '.');
 }
 // </vcamp-core>
 
@@ -29511,6 +29944,8 @@ let aiMeterState = {
   cap: AI_DEFAULT_DAILY_CAP,
   timezone: AI_METER_DEFAULT_TZ,
   rec: null,        // aiRecommendedDailyCalls() result
+  /** [{e164, sent}] — texts sent today, per number. Counted, never capped. */
+  smsToday: [],
   loaded: false,
   busy: false,
 };
@@ -29545,9 +29980,9 @@ async function aiMeterLoad() {
   const now = new Date();
   const win = aiLocalDayWindow(now, tz);
 
-  let callsToday = 0, numbers = [];
+  let callsToday = 0, numbers = [], smsRows = [];
   try {
-    const [cRes, nRes] = await Promise.all([
+    const [cRes, nRes, sRes] = await Promise.all([
       sb.from('ai_calls')
         .select('id', { count: 'exact', head: true })
         .eq('agent_id', currentAgent.id)
@@ -29558,11 +29993,28 @@ async function aiMeterLoad() {
         .select('e164, ai_first_used_at')
         .eq('agent_id', currentAgent.id)
         .eq('status', 'active'),
+      // 🔴 COUNTED, NOT CAPPED. There is no daily text limit of ours, and this
+      // must not grow into one — the ~300/number/day call recommendation
+      // exists because a number that DIALS too much gets spam-labelled, while
+      // texting throughput is carrier-assigned per 10DLC campaign and the
+      // sole-proprietor ~1,000/day ceiling is already refused by the send gate
+      // with its own message and its own reset time. A second, invented number
+      // here would be advice nobody can support. So: show the count.
+      sb.from('messages')
+        .select('from_number')
+        .eq('agent_id', currentAgent.id)
+        .in('channel', ['sms', 'mms'])
+        .neq('status', 'failed')
+        .gte('created_at', win.startIso)
+        .lt('created_at', win.endIso)
+        .limit(5000),
     ]);
     callsToday = typeof cRes.count === 'number' ? cRes.count : 0;
     numbers = nRes.data || [];
+    smsRows = sRes.data || [];
   } catch (_) { /* render what we have */ }
 
+  aiMeterState.smsToday   = vcSmsDailyByNumber(smsRows);
   aiMeterState.callsToday = callsToday;
   aiMeterState.cap        = (typeof agentRow.ai_daily_call_cap === 'number') ? agentRow.ai_daily_call_cap : null;
   aiMeterState.timezone   = win.timezone;
@@ -29635,6 +30087,28 @@ function aiMeterRender() {
           AI_DAILY_CALL_RECOMMENDATION + '/day on day ' + AI_RAMP_DAYS + '.';
       chips.appendChild(el);
     });
+  }
+
+  // Texts sent today, per number. Hidden entirely on an account that has sent
+  // none — a permanent "0 texts today" on a card about calls is noise, and
+  // this line exists to be information rather than furniture.
+  const smsNote = document.getElementById('aiMeter-sms');
+  if (smsNote) {
+    const rows = aiMeterState.smsToday || [];
+    const total = rows.reduce(function (s, r) { return s + (r.sent || 0); }, 0);
+    if (!total) {
+      smsNote.style.display = 'none';
+      smsNote.textContent = '';
+    } else {
+      smsNote.style.display = '';
+      smsNote.innerHTML = '<strong>' + _aiTestEsc(vcSmsMeterSentence(rows)) + '</strong> ' +
+        rows.filter(function (r) { return r.sent > 0; })
+          .map(function (r) {
+            return _aiTestEsc('…' + String(r.e164).slice(-4)) + ' ' + r.sent;
+          }).join(' · ') +
+        ' — texting has no daily limit of ours. Your carrier registration sets the throughput, and the ' +
+        'send gate refuses anything past it with its own message.';
+    }
   }
 
   const banner = document.getElementById('aiMeter-banner');
@@ -30382,9 +30856,13 @@ let vcampState = {
   busy: false,
 
   // ---- Mission control -----------------------------------------------------
-  /** ai_calls for the campaign currently open, newest first. */
+  /** ai_calls for the campaign currently open, newest first. Voice only. */
   calls: [],
-  /** campaign_id -> calls placed today (the agent's own day). */
+  /** sms_messages for the campaign currently open, newest first. Text only. */
+  messages: [],
+  /** e164 -> texts this agent sent today, for the meter card. */
+  smsToday: [],
+  /** campaign_id -> calls placed or texts sent today (the agent's own day). */
   todayByCampaign: {},
   /** campaign_id -> calls in the air right now. */
   liveByCampaign: {},
@@ -30395,6 +30873,8 @@ let vcampState = {
   leadFilter: 'active',
   leadSearch: '',
   leadPage: 1,
+  /** 'all' | 'voice' | 'sms' — the list's channel filter. */
+  channelFilter: 'all',
 };
 
 const VCAMP_PAGE_SIZE = 25;
@@ -30470,16 +30950,20 @@ async function vcampLoad(opts) {
 
 async function vcampLoadInner(quiet) {
   await vcampEnsureDefaults();
-  // The banner needs to know whether this account can dial anybody at all.
+  // The banners need to know whether this account can reach anybody at all —
+  // and that is two questions, because calling consent and texting consent are
+  // different permissions stored in different places.
   if (!_voiceConsentTried) { _voiceConsentTried = true; await loadVoiceConsent(); }
+  if (!_leadConsent.loaded && typeof smsLoadLeadConsent === 'function') await smsLoadLeadConsent();
   const list = document.getElementById('vcamp-list');
   try {
     const [cRes, sRes, eRes, callRes] = await Promise.all([
       sb.from('voice_campaigns')
-        .select('id, name, description, active, dry_run, sort_order, campaign_goal, trigger_groups, ' +
+        .select('id, name, description, active, dry_run, sort_order, campaign_goal, trigger_groups, channel, ' +
                 'auto_enroll_new_leads, trigger_on_missed_appointment, trigger_on_sold, ' +
                 'trigger_on_appointment_booked, stop_on_appointment_booked, ' +
-                'stop_on_sold, stop_on_answered, stop_answer_talk_secs, paused_at, pause_reason, seed_key, created_at')
+                'stop_on_sold, stop_on_answered, stop_answer_talk_secs, ' +
+                'stop_on_reply, pause_on_active_conversation, paused_at, pause_reason, seed_key, created_at')
         .eq('agent_id', currentAgent.id)
         // sort_order, not created_at: the seeder writes twelve rows in one
         // transaction, so created_at is identical across all of them and the
@@ -30487,12 +30971,13 @@ async function vcampLoadInner(quiet) {
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true }),
       sb.from('voice_campaign_steps')
-        .select('id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes')
+        .select('id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes, body, media_url')
         .eq('agent_id', currentAgent.id)
         .order('position', { ascending: true }),
       sb.from('voice_campaign_enrollments')
-        .select('id, campaign_id, lead_id, status, current_step_position, next_action_at, stop_reason, ' +
-                'calls_placed, answers, appointments, enrolled_at, enrolled_by, ' +
+        .select('id, campaign_id, lead_id, status, channel, current_step_position, next_action_at, stop_reason, ' +
+                'calls_placed, answers, appointments, messages_sent, replies, ' +
+                'conversation_id, last_message_at, enrolled_at, enrolled_by, ' +
                 // Mission control: a paused lead, a claim held by a live call,
                 // and WHY a scheduled lead is waiting.
                 'paused_at, claimed_at, last_gate_code, last_call_at, last_ai_call_id')
@@ -30539,19 +31024,32 @@ async function vcampLoadInner(quiet) {
     return;
   }
 
-  // Today's calls, per campaign — the second live number on every card.
-  // Counted in the browser off one small query rather than one count query
-  // per campaign, which on twelve default campaigns would be twelve.
+  // Today's calls AND texts, per campaign — the second live number on every
+  // card. Counted in the browser off two small queries rather than one count
+  // query per campaign, which on twelve default campaigns would be twelve.
   try {
-    const { data } = await sb.from('ai_calls')
-      .select('campaign_id')
-      .eq('agent_id', currentAgent.id)
-      .eq('direction', 'outbound')
-      .not('campaign_id', 'is', null)
-      .gte('created_at', vcampDayStartIso())
-      .limit(2000);
+    const [callRes, msgRes] = await Promise.all([
+      sb.from('ai_calls')
+        .select('campaign_id')
+        .eq('agent_id', currentAgent.id)
+        .eq('direction', 'outbound')
+        .not('campaign_id', 'is', null)
+        .gte('created_at', vcampDayStartIso())
+        .limit(2000),
+      // Outbound only: a lead who replied has not made the campaign do
+      // anything, and counting their message as work the campaign did would
+      // overstate every card on a thread that is actually going well.
+      sb.from('sms_messages')
+        .select('campaign_id')
+        .eq('agent_id', currentAgent.id)
+        .eq('direction', 'outbound')
+        .not('campaign_id', 'is', null)
+        .gte('created_at', vcampDayStartIso())
+        .limit(4000),
+    ]);
     const today = {};
-    for (const r of data || []) if (r.campaign_id) today[r.campaign_id] = (today[r.campaign_id] || 0) + 1;
+    for (const r of callRes.data || []) if (r.campaign_id) today[r.campaign_id] = (today[r.campaign_id] || 0) + 1;
+    for (const r of msgRes.data || []) if (r.campaign_id) today[r.campaign_id] = (today[r.campaign_id] || 0) + 1;
     vcampState.todayByCampaign = today;
   } catch (err) {
     console.warn('[vcamp] today counts', err);
@@ -30571,9 +31069,49 @@ async function vcampLoadInner(quiet) {
   else vcampRenderList();
 }
 
-/** One campaign's recent calls, newest first. */
+/**
+ * One campaign's recent activity, newest first.
+ *
+ * Which table depends on the channel, and that is the whole difference: a
+ * calling campaign's history is `ai_calls`, a texting campaign's is
+ * `sms_messages`. Neither feature has a second event log — the voice feed does
+ * not read ai_call_events (the Telnyx diagnostic trace) and this one does not
+ * invent an equivalent.
+ */
 async function vcampLoadCalls(campaignId) {
-  if (!currentAgent || !campaignId) { vcampState.calls = []; return; }
+  if (!currentAgent || !campaignId) { vcampState.calls = []; vcampState.messages = []; return; }
+  const camp = (vcampState.campaigns || []).filter(c => c.id === campaignId)[0] || null;
+  if (camp && vcChannel(camp) === 'sms') {
+    vcampState.calls = [];
+    try {
+      // Both directions: an inbound line is the most important thing on this
+      // screen, because it is the moment a drip turned into a conversation.
+      // Campaign messages only — the AI responder's own replies belong to the
+      // thread, not to the campaign that opened it.
+      const { data, error } = await sb.from('sms_messages')
+        .select('id, conversation_id, direction, sent_by, body, status, delivered_at, failed_reason, created_at, campaign_step')
+        .eq('agent_id', currentAgent.id)
+        .eq('campaign_id', campaignId)
+        .order('created_at', { ascending: false })
+        .limit(VCAMP_CALL_WINDOW);
+      if (error) throw error;
+      // The feed names a lead, and sms_messages knows a conversation. The
+      // enrollments already in memory carry both, so this is a map lookup
+      // rather than a join the browser would have to page.
+      const leadByConv = new Map();
+      for (const e of vcampState.enrollments[campaignId] || []) {
+        if (e.conversation_id) leadByConv.set(String(e.conversation_id), String(e.lead_id));
+      }
+      vcampState.messages = (data || []).map(m => Object.assign({}, m, {
+        lead_id: leadByConv.get(String(m.conversation_id)) || null,
+      }));
+    } catch (err) {
+      console.warn('[vcamp] messages', err);
+      vcampState.messages = [];
+    }
+    return;
+  }
+  vcampState.messages = [];
   try {
     const { data, error } = await sb.from('ai_calls')
       .select('id, lead_id, outcome, status, created_at, ended_at, appointment_id, summary, campaign_step')
@@ -30587,6 +31125,11 @@ async function vcampLoadCalls(campaignId) {
     console.warn('[vcamp] calls', err);
     vcampState.calls = [];
   }
+}
+
+function vcampSetChannelFilter(key) {
+  vcampState.channelFilter = (key === 'voice' || key === 'sms') ? key : 'all';
+  vcampRenderList();
 }
 
 function vcampRenderSlots() {
@@ -30611,11 +31154,32 @@ function vcampRenderList() {
   const list = document.getElementById('vcamp-list');
   if (!list) return;
 
+  // The channel filter. Rendered from the campaigns that exist rather than
+  // from a fixed list, so an account with no text campaigns is not shown a
+  // "Text (0)" tab inviting them to look at nothing.
+  const chanBar = document.getElementById('vcamp-channelFilter');
+  if (chanBar) {
+    const nVoice = vcampState.campaigns.filter(c => vcChannel(c) !== 'sms').length;
+    const nSms   = vcampState.campaigns.filter(c => vcChannel(c) === 'sms').length;
+    chanBar.innerHTML = (nVoice && nSms)
+      ? '<span class="vc-seg">' +
+          [['all', 'All ' + (nVoice + nSms)], ['voice', '📞 Voice ' + nVoice], ['sms', '💬 Text ' + nSms]]
+            .map(f => '<button class="' + (vcampState.channelFilter === f[0] ? 'active' : '') + '" ' +
+              'onclick="vcampSetChannelFilter(\'' + f[0] + '\')">' + f[1] + '</button>').join('') +
+        '</span>'
+      : '';
+  }
+
   if (!vcampState.campaigns.length) {
     list.innerHTML = '<div class="vc-empty">No campaigns yet. ' +
-      '<button class="vc-btn primary" style="margin-left:8px" onclick="vcampNew()">New campaign</button></div>';
+      '<button class="vc-btn primary" style="margin-left:8px" onclick="vcampNew(\'voice\')">New calling campaign</button> ' +
+      '<button class="vc-btn primary" style="margin-left:6px" onclick="vcampNew(\'sms\')">New text campaign</button></div>';
     return;
   }
+
+  const shown = vcampState.channelFilter === 'all'
+    ? vcampState.campaigns
+    : vcampState.campaigns.filter(c => vcChannel(c) === vcampState.channelFilter);
 
   // ---- The honest notice ---------------------------------------------------
   //
@@ -30629,22 +31193,50 @@ function vcampRenderList() {
   // by their own product. So the banner says the true thing, calmly, and links
   // to the one screen that changes it. It disappears the moment it stops being
   // true — a permanent nag is a banner people stop reading.
+  //
+  // TWO PERMISSIONS, TWO NOTICES. Calling consent is `leads.tcpa_consent` and
+  // texting consent is a `consent_records` row; an account can easily have one
+  // and not the other, and a single "record consent" banner would send an
+  // agent to tick a box that does not unblock the campaigns they are looking
+  // at. Each notice appears only when it is both true and relevant — a text
+  // notice on an account running no text campaigns is a nag.
   const callable = _voiceConsent.loaded ? voiceCallableCount() : null;
-  const anyActive = vcampState.campaigns.some(c => c.active && !c.paused_at);
-  const banner = (callable === 0 && anyActive)
-    ? '<div class="vc-banner" style="margin-bottom:14px">' +
-        '<strong>Your campaigns are live</strong> — they’ll begin calling automatically as soon as ' +
-        'you have leads with recorded consent. ' +
-        '<button class="vc-btn" style="margin-left:8px" onclick="nav(\'leads\')">Record consent &rarr;</button>' +
-      '</div>'
-    : '';
+  const textable = textableCount();
+  const liveVoice = vcampState.campaigns.some(c => c.active && !c.paused_at && vcChannel(c) !== 'sms');
+  const liveSms   = vcampState.campaigns.some(c => c.active && !c.paused_at && vcChannel(c) === 'sms');
+  let banner = '';
+  if (callable === 0 && liveVoice) {
+    banner += '<div class="vc-banner" style="margin-bottom:14px">' +
+      '<strong>Your calling campaigns are live</strong> — they’ll begin calling automatically as soon as ' +
+      'you have leads with recorded consent. ' +
+      '<button class="vc-btn" style="margin-left:8px" onclick="nav(\'leads\')">Record consent &rarr;</button>' +
+    '</div>';
+  }
+  if (textable === 0 && liveSms) {
+    banner += '<div class="vc-banner" style="margin-bottom:14px">' +
+      '<strong>Your text campaigns are live</strong> — they’ll begin texting automatically as soon as ' +
+      'you have leads with recorded <em>text</em> consent, which is separate from calling consent. ' +
+      '<button class="vc-btn" style="margin-left:8px" onclick="nav(\'leads\')">Record text consent &rarr;</button>' +
+    '</div>';
+  }
 
-  list.innerHTML = banner + vcampState.campaigns.map(c => {
+  if (!shown.length) {
+    list.innerHTML = banner + '<div class="vc-empty">No ' +
+      (vcampState.channelFilter === 'sms' ? 'text' : 'calling') + ' campaigns yet. ' +
+      '<button class="vc-btn primary" style="margin-left:8px" onclick="vcampNew(\'' +
+        vcampState.channelFilter + '\')">New ' +
+      (vcampState.channelFilter === 'sms' ? 'text' : 'calling') + ' campaign</button></div>';
+    return;
+  }
+
+  list.innerHTML = banner + shown.map(c => {
     const stats = vcCampaignStats(vcampState.enrollments[c.id] || []);
     const steps = vcampState.steps[c.id] || [];
     const paused = !!c.paused_at;
     const tone = paused ? 'warn' : (c.active ? 'on' : '');
     const statusText = paused ? 'Paused' : (c.active ? 'Active' : 'Off');
+    const channel = vcChannel(c);
+    const isSms = channel === 'sms';
     // THE TWO LIVE NUMBERS. Everything else on this card is a lifetime total,
     // which tells an agent what a campaign has done and nothing about whether
     // it is doing it. "Calling now" only appears when it is true — a permanent
@@ -30654,7 +31246,13 @@ function vcampRenderList() {
     return '<div class="vc-card">' +
       '<div class="vc-row">' +
         '<div class="vc-name" onclick="vcampOpen(\'' + _aiTestEsc(c.id) + '\')">' + _aiTestEsc(c.name) + '</div>' +
-        (live ? '<span class="vc-live" style="font:12px var(--sans)">Calling now: ' + live + '</span>' : '') +
+        // The channel badge, on every card. Voice and text campaigns sit in one
+        // list on purpose — an agent thinks about a lead type, not about a
+        // transport — but which one a campaign is decides what every other
+        // number on the card means, so it cannot be left to be inferred.
+        '<span class="vc-pill" data-tone="' + (isSms ? 'sms' : 'voice') + '">' +
+          (isSms ? '💬 Text' : '📞 Voice') + '</span>' +
+        (live && !isSms ? '<span class="vc-live" style="font:12px var(--sans)">Calling now: ' + live + '</span>' : '') +
         (c.dry_run ? '<span class="vc-pill" data-tone="dry">Dry run</span>' : '') +
         '<span class="vc-pill"' + (tone ? ' data-tone="' + tone + '"' : '') + '>' + statusText + '</span>' +
         '<label class="vc-check" style="margin:0">' +
@@ -30673,13 +31271,22 @@ function vcampRenderList() {
       '<div class="vc-desc" style="color:var(--text3);font-size:11.5px;margin-top:5px">' +
         _aiTestEsc(vcAutoEnrollPhrase(c)) +
         ' You can also add leads by hand from the Leads tab.</div>' +
+      // The numbers are per channel, not one shared set relabelled. A text
+      // campaign has placed no calls and a calling campaign has sent no texts,
+      // and showing either a zero or a borrowed figure is how a card full of
+      // numbers stops being believed.
       '<div class="vc-stats">' +
         '<div class="vc-stat"><b>' + steps.length + '</b>steps</div>' +
         '<div class="vc-stat"><b>' + stats.active + '</b>enrolled</div>' +
-        '<div class="vc-stat"><b>' + today + '</b>calls today</div>' +
-        '<div class="vc-stat"><b>' + stats.calls + '</b>calls placed</div>' +
-        '<div class="vc-stat"><b>' + stats.answers + '</b>answers</div>' +
-        '<div class="vc-stat"><b>' + stats.appointments + '</b>appointments</div>' +
+        (isSms
+          ? '<div class="vc-stat"><b>' + today + '</b>texts today</div>' +
+            '<div class="vc-stat"><b>' + stats.messages + '</b>texts sent</div>' +
+            '<div class="vc-stat"><b>' + stats.replies + '</b>replies</div>' +
+            '<div class="vc-stat"><b>' + stats.appointments + '</b>appointments</div>'
+          : '<div class="vc-stat"><b>' + today + '</b>calls today</div>' +
+            '<div class="vc-stat"><b>' + stats.calls + '</b>calls placed</div>' +
+            '<div class="vc-stat"><b>' + stats.answers + '</b>answers</div>' +
+            '<div class="vc-stat"><b>' + stats.appointments + '</b>appointments</div>') +
       '</div>' +
       (paused
         ? '<div class="vc-banner">' + _aiTestEsc(c.pause_reason || 'Paused.') +
@@ -30689,17 +31296,32 @@ function vcampRenderList() {
   }).join('');
 }
 
-async function vcampNew() {
+/**
+ * A new campaign, of one channel or the other.
+ *
+ * THE CHANNEL IS CHOSEN AT CREATION AND IS NOT EDITABLE AFTERWARDS. Switching
+ * an existing campaign from calls to texts would leave every step it has of
+ * the wrong type (the database refuses them), every enrollment on the wrong
+ * side of the one-per-lead-per-channel index, and its whole history describing
+ * something it no longer is. Making a second campaign costs one click.
+ */
+async function vcampNew(channel) {
   if (!currentAgent) return;
+  const chan = channel === 'sms' ? 'sms' : 'voice';
   const { data, error } = await sb.from('voice_campaigns').insert({
     agent_id: currentAgent.id,
-    name: 'New campaign',
+    name: chan === 'sms' ? 'New text campaign' : 'New campaign',
     active: false,
+    channel: chan,
     trigger_groups: [{ conditions: [{ field: 'lead_type', op: 'is', value: '' }] }],
   }).select('id').single();
   if (error) { showToast('Could not create: ' + error.message, '#dc2626'); return; }
   await vcampLoad();
   vcampOpen(data.id);
+  // A text campaign with no message is a text campaign that cannot be switched
+  // on, so open on the tab where that gets fixed rather than on an empty
+  // Enrollments table.
+  if (chan === 'sms') vcampTab('steps');
 }
 
 function vcampOpen(id) {
@@ -30773,8 +31395,19 @@ function vcampRenderSettings() {
   const pane = document.getElementById('vcamp-pane-settings');
   if (!pane || !c) return;
   const v = vcValidateTriggerGroups(c.trigger_groups);
+  const isSms = vcChannel(c) === 'sms';
 
   let html = '';
+  // The channel, stated and not editable. Changing it on a live campaign would
+  // leave every step of the wrong type, every enrollment on the wrong side of
+  // the one-per-lead-per-channel index, and its whole history describing
+  // something it is no longer. Making a second campaign costs one click.
+  html += '<div class="vc-row" style="margin-bottom:14px">' +
+    '<span class="vc-pill" data-tone="' + (isSms ? 'sms' : 'voice') + '">' +
+      (isSms ? '💬 Text campaign' : '📞 Calling campaign') + '</span>' +
+    '<span style="font:11.5px var(--sans);color:var(--text3)">' +
+      'Set when the campaign was created and fixed afterwards &mdash; make a new one to work the other way.' +
+    '</span></div>';
   html += '<div style="margin-bottom:16px"><label class="vc-lbl" for="vcamp-name">Campaign name</label>' +
     '<input id="vcamp-name" type="text" style="width:100%;max-width:420px" maxlength="120" value="' + _aiTestEsc(c.name || '') + '" ' +
     'oninput="vcampState.draft.name=this.value"></div>';
@@ -30831,17 +31464,43 @@ function vcampRenderSettings() {
   html += '<div style="height:8px"></div>';
   html += chk('stop_on_appointment_booked', 'Stop on appointment booked');
   html += chk('stop_on_sold', 'Stop when lead is sold');
-  html += '<label class="vc-check"><input type="checkbox" ' + (c.stop_on_answered ? 'checked' : '') +
-    ' onchange="vcampState.draft.stop_on_answered=this.checked;vcampRenderSettings()"> Stop when lead answers</label>';
-  if (c.stop_on_answered) {
-    html += '<div class="vc-row" style="margin:-2px 0 10px 26px">' +
-      '<input type="number" min="0" max="600" step="1" style="width:80px" value="' + vcInt(c.stop_answer_talk_secs, 15) + '" ' +
-      'oninput="vcampState.draft.stop_answer_talk_secs=parseInt(this.value,10)||0">' +
-      '<span style="font:12px var(--sans);color:var(--text2)">seconds of conversation counts as answered &mdash; ' +
-      'a lead who picked up and hung up in three seconds has not been spoken to.</span></div>';
+
+  if (isSms) {
+    // ---- The two rules that only exist for text ----------------------------
+    //
+    // Defaults are true for both, and the note under the first one is not
+    // decoration: an agent who unticks "end when they reply" needs to know it
+    // does not silence the conversation AI, or they will untick it expecting
+    // the opposite and then wonder why the lead got an answer.
+    html += '<label class="vc-check"><input type="checkbox" ' + (c.stop_on_reply !== false ? 'checked' : '') +
+      ' onchange="vcampState.draft.stop_on_reply=this.checked"> End this campaign when the lead replies</label>';
+    html += '<div style="font:11.5px/1.55 var(--sans);color:var(--text3);margin:-4px 0 10px 26px">' +
+      'Your conversation AI still answers their text either way &mdash; that is a separate feature and it is on ' +
+      'wherever text consent is recorded. This setting only decides whether the scheduled sequence keeps going.</div>';
+
+    html += '<label class="vc-check"><input type="checkbox" ' + (c.pause_on_active_conversation !== false ? 'checked' : '') +
+      ' onchange="vcampState.draft.pause_on_active_conversation=this.checked"> Hold scheduled texts while a conversation is live</label>';
+    html += '<div style="font:11.5px/1.55 var(--sans);color:var(--text3);margin:-4px 0 10px 26px">' +
+      'If they have written in the last 24 hours, or you have taken the thread over by hand, the next step waits ' +
+      'until that settles rather than landing in the middle of it. Nothing is skipped &mdash; it is deferred.</div>';
+
+    html += '<label class="vc-check" style="opacity:.6;cursor:default"><input type="checkbox" checked disabled> ' +
+      'Respect do-not-contact <span style="font:11.5px var(--sans);color:var(--text3)">&mdash; always on</span></label>';
+  } else {
+    html += '<label class="vc-check"><input type="checkbox" ' + (c.stop_on_answered ? 'checked' : '') +
+      ' onchange="vcampState.draft.stop_on_answered=this.checked;vcampRenderSettings()"> Stop when lead answers</label>';
+    if (c.stop_on_answered) {
+      html += '<div class="vc-row" style="margin:-2px 0 10px 26px">' +
+        '<input type="number" min="0" max="600" step="1" style="width:80px" value="' + vcInt(c.stop_answer_talk_secs, 15) + '" ' +
+        'oninput="vcampState.draft.stop_answer_talk_secs=parseInt(this.value,10)||0">' +
+        '<span style="font:12px var(--sans);color:var(--text2)">seconds of conversation counts as answered &mdash; ' +
+        'a lead who picked up and hung up in three seconds has not been spoken to.</span></div>';
+    }
   }
+
   html += '<label class="vc-check" style="margin-top:8px"><input type="checkbox" ' + (c.dry_run ? 'checked' : '') +
-    ' onchange="vcampState.draft.dry_run=this.checked"> Dry run &mdash; run every gate and schedule the next step, but place no call</label>';
+    ' onchange="vcampState.draft.dry_run=this.checked"> Dry run &mdash; run every gate and schedule the next step, but ' +
+    (isSms ? 'send no text' : 'place no call') + '</label>';
 
   html += '<div class="vc-row" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">' +
     '<button class="vc-btn primary" id="vcamp-saveBtn" onclick="vcampSaveSettings()">Save</button>' +
@@ -30900,7 +31559,13 @@ async function vcampSaveSettings() {
     stop_on_sold: !!c.stop_on_sold,
     stop_on_answered: !!c.stop_on_answered,
     stop_answer_talk_secs: vcInt(c.stop_answer_talk_secs, 15),
+    // Both default TRUE in the database, and `!== false` is what preserves
+    // that for a row created before this round rather than writing a `false`
+    // an agent never chose.
+    stop_on_reply: c.stop_on_reply !== false,
+    pause_on_active_conversation: c.pause_on_active_conversation !== false,
     dry_run: !!c.dry_run,
+    // `channel` is deliberately absent. It is set at creation and fixed.
   }).eq('id', c.id);
   if (error) {
     if (msg) { msg.textContent = error.message; msg.style.color = '#dc2626'; }
@@ -30921,7 +31586,18 @@ async function vcampToggleActive(id, on) {
     const v = vcValidateTriggerGroups(c.trigger_groups);
     if (!v.ok) { showToast(v.error, '#dc2626'); await vcampLoad(); return; }
     const steps = vcampState.steps[id] || [];
-    if (!steps.length) { showToast('Add at least one step before switching this on.', '#dc2626'); await vcampLoad(); return; }
+    if (!vcFirstActionableStep(steps)) {
+      showToast('Add at least one step before switching this on.', '#dc2626');
+      await vcampLoad();
+      return;
+    }
+    // A text campaign has one more thing it has to have: something to say. The
+    // database refuses this too (voice_campaigns_validate) — the point of the
+    // check here is a sentence rather than a raised exception.
+    if (vcChannel(c) === 'sms') {
+      const sv = vcValidateSmsSteps(steps);
+      if (!sv.ok) { showToast(sv.error, '#dc2626'); await vcampLoad(); return; }
+    }
   }
   // Switching a paused campaign back on clears the pause: the agent has seen
   // the reason and is telling us to try again.
@@ -30987,6 +31663,9 @@ function vcampRenderSteps() {
   const pane = document.getElementById('vcamp-pane-steps');
   if (!pane) return;
   const steps = vcampState.draftSteps;
+  const isSms = vcChannel(vcampState.draft) === 'sms';
+
+  if (isSms) { pane.innerHTML = vcampSmsStepsHTML(steps); return; }
 
   let html = '<p style="font:12px/1.55 var(--sans);color:var(--text2);margin:0 0 14px">' +
     'Each step waits, then calls. The wait is measured from when the previous step finished &mdash; ' +
@@ -31055,6 +31734,306 @@ function vcampRenderSteps() {
   pane.innerHTML = html;
 }
 
+// ============================================================
+// The TEXT step editor
+//
+// Two step types and no more: a message, and a wait. That is how a person
+// describes a text sequence out loud, and it is why `wait` exists as a type at
+// all when every step already carries a wait — the engine folds it away
+// (vcResolveNextDue), so the reading and the behaviour cost the same.
+//
+// The preview is rendered by renderMergeVars(), THE SAME FUNCTION the server
+// calls at send time, against the documented sample values. A preview computed
+// by separate code is a preview that eventually lies — the rule the enrollment
+// planner already follows.
+// ============================================================
+function vcampSmsStepsHTML(steps) {
+  const v = vcValidateSmsSteps(steps);
+
+  let html = '<p style="font:12px/1.55 var(--sans);color:var(--text2);margin:0 0 8px">' +
+    'A sequence of messages and waits. A wait is measured from when the previous step went out &mdash; ' +
+    'for the first step, from the moment the lead is enrolled. ' +
+    'Every send still passes your texting registration, that lead&rsquo;s own written text consent, ' +
+    'the do-not-contact list and their local quiet hours.</p>';
+
+  // The merge-variable palette, once at the top. Clicking one inserts it into
+  // whichever body was last focused — which is why the target is tracked in
+  // state rather than read from document.activeElement at click time, since
+  // clicking the button is itself what blurs the textarea.
+  html += '<div style="background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin:0 0 16px">' +
+    '<div style="font:600 11.5px var(--sans);color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px">' +
+      'Insert a variable</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
+      VC_MERGE_VARS.map(mv =>
+        '<button class="vc-btn" style="padding:4px 9px;font:11.5px var(--mono,var(--sans))" ' +
+        'title="' + _aiTestEsc(mv.label + ' — from ' + mv.source + '. If it is blank we send “' + mv.fallback + '”.') + '" ' +
+        'onclick="vcampInsertVar(\'' + mv.key + '\')">{{' + mv.key + '}}</button>').join('') +
+    '</div>' +
+    '<div style="font:11.5px/1.5 var(--sans);color:var(--text3);margin-top:8px">' +
+      'A variable we cannot fill in is replaced with a sensible word &mdash; never with empty braces.</div>' +
+  '</div>';
+
+  if (!steps.length) html += '<div class="vc-empty">No steps yet.</div>';
+
+  steps.forEach((s, i) => {
+    const type = vcNorm(s.step_type) === 'wait' ? 'wait' : 'sms_message';
+    const drip = s.drip_rate || null;
+    const err = v.groupErrors[i] || null;
+
+    html += '<div class="vc-group">' +
+      '<div class="vc-group-head">Step ' + (i + 1) +
+        '<span style="float:right">' +
+          '<button class="vc-x" title="Move up" onclick="vcampMoveStep(' + i + ',-1)"' + (i === 0 ? ' disabled' : '') + '>&uarr;</button>' +
+          '<button class="vc-x" title="Move down" onclick="vcampMoveStep(' + i + ',1)"' + (i === steps.length - 1 ? ' disabled' : '') + '>&darr;</button>' +
+          '<button class="vc-x" title="Remove step" onclick="vcampRemoveStep(' + i + ')">&times;</button>' +
+        '</span>' +
+      '</div>' +
+      '<div class="vc-cond">' +
+        '<select onchange="vcampStep(' + i + ',\'step_type\',this.value)">' +
+          '<option value="sms_message"' + (type === 'sms_message' ? ' selected' : '') + '>Send a message</option>' +
+          '<option value="wait"' + (type === 'wait' ? ' selected' : '') + '>Wait</option>' +
+        '</select>' +
+        '<span style="font:12.5px var(--sans);color:var(--text2)">' +
+          (type === 'wait' ? 'for' : 'after waiting') + '</span>' +
+        '<input type="number" min="0" max="9999" step="1" style="width:80px" value="' + vcInt(s.wait_value, 0) + '" ' +
+          'oninput="vcampStep(' + i + ',\'wait_value\',parseInt(this.value,10)||0)">' +
+        '<select onchange="vcampStep(' + i + ',\'wait_unit\',this.value)">' +
+          VC_WAIT_UNITS.map(u => '<option value="' + u + '"' + (s.wait_unit === u ? ' selected' : '') + '>' + u + '</option>').join('') +
+        '</select>' +
+      '</div>';
+
+    if (type === 'sms_message') {
+      const stats = vcBodyStats(s.body, {
+        mediaUrl: s.media_url,
+        // The counter the WALLET uses, so the estimate on screen and the charge
+        // on the ledger are the same arithmetic.
+        countSegments: typeof smsCountSegments === 'function' ? smsCountSegments : null,
+      });
+      const preview = vcMergePreview(s.body);
+      html += '<textarea id="vcamp-body-' + i + '" rows="4" maxlength="1600" ' +
+        'placeholder="Hi {{firstName}}, it&rsquo;s {{agentName}} with {{companyName}} — did you still want me to look at that quote?" ' +
+        'style="width:100%;margin-top:8px;font:13px/1.55 var(--sans);resize:vertical" ' +
+        'onfocus="_vcampBodyTarget=' + i + '" ' +
+        'oninput="vcampStepBody(' + i + ',this.value)">' + _aiTestEsc(s.body || '') + '</textarea>';
+
+      html += '<div class="vc-row" style="margin-top:6px;gap:10px">' +
+        '<span style="font:11.5px var(--sans);color:var(--text3)">' +
+          'About ' + stats.chars + ' character' + (stats.chars === 1 ? '' : 's') + ' · ' +
+          (stats.mms
+            ? 'sent as MMS (billed per message)'
+            : stats.segments + ' segment' + (stats.segments === 1 ? '' : 's') +
+              (stats.unicode ? ' · an emoji or special character has shortened them' : '')) +
+        '</span>' +
+        (stats.segments > 2 && !stats.mms
+          ? '<span class="vc-pill" data-tone="warn">Long &mdash; ' + stats.segments + '&times; the cost</span>'
+          : '') +
+      '</div>';
+
+      // The live preview. Sample values, clearly labelled as such, so nobody
+      // reads "Maria" as a real lead's name.
+      if (preview) {
+        html += '<div style="margin-top:9px;padding:10px 12px;border-radius:10px;background:var(--bg3);border:1px solid var(--border)">' +
+          '<div style="font:600 11px var(--sans);color:var(--text3);letter-spacing:.04em;text-transform:uppercase;margin-bottom:5px">' +
+            'Preview &mdash; sample values</div>' +
+          '<div style="font:13px/1.55 var(--sans);color:var(--text);white-space:pre-wrap">' + _aiTestEsc(preview) + '</div>' +
+        '</div>';
+      }
+
+      // ---- The attachment ----
+      html += '<div class="vc-row" style="margin-top:9px">' +
+        (s.media_url
+          ? '<img src="' + _aiTestEsc(s.media_url) + '" alt="" style="height:44px;width:44px;object-fit:cover;border-radius:7px;border:1px solid var(--border)">' +
+            '<span style="font:11.5px var(--sans);color:var(--text2)">Picture attached &mdash; this sends as an MMS.</span>' +
+            '<button class="vc-btn" onclick="vcampStepMedia(' + i + ', null)">Remove</button>'
+          : '<button class="vc-btn" onclick="vcampPickMedia(' + i + ')">+ Attach a picture</button>' +
+            '<span style="font:11.5px var(--sans);color:var(--text3)">Optional. JPG, PNG, GIF or WebP, under 1&nbsp;MB is safest &mdash; carriers re-encode hard.</span>') +
+      '</div>';
+
+      // ---- Drip + test ----
+      html += '<label class="vc-check" style="margin-top:9px">' +
+        '<input type="checkbox" ' + (vcDripActive(drip) ? 'checked' : '') + ' onchange="vcampToggleDrip(' + i + ',this.checked)"> Drip rate' +
+      '</label>' +
+      (vcDripActive(drip)
+        ? '<div class="vc-cond" style="margin-left:26px">' +
+            '<span style="font:12.5px var(--sans);color:var(--text2)">at most</span>' +
+            '<input type="number" min="1" max="9999" style="width:80px" value="' + vcInt(drip.max_calls, 20) + '" ' +
+              'oninput="vcampStepDrip(' + i + ',\'max_calls\',parseInt(this.value,10)||0)">' +
+            '<span style="font:12.5px var(--sans);color:var(--text2)">texts every</span>' +
+            '<input type="number" min="1" max="1440" style="width:80px" value="' + vcInt(drip.per_minutes, 60) + '" ' +
+              'oninput="vcampStepDrip(' + i + ',\'per_minutes\',parseInt(this.value,10)||0)">' +
+            '<span style="font:12.5px var(--sans);color:var(--text2)">minutes &mdash; so 500 enrolled leads are not all texted at 9:00:00</span>' +
+          '</div>'
+        : '');
+
+      html += '<div class="vc-row" style="margin-top:9px">' +
+        '<button class="vc-btn" onclick="vcampSendTest(' + i + ')">Send test to my phone</button>' +
+        '<input type="text" id="vcamp-testTo-' + i + '" placeholder="your mobile number" style="width:180px;margin:0" ' +
+          'value="' + _aiTestEsc(vcampState.testTo || '') + '" oninput="vcampState.testTo=this.value">' +
+        '<span style="font:11.5px var(--sans);color:var(--text3)">' +
+          'Real send, real cost, exactly what a lead would get. Only to a number already on your account.</span>' +
+      '</div>' +
+      '<div id="vcamp-testMsg-' + i + '" style="font:12px var(--sans);color:var(--text2);margin-top:6px"></div>';
+    } else {
+      html += '<div style="font:11.5px/1.5 var(--sans);color:var(--text3);margin-top:6px">' +
+        'Nothing is sent on this step &mdash; it only puts time between the ones either side of it.</div>';
+    }
+
+    if (err) html += '<div class="vc-err">' + _aiTestEsc(err) + '</div>';
+    html += '</div>';
+  });
+
+  html += '<div class="vc-row" style="margin-top:6px">' +
+    '<button class="vc-btn" onclick="vcampAddStep()">+ Add step</button>' +
+    '<button class="vc-btn primary" onclick="vcampSaveSteps()">Save steps</button>' +
+    '</div><div id="vcamp-stepsMsg" style="font:12.5px var(--sans);color:var(--text2);margin-top:10px">' +
+    (v.ok ? '' : '<span style="color:#dc2626">' + _aiTestEsc(v.error) + '</span>') +
+    '</div>';
+
+  return html;
+}
+
+/** Which body a palette click should land in. Tracked because the click blurs it. */
+let _vcampBodyTarget = 0;
+
+function vcampInsertVar(key) {
+  const i = _vcampBodyTarget;
+  const ta = document.getElementById('vcamp-body-' + i);
+  const s = vcampState.draftSteps[i];
+  if (!ta || !s) return;
+  const start = ta.selectionStart == null ? ta.value.length : ta.selectionStart;
+  const end = ta.selectionEnd == null ? start : ta.selectionEnd;
+  const token = '{{' + key + '}}';
+  const next = ta.value.slice(0, start) + token + ta.value.slice(end);
+  s.body = next;
+  ta.value = next;
+  ta.focus();
+  const caret = start + token.length;
+  try { ta.setSelectionRange(caret, caret); } catch (_) {}
+  vcampRefreshStepMeta();
+}
+
+/**
+ * Typing must not re-render the textarea out from under the caret.
+ *
+ * The body is stored and only the READ-ONLY parts around it are redrawn — the
+ * character count, the segment estimate and the preview. Calling
+ * vcampRenderSteps() on every keystroke was the obvious version and it moves
+ * the caret to the end of the box on the second character.
+ */
+function vcampStepBody(i, value) {
+  const s = vcampState.draftSteps[i];
+  if (!s) return;
+  s.body = value;
+  vcampRefreshStepMeta();
+}
+
+let _vcampMetaTimer = null;
+function vcampRefreshStepMeta() {
+  if (_vcampMetaTimer) clearTimeout(_vcampMetaTimer);
+  _vcampMetaTimer = setTimeout(() => {
+    const pane = document.getElementById('vcamp-pane-steps');
+    if (!pane || vcChannel(vcampState.draft) !== 'sms') return;
+    const focused = document.activeElement;
+    const id = focused && focused.id;
+    const caret = focused && focused.selectionStart;
+    pane.innerHTML = vcampSmsStepsHTML(vcampState.draftSteps);
+    if (id && String(id).indexOf('vcamp-body-') === 0) {
+      const back = document.getElementById(id);
+      if (back) { back.focus(); try { back.setSelectionRange(caret, caret); } catch (_) {} }
+    }
+  }, 220);
+}
+
+function vcampStepMedia(i, url) {
+  const s = vcampState.draftSteps[i];
+  if (!s) return;
+  s.media_url = url || null;
+  vcampRenderSteps();
+}
+
+/**
+ * Upload an image into the agent's own folder of the campaign-media bucket.
+ *
+ * The path is `<agent uid>/<random>.<ext>` and the storage policy only lets an
+ * agent write under a folder named with their own uid, so the path convention
+ * is the boundary rather than a naming habit.
+ */
+function vcampPickMedia(i) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+  input.onchange = async () => {
+    const file = input.files && input.files[0];
+    if (!file || !currentAgent) return;
+    if (file.size > 5 * 1024 * 1024) { showToast('That picture is over 5 MB.', '#dc2626'); return; }
+    if (file.size > 1024 * 1024) {
+      showToast('Over 1 MB — carriers re-encode MMS hard, so it may arrive rough.', '#f59e0b');
+    }
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const path = currentAgent.id + '/' + (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())) + '.' + ext;
+    showToast('Uploading…', '#2563eb');
+    const { error } = await sb.storage.from('campaign-media').upload(path, file, {
+      contentType: file.type, upsert: false,
+    });
+    if (error) { showToast('Upload failed: ' + error.message, '#dc2626'); return; }
+    const { data } = sb.storage.from('campaign-media').getPublicUrl(path);
+    vcampStepMedia(i, (data && data.publicUrl) || null);
+    showToast('Attached', '#10b981');
+  };
+  input.click();
+}
+
+/**
+ * Send this exact step to the agent's own phone.
+ *
+ * The UNSAVED draft body is sent, because testing what is on screen is the
+ * whole point and demanding a save first makes the button useless for the edit
+ * you are trying to check. The server refuses any destination that is not one
+ * of this agent's own numbers — see resolveTestDestination.
+ */
+async function vcampSendTest(i) {
+  const c = vcampState.draft;
+  const s = vcampState.draftSteps[i];
+  const msg = document.getElementById('vcamp-testMsg-' + i);
+  if (!c || !s) return;
+  const to = String(vcampState.testTo || '').trim();
+  if (!to) {
+    if (msg) { msg.style.color = '#dc2626'; msg.textContent = 'Enter one of your own numbers to test with.'; }
+    return;
+  }
+  if (msg) { msg.style.color = 'var(--text2)'; msg.textContent = 'Sending…'; }
+  let data = null;
+  try {
+    const resp = await sb.functions.invoke('voice-campaign-manage', {
+      body: {
+        action: 'send_test',
+        campaign_id: c.id,
+        step_position: i + 1,
+        to: to,
+        body: s.body || '',
+        media_url: s.media_url || '',
+      },
+    });
+    data = resp.error ? null : resp.data;
+    if (resp.error && resp.error.context && typeof resp.error.context.json === 'function') {
+      data = await resp.error.context.json().catch(() => null);
+    }
+  } catch (e) {
+    data = { error: 'network_error', detail: (e && e.message) || String(e) };
+  }
+  if (!msg) return;
+  if (data && data.ok) {
+    msg.style.color = 'var(--text2)';
+    msg.textContent = 'Sent to ' + data.to + ' from ' + data.from + ' — ' +
+      (data.channel === 'mms' ? 'as an MMS' : data.segments + ' segment' + (data.segments === 1 ? '' : 's')) +
+      (data.sample_lead ? ' · rendered with your most recent lead (' + data.sample_lead + ')' : '') + '.';
+    showToast('Test sent', '#10b981');
+  } else {
+    msg.style.color = '#dc2626';
+    msg.textContent = (data && (data.detail || data.error)) || 'Could not send the test.';
+  }
+}
+
 function vcampStep(i, key, value) {
   const s = vcampState.draftSteps[i];
   if (!s) return;
@@ -31074,10 +32053,22 @@ function vcampToggleDrip(i, on) {
   vcampRenderSteps();
 }
 function vcampAddStep() {
-  vcampState.draftSteps.push({
-    id: null, step_type: 'call', wait_value: 2, wait_unit: 'hours',
-    anchor: 'previous_step', offset_minutes: 0, drip_rate: null,
-  });
+  const isSms = vcChannel(vcampState.draft) === 'sms';
+  vcampState.draftSteps.push(isSms
+    // A first text goes out promptly — that is what speed-to-lead means and it
+    // is what an agent adding step 1 expects. Later steps get their spacing
+    // from a wait step, or from this one's own wait if they prefer.
+    ? {
+        id: null, step_type: 'sms_message',
+        wait_value: vcampState.draftSteps.length ? 2 : 0,
+        wait_unit: 'days',
+        anchor: 'previous_step', offset_minutes: 0, drip_rate: null,
+        body: '', media_url: null,
+      }
+    : {
+        id: null, step_type: 'call', wait_value: 2, wait_unit: 'hours',
+        anchor: 'previous_step', offset_minutes: 0, drip_rate: null,
+      });
   vcampRenderSteps();
 }
 function vcampRemoveStep(i) {
@@ -31106,11 +32097,19 @@ async function vcampSaveSteps() {
     const { error: delErr } = await sb.from('voice_campaign_steps').delete().eq('campaign_id', c.id);
     if (delErr) throw delErr;
     if (vcampState.draftSteps.length) {
+      const allowed = vcStepTypesFor(vcChannel(c));
       const rows = vcampState.draftSteps.map((s, i) => ({
         campaign_id: c.id,
         agent_id: currentAgent.id,   // overwritten by the derive trigger; sent to satisfy NOT NULL
         position: i + 1,
-        step_type: VC_STEP_TYPES.indexOf(s.step_type) !== -1 ? s.step_type : 'call',
+        // Per channel: a `call` step in a text campaign is the tick being told
+        // to dial somebody in a texting program, and the database refuses one.
+        step_type: allowed.indexOf(s.step_type) !== -1 ? s.step_type : allowed[0],
+        // Carried through like `anchor`/`offset_minutes` below, and for the
+        // same reason: this tab deletes and re-inserts every row, so a field
+        // it forgets is a field it silently erases.
+        body: s.body || null,
+        media_url: s.media_url || null,
         wait_value: Math.max(0, vcInt(s.wait_value, 0)),
         wait_unit: VC_WAIT_UNITS.indexOf(s.wait_unit) !== -1 ? s.wait_unit : 'minutes',
         // Carried through, not rebuilt. Saving this tab deletes and re-inserts
@@ -31169,6 +32168,25 @@ function vcampLastCallIndex() {
     const id = call.lead_id ? String(call.lead_id) : '';
     if (!id || byLead.has(id)) continue;
     byLead.set(id, call);
+  }
+  return byLead;
+}
+
+/**
+ * lead_id -> that lead's most recent OUTBOUND message in this campaign.
+ *
+ * Outbound only: the column is "Last message" in the sense of "the last thing
+ * this campaign said", and showing the lead's own reply there would make the
+ * delivery status column meaningless. Their reply is what the Next-text column
+ * already reports, as "They wrote back".
+ */
+function vcampLastMessageIndex() {
+  const byLead = new Map();
+  for (const m of vcampState.messages || []) {
+    const id = m.lead_id ? String(m.lead_id) : '';
+    if (!id || byLead.has(id)) continue;
+    if (vcNorm(m.direction) === 'inbound') continue;
+    byLead.set(id, m);
   }
   return byLead;
 }
@@ -31266,7 +32284,12 @@ function vcampRenderEnrollments() {
       'Automatically: ' + _aiTestEsc(vcAutoEnrollPhrase(c).replace(/\.$/, '')) + '. ' +
       'By hand: select leads on the Leads tab and press <strong>Add to campaign</strong>, ' +
       'or pick this campaign while importing a CSV — either way the same consent, ' +
-      'quiet-hours and daily-limit rules apply before anyone is dialled.' +
+      'quiet-hours and daily-limit rules apply before anyone is ' +
+      (vcChannel(c) === 'sms' ? 'texted' : 'dialled') + '.' +
+      (vcChannel(c) === 'sms'
+        ? ' Text campaigns need that lead’s own <strong>written text consent</strong>, which is recorded ' +
+          'separately from calling consent.'
+        : '') +
     '</div>';
 
   if (!rows.length) {
@@ -31293,8 +32316,10 @@ function vcampRenderEnrollments() {
   const caret = searchFocused ? active.selectionStart : null;
 
   const now = new Date();
+  const isSms = vcChannel(c) === 'sms';
   const byUuid = vcampLeadIndex();
   const lastCallByLead = vcampLastCallIndex();
+  const lastMsgByLead = vcampLastMessageIndex();
   const counts = {};
   for (const f of VCAMP_FILTERS) counts[f.key] = rows.filter(e => f.match(vcNorm(e.status))).length;
 
@@ -31362,19 +32387,44 @@ function vcampRenderEnrollments() {
     // ---- Progress ----
     const progress = _aiTestEsc(vcStepProgressLabel(e.current_step_position, vcampState.steps[c.id] || []));
 
-    // ---- Last call ----
-    const lastCall = lastCallByLead.get(leadId) || null;
-    const lastLabel = vcLastCallLabel(lastCall);
-    const lastWhen = vcRelTime(vcLastCallAt(lastCall), now);
-    const lastCell = lastLabel
-      ? '<span class="vc-chip" data-tone="' + dispositionTone(leadEffectForOutcome(lastCall && lastCall.outcome).disposition) + '">' +
-          _aiTestEsc(lastLabel) + '</span>' +
-        (lastWhen ? ' <span class="vc-lead-sub">' + _aiTestEsc(lastWhen) + '</span>' : '') +
-        (lastCall && lastCall.id
-          ? ' <a href="#" onclick="event.stopPropagation();vcampOpenCall(\'' + _aiTestEsc(lastCall.id) + '\');return false" ' +
-            'style="color:var(--lg-blue);font:11.5px var(--sans);text-decoration:none">transcript</a>'
-          : '')
-      : '<span class="vc-lead-sub">' + (vcInt(e.calls_placed, 0) ? 'no result yet' : 'not called yet') + '</span>';
+    // ---- Last call, or last message ----
+    let lastCell;
+    if (isSms) {
+      const lastMsg = lastMsgByLead.get(leadId) || null;
+      const lastLabel = vcMessageStatusLabel(lastMsg);
+      const lastWhen = vcRelTime(vcMessageAt(lastMsg), now);
+      // The delivery status is a real distinction here in a way it is not on a
+      // call: a text Telnyx accepted and a carrier silently dropped looks
+      // identical from this screen unless the receipt is read, and "sent"
+      // claiming more than it knows is how an agent concludes the feature
+      // works when it does not.
+      lastCell = lastLabel
+        ? '<span class="vc-chip" data-tone="' + (lastLabel === 'Did not send' ? 'bad' : (lastLabel === 'Delivered' ? 'good' : 'neutral')) + '">' +
+            _aiTestEsc(lastLabel) + '</span>' +
+          (lastWhen ? ' <span class="vc-lead-sub">' + _aiTestEsc(lastWhen) + '</span>' : '') +
+          (lastMsg && lastMsg.body
+            ? '<div class="vc-lead-sub" title="' + _aiTestEsc(lastMsg.body) + '">' +
+              _aiTestEsc(String(lastMsg.body).replace(/\s+/g, ' ').trim().slice(0, 48)) + '</div>'
+            : '')
+        : '<span class="vc-lead-sub">' + (vcInt(e.messages_sent, 0) ? 'no receipt yet' : 'not texted yet') + '</span>';
+      if (vcInt(e.replies, 0) > 0) {
+        lastCell += '<div class="vc-lead-sub" style="color:#059669">' +
+          vcInt(e.replies, 0) + ' repl' + (vcInt(e.replies, 0) === 1 ? 'y' : 'ies') + '</div>';
+      }
+    } else {
+      const lastCall = lastCallByLead.get(leadId) || null;
+      const lastLabel = vcLastCallLabel(lastCall);
+      const lastWhen = vcRelTime(vcLastCallAt(lastCall), now);
+      lastCell = lastLabel
+        ? '<span class="vc-chip" data-tone="' + dispositionTone(leadEffectForOutcome(lastCall && lastCall.outcome).disposition) + '">' +
+            _aiTestEsc(lastLabel) + '</span>' +
+          (lastWhen ? ' <span class="vc-lead-sub">' + _aiTestEsc(lastWhen) + '</span>' : '') +
+          (lastCall && lastCall.id
+            ? ' <a href="#" onclick="event.stopPropagation();vcampOpenCall(\'' + _aiTestEsc(lastCall.id) + '\');return false" ' +
+              'style="color:var(--lg-blue);font:11.5px var(--sans);text-decoration:none">transcript</a>'
+            : '')
+        : '<span class="vc-lead-sub">' + (vcInt(e.calls_placed, 0) ? 'no result yet' : 'not called yet') + '</span>';
+    }
 
     // ---- Next call, or why not ----
     // The campaign's LIVE state, not the editable draft: the draft is a copy
@@ -31391,8 +32441,8 @@ function vcampRenderEnrollments() {
     const whenText = verdict.kind === 'paused_lead'
       ? vcRelTime(verdict.at, now)
       : (verdict.at ? vcampWhen(verdict.at) : '');
-    let nextCell = _aiTestEsc(vcNextActionText(verdict, whenText));
-    if (verdict.kind === 'calling') nextCell = '<span class="vc-live">Calling now…</span>';
+    let nextCell = _aiTestEsc(vcNextActionText(verdict, whenText, isSms ? 'sms' : 'voice'));
+    if (verdict.kind === 'calling' && !isSms) nextCell = '<span class="vc-live">Calling now…</span>';
     else if (status === 'stopped' || status === 'completed') {
       nextCell = '<span class="vc-lead-sub">' +
         _aiTestEsc(vcStopReasonLabel(e.stop_reason) || (status === 'completed' ? 'Finished the sequence' : 'Stopped')) +
@@ -31439,7 +32489,9 @@ function vcampRenderEnrollments() {
       ? '<table class="vc-tbl"><thead><tr>' +
           '<th style="width:26px"><input type="checkbox" ' + (allChecked ? 'checked' : '') +
             ' onchange="vcampToggleSelAll(this.checked)" title="Select everything this filter matches"></th>' +
-          '<th>Lead</th><th>Lead status</th><th>Progress</th><th>Last call</th><th>Next call</th><th></th>' +
+          '<th>Lead</th><th>Lead status</th><th>Progress</th>' +
+          (isSms ? '<th>Last message</th><th>Next text</th>' : '<th>Last call</th><th>Next call</th>') +
+          '<th></th>' +
         '</tr></thead><tbody>' + body + '</tbody></table>'
       : '<div class="vc-empty">No leads match that filter.</div>') +
     pager;
@@ -31464,28 +32516,39 @@ function vcampRenderActivity() {
   if (!pane || !c) return;
 
   const now = new Date();
+  const isSms = vcChannel(c) === 'sms';
   const byUuid = vcampLeadIndex();
   const enrByLead = new Map();
   for (const e of vcampState.enrollments[c.id] || []) enrByLead.set(String(e.lead_id), e);
 
-  const entries = vcFeed(vcampState.calls || [], {
+  const feedCtx = {
     leadName: (leadId) => vcampLeadDisplayName(byUuid.get(String(leadId))),
     retryAt: (leadId) => {
       const e = enrByLead.get(String(leadId));
       return e && vcNorm(e.status) === 'active' ? (e.next_action_at || null) : null;
     },
     limit: VCAMP_FEED_LIMIT,
-  });
+  };
+  const entries = isSms
+    ? vcSmsFeed(vcampState.messages || [], feedCtx)
+    : vcFeed(vcampState.calls || [], feedCtx);
 
   const head =
     '<div style="font:12px/1.6 var(--sans);color:var(--text2);background:var(--bg3);border:1px solid var(--border);' +
     'border-radius:10px;padding:11px 13px;margin:0 0 14px">' +
       '<strong style="color:var(--text)">What this campaign has been doing.</strong> ' +
-      'The last ' + VCAMP_FEED_LIMIT + ' calls it placed, newest first. Click any line to read the transcript.' +
+      (isSms
+        ? 'The last ' + VCAMP_FEED_LIMIT + ' messages, newest first — including replies, which are the ' +
+          'lines worth reading. Click one to open the lead.'
+        : 'The last ' + VCAMP_FEED_LIMIT + ' calls it placed, newest first. Click any line to read the transcript.') +
     '</div>';
 
   if (!entries.length) {
-    pane.innerHTML = head + '<div class="vc-empty">No calls yet. When this campaign dials somebody, it shows up here.</div>';
+    pane.innerHTML = head + '<div class="vc-empty">' +
+      (isSms
+        ? 'No messages yet. When this campaign texts somebody, it shows up here.'
+        : 'No calls yet. When this campaign dials somebody, it shows up here.') +
+      '</div>';
     return;
   }
 
@@ -31494,8 +32557,13 @@ function vcampRenderActivity() {
     const rel = vcRelTime(en.at, now);
     // A retry is only worth naming while the campaign is still going to make
     // one — a stopped enrollment has no next_action_at, so this stays empty.
-    const retry = en.retry_at ? ' · retry ' + vcampWhen(en.retry_at) : '';
-    return '<div class="vc-feed-item" onclick="vcampOpenCall(\'' + _aiTestEsc(en.call_id) + '\')">' +
+    const retry = en.retry_at ? ' · ' + (isSms ? 'next ' : 'retry ') + vcampWhen(en.retry_at) : '';
+    // An SMS line has no transcript to open — the message IS the line — so it
+    // opens the lead, which is the only other thing an agent wants from here.
+    const open = isSms
+      ? (en.lead_id ? 'vcampOpenLead(\'' + _aiTestEsc(en.lead_id) + '\')' : '')
+      : 'vcampOpenCall(\'' + _aiTestEsc(en.call_id) + '\')';
+    return '<div class="vc-feed-item"' + (open ? ' onclick="' + open + '"' : ' style="cursor:default"') + '>' +
       '<span class="vc-feed-dot" data-tone="' + en.tone + '"></span>' +
       '<span style="flex:1;min-width:0">' +
         '<span style="color:var(--text)">' + _aiTestEsc(en.headline) + '</span>' +

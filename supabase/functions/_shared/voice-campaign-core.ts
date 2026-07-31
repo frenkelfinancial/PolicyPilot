@@ -84,6 +84,17 @@ export const VC_CLAIM_LEASE_SECS = 600;
 /** Enrollments one tick will dial for one agent, so a sweep cannot run long. */
 export const VC_MAX_DIALS_PER_TICK = 25;
 
+/**
+ * Enrollments one tick will TEXT for one agent.
+ *
+ * Four times the dial budget, because the two are bounded by different things.
+ * A call occupies one of three concurrent slots for minutes and rings a human;
+ * a text is one HTTPS request that is over before the next one starts. What
+ * actually paces a text campaign is the step's own drip rate and the carrier's
+ * throughput — this number exists only so one tick cannot run for ever.
+ */
+export const VC_MAX_SENDS_PER_TICK = 100;
+
 /** Retry gap after an infrastructure failure (Telnyx 5xx, network). */
 export const VC_TRANSIENT_RETRY_SECS = 300;
 
@@ -124,8 +135,63 @@ export const VC_LIFECYCLE_STATUSES = ["sold", "appointment", "chargeback", "laps
 /** Wait units a step may use. */
 export const VC_WAIT_UNITS = ["minutes", "hours", "days"];
 
-/** Step types. */
-export const VC_STEP_TYPES = ["call", "double_dial"];
+/**
+ * The two channels one campaign row can be.
+ *
+ * THE TABLE IS STILL CALLED voice_campaigns AND THAT IS HISTORICAL. A row with
+ * `channel = 'sms'` is a texting campaign, run by this same engine: same
+ * trigger matching, same enrollment model, same claim, same drip, same stop
+ * machinery, same manual door, same seed_key. The alternative was a parallel
+ * set of sms_* tables and a second tick, which is two of everything this file
+ * exists to have exactly one of. See docs/sms-campaigns.md.
+ */
+export const VC_CHANNELS = ["voice", "sms"];
+
+/** A campaign's channel, defaulting to voice — which is what every row was. */
+export function vcChannel(campaign: VcCampaign | null | undefined): string {
+  const raw = norm((campaign as { channel?: unknown } | null | undefined)?.channel);
+  return VC_CHANNELS.includes(raw) ? raw : "voice";
+}
+
+/** "Voice" / "Text" — the badge on a campaign card. */
+export function vcChannelLabel(channel: string | null | undefined): string {
+  return norm(channel) === "sms" ? "Text" : "Voice";
+}
+
+/** The verb, for a sentence that has to name what a campaign does to somebody. */
+export function vcChannelVerb(channel: string | null | undefined): string {
+  return norm(channel) === "sms" ? "text" : "call";
+}
+
+/** Step types, per channel. A step of the wrong channel is refused by a DB trigger. */
+export const VC_VOICE_STEP_TYPES = ["call", "double_dial"];
+export const VC_SMS_STEP_TYPES = ["sms_message", "wait"];
+
+/**
+ * Every step type there is.
+ *
+ * Kept under its original name because the browser validates against it, but
+ * a saver should use vcStepTypesFor(channel) — a `call` step in a text
+ * campaign is the tick being told to dial somebody in a texting program, and
+ * the database refuses it.
+ */
+export const VC_STEP_TYPES = [...VC_VOICE_STEP_TYPES, ...VC_SMS_STEP_TYPES];
+
+export function vcStepTypesFor(channel: string | null | undefined): string[] {
+  return norm(channel) === "sms" ? VC_SMS_STEP_TYPES.slice() : VC_VOICE_STEP_TYPES.slice();
+}
+
+/**
+ * Does this step DO anything, or does it only pass time?
+ *
+ * `wait` is the one type that does not act. It exists because that is how a
+ * person describes a text sequence — "send this, wait two days, send that" —
+ * and it costs the engine nothing, because vcResolveNextDue() FOLDS its delay
+ * into the next actionable step rather than waking up to do nothing.
+ */
+export function vcStepIsActionable(step: VcStep | null | undefined): boolean {
+  return !!step && norm(step.step_type) !== "wait";
+}
 
 /**
  * What a step's timing is measured FROM.
@@ -391,6 +457,14 @@ export interface VcStep {
   anchor?: string | null;
   /** Only read for an "appointment" anchor. Negative = before. */
   offset_minutes?: number | null;
+  /**
+   * `sms_message` only: the message, with {{firstName}}-style variables still
+   * in it. Rendered at SEND time, never stored rendered — the values change,
+   * and a stored render texts somebody last month's coverage amount.
+   */
+  body?: string | null;
+  /** `sms_message` only: a campaign-media URL. Its presence makes the send an MMS. */
+  media_url?: string | null;
 }
 
 export interface VcDripRate {
@@ -405,6 +479,19 @@ export function vcStepsSorted(steps: VcStep[] | null | undefined): VcStep[] {
 
 export function vcFirstStep(steps: VcStep[] | null | undefined): VcStep | null {
   return vcStepsSorted(steps)[0] || null;
+}
+
+/**
+ * The first step that actually DOES something.
+ *
+ * This is what "does this campaign have steps?" has to mean now that a step
+ * can be a bare `wait`. A text campaign consisting of nothing but waits has
+ * steps, passes any count-based check, and would enrol people and message
+ * none of them for ever while showing green. Every guard that used to ask
+ * vcFirstStep() asks this instead.
+ */
+export function vcFirstActionableStep(steps: VcStep[] | null | undefined): VcStep | null {
+  return vcStepsSorted(steps).find((s) => vcStepIsActionable(s)) || null;
 }
 
 export function vcStepAt(steps: VcStep[] | null | undefined, position: number): VcStep | null {
@@ -483,6 +570,12 @@ export interface VcDueResolution {
   dueAt: string | null;
   /** Positions passed over because their anchored moment had already gone. */
   skipped: number[];
+  /**
+   * `wait` positions whose delay was FOLDED into `dueAt` rather than being
+   * scheduled as work of their own. Always empty for a voice campaign, which
+   * cannot contain a wait step — the database refuses one.
+   */
+  folded: number[];
   reason: "ok" | "no_steps" | "all_past" | "no_appointment";
 }
 
@@ -500,6 +593,19 @@ export interface VcDueResolution {
  * Ordinary steps are never skipped — their due time is computed forward from
  * `now`, so it is always in the future by construction.
  *
+ * AND THIS IS WHERE A `wait` STEP DISAPPEARS. A wait does no work, so waking
+ * up to run it would burn a tick and a claim to accomplish nothing; instead its
+ * delay is FOLDED into the next actionable step's due time. "Send / wait 2 days
+ * / send" and a single step with a two-day wait therefore produce the identical
+ * schedule and the identical number of ticks, and `current_step_position` never
+ * lands on a step the tick would not know what to do with. Consecutive waits
+ * add up. A sequence that ENDS in a wait completes when the last real step is
+ * done, which is the only reading of it that is not a lie.
+ *
+ * A voice campaign cannot contain a wait step (the database refuses one), so
+ * `folded` is always empty there and voice pacing is untouched — pinned by a
+ * test that runs every voice fixture through this function before and after.
+ *
  * `fromPosition` is EXCLUSIVE: pass the position that just ran, or 0/null to
  * resolve the first step at enrollment.
  */
@@ -513,13 +619,25 @@ export function vcResolveNextDue(input: {
   const all = vcStepsSorted(input.steps);
   const candidates = from > 0 ? all.filter((s) => intOr(s.position, 0) > from) : all;
   const skipped: number[] = [];
+  const folded: number[] = [];
+  let foldedMs = 0;
 
   for (const step of candidates) {
+    if (!vcStepIsActionable(step)) {
+      foldedMs += vcWaitMs(step.wait_value, step.wait_unit);
+      folded.push(intOr(step.position, 0));
+      continue;
+    }
     if (!vcStepIsAnchored(step)) {
+      // The folded waits move the BASE, then the step's own wait applies on
+      // top of it — so a wait step and a step's own wait_value compose rather
+      // than one silently replacing the other.
+      const base = new Date(input.now.getTime() + foldedMs);
       return {
         step,
-        dueAt: vcStepDueAt(input.now, step).toISOString(),
+        dueAt: vcStepDueAt(base, step).toISOString(),
         skipped,
+        folded,
         reason: "ok",
       };
     }
@@ -527,19 +645,20 @@ export function vcResolveNextDue(input: {
     if (!due) {
       // No appointment to count down to. Nothing about waiting makes this
       // resolvable, so say so rather than scheduling a call at "now".
-      return { step: null, dueAt: null, skipped, reason: "no_appointment" };
+      return { step: null, dueAt: null, skipped, folded, reason: "no_appointment" };
     }
     if (due.getTime() <= input.now.getTime()) {
       skipped.push(intOr(step.position, 0));
       continue;
     }
-    return { step, dueAt: due.toISOString(), skipped, reason: "ok" };
+    return { step, dueAt: due.toISOString(), skipped, folded, reason: "ok" };
   }
 
   return {
     step: null,
     dueAt: null,
     skipped,
+    folded,
     reason: skipped.length ? "all_past" : "no_steps",
   };
 }
@@ -627,10 +746,16 @@ export interface VcCampaign {
   active?: boolean | null;
   dry_run?: boolean | null;
   campaign_goal?: string | null;
+  /** "voice" (default) or "sms". See VC_CHANNELS. */
+  channel?: string | null;
   stop_on_appointment_booked?: boolean | null;
   stop_on_sold?: boolean | null;
   stop_on_answered?: boolean | null;
   stop_answer_talk_secs?: number | null;
+  /** SMS only: end the enrollment when the lead writes back. Default true. */
+  stop_on_reply?: boolean | null;
+  /** SMS only: defer a step while a conversation is live. Default true. */
+  pause_on_active_conversation?: boolean | null;
   // The rule and the four enrollment triggers. Read by vcCampaignTag() and
   // vcAutoEnrollPhrase() — the manual door's fine print and the card copy —
   // and by nothing that decides whether a call goes out.
@@ -814,27 +939,73 @@ export interface VcEnrollVerdict {
  */
 export function vcEvaluateEnrollment(input: {
   lead: VcLead;
+  /**
+   * "voice" (default) or "sms". Defaulted so every existing caller keeps its
+   * exact previous behaviour, which a test pins.
+   */
+  channel?: string | null;
+  /**
+   * VOICE: the lead's phone is on `suppression_list`.
+   * SMS:   the lead's phone is on `dnc_list`.
+   * Two different lists because they are two different permissions — the
+   * caller picks the right one, so this stays pure and the distinction cannot
+   * be lost inside a shared helper.
+   */
   suppressed?: boolean;
   activeElsewhere?: boolean;
   hasPhone?: boolean;
+  /**
+   * SMS ONLY: an acceptable `consent_records` row exists for this lead's
+   * phone. This is a DIFFERENT FACT from `leads.tcpa_consent` and reading the
+   * voice one for a text campaign is the single worst mistake available here:
+   * calling consent is not texting consent, the app has kept them apart
+   * everywhere else, and collapsing them would message people who only ever
+   * agreed to a phone call.
+   */
+  hasSmsConsent?: boolean;
 }): VcEnrollVerdict {
   const { lead } = input;
+  const channel = VC_CHANNELS.includes(norm(input.channel)) ? norm(input.channel) : "voice";
+  const sms = channel === "sms";
+
   if (input.hasPhone === false) {
     return { ok: false, reason: "no_phone", detail: "no phone number on file" };
   }
-  if (lead.tcpa_consent !== true) {
+
+  if (sms) {
+    if (input.hasSmsConsent !== true) {
+      return { ok: false, reason: "no_sms_consent", detail: "no text consent on file" };
+    }
+  } else if (lead.tcpa_consent !== true) {
     return { ok: false, reason: "no_consent", detail: "no consent" };
   }
+
+  // `leads.dnc` is "they asked not to be contacted", and it stops BOTH
+  // channels. It is written by the AI's dnc_request handling and by hand, and
+  // a person who said that to somebody on the phone did not mean "but do text
+  // me".
   if (lead.dnc === true) {
     return { ok: false, reason: "dnc", detail: "on your do-not-call list" };
   }
   if (input.suppressed === true) {
-    return { ok: false, reason: "suppressed", detail: "on the suppression list" };
+    return {
+      ok: false,
+      reason: "suppressed",
+      detail: sms ? "opted out of texts" : "on the suppression list",
+    };
   }
-  // Orion's rule, kept: a lead in two voice campaigns gets two robots in one
-  // afternoon, and neither campaign's stats mean anything afterwards.
+  // Orion's rule, kept and now PER CHANNEL: a lead in two voice campaigns gets
+  // two robots in one afternoon, and neither campaign's stats mean anything
+  // afterwards — and the same is true of two text campaigns. One of each is
+  // fine and is the point: a speed-to-lead call sequence and a nurture drip
+  // are complementary, and making an agent choose would make this feature
+  // useless to anybody already running voice.
   if (input.activeElsewhere === true) {
-    return { ok: false, reason: "already_enrolled", detail: "already in another voice campaign" };
+    return {
+      ok: false,
+      reason: "already_enrolled",
+      detail: sms ? "already in another text campaign" : "already in another voice campaign",
+    };
   }
   return { ok: true, reason: null, detail: null };
 }
@@ -856,6 +1027,11 @@ export function vcEnrollSummary(enrolled: number, skipped: Record<string, number
 
 const SKIP_LABELS: Record<string, string> = {
   no_consent: "no consent",
+  // Deliberately worded differently from `no_consent`, because they are
+  // cleared by different actions: one is the calling attestation, the other is
+  // the text-message box beside it. "3 no consent" on a text campaign would
+  // send an agent to tick the wrong one.
+  no_sms_consent: "no text consent",
   dnc: "on DNC",
   suppressed: "suppressed",
   already_enrolled: "already in a campaign",
@@ -1002,6 +1178,8 @@ export interface VcEnrollPlan {
   /** Leads that would be tagged: enrollable ones that do not already carry it. */
   tag_lead_ids: string[];
   truncated: number;
+  /** The campaign's channel, so the modal can say "text" where it means text. */
+  channel: string;
 }
 
 /**
@@ -1035,10 +1213,20 @@ export function vcPlanManualEnrollment(input: {
   seenInThisCampaign: Set<string>;
   /** lead_id → the ACTIVE enrollment elsewhere, if any. */
   activeElsewhere: Map<string, { id: string; campaign_id: string }>;
-  /** lead_id → true when the lead's phone is on a suppression list. */
+  /**
+   * lead_id → true when the lead's phone is suppressed FOR THIS CHANNEL —
+   * `suppression_list` for voice, `dnc_list` for SMS. The caller reads the
+   * right list; see vcEvaluateEnrollment.
+   */
   suppressed: Set<string>;
   /** lead_id → true when the lead has a usable phone number. */
   hasPhone: Set<string>;
+  /**
+   * SMS campaigns only: lead_id → true when an acceptable `consent_records`
+   * row exists. Ignored for a voice campaign, which reads `leads.tcpa_consent`
+   * off the lead itself.
+   */
+  smsConsent?: Set<string>;
   /** lead_id → the soonest scheduled future appointment, for anchored campaigns. */
   appointments: Map<string, { id: string; starts_at: string }>;
   onConflict: "skip" | "move";
@@ -1048,6 +1236,7 @@ export function vcPlanManualEnrollment(input: {
   const byId = new Map<string, VcLead>();
   for (const l of input.leads || []) if (l && l.id) byId.set(String(l.id), l);
 
+  const channel = vcChannel(input.campaign);
   const tag = vcCampaignTag(input.campaign);
   const items: VcEnrollPlanItem[] = [];
   const skipped: Record<string, number> = {};
@@ -1075,15 +1264,20 @@ export function vcPlanManualEnrollment(input: {
 
     const verdict = vcEvaluateEnrollment({
       lead,
+      channel,
       hasPhone: input.hasPhone.has(id),
       suppressed: input.suppressed.has(id),
+      hasSmsConsent: !!input.smsConsent && input.smsConsent.has(id),
       // Withheld deliberately — the conflict is this function's decision to
       // make, because only here is "move them" an available answer.
       activeElsewhere: false,
     });
     if (!verdict.ok) {
       const reason = verdict.reason || "skipped";
-      if (reason === "no_consent") noConsent.push(id);
+      // Both consent refusals feed the same "Record consent first →" link;
+      // which BOX that link pre-ticks is the modal's job, and it knows the
+      // campaign's channel.
+      if (reason === "no_consent" || reason === "no_sms_consent") noConsent.push(id);
       skip(reason);
       continue;
     }
@@ -1124,6 +1318,7 @@ export function vcPlanManualEnrollment(input: {
     tag,
     tag_lead_ids: tagLeads,
     truncated,
+    channel,
   };
 }
 
@@ -1466,29 +1661,52 @@ export function vcCampaignGoal(campaign: VcCampaign | null | undefined): string 
 export interface VcCampaignStats {
   enrolled: number;
   active: number;
+  paused: number;
   completed: number;
   stopped: number;
   calls: number;
   answers: number;
   appointments: number;
+  /** Texts sent, for a channel = 'sms' campaign. */
+  messages: number;
+  /** Inbound messages received since enrollment. */
+  replies: number;
 }
 
-/** Roll enrollment rows into the numbers on the campaign card. */
+/**
+ * Roll enrollment rows into the numbers on the campaign card.
+ *
+ * Both channels' counters are summed and the CARD picks which to show. They
+ * are separate columns rather than one shared "attempts" because "Calls
+ * placed: 4" on a campaign that has never dialled anybody is a small lie, and
+ * a card full of numbers only works if an agent believes all of them.
+ */
 export function vcCampaignStats(
-  enrollments: Array<{ status?: string | null; calls_placed?: number | null; answers?: number | null; appointments?: number | null }> | null | undefined,
+  enrollments: Array<{
+    status?: string | null;
+    calls_placed?: number | null;
+    answers?: number | null;
+    appointments?: number | null;
+    messages_sent?: number | null;
+    replies?: number | null;
+  }> | null | undefined,
 ): VcCampaignStats {
   const out: VcCampaignStats = {
-    enrolled: 0, active: 0, completed: 0, stopped: 0, calls: 0, answers: 0, appointments: 0,
+    enrolled: 0, active: 0, paused: 0, completed: 0, stopped: 0,
+    calls: 0, answers: 0, appointments: 0, messages: 0, replies: 0,
   };
   for (const e of enrollments || []) {
     out.enrolled++;
     const st = norm(e.status);
     if (st === "active") out.active++;
+    else if (st === "paused") out.paused++;
     else if (st === "completed") out.completed++;
     else if (st === "stopped") out.stopped++;
     out.calls += Math.max(0, intOr(e.calls_placed, 0));
     out.answers += Math.max(0, intOr(e.answers, 0));
     out.appointments += Math.max(0, intOr(e.appointments, 0));
+    out.messages += Math.max(0, intOr(e.messages_sent, 0));
+    out.replies += Math.max(0, intOr(e.replies, 0));
   }
   return out;
 }
@@ -1516,6 +1734,15 @@ export function vcStopReasonLabel(reason: string | null | undefined): string {
     campaign_deleted: "Campaign removed",
     appointment_cancelled: "Appointment cancelled",
     appointment_passed: "Appointment has been and gone",
+    // ---- Text campaigns -----------------------------------------------
+    // The good ending, and it needs to read like one. `stop_on_reply` fires
+    // on the outcome the whole sequence was for, so wording it as a failure
+    // ("Stopped") would make a working campaign's Finished tab look like a
+    // graveyard.
+    replied: "They wrote back",
+    opted_out: "Replied STOP",
+    conversation_closed: "Conversation closed",
+    no_sms_consent: "No text consent",
   };
   return map[r] || reason || "";
 }
@@ -1591,6 +1818,15 @@ export function vcWaitReasonLabel(code: string | null | undefined): string {
     // honest and useless; this says the true thing an agent can act on, which
     // is nothing, because it retries by itself.
     retry_soon: "A hiccup on the line — retrying",
+    // ---- Text campaigns -----------------------------------------------
+    // THESE TWO ARE THE WHOLE REASON THE HOLD IS VISIBLE. A drip that has gone
+    // quiet because the lead is mid-conversation is the campaign working
+    // exactly as designed, and with nothing on screen it is indistinguishable
+    // from one that has broken.
+    live_conversation: "They’re mid-conversation — holding",
+    agent_takeover: "You’re handling this thread",
+    daily_limit_reached: "Your carrier’s daily text limit",
+    a2p_not_approved: "Texting registration not approved yet",
   };
   return map[c] || "";
 }
@@ -1674,20 +1910,29 @@ export function vcNextAction(input: {
  *
  * Split from vcNextAction so the decision can be unit-tested and the clock
  * formatting can stay where the reader's locale is.
+ *
+ * `channel` defaults to "voice", so every pre-existing call site produces the
+ * byte-identical string it always did — a test pins all nine kinds against
+ * their original wording.
  */
-export function vcNextActionText(verdict: VcNextActionVerdict, whenText: string): string {
+export function vcNextActionText(
+  verdict: VcNextActionVerdict,
+  whenText: string,
+  channel?: string | null,
+): string {
   const when = String(whenText || "").trim();
+  const sms = norm(channel) === "sms";
   switch (verdict.kind) {
-    case "calling":         return "Calling now…";
+    case "calling":         return sms ? "Sending now…" : "Calling now…";
     case "paused_lead":     return when ? `Paused ${when}` : "Paused";
     case "paused_campaign": return "Campaign paused";
     case "campaign_off":    return "Campaign switched off";
     case "ended":           return "—";
-    case "waiting_on_call": return "Call in progress…";
+    case "waiting_on_call": return sms ? "Sending…" : "Call in progress…";
     case "due":             return "Due now";
     case "scheduled": {
       const reason = vcWaitReasonLabel(verdict.code);
-      const tail = when ? `next call ${when}` : "waiting";
+      const tail = when ? `next ${sms ? "text" : "call"} ${when}` : "waiting";
       return reason ? `${reason} · ${tail}` : (when || "Scheduled");
     }
     default:                return "—";
@@ -1936,4 +2181,770 @@ export function vcEnrollmentActionSentence(plan: VcActionPlan, tense: "will" | "
     parts.push(`${intOr(count, 0)} ${ACTION_SKIP_LABELS[reason] || String(reason).replace(/_/g, " ")}`);
   }
   return parts.join(" · ");
+}
+
+// ============================================================
+// 13. TEXT CAMPAIGNS
+//
+// Everything above this line runs both channels. This section is what is true
+// of a text campaign and not of a calling one — and it is deliberately short,
+// because the parts worth reusing were reused rather than rewritten.
+//
+// What is NOT here, on purpose:
+//
+//   * No trigger matching. vcMatchesTriggerGroups is the same function.
+//   * No enrollment gate. vcEvaluateEnrollment took a `channel` instead.
+//   * No claim. The enrollment claim is channel-blind and always was.
+//   * No drip. vcDripAllows counts rows in a window; the tick hands it rows
+//     from sms_messages instead of ai_calls and the arithmetic is identical.
+//   * No compliance. Consent, DNC, suppression and quiet hours are enforced by
+//     runComplianceGate on the send itself, exactly as they are for a
+//     hand-typed message. This file must never grow a copy of any of them.
+// ============================================================
+
+// ------------------------------------------------------------
+// 13a. Merge variables
+// ------------------------------------------------------------
+
+/**
+ * The six variables a message body may carry.
+ *
+ * Each one names a field that genuinely exists on a lead or an agent in this
+ * schema. A palette offering {{policyNumber}} would be a promise the book
+ * cannot keep, and the agent would find out when a consumer received the word
+ * "there" in the middle of a sentence about their policy.
+ *
+ * EVERY VARIABLE HAS A FALLBACK AND NONE OF THEM IS BLANK. A blank leaves
+ * "Hi , just checking in" on somebody's phone, which is worse than the generic
+ * word it replaced. `{{agentPhone}}` falls back to "this number" because that
+ * is always literally true: the lead is reading the message ON the number it
+ * was sent from, so "call me on this number" works even when the lookup failed.
+ */
+export const VC_MERGE_VARS: Array<{
+  key: string;
+  label: string;
+  /** What the editor's live preview shows. */
+  sample: string;
+  /** What a send uses when the real value is missing. Never blank. */
+  fallback: string;
+  /** Where the value comes from, for the palette's tooltip. */
+  source: string;
+}> = [
+  { key: "firstName",      label: "First name",      sample: "Maria",           fallback: "there",         source: "the lead's first name" },
+  { key: "agentName",      label: "Your name",       sample: "Jordan Reyes",    fallback: "your agent",    source: "your display name in Settings" },
+  { key: "companyName",    label: "Your agency",     sample: "Reyes Financial", fallback: "our office",    source: "your agency name in Settings" },
+  { key: "carrier",        label: "Carrier",         sample: "Mutual of Omaha", fallback: "your carrier",  source: "the lead's carrier field" },
+  { key: "coverageAmount", label: "Coverage amount", sample: "$25,000",         fallback: "your coverage", source: "the lead's coverage field" },
+  { key: "agentPhone",     label: "Your number",     sample: "(262) 509-9123",  fallback: "this number",   source: "the number this campaign texts from" },
+];
+
+const MERGE_BY_KEY = new Map(VC_MERGE_VARS.map((v) => [v.key.toLowerCase(), v]));
+
+/** `{{ firstName }}`, `{{firstname}}`, `{{FirstName}}` — all the same variable. */
+const MERGE_TOKEN_RE = /\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g;
+
+export interface VcMergeIssues {
+  /** Variable names used in the body that this app cannot resolve. */
+  unknown: string[];
+  /** Known variables actually used, in first-appearance order. */
+  used: string[];
+}
+
+/**
+ * What is in this body, and what is wrong with it.
+ *
+ * The editor shows `unknown` in red BEFORE the campaign can be switched on,
+ * because the alternative is discovering the typo from a consumer. The
+ * renderer strips an unknown variable rather than leaving it, so this is the
+ * only thing standing between `{{frstName}}` and a message that reads
+ * "Hi , just checking in".
+ */
+export function vcMergeIssues(body: string | null | undefined): VcMergeIssues {
+  const unknown: string[] = [];
+  const used: string[] = [];
+  const text = String(body === null || body === undefined ? "" : body);
+  MERGE_TOKEN_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = MERGE_TOKEN_RE.exec(text)) !== null) {
+    const raw = m[1];
+    const known = MERGE_BY_KEY.get(raw.toLowerCase());
+    if (known) {
+      if (used.indexOf(known.key) === -1) used.push(known.key);
+    } else if (unknown.indexOf(raw) === -1) {
+      unknown.push(raw);
+    }
+  }
+  return { unknown, used };
+}
+
+/**
+ * Tidy up after a substitution.
+ *
+ * A variable that resolved to nothing leaves "Hi , how are you" and " ." — the
+ * punctuation artefacts of a hole in a sentence. Every KNOWN variable has a
+ * non-blank fallback so this is only reachable through an unknown one, but
+ * that is exactly the case where the output is about to be read by a stranger.
+ */
+function tidyMerged(text: string): string {
+  return String(text === null || text === undefined ? "" : text)
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+([,.!?;:])/g, "$1")
+    .replace(/\(\s*\)/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
+}
+
+/**
+ * Render a body against a set of values.
+ *
+ * 🔴 A RAW `{{…}}` NEVER REACHES A PHONE. A known variable with no value gets
+ * its fallback; an UNKNOWN variable is removed entirely. Leaving the braces in
+ * would be the most obviously broken thing this feature could do, and
+ * "somebody will notice in the editor" is not a mechanism.
+ *
+ * Rendering happens at SEND time, from the lead as they are at that moment.
+ * Storing a rendered body would text somebody the coverage amount they had on
+ * the day the campaign was written.
+ */
+export function renderMergeVars(
+  body: string | null | undefined,
+  values: Record<string, string | null | undefined> | null | undefined,
+): string {
+  const vals = values || {};
+  const src = String(body === null || body === undefined ? "" : body);
+  const out = src.replace(MERGE_TOKEN_RE, (_full: string, raw: string) => {
+    const known = MERGE_BY_KEY.get(String(raw).toLowerCase());
+    if (!known) return "";
+    const v = vals[known.key];
+    const s = v === null || v === undefined ? "" : String(v).trim();
+    return s || known.fallback;
+  });
+  return tidyMerged(out);
+}
+
+/** The editor's live preview: the same renderer, against the sample values. */
+export function vcMergePreview(body: string | null | undefined): string {
+  const sample: Record<string, string> = {};
+  for (const v of VC_MERGE_VARS) sample[v.key] = v.sample;
+  return renderMergeVars(body, sample);
+}
+
+/**
+ * A person's name, refusing an email address.
+ *
+ * THE SAME RULE AS `ppAgentName()` AND `pp_display_name()`, and it matters more
+ * here than anywhere it is already enforced: those protect what a colleague
+ * sees on a leaderboard, and this one decides what a CONSUMER is told the agent
+ * is called. `agents.display_name` is null for most of the production book and
+ * the historical fallback was the login email, so without this a campaign would
+ * text strangers "Hi Maria, it's jacef8778099@gmail.com from our office."
+ *
+ * Derives from the local part rather than returning nothing, because a name
+ * that is approximately right beats the words "your agent".
+ */
+export function vcPersonName(raw: string | null | undefined): string {
+  const s = String(raw === null || raw === undefined ? "" : raw).trim();
+  if (!s) return "";
+  if (s.indexOf("@") === -1) return s;
+  const local = s.split("@")[0] || "";
+  const cleaned = local.replace(/[._\-+]+/g, " ").replace(/\d+/g, " ").trim();
+  if (!cleaned) return "";
+  return cleaned.split(/\s+/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/** "+12625099123" -> "(262) 509-9123". Anything else is passed through. */
+export function vcPrettyPhone(e164: string | null | undefined): string {
+  const s = String(e164 === null || e164 === undefined ? "" : e164).trim();
+  const m = /^\+1(\d{3})(\d{3})(\d{4})$/.exec(s);
+  return m ? "(" + m[1] + ") " + m[2] + "-" + m[3] : s;
+}
+
+/**
+ * Build the value map for one send.
+ *
+ * PURE, and every fact is handed in — which is what lets the editor's preview,
+ * the Send Test and the drip all render through the identical function. A
+ * preview computed by separate code is a preview that eventually lies, the same
+ * rule the enrollment planner follows.
+ */
+export function vcMergeValues(input: {
+  lead?: VcLead | null;
+  agentName?: string | null;
+  agencyName?: string | null;
+  /** The number this campaign is texting FROM. */
+  fromE164?: string | null;
+}): Record<string, string> {
+  const d = ((input.lead && input.lead.data) || {}) as Record<string, unknown>;
+  const first = String(d.first_name === undefined || d.first_name === null ? "" : d.first_name).trim();
+  const whole = String(d.name === undefined || d.name === null ? "" : d.name).trim();
+  const rawName = first || whole.split(/\s+/)[0] || "";
+  return {
+    // A lead's own name is never an email — but the same guard costs nothing,
+    // and a book imported from a CSV of addresses is not hypothetical.
+    firstName: vcPersonName(rawName),
+    agentName: vcPersonName(input.agentName),
+    companyName: String(input.agencyName === null || input.agencyName === undefined ? "" : input.agencyName).trim(),
+    carrier: String(d.carrier === undefined || d.carrier === null ? "" : d.carrier).trim(),
+    coverageAmount: String(
+      d.coverage_wanted !== undefined && d.coverage_wanted !== null
+        ? d.coverage_wanted
+        : (d.coverage_amount === undefined || d.coverage_amount === null ? "" : d.coverage_amount),
+    ).trim(),
+    agentPhone: vcPrettyPhone(input.fromE164),
+  };
+}
+
+// ------------------------------------------------------------
+// 13b. What a body costs, and whether it is sendable
+// ------------------------------------------------------------
+
+export interface VcBodyStats {
+  /** Characters after rendering the SAMPLE values — what the agent is shown. */
+  chars: number;
+  segments: number;
+  encoding: string;
+  /** True once a non-GSM7 character has forced the 70-character segment. */
+  unicode: boolean;
+  /** The MMS flag: an attachment changes the billing shape entirely. */
+  mms: boolean;
+}
+
+/**
+ * How long this step's message is, priced the way a carrier prices it.
+ *
+ * Measured against the PREVIEW, not the raw body: `{{coverageAmount}}` is
+ * seventeen characters of template and about seven of message, and an agent
+ * shown the template's length would write to the wrong budget. It is still an
+ * estimate — a lead called Bartholomew costs more than one called Jo — which is
+ * why the editor says "about".
+ *
+ * The segment counter is passed IN rather than imported so this module keeps
+ * running unchanged under `node --test` and inside the browser mirror; the
+ * server hands it countSegments() from _shared/segments.ts, which is the
+ * function the biller uses, so the estimate and the charge agree.
+ */
+export function vcBodyStats(
+  body: string | null | undefined,
+  opts?: {
+    mediaUrl?: string | null;
+    countSegments?: (t: string) => { segments: number; encoding: string };
+  },
+): VcBodyStats {
+  const rendered = vcMergePreview(body);
+  const counter = opts && opts.countSegments;
+  const info = counter
+    ? counter(rendered)
+    : { segments: rendered.length ? Math.max(1, Math.ceil(rendered.length / 153)) : 0, encoding: "GSM7" };
+  const media = String((opts && opts.mediaUrl) === null || (opts && opts.mediaUrl) === undefined ? "" : (opts && opts.mediaUrl)).trim();
+  return {
+    chars: rendered.length,
+    segments: rendered.length ? Math.max(1, intOr(info.segments, 1)) : 0,
+    encoding: info.encoding || "GSM7",
+    unicode: (info.encoding || "GSM7") !== "GSM7",
+    mms: !!media,
+  };
+}
+
+/**
+ * Is this campaign's step list fit to be switched on?
+ *
+ * The browser half of the rule voice_campaigns_validate() enforces in the
+ * database. Two enforcement points on purpose, the same arrangement the tag
+ * rule has: this one produces a sentence in the editor, that one refuses the
+ * write whatever produced it.
+ */
+export function vcValidateSmsSteps(steps: VcStep[] | null | undefined): VcValidation {
+  const all = vcStepsSorted(steps);
+  const msgs = all.filter((s) => norm(s.step_type) === "sms_message");
+  const groupErrors: (string | null)[] = [];
+  let firstError: string | null = null;
+
+  for (const s of all) {
+    let err: string | null = null;
+    if (norm(s.step_type) === "sms_message") {
+      if (!String(s.body === null || s.body === undefined ? "" : s.body).trim()) {
+        err = "This step has no message text.";
+      } else {
+        const issues = vcMergeIssues(s.body);
+        if (issues.unknown.length) {
+          err = "There is no such variable as {{" + issues.unknown[0] + "}}. Pick one from the list: " +
+            VC_MERGE_VARS.map((v) => "{{" + v.key + "}}").join(", ") + ".";
+        }
+      }
+    }
+    groupErrors.push(err);
+    if (err && !firstError) firstError = err;
+  }
+
+  if (!firstError && !msgs.length) {
+    firstError = all.length
+      ? "This campaign only waits — add a message step, or it will enrol people and never text them."
+      : "Add at least one message step.";
+  }
+
+  return { ok: !firstError, error: firstError, groupErrors };
+}
+
+// ------------------------------------------------------------
+// 13c. The live-conversation hold
+// ------------------------------------------------------------
+
+/**
+ * How long after a lead's message the thread still counts as a conversation.
+ *
+ * Twenty-four hours, which is deliberately generous. The failure this exists to
+ * prevent — a canned step landing in the middle of a real exchange — is
+ * embarrassing and is remembered; the cost of the hold is that a drip step
+ * lands a day later than planned, which nobody notices.
+ */
+export const VC_SMS_CONVERSATION_WINDOW_HOURS = 24;
+
+/**
+ * How often a thread the agent has taken over is re-checked.
+ *
+ * A takeover has no stated expiry — it ends when the agent switches the AI back
+ * on, or never. Re-asking hourly is cheap and honest; leaving the enrollment
+ * due would re-ask sixty times an hour, and stopping it would throw away a
+ * sequence because somebody answered one message by hand.
+ */
+export const VC_SMS_TAKEOVER_RECHECK_MINUTES = 60;
+
+export interface VcSmsThreadFacts {
+  status?: string | null;
+  closed_reason?: string | null;
+  ai_muted?: boolean | null;
+  ai_muted_reason?: string | null;
+  last_inbound_at?: string | Date | null;
+  last_outbound_at?: string | Date | null;
+}
+
+export interface VcSmsHoldVerdict {
+  hold: boolean;
+  /** The gate code stored on the enrollment, so the screen can explain itself. */
+  reason: "live_conversation" | "agent_takeover" | null;
+  /** ISO instant to come back at. Null when there is no hold. */
+  until: string | null;
+}
+
+/**
+ * Should this step wait because somebody is actually talking to this lead?
+ *
+ * 🔴 THIS IS NOT A STOP AND IT IS NOT A PAUSE. The enrollment stays active and
+ * keeps its place in the sequence; only the due time moves. A lead who asks a
+ * question on Tuesday and gets no further answer still receives Thursday's step
+ * on Thursday — they simply do not receive it on top of their own sentence.
+ *
+ * A takeover outranks the inbound window because it has no expiry: an agent
+ * working a thread by hand at 4pm on a message from yesterday morning is still
+ * working it, and the 24-hour clock would already have run out.
+ */
+export function vcEvaluateSmsHold(input: {
+  campaign: VcCampaign;
+  thread?: VcSmsThreadFacts | null;
+  now: Date;
+}): VcSmsHoldVerdict {
+  const none: VcSmsHoldVerdict = { hold: false, reason: null, until: null };
+  // Off is off. An agent who unticked this asked for the sequence to run on its
+  // own schedule and is entitled to get that.
+  if (input.campaign.pause_on_active_conversation === false) return none;
+  const t = input.thread;
+  if (!t) return none;
+
+  // A closed thread is not a live conversation — it is an opt-out, and that is
+  // a stop, decided by vcEvaluateSmsStop above this in the tick.
+  if (norm(t.status) === "closed") return none;
+
+  if (t.ai_muted === true && norm(t.ai_muted_reason) === "agent_takeover") {
+    return {
+      hold: true,
+      reason: "agent_takeover",
+      until: new Date(input.now.getTime() + VC_SMS_TAKEOVER_RECHECK_MINUTES * 60000).toISOString(),
+    };
+  }
+
+  const last = asDate(t.last_inbound_at === undefined ? null : t.last_inbound_at);
+  if (last) {
+    const expires = last.getTime() + VC_SMS_CONVERSATION_WINDOW_HOURS * 3600000;
+    if (expires > input.now.getTime()) {
+      return { hold: true, reason: "live_conversation", until: new Date(expires).toISOString() };
+    }
+  }
+
+  return none;
+}
+
+// ------------------------------------------------------------
+// 13d. Stopping a text sequence
+// ------------------------------------------------------------
+
+/**
+ * Should this enrollment end?
+ *
+ * The text twin of vcEvaluateStop, and the ORDER carries the same meaning: the
+ * refusals that protect a CONSUMER sit above every rule that is a campaign
+ * setting. An agent who unticked "stop on reply" has not thereby asked for a
+ * STOP to be ignored.
+ *
+ *   1. DNC — unconditional, from either list and from the lead's own flag.
+ *   2. The thread was CLOSED, which only an opt-out does.
+ *   3. stop_on_appointment_booked
+ *   4. stop_on_sold
+ *   5. stop_on_reply, and they have written since they were enrolled.
+ *
+ * Rule 5 is measured against `enrolledAt`, not against "any inbound ever".
+ * Keying it on the thread alone would immediately stop everybody who had ever
+ * replied to anything, which is most of a working book.
+ */
+export function vcEvaluateSmsStop(input: {
+  campaign: VcCampaign;
+  thread?: VcSmsThreadFacts | null;
+  /** When this enrollment started — the clock stop_on_reply is measured from. */
+  enrolledAt?: string | Date | null;
+  leadSold?: boolean;
+  leadBooked?: boolean;
+  /** `leads.dnc`. */
+  leadDnc?: boolean;
+  /** A `dnc_list` row exists for this contact (agent-scoped or global). */
+  onDncList?: boolean;
+}): VcStopVerdict {
+  const campaign = input.campaign;
+  const thread = input.thread;
+
+  if (input.leadDnc === true || input.onDncList === true) {
+    return { stop: true, reason: "dnc" };
+  }
+  if (thread && norm(thread.status) === "closed") {
+    return {
+      stop: true,
+      reason: norm(thread.closed_reason) === "opted_out" ? "opted_out" : "conversation_closed",
+    };
+  }
+  if (campaign.stop_on_appointment_booked && input.leadBooked === true) {
+    return { stop: true, reason: "appointment_booked" };
+  }
+  if (campaign.stop_on_sold && input.leadSold === true) {
+    return { stop: true, reason: "sold" };
+  }
+  // Default TRUE — an unset column on a hand-made row reads as "yes", which is
+  // the safe direction: continuing to drip at somebody who wrote back is the
+  // failure this feature would be blamed for.
+  if (campaign.stop_on_reply !== false) {
+    const since = asDate(input.enrolledAt === undefined ? null : input.enrolledAt);
+    const last = asDate(thread && thread.last_inbound_at !== undefined ? thread.last_inbound_at : null);
+    if (last && (!since || last.getTime() > since.getTime())) {
+      return { stop: true, reason: "replied" };
+    }
+  }
+  return { stop: false, reason: null };
+}
+
+/**
+ * Where an enrollment goes after one of its texts went out.
+ *
+ * Far simpler than the call version, and the missing pieces are the point:
+ * there is no double-dial (a second text a minute later is not a retry, it is a
+ * second text) and no "did they answer" (a delivery receipt is not a
+ * conversation). What happens after a send is: work out the next step.
+ *
+ * Stopping is evaluated BEFORE the send by the tick, not here, because the
+ * facts it reads — the thread, the lead's status — are read in the same breath
+ * as the hold check, and re-reading them after a send would cost a round trip
+ * to learn nothing new.
+ */
+export function vcAdvanceAfterSend(input: {
+  steps: VcStep[];
+  enrollment: VcEnrollmentState;
+  now: Date;
+}): VcAdvance {
+  const pos = intOr(input.enrollment.current_step_position, 0);
+  const resolved = vcResolveNextDue({ steps: input.steps, fromPosition: pos, now: input.now });
+
+  if (!resolved.step || !resolved.dueAt) {
+    return {
+      status: "completed",
+      current_step_position: pos,
+      step_attempts: intOr(input.enrollment.step_attempts, 0),
+      next_action_at: null,
+      stop_reason: null,
+      decision: "completed",
+      skipped: resolved.skipped,
+    };
+  }
+
+  return {
+    status: "active",
+    current_step_position: intOr(resolved.step.position, 0),
+    step_attempts: 0,
+    next_action_at: resolved.dueAt,
+    stop_reason: null,
+    decision: "next_step",
+    skipped: resolved.skipped,
+  };
+}
+
+// ------------------------------------------------------------
+// 13e. What to do when the send gate says no
+// ------------------------------------------------------------
+
+/**
+ * Every way a campaign text can be refused, and what the campaign does about
+ * it. The voice table's exact three behaviours, chosen per code — see
+ * vcHandleGateRejection, whose reasoning holds here unchanged.
+ *
+ * The codes come from runComplianceGate, resolveTextingNumber and
+ * sendMessageCore, which is to say: from the same functions that refuse a
+ * hand-typed message. This engine reimplements none of them and only decides
+ * what a SCHEDULER does with the answer.
+ *
+ *   RESCHEDULE  the refusal has a knowable expiry — quiet hours end, the
+ *               carrier's daily window rolls over at midnight UTC.
+ *   PAUSE       the refusal is about the ACCOUNT: the registration, the sending
+ *               number, the wallet. Every enrollment would get the same answer,
+ *               so stop and put a sentence on the card.
+ *   STOP        the refusal is about this LEAD and will not change on its own:
+ *               they opted out, their consent was revoked, the number is not a
+ *               number.
+ */
+export function vcHandleSmsRejection(input: {
+  code: string;
+  now: Date;
+  /** From vcNextAllowedInstant — when the lead's local window reopens. */
+  quietUntil?: string | null;
+}): VcRejectionPlan {
+  const code = norm(input.code);
+  const plan = (over: Partial<VcRejectionPlan>): VcRejectionPlan => Object.assign({
+    action: "reschedule" as VcRejectionAction,
+    next_action_at: null as string | null,
+    stop_reason: null as string | null,
+    pause_reason: null as string | null,
+    leaveDue: false,
+  }, over);
+
+  switch (code) {
+    // Computed with the SAME predicate the gate uses, for the same reason the
+    // voice path does it: "when does it open" and "is it open" must not become
+    // two answers.
+    case "quiet_hours": {
+      const at = asDate(input.quietUntil === undefined ? null : input.quietUntil) ||
+        new Date(input.now.getTime() + 30 * 60 * 1000);
+      return plan({ action: "reschedule", next_action_at: at.toISOString() });
+    }
+
+    // The sole-proprietor 10DLC throughput ceiling. It is a CARRIER limit
+    // counted per UTC day and it resets at midnight UTC — which
+    // messaging-shared.ts says in as many words in its own refusal — so that is
+    // when to come back, not in five minutes, twelve times an hour, for the
+    // rest of the evening.
+    case "daily_limit_reached": {
+      const at = new Date(input.now.getTime());
+      at.setUTCHours(24, 0, 0, 0);
+      return plan({ action: "reschedule", next_action_at: at.toISOString() });
+    }
+
+    // ---- Account-level. Pause and SAY SO on the card. ---------------------
+    case "a2p_not_approved":
+      return plan({
+        action: "pause_campaign",
+        pause_reason: "Paused: your texting registration is not approved yet. Texts cannot go out until it is.",
+        leaveDue: true,
+      });
+    case "no_sms_capable_number":
+      return plan({
+        action: "pause_campaign",
+        pause_reason: "Paused: none of your numbers is set up for texting yet. Check Settings → Texting.",
+        leaveDue: true,
+      });
+    case "insufficient_balance":
+      return plan({
+        action: "pause_campaign",
+        pause_reason: "Paused: your wallet is empty. Top up to resume.",
+        leaveDue: true,
+      });
+    case "upgrade_required":
+      return plan({
+        action: "pause_campaign",
+        pause_reason: "Paused: text campaigns need the Pro Producer or Team Leader plan.",
+        leaveDue: true,
+      });
+
+    // ---- About this lead, and permanent until something else changes it. ---
+    // `no_consent` here is a REVOCATION discovered at send time: the enrollment
+    // gate already refused anybody without consent, so reaching this means it
+    // went away underneath a live sequence.
+    case "no_consent":
+      return plan({ action: "stop_enrollment", stop_reason: "no_sms_consent" });
+    case "on_dnc_list":
+      return plan({ action: "stop_enrollment", stop_reason: "opted_out" });
+    case "invalid_phone":
+      return plan({ action: "stop_enrollment", stop_reason: "not_callable" });
+    case "missing_lead_id":
+      return plan({ action: "stop_enrollment", stop_reason: "lead_missing" });
+
+    // Ours or Telnyx's. Back off, keep the enrollment.
+    default:
+      return plan({
+        action: "retry_soon",
+        next_action_at: new Date(input.now.getTime() + VC_TRANSIENT_RETRY_SECS * 1000).toISOString(),
+      });
+  }
+}
+
+// ------------------------------------------------------------
+// 13f. What the campaign screen says about a text
+// ------------------------------------------------------------
+
+export interface VcSmsMessageFacts {
+  id?: string | null;
+  direction?: string | null;
+  sent_by?: string | null;
+  body?: string | null;
+  status?: string | null;
+  delivered_at?: string | null;
+  failed_reason?: string | null;
+  created_at?: string | null;
+  lead_id?: string | null;
+}
+
+/**
+ * "Delivered", "Sent", "Did not send" — the last message's fate.
+ *
+ * Delivery is a real distinction on SMS in a way it is not on a call: a text
+ * Telnyx accepted and a carrier silently dropped looks identical from here
+ * unless the receipt is read, and "sent" claiming more than it knows is how an
+ * agent concludes the feature works when it does not.
+ */
+export function vcMessageStatusLabel(msg: VcSmsMessageFacts | null | undefined): string {
+  if (!msg) return "";
+  if (msg.delivered_at) return "Delivered";
+  const st = norm(msg.status);
+  if (st === "failed") return "Did not send";
+  if (st === "sent" || st === "queued") return "Sent";
+  return st ? st.charAt(0).toUpperCase() + st.slice(1) : "";
+}
+
+/** When the last message happened, for the relative stamp beside its result. */
+export function vcMessageAt(msg: VcSmsMessageFacts | null | undefined): string | null {
+  if (!msg) return null;
+  return msg.delivered_at || msg.created_at || null;
+}
+
+/**
+ * One line of "what this campaign has been doing", for a text campaign.
+ *
+ * Built from the sms_messages rows that already exist — this feature adds NO
+ * second event log, exactly as the voice feed adds none beside ai_calls. An
+ * inbound line is included and is the most important line on the screen: it is
+ * the moment a drip turned into a conversation.
+ */
+export function vcSmsFeedEntry(
+  msg: VcSmsMessageFacts | null | undefined,
+  ctx?: { leadName?: string | null; retryAt?: string | null },
+): VcFeedEntry {
+  const m = msg || {};
+  const who = String((ctx && ctx.leadName) || "").trim() || "a lead";
+  const inbound = norm(m.direction) === "inbound";
+  const failed = norm(m.status) === "failed";
+  const preview = String(m.body === null || m.body === undefined ? "" : m.body)
+    .replace(/\s+/g, " ").trim().slice(0, 80);
+
+  let outcome: string;
+  let headline: string;
+  let tone: "good" | "bad" | "neutral";
+  if (inbound) {
+    outcome = "replied";
+    tone = "good";
+    headline = preview ? who + " replied: “" + preview + "”" : who + " replied";
+  } else if (failed) {
+    outcome = "failed";
+    tone = "bad";
+    headline = "Text to " + who + " did not send";
+  } else if (m.delivered_at) {
+    outcome = "delivered";
+    tone = "neutral";
+    headline = preview ? "Delivered to " + who + ": “" + preview + "”" : "Delivered to " + who;
+  } else {
+    outcome = "sent";
+    tone = "neutral";
+    headline = preview ? "Texted " + who + ": “" + preview + "”" : "Texted " + who;
+  }
+
+  return {
+    call_id: String(m.id || ""),
+    lead_id: m.lead_id ? String(m.lead_id) : null,
+    outcome,
+    tone,
+    headline,
+    at: m.delivered_at || m.created_at || null,
+    retry_at: (ctx && ctx.retryAt) || null,
+  };
+}
+
+/** The whole text feed, newest first. Same shape and limit rule as vcFeed. */
+export function vcSmsFeed(
+  messages: Array<Record<string, unknown>> | null | undefined,
+  ctx: {
+    leadName?: (leadId: string | null) => string;
+    retryAt?: (leadId: string | null) => string | null;
+    limit?: number;
+  },
+): VcFeedEntry[] {
+  const rows = (messages || []).slice();
+  rows.sort((a, b) => {
+    const at = asDate(a.created_at as string) || new Date(0);
+    const bt = asDate(b.created_at as string) || new Date(0);
+    return bt.getTime() - at.getTime();
+  });
+  const limit = Math.max(0, intOr(ctx.limit, 50));
+  return rows.slice(0, limit).map((m) => vcSmsFeedEntry(m as VcSmsMessageFacts, {
+    leadName: ctx.leadName ? ctx.leadName((m.lead_id as string) || null) : "",
+    retryAt: ctx.retryAt ? ctx.retryAt((m.lead_id as string) || null) : null,
+  }));
+}
+
+// ------------------------------------------------------------
+// 13g. The daily text meter
+// ------------------------------------------------------------
+
+/**
+ * 🔴 THERE IS NO TEXT CAP THIS ROUND, AND THIS DOES NOT MAKE ONE.
+ *
+ * `ai_daily_call_cap` and the ~300/number/day recommendation exist because a
+ * number that dials too much gets spam-labelled by carriers. Texting has its
+ * own throughput rules and they are ENFORCED ELSEWHERE and differently: a 10DLC
+ * campaign carries a carrier-assigned throughput, and the sole-proprietor
+ * ~1,000/day ceiling is already refused by runComplianceGate with its own
+ * message and its own reset time. Inventing a second, made-up number here and
+ * calling it a recommendation would be advice nobody can support.
+ *
+ * So this counts, and says the count. That is all it does.
+ */
+export interface VcSmsMeterRow {
+  e164: string;
+  sent: number;
+}
+
+export function vcSmsDailyByNumber(
+  messages: Array<{ from_number?: string | null }> | null | undefined,
+): VcSmsMeterRow[] {
+  const by: Record<string, number> = {};
+  for (const m of messages || []) {
+    const e = m && typeof m.from_number === "string" ? m.from_number.trim() : "";
+    if (!e) continue;
+    by[e] = (by[e] || 0) + 1;
+  }
+  return Object.keys(by)
+    .sort((a, b) => (by[b] - by[a]) || (a < b ? -1 : a > b ? 1 : 0))
+    .map((e164) => ({ e164, sent: by[e164] }));
+}
+
+/** "412 texts sent today across 2 numbers." Plain counting, no verdict. */
+export function vcSmsMeterSentence(rows: VcSmsMeterRow[] | null | undefined): string {
+  const list = rows || [];
+  const total = list.reduce((s, r) => s + Math.max(0, intOr(r.sent, 0)), 0);
+  if (!list.length || !total) return "No texts sent today.";
+  const n = list.filter((r) => intOr(r.sent, 0) > 0).length;
+  return total + " text" + (total === 1 ? "" : "s") + " sent today" +
+    (n > 1 ? " across " + n + " numbers." : ".");
 }

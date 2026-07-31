@@ -663,12 +663,32 @@ test("campaign stats roll enrollments into the card's numbers", () => {
     { status: "completed", calls_placed: 6, answers: 2, appointments: 1 },
     { status: "stopped", calls_placed: 1, answers: 0, appointments: 0 },
   ]);
+  // The four call-side numbers are unchanged by the SMS round; `messages` and
+  // `replies` are counted from their own columns and a voice campaign's rows
+  // carry neither, so they roll up as 0 rather than borrowing calls_placed.
   assert.deepEqual(s, {
-    enrolled: 3, active: 1, completed: 1, stopped: 1, calls: 9, answers: 3, appointments: 1,
+    enrolled: 3, active: 1, paused: 0, completed: 1, stopped: 1,
+    calls: 9, answers: 3, appointments: 1, messages: 0, replies: 0,
   });
   assert.deepEqual(vcCampaignStats([]), {
-    enrolled: 0, active: 0, completed: 0, stopped: 0, calls: 0, answers: 0, appointments: 0,
+    enrolled: 0, active: 0, paused: 0, completed: 0, stopped: 0,
+    calls: 0, answers: 0, appointments: 0, messages: 0, replies: 0,
   });
+});
+
+test("campaign stats count texts and replies from their own columns", () => {
+  const s = vcCampaignStats([
+    { status: "active", messages_sent: 3, replies: 1 },
+    { status: "paused", messages_sent: 2, replies: 0 },
+    { status: "stopped", messages_sent: 4, replies: 2 },
+  ]);
+  assert.equal(s.messages, 9);
+  assert.equal(s.replies, 3);
+  assert.equal(s.paused, 1);
+  // A text campaign has placed no calls, and the card must be able to say so
+  // rather than showing a made-up "9 calls placed".
+  assert.equal(s.calls, 0);
+  assert.equal(s.answers, 0);
 });
 
 test("stop reasons have human labels", () => {

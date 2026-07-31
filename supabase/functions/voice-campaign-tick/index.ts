@@ -7,16 +7,24 @@ import {
 } from "../_shared/tcpa.ts";
 import { localDayWindow, resolveAgentTimezone } from "../_shared/ai-call-meter.ts";
 import { vcClaimEnrollment } from "../_shared/voice-campaign-claim.ts";
+import { isConsentTypeAcceptable } from "../_shared/messaging-shared.ts";
+import { sendCampaignSms } from "../_shared/campaign-sms-send.ts";
 import {
   VC_CLAIM_LEASE_SECS,
   VC_MAX_DIALS_PER_TICK,
+  VC_MAX_SENDS_PER_TICK,
   vcAdvanceAfterCall,
+  vcAdvanceAfterSend,
   vcCampaignVars,
+  vcChannel,
   vcDripAllows,
   vcDripWindowStart,
   vcEvaluateEnrollment,
-  vcFirstStep,
+  vcEvaluateSmsHold,
+  vcEvaluateSmsStop,
+  vcFirstActionableStep,
   vcHandleGateRejection,
+  vcHandleSmsRejection,
   vcMatchesTriggerGroups,
   vcNextAllowedInstant,
   vcPickCallerId,
@@ -24,40 +32,67 @@ import {
   vcSlotsFree,
   vcSlotsInUse,
   vcStepAt,
+  vcStepIsActionable,
   vcStepsSorted,
 } from "../_shared/voice-campaign-core.ts";
-import type { VcStep } from "../_shared/voice-campaign-core.ts";
+import type { VcStep, VcSmsThreadFacts } from "../_shared/voice-campaign-core.ts";
 
 // ============================================================
 // voice-campaign-tick — the campaign scheduler. One minute at a time.
 //
-// Read docs/voice-campaigns.md first. The decisions are there; this is the
-// loop that executes them.
+// Read docs/voice-campaigns.md first, then docs/sms-campaigns.md. The
+// decisions are there; this is the loop that executes them.
+//
+// ---- IT RUNS BOTH CHANNELS -------------------------------------------------
+//
+// The function is still called voice-campaign-tick and that is HISTORICAL. A
+// `voice_campaigns` row with `channel = 'sms'` is a texting campaign and this
+// same loop runs it: same trigger sweep, same enrollment model, same claim,
+// same drip arithmetic, same rejection behaviours. ONE tick, because two would
+// be two schedulers racing the same minute over the same table, with two
+// definitions of "due" and two claims that do not know about each other.
+//
+// Where the channels diverge is exactly three places, and they are marked:
+//
+//   * SLOTS are voice-only. Three concurrent calls is a limit on a human's
+//     ability to take a warm transfer; a text occupies nothing. A full voice
+//     queue must not stop a text campaign, and a text must not consume a slot
+//     a call is waiting for.
+//   * The ACTION is `ai-call-start` or `sendCampaignSms`.
+//   * SMS has a HOLD that voice has no equivalent of — see the live-
+//     conversation rule in sms-campaigns.md.
 //
 // ---- The decision order, per agent -----------------------------------------
 //
-//   1. SWEEP    stop conditions that came from state, not from a call (sold,
-//               booked, DNC'd, campaign deactivated); then enroll new matches.
+//   1. SWEEP    stop conditions that came from state, not from a call or a
+//               send (sold, booked, DNC'd, replied, opted out, campaign
+//               deactivated); then enroll new matches.
 //   2. SLOTS    how many of this agent's three campaign lines are free. Zero
-//               free means the agent dials nothing this minute — everything
-//               below is skipped and nothing is claimed.
+//               free means the agent dials nothing this minute — but TEXT
+//               campaigns carry on, because a text occupies no line.
 //   3. DUE      active enrollments with next_action_at <= now, oldest first,
 //               belonging to an active, unpaused campaign.
+//   3b. HOLD    (text only) somebody is mid-conversation with this lead. Defer
+//               to when that window closes; do not advance the step.
 //   4. CLAIM    an atomic update…returning per enrollment. A tick that dies
-//               after this and re-fires a minute later cannot re-dial the same
-//               lead; the claim leases (VC_CLAIM_LEASE_SECS) so a genuinely
-//               dead tick does not strand anyone.
-//   5. DRIP     the step's own throttle, counted over a rolling window.
-//   6. DIAL     ai-call-start, with an explicitly rotated caller ID.
+//               after this and re-fires a minute later cannot re-contact the
+//               same lead; the claim leases (VC_CLAIM_LEASE_SECS) so a
+//               genuinely dead tick does not strand anyone.
+//   5. DRIP     the step's own throttle, counted over a rolling window —
+//               ai_calls for a call, sms_messages for a text, same arithmetic.
+//   6. ACT      ai-call-start with a rotated caller ID, or sendCampaignSms.
 //   7. REJECT   whatever the gate said, handled by code — reschedule, pause the
-//               campaign, or stop the enrollment. See vcHandleGateRejection.
+//               campaign, or stop the enrollment. See vcHandleGateRejection
+//               and vcHandleSmsRejection, which are the same three behaviours
+//               over two different sets of refusal codes.
 //
 // ---- What this function does NOT do ----------------------------------------
 //
 // It does not check consent, DNC, suppression, quiet hours, the daily cap or
-// the wallet floor. ai-call-start does, on every single call, and there is no
-// second copy of any of them here. What this function owns is what to do when
-// the answer is no.
+// the wallet floor. ai-call-start does, on every single call, and
+// _shared/campaign-sms-send.ts does (through runComplianceGate) on every
+// single text. There is no second copy of any of them here. What this function
+// owns is what to do when the answer is no.
 //
 // It also does not decide what happens AFTER a call — ai-call-webhook's
 // finalize block calls recordCampaignCallResult() for that, because the
@@ -123,10 +158,11 @@ Deno.serve(async (req) => {
   // ------------------------------------------------------------
   let campQ = sb.from("voice_campaigns")
     .select(
-      "id, agent_id, name, active, dry_run, sort_order, campaign_goal, trigger_groups, " +
+      "id, agent_id, name, active, dry_run, sort_order, campaign_goal, trigger_groups, channel, " +
       "auto_enroll_new_leads, trigger_on_missed_appointment, trigger_on_sold, " +
       "trigger_on_appointment_booked, stop_on_appointment_booked, " +
-      "stop_on_sold, stop_on_answered, stop_answer_talk_secs, paused_at, pause_reason",
+      "stop_on_sold, stop_on_answered, stop_answer_talk_secs, " +
+      "stop_on_reply, pause_on_active_conversation, seed_key, paused_at, pause_reason",
     )
     .eq("active", true)
     .is("paused_at", null)
@@ -163,6 +199,8 @@ Deno.serve(async (req) => {
     enrolled: 0,
     stopped: 0,
     dialed: 0,
+    texted: 0,
+    held: 0,
     dry_run: 0,
     deferred: 0,
     paused: 0,
@@ -190,7 +228,7 @@ Deno.serve(async (req) => {
     const campaignIds = agentCampaigns.map((c) => c.id);
 
     const [{ data: agent }, { data: numbers }, { data: inflight }] = await Promise.all([
-      sb.from("agents").select("id, timezone, ai_dialer_enabled").eq("id", agentId).maybeSingle(),
+      sb.from("agents").select("id, timezone, ai_dialer_enabled, display_name, agency_name, signalwire_caller_id").eq("id", agentId).maybeSingle(),
       sb.from("phone_numbers").select("e164, ai_first_used_at")
         .eq("agent_id", agentId).eq("status", "active"),
       // Slot count: this agent's CAMPAIGN calls that are still in the air.
@@ -212,32 +250,42 @@ Deno.serve(async (req) => {
       await sweepEnrollments(agentId, campaign, tz);
     }
 
-    // ---------- 2. Slots ----------------------------------------------------
+    // ---------- 2. Slots — VOICE ONLY ---------------------------------------
+    //
+    // Three concurrent campaign calls is a bound on a human being's ability to
+    // take a warm transfer. A text occupies nothing and rings nobody, so it
+    // neither consumes a slot nor waits for one. Returning early here — which
+    // is what this did before there were two channels — would have meant three
+    // calls in the air silently stopping every text campaign on the account.
+    const hasSms   = agentCampaigns.some((c) => vcChannel(c) === "sms");
+    const hasVoice = agentCampaigns.some((c) => vcChannel(c) !== "sms");
     const inUse = vcSlotsInUse(inflight || [], now);
     let free = vcSlotsFree(inUse);
-    say({ agent_id: agentId, event: "slots", detail: { in_use: inUse, free } });
+    say({ agent_id: agentId, event: "slots", detail: { in_use: inUse, free, has_sms: hasSms } });
     if (free <= 0) {
-      totals.slot_blocked++;
-      return;
+      if (hasVoice) totals.slot_blocked++;
+      // Only give up entirely when there is nothing a text campaign could do
+      // either.
+      if (!hasSms) return;
     }
 
     // ---------- 3. Due ------------------------------------------------------
     const staleIso = new Date(now.getTime() - VC_CLAIM_LEASE_SECS * 1000).toISOString();
     const { data: due } = await sb.from("voice_campaign_enrollments")
-      .select("id, campaign_id, agent_id, lead_id, status, current_step_position, step_attempts, next_action_at, claimed_at, appointment_id")
+      .select("id, campaign_id, agent_id, lead_id, status, channel, current_step_position, step_attempts, next_action_at, claimed_at, appointment_id, enrolled_at, messages_sent, conversation_id")
       .eq("agent_id", agentId)
       .eq("status", "active")
       .in("campaign_id", campaignIds)
       .lte("next_action_at", nowIso)
       .or(`claimed_at.is.null,claimed_at.lt.${staleIso}`)
       .order("next_action_at", { ascending: true })
-      .limit(VC_MAX_DIALS_PER_TICK * 2);
+      .limit(VC_MAX_DIALS_PER_TICK * 2 + VC_MAX_SENDS_PER_TICK);
 
     if (!due || !due.length) return;
 
     // Steps, once, for every campaign this agent is running.
     const { data: allSteps } = await sb.from("voice_campaign_steps")
-      .select("id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes")
+      .select("id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes, body, media_url")
       .in("campaign_id", campaignIds)
       .order("position", { ascending: true });
     const stepsByCampaign = new Map<string, VcStep[]>();
@@ -246,6 +294,13 @@ Deno.serve(async (req) => {
       list.push(s as VcStep);
       stepsByCampaign.set(s.campaign_id, list);
     }
+
+    // The conversation threads behind the TEXT enrollments in this batch, in
+    // one query. Both the live-conversation hold and the stop-on-reply check
+    // read them, and reading them per enrollment would be one round trip per
+    // lead to answer a question the same query already answered.
+    const smsDue = (due || []).filter((e) => e.channel === "sms");
+    const threads = smsDue.length ? await loadThreads(agentId, smsDue) : new Map();
 
     // Per-number usage today, for the rotation. ONE query for the agent's whole
     // day, not one per call.
@@ -276,17 +331,26 @@ Deno.serve(async (req) => {
     // Campaigns paused mid-loop must stop being dialed within the same tick.
     const pausedThisTick = new Set<string>();
     let dialedThisAgent = 0;
+    let sentThisAgent = 0;
 
     for (const enr of due) {
-      if (free <= 0 || dialedThisAgent >= VC_MAX_DIALS_PER_TICK) break;
+      // Two budgets, because the two channels are bounded by different things
+      // — see VC_MAX_SENDS_PER_TICK. A tick that has used up its dials can
+      // still finish its texts, and vice versa.
+      if (dialedThisAgent >= VC_MAX_DIALS_PER_TICK && sentThisAgent >= VC_MAX_SENDS_PER_TICK) break;
       if (pausedThisTick.has(enr.campaign_id)) continue;
 
       const campaign = agentCampaigns.find((c) => c.id === enr.campaign_id);
       if (!campaign) continue;
 
+      const channel = vcChannel(campaign);
       const steps = vcStepsSorted(stepsByCampaign.get(campaign.id) || []);
       const step  = vcStepAt(steps, enr.current_step_position);
-      if (!step) {
+      // A `wait` step is never a current position — vcResolveNextDue folds it
+      // into the next real step — so landing on one means the Steps tab was
+      // re-saved underneath this enrollment and the positions renumbered.
+      // Treated exactly like a deleted step, below.
+      if (!step || !vcStepIsActionable(step)) {
         // The step was deleted underneath a live enrollment. Completing is the
         // honest answer: there is nothing left to do to this lead, and leaving
         // the row active would re-ask this question every minute for ever.
@@ -294,6 +358,23 @@ Deno.serve(async (req) => {
         say({ agent_id: agentId, campaign_id: campaign.id, enrollment_id: enr.id, event: "step_missing_completed" });
         continue;
       }
+
+      // ---------- The text branch -------------------------------------------
+      if (channel === "sms") {
+        if (sentThisAgent >= VC_MAX_SENDS_PER_TICK) continue;
+        const acted = await runSmsEnrollment({
+          agentId, campaign, enr, step, steps,
+          thread: threads.get(String(enr.id)) || null,
+          agent: agent as Record<string, unknown> | null,
+          pausedThisTick, staleIso,
+        });
+        if (acted) sentThisAgent++;
+        continue;
+      }
+
+      // ---------- The call branch -------------------------------------------
+      // Slots gate here and only here.
+      if (free <= 0 || dialedThisAgent >= VC_MAX_DIALS_PER_TICK) continue;
 
       // ---------- 5. Drip ---------------------------------------------------
       const windowStart = vcDripWindowStart(now, step.drip_rate);
@@ -491,12 +572,13 @@ Deno.serve(async (req) => {
   // ============================================================
   async function sweepStops(agentId: string, campaign: Record<string, unknown>) {
     const { data: active } = await sb.from("voice_campaign_enrollments")
-      .select("id, lead_id, appointment_id")
+      .select("id, lead_id, appointment_id, enrolled_at")
       .eq("campaign_id", campaign.id as string)
       .eq("status", "active")
       .limit(1000);
     if (!active || !active.length) return;
 
+    const isSms = vcChannel(campaign as Record<string, unknown>) === "sms";
     const leadIds = active.map((e) => e.lead_id);
     const [{ data: leads }, { data: appts }] = await Promise.all([
       sb.from("leads").select("id, data, dnc, tcpa_consent").in("id", leadIds),
@@ -521,11 +603,54 @@ Deno.serve(async (req) => {
     const leadById = new Map((leads || []).map((l) => [l.id, l]));
     const booked   = new Set((appts || []).map((a) => a.lead_id));
 
+    // ---- The text-only facts -------------------------------------------------
+    //
+    // 🔴 STOP-ON-REPLY IS SWEPT, NOT ONLY CHECKED AT SEND TIME. A lead who
+    // writes back at 2pm must see the campaign end at 2pm, not whenever their
+    // next step happened to fall due — which could be three days later, and
+    // which would leave the campaign screen saying "next text Thursday" about
+    // somebody the campaign has already finished with. The send-time re-check
+    // below is a second line of defence, not the mechanism.
+    const threadByLead = new Map<string, VcSmsThreadFacts>();
+    const dncByLead = new Set<string>();
+    const dncPhones = new Set<string>();
+    if (isSms) {
+      const phones: string[] = [];
+      const phoneByLead = new Map<string, string>();
+      for (const l of leads || []) {
+        const p = toE164(String(((l.data || {}) as Record<string, unknown>).phone || ""));
+        if (!p) continue;
+        phones.push(p);
+        phoneByLead.set(l.id, p);
+      }
+      if (phones.length) {
+        const uniq = [...new Set(phones)];
+        const [{ data: convs }, { data: dncRows }] = await Promise.all([
+          sb.from("sms_conversations")
+            .select("contact_phone, status, closed_reason, ai_muted, ai_muted_reason, last_inbound_at")
+            .eq("agent_id", agentId).in("contact_phone", uniq),
+          sb.from("dnc_list").select("agent_id, contact_phone").in("contact_phone", uniq),
+        ]);
+        const convByPhone = new Map((convs || []).map((c) => [c.contact_phone, c as VcSmsThreadFacts]));
+        for (const [leadId, phone] of phoneByLead) {
+          const c = convByPhone.get(phone);
+          if (c) threadByLead.set(leadId, c);
+        }
+        // Agent-scoped OR global, the same predicate runComplianceGate uses.
+        for (const r of dncRows || []) {
+          if (r.agent_id === null || r.agent_id === agentId) dncPhones.add(r.contact_phone);
+        }
+        for (const [leadId, phone] of phoneByLead) {
+          if (dncPhones.has(phone)) dncByLead.add(leadId);
+        }
+      }
+    }
+
     for (const enr of active) {
       const lead = leadById.get(enr.lead_id);
       let reason: string | null = null;
 
-      // The lead was deleted. Nothing left to call.
+      // The lead was deleted. Nothing left to reach.
       if (!lead) reason = "lead_missing";
       // ALWAYS, whatever the campaign's flags say.
       else if (lead.dnc === true) reason = "dnc";
@@ -538,6 +663,21 @@ Deno.serve(async (req) => {
         } else if (appt.starts_at && new Date(appt.starts_at).getTime() <= now.getTime()) {
           reason = "appointment_passed";
         }
+      }
+
+      // The text-only reasons, evaluated by the SAME function the send-time
+      // re-check calls — an opt-out, a closed thread, or a reply.
+      if (!reason && isSms && lead) {
+        const verdict = vcEvaluateSmsStop({
+          campaign,
+          thread: threadByLead.get(enr.lead_id) || null,
+          enrolledAt: enr.enrolled_at,
+          leadDnc: lead.dnc === true,
+          onDncList: dncByLead.has(enr.lead_id),
+          leadSold: String((lead.data as Record<string, unknown> | null)?.status || "").toLowerCase() === "sold",
+          leadBooked: booked.has(enr.lead_id),
+        });
+        if (verdict.stop) reason = verdict.reason;
       }
 
       if (reason) {
@@ -558,9 +698,13 @@ Deno.serve(async (req) => {
     const wantsBooked  = campaign.trigger_on_appointment_booked === true;
     if (!wantsAuto && !wantsMissed && !wantsSold && !wantsBooked) return;
 
+    const channel = vcChannel(campaign as Record<string, unknown>);
     const steps = await stepsFor(campaign.id as string);
-    const first = vcFirstStep(steps);
-    if (!first) return; // a campaign with no steps enrolls nobody
+    // vcFirstActionableStep, not vcFirstStep: a text campaign made of nothing
+    // but `wait` steps HAS steps and would pass a count check, then enrol
+    // people and message none of them for ever while showing green.
+    const first = vcFirstActionableStep(steps);
+    if (!first) return; // a campaign with nothing to do enrolls nobody
 
     // Leads this campaign has already seen (any status) — enrolling somebody a
     // second time after they completed is a decision, not a side effect.
@@ -571,10 +715,14 @@ Deno.serve(async (req) => {
       .eq("campaign_id", campaign.id as string).limit(20000);
     const seenByLead = new Map((seen || []).map((r) => [r.lead_id, r]));
 
-    // Leads active in ANY campaign — the one-active-campaign rule, checked
-    // before we write rather than discovered by a unique-violation.
+    // Leads active in another campaign OF THIS CHANNEL — the one-active rule,
+    // checked before we write rather than discovered by a unique-violation.
+    // Scoped by channel because that is what the partial unique index is now
+    // keyed on: a lead in a calling campaign is perfectly eligible for a
+    // texting one, and vice versa.
     const { data: activeAnywhere } = await sb.from("voice_campaign_enrollments")
-      .select("lead_id").eq("agent_id", agentId).eq("status", "active").limit(20000);
+      .select("lead_id").eq("agent_id", agentId).eq("status", "active")
+      .eq("channel", channel).limit(20000);
     const activeIds = new Set((activeAnywhere || []).map((r) => r.lead_id));
 
     const { data: book } = await sb.from("leads")
@@ -613,12 +761,38 @@ Deno.serve(async (req) => {
       }
     }
 
-    // The suppression list, once. It is small and global-or-mine.
-    const { data: suppRows } = await sb.from("suppression_list")
-      .select("phone_e164")
-      .or(`agent_id.eq.${agentId},agent_id.is.null`)
-      .limit(20000);
-    const suppressed = new Set((suppRows || []).map((r) => r.phone_e164));
+    // THE SUPPRESSION LIST IS PER CHANNEL, and mixing the two up would be the
+    // worst available bug in this function. `suppression_list` is the voice
+    // AI's; `dnc_list` is what a texting STOP writes and what
+    // runComplianceGate reads. Reading the voice list for a text campaign
+    // would enrol people who have already replied STOP — they would then be
+    // refused one at a time by the send gate, but the campaign screen would
+    // have spent the intervening days claiming it was about to text them.
+    const suppressed = new Set<string>();
+    if (channel === "sms") {
+      const { data: rows } = await sb.from("dnc_list")
+        .select("agent_id, contact_phone")
+        .not("contact_phone", "is", null)
+        .limit(20000);
+      for (const r of rows || []) {
+        if (r.agent_id === null || r.agent_id === agentId) suppressed.add(r.contact_phone);
+      }
+    } else {
+      const { data: suppRows } = await sb.from("suppression_list")
+        .select("phone_e164")
+        .or(`agent_id.eq.${agentId},agent_id.is.null`)
+        .limit(20000);
+      for (const r of suppRows || []) suppressed.add(r.phone_e164);
+    }
+
+    // Recorded TEXT consent, for a text campaign only.
+    //
+    // A DIFFERENT FACT from `leads.tcpa_consent`, which is what a voice
+    // campaign reads. Calling consent is not texting consent — this app keeps
+    // them apart on the leads screen, in the composer and in the consent tool,
+    // and a campaign that collapsed them would message people who agreed only
+    // to a phone call.
+    const smsConsent = channel === "sms" ? await loadSmsConsent(agentId) : null;
 
     let enrolled = 0;
     const skipped: Record<string, number> = {};
@@ -690,8 +864,10 @@ Deno.serve(async (req) => {
       const phone = toE164(String(d.phone || ""));
       const verdict = vcEvaluateEnrollment({
         lead,
+        channel,
         hasPhone: !!phone,
         suppressed: !!phone && suppressed.has(phone),
+        hasSmsConsent: !!phone && !!smsConsent && smsConsent.has(phone),
         activeElsewhere: activeIds.has(lead.id),
       });
       if (!verdict.ok) {
@@ -758,11 +934,365 @@ Deno.serve(async (req) => {
   }
 
   // ============================================================
+  // One text enrollment
+  //
+  // Returns true when it did something that counts against the tick's send
+  // budget — a send, real or dry. A hold, a stop and a throttle all return
+  // false, because none of them consumed the thing the budget is bounding.
+  //
+  // 🔴 THIS FUNCTION SENDS NOTHING ITSELF. It decides WHEN, and hands the
+  // message to sendCampaignSms(), which is the only place a campaign text goes
+  // out and the only place consent, DNC, suppression and quiet hours are
+  // checked. There is no copy of any of them here and a test greps for that.
+  // ============================================================
+  async function runSmsEnrollment(ctx: {
+    agentId: string;
+    campaign: Record<string, unknown>;
+    enr: Record<string, unknown>;
+    step: VcStep;
+    steps: VcStep[];
+    thread: VcSmsThreadFacts | null;
+    agent: Record<string, unknown> | null;
+    pausedThisTick: Set<string>;
+    staleIso: string;
+  }): Promise<boolean> {
+    const { agentId, campaign, enr, step, steps, thread } = ctx;
+    const enrId = String(enr.id);
+    const campaignId = String(campaign.id);
+
+    // ---- The lead, and whether they may still be texted ------------------
+    const { data: lead } = await sb.from("leads")
+      .select("id, data, tcpa_consent, dnc")
+      .eq("id", enr.lead_id as string).maybeSingle();
+    if (!lead) {
+      await finishEnrollment(enrId, "stopped", "lead_missing");
+      totals.stopped++;
+      return false;
+    }
+    const phone = toE164(String(((lead.data || {}) as Record<string, unknown>).phone || ""));
+
+    // ---- STOP, re-checked ------------------------------------------------
+    //
+    // The sweep at the top of this tick already ran this, from the same
+    // function. Running it again costs one map lookup and covers the window in
+    // between — during which, on a busy account, a lead can genuinely have
+    // replied. A text that goes out into a conversation that started ninety
+    // seconds ago is exactly the failure this campaign type is judged on.
+    const stop = vcEvaluateSmsStop({
+      campaign,
+      thread,
+      enrolledAt: enr.enrolled_at as string,
+      leadDnc: lead.dnc === true,
+      leadSold: String(((lead.data || {}) as Record<string, unknown>).status || "").toLowerCase() === "sold",
+    });
+    if (stop.stop) {
+      await finishEnrollment(enrId, "stopped", stop.reason);
+      totals.stopped++;
+      say({
+        agent_id: agentId, campaign_id: campaignId, enrollment_id: enrId,
+        event: "sms_stopped", detail: { reason: stop.reason },
+      });
+      return false;
+    }
+
+    // ---- HOLD ------------------------------------------------------------
+    //
+    // NOT a stop and NOT a pause: the enrollment stays active on this same
+    // step and the due time moves to when the conversation window closes. The
+    // reason is stored so the screen can say "They're mid-conversation —
+    // holding" instead of a bare future timestamp, which reads as broken.
+    const hold = vcEvaluateSmsHold({ campaign, thread, now });
+    if (hold.hold) {
+      totals.held++;
+      await sb.from("voice_campaign_enrollments").update({
+        next_action_at: hold.until,
+        claimed_at: null,
+        last_gate_code: hold.reason,
+        updated_at: nowIso,
+      }).eq("id", enrId);
+      say({
+        agent_id: agentId, campaign_id: campaignId, enrollment_id: enrId,
+        event: "sms_held", detail: { reason: hold.reason, until: hold.until },
+      });
+      return false;
+    }
+
+    // ---- DRIP ------------------------------------------------------------
+    //
+    // The identical arithmetic the call path uses (vcDripAllows over a rolling
+    // window); only the table counted differs — sms_messages instead of
+    // ai_calls. Being throttled is NOT a rescheduling: the enrollment stays
+    // due and the next tick tries again, so a 20-per-hour step drains across
+    // the hour by itself.
+    const windowStart = vcDripWindowStart(now, step.drip_rate);
+    if (windowStart) {
+      const { count } = await sb.from("sms_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", campaignId)
+        .eq("campaign_step", step.position)
+        .gte("created_at", windowStart.toISOString());
+      const verdict = vcDripAllows({ drip: step.drip_rate, placedInWindow: count || 0 });
+      if (!verdict.allowed) {
+        totals.drip_blocked++;
+        say({
+          agent_id: agentId, campaign_id: campaignId, enrollment_id: enrId,
+          event: "drip_throttled", detail: { placed_in_window: count || 0, drip: step.drip_rate },
+        });
+        return false;
+      }
+    }
+
+    // ---- CLAIM -----------------------------------------------------------
+    // The same conditional UPDATE … RETURNING the call path uses. Postgres
+    // re-checks the WHERE after the row lock, so of two concurrent ticks
+    // exactly one sends.
+    const claimed = await vcClaimEnrollment(sb, enrId, nowIso, ctx.staleIso);
+    if (!claimed) {
+      say({ agent_id: agentId, enrollment_id: enrId, event: "claim_lost" });
+      return false;
+    }
+
+    // ---- SEND ------------------------------------------------------------
+    const isDry = campaign.dry_run === true;
+    const agent = ctx.agent || {};
+    let result;
+    try {
+      result = await sendCampaignSms(sb, {
+        agentId,
+        toRaw: phone,
+        body: String(step.body || ""),
+        mediaUrl: step.media_url || null,
+        lead,
+        leadId: lead.id,
+        agentName: (agent.display_name as string) || null,
+        agencyName: (agent.agency_name as string) || null,
+        preferredFrom: (agent.signalwire_caller_id as string) || null,
+        campaignId,
+        campaignStep: step.position,
+        enrollmentId: enrId,
+        // The twelve default campaigns' seed_keys ARE the twelve SMS AI
+        // campaign types, so a lead this campaign opens a conversation with
+        // gets answered in the matching voice — with no mapping table and no
+        // third place for those two lists to drift apart.
+        campaignType: (campaign.seed_key as string) || null,
+        dryRun: isDry,
+      });
+    } catch (e) {
+      result = { ok: false as const, code: "send_threw", detail: (e as Error)?.message };
+    }
+
+    if (result.ok) {
+      const adv = vcAdvanceAfterSend({
+        steps,
+        enrollment: {
+          status: "active",
+          current_step_position: claimed.current_step_position,
+          step_attempts: (claimed.step_attempts || 0) + 1,
+          next_action_at: null,
+        },
+        now,
+      });
+
+      const patch: Record<string, unknown> = {
+        status: adv.status,
+        current_step_position: adv.current_step_position,
+        step_attempts: adv.step_attempts,
+        next_action_at: adv.next_action_at,
+        stop_reason: adv.stop_reason,
+        claimed_at: null,
+        // The text has gone, so whatever the last refusal was, its wait is
+        // over. A stale reason outliving its wait is how a screen ends up
+        // explaining a hold that is not happening.
+        last_gate_code: null,
+        updated_at: nowIso,
+      };
+      // A dry run proves claim → stop → hold → drip → gate → schedule without
+      // sending, so it must not claim a message went out. The counters are
+      // LEFT ALONE rather than written back unchanged: `last_message_at` is
+      // not in the due select, so writing it here would set it to null and
+      // erase the stamp of a real send this enrollment made yesterday.
+      if (!isDry) {
+        patch.messages_sent = ((enr.messages_sent as number) || 0) + 1;
+        patch.last_message_at = nowIso;
+        if (result.conversationId) patch.conversation_id = result.conversationId;
+      }
+      if (adv.status !== "active") patch.completed_at = nowIso;
+      await sb.from("voice_campaign_enrollments").update(patch).eq("id", enrId);
+
+      if (isDry) {
+        totals.dry_run++;
+        say({
+          agent_id: agentId, campaign_id: campaignId, enrollment_id: enrId,
+          lead_id: String(lead.id), event: "dry_run_would_text",
+          detail: {
+            to: phone, from: result.fromNumber, step: step.position,
+            channel: result.channel, segments: result.segments,
+            rendered: result.rendered,
+            gates_passed: result.gatesPassed,
+            advance: adv,
+          },
+        });
+      } else {
+        totals.texted++;
+        say({
+          agent_id: agentId, campaign_id: campaignId, enrollment_id: enrId,
+          lead_id: String(lead.id), event: "texted",
+          detail: {
+            message_id: result.messageId, from: result.fromNumber,
+            step: step.position, channel: result.channel, segments: result.segments,
+          },
+        });
+      }
+      return true;
+    }
+
+    // ---- The gate said no ------------------------------------------------
+    let quietUntil: string | null = null;
+    if (result.code === "quiet_hours") quietUntil = await computeQuietUntil(String(enr.lead_id));
+    const plan = vcHandleSmsRejection({ code: result.code, now, quietUntil });
+
+    say({
+      agent_id: agentId, campaign_id: campaignId, enrollment_id: enrId,
+      lead_id: String(lead.id), event: "sms_gate_rejected",
+      detail: { code: result.code, detail: result.detail, plan },
+    });
+
+    if (plan.action === "pause_campaign") {
+      totals.paused++;
+      ctx.pausedThisTick.add(campaignId);
+      await sb.from("voice_campaigns").update({
+        paused_at: nowIso, pause_reason: plan.pause_reason, updated_at: nowIso,
+      }).eq("id", campaignId);
+      // Left due and unclaimed: the moment the agent fixes it and presses
+      // Resume, this lead is first in the queue.
+      await sb.from("voice_campaign_enrollments")
+        .update({ claimed_at: null, updated_at: nowIso }).eq("id", enrId);
+      return false;
+    }
+
+    if (plan.action === "stop_enrollment") {
+      totals.stopped++;
+      await finishEnrollment(enrId, "stopped", plan.stop_reason);
+      return false;
+    }
+
+    totals.deferred++;
+    await sb.from("voice_campaign_enrollments").update({
+      next_action_at: plan.next_action_at,
+      claimed_at: null,
+      last_gate_code:
+        (result.code === "quiet_hours" || result.code === "daily_limit_reached" ||
+         result.code === "a2p_not_approved")
+          ? result.code
+          : "retry_soon",
+      updated_at: nowIso,
+    }).eq("id", enrId);
+    return false;
+  }
+
+  // ============================================================
   // Helpers
   // ============================================================
+
+  /**
+   * The conversation thread behind each text enrollment in this batch.
+   *
+   * Keyed by ENROLLMENT id rather than phone, so the caller does not have to
+   * re-derive a lead's phone number to look one up. `conversation_id` is set
+   * on an enrollment's first send, so a lead who has never been texted has no
+   * thread and no hold — which is correct: there is no conversation to talk
+   * over.
+   */
+  async function loadThreads(
+    agentId: string,
+    rows: Array<Record<string, unknown>>,
+  ): Promise<Map<string, VcSmsThreadFacts>> {
+    const out = new Map<string, VcSmsThreadFacts>();
+    const convIds = [...new Set(rows.map((r) => r.conversation_id).filter(Boolean))] as string[];
+    const byConv = new Map<string, VcSmsThreadFacts>();
+
+    if (convIds.length) {
+      const { data } = await sb.from("sms_conversations")
+        .select("id, status, closed_reason, ai_muted, ai_muted_reason, last_inbound_at, last_outbound_at")
+        .eq("agent_id", agentId).in("id", convIds);
+      for (const c of data || []) byConv.set(c.id, c as VcSmsThreadFacts);
+    }
+
+    // A lead may have a thread this enrollment has never written to — they
+    // texted in first, or an earlier campaign opened it. Resolve those by
+    // phone so the hold is honoured on the very first step, which is the step
+    // most likely to land on somebody already mid-conversation.
+    const needPhone = rows.filter((r) => !r.conversation_id);
+    if (needPhone.length) {
+      const { data: leads } = await sb.from("leads")
+        .select("id, data").in("id", needPhone.map((r) => r.lead_id as string));
+      const phoneByLead = new Map<string, string>();
+      for (const l of leads || []) {
+        const p = toE164(String(((l.data || {}) as Record<string, unknown>).phone || ""));
+        if (p) phoneByLead.set(l.id, p);
+      }
+      const phones = [...new Set(phoneByLead.values())];
+      const byPhone = new Map<string, VcSmsThreadFacts>();
+      if (phones.length) {
+        const { data } = await sb.from("sms_conversations")
+          .select("contact_phone, status, closed_reason, ai_muted, ai_muted_reason, last_inbound_at, last_outbound_at")
+          .eq("agent_id", agentId).in("contact_phone", phones);
+        for (const c of data || []) byPhone.set(c.contact_phone, c as VcSmsThreadFacts);
+      }
+      for (const r of needPhone) {
+        const p = phoneByLead.get(String(r.lead_id));
+        const t = p ? byPhone.get(p) : null;
+        if (t) out.set(String(r.id), t);
+      }
+    }
+
+    for (const r of rows) {
+      if (out.has(String(r.id))) continue;
+      const t = r.conversation_id ? byConv.get(String(r.conversation_id)) : null;
+      if (t) out.set(String(r.id), t);
+    }
+    return out;
+  }
+
+  /**
+   * Every phone number of this agent's with acceptable TEXT consent on file.
+   *
+   * The same rule runComplianceGate enforces, read the same way: the MOST
+   * RECENT record per number regardless of `revoked_at`, and only then checked
+   * — filtering revoked rows out first would let a stale older grant win over
+   * a newer revocation, which is the resurrection bug that ordering exists to
+   * avoid. `express` counts only when the operator has relaxed the written
+   * requirement, exactly as the gate decides it.
+   *
+   * This is a PRE-FILTER for the enrollment sweep, not an enforcement point.
+   * The gate still runs on every send.
+   */
+  async function loadSmsConsent(agentId: string): Promise<Set<string>> {
+    const [{ data: rows }, { data: cfg }] = await Promise.all([
+      sb.from("consent_records")
+        .select("contact_phone, consent_type, revoked_at, captured_at")
+        .eq("agent_id", agentId)
+        .not("contact_phone", "is", null)
+        .order("captured_at", { ascending: false })
+        .limit(20000),
+      sb.from("billing_config").select("sms_require_written_consent").eq("id", 1).maybeSingle(),
+    ]);
+    const requireWritten = cfg?.sms_require_written_consent ?? true;
+    const seen = new Set<string>();
+    const ok = new Set<string>();
+    for (const r of rows || []) {
+      const p = r.contact_phone as string;
+      if (!p || seen.has(p)) continue;
+      seen.add(p);
+      if (r.revoked_at) continue;
+      if (isConsentTypeAcceptable(String(r.consent_type || ""), requireWritten)) ok.add(p);
+    }
+    return ok;
+  }
+
   async function stepsFor(campaignId: string): Promise<VcStep[]> {
     const { data } = await sb.from("voice_campaign_steps")
-      .select("id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes")
+      .select("id, campaign_id, position, step_type, wait_value, wait_unit, drip_rate, anchor, offset_minutes, body, media_url")
       .eq("campaign_id", campaignId)
       .order("position", { ascending: true });
     return vcStepsSorted((data || []) as VcStep[]);

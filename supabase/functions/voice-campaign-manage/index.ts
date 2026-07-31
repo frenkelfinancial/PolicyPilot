@@ -1,12 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { toE164 } from "../_shared/phone.ts";
+import { isConsentTypeAcceptable } from "../_shared/messaging-shared.ts";
+import { resolveTestDestination, sendCampaignSms } from "../_shared/campaign-sms-send.ts";
 import {
+  vcChannel,
   vcEnrollmentActionSentence,
   vcEnrollPlanSentence,
   vcEnrollSummary,
   vcEvaluateEnrollment,
-  vcFirstStep,
+  vcFirstActionableStep,
   vcMatchesTriggerGroups,
   vcPlanEnrollmentAction,
   vcPlanManualEnrollment,
@@ -105,9 +108,102 @@ Deno.serve(async (req) => {
     action?: unknown; campaign_id?: unknown; enrollment_id?: unknown; lead_id?: unknown;
     lead_ids?: unknown; on_conflict?: unknown;
     op?: unknown; enrollment_ids?: unknown; preview?: unknown;
+    step_position?: unknown; to?: unknown; body?: unknown; media_url?: unknown;
   };
   try { body = await req.json(); } catch { return json({ error: "bad_request" }, 400); }
   const action = typeof body.action === "string" ? body.action : "";
+
+  // ------------------------------------------------------------
+  // send_test — fire one rendered step at the agent's own phone.
+  //
+  // 🔴 THE DESTINATION IS CHECKED AGAINST THE AGENT'S OWN NUMBERS, AND THAT
+  // CHECK IS THE ENTIRE SAFETY PROPERTY. Without it "test this step" would be
+  // an uncapped way to text any number on earth, with no consent record, from
+  // an approved 10DLC number — precisely what the rest of this feature exists
+  // to make impossible. resolveTestDestination() owns the rule.
+  //
+  // Everything else about the send is REAL: the same renderer the drip uses,
+  // the same resolveTextingNumber, the same sendMessageCore, the same wallet
+  // hold, the same Telnyx call. A test that took a shortcut would prove
+  // nothing about the thing it is testing. What it skips is runComplianceGate,
+  // because the recipient is our customer rather than a consumer — the same
+  // treatment the opt-out confirmation and the hot-lead alert already get, and
+  // manufacturing a consent_records row for an agent's own cell would put a
+  // false attestation in the table carrier review reads.
+  //
+  // It writes no conversation thread. See campaign-sms-send.ts.
+  // ------------------------------------------------------------
+  if (action === "send_test") {
+    const campaignId = typeof body.campaign_id === "string" ? body.campaign_id : "";
+    if (!campaignId) return json({ error: "missing_campaign_id" }, 400);
+
+    const { data: campaign } = await sb.from("voice_campaigns")
+      .select("id, name, channel, seed_key")
+      .eq("id", campaignId).eq("agent_id", user.id).maybeSingle();
+    if (!campaign) return json({ error: "not_found" }, 404);
+    if (vcChannel(campaign) !== "sms") {
+      return json({ error: "not_a_text_campaign", detail: "Only a text campaign has a message to test." }, 422);
+    }
+
+    // The body may come from the editor's UNSAVED draft — testing what is on
+    // screen is the whole point, and demanding a save first would make the
+    // button useless for the edit you are actually trying to check.
+    let text = typeof body.body === "string" ? body.body : "";
+    let mediaUrl = typeof body.media_url === "string" ? body.media_url : "";
+    if (!text && typeof body.step_position === "number") {
+      const { data: step } = await sb.from("voice_campaign_steps")
+        .select("body, media_url")
+        .eq("campaign_id", campaignId).eq("position", body.step_position).maybeSingle();
+      text = String(step?.body || "");
+      mediaUrl = String(step?.media_url || "");
+    }
+    if (!text.trim() && !mediaUrl.trim()) {
+      return json({ error: "empty_body", detail: "There is nothing in this step to send." }, 422);
+    }
+
+    const dest = await resolveTestDestination(sb, user.id, toE164(String(body.to || "")));
+    if (!dest.ok) return json({ error: dest.code, detail: dest.detail }, 400);
+
+    const { data: agent } = await sb.from("agents")
+      .select("display_name, agency_name, signalwire_caller_id")
+      .eq("id", user.id).maybeSingle();
+
+    // A test renders against a REAL LEAD from the agent's own book where one
+    // exists, so what comes back is what a lead would actually receive rather
+    // than a row of sample words. Falling back to no lead is fine — every
+    // variable has a fallback and the agent sees exactly what an
+    // unpopulated lead would get, which is also worth knowing.
+    const { data: sampleLead } = await sb.from("leads")
+      .select("id, data, tcpa_consent, dnc")
+      .eq("agent_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1).maybeSingle();
+
+    const result = await sendCampaignSms(sb, {
+      agentId: user.id,
+      toRaw: dest.to,
+      body: text,
+      mediaUrl,
+      lead: sampleLead || null,
+      agentName: agent?.display_name || null,
+      agencyName: agent?.agency_name || null,
+      preferredFrom: agent?.signalwire_caller_id || null,
+      campaignId,
+      campaignStep: typeof body.step_position === "number" ? body.step_position : null,
+      test: true,
+    });
+
+    if (!result.ok) return json({ error: result.code, detail: result.detail }, 400);
+    return json({
+      ok: true,
+      to: dest.to,
+      from: result.fromNumber,
+      channel: result.channel,
+      segments: result.segments,
+      rendered: result.rendered,
+      sample_lead: sampleLead ? String(((sampleLead.data || {}) as Record<string, unknown>).name || "") : null,
+    });
+  }
 
   // ------------------------------------------------------------
   // enrollment_action — pause / resume / remove, one lead or many.
@@ -151,7 +247,7 @@ Deno.serve(async (req) => {
     // Re-scoped to the caller. The ids came from a picker, and a picker is a
     // convenience, not a boundary.
     const { data: rows } = await sb.from("voice_campaign_enrollments")
-      .select("id, lead_id, status, campaign_id")
+      .select("id, lead_id, status, campaign_id, channel")
       .eq("agent_id", user.id)
       .in("id", ids);
     const byId = new Map((rows || []).map((r) => [r.id, r]));
@@ -164,14 +260,24 @@ Deno.serve(async (req) => {
     const activeElsewhere = new Set<string>();
     if (op === "resume") {
       const leadIds = [...new Set((rows || []).map((r) => r.lead_id).filter(Boolean))] as string[];
+      // Per channel, matching the (lead_id, channel) index that would
+      // otherwise be violated. A lead who joined a TEXT campaign while their
+      // voice enrollment was paused is no obstacle to resuming the voice one.
+      const channels = [...new Set((rows || []).map((r) => r.channel || "voice"))];
       if (leadIds.length) {
         const { data: live } = await sb.from("voice_campaign_enrollments")
-          .select("lead_id")
+          .select("lead_id, channel")
           .eq("agent_id", user.id)
           .eq("status", "active")
           .in("lead_id", leadIds)
+          .in("channel", channels.length ? channels : ["voice"])
           .limit(20000);
-        for (const r of live || []) if (r.lead_id) activeElsewhere.add(String(r.lead_id));
+        const byRow = new Map((rows || []).map((r) => [String(r.id), r.channel || "voice"]));
+        const liveKeys = new Set((live || []).map((r) => `${r.lead_id}|${r.channel || "voice"}`));
+        for (const r of rows || []) {
+          if (!r.lead_id) continue;
+          if (liveKeys.has(`${r.lead_id}|${byRow.get(String(r.id))}`)) activeElsewhere.add(String(r.lead_id));
+        }
       }
     }
 
@@ -298,13 +404,14 @@ Deno.serve(async (req) => {
     // The campaign, re-scoped to the caller. Same rule as everywhere else in
     // this function: the id in the body is a selection, not a boundary.
     const { data: campaign } = await sb.from("voice_campaigns")
-      .select("id, agent_id, name, active, paused_at, pause_reason, trigger_groups, " +
+      .select("id, agent_id, name, active, channel, paused_at, pause_reason, trigger_groups, " +
               "auto_enroll_new_leads, trigger_on_sold, trigger_on_appointment_booked, " +
               "trigger_on_missed_appointment")
       .eq("id", campaignId)
       .eq("agent_id", user.id)
       .maybeSingle();
     if (!campaign) return json({ error: "not_found" }, 404);
+    const channel = vcChannel(campaign);
 
     // NOTE what is deliberately NOT checked here: vcValidateTriggerGroups.
     // The tag rule exists to stop a RULE matching a whole book by accident.
@@ -316,8 +423,16 @@ Deno.serve(async (req) => {
       .eq("campaign_id", campaignId)
       .order("position", { ascending: true });
     const steps = (stepRows || []) as VcStep[];
-    if (!vcFirstStep(steps)) {
-      return json({ error: "no_steps", detail: "Add at least one step to this campaign before adding leads to it." }, 422);
+    // vcFirstActionableStep, not vcFirstStep: a text campaign made of nothing
+    // but `wait` steps has steps and would pass a count check, then enrol
+    // people and message none of them.
+    if (!vcFirstActionableStep(steps)) {
+      return json({
+        error: "no_steps",
+        detail: channel === "sms"
+          ? "Add at least one message step to this campaign before adding leads to it."
+          : "Add at least one step to this campaign before adding leads to it.",
+      }, 422);
     }
 
     const [{ data: leadRows }, { data: seenRows }, { data: activeRows }] = await Promise.all([
@@ -325,8 +440,13 @@ Deno.serve(async (req) => {
         .eq("agent_id", user.id).in("id", leadIds),
       sb.from("voice_campaign_enrollments").select("lead_id")
         .eq("campaign_id", campaignId).limit(20000),
+      // Scoped to THIS CHANNEL: a lead in a calling campaign is eligible for a
+      // texting one and vice versa, which is what the (lead_id, channel)
+      // partial unique index now says. Leaving this unscoped would report
+      // every voice enrollee as a conflict on a text campaign and offer to
+      // "move" them, which would end a calling program to start a texting one.
       sb.from("voice_campaign_enrollments").select("id, lead_id, campaign_id")
-        .eq("agent_id", user.id).eq("status", "active").limit(20000),
+        .eq("agent_id", user.id).eq("status", "active").eq("channel", channel).limit(20000),
     ]);
 
     const leads = leadRows || [];
@@ -337,15 +457,54 @@ Deno.serve(async (req) => {
       if (p) { phoneByLead.set(l.id, p); hasPhone.add(l.id); }
     }
 
+    // THE SUPPRESSION LIST IS PER CHANNEL. `suppression_list` is the voice
+    // AI's; `dnc_list` is what a texting STOP writes and what
+    // runComplianceGate reads. Getting these the wrong way round would let an
+    // agent add somebody who replied STOP to a text campaign and be told it
+    // worked.
     const suppressed = new Set<string>();
+    const smsConsent = new Set<string>();
     if (phoneByLead.size) {
-      const { data: suppRows } = await sb.from("suppression_list")
-        .select("phone_e164")
-        .or(`agent_id.eq.${user.id},agent_id.is.null`)
-        .in("phone_e164", [...new Set(phoneByLead.values())])
-        .limit(20000);
-      const supp = new Set((suppRows || []).map((r) => r.phone_e164));
-      for (const [leadId, phone] of phoneByLead) if (supp.has(phone)) suppressed.add(leadId);
+      const phones = [...new Set(phoneByLead.values())];
+      if (channel === "sms") {
+        const [{ data: dncRows }, { data: consentRows }, { data: cfg }] = await Promise.all([
+          sb.from("dnc_list").select("agent_id, contact_phone").in("contact_phone", phones),
+          // Newest first per number, THEN check revoked — the ordering
+          // runComplianceGate uses, so a stale older grant cannot win over a
+          // newer revocation.
+          sb.from("consent_records")
+            .select("contact_phone, consent_type, revoked_at, captured_at")
+            .eq("agent_id", user.id).in("contact_phone", phones)
+            .order("captured_at", { ascending: false }).limit(20000),
+          sb.from("billing_config").select("sms_require_written_consent").eq("id", 1).maybeSingle(),
+        ]);
+        const supp = new Set<string>();
+        for (const r of dncRows || []) {
+          if (r.agent_id === null || r.agent_id === user.id) supp.add(r.contact_phone);
+        }
+        const requireWritten = cfg?.sms_require_written_consent ?? true;
+        const seen = new Set<string>();
+        const okPhones = new Set<string>();
+        for (const r of consentRows || []) {
+          const p = r.contact_phone as string;
+          if (!p || seen.has(p)) continue;
+          seen.add(p);
+          if (r.revoked_at) continue;
+          if (isConsentTypeAcceptable(String(r.consent_type || ""), requireWritten)) okPhones.add(p);
+        }
+        for (const [leadId, phone] of phoneByLead) {
+          if (supp.has(phone)) suppressed.add(leadId);
+          if (okPhones.has(phone)) smsConsent.add(leadId);
+        }
+      } else {
+        const { data: suppRows } = await sb.from("suppression_list")
+          .select("phone_e164")
+          .or(`agent_id.eq.${user.id},agent_id.is.null`)
+          .in("phone_e164", phones)
+          .limit(20000);
+        const supp = new Set((suppRows || []).map((r) => r.phone_e164));
+        for (const [leadId, phone] of phoneByLead) if (supp.has(phone)) suppressed.add(leadId);
+      }
     }
 
     const seenInThisCampaign = new Set((seenRows || []).map((r) => r.lead_id));
@@ -387,6 +546,7 @@ Deno.serve(async (req) => {
       suppressed,
       hasPhone,
       appointments,
+      smsConsent,
       onConflict,
       campaign,
       limit: MANUAL_ENROLL_LIMIT,
@@ -394,9 +554,11 @@ Deno.serve(async (req) => {
 
     const shape = {
       ok: true,
+      channel,
       campaign: {
         id: campaign.id,
         name: campaign.name,
+        channel,
         active: campaign.active === true,
         paused: !!campaign.paused_at,
         pause_reason: campaign.pause_reason || null,
@@ -521,11 +683,12 @@ Deno.serve(async (req) => {
   if (!campaignId) return json({ error: "missing_campaign_id" }, 400);
 
   const { data: campaign } = await sb.from("voice_campaigns")
-    .select("id, agent_id, name, trigger_groups, trigger_on_appointment_booked")
+    .select("id, agent_id, name, channel, trigger_groups, trigger_on_appointment_booked")
     .eq("id", campaignId)
     .eq("agent_id", user.id)
     .maybeSingle();
   if (!campaign) return json({ error: "not_found" }, 404);
+  const reChannel = vcChannel(campaign);
 
   // The tag rule holds here too. Re-evaluating an unbounded rule over an entire
   // book is the single worst thing this endpoint could be asked to do, and
@@ -540,23 +703,59 @@ Deno.serve(async (req) => {
     .eq("campaign_id", campaignId)
     .order("position", { ascending: true });
   const steps = (stepRows || []) as VcStep[];
-  const first = vcFirstStep(steps);
+  const first = vcFirstActionableStep(steps);
   if (!first) {
-    return json({ error: "no_steps", detail: "Add at least one step before enrolling anyone." }, 422);
+    return json({
+      error: "no_steps",
+      detail: reChannel === "sms"
+        ? "Add at least one message step before enrolling anyone."
+        : "Add at least one step before enrolling anyone.",
+    }, 422);
   }
 
-  const [{ data: seen }, { data: activeAnywhere }, { data: book }, { data: suppRows }] = await Promise.all([
+  const [{ data: seen }, { data: activeAnywhere }, { data: book }] = await Promise.all([
     sb.from("voice_campaign_enrollments").select("lead_id").eq("campaign_id", campaignId).limit(20000),
-    sb.from("voice_campaign_enrollments").select("lead_id").eq("agent_id", user.id).eq("status", "active").limit(20000),
+    // Per channel — see the note on the manual door's equivalent query.
+    sb.from("voice_campaign_enrollments").select("lead_id")
+      .eq("agent_id", user.id).eq("status", "active").eq("channel", reChannel).limit(20000),
     sb.from("leads").select("id, data, tcpa_consent, dnc").eq("agent_id", user.id)
       .order("created_at", { ascending: false }).limit(BOOK_PAGE),
-    sb.from("suppression_list").select("phone_e164")
-      .or(`agent_id.eq.${user.id},agent_id.is.null`).limit(20000),
   ]);
 
   const seenIds     = new Set((seen || []).map((r) => r.lead_id));
   const activeIds   = new Set((activeAnywhere || []).map((r) => r.lead_id));
-  const suppressed  = new Set((suppRows || []).map((r) => r.phone_e164));
+
+  // The suppression list, per channel, and the recorded TEXT consent for a
+  // text campaign — a different fact from `leads.tcpa_consent`, which is what
+  // a calling campaign reads off the lead itself.
+  const suppressed = new Set<string>();
+  const smsConsentPhones = new Set<string>();
+  if (reChannel === "sms") {
+    const [{ data: dncRows }, { data: consentRows }, { data: cfg }] = await Promise.all([
+      sb.from("dnc_list").select("agent_id, contact_phone").not("contact_phone", "is", null).limit(20000),
+      sb.from("consent_records")
+        .select("contact_phone, consent_type, revoked_at, captured_at")
+        .eq("agent_id", user.id).not("contact_phone", "is", null)
+        .order("captured_at", { ascending: false }).limit(20000),
+      sb.from("billing_config").select("sms_require_written_consent").eq("id", 1).maybeSingle(),
+    ]);
+    for (const r of dncRows || []) {
+      if (r.agent_id === null || r.agent_id === user.id) suppressed.add(r.contact_phone);
+    }
+    const requireWritten = cfg?.sms_require_written_consent ?? true;
+    const seenPhone = new Set<string>();
+    for (const r of consentRows || []) {
+      const p = r.contact_phone as string;
+      if (!p || seenPhone.has(p)) continue;
+      seenPhone.add(p);
+      if (r.revoked_at) continue;
+      if (isConsentTypeAcceptable(String(r.consent_type || ""), requireWritten)) smsConsentPhones.add(p);
+    }
+  } else {
+    const { data: suppRows } = await sb.from("suppression_list").select("phone_e164")
+      .or(`agent_id.eq.${user.id},agent_id.is.null`).limit(20000);
+    for (const r of suppRows || []) suppressed.add(r.phone_e164);
+  }
 
   // An appointment-anchored campaign counts down to a specific meeting, so
   // "re-evaluate the book" means "find everyone with one still ahead of them".
@@ -596,8 +795,10 @@ Deno.serve(async (req) => {
     const phone = toE164(String(d.phone || ""));
     const verdict = vcEvaluateEnrollment({
       lead,
+      channel: reChannel,
       hasPhone: !!phone,
       suppressed: !!phone && suppressed.has(phone),
+      hasSmsConsent: !!phone && smsConsentPhones.has(phone),
       activeElsewhere: activeIds.has(lead.id),
     });
     if (!verdict.ok) {

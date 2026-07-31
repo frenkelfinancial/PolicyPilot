@@ -626,6 +626,86 @@ Prompt J. Schema: `20260805_campaign_mission_control.sql`. Docs:
 - **Row click reuses the EXISTING lead view** (`nav('leads')` +
   `expandedLeadIds`), and renders no lead markup of its own.
 
+### Phase 8 — text campaigns on the same engine (SMS-2, added 2026-07-31)
+
+Prompt SMS-2. Schema: `20260807_sms_campaigns.sql`. Docs:
+`docs/sms-campaigns.md`. Tests: `npm run test:ai` (`campaign-sms.test.ts`) and
+`npm run test:smscampaigns`.
+
+- **🔴 THERE ARE NO NEW CAMPAIGN TABLES, AND THE `voice_` PREFIX IS NOW
+  HISTORICAL.** `voice_campaigns` grew a `channel` (`voice` | `sms`); a row
+  with `channel='sms'` IS a texting campaign, run by the same tick, the same
+  enrollment model, the same claim, the same drip arithmetic and the same
+  `seed_key`. Parallel `sms_*` tables were rejected because they produce two
+  of every single thing this feature is made of — two ticks racing the same
+  minute, two definitions of eligible, two doors, two seeders. Renaming three
+  tables, three functions, a cron job and ~1,500 lines of `app.html` buys
+  nothing an agent can see; the screen is called **Campaigns**.
+- **🔴 EVERY CAMPAIGN TEXT GOES THROUGH `_shared/campaign-sms-send.ts`, AND
+  THERE IS NO SECOND PATH** — `runComplianceGate` → `resolveTextingNumber` →
+  `sendMessageCore` → the `sms_messages` thread. A test greps
+  `voice-campaign-tick` and `voice-campaign-manage` for `runComplianceGate`,
+  `sendMessageCore`, `resolveTextingNumber` and `api.telnyx.com/v2/messages`
+  and asserts they appear in neither. **It is deliberately NOT
+  `messaging-send-sms`**: that function MEANS "a person typed this" and SMS-1
+  mutes the responder on it, so routing a drip through it would silence the
+  conversation AI on every lead the campaign touched.
+- **🔴 ONE ACTIVE CAMPAIGN PER LEAD *PER CHANNEL*.** The partial unique index
+  moved from `(lead_id)` to `(lead_id, channel)`. Both halves matter: one of
+  each is the point of the feature, two of a kind is the original rule.
+  `enrollments.channel` is DERIVED BY A TRIGGER from the campaign — a
+  client-supplied value could file a text enrollment as a voice one and defeat
+  the index it exists to serve.
+- **🔴 A TEXT CAMPAIGN READS TEXT CONSENT** (`consent_records`), never
+  `leads.tcpa_consent`, and its suppression list is **`dnc_list`, not
+  `suppression_list`** — the latter is the voice AI's. `leads.dnc` stops both
+  channels. Getting either backwards would message people who agreed only to a
+  phone call, or who already replied STOP.
+- **A `wait` step FOLDS into the next actionable step** (`vcResolveNextDue`),
+  so it costs no tick and never becomes a `current_step_position`. A voice
+  campaign cannot contain one (the steps trigger refuses it), so `folded` is
+  always empty there — a test runs the whole shipped Veteran Lead sequence
+  through the changed function and compares every due time. **Every "has
+  steps?" guard now asks `vcFirstActionableStep()`**: a campaign of nothing but
+  waits passes a count check, then enrols people and texts none of them for
+  ever while showing green.
+- **🔴 A RAW `{{…}}` NEVER REACHES A PHONE.** Six documented variables, each
+  with a non-blank fallback; an UNKNOWN one is stripped and the result tidied.
+  Rendered SERVER-SIDE at send time, never stored rendered. `vcPersonName()`
+  refuses an email — the `ppAgentName()` rule, and it matters more here because
+  this decides what a CONSUMER is told the agent is called.
+- **The hold is NOT a stop and NOT a pause.** `pause_on_active_conversation`
+  moves the due time to when the 24h window closes (or +1h for an agent
+  takeover, which has no expiry); the step is unchanged. `last_gate_code`
+  carries `live_conversation`/`agent_takeover` so the screen says why.
+  **`stop_on_reply` is measured against `enrolled_at`**, not "any inbound
+  ever", and does NOT switch off the SMS-1 responder — the editor says so
+  under the checkbox.
+- **Slots are voice-only.** The tick used to return early for the whole agent
+  at three concurrent calls; left alone that would have silently stopped every
+  text campaign on the account.
+- **Send Test is restricted to the agent's OWN numbers**
+  (`resolveTestDestination`, four sources) and that check is the entire safety
+  property. Everything else is real — same renderer, same sender, same wallet
+  hold, same Telnyx call, rendered against a real lead. It skips
+  `runComplianceGate` because the recipient is our customer, and **writes no
+  conversation thread**.
+- **🔴 THE TEXT COUNT IS COUNTED, NOT CAPPED, and must not grow into a cap.**
+  The ~300/number/day call recommendation exists because a number that DIALS
+  too much gets spam-labelled; texting throughput is carrier-assigned and the
+  sole-prop ~1,000/day ceiling is already refused by the send gate with its own
+  reset time. A test asserts the meter block contains no verdict or threshold.
+- **Seeding order for SMS-3: INSERT INACTIVE → STEPS → ACTIVATE, one
+  transaction.** `voice_campaigns_validate()` refuses an active text campaign
+  with no message steps, and the campaign row necessarily precedes its steps.
+  The dry run's own seed hit this. Do not relax the trigger.
+- **🔴 NO NUMBER ON THIS ACCOUNT HAS `sms_capable = true`** (all 7 rows false,
+  checked 2026-07-31), so today every text campaign pauses immediately with
+  "none of your numbers is set up for texting yet". `CD2166Q` is ACTIVE and
+  billed, so this is the number→campaign assignment not having propagated — a
+  pre-existing 10DLC gap, and the one thing between this feature and a live
+  send.
+
 ## AI texting agent (SMS-1, added 2026-07-31)
 
 - **Read `docs/sms-ai-responder.md` before touching anything named `sms-ai-*`,
