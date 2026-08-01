@@ -174,11 +174,55 @@ same formatter the Front Office Summary's AP card uses. Commission rows are
 integer cents from a carrier statement, so they render through `boFmtMoney()`.
 What there is never two of is a *definition*.
 
+#### 🔴 Which month a policy counts in — `ppProductionDate()` (Round 5)
+
+**A policy counts on `dateSubmitted → draft → the id's timestamp`, and that is
+the app's one answer.** `bosPolicyDay()` is a one-line delegation to
+`ppProductionDate()` in the `team-core` block, and it is the single seam every
+figure on this screen runs through: the four cards, the carrier mix and every
+bucket of the graph.
+
+**This changed in Round 5, and the change was the point.** Round 4 bucketed on
+`p.draft` alone — the field the (dead) `_dailySeries()` helper used. The Front
+Office Ledger Summary's KPI cards have always sliced on the full chain via
+`_lgSubDate()`. So a policy **submitted in June that drafts in July** was June
+production in the Front Office and July production here: the same policy, two
+months, one sidebar toggle apart. Owner's decision on 2026-08-01 was
+submitted-first for both — *submitted is when the agent did the work; the draft
+date is only when the carrier takes the premium.*
+
+Measured on an eight-policy fixture book (`docs/reports/PROMPT_FO5-report.md`
+has the full before/after): six of eight policies changed bucket here, the
+Front Office moved on **none** of its six windows, and the count of policies the
+two screens placed in different months went from **6 to 0**.
+
+**🔴 THIS IS A *WHEN* QUESTION, NOT A *WHAT COUNTS* QUESTION.** Round 5 did not
+touch `BOS_ISSUED_STATUSES`, the sale predicate, or `lb_agent_metrics()`. The
+issued-vs-sold gap between Personal issued AP and the Top Producers board is
+unchanged and still explained on both cards — see § "Two AP questions on one
+screen". Consolidating the date did not, and must not, reconcile the statuses.
+
+**A fourth copy of the chain is a test failure.** There were three
+(`_lgSubDate`, `_ptSubForRange`, and an inline slice in `_lbCurrentTotals`);
+`test/production-date.test.mjs` classifies every `dateSubmitted` line in
+`app.html` and fails on one it does not recognise. `_ptGetSub()` is deliberately
+**not** the resolver — it fills the tracker's *Submitted* column and has no
+draft fallback on purpose.
+
 ### 0b. Issued AP over time — the production graph
 
 Hand-rolled SVG. **No chart library and no new dependency.** All bucketing and
 cumulative arithmetic lives in the pure `// <bos-chart-core>` block; the
-renderer only draws what it returns.
+renderer only draws what it returns. Every bucket boundary keys off
+`bosPolicyDay()` → `ppProductionDate()`, so the graph cannot drift from the
+cards above it.
+
+> **Do not cite `_dailySeries()` as evidence of what anything buckets on.**
+> Verified 2026-08-01: it has **no callers** — the only two occurrences of the
+> name in `app.html` are its own declaration and one comment. It is the last
+> place in the file still keying on `p.draft` alone, and quoting it is exactly
+> how this screen came to disagree with the Front Office. It was left in place
+> because deleting dead code is its own decision, not this round's.
 
 **Cumulative**, so the line only climbs within the window shown. Granularity is
 derived from the selected period:
@@ -425,8 +469,11 @@ it has stopped working. Found by the unit test, not by inspection.
 |---|---|
 | `app.html` | `// <bo-summary-core>` and `// <bos-chart-core>` blocks, `renderBackOfficeSummary()` and the `bos*` renderers, `#sec-bo-summary`, the nav item, the CSS |
 | `app.html` (`lbLoadBoards`) | the optional `rangeOverride` and `lbRangeKey()` |
-| `test/bo-summary.test.mjs` | 67 tests (40 before Round 4) — both cores executed verbatim, plus the structural invariants |
+| `app.html` (`team-core`) | `ppProductionDate()` — the app's one production-date resolver (Round 5) |
+| `test/bo-summary.test.mjs` | 71 tests (40 before Round 4, 67 before Round 5) — both cores executed verbatim, plus the structural invariants |
+| `test/production-date.test.mjs` | 17 tests — the resolver's four branches, the equivalence proof that the Front Office did not move, and the no-fourth-copy sweep |
 | `test/office-split.test.mjs` | the Back Office nav list and `OFFICE_HOME.back` |
 | `test/leaderboards.test.mjs` | the one-call-site and no-period-engine invariants, unmodified |
 | `docs/reports/PROMPT_FO2-report.md` | Round 2 build report |
 | `docs/reports/PROMPT_FO4-report.md` | Round 4 build report, divergence numbers, eyeball checklist |
+| `docs/reports/PROMPT_FO5-report.md` | Round 5 — one production date, before/after for both screens |

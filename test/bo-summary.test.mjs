@@ -61,7 +61,7 @@ const EXPORTS = [
   // The SHIPPED period engine and the SHIPPED commission estimate, lifted out
   // of app.html rather than re-typed here — see topLevelFn() below.
   'summaryPeriodRange', 'ppDynamicRange', 'ppParsePeriodKey', 'ppDay', 'ppIsDynamicPeriod',
-  'ppPeriodLabel', '_lgAdvComm',
+  'ppPeriodLabel', '_lgAdvComm', 'ppProductionDate',
 ];
 
 function block(name) {
@@ -94,6 +94,9 @@ function loadCore() {
     block('bos-chart-core'),
     topLevelFn('ppParsePeriodKey'), topLevelFn('ppDay'), topLevelFn('ppIsDynamicPeriod'),
     topLevelFn('ppDynamicRange'), topLevelFn('ppPeriodLabel'), topLevelFn('summaryPeriodRange'),
+    // FO5: bos-chart-core's third declared dependency — the app's one
+    // production-date resolver. Lifted, never re-typed.
+    topLevelFn('ppProductionDate'),
     topLevelFn('_lgAdvComm'),
   ].join('\n');
   // eslint-disable-next-line no-new-func
@@ -961,9 +964,12 @@ test('all-zero, single-bucket and empty inputs each return a renderable series',
   assert.match(B.BOS_EMPTY_CHART, /No issued production in this period/);
 });
 
-test('a policy with no draft date is on no timeline, and never NaN', () => {
+test('a policy that resolves to no date at all is on no timeline, and never NaN', () => {
   // It cannot be placed, and inventing a date would move real money into a
-  // month it did not happen in.
+  // month it did not happen in. FO5 note: `id: 'x'` is not a millisecond
+  // stamp, so the resolver's third branch yields null rather than throwing —
+  // which is the whole reason this fixture still reads 0 now that
+  // bosPolicyDay() consults the id.
   const orphan = [{ id: 'x', status: 'issued', ap: 500, carrier: 'Americo' }];
   assert.equal(B.bosIssuedAP(orphan, UNBOUNDED), 0);
   assert.equal(B.bosPolicyDay(orphan[0]), null);
@@ -971,6 +977,100 @@ test('a policy with no draft date is on no timeline, and never NaN', () => {
   assert.equal(B.bosDay('nonsense'), null);
   assert.equal(B.bosIso('nonsense'), null);
   assert.equal(B.bosIso(new Date(2026, 0, 3)), '2026-01-03');
+});
+
+// ---- FO5: which month a policy belongs to -------------------------------
+//
+// Round 4 bucketed this screen on `p.draft`. The Ledger Summary has always
+// bucketed on dateSubmitted -> draft -> id, so a policy submitted in one month
+// and drafting in the next appeared in two different months on two screens one
+// sidebar toggle apart. Both now go through ppProductionDate(). The full
+// consolidation — including the equivalence proof that the Front Office did
+// NOT move — is test/production-date.test.mjs; what belongs here is that this
+// screen's own fixtures, cards, mix and chart moved together.
+
+/**
+ * Submitted in June, drafts in July. The policy the round exists for.
+ *
+ * Built explicitly rather than through policyIn(), which carries no
+ * dateSubmitted — and deliberately still does not, so that every other fixture
+ * in this file remains a branch-2 (draft-only) policy and goes on proving the
+ * common case did not move.
+ */
+const straddler = (o = {}) => ({
+  id: o.id || 'straddle', client: 'C',
+  carrier: o.carrier === undefined ? 'Americo' : o.carrier,
+  ap: o.ap === undefined ? 3000 : o.ap, commPct: 100,
+  dateSubmitted: o.dateSubmitted || '2026-06-27',
+  draft: o.draft || '2026-07-10',
+  status: o.status || 'issued',
+});
+const JUNE = { start: new Date(2026, 5, 1), end: new Date(2026, 6, 1) };
+const JULY = { start: new Date(2026, 6, 1), end: new Date(2026, 7, 1) };
+
+test('🔴 THE SUBMITTED MONTH IS THE MONTH — draft no longer decides', () => {
+  const book = [straddler({ dateSubmitted: '2026-06-27' })];
+  assert.equal(B.bosPolicyDay(book[0]), '2026-06-27');
+  assert.equal(B.bosIssuedAP(book, JUNE), 3000, 'counted in June, where it was sold');
+  assert.equal(B.bosIssuedAP(book, JULY), 0, 'and not in July, where it merely drafts');
+  assert.equal(B.bosIssuedCount(book, JUNE), 1);
+  assert.equal(B.bosIssuedCount(book, JULY), 0);
+});
+
+test('every fixture that only has a draft date is UNCHANGED by FO5', () => {
+  // Branch 2 of the resolver. This is the shape of most of this file's
+  // fixtures and of most of the production book, and it must not have moved.
+  const book = FULL_BOOK;                       // all draft: '2026-07-10'
+  assert.equal(B.bosIssuedAP(book, JULY), AP * 2, 'issued + paid, as before');
+  assert.equal(B.bosIssuedAP(book, JUNE), 0);
+  assert.equal(B.bosPolicyDay(book[0]), '2026-07-10');
+});
+
+test('the cards, the carrier mix and the chart move together, not separately', () => {
+  // One resolver means they cannot disagree. Same book, same two windows.
+  const book = [
+    straddler({ id: 's1', dateSubmitted: '2026-06-27', ap: 3000, carrier: 'Americo' }),
+    policyIn('issued', { id: 's2', draft: '2026-07-10', ap: 1200, carrier: 'Foresters' }),
+  ];
+
+  const mixJun = B.bosCarrierMix(book, JUNE);
+  assert.equal(mixJun.total, B.bosIssuedAP(book, JUNE));
+  assert.equal(mixJun.total, 3000);
+  assert.deepEqual(mixJun.rows.map(r => r.label), ['Americo']);
+
+  const mixJul = B.bosCarrierMix(book, JULY);
+  assert.equal(mixJul.total, B.bosIssuedAP(book, JULY));
+  assert.equal(mixJul.total, 1200);
+  assert.deepEqual(mixJul.rows.map(r => r.label), ['Foresters']);
+
+  // And the chart, over its own window — the FO4 assertion, re-run on a book
+  // where the two date fields disagree.
+  ['month:2026-06', 'month:2026-07', 'lifetime'].forEach(key => {
+    const sp = B.bosChartSpec(key, B.summaryPeriodRange(key, TODAY), TODAY, book);
+    const se = B.bosChartSeries(book, sp);
+    assert.equal(se.total, B.bosIssuedAP(book, sp.window),
+      `the graph and the card disagree on ${key}`);
+    se.points.forEach((p, i) => {
+      if (i === 0) return;
+      assert.ok(p.cumulative >= se.points[i - 1].cumulative,
+        `the running total fell at bucket ${i} on ${key}`);
+    });
+  });
+
+  // The June bar sits on the 27th — the submitted day — not on July 10th.
+  const jun = B.bosChartSeries(book,
+    B.bosChartSpec('month:2026-06', B.summaryPeriodRange('month:2026-06', TODAY), TODAY, book));
+  assert.equal(jun.points.find(p => p.iso === '2026-06-27').value, 3000);
+});
+
+test('bosPolicyDay is the ONE seam — the block never reads a date field itself', () => {
+  const core = stripLineComments(block('bos-chart-core'), ['//', '*', '/*']);
+  assert.match(core, /function bosPolicyDay\(p\) \{ return ppProductionDate\(p\); \}/,
+    'bosPolicyDay must delegate to the app’s one production-date resolver');
+  assert.ok(!/p\.dateSubmitted/.test(core),
+    'no field chain of its own — that is what made two screens disagree');
+  assert.ok(!/\bp\.draft\b/.test(core),
+    'and no bare p.draft either: `draft` is when the premium is taken, not when the policy was sold');
 });
 
 test('money on this screen goes through bosCents — never Math.max(0, Number(x || 0))', () => {

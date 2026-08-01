@@ -89,6 +89,26 @@
   Editing `lb_agent_metrics` to agree breaks the byte-identical comparison
   `test/leaderboards.test.mjs` runs against `get_team_summary` — the 8,610× bug
   with a shorter fuse.
+- **🔴 `ppProductionDate()` IS THE ONE PRODUCTION-DATE RESOLVER — SUBMITTED
+  FIRST, AND A FOURTH COPY IS A TEST FAILURE.** `dateSubmitted → draft → the
+  id's timestamp`, in `// <team-core>`, locked by the owner 2026-08-01. Three
+  hand-written copies were consolidated into it — `_lgSubDate` (Ledger
+  Summary), `_ptSubForRange` (Policy Tracker period drill-in, byte-identical
+  under another name) and an inline slice in `_lbCurrentTotals` — and the first
+  two are now one-line aliases. Round 5 moved the Back Office Summary onto it
+  from `p.draft`: the same policy submitted in June and drafting in July was
+  June production in the Front Office and July production in the Back Office,
+  one sidebar toggle apart. On an eight-policy fixture book six policies
+  changed bucket here, the Front Office moved on none of its six windows, and
+  screen-to-screen disagreements went 6 → 0. **This is a *when* question, never
+  a *what counts* question** — `BOS_ISSUED_STATUSES`, `BOB_NOT_A_SALE` and
+  `lb_agent_metrics()` were untouched and the issued-vs-sold gap stays
+  explained, not reconciled. `_ptGetSub()` is deliberately NOT the resolver (it
+  fills the tracker's *Submitted* column and has no draft fallback), and
+  `_dailySeries()` has **no callers** — do not cite it as evidence of what
+  anything buckets on. Tests: `npm run test:productiondate`
+  (`test/production-date.test.mjs`), which classifies every `dateSubmitted`
+  line in `app.html` and fails on one it does not recognise.
 - **🔴 A PAST PERIOD CAN SHRINK, AND THAT IS INTENDED.** A lapsed or
   charged-back policy LEAVES the issued-AP figure, so March's bar is lower in
   June if a March policy lapsed in May. Owner's decision, 2026-08-01. Do not add

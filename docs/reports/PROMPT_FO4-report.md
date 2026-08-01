@@ -451,10 +451,17 @@ browser against the live database.
    harness printed `Aug 1 Aug 5 Aug 9 Aug 13 …` and it reads fine as a string,
    but it has not been *seen*), dark mode, hover, focus rings, and the phone
    breakpoint.
-4. **The `p.draft` vs `_lgSubDate` discrepancy** in step 0, note 1. On the
+4. ~~**The `p.draft` vs `_lgSubDate` discrepancy** in step 0, note 1. On the
    production book (23 policies) this may be a no-op if `dateSubmitted` and
    `draft` agree everywhere — worth one query to confirm, and worth a decision
-   if they do not.
+   if they do not.~~ **CLOSED by Round FO5 (2026-08-01).** The decision went
+   the other way from Round 4's instruction: this screen moved onto the
+   submitted-date chain, and all three hand-written copies of that chain were
+   consolidated into `ppProductionDate()`. See
+   `docs/reports/PROMPT_FO5-report.md`. The "is it a no-op on the live book?"
+   query is still worth running — it is now a question about *how much* the
+   Back Office Summary's figures move on 2026-08-01, not about whether to act
+   — and it is carried forward as item 1 of FO5's pending list.
 5. **Performance on a large book.** `bosChartSeries()` is O(policies × buckets)
    and repaints on each of four `Promise.allSettled` settles. On 23 policies ×
    31 buckets this is nothing; at a few thousand policies on Lifetime it is

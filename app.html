@@ -14777,13 +14777,22 @@ const PT_STATUS_ORDER = BOB_STATUSES.map(s => s.key);
 const PT_STATUS_LABELS = BOB_STATUSES.reduce((m, s) => { m[s.key] = s.label; return m; }, {});
 
 // Submitted date: explicit field, else derived from the id timestamp.
+//
+// 🔴 DELIBERATELY *NOT* ppProductionDate(). This fills the tracker's "Submitted"
+// COLUMN and backs its exact-date filter and its sub-asc/sub-desc sort — it
+// answers "what does this policy say it was submitted on", not "which period
+// does it count in". Adding the draft fallback would print a draft date under a
+// heading that says Submitted. The period question is _ptSubForRange(), one
+// line below, and that one IS the shared resolver.
 function _ptGetSub(p){ return p.dateSubmitted || (p.id ? new Date(+p.id).toISOString().split('T')[0] : ''); }
 
-// Submission date used for PERIOD bucketing — mirrors the Summary's _lgSubDate
-// exactly (dateSubmitted -> draft -> id timestamp) so a period drill-in counts
-// the same policies the Summary segment counts. Distinct from _ptGetSub (which
-// has no draft fallback) on purpose: this one must match the Summary.
-function _ptSubForRange(p){ return (p && (p.dateSubmitted || p.draft || (p.id ? new Date(+p.id).toISOString().slice(0,10) : ''))) || ''; }
+// Submission date used for PERIOD bucketing. Now a thin alias over
+// ppProductionDate() — the app's ONE production-date resolver — rather than a
+// second hand-written copy of the same chain, which is what it was until
+// 2026-08-01. The `|| ''` is this call site's own contract: the tracker's range
+// filter string-compares, so it wants '' and not null. Distinct from _ptGetSub
+// (which has no draft fallback) on purpose — see the note there.
+function _ptSubForRange(p){ return ppProductionDate(p) || ''; }
 
 // Local-calendar 'YYYY-MM-DD' for a Date (matches summaryPeriodRange's local
 // midnight boundaries; string compare then equals _lgInRange's date compare).
@@ -15870,6 +15879,15 @@ function _renderDelta(el, current, prior, fmtDelta) {
 
 // Build day-bucketed series for sparkline. Returns array of {date, value} for each
 // day in [start,end). For 'all' period uses the last 30 days.
+//
+// 🔴 UNUSED — this function has NO CALLERS (verified 2026-08-01: the only two
+// occurrences of the name in app.html are this declaration and one comment).
+// Do not cite it as evidence of what any screen buckets on: it is the last
+// place in the file still keying on `p.draft` alone, and quoting it here is how
+// the Back Office Summary came to disagree with the Front Office about which
+// month a policy belongs to. The live answer is ppProductionDate(), in the
+// team-core block. Left in place because deleting dead code is its own
+// decision.
 function _dailySeries(pols, range, valueFn) {
   let { start, end } = range;
   if (!start) {
@@ -16746,6 +16764,43 @@ const AT_RISK_AP_DROP_PCT     = 0.40;  // AP down >= 40% this month vs last
 const AT_RISK_NO_DIAL_DAYS    = 7;     // and no dial for >= 7 days
 const AT_RISK_MIN_PRIOR_AP    = 1;     // you cannot fall from zero
 const AT_RISK_MIN_TENURE_DAYS = 30;    // a new joiner has no month to fall from
+
+// ---- the production date ----------------------------------------------
+
+/**
+ * The date a policy counts on, everywhere in this app.
+ *
+ * dateSubmitted -> draft -> the id's timestamp. Submitted first because that is
+ * when the agent did the work; a policy submitted in March that drafts in
+ * April is March production. Locked by the owner on 2026-08-01 after the Back
+ * Office Summary and the Ledger Summary were found placing the same policy in
+ * different months.
+ *
+ * There were three copies of this chain when it was consolidated
+ * (_lgSubDate, _ptSubForRange, and an inline slice in _lbCurrentTotals). Do not
+ * add a fourth — test/production-date.test.mjs fails if one appears.
+ *
+ * 🔴 THIS IS A *WHEN* QUESTION, NOT A *WHAT COUNTS* QUESTION. It says which
+ * period a policy falls in; it says nothing about whether the policy counts.
+ * BOS_ISSUED_STATUSES (issued/paid), the sale predicate in lb_agent_metrics()
+ * and get_team_summary()'s `pol` CTE, and BOB_NOT_A_SALE are all separate,
+ * deliberate answers to the other question. Consolidating this chain did not
+ * and must not reconcile those.
+ *
+ * Returns a STRING or null. The id fallback is UTC-sliced, exactly as the three
+ * copies were, because `id` is a Date.now() millisecond stamp and not a
+ * calendar date anybody typed. A junk id yields null rather than throwing —
+ * `new Date(NaN).toISOString()` is a RangeError, and all three copies would
+ * have taken a whole screen's render down with them.
+ */
+function ppProductionDate(p) {
+  if (!p) return null;
+  if (p.dateSubmitted) return p.dateSubmitted;
+  if (p.draft) return p.draft;
+  if (!p.id) return null;
+  const d = new Date(+p.id);
+  return isFinite(d.getTime()) ? d.toISOString().slice(0, 10) : null;
+}
 
 // ---- the shared period-key grammar ------------------------------------
 // ONE vocabulary, read by BOTH period engines (teamPeriodRange here and
@@ -18065,7 +18120,10 @@ function _lbCurrentTotals() {
   const out = { best_day_ap: 0, best_day_policies: 0, best_week_ap: 0, best_month_ap: 0 };
   list.forEach(p => {
     if (!p || BOB_NOT_A_SALE.includes(p.status)) return;
-    const d = (p.dateSubmitted || p.draft || '').slice(0, 10);
+    // The slice stays HERE, not in the resolver: this comparison is against
+    // iso() day strings, so it needs YYYY-MM-DD specifically. The resolver
+    // returns whatever the policy stored.
+    const d = (ppProductionDate(p) || '').slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
     const ap = Number(p.ap) || 0;
     if (d === today) { out.best_day_ap += ap; out.best_day_policies += 1; }
@@ -18306,7 +18364,10 @@ function _lgPeriodRange(period, today){
   const r = summaryPeriodRange(ok ? period : 'monthly', today);
   return { start:r.start, end:r.end, label:r.label };
 }
-function _lgSubDate(p){ return p && (p.dateSubmitted || p.draft || (p.id? new Date(+p.id).toISOString().slice(0,10) : null)); }
+// A thin alias over ppProductionDate() — the app's ONE production-date
+// resolver (team-core). It was a hand-written copy of that chain until
+// 2026-08-01; the name is kept because five call sites on this screen read it.
+function _lgSubDate(p){ return ppProductionDate(p); }
 // Null bounds mean UNBOUNDED, which is how 'lifetime' is expressed. These two
 // used to dereference range.start unconditionally, so the moment Lifetime
 // appeared on this screen every one of them would have thrown.
@@ -27939,12 +28000,13 @@ function bosLoadError(area) {
 // from `policies` — which every agent has from day one — and the
 // statement-derived material moved below it.
 //
-// TWO DECLARED DEPENDENCIES, both pure, both loaded alongside this block by the
-// test: `bosCents` from bo-summary-core, and the estimated-commission formula,
-// which is taken AS A PARAMETER (`advFn`) rather than reached for. The real one
-// is _lgAdvComm() on the Ledger Summary — same arrangement bonus-core uses for
-// its policy-to-carrier resolver, and for the same reason: one formula for
-// "est. commission" in this app, not two.
+// THREE DECLARED DEPENDENCIES, all pure, all loaded alongside this block by the
+// test: `bosCents` from bo-summary-core; `ppProductionDate` from team-core, the
+// app's one production-date resolver (added 2026-08-01 — see bosPolicyDay);
+// and the estimated-commission formula, which is taken AS A PARAMETER (`advFn`)
+// rather than reached for. The real one is _lgAdvComm() on the Ledger Summary —
+// same arrangement bonus-core uses for its policy-to-carrier resolver, and for
+// the same reason: one formula for "est. commission" in this app, not two.
 
 /**
  * 🔴 THE ISSUED-AP DEFINITION. Chosen by Jace on 2026-08-01.
@@ -27973,13 +28035,25 @@ const BOS_ISSUED_STATUSES = ['issued', 'paid'];
 const BOS_ISSUED_DEF = 'Policies the carrier issued or paid. Pending and approved-not-paid are not counted here.';
 
 /**
- * The date this screen places a policy on. `draft` is the field _dailySeries()
- * already buckets on, so the graph, the cards and the Ledger Summary's own
- * sparkline all put a policy in the same period. A policy with no draft date
- * is not on the timeline at all — it cannot be, and inventing one would move
- * real money into a month it did not happen in.
+ * The date this screen places a policy on — the app's ONE production-date
+ * resolver, ppProductionDate() from the team-core block.
+ *
+ * 🔴 THIS CHANGED ON 2026-08-01 AND THE CHANGE IS THE POINT. Round 4 bucketed
+ * on `p.draft`, because that is what the dead _dailySeries() helper used. The
+ * Ledger Summary's KPI cards have always bucketed on dateSubmitted -> draft ->
+ * id, so a policy submitted in March that drafts in April was March production
+ * in the Front Office and April production here — the same policy, two months,
+ * one click apart. The owner locked the submitted-first chain for both.
+ *
+ * A THIRD DECLARED DEPENDENCY of this block, alongside bosCents and advFn.
+ * It is pure and self-contained, so it is called directly the way bosCents is
+ * rather than threaded through eight signatures as a parameter.
+ *
+ * Still nothing is invented: a policy that resolves to no date at all is on no
+ * timeline, because placing it would move real money into a month it did not
+ * happen in.
  */
-function bosPolicyDay(p) { return (p && p.draft) || null; }
+function bosPolicyDay(p) { return ppProductionDate(p); }
 
 /** Local-midnight Date from YYYY-MM-DD, matching how both period engines build bounds. */
 function bosDay(iso) {
