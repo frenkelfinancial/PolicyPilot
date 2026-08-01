@@ -451,4 +451,20 @@ Files changed: `app.html`, `package.json`, `test/office-split.test.mjs` (new),
 `test/back-office.test.mjs`, `CLAUDE.md`, `docs/office-split.md`,
 `docs/reports/PROMPT_FO1-report.md`.
 
-Commit SHA and push confirmation are appended below.
+**Commit `4f16318`** — *"One product, two offices: a toggle instead of one long
+list"*, 7 files changed, 1,335 insertions, 53 deletions.
+
+**Pushed to `origin/main`:** `bb38e0a..4f16318`. The pre-push hook ran and did
+**not** block; `--no-verify` was not used. Deployment is automatic —
+`.github/workflows/pages.yml` publishes `app.html` to producerstackcrm.com on
+every push to `main`.
+
+### One deviation from the literal commit instruction
+
+The prompt says `git add -A`. Run as-is, that staged the **`prompts/`**
+directory, which this repo has always kept untracked (the FO1 tripwire itself
+calls an untracked `prompts/` "fine and expected", and the prompt's own
+allowlist of changeable files does not include it). I unstaged it with
+`git reset HEAD prompts/` and left it untracked, so the commit contains exactly
+the seven intended files and nothing else. If you *want* the prompt archive in
+the repo, that is a separate, deliberate commit.
