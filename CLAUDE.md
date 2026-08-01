@@ -70,17 +70,75 @@
   double kill switch. `ds-playground` stays beside Settings with no
   `data-office` — a dev tool, not a product screen.
 
-### The Back Office Summary (Round 2) — `docs/back-office-summary.md`
+### The Back Office Summary (Rounds 2 + 4) — `docs/back-office-summary.md`
 
 - **Read `docs/back-office-summary.md` before touching anything named `bos*`,
   `bo-summary` or `renderBackOfficeSummary()`.** `OFFICE_HOME.back` is now
   `'bo-summary'`. Tests: `npm run test:bosummary`
   (`test/bo-summary.test.mjs`).
+- **🔴 `BOS_ISSUED_STATUSES` IS A THIRD, DELIBERATE AP QUESTION — NEVER
+  "RECONCILE" IT WITH THE SALE PREDICATE.** Round 4 rebuilt the top of this
+  screen on the POLICY BOOK, because Round 2 read only carrier statements and
+  therefore rendered an owner with a full book a "Nothing here yet" welcome mat.
+  `['issued','paid']` in `// <bos-chart-core>` answers *what did the carrier
+  issue*; `lb_agent_metrics()` / `get_team_summary`'s `pol` CTE answer *what was
+  sold* and count a pending application. On a sample July book the two differ by
+  **$11,100 on $10,200** — and both are right. The constant is NAMED for its
+  question, the card renders `BOS_ISSUED_DEF` underneath it always-on, and the
+  Top Producers card one strip below says in words that it will not match.
+  Editing `lb_agent_metrics` to agree breaks the byte-identical comparison
+  `test/leaderboards.test.mjs` runs against `get_team_summary` — the 8,610× bug
+  with a shorter fuse.
+- **🔴 A PAST PERIOD CAN SHRINK, AND THAT IS INTENDED.** A lapsed or
+  charged-back policy LEAVES the issued-AP figure, so March's bar is lower in
+  June if a March policy lapsed in May. Owner's decision, 2026-08-01. Do not add
+  a snapshot, a freeze or an as-of date. A test pins it.
+- **🔴 `lbLoadBoards()` TOOK AN OPTIONAL RANGE, AND THAT IS NOT A PERIOD
+  ENGINE.** `rangeOverride || teamPeriodRange(periodKey, new Date())` — omit it
+  and the Agency tab behaves byte for byte as before (verified for every period
+  key). The leaderboard still mints no dates; the CALLER supplies the window,
+  which is what the Agency tab already does implicitly with `_teamPeriod`. It is
+  still the ONE `get_agency_leaderboards` call site, which is what keeps
+  `lb_visible_members()` — the single opt-out enforcement point — under the Top
+  Producers card. **The cache key carries the RANGE (`lbRangeKey()`), not just
+  the period name**, because `'monthly'` means one thing to
+  `summaryPeriodRange()` and falls back to `TEAM_PERIOD_DEFAULT` in
+  `teamPeriodRange()`; two windows behind one string is how two screens serve
+  each other a stale board.
+- **🔴 THE PAGE-LEVEL EMPTY STATE IS GONE.** `bosIsEmpty()` is unchanged and
+  still answers the statement question, but it now governs only the Commission
+  paid card's dash and the money strip's sentence. `bosIsBrandNew()` — **no
+  policies AND no statements** — is the only thing that blanks the page, and it
+  points at Add Policy, not at statement upload.
+- **This screen owns `pp_bos_period`, and writes NOTHING else.**
+  `pp_summary_period` is the Front Office Summary's and `pp_team_period` is the
+  Agency tab's; the Commissions panel keeps `pp_comm_range` and its own chips.
+  Round 4 replaced Round 2's borrowed MTD/YTD/All chips with the shared
+  `LG_PERIODS` + `ppPeriodPickerHTML()` control (owner's request). Two things
+  had to change for that: `ppApplyRange()` now has an explicit `setBosPeriod`
+  branch (it fell through to `setLedgerPeriod`, so Apply would have written
+  `pp_summary_period`), and the picker is built with surface `'bos'` because the
+  Front Office Summary already owns the element id `pp-rng-sum` and both
+  sections are in the DOM at once.
 - **🔴 IT ADDS NO BACKEND, AND THAT IS THE POINT.** Every figure comes from an
-  RPC that already shipped. It never selects `commission_rows` from the
-  browser — that table is SELECT-only per tenant and the aggregates exist
-  precisely so a screen does not do this. A test pins the RPC list; a new name
-  in it means a migration this round deliberately does not have.
+  RPC that already shipped — including Round 4's `lb_my_agency_state` and
+  `get_agency_leaderboards`, both from `20260750`. It never selects
+  `commission_rows` from the browser — that table is SELECT-only per tenant and
+  the aggregates exist precisely so a screen does not do this — and it never
+  selects `policies` either, because `bootDashboard()` already hydrated the
+  book. A test pins the RPC list; a new name in it means a migration this round
+  deliberately does not have.
+- **The production graph is hand-rolled SVG with no library**, and all its
+  bucketing lives in the pure `// <bos-chart-core>` block. **"Today" draws the
+  LAST SEVEN DAYS, not twenty-four hours** — there is no sale-time timestamp in
+  this schema, only entry time, so an hourly axis plots data-entry habits. Same
+  evidence `docs/agency-leaderboards.md` records for cutting Early Bird and
+  Closer. A test asserts the series is non-decreasing and that its last value
+  equals `bosIssuedAP()` over the same window.
+- **Two money units, two formatters, one definition each.** `policies[].ap` is
+  dollars the agent typed (`_lg$` / `_lgKk`, as on the Front Office Summary);
+  commission rows are integer cents from a carrier (`boFmtMoney`). What there is
+  never two of is a definition.
 - **🔴 THE TEAM ROSTER COMES THROUGH `loadTeamRoster()`, NEVER A SECOND
   `get_team_summary` CALL.** The one-call-site invariant is what stopped the
   8,610× AP overstatement coming back, and a landing screen wanting a headcount
@@ -101,9 +159,13 @@
 - **Override Income is DROPPED when it is zero AND there is no hierarchy.** A
   permanently empty card on the screen an owner sees every day is noise; it
   returns on its own the first time an override line lands.
-- **The range chips ARE the Commissions panel's** — `COMM_RANGES`,
-  `commRange()`, `_cmRange`, `pp_comm_range`. One range, one memory, one
-  calculator. Do not add a fourth chip here without changing both screens.
+- **~~The range chips ARE the Commissions panel's~~ — SUPERSEDED BY ROUND 4.**
+  Round 2 borrowed `COMM_RANGES` / `commRange()` / `_cmRange` /
+  `pp_comm_range` because every figure came off a statement. The screen now
+  reads the book and carries the app's standard period control under its own
+  key — see the `pp_bos_period` bullet above. **The Commissions panel is
+  untouched** and keeps all four of those; do not add a fourth chip THERE
+  without changing both screens.
 - **`Promise.allSettled`, never `Promise.all`.** One rejected RPC puts a
   message on that strip and leaves the rest of the page standing.
 - **Counts go through `bosCount()`.** `Number('x' || 0)` is `NaN` and
@@ -114,7 +176,10 @@
   `carriermail`, `backoffice`, `voice-campaigns` and `ai-test` were all
   missing; **Round 3 deleted that list entirely** and derived the membership
   test from the sidebar instead — see the `_isRestorableSection` bullets above
-  and `docs/reports/PROMPT_FO3-report.md`.
+  and `docs/reports/PROMPT_FO3-report.md`. Round 4's Top Producers card follows
+  the same reasoning one level down: it is gated on **being in an agency**
+  (`lb_my_agency_state().leader_id`), never on plan tier and never on being the
+  leader. No agency means NO CARD — not an empty one, not an upsell.
 
 ## Carrier bonus tracker
 - **Source of truth for bonus programs:** `data/carrier_bonuses.json` — carrier-official agent bonus/incentive programs (45 carriers, researched 07/2026). CARRIER-ONLY by design: never add IMO/agency-level bonuses (e.g. FFL VP bonus) to this file.

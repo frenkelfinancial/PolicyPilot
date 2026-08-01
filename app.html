@@ -3899,6 +3899,47 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .bos-lead.bos-clear{color:var(--lg-green)}
 .bos-legend{font-size:11.5px;color:var(--lg-caption);line-height:1.5;margin-top:-4px}
 .bos-skel{background:var(--lg-divider);border-radius:6px;animation:lg-pulse 1.4s ease-in-out infinite}
+/* ---- Back Office Summary, Round 4: the book, not just the statements ----
+   The period chips, the production graph, the carrier mix and the top-producers
+   card. Same rule as above and it is not negotiable: var(--lg-*) only, so every
+   one of these follows the reader into dark mode. The graph is hand-rolled SVG
+   with no library and no hard-coded colour anywhere in it. */
+.bos-chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.bos-chips-cap{margin-left:auto;font-size:11.5px;color:var(--lg-caption);
+  font-family:'Spline Sans Mono',ui-monospace,monospace;white-space:nowrap}
+/* The graph */
+.bos-chart-wrap{width:100%;overflow:hidden}
+.bos-chart{display:block;width:100%;height:auto}
+.bos-grid-line{stroke:var(--lg-divider);stroke-width:1}
+.bos-axis-line{stroke:var(--lg-border);stroke-width:1}
+.bos-axis-t{fill:var(--lg-caption);font-size:10px;font-family:'Spline Sans Mono',ui-monospace,monospace}
+.bos-axis-t.bos-now{fill:var(--lg-blue);font-weight:600}
+.bos-area{fill:var(--lg-blue-soft)}
+.bos-line{fill:none;stroke:var(--lg-blue);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.bos-dot{fill:var(--lg-blue)}
+.bos-now-band{fill:var(--lg-blue-soft);opacity:.55}
+.bos-flat{stroke:var(--lg-border-strong);stroke-width:1;stroke-dasharray:4 4}
+.bos-chart-empty{font-size:12px;color:var(--lg-caption);line-height:1.5;padding:8px 0}
+.bos-chart-note{font-size:11.5px;color:var(--lg-caption);line-height:1.5;margin-top:8px}
+/* Carrier mix */
+.bos-mix{display:grid;grid-template-columns:minmax(120px,1.4fr) 58px minmax(70px,auto) minmax(84px,1.2fr);
+  gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--lg-divider);font-size:12.5px}
+.bos-mix:first-child{border-top:none}
+.bos-mix-h{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--lg-caption);
+  font-weight:600;border-top:none;padding-bottom:4px}
+.bos-mix-nm{color:var(--lg-text1);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bos-mix-n,.bos-mix-ap{font-family:'Spline Sans Mono',ui-monospace,monospace;text-align:right;color:var(--lg-text2)}
+.bos-mix-bar{display:flex;align-items:center;gap:8px;min-width:0}
+.bos-mix-track{flex:1;height:6px;background:var(--lg-divider);border-radius:3px;overflow:hidden;min-width:0}
+.bos-mix-fill{height:100%;background:var(--lg-blue);border-radius:3px}
+.bos-mix-pct{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:11px;color:var(--lg-caption);
+  white-space:nowrap}
+@media(max-width:640px){
+  .bos-mix{grid-template-columns:minmax(90px,1.3fr) 44px auto;gap:8px}
+  .bos-mix-bar{grid-column:1 / -1}
+}
+/* Top producers */
+.bos-tp-note{font-size:11.5px;color:var(--lg-caption);line-height:1.5;margin-top:8px}
 /* ---- Reconciliation (Phase 6) ---- */
 .rc-row{display:grid;grid-template-columns:26px 1.5fr .8fr .8fr .9fr 1.5fr;gap:10px;padding:10px 14px;
   align-items:center;border-bottom:1px solid var(--lg-divider);font-size:12.5px;color:var(--lg-text2)}
@@ -17729,6 +17770,17 @@ function lbRpcArgs(range, basis) {
 
 function lbInvalidate() { Object.keys(_lbCache).forEach(k => { delete _lbCache[k]; }); }
 
+/**
+ * A cache signature for a resolved window. Mints no dates — it only reads the
+ * four bounds the caller already resolved, so two callers asking for genuinely
+ * the same window still share one cached board.
+ */
+function lbRangeKey(range) {
+  const r = range || {};
+  const t = d => (d instanceof Date && isFinite(d.getTime())) ? String(d.getTime()) : '-';
+  return t(r.start) + ':' + t(r.end) + ':' + t(r.prevStart) + ':' + t(r.prevEnd);
+}
+
 async function lbAgencyState(force) {
   if (_lbState && !force) return _lbState;
   try {
@@ -17748,10 +17800,21 @@ async function lbAgencyState(force) {
  * Same reason loadTeamRoster is the only get_team_summary call site: a second
  * one is a second set of window arguments, and two sets of window arguments is
  * two answers to "how did I do this month".
+ *
+ * `rangeOverride` (added Round 4, for the Back Office Summary's Top Producers
+ * card) does NOT give the leaderboard a period engine — it still has none. The
+ * CALLER supplies the window, which is what the Agency tab already does
+ * implicitly by handing over `_teamPeriod`; the Back Office Summary hands over
+ * the window `summaryPeriodRange()` resolved for its own chips instead. Omit it
+ * and this function behaves byte for byte as it did before. The cache key
+ * carries the RANGE, not just the period name, because 'monthly' means one
+ * thing to summaryPeriodRange and falls back to TEAM_PERIOD_DEFAULT here — two
+ * windows behind one string is exactly how two screens serve each other a
+ * stale board.
  */
-async function lbLoadBoards(periodKey, basis, force) {
-  const range = teamPeriodRange(periodKey, new Date());
-  const key = periodKey + '|' + basis;
+async function lbLoadBoards(periodKey, basis, force, rangeOverride) {
+  const range = rangeOverride || teamPeriodRange(periodKey, new Date());
+  const key = periodKey + '|' + basis + '|' + lbRangeKey(range);
   const hit = _lbCache[key];
   if (!force && hit && (Date.now() - hit.at) < LB_TTL_MS) return hit;
   try {
@@ -18327,7 +18390,13 @@ function ppApplyRange(id, setter, surface){
   if(to<from){ showToast('The end date is before the start date', '#dc2626'); return; }
   const key='custom:'+from+':'+to;
   if(!ppDynamicRange(key)){ showToast('That range is not valid', '#dc2626'); return; }
+  // Each surface's OWN setter, by name. The picker's markup already carries the
+  // setter it was built with; this dispatch has to agree with it or Apply
+  // silently writes another screen's period key — which is precisely what the
+  // Back Office Summary would have done to the Front Office one, since it fell
+  // through to setLedgerPeriod (pp_summary_period) before this branch existed.
   if(setter==='teamSetPeriod') teamSetPeriod(key, surface||'agency');
+  else if(setter==='setBosPeriod') setBosPeriod(key);
   else setLedgerPeriod(key);
 }
 function lgUpgrade(tier){ if(typeof showUpgradeGate==='function'){ showUpgradeGate(tier==='leader'?'Team Summary':'Pro Summary', tier); } else if(typeof pbOpenUpgradeModal==='function'){ pbOpenUpgradeModal(); } }
@@ -27834,7 +27903,12 @@ function bosIsEmpty(ingestion) {
 }
 
 const BOS_EMPTY_TITLE = 'Nothing here yet.';
-const BOS_EMPTY_BODY = 'Drop your first carrier statement in and this screen fills itself in.';
+// Round 4 repointed this at the policy book. It used to say "drop your first
+// carrier statement in", and it fired whenever no statement existed — so an
+// owner with a full book of policies was shown a welcome mat instead of their
+// own numbers. This copy is now reached only when there is genuinely nothing:
+// no policies AND no statements.
+const BOS_EMPTY_BODY = 'Add a policy and this screen fills itself in. Carrier statements slot in underneath once you upload them.';
 
 /**
  * What one failed RPC puts on its own cards. One rejection must not blank the
@@ -27852,6 +27926,302 @@ function bosLoadError(area) {
   return 'Couldn’t load — open ' + (BOS_ERROR_DOORS[area] || 'Statements') + ' to see this';
 }
 // </bo-summary-core>
+
+// <bos-chart-core>
+// The Back Office Summary reads THE BOOK (office split, Round 4) — pure logic.
+// No DOM, no network, no storage, no app globals. Extracted verbatim and
+// executed by test/bo-summary.test.mjs, so the tests run the code that ships.
+//
+// WHY THIS BLOCK EXISTS. Round 2 built the Back Office Summary entirely out of
+// carrier commission statements, and its own bosIsEmpty() then blanked the
+// whole screen when none had been uploaded. An agency owner with a full book of
+// policies and no parsed statements got a welcome mat. Everything here derives
+// from `policies` — which every agent has from day one — and the
+// statement-derived material moved below it.
+//
+// TWO DECLARED DEPENDENCIES, both pure, both loaded alongside this block by the
+// test: `bosCents` from bo-summary-core, and the estimated-commission formula,
+// which is taken AS A PARAMETER (`advFn`) rather than reached for. The real one
+// is _lgAdvComm() on the Ledger Summary — same arrangement bonus-core uses for
+// its policy-to-carrier resolver, and for the same reason: one formula for
+// "est. commission" in this app, not two.
+
+/**
+ * 🔴 THE ISSUED-AP DEFINITION. Chosen by Jace on 2026-08-01.
+ *
+ * A policy counts toward issued AP when the carrier has ISSUED it and it has
+ * not since been re-classified as something else. Nothing else counts — not
+ * pending, not approved-not-paid, and not lapsed / surrendered / claim /
+ * chargeback / denied / withdrawn.
+ *
+ * 🔴 THIS IS NOT THE SALE PREDICATE, AND MUST NEVER BE RECONCILED WITH IT.
+ * get_team_summary() and lb_agent_metrics() answer a DIFFERENT question — what
+ * was SOLD, i.e. everything except BOB_NOT_A_SALE, which still counts a pending
+ * application. Both are correct answers to their own question and they will not
+ * agree; that is why this constant is named for the question it answers, and
+ * why the card renders its definition underneath rather than in a tooltip. See
+ * docs/back-office-summary.md § "Two AP questions on one screen".
+ *
+ * CONSEQUENCE, RECORDED SO NOBODY "FIXES" IT: because a lapsed or charged-back
+ * policy leaves this figure, A PAST PERIOD CAN SHRINK. March's bar is lower in
+ * June if a March policy lapsed in May. The owner was shown that trade-off and
+ * chose it. Do not add a snapshot, a freeze or an as-of date to work around it.
+ */
+const BOS_ISSUED_STATUSES = ['issued', 'paid'];
+
+/** The sentence rendered under the AP card. Always on — it is the card's point. */
+const BOS_ISSUED_DEF = 'Policies the carrier issued or paid. Pending and approved-not-paid are not counted here.';
+
+/**
+ * The date this screen places a policy on. `draft` is the field _dailySeries()
+ * already buckets on, so the graph, the cards and the Ledger Summary's own
+ * sparkline all put a policy in the same period. A policy with no draft date
+ * is not on the timeline at all — it cannot be, and inventing one would move
+ * real money into a month it did not happen in.
+ */
+function bosPolicyDay(p) { return (p && p.draft) || null; }
+
+/** Local-midnight Date from YYYY-MM-DD, matching how both period engines build bounds. */
+function bosDay(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return isFinite(d.getTime()) ? d : null;
+}
+
+/** YYYY-MM-DD from a Date, local calendar. The inverse of bosDay(). */
+function bosIso(d) {
+  if (!(d instanceof Date) || !isFinite(d.getTime())) return null;
+  const z = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+}
+
+/** Half-open [start, end). NULL BOUNDS MEAN UNBOUNDED — that is how Lifetime is expressed. */
+function bosInRange(dayIso, range) {
+  const d = bosDay(dayIso);
+  if (!d) return false;
+  const r = range || {};
+  if (r.start && d < r.start) return false;
+  if (r.end && d >= r.end) return false;
+  return true;
+}
+
+function bosIsIssued(p) {
+  return !!p && BOS_ISSUED_STATUSES.indexOf(p.status) !== -1;
+}
+
+/** Every issued/paid policy whose draft date falls in the window. */
+function bosIssuedPolicies(pols, range) {
+  return (Array.isArray(pols) ? pols : [])
+    .filter(p => bosIsIssued(p) && bosInRange(bosPolicyDay(p), range));
+}
+
+/**
+ * Personal issued AP for the window, in DOLLARS.
+ *
+ * Dollars, not cents, because `policies[].ap` is a dollar figure the agent
+ * typed — the same unit the Front Office Summary's AP card renders through
+ * _lg$(). Statement money stays in integer cents and stays with boFmtMoney().
+ * Two units on one screen, each formatted by the formatter that already owns
+ * it; what there is never two of is a DEFINITION.
+ */
+function bosIssuedAP(pols, range) {
+  return bosIssuedPolicies(pols, range).reduce((s, p) => s + bosCents(p.ap), 0);
+}
+
+/** How many policies that AP figure is made of. Same set, same window. */
+function bosIssuedCount(pols, range) {
+  return bosIssuedPolicies(pols, range).length;
+}
+
+/**
+ * Estimated commission on the same policies, through the app's ONE formula.
+ * `advFn` is _lgAdvComm at the call site: AP x comm% x 75% advance.
+ */
+function bosEstCommission(pols, range, advFn) {
+  if (typeof advFn !== 'function') return 0;
+  return bosIssuedPolicies(pols, range).reduce((s, p) => s + (Number(advFn(p)) || 0), 0);
+}
+
+/** A carrier name folded for grouping, so one carrier cannot appear twice. */
+function bosCarrierKey(name) {
+  return String(name == null ? '' : name).trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+const BOS_CARRIER_UNKNOWN = 'No carrier recorded';
+
+/**
+ * Carrier mix for the window: every carrier the agent wrote under, with its
+ * policy count and total AP, biggest first.
+ *
+ * `policies[].carrier` already holds a LABEL (the tracker stores the label from
+ * TRACKER_CARRIER_LIST, not a key) and the persistency screen segments on it
+ * raw. Grouping is case- and whitespace-insensitive so "Americo " and "americo"
+ * cannot become two rows; the label shown is the spelling used most often, so
+ * nothing is invented either.
+ */
+function bosCarrierMix(pols, range) {
+  const by = new Map();
+  bosIssuedPolicies(pols, range).forEach(p => {
+    const raw = String(p.carrier == null ? '' : p.carrier).trim().replace(/\s+/g, ' ');
+    const key = bosCarrierKey(raw);
+    if (!by.has(key)) by.set(key, { key, label: raw || BOS_CARRIER_UNKNOWN, count: 0, ap: 0, _spell: new Map() });
+    const row = by.get(key);
+    row.count += 1;
+    row.ap += bosCents(p.ap);
+    if (raw) row._spell.set(raw, (row._spell.get(raw) || 0) + 1);
+  });
+  const rows = [...by.values()].map(r => {
+    let best = r.label, bestN = 0;
+    r._spell.forEach((n, spell) => { if (n > bestN) { best = spell; bestN = n; } });
+    delete r._spell;
+    return { key: r.key, label: bestN ? best : BOS_CARRIER_UNKNOWN, count: r.count, ap: r.ap };
+  });
+  const total = rows.reduce((s, r) => s + r.ap, 0);
+  rows.forEach(r => { r.share = total > 0 ? (r.ap / total) * 100 : 0; });
+  rows.sort((a, b) => (b.ap - a.ap) || (b.count - a.count) || a.label.localeCompare(b.label));
+  return { rows, total, count: rows.reduce((s, r) => s + r.count, 0) };
+}
+
+// ---- the production graph ----------------------------------------------
+//
+// Granularity is DERIVED from the selected period; nothing here picks a window.
+// The window itself always comes from summaryPeriodRange() — this block only
+// subdivides what it was handed, and for 'daily' widens it to the last seven
+// days (see BOS_DAILY_DAYS).
+
+/** Above this many days a custom range is drawn in weekly buckets, not daily. */
+const BOS_DAILY_MAX_DAYS = 62;
+
+/**
+ * 🔴 "TODAY" DRAWS THE LAST SEVEN DAYS, NOT TWENTY-FOUR HOURS.
+ *
+ * There is no sale-time timestamp anywhere in this schema — only the moment a
+ * row was entered — so an hourly axis would plot data-entry habits rather than
+ * production. That is the same evidence docs/agency-leaderboards.md records for
+ * refusing the Early Bird and Closer badges. A one-bar chart is also not a
+ * chart. Today's bucket is emphasised so the day you asked for is still the
+ * thing you are looking at.
+ */
+const BOS_DAILY_DAYS = 7;
+
+const BOS_EMPTY_CHART = 'No issued production in this period.';
+
+function bosAddDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function bosMonthStart(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function bosAddMonths(d, n) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
+function bosMonday(d) { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+
+const BOS_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function bosDayLabel(d)   { return BOS_MONTHS[d.getMonth()] + ' ' + d.getDate(); }
+function bosMonthLabel(d) { return BOS_MONTHS[d.getMonth()] + " '" + String(d.getFullYear()).slice(2); }
+
+/**
+ * The buckets a period draws in, and the window they actually cover.
+ *
+ *   daily            last 7 days, one per day, today emphasised
+ *   weekly           7 daily buckets, Mon-Sun
+ *   monthly          one per day of this month
+ *   month:YYYY-MM    one per day of that month
+ *   custom <= 62d    one per day;  above that, weekly buckets
+ *   lifetime         monthly buckets, earliest issued policy to today
+ *
+ * `window` is the chart's OWN window and is what its cumulative total is
+ * measured over. It equals `range` for every shape except 'daily', where the
+ * cards above count today and the graph shows the week around it — which is
+ * why the chart renders its window in its own caption.
+ */
+function bosChartSpec(periodKey, range, today, pols) {
+  const now = (today instanceof Date && isFinite(today.getTime())) ? today : new Date();
+  const t = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const r = range || {};
+  const key = String(periodKey || '');
+
+  const days = (start, end, note) => {
+    const buckets = [];
+    for (let d = new Date(start); d < end; d = bosAddDays(d, 1)) {
+      buckets.push({ start: new Date(d), end: bosAddDays(d, 1), label: bosDayLabel(d), iso: bosIso(d),
+        isNow: d.getTime() === t.getTime() });
+    }
+    return { unit: 'day', buckets, window: { start, end }, note: note || '' };
+  };
+
+  // 'daily' — the window summaryPeriodRange resolved is today; the graph shows
+  // the seven days ending with it, so the line has somewhere to climb from.
+  if (key === 'daily') {
+    const end = r.end || bosAddDays(t, 1);
+    const start = bosAddDays(end, -BOS_DAILY_DAYS);
+    return days(start, end, 'Last ' + BOS_DAILY_DAYS + ' days — today is highlighted.');
+  }
+
+  // Lifetime has no bounds, so the span comes from the book itself.
+  if (!r.start || !r.end) {
+    const issued = (Array.isArray(pols) ? pols : []).filter(bosIsIssued)
+      .map(p => bosDay(bosPolicyDay(p))).filter(Boolean).sort((a, b) => a - b);
+    const first = issued.length ? bosMonthStart(issued[0]) : bosMonthStart(t);
+    const end = bosAddMonths(t, 1);
+    const buckets = [];
+    for (let d = new Date(first); d < end; d = bosAddMonths(d, 1)) {
+      buckets.push({ start: new Date(d), end: bosAddMonths(d, 1), label: bosMonthLabel(d), iso: bosIso(d),
+        isNow: d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() });
+    }
+    return { unit: 'month', buckets, window: { start: first, end }, note: 'Everything you have ever had issued.' };
+  }
+
+  const span = Math.max(1, Math.round((r.end - r.start) / 86400000));
+  if (span <= BOS_DAILY_MAX_DAYS) return days(r.start, r.end, '');
+
+  // A long custom range: weekly buckets, aligned to Monday so a week is a week.
+  const buckets = [];
+  const firstMonday = bosMonday(r.start);
+  for (let d = new Date(firstMonday); d < r.end; d = bosAddDays(d, 7)) {
+    const bEnd = bosAddDays(d, 7);
+    buckets.push({ start: new Date(d), end: bEnd, label: bosDayLabel(d), iso: bosIso(d),
+      isNow: t >= d && t < bEnd });
+  }
+  return { unit: 'week', buckets, window: { start: firstMonday, end: r.end },
+    note: 'Weekly buckets — this range is longer than ' + BOS_DAILY_MAX_DAYS + ' days.' };
+}
+
+/**
+ * The cumulative series. Each point carries what landed IN that bucket and the
+ * running total to the end of it, so the line only ever climbs within the
+ * window drawn.
+ *
+ * The last cumulative value equals bosIssuedAP() over spec.window, by
+ * construction — a test asserts it, because a graph and a card disagreeing
+ * about the same money is the worst thing this screen can do.
+ */
+function bosChartSeries(pols, spec) {
+  const s = spec || { buckets: [], window: {} };
+  const buckets = Array.isArray(s.buckets) ? s.buckets : [];
+  const inWindow = bosIssuedPolicies(pols, s.window || {});
+  const sums = buckets.map(() => 0);
+  inWindow.forEach(p => {
+    const d = bosDay(bosPolicyDay(p));
+    if (!d) return;
+    for (let i = 0; i < buckets.length; i++) {
+      if (d >= buckets[i].start && d < buckets[i].end) { sums[i] += bosCents(p.ap); return; }
+    }
+  });
+  let run = 0;
+  const points = buckets.map((b, i) => {
+    run += sums[i];
+    return { label: b.label, iso: b.iso, value: sums[i], cumulative: run, isNow: !!b.isNow };
+  });
+  const total = points.length ? points[points.length - 1].cumulative : 0;
+  return {
+    unit: s.unit || 'day',
+    note: s.note || '',
+    window: s.window || {},
+    points,
+    total,
+    max: points.reduce((m, p) => Math.max(m, p.cumulative), 0),
+    empty: total === 0,
+  };
+}
+// </bos-chart-core>
 
 // <referral-core>
 // Auto-referral generation (Back Office Phase 7) — pure logic. No DOM, no
@@ -29044,7 +29414,7 @@ const BOS_TTL_MS = 45000;
 let _bosCache = {
   at: 0, rangeKey: null, isLeader: false, empty: false,
   buckets: null, debt: null, recon: null, persist: null, ingest: null,
-  rollup: null, roster: null, err: {},
+  rollup: null, roster: null, agency: null, board: null, err: {},
 };
 
 /** 'loading' until the call settles, then 'ok' or 'error'. Per key, not global. */
@@ -29055,15 +29425,65 @@ function bosState(key) {
 }
 
 /**
- * The range chips are the Commissions panel's, on purpose — one range, one
- * memory, one calculator. Picking YTD here and finding MTD one click away
- * would make the two screens disagree about the same money.
+ * 🔴 THIS SCREEN'S PERIOD, AND ITS OWN KEY.
+ *
+ * Round 2 borrowed the Commissions panel's three MTD/YTD/All chips, because
+ * every figure on the screen came from a commission statement. Round 4 reads
+ * the BOOK, and the owner asked for the same control the rest of ProducerStack
+ * has: Daily, Weekly, Monthly, Lifetime, a past month and a custom range.
+ *
+ * It is stored under its OWN key. `pp_summary_period` belongs to the Front
+ * Office Summary and `pp_team_period` to the Agency tab; writing either from
+ * here would move another screen's window when an owner clicked a chip on this
+ * one. Nothing in this block writes those two — a test asserts it.
+ *
+ * The Commissions panel keeps `pp_comm_range` and its own chips, untouched.
+ * Debt is still never range-filtered, on either screen (bosDebtArgs).
  */
-function bosSetRange(k) {
-  if (!COMM_RANGES.some(x => x.key === k)) return;
-  _cmRange = k;
-  try { localStorage.setItem('pp_comm_range', k); } catch (e) { /* private mode */ }
+const BOS_PERIOD_KEY = 'pp_bos_period';
+const BOS_PERIOD_DEFAULT = 'monthly';
+
+let bosPeriod = (function () {
+  try {
+    const v = localStorage.getItem(BOS_PERIOD_KEY);
+    if (LG_PERIODS.includes(v)) return v;
+    // A stored month:/custom: key is honoured only if it still resolves, so a
+    // corrupt value cannot brick the screen on every future load — the bug the
+    // Ledger Summary's own initialiser was fixed for.
+    if (ppIsDynamicPeriod(v) && ppDynamicRange(v)) return v;
+    return BOS_PERIOD_DEFAULT;
+  } catch (e) { return BOS_PERIOD_DEFAULT; }
+})();
+
+function setBosPeriod(p, _surface) {
+  // `_surface` is accepted and ignored: ppPeriodPickerHTML() appends the
+  // surface to every call it builds, and this screen has only one picker.
+  if (!LG_PERIODS.includes(p) && !ppIsDynamicPeriod(p)) return;
+  if (ppIsDynamicPeriod(p) && !ppDynamicRange(p)) return;
+  bosPeriod = p;
+  try { localStorage.setItem(BOS_PERIOD_KEY, p); } catch (e) { /* private mode */ }
   renderBackOfficeSummary(true);
+}
+
+/** The one window every figure on this screen is measured over. */
+function bosRange() { return summaryPeriodRange(bosPeriod, new Date()); }
+
+/**
+ * What the window is CALLED on this screen.
+ *
+ * Deliberately not `bosRange().label`: summaryPeriodRange() labels a window by
+ * the comparison it enables — "This month vs last month" — because the Front
+ * Office Summary renders a delta against it. This screen renders no delta, so
+ * that caption would describe something not on the page. A picked month or a
+ * custom range already labels itself, and those are used verbatim.
+ */
+function bosPeriodLabel() {
+  const dyn = ppDynamicRange(bosPeriod);
+  if (dyn) return dyn.label;
+  if (bosPeriod === 'daily') return 'Today';
+  if (bosPeriod === 'weekly') return 'This week';
+  if (bosPeriod === 'monthly') return 'This month';
+  return 'All time';
 }
 
 /** Downline headcount from the team roster cache, or null if we do not know. */
@@ -29078,17 +29498,21 @@ async function renderBackOfficeSummary(force) {
   if (!body) return;
   if (typeof currentAgent === 'undefined' || !currentAgent) return;
 
-  const rangeKey = _cmRange;
+  const rangeKey = bosPeriod;
   const fresh = !force && _bosCache.at && _bosCache.rangeKey === rangeKey
     && (Date.now() - _bosCache.at) < BOS_TTL_MS;
   if (fresh) { bosPaint(); return; }
 
-  const range = commRange(rangeKey, new Date());
+  // Every date on this screen comes out of the ONE shared period engine. The
+  // RPC bounds are ISO days because that is what these functions already take
+  // (see commRange), and null still means unbounded.
+  const win = bosRange();
+  const range = { start: bosIso(win.start), end: bosIso(win.end) };
   const isLeader = _planTier() === 'leader';
   _bosCache = {
     at: 0, rangeKey, isLeader, empty: false,
     buckets: null, debt: null, recon: null, persist: null, ingest: null,
-    rollup: null, roster: null, err: {},
+    rollup: null, roster: null, agency: null, board: null, err: {},
   };
   bosPaint();   // frames and skeletons, before a single byte comes back
 
@@ -29106,6 +29530,13 @@ async function renderBackOfficeSummary(force) {
     ['debt',    rpc('get_commission_debt', bosDebtArgs())],
     ['recon',   rpc('get_reconciliation_summary', { p_unpaid_days: 45 }).then(one)],
     ['persist', rpc('get_downline_persistency', { p_now: null })],
+    // Top Producers. The agency state decides whether the card exists at all,
+    // and the board itself comes through lbLoadBoards() — THE only
+    // get_agency_leaderboards call site in this app, handed this screen's
+    // window rather than being asked to invent one. Neither is a new backend:
+    // both shipped with 20260750.
+    ['agency',  lbAgencyState()],
+    ['board',   lbLoadBoards(bosPeriod, LB_BASIS_DEFAULT, false, win)],
   ];
   if (isLeader) {
     jobs.push(['rollup', rpc('get_downline_commission_rollup', { p_start: range.start, p_end: range.end })]);
@@ -29133,32 +29564,62 @@ function bosPaint() {
   const body = document.getElementById('bos-body');
   if (!body) return;
 
-  // An agent who has never uploaded a statement gets one friendly panel
-  // instead of a grid of dashes.
-  if (bosState('ingest') === 'ok' && bosIsEmpty(_bosCache.ingest)) {
+  // 🔴 THE PAGE-LEVEL EMPTY STATE IS GONE, AND ITS ABSENCE IS THE POINT OF
+  // ROUND 4. It used to blank the whole screen whenever no statement had been
+  // uploaded — so an agency owner with a full book of policies was shown a
+  // welcome mat. The screen now renders from `policies`; only the
+  // statement-derived cards show their own dash. What survives is the genuine
+  // all-empty case: a brand-new account with NEITHER policies nor statements,
+  // which is pointed at Add Policy rather than at statement upload.
+  if (bosIsBrandNew()) {
     _bosCache.empty = true;
     body.innerHTML = bosEmptyHTML();
     return;
   }
 
-  if (!document.getElementById('bos-money') || _bosCache.empty) {
+  if (!document.getElementById('bos-production') || _bosCache.empty) {
     _bosCache.empty = false;
     body.innerHTML = bosShellHTML();
   }
-  bosPaintRanges();
+  bosPaintPeriod();
   const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  set('bos-production', bosProductionHTML());
+  set('bos-chart', bosChartHTML());
+  set('bos-mix', bosMixHTML());
+  set('bos-top', bosTopProducersHTML());
   set('bos-money', bosMoneyHTML());
   set('bos-attention', bosAttentionHTML());
   set('bos-health', bosHealthHTML());
   set('bos-team', bosTeamHTML());
 }
 
+/**
+ * A brand-new account: nothing written and nothing uploaded. Both halves are
+ * required — one policy is enough for this screen to have something to say.
+ */
+function bosIsBrandNew() {
+  const pols = Array.isArray(window.policies) ? window.policies : [];
+  if (pols.length > 0) return false;
+  return bosState('ingest') === 'ok' && bosIsEmpty(_bosCache.ingest);
+}
+
 function bosShellHTML() {
   return '' +
+    '<div class="bos-chips" id="bos-periods"></div>' +
     '<div class="bos-strip">' +
       '<div class="bos-strip-h">' +
-        '<div class="bos-strip-t">The money</div>' +
-        '<div class="tracker-tabs" id="bos-ranges"></div>' +
+        '<div class="bos-strip-t">Your production</div>' +
+        '<div class="bos-strip-s">Everything below this line is your policy book. The statements start at "The money".</div>' +
+      '</div>' +
+      '<div id="bos-production"></div>' +
+    '</div>' +
+    '<div class="bos-strip"><div id="bos-chart"></div></div>' +
+    '<div class="bos-strip"><div id="bos-mix"></div></div>' +
+    '<div id="bos-top"></div>' +
+    '<div class="bos-strip">' +
+      '<div class="bos-strip-h">' +
+        '<div class="bos-strip-t">The money, from your statements</div>' +
+        '<div class="bos-strip-s">Carrier commission statements you have uploaded — the breakdown behind "Commission paid" above.</div>' +
       '</div>' +
       '<div id="bos-money"></div>' +
     '</div>' +
@@ -29176,13 +29637,26 @@ function bosShellHTML() {
     '<div id="bos-team"></div>';
 }
 
-function bosPaintRanges() {
-  const el = document.getElementById('bos-ranges');
+/**
+ * The period control — the SAME markup and the same shared picker the Ledger
+ * Summary uses, so the two screens cannot grow different chips. Only the setter
+ * name differs, which is what keeps their stored windows apart.
+ */
+function bosPaintPeriod() {
+  const el = document.getElementById('bos-periods');
   if (!el) return;
-  el.innerHTML = COMM_RANGES.map(r =>
-    '<button class="tracker-tab' + (r.key === _cmRange ? ' active' : '') +
-    '" title="' + escHTML(r.sub) + '" onclick="bosSetRange(\'' + r.key + '\')">' +
-    escHTML(r.label) + '</button>').join('');
+  const chip = (p, label) => '<button class="lg-chip lg-click' + (bosPeriod === p ? ' on' : '') +
+    '" onclick="setBosPeriod(\'' + p + '\')">' + label + '</button>';
+  el.innerHTML =
+    chip('daily', 'Today') + chip('weekly', 'Weekly') + chip('monthly', 'Monthly') + chip('lifetime', 'Lifetime') +
+    // The surface is 'bos' and it is load-bearing, not decoration:
+    // ppPeriodPickerHTML() builds its range-picker id as 'pp-rng-' + surface,
+    // and the Front Office Summary — which is in the DOM at the same time as
+    // this screen, merely hidden — already owns 'pp-rng-sum'. Two elements with
+    // one id means getElementById() hands ppToggleRange()/ppApplyRange() the
+    // OTHER screen's control.
+    ppPeriodPickerHTML(bosPeriod, 'setBosPeriod', 'bos', 'lg-chip lg-click pp-pick') +
+    '<span class="bos-chips-cap">' + escHTML(bosPeriodLabel()) + '</span>';
 }
 
 // ---- the shared card shell ---------------------------------------------
@@ -29224,11 +29698,26 @@ function bosCardHTML(o) {
 function bosMoneyHTML() {
   const bState = bosState('buckets');
   const dState = bosState('debt');
+
+  // Every figure on this strip comes off a carrier statement, so with none
+  // uploaded all four are "$0.00" — which reads as "the carriers paid you
+  // nothing" rather than "we have not been told yet". Same rule as the
+  // Commission paid card above: a dash and a sentence, never a zero. This is
+  // where Round 2's page-level empty state usefully survives, scoped to the one
+  // strip it was ever actually about.
+  if (bosState('ingest') === 'ok' && bosIsEmpty(_bosCache.ingest)) {
+    return '<div class="bos-chart-empty">No carrier statements uploaded yet, so there is nothing to ' +
+      'reconcile against your book. ' +
+      '<a href="#" onclick="bosOpen(\'ingest\');return false;" style="color:var(--lg-blue)">' +
+      'Upload one</a> and Net, Personal, Override and Debt fill themselves in.</div>';
+  }
   const hasDownline = bosHasDownline(_bosCache.rollup, _bosRosterDownline());
   const cards = bosMoneyCards(
     Array.isArray(_bosCache.buckets) ? _bosCache.buckets : [],
     Array.isArray(_bosCache.debt) ? _bosCache.debt : [],
-    { hasDownline, range: commRange(_bosCache.rangeKey, new Date()) }
+    // The selected window is handed over so that bosMoneyCards(), not its
+    // caller, is where a test can prove the chips never reach the balance.
+    { hasDownline, range: bosRange() }
   // Override is not rendered on a guess: until the buckets land we do not know
   // what it is, and a card that appears is kinder than one that vanishes.
   ).filter(c => c.key !== 'override' || bState === 'ok');
@@ -29247,6 +29736,239 @@ function bosMoneyHTML() {
       title: 'Open Commissions', open: "bosOpen('commissions')",
     });
   }).join('') + '</div>';
+}
+
+// ---- strip 1a: your production, from the policy book --------------------
+//
+// These four cards are the reason Round 4 exists. Every one of them except
+// "Commission paid" is computed in the browser from `policies`, so a brand-new
+// agent who has written business and uploaded nothing still lands on numbers.
+
+/** Dollars, for AP and estimates — the unit `policies[].ap` is already in. */
+function bosDollars(n) { return _lg$(n); }
+
+function bosProductionHTML() {
+  const pols = Array.isArray(window.policies) ? window.policies : [];
+  const win = bosRange();
+  const ap = bosIssuedAP(pols, win);
+  const est = bosEstCommission(pols, win, _lgAdvComm);
+  const count = bosIssuedCount(pols, win);
+
+  const bState = bosState('buckets');
+  const paidCents = commTotals(Array.isArray(_bosCache.buckets) ? _bosCache.buckets : []).net;
+  // A dash, never a zero. "$0.00" on an account with no statements is a claim
+  // that the carriers paid nothing, which is a different and untrue statement.
+  const hasStatements = bosState('ingest') !== 'ok' || !bosIsEmpty(_bosCache.ingest);
+  let paidValue, paidSub;
+  if (bState === 'loading') { paidValue = bosSkel('66%', 24); paidSub = 'loading&hellip;'; }
+  else if (bState === 'error') { paidValue = '<div class="bos-err">' + escHTML(bosLoadError('commissions')) + '</div>'; paidSub = ''; }
+  else if (!hasStatements) {
+    paidValue = '<div class="cm-card-v bos-zero">&mdash;</div>';
+    paidSub = 'Upload a statement to see this.';
+  } else {
+    paidValue = '<div class="cm-card-v' + (paidCents < 0 ? ' cm-neg' : '') + '">' + escHTML(boFmtMoney(paidCents)) + '</div>';
+    paidSub = 'Every commission line on your statements for this window.';
+  }
+
+  const card = (label, valueHTML, def) =>
+    '<div class="cm-card">' +
+      '<div class="cm-card-l">' + escHTML(label) + '</div>' + valueHTML +
+      (def ? '<div class="cm-card-d">' + escHTML(def) + '</div>' : '') +
+    '</div>';
+  const v = s => '<div class="cm-card-v">' + escHTML(s) + '</div>';
+
+  return '<div class="cm-cards">' +
+    // 🔴 The definition is rendered under the card, always on, because the Top
+    // Producers card further down counts differently and an agent WILL notice
+    // the two figures disagree. That is the Commissions panel's established
+    // rule: the definition is the card's point, not a tooltip.
+    card('Personal issued AP', v(bosDollars(ap)), BOS_ISSUED_DEF) +
+    card('Est. commission', v(est > 0 ? 'est. ' + bosDollars(est) : bosDollars(0)),
+      'AP × comm% × 75% advance, on the same policies.') +
+    card('Commission paid', paidValue, paidSub) +
+    card('Policies issued', v(String(count)), 'The same set of policies, in this window.') +
+  '</div>';
+}
+
+// ---- strip 1b: the production graph -------------------------------------
+//
+// Hand-rolled SVG. No library, no dependency, tokens only. _renderSparkline()
+// is the idiom this follows — but it is a 200x50 decoration and this is a chart
+// with axes, so it is built rather than stretched.
+
+const BOS_CHART_W = 720;
+const BOS_CHART_H = 240;
+
+function bosChartHTML() {
+  const pols = Array.isArray(window.policies) ? window.policies : [];
+  const win = bosRange();
+  const spec = bosChartSpec(bosPeriod, win, new Date(), pols);
+  const series = bosChartSeries(pols, spec);
+
+  const head = '<div class="bos-strip-h">' +
+    '<div class="bos-strip-t">Issued AP over time</div>' +
+    '<div class="bos-strip-s">Running total &middot; ' + escHTML(bosPeriodLabel()) + '</div>' +
+  '</div>';
+
+  const W = BOS_CHART_W, H = BOS_CHART_H;
+  const padL = 62, padR = 12, padT = 14, padB = 30;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const n = series.points.length;
+
+  // Nothing issued: a flat baseline and a sentence. Never a broken axis, and
+  // never an empty box that reads as a failed render.
+  if (!n || series.empty) {
+    return _lgCard(head +
+      '<div class="bos-chart-wrap"><svg class="bos-chart" viewBox="0 0 ' + W + ' ' + H +
+        '" preserveAspectRatio="none" role="img" aria-label="No issued production in this period">' +
+        '<line class="bos-axis-line" x1="' + padL + '" y1="' + (H - padB) + '" x2="' + (W - padR) + '" y2="' + (H - padB) + '"/>' +
+        '<line class="bos-flat" x1="' + padL + '" y1="' + (H - padB) + '" x2="' + (W - padR) + '" y2="' + (H - padB) + '"/>' +
+      '</svg></div>' +
+      '<div class="bos-chart-empty">' + escHTML(BOS_EMPTY_CHART) +
+        (spec.note ? ' ' + escHTML(spec.note) : '') + '</div>');
+  }
+
+  // A single bucket has no line to draw, so the point sits mid-plot rather than
+  // dividing by (n - 1) and producing NaN for every x.
+  const x = i => (n === 1 ? padL + plotW / 2 : padL + (i / (n - 1)) * plotW);
+  const top = series.max > 0 ? series.max : 1;
+  const y = val => padT + plotH - (val / top) * plotH;
+
+  const TICKS = 4;
+  let grid = '';
+  for (let k = 0; k <= TICKS; k++) {
+    const val = (top / TICKS) * k;
+    const gy = y(val);
+    grid += '<line class="bos-grid-line" x1="' + padL + '" y1="' + gy.toFixed(1) +
+      '" x2="' + (W - padR) + '" y2="' + gy.toFixed(1) + '"/>' +
+      '<text class="bos-axis-t" x="' + (padL - 8) + '" y="' + (gy + 3.5).toFixed(1) +
+      '" text-anchor="end">' + escHTML(_lgKk(val)) + '</text>';
+  }
+
+  // Today's segment, emphasised. On "Today" this is the whole reason the graph
+  // shows seven days rather than one bar.
+  let nowBand = '';
+  const nowIdx = series.points.findIndex(p => p.isNow);
+  if (nowIdx > -1 && n > 1) {
+    const half = plotW / (n - 1) / 2;
+    const bx = Math.max(padL, x(nowIdx) - half);
+    const bw = Math.min(W - padR, x(nowIdx) + half) - bx;
+    nowBand = '<rect class="bos-now-band" x="' + bx.toFixed(1) + '" y="' + padT +
+      '" width="' + Math.max(0, bw).toFixed(1) + '" height="' + plotH + '"/>';
+  }
+
+  let line = 'M ' + x(0).toFixed(1) + ' ' + y(series.points[0].cumulative).toFixed(1);
+  for (let i = 1; i < n; i++) line += ' L ' + x(i).toFixed(1) + ' ' + y(series.points[i].cumulative).toFixed(1);
+  const area = line + ' L ' + x(n - 1).toFixed(1) + ' ' + (H - padB) + ' L ' + x(0).toFixed(1) + ' ' + (H - padB) + ' Z';
+
+  // At most eight x labels, whatever the bucket count, so a 31-day month does
+  // not print a wall of overlapping text.
+  const every = Math.max(1, Math.ceil(n / 8));
+  const xLabels = series.points.map((p, i) => {
+    if (i !== 0 && i !== n - 1 && i % every !== 0) return '';
+    const anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
+    return '<text class="bos-axis-t' + (p.isNow ? ' bos-now' : '') + '" x="' + x(i).toFixed(1) +
+      '" y="' + (H - padB + 16) + '" text-anchor="' + anchor + '">' + escHTML(p.label) + '</text>';
+  }).join('');
+
+  const last = series.points[n - 1];
+  const dots = series.points.map((p, i) => p.isNow || i === n - 1
+    ? '<circle class="bos-dot" cx="' + x(i).toFixed(1) + '" cy="' + y(p.cumulative).toFixed(1) + '" r="3"/>' : '').join('');
+
+  const alt = 'Issued AP running total, ' + bosDollars(last.cumulative) + ' by ' + last.label;
+
+  return _lgCard(head +
+    '<div class="bos-chart-wrap">' +
+      '<svg class="bos-chart" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + escHTML(alt) + '">' +
+        grid + nowBand +
+        '<path class="bos-area" d="' + area + '"/>' +
+        '<path class="bos-line" d="' + line + '"/>' + dots +
+        '<line class="bos-axis-line" x1="' + padL + '" y1="' + (H - padB) + '" x2="' + (W - padR) + '" y2="' + (H - padB) + '"/>' +
+        xLabels +
+      '</svg>' +
+    '</div>' +
+    '<div class="bos-chart-note">' + escHTML(bosDollars(series.total)) + ' issued in this window' +
+      (spec.note ? ' &middot; ' + escHTML(spec.note) : '') + '</div>');
+}
+
+// ---- strip 1c: carrier mix ----------------------------------------------
+
+function bosMixHTML() {
+  const pols = Array.isArray(window.policies) ? window.policies : [];
+  const win = bosRange();
+  const mix = bosCarrierMix(pols, win);
+
+  const head = '<div class="bos-strip-h">' +
+    '<div class="bos-strip-t">Carrier mix</div>' +
+    '<div class="bos-strip-s">Issued and paid policies only, biggest first.</div>' +
+  '</div>';
+
+  if (!mix.rows.length) {
+    return _lgCard(head + '<div class="bos-chart-empty">' +
+      'No issued policies in this period, so there is no mix to show yet.</div>');
+  }
+
+  const rows = mix.rows.map(r =>
+    '<div class="bos-mix">' +
+      '<div class="bos-mix-nm" title="' + escHTML(r.label) + '">' + escHTML(r.label) + '</div>' +
+      '<div class="bos-mix-n">' + r.count + '</div>' +
+      '<div class="bos-mix-ap">' + escHTML(bosDollars(r.ap)) + '</div>' +
+      '<div class="bos-mix-bar">' +
+        '<div class="bos-mix-track"><div class="bos-mix-fill" style="width:' +
+          Math.min(100, Math.max(0, r.share)).toFixed(1) + '%"></div></div>' +
+        '<span class="bos-mix-pct">' + r.share.toFixed(1) + '%</span>' +
+      '</div>' +
+    '</div>').join('');
+
+  return _lgCard(head +
+    '<div class="bos-mix bos-mix-h"><div>Carrier</div><div class="bos-mix-n">Policies</div>' +
+      '<div class="bos-mix-ap">AP</div><div>Share of AP</div></div>' +
+    rows +
+    '<div class="bos-chart-note">' + mix.count + ' polic' + (mix.count === 1 ? 'y' : 'ies') +
+      ' across ' + mix.rows.length + ' carrier' + (mix.rows.length === 1 ? '' : 's') +
+      ' &middot; ' + escHTML(bosDollars(mix.total)) + ' AP</div>');
+}
+
+// ---- strip 1d: top producers, for anyone in an agency -------------------
+//
+// 🔴 THROUGH lbLoadBoards() AND ONLY THROUGH IT. That is the one
+// get_agency_leaderboards call site, and it is what carries lb_visible_members()
+// — the single enforcement point for the leaderboard opt-out. An agent who has
+// hidden themselves is on no board including this one; querying around
+// lbLoadBoards() would put them back on it.
+//
+// NOT gated on plan tier, and NOT gated on being a leader: everyone in an
+// agency sees where they stand. An agent in NO agency gets no card at all —
+// not an empty one and not an upsell.
+
+function bosTopProducersHTML() {
+  const st = _bosCache.agency;
+  if (!st || st.unavailable || !st.leader_id) return '';
+
+  const entry = _bosCache.board;
+  const def = lbBoardDef('ap');
+
+  const head = '<div class="bos-strip-h">' +
+    '<div class="bos-strip-t">Top producers</div>' +
+    '<div class="bos-strip-s">' + escHTML(st.agency_name || 'Your agency') + ' &middot; ' +
+      bosCount(st.visible_count) + ' agent' + (bosCount(st.visible_count) === 1 ? '' : 's') + ' on the boards</div>' +
+  '</div>';
+
+  let inner;
+  if (!entry) inner = bosSkel('80%', 120);
+  else if (entry.state !== 'ok') {
+    inner = '<div class="bos-err">' + escHTML(bosLoadError('agency')) + '</div>';
+  } else {
+    inner = '<div class="tm">' + lbBoardHTML(entry.boards[def.key], def, bosPeriodLabel()) + '</div>';
+  }
+
+  return '<div class="bos-strip">' + head + inner +
+    // The two AP figures on this screen answer different questions and the
+    // screen has to say so out loud — see BOS_ISSUED_STATUSES.
+    '<div class="bos-tp-note">Net AP written, the agency’s one definition of a sale — it counts pending ' +
+      'and approved-not-paid business too, so it will not match your issued figure above. ' +
+      'Only the top ' + LB_TOP_N + ' is ever shown.</div>' +
+  '</div>';
 }
 
 // ---- strip 2: what needs you -------------------------------------------
@@ -29357,12 +30079,18 @@ function bosTeamHTML() {
   '</div>';
 }
 
+/**
+ * The ONLY empty state left, and it means a brand-new account: no policies AND
+ * no statements. It points at Add Policy, because writing business is what an
+ * agent does first and a statement cannot exist before one does. Round 2's
+ * version fired on statements alone and blanked a full book — see bosPaint().
+ */
 function bosEmptyHTML() {
   return '<div class="cm-panel"><div class="cm-empty">' +
     '<div style="font-size:14px;font-weight:600;color:var(--lg-text1);margin-bottom:6px">' +
       escHTML(BOS_EMPTY_TITLE) + '</div>' +
-    '<div style="max-width:420px;margin:0 auto 14px">' + escHTML(BOS_EMPTY_BODY) + '</div>' +
-    '<button class="pt-btn pt-btn-primary" onclick="nav(\'backoffice\')">Upload a statement</button>' +
+    '<div style="max-width:460px;margin:0 auto 14px">' + escHTML(BOS_EMPTY_BODY) + '</div>' +
+    '<button class="pt-btn pt-btn-primary" onclick="nav(\'tracker\')">Add your first policy</button>' +
   '</div></div>';
 }
 

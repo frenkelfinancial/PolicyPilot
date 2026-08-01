@@ -49,10 +49,19 @@ const EXPORTS = [
   'bosAttention', 'BOS_PERSIST_WINDOWS', 'BOS_MIN_COHORT', 'BOS_PERSIST_WHY',
   'BOS_PERSIST_LEGEND', 'bosPersistency', 'bosTeam', 'bosHasDownline', 'bosIsEmpty',
   'BOS_EMPTY_TITLE', 'BOS_EMPTY_BODY', 'BOS_ERROR_DOORS', 'bosLoadError',
+  // Round 4 — the book, not just the statements (// <bos-chart-core>).
+  'BOS_ISSUED_STATUSES', 'BOS_ISSUED_DEF', 'bosPolicyDay', 'bosDay', 'bosIso', 'bosInRange',
+  'bosIsIssued', 'bosIssuedPolicies', 'bosIssuedAP', 'bosIssuedCount', 'bosEstCommission',
+  'bosCarrierKey', 'BOS_CARRIER_UNKNOWN', 'bosCarrierMix', 'BOS_DAILY_MAX_DAYS', 'BOS_DAILY_DAYS',
+  'BOS_EMPTY_CHART', 'bosChartSpec', 'bosChartSeries',
   // From the blocks bo-summary-core declares a dependency on, so the tests can
   // prove the delegation rather than assume it.
   'COMM_CARD_DEFS', 'COMM_RANGES', 'commRange', 'commTotals', 'RECON_QUEUES',
   'persistBand', 'persistBandLabel',
+  // The SHIPPED period engine and the SHIPPED commission estimate, lifted out
+  // of app.html rather than re-typed here — see topLevelFn() below.
+  'summaryPeriodRange', 'ppDynamicRange', 'ppParsePeriodKey', 'ppDay', 'ppIsDynamicPeriod',
+  'ppPeriodLabel', '_lgAdvComm',
 ];
 
 function block(name) {
@@ -61,14 +70,52 @@ function block(name) {
   return m[1];
 }
 
+/**
+ * Lift a top-level `function NAME(...) { ... }` out of app.html by brace
+ * matching. The period engine and _lgAdvComm() are not inside a core sentinel,
+ * and a mirrored copy in this file would be a second definition of exactly the
+ * things this round must not have two of.
+ */
+function topLevelFn(name) {
+  const at = APP.indexOf(`\nfunction ${name}(`);
+  assert.ok(at > -1, `app.html must define function ${name}()`);
+  const open = APP.indexOf('{', at);
+  let depth = 0;
+  for (let i = open; i < APP.length; i++) {
+    if (APP[i] === '{') depth++;
+    else if (APP[i] === '}') { depth--; if (depth === 0) return APP.slice(at + 1, i + 1); }
+  }
+  assert.fail(`could not brace-match ${name}()`);
+}
+
 function loadCore() {
   const src = [
     block('comm-core'), block('persist-core'), block('recon-core'), block('bo-summary-core'),
+    block('bos-chart-core'),
+    topLevelFn('ppParsePeriodKey'), topLevelFn('ppDay'), topLevelFn('ppIsDynamicPeriod'),
+    topLevelFn('ppDynamicRange'), topLevelFn('ppPeriodLabel'), topLevelFn('summaryPeriodRange'),
+    topLevelFn('_lgAdvComm'),
   ].join('\n');
   // eslint-disable-next-line no-new-func
   return new Function(`${src}\nreturn {${EXPORTS.join(',')}};`)();
 }
 const B = loadCore();
+
+// A small book with one policy in every status that matters, all on the same
+// day, so a status filter is the ONLY thing that can move the total.
+const AP = 1200;
+const policyIn = (status, o = {}) => ({
+  id: o.id || status, client: 'C',
+  // `=== undefined`, not `||` — a blank carrier is a real case this screen has
+  // to render ("No carrier recorded"), so the fixture must be able to express it.
+  carrier: o.carrier === undefined ? 'Americo' : o.carrier,
+  ap: o.ap === undefined ? AP : o.ap, commPct: o.commPct === undefined ? 100 : o.commPct,
+  draft: o.draft || '2026-07-10', status,
+});
+const ALL_STATUSES = ['pending', 'approved', 'issued', 'paid', 'denied', 'withdrawn',
+  'lapsed', 'surrendered', 'claim', 'chargeback'];
+const FULL_BOOK = ALL_STATUSES.map(s => policyIn(s));
+const UNBOUNDED = { start: null, end: null };
 
 // A get_commission_buckets payload with every shape that matters: own and not
 // own, positive and negative, and one bonus line so Net and Total diverge.
@@ -409,7 +456,12 @@ test('🔴 ZERO PROCESSED STATEMENTS IS THE EMPTY STATE; ONE OR MORE IS THE DASH
   });
 
   assert.equal(B.BOS_EMPTY_TITLE, 'Nothing here yet.');
-  assert.match(B.BOS_EMPTY_BODY, /Drop your first carrier statement in and this screen fills itself in\./);
+  // Round 4 repointed the copy at the POLICY BOOK. bosIsEmpty() still answers
+  // the statement question exactly as before — what changed is that it is no
+  // longer on its own sufficient to blank the page (see bosIsBrandNew()).
+  assert.match(B.BOS_EMPTY_BODY, /Add a policy and this screen fills itself in\./);
+  assert.ok(!/Drop your first carrier statement/.test(B.BOS_EMPTY_BODY),
+    'an owner with a full book of policies must never be sent to statement upload');
 });
 
 test('a failed RPC leaves a door open on its own card', () => {
@@ -615,24 +667,10 @@ test('every core sentinel still appears exactly once, including the new one', ()
   // sentinel, so a mention of one ABOVE its real block swallows the file.
   ['bob-core', 'comm-core', 'persist-core', 'recon-core', 'referral-core',
    'backoffice-core', 'team-core', 'producer-codes-core', 'ai-meter-core',
-   'vcamp-core', 'leadfilter-core', 'bo-summary-core'].forEach(name => {
+   'vcamp-core', 'leadfilter-core', 'bo-summary-core', 'bos-chart-core'].forEach(name => {
     assert.equal((APP.match(new RegExp(`// <${name}>`, 'g')) || []).length, 1, `// <${name}>`);
     assert.equal((APP.match(new RegExp(`// </${name}>`, 'g')) || []).length, 1, `// </${name}>`);
   });
-});
-
-test('the range chips are the shared COMM_RANGES, and there is no fourth', () => {
-  assert.deepEqual(B.COMM_RANGES.map(r => r.key), ['mtd', 'ytd', 'all']);
-  const paint = APP_CODE.slice(APP_CODE.indexOf('function bosPaintRanges()'),
-    APP_CODE.indexOf('function bosOpen('));
-  assert.match(paint, /COMM_RANGES\.map/);
-  assert.match(paint, /class="tracker-tab/, 'the same chip markup the Commissions panel uses');
-  // One range calculator, one memory: bosSetRange writes the key cmRender reads.
-  const setter = APP_CODE.slice(APP_CODE.indexOf('function bosSetRange('),
-    APP_CODE.indexOf('function _bosRosterDownline('));
-  assert.match(setter, /_cmRange = k/);
-  assert.match(setter, /'pp_comm_range'/);
-  assert.ok(!/new Date\(\w*\.getFullYear/.test(setter), 'no second range calculator');
 });
 
 test('the screen uses design tokens only — no hard-coded colour in its own CSS', () => {
@@ -642,4 +680,596 @@ test('the screen uses design tokens only — no hard-coded colour in its own CSS
   assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(css),
     'a hard-coded hex does not follow the reader into dark mode');
   assert.match(css, /var\(--lg-/);
+});
+
+// ============================================================
+// 7. ROUND 4 — THE SCREEN READS THE BOOK, NOT JUST THE STATEMENTS
+// ============================================================
+
+const MONEY_DEF_RULE =
+  'BOS_ISSUED_STATUSES is a MONEY DEFINITION. A silent drift here is the 8,610x ' +
+  'class of bug: the figure changes, nothing errors, and nobody can tell from ' +
+  'the screen. See docs/back-office-summary.md.';
+
+test('🔴 ISSUED AP IS issued + paid, AND NOTHING ELSE', () => {
+  assert.deepEqual(B.BOS_ISSUED_STATUSES, ['issued', 'paid'], MONEY_DEF_RULE);
+
+  // issued + paid = two policies at $1,200.
+  assert.equal(B.bosIssuedAP(FULL_BOOK, UNBOUNDED), AP * 2, MONEY_DEF_RULE);
+  assert.equal(B.bosIssuedCount(FULL_BOOK, UNBOUNDED), 2, MONEY_DEF_RULE);
+
+  // One assertion per excluded status, each naming the status it is about,
+  // because "the total looks wrong" is not a debuggable failure message.
+  ALL_STATUSES.filter(s => !B.BOS_ISSUED_STATUSES.includes(s)).forEach(status => {
+    const only = [policyIn(status)];
+    assert.equal(B.bosIssuedAP(only, UNBOUNDED), 0,
+      `a policy in '${status}' must NOT count toward issued AP. ${MONEY_DEF_RULE}`);
+    assert.equal(B.bosIssuedPolicies(only, UNBOUNDED).length, 0,
+      `a policy in '${status}' must NOT be in the issued set. ${MONEY_DEF_RULE}`);
+  });
+
+  ['issued', 'paid'].forEach(status => {
+    assert.equal(B.bosIssuedAP([policyIn(status)], UNBOUNDED), AP,
+      `a policy in '${status}' MUST count toward issued AP. ${MONEY_DEF_RULE}`);
+  });
+});
+
+test('🔴 ISSUED AP IS NOT THE SALE PREDICATE — it must never reach for BOB_NOT_A_SALE', () => {
+  // get_team_summary() and lb_agent_metrics() answer "what was sold" and count
+  // a pending application; this answers "what did the carrier issue". Both are
+  // right about their own question. Quietly folding one into the other is what
+  // this assertion exists to stop.
+  const core = stripLineComments(block('bos-chart-core'), ['//', '*', '/*']);
+  assert.ok(!/BOB_NOT_A_SALE/.test(core),
+    'bosIssuedAP answers a different question from the sale predicate and must not borrow it');
+  assert.ok(!/BOB_ENDED|PERSIST_KEPT|lb_agent_metrics|get_team_summary/.test(core),
+    'no other status list may leak into this one');
+
+  // And they demonstrably differ on the same book: a sale predicate counts the
+  // pending and approved rows this one drops.
+  const sold = FULL_BOOK.filter(p => !['lapsed', 'chargeback', 'denied', 'withdrawn'].includes(p.status));
+  assert.equal(sold.length, 6);
+  assert.notEqual(B.bosIssuedCount(FULL_BOOK, UNBOUNDED), sold.length,
+    'the two definitions must be visibly different, or the warning on screen is noise');
+});
+
+test('a lapsed policy LEAVES the figure, so a past period can shrink — intended', () => {
+  const march = { start: new Date(2026, 2, 1), end: new Date(2026, 3, 1) };
+  const before = [policyIn('issued', { id: 'm1', draft: '2026-03-09' })];
+  const after = [{ ...before[0], status: 'lapsed' }];
+  assert.equal(B.bosIssuedAP(before, march), AP);
+  assert.equal(B.bosIssuedAP(after, march), 0,
+    'the owner was shown this trade-off and chose it — do NOT add a snapshot or an as-of date');
+});
+
+test('the AP card carries its definition, in words, always on', () => {
+  assert.match(B.BOS_ISSUED_DEF, /issued or paid/i);
+  assert.match(B.BOS_ISSUED_DEF, /[Pp]ending/);
+  // Rendered under the card rather than hidden in a tooltip — the Commissions
+  // panel's rule, and the reason it matters here is the Top Producers card
+  // counting differently one strip below.
+  assert.match(APP_CODE, /BOS_ISSUED_DEF/);
+  const fn = APP_CODE.slice(APP_CODE.indexOf('function bosProductionHTML()'),
+    APP_CODE.indexOf('const BOS_CHART_W'));
+  assert.match(fn, /card\('Personal issued AP',[\s\S]{0,60}BOS_ISSUED_DEF\)/);
+});
+
+test('the four cards are AP, estimate, paid and count — and paid is a DASH, never a zero', () => {
+  const fn = APP_CODE.slice(APP_CODE.indexOf('function bosProductionHTML()'),
+    APP_CODE.indexOf('const BOS_CHART_W'));
+  ['Personal issued AP', 'Est. commission', 'Commission paid', 'Policies issued']
+    .forEach(l => assert.ok(fn.includes(l), `the ${l} card must exist`));
+  // "$0.00" on an account with no statements claims the carriers paid nothing.
+  assert.match(fn, /paidValue = '<div class="cm-card-v bos-zero">&mdash;<\/div>'/);
+  assert.match(fn, /Upload a statement to see this\./);
+  // The estimate goes through the app's ONE formula, taken as a parameter.
+  assert.match(fn, /bosEstCommission\(pols, win, _lgAdvComm\)/);
+  assert.ok(!/\* 0\.75/.test(fn), 'a second advance formula is a second answer');
+});
+
+test('the estimate is the SHIPPED _lgAdvComm formula, not a copy of it', () => {
+  // _lgAdvComm is lifted out of app.html by topLevelFn(), so this runs the
+  // arithmetic that ships: AP x comm% x 75% advance.
+  const book = [policyIn('issued', { commPct: 100 }), policyIn('paid', { id: 'p2', commPct: 50 })];
+  assert.equal(B._lgAdvComm(book[0]), AP * 0.75);
+  assert.equal(B.bosEstCommission(book, UNBOUNDED, B._lgAdvComm), AP * 0.75 + AP * 0.375);
+  // Excluded statuses are excluded here too — one set of policies, four cards.
+  assert.equal(B.bosEstCommission(FULL_BOOK, UNBOUNDED, B._lgAdvComm),
+    B.bosIssuedPolicies(FULL_BOOK, UNBOUNDED).reduce((s, p) => s + B._lgAdvComm(p), 0));
+  // A missing resolver returns zero rather than throwing on the landing screen.
+  assert.equal(B.bosEstCommission(book, UNBOUNDED, null), 0);
+});
+
+test('carrier mix groups on one spelling and never lists a carrier twice', () => {
+  const book = [
+    policyIn('issued', { id: 'c1', carrier: 'Americo', ap: 900 }),
+    policyIn('paid',   { id: 'c2', carrier: 'americo ', ap: 300 }),
+    policyIn('issued', { id: 'c3', carrier: 'Americo', ap: 100 }),
+    policyIn('issued', { id: 'c4', carrier: 'Mutual of Omaha', ap: 700 }),
+    policyIn('lapsed', { id: 'c5', carrier: 'Corebridge', ap: 5000 }),
+    policyIn('issued', { id: 'c6', carrier: '', ap: 200 }),
+  ];
+  const mix = B.bosCarrierMix(book, UNBOUNDED);
+  assert.deepEqual(mix.rows.map(r => r.label),
+    ['Americo', 'Mutual of Omaha', B.BOS_CARRIER_UNKNOWN],
+    'a carrier must not appear twice under two spellings');
+  assert.equal(mix.rows[0].count, 3);
+  assert.equal(mix.rows[0].ap, 1300);
+  assert.equal(mix.total, 2200, 'a lapsed policy is not in the mix — same definition as the card');
+  assert.equal(mix.count, 5);
+  assert.ok(Math.abs(mix.rows.reduce((s, r) => s + r.share, 0) - 100) < 1e-9,
+    'the shares must sum to 100, or the bar is a decoration');
+  // Sorted by AP descending.
+  assert.deepEqual(mix.rows.map(r => r.ap), [1300, 700, 200]);
+  // Empty window is an empty list, not a throw.
+  assert.deepEqual(B.bosCarrierMix([], UNBOUNDED).rows, []);
+  assert.equal(B.bosCarrierMix(null, UNBOUNDED).total, 0);
+});
+
+// ---- the graph ---------------------------------------------------------
+
+const TODAY = new Date(2026, 6, 15);   // Wednesday 15 July 2026
+const spec = (key, pols) => B.bosChartSpec(key, B.summaryPeriodRange(key, TODAY), TODAY, pols || []);
+
+test('🔴 "TODAY" DRAWS SEVEN DAILY BUCKETS, NOT TWENTY-FOUR HOURLY ONES', () => {
+  const NO_CLOCK =
+    'There is no sale-time timestamp anywhere in this schema — only the moment a ' +
+    'row was entered — so an hourly axis plots data-entry habits, not production. ' +
+    'Same evidence docs/agency-leaderboards.md records for cutting Early Bird and Closer.';
+  const s = spec('daily');
+  assert.equal(s.unit, 'day', NO_CLOCK);
+  assert.equal(s.buckets.length, 7, NO_CLOCK);
+  assert.equal(B.BOS_DAILY_DAYS, 7, NO_CLOCK);
+  assert.notEqual(s.buckets.length, 24, NO_CLOCK);
+  assert.deepEqual(s.buckets.map(b => b.label),
+    ['Jul 9', 'Jul 10', 'Jul 11', 'Jul 12', 'Jul 13', 'Jul 14', 'Jul 15']);
+  // Today is the last bucket and it is the emphasised one.
+  assert.deepEqual(s.buckets.map(b => b.isNow), [false, false, false, false, false, false, true]);
+  assert.match(s.note, /Last 7 days/);
+});
+
+test('every period shape produces the buckets the granularity table promises', () => {
+  const week = spec('weekly');
+  assert.equal(week.unit, 'day');
+  assert.equal(week.buckets.length, 7, 'weekly is 7 daily buckets, Mon–Sun');
+  assert.equal(week.buckets[0].label, 'Jul 13', 'the week starts on Monday');
+  assert.equal(week.buckets[6].label, 'Jul 19');
+
+  const month = spec('monthly');
+  assert.equal(month.unit, 'day');
+  assert.equal(month.buckets.length, 31, 'July has 31 days');
+  assert.equal(month.buckets[0].label, 'Jul 1');
+  assert.equal(month.buckets[30].label, 'Jul 31');
+
+  const past = spec('month:2026-04');
+  assert.equal(past.unit, 'day');
+  assert.equal(past.buckets.length, 30, 'April has 30 days');
+  assert.equal(past.buckets[0].label, 'Apr 1');
+  assert.ok(past.buckets.every(b => !b.isNow), 'a past month contains no today');
+
+  // Custom, short: daily.
+  const short = spec('custom:2026-06-01:2026-06-20');
+  assert.equal(short.unit, 'day');
+  assert.equal(short.buckets.length, 20, 'the picker is inclusive — the 20th counts');
+
+  // Custom, long: weekly buckets above the ceiling.
+  assert.equal(B.BOS_DAILY_MAX_DAYS, 62);
+  const long = spec('custom:2026-01-01:2026-06-30');
+  assert.equal(long.unit, 'week');
+  assert.ok(long.buckets.length >= 25 && long.buckets.length <= 27,
+    'about 26 weeks, aligned to Monday — got ' + long.buckets.length);
+  assert.match(long.note, /Weekly buckets/);
+
+  // Exactly at the ceiling is still daily; one day past it is not.
+  assert.equal(spec('custom:2026-05-01:2026-07-01').unit, 'day');   // 62 days
+  assert.equal(spec('custom:2026-05-01:2026-07-02').unit, 'week');  // 63 days
+});
+
+test('lifetime draws monthly buckets, spanning the book itself', () => {
+  const book = [
+    policyIn('issued', { id: 'l1', draft: '2026-05-04' }),
+    policyIn('paid',   { id: 'l2', draft: '2026-07-02' }),
+    // A lapsed policy further back must NOT stretch the axis — it is not in
+    // the figure, so it is not on the graph either.
+    policyIn('lapsed', { id: 'l3', draft: '2024-01-01' }),
+  ];
+  const s = spec('lifetime', book);
+  assert.equal(s.unit, 'month');
+  assert.deepEqual(s.buckets.map(b => b.label), ["May '26", "Jun '26", "Jul '26"]);
+  assert.deepEqual(s.buckets.map(b => b.isNow), [false, false, true]);
+
+  // A book with no issued policy still yields one renderable bucket.
+  const bare = spec('lifetime', []);
+  assert.equal(bare.buckets.length, 1);
+  assert.equal(bare.unit, 'month');
+});
+
+test('🔴 THE SERIES IS CUMULATIVE, AND ITS LAST VALUE IS THE CARD', () => {
+  const book = [
+    policyIn('issued', { id: 'g1', draft: '2026-07-02', ap: 500 }),
+    policyIn('paid',   { id: 'g2', draft: '2026-07-02', ap: 250 }),
+    policyIn('issued', { id: 'g3', draft: '2026-07-20', ap: 1000 }),
+    policyIn('lapsed', { id: 'g4', draft: '2026-07-05', ap: 9999 }),
+    policyIn('pending', { id: 'g5', draft: '2026-07-06', ap: 8888 }),
+  ];
+  const s = B.bosChartSpec('monthly', B.summaryPeriodRange('monthly', TODAY), TODAY, book);
+  const series = B.bosChartSeries(book, s);
+
+  // Non-decreasing: the line only ever climbs inside the window drawn.
+  series.points.forEach((p, i) => {
+    if (i === 0) return;
+    assert.ok(p.cumulative >= series.points[i - 1].cumulative,
+      `the running total fell at bucket ${i} (${p.label}) — a cumulative line must not descend`);
+  });
+
+  // THE assertion that catches the graph and the card disagreeing.
+  assert.equal(series.total, B.bosIssuedAP(book, s.window),
+    'the graph and the Personal issued AP card must be the same number');
+  assert.equal(series.total, 1750);
+  assert.equal(series.points[series.points.length - 1].cumulative, 1750);
+  assert.equal(series.max, 1750);
+
+  // And it is the same for every period shape, against that shape's own window.
+  ['daily', 'weekly', 'monthly', 'lifetime', 'month:2026-07', 'custom:2026-07-01:2026-07-31']
+    .forEach(key => {
+      const sp = B.bosChartSpec(key, B.summaryPeriodRange(key, TODAY), TODAY, book);
+      const se = B.bosChartSeries(book, sp);
+      assert.equal(se.total, B.bosIssuedAP(book, sp.window),
+        `the ${key} graph disagrees with bosIssuedAP over its own window`);
+    });
+});
+
+test('all-zero, single-bucket and empty inputs each return a renderable series', () => {
+  const noNaN = (s, what) => {
+    assert.ok(Number.isFinite(s.total), `${what}: total must be a number, got ${s.total}`);
+    assert.ok(Number.isFinite(s.max), `${what}: max must be a number, got ${s.max}`);
+    s.points.forEach(p => {
+      assert.ok(Number.isFinite(p.value), `${what}: a bucket value was ${p.value}`);
+      assert.ok(Number.isFinite(p.cumulative), `${what}: a cumulative was ${p.cumulative}`);
+    });
+  };
+
+  // All zero — a real window, no issued production.
+  const zero = B.bosChartSeries([], B.bosChartSpec('monthly', B.summaryPeriodRange('monthly', TODAY), TODAY, []));
+  assert.equal(zero.points.length, 31);
+  assert.equal(zero.total, 0);
+  assert.equal(zero.empty, true, 'the renderer needs to know to draw a baseline and a sentence');
+  noNaN(zero, 'all-zero');
+
+  // A single bucket — no (n - 1) to divide by.
+  const one = B.bosChartSeries([policyIn('issued', { draft: '2026-07-15' })],
+    { unit: 'day', buckets: [{ start: new Date(2026, 6, 15), end: new Date(2026, 6, 16), label: 'Jul 15', isNow: true }],
+      window: { start: new Date(2026, 6, 15), end: new Date(2026, 6, 16) } });
+  assert.equal(one.points.length, 1);
+  assert.equal(one.total, AP);
+  noNaN(one, 'single-bucket');
+
+  // No policies at all, and outright rubbish.
+  [null, undefined, [], [{}], [{ status: 'issued' }], [{ status: 'issued', ap: 'x', draft: 'nonsense' }]]
+    .forEach(pols => {
+      const s = B.bosChartSeries(pols, B.bosChartSpec('weekly', B.summaryPeriodRange('weekly', TODAY), TODAY, pols));
+      noNaN(s, `pols=${JSON.stringify(pols)}`);
+      assert.equal(s.total, 0);
+    });
+
+  // And a spec with no buckets at all does not throw on the way past.
+  const none = B.bosChartSeries([], { buckets: [], window: {} });
+  assert.deepEqual(none.points, []);
+  assert.equal(none.total, 0);
+  assert.equal(none.empty, true);
+
+  assert.match(B.BOS_EMPTY_CHART, /No issued production in this period/);
+});
+
+test('a policy with no draft date is on no timeline, and never NaN', () => {
+  // It cannot be placed, and inventing a date would move real money into a
+  // month it did not happen in.
+  const orphan = [{ id: 'x', status: 'issued', ap: 500, carrier: 'Americo' }];
+  assert.equal(B.bosIssuedAP(orphan, UNBOUNDED), 0);
+  assert.equal(B.bosPolicyDay(orphan[0]), null);
+  assert.equal(B.bosInRange(null, UNBOUNDED), false);
+  assert.equal(B.bosDay('nonsense'), null);
+  assert.equal(B.bosIso('nonsense'), null);
+  assert.equal(B.bosIso(new Date(2026, 0, 3)), '2026-01-03');
+});
+
+test('money on this screen goes through bosCents — never Math.max(0, Number(x || 0))', () => {
+  // Round 2 shipped a real NaN bug of exactly this shape. `Number('x' || 0)`
+  // is NaN and Math.max(0, NaN) is NaN too, so the obvious guard is not one.
+  const core = stripLineComments(block('bos-chart-core'), ['//', '*', '/*']);
+  assert.ok(!/Math\.max\(\s*0\s*,\s*Number\(/.test(core),
+    'the obvious guard is not one — use bosCents / bosCount');
+  assert.match(core, /bosCents\(p\.ap\)/, 'AP must be read through bosCents');
+
+  // A junk AP is zero, not NaN, everywhere it is summed.
+  const junk = [policyIn('issued', { id: 'j1', ap: 'x' }), policyIn('paid', { id: 'j2', ap: null }),
+    policyIn('issued', { id: 'j3', ap: 400 })];
+  assert.equal(B.bosIssuedAP(junk, UNBOUNDED), 400);
+  assert.equal(B.bosCarrierMix(junk, UNBOUNDED).total, 400);
+  const s = B.bosChartSeries(junk, B.bosChartSpec('lifetime', B.summaryPeriodRange('lifetime', TODAY), TODAY, junk));
+  assert.equal(s.total, 400);
+  assert.ok(Number.isFinite(s.max));
+});
+
+test('the bos-chart-core block is pure — no DOM, network, storage or app globals', () => {
+  const body = stripLineComments(block('bos-chart-core'), ['//', '*', '/*']);
+  [/\bdocument\./, /\bwindow\./, /\blocalStorage\b/, /\bsessionStorage\b/, /\bsb\./,
+   /\bfetch\(/, /\bcurrentAgent\b/, /\bescHTML\(/, /\bshowToast\(/, /\bnav\(/,
+   /\bboArea\(/, /_bosCache/, /_planTier\(/, /\bbosPeriod\b/, /_lgAdvComm/,
+   /\bpolicies\s*[.[]/, /\bleads\s*[.[]/]
+    .forEach(re => assert.ok(!re.test(body), `${re} must not appear in the extracted core`));
+});
+
+// ---- the period control -------------------------------------------------
+
+test('🔴 THIS SCREEN WRITES pp_bos_period AND NOTHING ELSE', () => {
+  const screen = APP_CODE.slice(APP_CODE.indexOf('const BOS_TTL_MS'),
+    APP_CODE.indexOf('function boRefresh('));
+  assert.match(screen, /const BOS_PERIOD_KEY = 'pp_bos_period'/);
+  assert.match(screen, /localStorage\.setItem\(BOS_PERIOD_KEY, p\)/);
+  // pp_summary_period is the Front Office Summary's and pp_team_period is the
+  // Agency tab's. Clicking a chip here must not move either of those screens.
+  ["'pp_summary_period'", "'pp_team_period'", "'pp_comm_range'"].forEach(k =>
+    assert.ok(!screen.includes(k),
+      `the Back Office Summary must not write ${k} — that is another screen's window`));
+  assert.ok(!/_cmRange\s*=/.test(screen), 'nor the Commissions panel’s range');
+  assert.ok(!/setLedgerPeriod\(/.test(screen) && !/teamSetPeriod\(/.test(screen),
+    'nor another screen’s setter');
+
+  // Exactly one owner of the key, in the whole file.
+  assert.equal((APP_CODE.match(/'pp_bos_period'/g) || []).length, 1);
+  assert.equal((APP_CODE.match(/localStorage\.setItem\(BOS_PERIOD_KEY/g) || []).length, 1);
+});
+
+test('the chips are the shared period control, and the shared engine resolves them', () => {
+  const paint = APP_CODE.slice(APP_CODE.indexOf('function bosPaintPeriod()'),
+    APP_CODE.indexOf('function bosOpen('));
+  ["chip('daily', 'Today')", "chip('weekly', 'Weekly')",
+   "chip('monthly', 'Monthly')", "chip('lifetime', 'Lifetime')"]
+    .forEach(c => assert.ok(paint.includes(c), `the ${c} chip must be rendered`));
+  assert.match(paint, /ppPeriodPickerHTML\(bosPeriod, 'setBosPeriod', 'bos', 'lg-chip lg-click pp-pick'\)/,
+    'the month picker and custom range come from the ONE shared builder');
+  assert.match(paint, /class="lg-chip lg-click/, 'the same chip markup the Ledger Summary uses');
+
+  // Every date comes out of summaryPeriodRange(); this screen mints none.
+  assert.match(APP_CODE, /function bosRange\(\) \{ return summaryPeriodRange\(bosPeriod, new Date\(\)\); \}/);
+  const screen = APP_CODE.slice(APP_CODE.indexOf('const BOS_TTL_MS'),
+    APP_CODE.indexOf('function boRefresh('));
+  assert.ok(!/new Date\(\w+\.getFullYear\(\)/.test(screen),
+    'a second window calculator is a second answer to "this month"');
+  assert.equal((APP_CODE.match(/summaryPeriodRange\(bosPeriod/g) || []).length, 1,
+    'one resolver, called in one place');
+
+  // The custom-range Apply button dispatches to THIS screen's setter. Without
+  // that branch it fell through to setLedgerPeriod and wrote pp_summary_period.
+  const apply = APP_CODE.slice(APP_CODE.indexOf('function ppApplyRange('),
+    APP_CODE.indexOf('function lgUpgrade('));
+  assert.match(apply, /setter==='setBosPeriod'/);
+  // And the picker's element id is this screen's, not the Front Office's — the
+  // two sections are in the DOM at the same time.
+  assert.match(paint, /'setBosPeriod', 'bos'/);
+});
+
+test('the period is honoured on load, and a broken stored key cannot brick the screen', () => {
+  const init = APP_CODE.slice(APP_CODE.indexOf('let bosPeriod = '),
+    APP_CODE.indexOf('function setBosPeriod('));
+  assert.match(init, /LG_PERIODS\.includes\(v\)/);
+  assert.match(init, /ppIsDynamicPeriod\(v\) && ppDynamicRange\(v\)/,
+    'a stored month:/custom: key must survive a reload — teaching only the setter ' +
+    'is what made a picked window silently revert on the next page load');
+  assert.match(init, /return BOS_PERIOD_DEFAULT/);
+
+  const setter = APP_CODE.slice(APP_CODE.indexOf('function setBosPeriod('),
+    APP_CODE.indexOf('function bosRange()'));
+  assert.match(setter, /if \(ppIsDynamicPeriod\(p\) && !ppDynamicRange\(p\)\) return;/,
+    'a key that does not resolve must be refused rather than stored');
+
+  // The engine really does understand all six shapes handed to it.
+  ['daily', 'weekly', 'monthly', 'lifetime', 'month:2026-04', 'custom:2026-04-01:2026-04-17']
+    .forEach(key => {
+      const r = B.summaryPeriodRange(key, TODAY);
+      assert.ok(r && 'start' in r && 'end' in r, `summaryPeriodRange did not resolve ${key}`);
+    });
+  assert.equal(B.summaryPeriodRange('lifetime', TODAY).start, null, 'lifetime is unbounded');
+});
+
+// ---- top producers, and the leaderboard invariants ---------------------
+
+test('🔴 TOP PRODUCERS GOES THROUGH lbLoadBoards(), THE ONE CALL SITE', () => {
+  // Still one. A second is a second set of window arguments, and two sets of
+  // window arguments is two answers to "how did I do this month".
+  const hits = APP_CODE.match(/sb\.rpc\(\s*['"]get_agency_leaderboards['"]/g) || [];
+  assert.equal(hits.length, 1, 'two call sites is two sets of window arguments');
+
+  const fn = APP_CODE.slice(APP_CODE.indexOf('async function renderBackOfficeSummary('),
+    APP_CODE.indexOf('function bosPaint('));
+  assert.match(fn, /lbLoadBoards\(bosPeriod, LB_BASIS_DEFAULT, false, win\)/,
+    'the Back Office Summary must reach the boards through lbLoadBoards()');
+  assert.ok(!/get_agency_leaderboards|lb_board_rows|lb_visible_members|from\('agents'\)/.test(fn),
+    'querying around lbLoadBoards() loses lb_visible_members() — the single ' +
+    'enforcement point for the leaderboard opt-out');
+
+  // The optional range DEFAULTS to today's behaviour, byte for byte.
+  const load = APP_CODE.slice(APP_CODE.indexOf('async function lbLoadBoards('),
+    APP_CODE.indexOf('async function lbRefreshMe'));
+  assert.match(load, /rangeOverride \|\| teamPeriodRange\(periodKey, new Date\(\)\)/,
+    'omitting the range must leave the Agency tab exactly as it was');
+  assert.match(load, /lbRangeKey\(range\)/,
+    'the cache must be keyed by the RANGE — two windows behind one period name ' +
+    'is how two screens serve each other a stale board');
+  // lbRangeKey reads bounds; it mints nothing.
+  const key = APP_CODE.slice(APP_CODE.indexOf('function lbRangeKey('),
+    APP_CODE.indexOf('async function lbAgencyState('));
+  assert.ok(!/new Date\(/.test(key), 'lbRangeKey must not mint a date of its own');
+  // And the Agency tab's own call site is untouched.
+  assert.match(APP_CODE, /lbLoadBoards\(_teamPeriod, _lbBasis\)/);
+});
+
+test('the top-producers card never re-derives the top-10 cutoff', () => {
+  const fn = APP_CODE.slice(APP_CODE.indexOf('function bosTopProducersHTML()'),
+    APP_CODE.indexOf('function bosAttentionHTML()'));
+  assert.ok(fn.length > 0, 'bosTopProducersHTML() must exist');
+  // It renders through lbBoardHTML(), which splits with lbSplitRows() — and
+  // lbSplitRows trusts in_top. This card must not start filtering ranks.
+  assert.match(fn, /lbBoardHTML\(/);
+  assert.ok(!/rank\s*[<>]=?/.test(fn), 'the cutoff is enforced by the SERVER, not here');
+  const split = APP_CODE.slice(APP_CODE.indexOf('function lbSplitRows('),
+    APP_CODE.indexOf('function lbGapText('));
+  assert.ok(!/LB_TOP_N/.test(split), 'lbSplitRows must trust in_top, not re-derive the cutoff');
+  // It may NAME the rule in its own copy — that is the sentence on screen.
+  assert.match(fn, /Only the top/);
+});
+
+test('🔴 NO AGENCY MEANS NO CARD — not an empty one, not an upsell', () => {
+  const fn = APP_CODE.slice(APP_CODE.indexOf('function bosTopProducersHTML()'),
+    APP_CODE.indexOf('function bosAttentionHTML()'));
+  assert.match(fn, /if \(!st \|\| st\.unavailable \|\| !st\.leader_id\) return '';/);
+  assert.ok(fn.indexOf('leader_id') < fn.indexOf('bos-strip'),
+    'the gate is checked BEFORE anything is built');
+  assert.ok(!/showUpgradeGate|upsell|locked/i.test(fn), 'no upgrade gate lives on this card');
+  assert.ok(!/display:\s*none/.test(fn), 'a hidden card is still a card in the DOM');
+  // It is visible to everyone in an agency — NOT gated on plan tier or on
+  // being the leader, unlike the team strip below it.
+  assert.ok(!/_planTier\(\)/.test(fn), 'everyone in an agency sees where they stand');
+  // And it says out loud that it counts differently from the card above.
+  assert.match(fn, /will not match your issued figure above/);
+});
+
+test('the leaderboard still owns no period engine, and pp_team_period is untouched', () => {
+  // The CALLER supplies the window — which is what the Agency tab already does
+  // implicitly. What the boards must never grow is date arithmetic of their own.
+  const lbBlock = APP.slice(APP.indexOf('// <leaderboard-core>'), APP.indexOf('async function lbRenderFame'));
+  assert.ok(!/getDay\(\)/.test(lbBlock), 'week-start arithmetic belongs to the period engines alone');
+  const screen = APP_CODE.slice(APP_CODE.indexOf('const BOS_TTL_MS'),
+    APP_CODE.indexOf('function boRefresh('));
+  assert.ok(!/pp_team_period/.test(screen),
+    'steering the board by writing the Agency tab’s key would move the Agency tab');
+  assert.equal((APP_CODE.match(/localStorage\.setItem\('pp_team_period'/g) || []).length, 1);
+});
+
+// ---- the empty state, and what replaced it -----------------------------
+
+test('🔴 THE PAGE-LEVEL STATEMENT EMPTY STATE IS GONE', () => {
+  const paint = APP_CODE.slice(APP_CODE.indexOf('function bosPaint()'),
+    APP_CODE.indexOf('function bosShellHTML()'));
+  // The Round 2 branch — statements alone blanking the whole screen — must not
+  // come back. An owner with a full book got a welcome mat.
+  assert.ok(!/bosIsEmpty\(_bosCache\.ingest\)\)\s*\{\s*_bosCache\.empty/.test(paint));
+  assert.match(paint, /if \(bosIsBrandNew\(\)\)/);
+
+  const brand = APP_CODE.slice(APP_CODE.indexOf('function bosIsBrandNew()'),
+    APP_CODE.indexOf('function bosShellHTML()'));
+  assert.match(brand, /if \(pols\.length > 0\) return false;/,
+    'one policy is enough for this screen to have something to say');
+  assert.match(brand, /bosIsEmpty\(_bosCache\.ingest\)/,
+    'and it still has to be true that no statement exists either');
+
+  // The empty panel now points at the policy book, not at statement upload.
+  const empty = APP_CODE.slice(APP_CODE.indexOf('function bosEmptyHTML()'),
+    APP_CODE.indexOf('async function boRefresh('));
+  // Written escaped inside a JS string literal, so the source text carries the
+  // backslashes: onclick="nav(\'tracker\')".
+  assert.match(empty, /nav\(\\?'tracker\\?'\)/);
+  assert.ok(!/nav\(\\?'backoffice\\?'\)/.test(empty),
+    'the welcome mat must not send a brand-new agent to statement upload');
+});
+
+test('the window is captioned by what it IS, not by the comparison it enables', () => {
+  // summaryPeriodRange() labels a window for the Front Office Summary, which
+  // renders a delta against it — "This month vs last month". This screen shows
+  // no delta, so that caption would describe something not on the page.
+  const fn = APP_CODE.slice(APP_CODE.indexOf('function bosPeriodLabel()'),
+    APP_CODE.indexOf('async function renderBackOfficeSummary('));
+  assert.match(fn, /return 'Today';/);
+  assert.match(fn, /return 'This week';/);
+  assert.match(fn, /return 'This month';/);
+  assert.match(fn, /return 'All time';/);
+  assert.match(fn, /ppDynamicRange\(bosPeriod\)/,
+    'a picked month or custom range already labels itself');
+  assert.ok(!/vs last/.test(fn));
+
+  const screen = APP_CODE.slice(APP_CODE.indexOf('const BOS_TTL_MS'),
+    APP_CODE.indexOf('function boRefresh('));
+  assert.ok(!/win\.label/.test(screen) && !/bosRange\(\)\.label/.test(screen),
+    'the comparison label must not reach the screen');
+  // All three surfaces that name the window use the one helper: the chip row's
+  // caption, the graph's header, and the top-producers board.
+  assert.match(screen, /class="bos-chips-cap">' \+ escHTML\(bosPeriodLabel\(\)\)/);
+  assert.match(screen, /Running total &middot; ' \+ escHTML\(bosPeriodLabel\(\)\)/);
+  assert.match(screen, /lbBoardHTML\(entry\.boards\[def\.key\], def, bosPeriodLabel\(\)\)/);
+  // One definition, three uses — nothing else may name the window.
+  assert.equal((screen.match(/bosPeriodLabel\(\)/g) || []).length, 4);
+});
+
+test('🔴 THE MONEY STRIP SAYS SO WHEN THERE ARE NO STATEMENTS — never four $0.00s', () => {
+  // All four figures come off a statement, so with none uploaded "$0.00" reads
+  // as "the carriers paid you nothing" rather than "we have not been told yet".
+  // Same rule as the Commission paid card. This is Round 2's page-level empty
+  // state, scoped to the one strip it was ever actually about.
+  const fn = APP_CODE.slice(APP_CODE.indexOf('function bosMoneyHTML()'),
+    APP_CODE.indexOf('function bosProductionHTML()'));
+  assert.match(fn, /bosState\('ingest'\) === 'ok' && bosIsEmpty\(_bosCache\.ingest\)/);
+  assert.match(fn, /No carrier statements uploaded yet/);
+  // The gate comes BEFORE any card is built, or the zeroes render anyway.
+  assert.ok(fn.indexOf('bosIsEmpty(_bosCache.ingest)') < fn.indexOf('bosMoneyCards('));
+  // And it opens the upload panel, which is boArea's 'ingest'.
+  assert.match(fn, /bosOpen\(\\?'ingest\\?'\)/);
+});
+
+test('the policy-derived strips render above the statement-derived ones', () => {
+  const shell = APP_CODE.slice(APP_CODE.indexOf('function bosShellHTML()'),
+    APP_CODE.indexOf('function bosPaintPeriod()'));
+  const order = ['bos-periods', 'bos-production', 'bos-chart', 'bos-mix', 'bos-top',
+    'bos-money', 'bos-attention', 'bos-health', 'bos-team'];
+  let last = -1;
+  order.forEach(id => {
+    const at = shell.indexOf('"' + id + '"');
+    assert.ok(at > last, `${id} must render after ${order[order.indexOf(id) - 1] || 'the top'}`);
+    last = at;
+  });
+  // Round 2's reconciliation and persistency strips are KEPT, unchanged, below.
+  assert.match(shell, /bos-strip-t">What needs you/);
+  assert.match(shell, /bos-strip-t">Book health/);
+  assert.match(APP_CODE, /set\('bos-attention', bosAttentionHTML\(\)\)/);
+  assert.match(APP_CODE, /set\('bos-health', bosHealthHTML\(\)\)/);
+  // Including the debt rule, which lives on the money strip.
+  assert.match(APP_CODE, /note: BOS_DEBT_NOTE/);
+});
+
+test('the new markup is token-only — no hard-coded hex anywhere in it', () => {
+  const fns = ['bosProductionHTML', 'bosChartHTML', 'bosMixHTML', 'bosTopProducersHTML',
+    'bosPaintPeriod', 'bosShellHTML'];
+  fns.forEach(name => {
+    const at = APP.indexOf(`function ${name}(`);
+    assert.ok(at > -1, `${name}() must exist`);
+    const open = APP.indexOf('{', at);
+    let depth = 0, end = -1;
+    for (let i = open; i < APP.length; i++) {
+      if (APP[i] === '{') depth++;
+      else if (APP[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    const body = APP.slice(at, end);
+    assert.ok(!/#[0-9a-fA-F]{3,8}\b/.test(body),
+      `${name}() carries a hard-coded colour, which does not follow the reader into dark mode`);
+  });
+  // The graph is hand-rolled: no library, no <script src>, no canvas.
+  const chart = APP_CODE.slice(APP_CODE.indexOf('function bosChartHTML()'),
+    APP_CODE.indexOf('function bosMixHTML()'));
+  assert.match(chart, /<svg class="bos-chart"/);
+  assert.ok(!/canvas|Chart\.|d3\.|import\(/.test(chart), 'no chart library — none was added');
+  assert.match(chart, /role="img"/, 'a chart with no accessible name is a picture of nothing');
+});
+
+test('🔴 STILL NO NEW BACKEND — including what the new card reads indirectly', () => {
+  // The direct calls are pinned above. These two are reached through
+  // lbAgencyState() and lbLoadBoards(); both shipped with 20260750, and both
+  // are named here so "no new backend" is checked rather than assumed.
+  ['lb_my_agency_state', 'get_agency_leaderboards'].forEach(rpc =>
+    assert.ok(APP_CODE.includes(`sb.rpc('${rpc}')`) || APP_CODE.includes(`sb.rpc('${rpc}',`),
+      `${rpc} must already exist — this round adds no migration`));
+  const fn = APP_CODE.slice(APP_CODE.indexOf('async function renderBackOfficeSummary('),
+    APP_CODE.indexOf('function bosPaint('));
+  assert.ok(!/from\('commission_rows'\)/.test(fn));
+  assert.ok(!/from\('policies'\)/.test(fn),
+    'the book is already in memory — bootDashboard() hydrated it');
 });
