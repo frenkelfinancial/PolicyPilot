@@ -380,12 +380,22 @@ test('the nav highlight is by section name, not by position', () => {
   // _applyPlanGating() already had to fix once; adding Back Office would have
   // silently shifted every index after Bonus Tracker.
   assert.equal(/const idxMap = \{/.test(APP_CODE), false, 'the positional idxMap must not come back');
-  assert.match(APP_CODE, /const navItem = document\.querySelector\('\.nav-item\[onclick\*="nav\(/);
+  // …and by ALL matches, not just the first. The Front/Back Office split
+  // renders Agency TWICE (#nav-agency-front, #nav-agency-back), so this became
+  // querySelectorAll — a singular query would highlight the Front Office copy
+  // when the agent clicked the Back Office one. The rule ("by name, never by
+  // position") is unchanged; only the arity moved.
+  // test/office-split.test.mjs holds the same line for all three call sites.
+  assert.match(APP_CODE, /document\.querySelectorAll\('\.nav-item\[onclick\*="nav\(/);
 });
 
 test('Back Office is reachable: nav item, title and section all exist and agree', () => {
   assert.match(APP, /onclick="nav\('backoffice'\)"/);
-  assert.match(APP, /backoffice:'Back Office'/);
+  // The TAB is labelled "Statements" since the whole right-hand app became the
+  // Back Office. The KEY is still `backoffice` and that is the half this file
+  // cares about — sec-backoffice, renderBackOffice(), boArea() and the
+  // bopanel-* prefixes all key off it.
+  assert.match(APP, /backoffice:'Statements'/);
   assert.match(APP, /id="sec-backoffice"/);
   assert.match(APP_CODE, /if \(id === 'backoffice'\) renderBackOffice\(\);/);
 });

@@ -1,5 +1,46 @@
 # PolicyPilot / ProducerStack — notes for Claude Code
 
+## Front Office / Back Office
+
+- **Read `docs/office-split.md` before touching the sidebar, `nav()`,
+  `setOffice()` or anything named `OFFICE_*`.** The sidebar is two office
+  blocks — Front Office (selling) and Back Office (money) — behind a toggle
+  under the logo. Tests: `npm run test:office`
+  (`test/office-split.test.mjs`).
+- **`OFFICE_OF` is the ONLY place office membership is declared.** `nav()`,
+  `setOffice()`, `_applyPlanGating()`, `restoreSectionFromCache()` and
+  `bootDashboard()`'s post-auth restore all read it; nothing hard-codes an
+  office anywhere else. Adding a screen means adding a line there **in the same
+  commit** — a nav item with no office is invisible in BOTH offices, and a test
+  fails on purpose. A second test cross-checks the map against the markup.
+- **🔴 OFFICE HIDING IS A CSS RULE. PLAN GATING IS AN INLINE STYLE. NEVER MIX
+  THEM.** `_applyPlanGating()` hides Bonus Tracker and Web Dialer with
+  `el.style.display`; office visibility is `body[data-office=…] …{display:none}`
+  in the stylesheet. They compose correctly only because they sit at different
+  levels — inline `none` beats the office rule (hidden whichever office you are
+  in) and inline `''` yields to it. Writing `style.display` for office
+  visibility, or converting plan gating to a class, is the bug.
+- **🔴 NAV HIGHLIGHTING USES `querySelectorAll`, NOT `querySelector`.** The
+  existing rule was "`nav()` highlights by section name, not by position"; this
+  extends it to *by name, and by ALL matches*. Agency is rendered TWICE
+  (`#nav-agency-front`, `#nav-agency-back`) against one `#sec-agency`, so a
+  singular query highlights the Front Office copy when the agent clicked the
+  Back Office one. Three call sites, one test each.
+- **The `backoffice` id is NOT the `Statements` label.** The tab reads
+  "Statements"; the id stays `backoffice` because `sec-backoffice`,
+  `renderBackOffice()`, `boArea()`, the `bopanel-*` prefixes,
+  `test/back-office.test.mjs` and every `docs/back-office-*.md` key off it.
+- **The office lives in `sessionStorage`, on purpose.** A fresh login or a new
+  tab opens in the Front Office (owner's decision); an F5 mid-reconciliation
+  leaves an agency owner where they were. Both restore paths refuse to restore
+  a section belonging to the other office — you need BOTH, or a producer who
+  ended yesterday on Policy Tracker logs in straight into the Back Office.
+- **Voice Campaigns and AI Dialer Test inject into `#nav-group-outreach`**, each
+  tagged `dataset.office = 'front'`, behind the unchanged `agentOn && globalOn`
+  double kill switch. `ds-playground` stays beside Settings with no
+  `data-office` — a dev tool, not a product screen. `OFFICE_HOME.back` is
+  `'tracker'` until Round 2 builds the Back Office Summary.
+
 ## Carrier bonus tracker
 - **Source of truth for bonus programs:** `data/carrier_bonuses.json` — carrier-official agent bonus/incentive programs (45 carriers, researched 07/2026). CARRIER-ONLY by design: never add IMO/agency-level bonuses (e.g. FFL VP bonus) to this file.
 - **Mirror rule:** the `CARRIER_BONUSES` const in `app.html` mirrors this JSON (same pattern as `COMP` ↔ `data/compensation-table.json`). Any change to one must be applied to both.
