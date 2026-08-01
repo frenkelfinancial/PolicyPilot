@@ -26,6 +26,36 @@
   (`#nav-agency-front`, `#nav-agency-back`) against one `#sec-agency`, so a
   singular query highlights the Front Office copy when the agent clicked the
   Back Office one. Three call sites, one test each.
+- **🔴 NO HAND-WRITTEN DUPLICATE OF THE NAV LIST MAY EXIST ANYWHERE.** That is
+  the general rule the two above are instances of, and three copies have now
+  been killed for drifting: the positional `idxMap` in `nav()`, the map
+  `restoreSectionFromCache()` used to carry, and — Round 3 — `const valid = {…}`
+  in `bootDashboard()`, which decided what a refresh may restore into. Every one
+  of them fell behind the sidebar, and the copy nobody remembers is always the
+  one that breaks. The membership test is now derived:
+  `_isRestorableSection(id)` = *declares an office* AND *something in the
+  sidebar navigates to it*. It answers "does this screen exist", **NOT** "may
+  this agent see it" — the plan gate (`_gated`) and the office guard sit on top
+  and are still required, because the derived predicate is deliberately more
+  permissive than the list it replaced. Both readers use it (the cached-section
+  restore and the `?tab=` param). A fourth copy is a bug, not a convenience.
+- **🔴 A REFRESH MUST *DRAW* THE SCREEN, NOT JUST SHOW IT.**
+  `restoreSectionFromCache()` runs pre-auth and only swaps CSS classes;
+  `bootDashboard()`'s block calls `nav()`, and **`nav()` is the only caller of
+  every screen's renderer**. The four sections missing from `valid` therefore
+  came back with their static chrome and an empty body — right tab, right
+  title, no data — which reads as broken, not as "you were moved". Anything that
+  restores a section without going through `nav()` recreates this.
+- **🔴 VOICE CAMPAIGNS AND AI DIALER TEST RESTORE FROM `aiTestInit()`, NEVER
+  FROM THE BOOT BLOCK.** Their nav items do not exist at restore time (async
+  injection, after), so the derived predicate correctly says no — and
+  `#sec-voice-campaigns`/`#sec-ai-test` are in the markup regardless of the kill
+  switches, so naming either one in the boot restore would show an AI screen to
+  an agent entitled to neither. Boot only records `_pendingLateRestore`; `nav()`
+  clears it on ANY call (above every early return); the injection block reads
+  and spends it below `if (!(agentOn && globalOn)) return;`. **The gate is the
+  injection, not a list.** Accepted cost: a beat of Front Office Summary before
+  it jumps. Do not "fix" that by moving the injection earlier.
 - **The `backoffice` id is NOT the `Statements` label.** The tab reads
   "Statements"; the id stays `backoffice` because `sec-backoffice`,
   `renderBackOffice()`, `boArea()`, the `bopanel-*` prefixes,
@@ -80,9 +110,11 @@
   `Math.max(0, NaN)` is `NaN` too, so the obvious guard is not one.
 - **`bo-summary` is ungated in `_applyPlanGating()`, on purpose** — an office's
   landing screen must always be reachable, the same reasoning as the Agency
-  tab. It is in `bootDashboard()`'s `valid` allow-list; `carriermail`,
-  `backoffice`, `voice-campaigns` and `ai-test` are still missing from it, a
-  pre-existing gap recorded in `docs/reports/PROMPT_FO2-report.md`.
+  tab. Round 2 hand-added it to `bootDashboard()`'s `valid` allow-list, where
+  `carriermail`, `backoffice`, `voice-campaigns` and `ai-test` were all
+  missing; **Round 3 deleted that list entirely** and derived the membership
+  test from the sidebar instead — see the `_isRestorableSection` bullets above
+  and `docs/reports/PROMPT_FO3-report.md`.
 
 ## Carrier bonus tracker
 - **Source of truth for bonus programs:** `data/carrier_bonuses.json` — carrier-official agent bonus/incentive programs (45 carriers, researched 07/2026). CARRIER-ONLY by design: never add IMO/agency-level bonuses (e.g. FFL VP bonus) to this file.

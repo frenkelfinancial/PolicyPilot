@@ -29756,6 +29756,43 @@ const OFFICE_HOME = { front: 'summary', back: 'bo-summary' };
 
 const DEFAULT_OFFICE = 'front';
 
+/**
+ * May a refresh restore into this section?
+ *
+ * DERIVED, never hand-listed. The old `const valid = {…}` was a third copy of
+ * the sidebar — after the positional idxMap and the one restoreSectionFromCache()
+ * used to carry — and it drifted exactly the way the other two did: Carrier
+ * Mail, Statements, Voice Campaigns and AI Dialer Test were all missing, and
+ * Round 2 had to remember to hand-add bo-summary.
+ *
+ * A section is restorable when it declares an office AND something in the
+ * sidebar actually navigates to it. Add a screen, and this is true for free.
+ *
+ * This answers "does this screen exist", NOT "may this agent see it". The
+ * plan gate (_gated) and the office guard sit on top and are still required.
+ */
+function _isRestorableSection(id) {
+  if (!id || !OFFICE_OF[id]) return false;
+  return document.querySelectorAll('.nav-item[onclick*="nav(\'' + id + '\')"]').length > 0;
+}
+
+/**
+ * The one section id a refresh still owes the agent once the AI nav items
+ * land — or null, which is almost always.
+ *
+ * Voice Campaigns and AI Dialer Test have no nav item at boot: aiTestInit()
+ * injects them, asynchronously, AFTER the restore block has already run. So
+ * _isRestorableSection() correctly says no, and they must NOT be special-cased
+ * back into that block — #sec-voice-campaigns and #sec-ai-test exist in the
+ * markup whether or not the two kill switches allow them, so a hand-added name
+ * there would show an AI screen to an agent entitled to neither.
+ *
+ * THE GATE IS THE INJECTION, NOT A LIST. The only code that reads this flag
+ * sits below `if (!(agentOn && globalOn)) return;` inside aiTestInit(), so an
+ * agent whose switches are off never reaches it and the flag simply expires.
+ */
+let _pendingLateRestore = null;
+
 const NAV_TITLES = {
   summary:'Summary',
   // Yes, the same word. Each office has its own Summary and the topbar is
@@ -31160,6 +31197,28 @@ async function aiTestInit() {
     // that true the instant they land) — without this, an item injected while
     // the agent is sitting in the Back Office flashes in before hiding.
     if (typeof setOffice === 'function') setOffice(document.body.dataset.office, { silent: true });
+
+    // THE REFRESH RESTORE FOR THESE TWO SCREENS, AND THE GATE IS THIS BLOCK.
+    // bootDashboard() could not do it: at restore time neither nav item exists,
+    // so _isRestorableSection() says no — and naming them in a list there would
+    // show an AI screen to an agent whose kill switches are off, because
+    // #sec-voice-campaigns and #sec-ai-test are in the markup regardless.
+    // Here we are already past `if (!(agentOn && globalOn)) return;`, so there
+    // is no path by which this can reveal a screen the agent is not entitled to.
+    //
+    // Read once and cleared unconditionally: if the agent navigated anywhere in
+    // the ~second this took, nav() already cleared it and the restore is stale.
+    const _late = _pendingLateRestore;
+    _pendingLateRestore = null;
+    if (_late && _isRestorableSection(_late)) {
+      // Same office guard the boot restore applies — never drag the agent
+      // across the toggle to a screen they did not ask for.
+      const _lateOffice = OFFICE_OF[_late];
+      if (!_lateOffice || _lateOffice === 'both' || _lateOffice === document.body.dataset.office) {
+        nav(_late);
+        if (_late === 'ai-test') aiTestOnShow();   // nav() already calls vcampOnShow() for the other
+      }
+    }
   }
 
   const sw = document.getElementById('aiTest-switches');
@@ -34129,6 +34188,11 @@ function setOffice(office, opts) {
 }
 
 function nav(id) {
+  // ANY navigation makes a pending late restore stale — boot's own restore, an
+  // explicit ?tab=, or the agent clicking something in the second or so before
+  // aiTestInit() finishes injecting. Cleared first, above every early return,
+  // so a gated nav() still counts as "the agent went somewhere else".
+  _pendingLateRestore = null;
   // A cross-office jump flips the office rather than landing you on a screen
   // whose nav item is hidden. There are ~20 nav('…') call sites, several of
   // them inline onclick handlers inside page copy ("Open Phone Book →",
@@ -41978,14 +42042,16 @@ async function bootDashboard() {
   // Default-active section in HTML is 'summary'; only re-nav if a different one was saved.
   try {
     const saved = localStorage.getItem(k('pp_current_section'));
-    // Which cached sections a refresh may restore into. `bo-summary` is here
-    // because it is OFFICE_HOME.back — without it, F5 on the Back Office's own
-    // landing screen silently drops the agent somewhere else.
-    // KNOWN GAP, pre-dating the office split and deliberately not closed here:
-    // carriermail, backoffice, voice-campaigns and ai-test are missing, so a
-    // refresh on any of them lands on Summary. That is a decision about
-    // refresh behaviour, not a dashboard change — see docs/reports/PROMPT_FO2-report.md.
-    const valid = { summary:1, 'bo-summary':1, 'api-quoter':1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, webdialer:1, agency:1, settings:1 };
+    // Which cached sections a refresh may restore into is now DERIVED from the
+    // sidebar (_isRestorableSection), not hand-listed. The list that used to
+    // live here had drifted four entries behind: carriermail, backoffice,
+    // voice-campaigns and ai-test were all missing, and Round 2 had to
+    // remember to hand-add bo-summary. See docs/reports/PROMPT_FO3-report.md.
+    //
+    // The two AI screens still resolve to false here, because their nav items
+    // do not exist yet — aiTestInit() injects them below, behind both kill
+    // switches. Remember the intent and let that gated code finish the job.
+    if (saved === 'voice-campaigns' || saved === 'ai-test') _pendingLateRestore = saved;
     const _rt = _planTier();
     const _gated = (saved === 'bonuses' && _rt !== 'pro' && _rt !== 'leader') || (saved === 'agency' && _rt !== 'leader');
     // Second half of the same rule restoreSectionFromCache() applies: never
@@ -41995,11 +42061,11 @@ async function bootDashboard() {
     // fresh and is dropped straight into the Back Office.
     const _savedOffice = saved ? OFFICE_OF[saved] : null;
     const _otherOffice = !!_savedOffice && _savedOffice !== 'both' && _savedOffice !== document.body.dataset.office;
-    if (saved && valid[saved] && saved !== 'summary' && !_gated && !_otherOffice) nav(saved);
+    if (saved && _isRestorableSection(saved) && saved !== 'summary' && !_gated && !_otherOffice) nav(saved);
     // An explicit ?tab= param (e.g. from the low-balance email's "Add
     // funds" link) always wins over the cached last-active section.
     const tabParam = new URLSearchParams(location.search).get('tab');
-    if (tabParam && valid[tabParam]) nav(tabParam);
+    if (tabParam && _isRestorableSection(tabParam)) nav(tabParam);
   } catch (e) {}
   if (typeof dsInitPlayground === 'function') dsInitPlayground();
   if (typeof aiTestInit === 'function') aiTestInit(); // AI Dialer Test panel — gated on both kill switches

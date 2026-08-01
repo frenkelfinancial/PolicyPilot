@@ -149,6 +149,84 @@ fresh and is dropped straight into the Back Office, which is exactly what
 
 ---
 
+## What a refresh restores (Round 3)
+
+### The two paths do different jobs, and only one of them draws anything
+
+| | `restoreSectionFromCache()` | `bootDashboard()`'s restore block |
+|---|---|---|
+| When | pre-paint, before auth | after auth and the first sync |
+| Key | `pp_last_section` (unscoped) | `pp_current_section` (per agent) |
+| Does | swaps the `.active` class, the nav highlight and the page title | calls **`nav(saved)`** |
+| Why | no Summary → target flash | `nav()` is the only caller of `renderBackOffice()`, `renderCarrierMail()`, `renderBackOfficeSummary()`, `renderPhoneBook()`, … |
+
+That division is the whole bug this round fixed. The first path made a screen
+*appear*; only the second one makes it **draw**. A section the second path
+skipped stayed on screen with its static chrome and no data — right tab, right
+title, empty body — until the agent clicked away and back.
+
+### The membership test is derived, never hand-listed
+
+```js
+function _isRestorableSection(id) {
+  if (!id || !OFFICE_OF[id]) return false;
+  return document.querySelectorAll('.nav-item[onclick*="nav(\'' + id + '\')"]').length > 0;
+}
+```
+
+A section is restorable when it **declares an office** and **something in the
+sidebar navigates to it**. Add a screen, and this is true for free.
+
+It replaced `const valid = {…}` in `bootDashboard()` — the third hand-written
+copy of the sidebar this app has carried, after the positional `idxMap` in
+`nav()` and the map `restoreSectionFromCache()` used to hold. Like both of
+those, it drifted: Carrier Mail, Statements, Voice Campaigns and AI Dialer Test
+were all missing, and Round 2 had to remember to hand-add `bo-summary`.
+
+**It answers "does this screen exist", not "may this agent see it."** The plan
+gate (`_gated`) and the office guard sit on top and are still required. The
+derived predicate is deliberately *more* permissive than the list it replaced;
+those two are what stops that mattering. Tests pin all three.
+
+Both readers use it — the cached-section restore and the `?tab=` URL parameter.
+`?tab=phonebook` (sent by `wallet-low-balance-notify`) is unchanged;
+`?tab=backoffice`, `?tab=carriermail` and `?tab=bo-summary` now resolve too.
+
+### Voice Campaigns and AI Dialer Test take a different path, on purpose
+
+At restore time neither nav item exists — `aiTestInit()` injects them, `async`,
+*after* the restore block runs. So `_isRestorableSection()` correctly returns
+`false` for both, and **they must not be named in the boot restore**:
+`#sec-voice-campaigns` and `#sec-ai-test` are in the markup whether or not the
+two kill switches allow them, so a hand-added entry there would show an AI
+screen to an agent entitled to neither.
+
+Instead the intent is carried:
+
+1. Boot sets `_pendingLateRestore = saved` when the saved id is one of the two,
+   and navigates nowhere.
+2. **`nav()` clears it on any call**, above every early return. Any navigation
+   — boot's own, an explicit `?tab=`, or the agent clicking something in the
+   second before injection lands — makes the restore stale.
+3. At the end of the injection block in `aiTestInit()`, below
+   `if (!(agentOn && globalOn)) return;` and after `setOffice(…)` has
+   re-applied office visibility, the flag is read, spent, and honoured if the
+   section is now reachable and in the current office.
+
+**The gate is the injection, not a list.** An agent whose switches are off
+returns at the kill switch and never reaches step 3, so the flag just expires.
+
+The cost, accepted: because `aiTestInit()` is `async`, an agent refreshing on
+Voice Campaigns sees the Front Office Summary for a beat before it jumps. That
+is the honest price of not showing AI screens to people who are not entitled to
+them. Do not "fix" it by moving the injection earlier or pre-rendering the
+section.
+
+`?tab=voice-campaigns` and `?tab=ai-test` still do nothing — the flag is set
+from the saved section only, and no email or link produces those values.
+
+---
+
 ## What Round 2 changed
 
 Done — see `docs/back-office-summary.md` and
@@ -161,6 +239,8 @@ Done — see `docs/back-office-summary.md` and
   Summary, which is fine because you can only be in one office at a time.
 * `bootDashboard()`'s restore allow-list gained `'bo-summary':1`, or F5 on the
   Back Office's own landing screen would have dropped the agent elsewhere.
+  (Round 3 deleted that list — having to *remember* an entry is exactly how it
+  ended up four screens behind the sidebar. See above.)
 * The Front Office's landing screen (`OFFICE_HOME.front = 'summary'`) and
   `DEFAULT_OFFICE` did **not** change, and neither did `_applyPlanGating()`.
   `bo-summary` is ungated on purpose: an office's landing screen must always be

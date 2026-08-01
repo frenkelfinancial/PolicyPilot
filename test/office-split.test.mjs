@@ -78,6 +78,12 @@ function fnBody(header) {
 // violation would make writing the rule down break it.
 const codeOnly = src => src.split('\n').filter(l => !l.trim().startsWith('//')).join('\n');
 
+// The same, also dropping /** … */ doc-block lines — the block above
+// _isRestorableSection() names the dead `const valid = {…}` on purpose.
+const APP_CODE = APP.split('\n')
+  .filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l))
+  .join('\n');
+
 // The office map, evaluated from the source that ships rather than mirrored.
 const OFFICES = (() => {
   const mapSrc   = APP.match(/const OFFICE_OF = \{[\s\S]*?\n\};/);
@@ -367,4 +373,292 @@ test('nav() flips the office before it navigates, so cross-office deep links wor
   // leave the toggle half-moved.
   assert.ok(body.indexOf('_wantOffice') < body.indexOf('const _navTier'),
     'the office flip must be the first thing nav() does');
+});
+
+// ============================================================
+// 11 — the refresh restore allow-list (Round 3)
+//
+// A refresh used to consult `const valid = {…}` in bootDashboard() — a THIRD
+// hand-written copy of the sidebar, after the positional idxMap and the map
+// restoreSectionFromCache() used to carry. It had drifted four entries behind:
+// Carrier Mail, Statements, Voice Campaigns and AI Dialer Test were all
+// missing, so refreshing on any of them left restoreSectionFromCache()'s
+// pre-auth swap on screen with nothing ever calling the screen's renderer.
+//
+// The membership test is now DERIVED from the sidebar. These tests execute the
+// shipped restore block against a stub DOM built from the real markup, so they
+// fail on the code that ships rather than on a copy of it.
+// ============================================================
+
+// A `function name(…) { … }` INCLUDING its closing brace, ready to execute.
+function fnSource(header) {
+  return fnBody(header) + '\n}';
+}
+
+// From `startNeedle`, the statement beginning at `openNeedle`, brace-balanced.
+function sliceBalanced(src, startNeedle, openNeedle) {
+  const s = src.indexOf(startNeedle);
+  assert.ok(s > -1, `expected to find ${JSON.stringify(startNeedle)} in app.html`);
+  const o = src.indexOf(openNeedle, s);
+  assert.ok(o > -1, `expected to find ${JSON.stringify(openNeedle)} after it`);
+  let depth = 0;
+  for (let i = src.indexOf('{', o); i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}' && --depth === 0) return src.slice(s, i + 1);
+  }
+  return assert.fail(`unbalanced braces after ${JSON.stringify(openNeedle)}`);
+}
+
+// The derived predicate itself.
+const IS_RESTORABLE_SRC = fnSource('function _isRestorableSection(id) {');
+
+// bootDashboard()'s restore block, verbatim.
+const RESTORE_SRC = (() => {
+  const head = "const saved = localStorage.getItem(k('pp_current_section'));";
+  const tail = 'nav(tabParam);';
+  const a = APP.indexOf(head);
+  assert.ok(a > -1, "bootDashboard() must still read k('pp_current_section')");
+  const b = APP.indexOf(tail, a);
+  assert.ok(b > a, 'the ?tab= branch must still close the restore block');
+  return APP.slice(a, b + tail.length);
+})();
+
+// aiTestInit()'s late restore, verbatim.
+const LATE_RESTORE_SRC = sliceBalanced(
+  APP, 'const _late = _pendingLateRestore;', 'if (_late &&');
+
+// Every section the SHIPPED sidebar actually navigates to. The stub DOM
+// answers from this, so "is there a nav item" means the real markup.
+const STATIC_NAV_TARGETS = [...SIDEBAR.matchAll(/onclick="nav\('([^']+)'\)"/g)].map(m => m[1]);
+
+// Minimal DOM: enough for `.nav-item[onclick*="nav('x')"]` and body.dataset.
+function stubDoc(office, navTargets) {
+  return {
+    body: { dataset: { office } },
+    querySelectorAll(sel) {
+      const m = /onclick\*="nav\('([^']+)'\)"/.exec(sel);
+      if (!m) return [];
+      return navTargets.includes(m[1]) ? [{ id: `nav-${m[1]}` }] : [];
+    },
+  };
+}
+
+/** Execute the shipped boot restore. Returns where it navigated, if anywhere. */
+function runBootRestore({ saved, office, tier = 'leader', search = '', navTargets = STATIC_NAV_TARGETS }) {
+  const navCalls = [];
+  // eslint-disable-next-line no-new-func
+  const fn = new Function(
+    'k', 'localStorage', 'location', 'document', 'OFFICE_OF', '_planTier', 'nav',
+    `let _pendingLateRestore = null;\n${IS_RESTORABLE_SRC}\n${RESTORE_SRC}\n` +
+    'return { pending: _pendingLateRestore };'
+  );
+  const out = fn(
+    key => key,
+    { getItem: key => (key === 'pp_current_section' ? saved : null) },
+    { search },
+    stubDoc(office, navTargets),
+    OFFICE_OF,
+    () => tier,
+    id => navCalls.push(id),
+  );
+  return { navCalls, pending: out.pending };
+}
+
+/** Execute the shipped late restore, as reached from inside the kill-switch gate. */
+function runLateRestore({ pending, office, navTargets }) {
+  const navCalls = [];
+  const shows = [];
+  // eslint-disable-next-line no-new-func
+  const fn = new Function(
+    '_pendingLateRestore', 'document', 'OFFICE_OF', 'nav', 'aiTestOnShow',
+    `${IS_RESTORABLE_SRC}\n${LATE_RESTORE_SRC}\nreturn { pending: _pendingLateRestore };`
+  );
+  const out = fn(
+    pending,
+    stubDoc(office, navTargets),
+    OFFICE_OF,
+    id => navCalls.push(id),
+    () => shows.push('ai-test'),
+  );
+  return { navCalls, shows, pending: out.pending };
+}
+
+const NO_HAND_LIST_WHY =
+  'A hand-written copy of the sidebar is the bug this round removed, and it has now come back ' +
+  'THREE times: the positional idxMap in nav(), the map restoreSectionFromCache() carried, and ' +
+  '`const valid = {…}` in bootDashboard(). Every one of them drifted, and the copy nobody ' +
+  'remembers is always the one that breaks. Derive the membership test from the sidebar.';
+
+test('no hand-written restore allow-list survives in app.html', () => {
+  // Comment-stripped: the doc block above _isRestorableSection() quotes the
+  // dead declaration by name, and writing a rule down must not break it.
+  assert.ok(!APP_CODE.includes('const valid = {'), NO_HAND_LIST_WHY);
+  // And the thing that replaced it exists, once.
+  assert.equal((APP.match(/function _isRestorableSection\(/g) || []).length, 1,
+    'there must be exactly one _isRestorableSection() — a second answer is a fourth copy');
+  assert.match(IS_RESTORABLE_SRC, /document\.querySelectorAll\('\.nav-item\[onclick/,
+    '_isRestorableSection must resolve nav items the same way nav() does');
+});
+
+test('every static sidebar section with an office is restorable — including the two that were missing', () => {
+  const doc = stubDoc('front', STATIC_NAV_TARGETS);
+  // eslint-disable-next-line no-new-func
+  const isRestorable = new Function('document', 'OFFICE_OF',
+    `${IS_RESTORABLE_SRC}\nreturn _isRestorableSection;`)(doc, OFFICE_OF);
+
+  for (const id of new Set(STATIC_NAV_TARGETS)) {
+    assert.ok(OFFICE_OF[id], `nav('${id}') has no OFFICE_OF entry`);
+    assert.ok(isRestorable(id), `a refresh on ${id} must be restorable — it is in the sidebar`);
+  }
+  // The two the hand-written list had been missing since before the office
+  // split. Named explicitly so a future sidebar edit cannot quietly drop them.
+  assert.ok(isRestorable('carriermail'), 'Carrier Mail must be restorable');
+  assert.ok(isRestorable('backoffice'),  'Statements must be restorable');
+  assert.ok(isRestorable('bo-summary'),  'the Back Office landing screen must be restorable');
+  // And a section nobody navigates to is not restorable just for existing.
+  assert.ok(!isRestorable('nope'), 'an unknown id must never be restorable');
+  assert.ok(!isRestorable(''),     'an empty id must never be restorable');
+});
+
+test('restoring Statements or Carrier Mail calls nav(), which is what draws them', () => {
+  // The screens were APPEARING before this round — restoreSectionFromCache()
+  // makes the section .active pre-auth — but nothing called their renderer, so
+  // the agent got the page chrome and no data. nav() is the only caller.
+  for (const [id, renderer] of [['backoffice', 'renderBackOffice()'], ['carriermail', 'renderCarrierMail()']]) {
+    const { navCalls } = runBootRestore({ saved: id, office: 'back' });
+    assert.deepEqual(navCalls, [id], `a refresh on ${id} must reach nav('${id}')`);
+    assert.match(fnBody('function nav(id) {'),
+      new RegExp(`if \\(id === '${id}'\\) ${renderer.replace(/[()]/g, '\\$&')}`),
+      `nav() is the only caller of ${renderer} — without it the screen appears blank`);
+  }
+});
+
+test('the office guard still refuses a section belonging to the office we are not in', () => {
+  assert.deepEqual(runBootRestore({ saved: 'backoffice', office: 'front' }).navCalls, [],
+    'a Back Office screen must not be restored while the toggle reads Front Office');
+  assert.deepEqual(runBootRestore({ saved: 'leads', office: 'back' }).navCalls, [],
+    'and the same rule in the other direction');
+  // 'both' crosses freely — that is what 'both' means.
+  assert.deepEqual(runBootRestore({ saved: 'settings', office: 'back' }).navCalls, ['settings']);
+});
+
+test('the plan gate still outranks the derived predicate', () => {
+  // The predicate is deliberately more permissive than the old list. These
+  // three are what stops that mattering.
+  assert.deepEqual(runBootRestore({ saved: 'bonuses', office: 'back', tier: 'basic' }).navCalls, [],
+    'a Basic agent must not be restored into the Bonus Tracker');
+  assert.deepEqual(runBootRestore({ saved: 'bonuses', office: 'back', tier: 'pro' }).navCalls, ['bonuses'],
+    'a Pro agent still gets it');
+  assert.deepEqual(runBootRestore({ saved: 'agency', office: 'front', tier: 'pro' }).navCalls, [],
+    'a non-leader must not be restored into Agency');
+  assert.deepEqual(runBootRestore({ saved: 'agency', office: 'front', tier: 'leader' }).navCalls, ['agency'],
+    'a leader still gets it');
+  // Summary is already the default-active section; re-navving would re-render.
+  assert.deepEqual(runBootRestore({ saved: 'summary', office: 'front' }).navCalls, []);
+  assert.deepEqual(runBootRestore({ saved: null, office: 'front' }).navCalls, []);
+});
+
+test('?tab=phonebook still resolves, and it is what the low-balance email sends', () => {
+  const notify = readFileSync(
+    join(ROOT, 'supabase/functions/wallet-low-balance-notify/index.ts'), 'utf8');
+  const m = notify.match(/app\.html\?tab=([a-z-]+)/);
+  assert.ok(m, 'wallet-low-balance-notify must still build an ?tab= deep link');
+  assert.equal(m[1], 'phonebook');
+
+  const { navCalls } = runBootRestore({ saved: null, office: 'front', search: `?tab=${m[1]}` });
+  assert.deepEqual(navCalls, [m[1]], 'the email link must still land on the Phone Book');
+
+  // An explicit ?tab= still wins over the cached section.
+  assert.deepEqual(
+    runBootRestore({ saved: 'tracker', office: 'back', search: '?tab=phonebook' }).navCalls,
+    ['tracker', 'phonebook'],
+    'the ?tab= param must be applied last, so it wins');
+  // And a name nothing navigates to is still refused.
+  assert.deepEqual(runBootRestore({ saved: null, office: 'front', search: '?tab=nope' }).navCalls, []);
+});
+
+// ------------------------------------------------------------
+// The two AI screens — the kill-switch-safe path
+// ------------------------------------------------------------
+
+const KILL_SWITCH_WHY =
+  'sec-voice-campaigns and sec-ai-test exist in the markup whether or not the two kill switches ' +
+  'allow them. Naming either one in bootDashboard()\'s restore would therefore show an AI screen ' +
+  'to an agent entitled to neither. THE GATE IS THE INJECTION, NOT A LIST.';
+
+test('Voice Campaigns and AI Dialer Test are NOT restorable at boot — their nav items do not exist yet', () => {
+  for (const id of ['voice-campaigns', 'ai-test']) {
+    assert.ok(!STATIC_NAV_TARGETS.includes(id),
+      `${id} must have no static nav item — it is injected behind both kill switches`);
+    const { navCalls, pending } = runBootRestore({ saved: id, office: 'front' });
+    assert.deepEqual(navCalls, [], `boot must not navigate to ${id}. ${KILL_SWITCH_WHY}`);
+    assert.equal(pending, id, 'but the intent is remembered for the gated code to honour');
+  }
+  // Anything else leaves the flag alone.
+  assert.equal(runBootRestore({ saved: 'tracker', office: 'back' }).pending, null);
+});
+
+test('the late restore is the ONLY navigation to an AI screen, and it lives inside the double kill switch', () => {
+  const init = fnBody('async function aiTestInit()');
+  const gate = init.indexOf('if (!(agentOn && globalOn)) return;');
+  assert.ok(gate > -1, 'the double kill switch must still be there');
+  assert.ok(init.indexOf('_pendingLateRestore') > gate,
+    `the late restore must sit BELOW the kill switch. ${KILL_SWITCH_WHY}`);
+  // It is also inside the injection block, so it cannot run when the items
+  // failed to land.
+  const injection = sliceBalanced(init, "getElementById('nav-group-outreach')", 'if (outreachGroup &&');
+  assert.ok(injection.includes('const _late = _pendingLateRestore;'),
+    'the late restore must be inside the injection block, after the items are in the DOM');
+  assert.ok(injection.indexOf('setOffice(document.body.dataset.office') < injection.indexOf('const _late'),
+    'office visibility must be re-applied before the restore navigates');
+
+  // And nothing ANYWHERE else navigates off this flag. Every mention of it in
+  // app.html, in file order: the declaration, the read + spend inside the gate,
+  // nav() clearing it, and boot remembering the intent. Five lines, no sixth —
+  // a new one is a new way for an AI screen to be reached.
+  const mentions = APP_CODE.split('\n')
+    .map(l => l.trim())
+    .filter(l => l.includes('_pendingLateRestore'));
+  assert.deepEqual(mentions, [
+    'let _pendingLateRestore = null;',
+    'const _late = _pendingLateRestore;',
+    '_pendingLateRestore = null;',                       // spent, inside aiTestInit()
+    '_pendingLateRestore = null;',                       // cleared by nav()
+    "if (saved === 'voice-campaigns' || saved === 'ai-test') _pendingLateRestore = saved;",
+  ], KILL_SWITCH_WHY);
+});
+
+test('nav() clears the pending late restore, above every early return', () => {
+  const body = fnBody('function nav(id) {');
+  assert.match(body, /^function nav\(id\) \{[\s\S]{0,600}?\n {2}_pendingLateRestore = null;/,
+    'nav() must clear the flag before the plan gate can return — ANY navigation makes it stale');
+  assert.ok(body.indexOf('_pendingLateRestore = null;') < body.indexOf('showUpgradeGate'),
+    'a nav() that hit the upgrade gate is still the agent going somewhere else');
+});
+
+test('with both switches ON the late restore navigates; with them OFF it is unreachable', () => {
+  const withAi = [...STATIC_NAV_TARGETS, 'voice-campaigns', 'ai-test'];
+
+  // Switches ON: aiTestInit() got past the gate, injected the items, and the
+  // flag is honoured.
+  const vc = runLateRestore({ pending: 'voice-campaigns', office: 'front', navTargets: withAi });
+  assert.deepEqual(vc.navCalls, ['voice-campaigns']);
+  assert.equal(vc.pending, null, 'the flag is spent, whatever happened next');
+
+  const ai = runLateRestore({ pending: 'ai-test', office: 'front', navTargets: withAi });
+  assert.deepEqual(ai.navCalls, ['ai-test']);
+  assert.deepEqual(ai.shows, ['ai-test'], 'nav() has no ai-test hook, so the restore must call aiTestOnShow()');
+
+  // Switches OFF: aiTestInit() returned at the gate, so this code never ran and
+  // the items were never injected. Modelled both ways — the flag is simply
+  // never read, and even if it somehow were, there is no nav item to resolve.
+  const off = runLateRestore({ pending: 'voice-campaigns', office: 'front', navTargets: STATIC_NAV_TARGETS });
+  assert.deepEqual(off.navCalls, [], `no AI nav item means no restore. ${KILL_SWITCH_WHY}`);
+
+  // The agent clicked something while injection was in flight — nav() cleared it.
+  assert.deepEqual(runLateRestore({ pending: null, office: 'front', navTargets: withAi }).navCalls, []);
+
+  // Office guard applies here too: never drag the agent across the toggle.
+  assert.deepEqual(
+    runLateRestore({ pending: 'voice-campaigns', office: 'back', navTargets: withAi }).navCalls, []);
 });

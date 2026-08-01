@@ -475,10 +475,21 @@ test('the Back Office nav opens with Summary, and Round 1 s five screens follow'
 
 test('nav() initialises the screen, and the refresh allow-list can restore it', () => {
   assert.match(APP_CODE, /if \(id === 'bo-summary'\) renderBackOfficeSummary\(\);/);
-  const valid = APP_CODE.match(/const valid = \{[^}]*\}/);
-  assert.ok(valid, "bootDashboard()'s restore allow-list must still exist");
-  assert.match(valid[0], /'bo-summary':1/,
-    'without this, F5 on the Back Office landing screen drops the agent elsewhere');
+  // Round 2 hand-added 'bo-summary' to `const valid = {…}` and this test pinned
+  // it there. Round 3 deleted that list: having to remember an entry is exactly
+  // how it ended up four screens behind the sidebar. The membership test is now
+  // derived — a nav item plus an OFFICE_OF entry — so the thing to pin is that
+  // bo-summary still has both. Full coverage in test/office-split.test.mjs.
+  assert.ok(!APP_CODE.includes('const valid = {'),
+    'the hand-written restore allow-list is gone and must not come back');
+  assert.match(APP_CODE, /function _isRestorableSection\(id\) \{/,
+    "bootDashboard()'s restore must still have a membership test");
+  assert.match(APP_CODE, /if \(saved && _isRestorableSection\(saved\)/,
+    'and the cached-section restore must be the thing consulting it');
+  assert.match(APP, /onclick="nav\('bo-summary'\)"/,
+    'without a nav item, F5 on the Back Office landing screen drops the agent elsewhere');
+  // The other half — the OFFICE_OF entry — is pinned by the registration test
+  // above, and _isRestorableSection() requires both.
 });
 
 // ============================================================
