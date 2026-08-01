@@ -1,8 +1,8 @@
 # Front Office / Back Office — one product, two apps
 
-**Round 1 of 2.** Round 2 (`prompts/PROMPT_FO2_back_office_summary_CLAUDE_CODE.md`)
-builds the Back Office's own dashboard and is the only thing that should change
-`OFFICE_HOME.back`.
+**Both rounds are done.** Round 1 split the sidebar; Round 2 built the Back
+Office's own dashboard and switched `OFFICE_HOME.back` onto it. The Back Office
+Summary has its own doc: `docs/back-office-summary.md`.
 
 Code: `app.html` (`OFFICE_OF`, `OFFICE_HOME`, `DEFAULT_OFFICE`, `setOffice()`).
 Tests: `npm run test:office` → `test/office-split.test.mjs`.
@@ -37,6 +37,7 @@ screen you land on.
 
 | Group | Item | Section id |
 |---|---|---|
+| Overview | **Summary** | `bo-summary` |
 | Book | Policy Tracker | `tracker` |
 | Book | Carrier Mail | `carriermail` |
 | Money | **Statements** | `backoffice` |
@@ -58,7 +59,7 @@ tool, not a product screen.
 |---|---|
 | Agency tab | Appears in **both** offices. Two DOM nodes (`#nav-agency-front`, `#nav-agency-back`), one `#sec-agency`. |
 | The old "Back Office" tab label | Renamed to **"Statements"**. The internal id stays `backoffice`. |
-| Back Office landing screen | `tracker` (Policy Tracker) **in Round 1**. Round 2 replaces it with a real Back Office Summary. |
+| Back Office landing screen | `bo-summary` (the Back Office Summary), since Round 2. It was `tracker` in Round 1, as a placeholder. |
 | Which office opens on login | **Front Office**, always, for a fresh login. |
 | Settings / Support | Unchanged, always visible, in **neither** office. |
 | Where the office is remembered | `sessionStorage`, not `localStorage` — see below. |
@@ -148,11 +149,19 @@ fresh and is dropped straight into the Back Office, which is exactly what
 
 ---
 
-## What Round 2 changes
+## What Round 2 changed
 
-* `OFFICE_HOME.back` — `'tracker'` becomes `'bo-summary'` (or whatever the new
-  Back Office Summary section is called).
-* That new section needs an `OFFICE_OF` entry (`'back'`) and a nav item in the
-  Back Office wrapper's first group, or the test suite fails.
+Done — see `docs/back-office-summary.md` and
+`docs/reports/PROMPT_FO2-report.md`.
+
+* `OFFICE_HOME.back` — `'tracker'` became `'bo-summary'`.
+* `OFFICE_OF['bo-summary'] = 'back'`, `NAV_TITLES['bo-summary'] = 'Summary'`,
+  and a nav item at the top of the Back Office wrapper in an **Overview**
+  group — the same word and the same `gauge` icon as the Front Office's
+  Summary, which is fine because you can only be in one office at a time.
+* `bootDashboard()`'s restore allow-list gained `'bo-summary':1`, or F5 on the
+  Back Office's own landing screen would have dropped the agent elsewhere.
 * The Front Office's landing screen (`OFFICE_HOME.front = 'summary'`) and
-  `DEFAULT_OFFICE` do not change.
+  `DEFAULT_OFFICE` did **not** change, and neither did `_applyPlanGating()`.
+  `bo-summary` is ungated on purpose: an office's landing screen must always be
+  reachable, for the same reason the Agency tab is ungated.

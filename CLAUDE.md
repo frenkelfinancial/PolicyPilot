@@ -38,8 +38,51 @@
 - **Voice Campaigns and AI Dialer Test inject into `#nav-group-outreach`**, each
   tagged `dataset.office = 'front'`, behind the unchanged `agentOn && globalOn`
   double kill switch. `ds-playground` stays beside Settings with no
-  `data-office` — a dev tool, not a product screen. `OFFICE_HOME.back` is
-  `'tracker'` until Round 2 builds the Back Office Summary.
+  `data-office` — a dev tool, not a product screen.
+
+### The Back Office Summary (Round 2) — `docs/back-office-summary.md`
+
+- **Read `docs/back-office-summary.md` before touching anything named `bos*`,
+  `bo-summary` or `renderBackOfficeSummary()`.** `OFFICE_HOME.back` is now
+  `'bo-summary'`. Tests: `npm run test:bosummary`
+  (`test/bo-summary.test.mjs`).
+- **🔴 IT ADDS NO BACKEND, AND THAT IS THE POINT.** Every figure comes from an
+  RPC that already shipped. It never selects `commission_rows` from the
+  browser — that table is SELECT-only per tenant and the aggregates exist
+  precisely so a screen does not do this. A test pins the RPC list; a new name
+  in it means a migration this round deliberately does not have.
+- **🔴 THE TEAM ROSTER COMES THROUGH `loadTeamRoster()`, NEVER A SECOND
+  `get_team_summary` CALL.** The one-call-site invariant is what stopped the
+  8,610× AP overstatement coming back, and a landing screen wanting a headcount
+  is exactly the innocent-looking reason a second call site appears.
+- **🔴 DEBT IS NEVER RANGE-FILTERED.** `bosDebtArgs()` returns
+  `{p_start:null, p_end:null}` and is a function so a test can pin it; a test
+  passes MTD, YTD and All time and asserts the balance does not move. The card
+  says so in small print because the chips sit directly above it.
+- **🔴 NO RATE IS NOT A ZERO RATE, AND A THIN COHORT IS ALSO NO RATE HERE.**
+  Absent or under `BOS_MIN_COHORT` (3) renders `—` plus a sentence saying
+  which. That is a **deliberate difference** from the Persistency panel, which
+  shows thin segments flagged: one lapse in a two-policy cohort is a 50%
+  headline on the owner's landing screen. A REAL zero still renders `0%` in
+  red. The card states the reason, so the difference is never silent.
+- **The team strip is ABSENT for a non-leader** — not empty, not hidden, not a
+  locked upsell card. `_planTier() !== 'leader'` returns `''` before anything
+  is built. The upgrade gate already lives on the features that need it.
+- **Override Income is DROPPED when it is zero AND there is no hierarchy.** A
+  permanently empty card on the screen an owner sees every day is noise; it
+  returns on its own the first time an override line lands.
+- **The range chips ARE the Commissions panel's** — `COMM_RANGES`,
+  `commRange()`, `_cmRange`, `pp_comm_range`. One range, one memory, one
+  calculator. Do not add a fourth chip here without changing both screens.
+- **`Promise.allSettled`, never `Promise.all`.** One rejected RPC puts a
+  message on that strip and leaves the rest of the page standing.
+- **Counts go through `bosCount()`.** `Number('x' || 0)` is `NaN` and
+  `Math.max(0, NaN)` is `NaN` too, so the obvious guard is not one.
+- **`bo-summary` is ungated in `_applyPlanGating()`, on purpose** — an office's
+  landing screen must always be reachable, the same reasoning as the Agency
+  tab. It is in `bootDashboard()`'s `valid` allow-list; `carriermail`,
+  `backoffice`, `voice-campaigns` and `ai-test` are still missing from it, a
+  pre-existing gap recorded in `docs/reports/PROMPT_FO2-report.md`.
 
 ## Carrier bonus tracker
 - **Source of truth for bonus programs:** `data/carrier_bonuses.json` — carrier-official agent bonus/incentive programs (45 carriers, researched 07/2026). CARRIER-ONLY by design: never add IMO/agency-level bonuses (e.g. FFL VP bonus) to this file.

@@ -116,14 +116,28 @@ test('Front Office static nav is exactly the seven selling screens', () => {
   ]);
 });
 
-test('Back Office static nav is exactly the five money screens', () => {
+test('Back Office static nav opens with its own Summary, then the five money screens', () => {
+  // Round 2 added Summary at the top — a genuine change in the expected list.
+  // It is OFFICE_HOME.back, so it must be the FIRST item: the screen you land
+  // on and the item that lights up have to be the same one.
   assert.deepEqual(navLabels(BACK_BLOCK), [
+    'Summary',
     'Policy Tracker',
     'Carrier Mail',
     'Statements',
     'Bonus Tracker',
     'Agency',
   ]);
+});
+
+test('the Back Office lands on its own Summary, not on the Policy Tracker placeholder', () => {
+  const m = APP.match(/const OFFICE_HOME = \{([^}]*)\}/);
+  assert.ok(m, 'OFFICE_HOME must still be declared exactly once');
+  assert.match(m[1], /back:\s*'bo-summary'/,
+    "Round 1 parked the Back Office on 'tracker' as a placeholder; Round 2 replaced it");
+  assert.match(m[1], /front:\s*'summary'/, 'the Front Office landing screen does not change');
+  // And the home screen has to be reachable, or the toggle lands nowhere.
+  assert.match(APP, /<div class="section" id="sec-bo-summary">/);
 });
 
 // ============================================================
@@ -323,8 +337,10 @@ test('the Statements tab is labelled Statements and keyed backoffice', () => {
 test('a fresh session opens in the Front Office, on Summary', () => {
   assert.equal(DEFAULT_OFFICE, 'front');
   assert.equal(OFFICE_HOME.front, 'summary');
-  // Round 2 replaces this with a real Back Office Summary ('bo-summary').
-  assert.equal(OFFICE_HOME.back, 'tracker');
+  // Round 2 replaced the 'tracker' placeholder with the real Back Office
+  // Summary. Each office now lands on its own overview screen.
+  assert.equal(OFFICE_HOME.back, 'bo-summary');
+  assert.equal(OFFICE_OF['bo-summary'], 'back');
 });
 
 test('the office is remembered in sessionStorage, never localStorage', () => {

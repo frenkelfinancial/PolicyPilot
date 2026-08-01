@@ -3878,6 +3878,27 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 .ps-thin{font-size:10.5px;color:var(--lg-caption);font-weight:500}
 .ps-gate{font-size:12px;line-height:1.55;color:var(--lg-caption);background:var(--lg-inner);
   border:1px dashed var(--lg-border);border-radius:6px;padding:12px 14px;margin:0}
+/* ---- Back Office Summary (office split, Round 2) ----
+   Every value is a var(--lg-*) token, so the screen follows the theme rather
+   than carrying a second palette. The cards reuse .cm-card / .ps-win outright;
+   what is added here is the fact that they are DOORS. */
+.bos-strip{margin-bottom:22px}
+.bos-strip:last-child{margin-bottom:0}
+.bos-strip-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.bos-strip-t{font-size:12.5px;font-weight:600;color:var(--lg-text1)}
+.bos-strip-s{font-size:11.5px;color:var(--lg-caption);line-height:1.5}
+.bos-card{cursor:pointer;transition:border-color .14s,box-shadow .14s}
+.bos-card:hover{border-color:var(--lg-blue-border);box-shadow:0 2px 6px rgba(15,29,61,.09)}
+.bos-card:focus-visible{outline:2px solid var(--lg-blue);outline-offset:2px}
+.bos-count{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:24px;font-weight:600;
+  line-height:1.15;color:var(--lg-text1)}
+.bos-count.bos-zero{color:var(--lg-faint)}
+.bos-note{font-size:10.5px;color:var(--lg-caption);line-height:1.45;margin-top:2px}
+.bos-err{font-size:12px;color:var(--lg-red);line-height:1.45;padding:2px 0}
+.bos-lead{font-size:13px;font-weight:600;color:var(--lg-text1);margin-bottom:10px}
+.bos-lead.bos-clear{color:var(--lg-green)}
+.bos-legend{font-size:11.5px;color:var(--lg-caption);line-height:1.5;margin-top:-4px}
+.bos-skel{background:var(--lg-divider);border-radius:6px;animation:lg-pulse 1.4s ease-in-out infinite}
 /* ---- Reconciliation (Phase 6) ---- */
 .rc-row{display:grid;grid-template-columns:26px 1.5fr .8fr .8fr .9fr 1.5fr;gap:10px;padding:10px 14px;
   align-items:center;border-bottom:1px solid var(--lg-divider);font-size:12.5px;color:var(--lg-text2)}
@@ -4974,6 +4995,13 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
        highlight lookup uses querySelectorAll, never querySelector. -->
   <div class="nav-office" data-office="back">
     <div class="nav-sec">
+      <div class="nav-lbl">Overview</div>
+      <!-- The Back Office's own Summary. Same word and the same `gauge` icon as
+           the Front Office's, deliberately: each office has one, and you can
+           only be in one office at a time. This is OFFICE_HOME.back. -->
+      <div class="nav-item" data-office="back" onclick="nav('bo-summary')"><span class="ico" data-ico="gauge"></span><span class="nav-lbl-text">Summary</span></div>
+    </div>
+    <div class="nav-sec">
       <div class="nav-lbl">Book</div>
       <div class="nav-item" data-office="back" onclick="nav('tracker')"><span class="ico" data-ico="clipboard-text"></span><span class="nav-lbl-text">Policy Tracker</span></div>
       <div class="nav-item" data-office="back" onclick="nav('carriermail')"><span class="ico" data-ico="download-simple"></span><span class="nav-lbl-text">Carrier Mail</span></div>
@@ -5760,6 +5788,30 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
     <!-- ========== BACK OFFICE — commission statement ingestion ==========
          Docs: docs/back-office-progress.md. The shell is static; everything
          inside #bo-body is rendered by renderBackOffice(). -->
+    <!-- ========== BACK OFFICE SUMMARY (office split, Round 2) ==========
+         The Back Office's landing screen. Four strips: the money, what needs
+         you, book health, and — for leaders only — the team. Every number
+         comes from an RPC that already existed; this screen adds no backend
+         and writes nothing. The pure math lives in the bo-summary core block
+         (search bosMoneyCards); the renderer is renderBackOfficeSummary().
+         The sentinel itself is deliberately not spelled out here — the test
+         harness extracts by lazy match, so naming it above the real block
+         swallows the file. -->
+    <div class="section" id="sec-bo-summary">
+      <div class="ledger">
+        <div class="lg-wrap">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px">
+            <div>
+              <div style="font-size:15px;font-weight:600;color:var(--lg-text1)">Back Office</div>
+              <div style="font-size:12px;color:var(--lg-caption);margin-top:2px;max-width:640px">What came in, what is owed, what is stuck, and whether your book is healthy. Every card opens the screen that owns the number.</div>
+            </div>
+            <button class="pt-btn pt-btn-ghost" id="bos-refresh" onclick="renderBackOfficeSummary(true)">Refresh</button>
+          </div>
+          <div id="bos-body"></div>
+        </div>
+      </div>
+    </div>
+
     <div class="section" id="sec-backoffice">
       <div class="ledger">
         <div class="lg-wrap">
@@ -27548,6 +27600,259 @@ function reconResultMessage(action, res) {
 }
 // </recon-core>
 
+// <bo-summary-core>
+// The Back Office's own Summary (office split, Round 2) — pure logic. No DOM,
+// no network, no storage, no app globals. Extracted verbatim and executed by
+// test/bo-summary.test.mjs, so the tests run the code that ships. Keep it pure.
+//
+// TWO DECLARED DEPENDENCIES, both themselves pure, both loaded alongside this
+// block by the test: `commTotals` / `commDebtRanked` / `COMM_CARD_DEFS` from
+// comm-core, and `persistBand` / `persistBandLabel` / `persistWindowLabel`
+// from persist-core. Stated rather than avoided, exactly as recon-core states
+// its dependency on `commMoney`. This screen sits one click from the panels
+// that own these numbers; a second definition of "net commission", or a second
+// copy of the 85/70 bands, is precisely the drift these blocks exist to stop.
+//
+// This screen is READ-ONLY. Nothing here writes, and nothing here queries: it
+// maps what the existing RPCs already return onto cards.
+
+/**
+ * The debt RPC's arguments on this screen. There is only one answer, and it is
+ * a function rather than a literal so a test can pin it.
+ *
+ * Debt is NEVER range-filtered, on any tab — documented in
+ * docs/back-office-commissions.md § Debt. You owe a carrier what you owe them,
+ * and a balance that shrank because somebody clicked "MTD" is a number nobody
+ * could act on. The range chips govern the commission figures only.
+ */
+function bosDebtArgs() { return { p_start: null, p_end: null }; }
+
+/**
+ * A count off an RPC row. `Number('x' || 0)` is NaN and `Math.max(0, NaN)` is
+ * NaN too, so the obvious guard is not one — and "NaN things need a look" is
+ * how a dashboard tells an owner it has stopped working. Negative counts are
+ * nonsense this screen must not repeat back either.
+ */
+function bosCount(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+/** The same, for money — where a negative IS meaningful and must survive. */
+function bosCents(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Said in small print under the debt figure, because the chips sit above it. */
+const BOS_DEBT_NOTE = 'All time — the range above does not apply to what you owe.';
+
+/**
+ * The money strip: Net, Personal, Override, Outstanding Debt.
+ *
+ * `range` is accepted and deliberately UNUSED for debt: the caller passes the
+ * selected range so that this function, not its caller, is the place a test
+ * can prove the chip does not reach the balance.
+ *
+ * Override is DROPPED — not zeroed, not greyed — when it is zero and there is
+ * no hierarchy under the agent. A permanently empty card on the landing screen
+ * is noise every single day; the card comes back on its own the first time an
+ * override line lands.
+ */
+function bosMoneyCards(buckets, debtRows, opts) {
+  const o = opts || {};
+  const totals = commTotals(buckets);
+  const debt = commDebtRanked(debtRows);
+  const cards = [
+    { key: 'net',      label: 'Net Commission',   cents: totals.net,      def: COMM_CARD_DEFS.net },
+    { key: 'personal', label: 'Personal Sales',   cents: totals.personal, def: COMM_CARD_DEFS.personal },
+    { key: 'override', label: 'Override Income',  cents: totals.override, def: COMM_CARD_DEFS.override },
+    { key: 'debt',     label: 'Outstanding Debt', cents: debt.total,      def: COMM_CARD_DEFS.debt,
+      invert: true, note: BOS_DEBT_NOTE },
+  ];
+  return cards.filter(c => !(c.key === 'override' && c.cents === 0 && !o.hasDownline));
+}
+
+/**
+ * The three reconciliation queues, by the keys `rcSetQueue()` already accepts.
+ * A test asserts these keys are RECON_QUEUES', so a card cannot open a queue
+ * the panel does not have.
+ */
+const BOS_QUEUES = [
+  { key: 'match',    label: 'Policy Match Review', field: 'match_review' },
+  { key: 'unlinked', label: 'Unlinked Policies',   field: 'unlinked_policies' },
+  { key: 'stuck',    label: 'Stuck Uploads',       field: 'stuck_uploads' },
+];
+
+const BOS_NOTHING_TO_DO = 'Nothing needs your attention right now.';
+
+/**
+ * "6 things need a look", or the all-clear sentence.
+ *
+ * Three zeroes with no sentence reads as a broken screen rather than a clean
+ * desk, which is why the sentence is not optional. This strip COUNTS; it does
+ * not rank — priority follows the money and that rule lives in the
+ * Reconciliation panel, which owns it.
+ */
+function bosAttention(summary) {
+  const s = summary || {};
+  const cards = BOS_QUEUES.map(q => ({
+    key: q.key,
+    label: q.label,
+    count: bosCount(s[q.field]),
+  }));
+  const total = cards.reduce((a, c) => a + c.count, 0);
+  return {
+    cards,
+    total,
+    clear: total === 0,
+    sentence: total === 0 ? BOS_NOTHING_TO_DO
+      : (total === 1 ? '1 thing needs a look' : total + ' things need a look'),
+  };
+}
+
+/** The two windows this screen headlines. The panel still shows all four. */
+const BOS_PERSIST_WINDOWS = [13, 25];
+
+/**
+ * Below this, a rate is arithmetic rather than a signal: one lapse in a
+ * two-policy cohort is a 50% headline on the owner's landing screen. The
+ * Persistency panel still shows thin segments, flagged — this is the one
+ * screen that refuses to headline a number it cannot support.
+ */
+const BOS_MIN_COHORT = 3;
+
+const BOS_PERSIST_WHY = 'Carrier bonus programmes are written against these bands.';
+const BOS_PERSIST_LEGEND = 'Green ≥ 85% · Yellow 70–84% · Red < 70%';
+
+/**
+ * 13-month / 25-month persistency from get_downline_persistency's rows.
+ *
+ * NO RATE IS NOT A ZERO RATE. An empty or too-thin cohort returns
+ * `rate: null`, `display: '—'` and a sentence saying why — never 0%. Painting
+ * a red band on an agent who has not been writing long enough is the single
+ * most misleading thing this screen could do, and it is the first thing a
+ * naive implementation does. See docs/back-office-persistency.md.
+ *
+ * A REAL zero is still a zero: a cohort of five with nothing kept renders 0%
+ * in red, because that is a fact about the book rather than a missing one.
+ */
+function bosPersistency(rpcRows, months, opts) {
+  const o = opts || {};
+  const min = o.minCohort === undefined ? BOS_MIN_COHORT : o.minCohort;
+  const selfOnly = o.selfOnly === undefined ? true : !!o.selfOnly;
+  const rows = (Array.isArray(rpcRows) ? rpcRows : []).filter(r =>
+    r && Number(r.window_months) === Number(months) && (!selfOnly || r.is_self));
+  const cohort = rows.reduce((s, r) => s + bosCount(r.cohort_count), 0);
+  const kept = rows.reduce((s, r) => s + bosCount(r.kept_count), 0);
+  const out = {
+    months,
+    label: persistWindowLabel(months),
+    cohort,
+    kept,
+    rate: null,
+    band: null,
+    bandLabel: persistBandLabel(null),
+    display: '—',
+    hasRate: false,
+    sub: '',
+  };
+  if (cohort <= 0) {
+    out.sub = 'No policy has had ' + months + ' months to lapse yet.';
+    return out;
+  }
+  if (cohort < min) {
+    out.sub = 'Only ' + cohort + (cohort === 1 ? ' policy is' : ' policies are') +
+      ' old enough to count — too few for a rate.';
+    return out;
+  }
+  const rate = (kept / cohort) * 100;
+  out.rate = rate;
+  out.band = persistBand(rate);
+  out.bandLabel = persistBandLabel(rate);
+  out.display = Math.round(rate) + '%';
+  out.hasRate = true;
+  out.sub = kept + ' of ' + cohort + ' still on the books';
+  return out;
+}
+
+/**
+ * The team strip, or NOTHING.
+ *
+ * `null` for anyone who is not a leader — absent, not empty and not a locked
+ * upsell card. The upgrade gate already lives on the features that need it; a
+ * permanently greyed strip on the landing screen is noise every single day.
+ *
+ * Production is every row the rollup returned, the leader's own included: it
+ * answers "what did my agency write", not "what did my agency write for me".
+ * The rollup is aggregates-only by construction — see
+ * docs/back-office-commissions.md § "The downline rollup".
+ */
+function bosTeam(rollupRows, persistRows, opts) {
+  const o = opts || {};
+  if (!o.isLeader) return null;
+  const rows = Array.isArray(rollupRows) ? rollupRows : [];
+  const downlineRows = rows.filter(r => r && !r.is_self);
+  // The roster is the honest headcount when we have it: the rollup only knows
+  // about agents who have a commission line, so a downline that has never
+  // uploaded a statement would otherwise read as no downline at all.
+  const rosterKnown = o.rosterDownline !== null && o.rosterDownline !== undefined
+    && Number.isFinite(Number(o.rosterDownline));
+  const headcount = rosterKnown && Number(o.rosterDownline) > 0
+    ? Number(o.rosterDownline)
+    : downlineRows.length;
+  return {
+    headcount,
+    headcountKnown: rosterKnown,
+    productionCents: rows.reduce((s, r) => s + bosCents(r.net_cents), 0),
+    downlineDebtCents: downlineRows.reduce((s, r) => s + bosCents(r.debt_cents), 0),
+    persist: bosPersistency(persistRows, 13, { selfOnly: false }),
+  };
+}
+
+/** True when the agent has a hierarchy worth showing an Override card for. */
+function bosHasDownline(rollupRows, rosterDownline) {
+  if (Number(rosterDownline || 0) > 0) return true;
+  return (Array.isArray(rollupRows) ? rollupRows : []).some(r => r && !r.is_self);
+}
+
+/**
+ * "Nothing here yet" — an agent who has never uploaded a statement.
+ *
+ * Zero PROCESSED statements is the headline condition, but something still
+ * moving through the pipeline, or something that failed on the way, is not
+ * "nothing here yet": it is a screen about to fill itself in, or one with a
+ * job to go and fix. Either way a grid of dashes is the wrong answer and so is
+ * a welcome mat.
+ */
+function bosIsEmpty(ingestion) {
+  const s = ingestion || {};
+  const n = key => bosCount(s[key]);
+  if (n('ingested') > 0) return false;
+  if (n('queued') + n('parsing') + n('persisting') + n('matching') + n('failed') > 0) return false;
+  return true;
+}
+
+const BOS_EMPTY_TITLE = 'Nothing here yet.';
+const BOS_EMPTY_BODY = 'Drop your first carrier statement in and this screen fills itself in.';
+
+/**
+ * What one failed RPC puts on its own cards. One rejection must not blank the
+ * page — that is why the loader is allSettled — and the message has to leave a
+ * door open rather than just apologise.
+ */
+const BOS_ERROR_DOORS = {
+  commissions: 'Commissions',
+  reconciliation: 'Reconciliation',
+  persistency: 'Persistency',
+  agency: 'Agency',
+};
+
+function bosLoadError(area) {
+  return 'Couldn’t load — open ' + (BOS_ERROR_DOORS[area] || 'Statements') + ' to see this';
+}
+// </bo-summary-core>
+
 // <referral-core>
 // Auto-referral generation (Back Office Phase 7) — pure logic. No DOM, no
 // network, no storage, no app globals. Extracted verbatim and executed by
@@ -28713,6 +29018,354 @@ function psAgentHTML() {
     body + note + '</div>';
 }
 
+// ============================================================
+// THE BACK OFFICE SUMMARY — the landing screen for the money office
+// Pure math lives in the bo-summary-core block above.
+//
+// The agency owner flips the toggle and this answers, without a click: what
+// came in, what is owed, what is stuck, and is my book healthy.
+//
+// IT ADDS NO BACKEND. Every figure comes from an RPC that already shipped —
+// get_commission_buckets, get_commission_debt, get_reconciliation_summary,
+// get_downline_persistency, get_ingestion_summary, get_downline_commission_rollup —
+// plus the team roster, which it reaches through loadTeamRoster() rather than
+// its own query, because there is exactly ONE sb.rpc('get_team_summary') call
+// site in this app and a second one is how the two team surfaces drifted into
+// an 8,610x AP overstatement. See docs/agency-team-screen.md.
+//
+// ALL SETTLED, NOT ALL. Six calls go out together and each strip paints the
+// moment its own data lands. One rejection puts a message on that strip and
+// leaves the rest of the screen standing — a dashboard that blanks because the
+// persistency RPC hiccuped is worse than no dashboard.
+// ============================================================
+
+const BOS_TTL_MS = 45000;
+
+let _bosCache = {
+  at: 0, rangeKey: null, isLeader: false, empty: false,
+  buckets: null, debt: null, recon: null, persist: null, ingest: null,
+  rollup: null, roster: null, err: {},
+};
+
+/** 'loading' until the call settles, then 'ok' or 'error'. Per key, not global. */
+function bosState(key) {
+  if (_bosCache.err && _bosCache.err[key]) return 'error';
+  const v = _bosCache[key];
+  return (v === null || v === undefined) ? 'loading' : 'ok';
+}
+
+/**
+ * The range chips are the Commissions panel's, on purpose — one range, one
+ * memory, one calculator. Picking YTD here and finding MTD one click away
+ * would make the two screens disagree about the same money.
+ */
+function bosSetRange(k) {
+  if (!COMM_RANGES.some(x => x.key === k)) return;
+  _cmRange = k;
+  try { localStorage.setItem('pp_comm_range', k); } catch (e) { /* private mode */ }
+  renderBackOfficeSummary(true);
+}
+
+/** Downline headcount from the team roster cache, or null if we do not know. */
+function _bosRosterDownline() {
+  const r = _bosCache.roster;
+  if (!r || r.state !== 'ok' || !r.view) return null;
+  return Math.max(0, Number(r.view.count || 0) - (r.view.you ? 1 : 0));
+}
+
+async function renderBackOfficeSummary(force) {
+  const body = document.getElementById('bos-body');
+  if (!body) return;
+  if (typeof currentAgent === 'undefined' || !currentAgent) return;
+
+  const rangeKey = _cmRange;
+  const fresh = !force && _bosCache.at && _bosCache.rangeKey === rangeKey
+    && (Date.now() - _bosCache.at) < BOS_TTL_MS;
+  if (fresh) { bosPaint(); return; }
+
+  const range = commRange(rangeKey, new Date());
+  const isLeader = _planTier() === 'leader';
+  _bosCache = {
+    at: 0, rangeKey, isLeader, empty: false,
+    buckets: null, debt: null, recon: null, persist: null, ingest: null,
+    rollup: null, roster: null, err: {},
+  };
+  bosPaint();   // frames and skeletons, before a single byte comes back
+
+  const rpc = (name, args) => sb.rpc(name, args).then(r => {
+    if (r.error) throw r.error;
+    return r.data;
+  });
+  const one = rows => (Array.isArray(rows) ? (rows[0] || {}) : (rows || {}));
+
+  const jobs = [
+    ['ingest',  rpc('get_ingestion_summary').then(one)],
+    ['buckets', rpc('get_commission_buckets', { p_start: range.start, p_end: range.end })],
+    // Debt takes bosDebtArgs() and nothing else. The chips above it govern the
+    // commission figures only.
+    ['debt',    rpc('get_commission_debt', bosDebtArgs())],
+    ['recon',   rpc('get_reconciliation_summary', { p_unpaid_days: 45 }).then(one)],
+    ['persist', rpc('get_downline_persistency', { p_now: null })],
+  ];
+  if (isLeader) {
+    jobs.push(['rollup', rpc('get_downline_commission_rollup', { p_start: range.start, p_end: range.end })]);
+    // Through loadTeamRoster(), never a second get_team_summary call site.
+    jobs.push(['roster', loadTeamRoster(_teamPeriod)]);
+  }
+
+  await Promise.allSettled(jobs.map(([key, p]) => p.then(
+    data => { _bosCache[key] = data; },
+    e => { _bosCache.err[key] = (e && e.message) || String(e || 'failed'); }
+  ).then(() => {
+    _bosCache.at = Date.now();
+    bosPaint();
+  })));
+
+  if (force) showToast('Back Office refreshed', '#10b981');
+}
+
+/**
+ * Paint each strip from whatever has landed. Called on every settle, so a
+ * strip re-renders only when its own container is rewritten — the range chips
+ * and the header sit outside and stay put.
+ */
+function bosPaint() {
+  const body = document.getElementById('bos-body');
+  if (!body) return;
+
+  // An agent who has never uploaded a statement gets one friendly panel
+  // instead of a grid of dashes.
+  if (bosState('ingest') === 'ok' && bosIsEmpty(_bosCache.ingest)) {
+    _bosCache.empty = true;
+    body.innerHTML = bosEmptyHTML();
+    return;
+  }
+
+  if (!document.getElementById('bos-money') || _bosCache.empty) {
+    _bosCache.empty = false;
+    body.innerHTML = bosShellHTML();
+  }
+  bosPaintRanges();
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  set('bos-money', bosMoneyHTML());
+  set('bos-attention', bosAttentionHTML());
+  set('bos-health', bosHealthHTML());
+  set('bos-team', bosTeamHTML());
+}
+
+function bosShellHTML() {
+  return '' +
+    '<div class="bos-strip">' +
+      '<div class="bos-strip-h">' +
+        '<div class="bos-strip-t">The money</div>' +
+        '<div class="tracker-tabs" id="bos-ranges"></div>' +
+      '</div>' +
+      '<div id="bos-money"></div>' +
+    '</div>' +
+    '<div class="bos-strip">' +
+      '<div class="bos-strip-h"><div class="bos-strip-t">What needs you</div></div>' +
+      '<div id="bos-attention"></div>' +
+    '</div>' +
+    '<div class="bos-strip">' +
+      '<div class="bos-strip-h">' +
+        '<div class="bos-strip-t">Book health</div>' +
+        '<div class="bos-strip-s">' + escHTML(BOS_PERSIST_WHY) + '</div>' +
+      '</div>' +
+      '<div id="bos-health"></div>' +
+    '</div>' +
+    '<div id="bos-team"></div>';
+}
+
+function bosPaintRanges() {
+  const el = document.getElementById('bos-ranges');
+  if (!el) return;
+  el.innerHTML = COMM_RANGES.map(r =>
+    '<button class="tracker-tab' + (r.key === _cmRange ? ' active' : '') +
+    '" title="' + escHTML(r.sub) + '" onclick="bosSetRange(\'' + r.key + '\')">' +
+    escHTML(r.label) + '</button>').join('');
+}
+
+// ---- the shared card shell ---------------------------------------------
+//
+// EVERY CARD IS A DOOR. Clicking one lands on the tab that owns the number
+// with the right sub-panel already selected, through boArea() — never by
+// reaching into a bopanel-* element, which is the two-place edit boArea()
+// exists to prevent.
+
+function bosOpen(area) {
+  nav('backoffice');
+  boArea(area);
+}
+
+function bosOpenQueue(queue) {
+  nav('backoffice');
+  if (typeof rcSetQueue === 'function') rcSetQueue(queue);
+  boArea('reconciliation');
+}
+
+function bosSkel(width, height) {
+  return '<div class="bos-skel" style="height:' + (height || 22) + 'px;width:' + (width || '62%') + ';margin:3px 0"></div>';
+}
+
+function bosCardHTML(o) {
+  const open = o.open || '';
+  return '<div class="cm-card bos-card" role="button" tabindex="0" title="' + escHTML(o.title || '') + '"' +
+      ' onclick="' + open + '"' +
+      ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();' + open + ';}">' +
+    '<div class="cm-card-l">' + escHTML(o.label) + '</div>' +
+    o.value +
+    (o.def ? '<div class="cm-card-d">' + escHTML(o.def) + '</div>' : '') +
+    (o.note ? '<div class="bos-note">' + escHTML(o.note) + '</div>' : '') +
+  '</div>';
+}
+
+// ---- strip 1: the money -------------------------------------------------
+
+function bosMoneyHTML() {
+  const bState = bosState('buckets');
+  const dState = bosState('debt');
+  const hasDownline = bosHasDownline(_bosCache.rollup, _bosRosterDownline());
+  const cards = bosMoneyCards(
+    Array.isArray(_bosCache.buckets) ? _bosCache.buckets : [],
+    Array.isArray(_bosCache.debt) ? _bosCache.debt : [],
+    { hasDownline, range: commRange(_bosCache.rangeKey, new Date()) }
+  // Override is not rendered on a guess: until the buckets land we do not know
+  // what it is, and a card that appears is kinder than one that vanishes.
+  ).filter(c => c.key !== 'override' || bState === 'ok');
+
+  return '<div class="cm-cards">' + cards.map(c => {
+    const st = (c.key === 'debt') ? dState : bState;
+    let value;
+    if (st === 'loading') value = bosSkel('66%', 24);
+    else if (st === 'error') value = '<div class="bos-err">' + escHTML(bosLoadError('commissions')) + '</div>';
+    else {
+      const cls = c.invert ? (c.cents > 0 ? ' cm-neg' : '') : (c.cents < 0 ? ' cm-neg' : '');
+      value = '<div class="cm-card-v' + cls + '">' + escHTML(boFmtMoney(c.cents)) + '</div>';
+    }
+    return bosCardHTML({
+      label: c.label, value, def: c.def, note: c.note,
+      title: 'Open Commissions', open: "bosOpen('commissions')",
+    });
+  }).join('') + '</div>';
+}
+
+// ---- strip 2: what needs you -------------------------------------------
+
+function bosAttentionHTML() {
+  const st = bosState('recon');
+  const a = bosAttention(st === 'ok' ? _bosCache.recon : null);
+
+  let lead;
+  if (st === 'loading') lead = '<div class="bos-lead">' + bosSkel('40%', 14) + '</div>';
+  else if (st === 'error') lead = '<div class="bos-err" style="margin-bottom:10px">' + escHTML(bosLoadError('reconciliation')) + '</div>';
+  // Three zeroes with no sentence reads as a broken screen, not a clean desk.
+  else lead = '<div class="bos-lead' + (a.clear ? ' bos-clear' : '') + '">' + escHTML(a.sentence) + '</div>';
+
+  const cards = a.cards.map(c => {
+    let value;
+    if (st === 'loading') value = bosSkel('40%', 24);
+    else if (st === 'error') value = '<div class="bos-count bos-zero">&mdash;</div>';
+    else value = '<div class="bos-count' + (c.count === 0 ? ' bos-zero' : '') + '">' + c.count + '</div>';
+    return bosCardHTML({
+      label: c.label, value,
+      title: 'Open ' + c.label,
+      open: "bosOpenQueue('" + c.key + "')",
+    });
+  }).join('');
+
+  return lead + '<div class="cm-cards">' + cards + '</div>';
+}
+
+// ---- strip 3: book health ----------------------------------------------
+
+function bosHealthHTML() {
+  const st = bosState('persist');
+  const rows = (st === 'ok' && Array.isArray(_bosCache.persist)) ? _bosCache.persist : [];
+  const wins = BOS_PERSIST_WINDOWS.map(m => bosPersistency(rows, m));
+
+  const cards = wins.map(w => {
+    let inner;
+    if (st === 'loading') {
+      inner = bosSkel('46%', 26) + bosSkel('72%', 12);
+    } else if (st === 'error') {
+      inner = '<div class="bos-err">' + escHTML(bosLoadError('persistency')) + '</div>';
+    } else {
+      // NO RATE IS NOT A ZERO RATE — bosPersistency() has already refused to
+      // invent one; all this does is render the em dash it returned.
+      const cls = w.hasRate ? 'ps-' + w.band : 'ps-none';
+      inner = '<div class="ps-win-v ' + cls + '">' + escHTML(w.display) + '</div>' +
+        '<div class="ps-win-s">' + escHTML(w.sub) + '</div>' +
+        (w.hasRate
+          ? '<div class="ps-track"><div class="ps-fill ps-fill-' + w.band + '" style="width:' +
+            Math.min(100, Math.max(0, w.rate)).toFixed(1) + '%"></div></div>'
+          : '');
+    }
+    return '<div class="ps-win bos-card" role="button" tabindex="0" title="Open Persistency"' +
+        ' onclick="bosOpen(\'persistency\')"' +
+        ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();bosOpen(\'persistency\');}">' +
+      '<div class="ps-win-l">' + escHTML(persistWindowLabel(w.months)) + ' persistency</div>' +
+      inner +
+    '</div>';
+  }).join('');
+
+  // A colour with no key is a decoration.
+  return '<div class="ps-windows">' + cards + '</div>' +
+    '<div class="bos-legend">' + escHTML(BOS_PERSIST_LEGEND) +
+      '. A policy that never issued is not in the cohort, and a death claim is not a lapse.</div>';
+}
+
+// ---- strip 4: the team, LEADERS ONLY -----------------------------------
+
+function bosTeamHTML() {
+  // Absent for everyone else — not empty, not a locked upsell card. The
+  // upgrade gate already lives on the features that need it; a permanently
+  // greyed strip on the landing screen is noise every single day.
+  if (_planTier() !== 'leader') return '';
+  const t = bosTeam(_bosCache.rollup, _bosCache.persist,
+    { isLeader: true, rosterDownline: _bosRosterDownline() });
+  if (!t) return '';
+
+  const rollupState = bosState('rollup');
+  const persistState = bosState('persist');
+  const door = "nav('agency')";
+  const cell = (label, state, valueHTML, def) => bosCardHTML({
+    label, def, title: 'Open Agency', open: door,
+    value: state === 'loading' ? bosSkel('58%', 24)
+      : state === 'error' ? '<div class="bos-err">' + escHTML(bosLoadError('agency')) + '</div>'
+      : valueHTML,
+  });
+
+  const headState = (_bosCache.roster === null && rollupState === 'loading') ? 'loading' : 'ok';
+  const cards =
+    cell('Downline', headState,
+      '<div class="cm-card-v">' + t.headcount + '</div>',
+      t.headcount === 1 ? 'One agent connected to you.' : 'Agents connected to you.') +
+    cell('Team Production', rollupState,
+      '<div class="cm-card-v">' + escHTML(boFmtMoney(t.productionCents)) + '</div>',
+      'Every commission line your agency recorded in this period, yours included.') +
+    cell('Team Persistency', persistState,
+      '<div class="cm-card-v ' + (t.persist.hasRate ? 'ps-' + t.persist.band : 'ps-none') + '">' +
+        escHTML(t.persist.display) + '</div>',
+      '13-month, across your whole agency. ' + t.persist.sub);
+
+  return '<div class="bos-strip">' +
+    '<div class="bos-strip-h">' +
+      '<div class="bos-strip-t">Your team</div>' +
+      '<div class="bos-strip-s">Figures only — never a client, a policy or an agent’s book.</div>' +
+    '</div>' +
+    '<div class="cm-cards">' + cards + '</div>' +
+  '</div>';
+}
+
+function bosEmptyHTML() {
+  return '<div class="cm-panel"><div class="cm-empty">' +
+    '<div style="font-size:14px;font-weight:600;color:var(--lg-text1);margin-bottom:6px">' +
+      escHTML(BOS_EMPTY_TITLE) + '</div>' +
+    '<div style="max-width:420px;margin:0 auto 14px">' + escHTML(BOS_EMPTY_BODY) + '</div>' +
+    '<button class="pt-btn pt-btn-primary" onclick="nav(\'backoffice\')">Upload a statement</button>' +
+  '</div></div>';
+}
+
 /** One pass: summary RPC + statement list, then paint. */
 async function boRefresh(userInitiated) {
   if (!currentAgent) return;
@@ -29084,6 +29737,7 @@ const OFFICE_OF = {
   'ai-test':          'front',
 
   // Back Office — money
+  'bo-summary':       'back',   // the Back Office's landing screen
   tracker:            'back',
   carriermail:        'back',
   backoffice:         'back',   // labelled "Statements" — id kept, see below
@@ -29096,13 +29750,17 @@ const OFFICE_OF = {
 };
 
 // Where each office lands when you flip into it, or when the section you were
-// on belongs to the office you just left. Round 2 changes back to 'bo-summary'.
-const OFFICE_HOME = { front: 'summary', back: 'tracker' };
+// on belongs to the office you just left. Round 1 parked `back` on the policy
+// list as a placeholder; Round 2 built the screen it was standing in for.
+const OFFICE_HOME = { front: 'summary', back: 'bo-summary' };
 
 const DEFAULT_OFFICE = 'front';
 
 const NAV_TITLES = {
   summary:'Summary',
+  // Yes, the same word. Each office has its own Summary and the topbar is
+  // correct either way, because you can only be in one office at a time.
+  'bo-summary':'Summary',
   'api-quoter':'Quote + Underwriting',
   tracker:'Policy Tracker',
   carriermail:'Carrier Mail',
@@ -33560,6 +34218,7 @@ function nav(id) {
   if (id === 'tracker') { populateTrackerCarrierFilter(); const calTab = document.getElementById('pt-tab-cal'); if (calTab && calTab.classList.contains('active')) renderTrackerCalendar(); }
   if (id === 'carriermail') renderCarrierMail();
   if (id === 'backoffice') renderBackOffice();
+  if (id === 'bo-summary') renderBackOfficeSummary();
   // Paint from what is already in memory first (instant), then reload the
   // AI-booked appointments and repaint. An appointment the AI booked five
   // minutes ago must not need a manual Refresh to appear.
@@ -41319,7 +41978,14 @@ async function bootDashboard() {
   // Default-active section in HTML is 'summary'; only re-nav if a different one was saved.
   try {
     const saved = localStorage.getItem(k('pp_current_section'));
-    const valid = { summary:1, 'api-quoter':1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, webdialer:1, agency:1, settings:1 };
+    // Which cached sections a refresh may restore into. `bo-summary` is here
+    // because it is OFFICE_HOME.back — without it, F5 on the Back Office's own
+    // landing screen silently drops the agent somewhere else.
+    // KNOWN GAP, pre-dating the office split and deliberately not closed here:
+    // carriermail, backoffice, voice-campaigns and ai-test are missing, so a
+    // refresh on any of them lands on Summary. That is a decision about
+    // refresh behaviour, not a dashboard change — see docs/reports/PROMPT_FO2-report.md.
+    const valid = { summary:1, 'bo-summary':1, 'api-quoter':1, tracker:1, bonuses:1, leads:1, calendar:1, phonebook:1, webdialer:1, agency:1, settings:1 };
     const _rt = _planTier();
     const _gated = (saved === 'bonuses' && _rt !== 'pro' && _rt !== 'leader') || (saved === 'agency' && _rt !== 'leader');
     // Second half of the same rule restoreSectionFromCache() applies: never
