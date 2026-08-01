@@ -369,6 +369,29 @@ untested.
 
 ---
 
+## Commit and deploy
+
+**Commit: `579c17cdcd51e473543e98d46c40f3c07390fb36`** (`579c17c`) — *"The Back
+Office answers its own question before you ask it"*.
+
+Pushed to `main`: `3f2fc01..579c17c`. `git status -sb` reports
+`## main...origin/main` with no ahead/behind, i.e. in sync with the remote.
+The pre-push hook ran and passed; `--no-verify` was not used.
+
+`prompts/` was left **untracked**, the same call Round 1 made — `git add -A`
+would otherwise sweep the prompt files into the repo, and the commit is meant
+to contain exactly the change.
+
+Deployment is automatic via `.github/workflows/pages.yml` on push to `main`.
+`app.html` is already in the Pages allowlist, so this needed no workflow
+change; the new doc and test file are not web-served and do not affect the
+build.
+
+*(This section was added in a follow-up commit, since the SHA cannot be known
+before the commit exists.)*
+
+---
+
 ## Files changed
 
 | File | What |
