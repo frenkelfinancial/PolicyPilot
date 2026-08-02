@@ -5120,7 +5120,7 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
   <div class="nav-office" data-office="front">
     <div class="nav-sec">
       <div class="nav-lbl">Overview</div>
-      <div class="nav-item active" data-office="front" onclick="nav('summary')"><span class="ico" data-ico="gauge"></span><span class="nav-lbl-text">Summary</span></div>
+      <div class="nav-item active" id="nav-summary-front" data-office="front" onclick="nav('summary')"><span class="ico" data-ico="gauge"></span><span class="nav-lbl-text">Summary</span></div>
     </div>
     <div class="nav-sec">
       <div class="nav-lbl">Selling</div>
@@ -5147,10 +5147,16 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
   <div class="nav-office" data-office="back">
     <div class="nav-sec">
       <div class="nav-lbl">Overview</div>
-      <!-- The Back Office's own Summary. Same word and the same `gauge` icon as
-           the Front Office's, deliberately: each office has one, and you can
-           only be in one office at a time. This is OFFICE_HOME.back. -->
-      <div class="nav-item" data-office="back" onclick="nav('bo-summary')"><span class="ico" data-ico="gauge"></span><span class="nav-lbl-text">Summary</span></div>
+      <!-- THE SAME Summary as the Front Office's — nav('summary'), not
+           nav('bo-summary'). Owner's decision 2026-08-01: one overview screen,
+           reachable from either office, rather than two that had to be kept
+           telling the same story. So Summary joins Agency as a section rendered
+           TWICE against one #sec-summary, which is why the highlight lookup
+           must be querySelectorAll (see nav()), and why OFFICE_OF.summary is
+           'both'. This is OFFICE_HOME for BOTH offices.
+           #sec-bo-summary and renderBackOfficeSummary() are still in the file
+           and still tested; nothing in the sidebar points at them. -->
+      <div class="nav-item" id="nav-summary-back" data-office="back" onclick="nav('summary')"><span class="ico" data-ico="gauge"></span><span class="nav-lbl-text">Summary</span></div>
     </div>
     <div class="nav-sec">
       <div class="nav-lbl">Book</div>
@@ -17092,12 +17098,12 @@ function _applyPlanGating() {
     const activeId = activeSec.id.replace('sec-', '');
     const shouldRedirect = (activeId === 'bonuses' && restricted) || (activeId === 'webdialer' && restricted);
     if (shouldRedirect) {
-      // Summary is a Front Office section, and 'bonuses' is a Back Office one
-      // — so this redirect can cross offices. Move the toggle with it or the
-      // agent lands on a screen whose nav item their own office hides.
-      if (typeof setOffice === 'function' && OFFICE_OF.summary !== document.body.dataset.office) {
-        setOffice(OFFICE_OF.summary, { silent: true });
-      }
+      // Summary used to be Front Office only, so this redirect crossed offices
+      // out of the Back Office's 'bonuses' and had to drag the toggle with it.
+      // It is OFFICE_OF.summary === 'both' now, rendered in both sidebars, so
+      // there is nothing to move: the agent stays in the office they were in
+      // and the nav item they can see lights up. Calling setOffice() here would
+      // hand it the literal string 'both', which is not an office.
       document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
       const sum = document.getElementById('sec-summary');
       if (sum) sum.classList.add('active');
@@ -31153,7 +31159,6 @@ async function boDownload(statementId, btn) {
 // ============================================================
 const OFFICE_OF = {
   // Front Office — selling
-  summary:            'front',
   leads:              'front',
   'api-quoter':       'front',
   calendar:           'front',
@@ -31163,13 +31168,25 @@ const OFFICE_OF = {
   'ai-test':          'front',
 
   // Back Office — money
-  'bo-summary':       'back',   // the Back Office's landing screen
+  // NOT IN THE SIDEBAR since 2026-08-01 — the Back Office's Summary tab points
+  // at 'summary' now. #sec-bo-summary, renderBackOfficeSummary() and both core
+  // blocks are still here and still tested (npm run test:bosummary); nothing
+  // navigates to them. The entry stays so nav('bo-summary') still resolves to
+  // an office if anything ever calls it, and so this map keeps naming every
+  // section that exists. It is deliberately NOT restorable — _isRestorableSection()
+  // needs a sidebar item too, and there isn't one, which is exactly right.
+  'bo-summary':       'back',
   tracker:            'back',
   carriermail:        'back',
   backoffice:         'back',   // labelled "Statements" — id kept, see below
   bonuses:            'back',
 
   // Both
+  // Summary joined this group on 2026-08-01: ONE overview screen, rendered
+  // twice in the sidebar and shared by both offices. 'both' is what stops
+  // nav() and setOffice() flipping the toggle underneath an agent who clicked
+  // Summary from the Back Office.
+  summary:            'both',
   agency:             'both',
   settings:           'both',
   'ds-playground':    'both',
@@ -31177,8 +31194,11 @@ const OFFICE_OF = {
 
 // Where each office lands when you flip into it, or when the section you were
 // on belongs to the office you just left. Round 1 parked `back` on the policy
-// list as a placeholder; Round 2 built the screen it was standing in for.
-const OFFICE_HOME = { front: 'summary', back: 'bo-summary' };
+// list as a placeholder; Round 2 built the screen it was standing in for; the
+// owner replaced that with the Front Office's on 2026-08-01, so both offices
+// now land on the same overview. Note this makes the second clause above a
+// no-op for Summary — a 'both' section belongs to no office you can leave.
+const OFFICE_HOME = { front: 'summary', back: 'summary' };
 
 const DEFAULT_OFFICE = 'front';
 
@@ -31221,8 +31241,9 @@ let _pendingLateRestore = null;
 
 const NAV_TITLES = {
   summary:'Summary',
-  // Yes, the same word. Each office has its own Summary and the topbar is
-  // correct either way, because you can only be in one office at a time.
+  // Both offices now point their Summary tab at 'summary' above, so this title
+  // is only reached if something calls nav('bo-summary') directly. Kept
+  // alongside the screen itself.
   'bo-summary':'Summary',
   'api-quoter':'Quote + Underwriting',
   tracker:'Policy Tracker',

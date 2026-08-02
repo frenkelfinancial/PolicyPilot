@@ -1,5 +1,17 @@
 # The Back Office Summary
 
+> **🔴 RETIRED FROM THE SIDEBAR 2026-08-01 — THE CODE IS STILL HERE AND STILL
+> TESTED.** The owner replaced this screen with the Front Office's Summary:
+> *"instead of having different summary pages for front office and back office,
+> just have the same summary page."* `OFFICE_HOME.back` is `'summary'`, the
+> Back Office's nav item points at `nav('summary')`, and `OFFICE_OF.summary` is
+> `'both'`. **Nothing was deleted** — `#sec-bo-summary`,
+> `renderBackOfficeSummary()`, both pure cores and all 71 tests in
+> `test/bo-summary.test.mjs` are unchanged and green, and the rest of this doc
+> describes them accurately. What is no longer true is only that an agent can
+> get here from the sidebar. `_isRestorableSection('bo-summary')` is now
+> `false` by design. Details: `docs/office-split.md` § "Undone 2026-08-01".
+
 The landing screen for the money office. An agency owner flips the toggle and
 this answers, without a single click: **what I wrote, what it is worth, who is
 producing, what came in, what is owed, what is stuck, and is my book healthy.**

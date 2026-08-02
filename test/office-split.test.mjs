@@ -136,14 +136,39 @@ test('Back Office static nav opens with its own Summary, then the five money scr
   ]);
 });
 
-test('the Back Office lands on its own Summary, not on the Policy Tracker placeholder', () => {
+test('both offices land on the SAME Summary', () => {
+  // History: Round 1 parked the Back Office on 'tracker' as a placeholder,
+  // Round 2 built it a Summary of its own, and the owner replaced that with
+  // the Front Office's on 2026-08-01 — one overview screen, reachable from
+  // either office, instead of two that had to be kept telling the same story.
   const m = APP.match(/const OFFICE_HOME = \{([^}]*)\}/);
   assert.ok(m, 'OFFICE_HOME must still be declared exactly once');
-  assert.match(m[1], /back:\s*'bo-summary'/,
-    "Round 1 parked the Back Office on 'tracker' as a placeholder; Round 2 replaced it");
   assert.match(m[1], /front:\s*'summary'/, 'the Front Office landing screen does not change');
+  assert.match(m[1], /back:\s*'summary'/,
+    'the Back Office lands on the Front Office Summary — not on a second one');
   // And the home screen has to be reachable, or the toggle lands nowhere.
+  assert.match(APP, /<div class="section[^"]*" id="sec-summary">/);
+});
+
+test('the Back Office Summary screen is still in the file — it is only unreachable', () => {
+  // The owner chose to leave the code in place rather than delete ~2,800 lines.
+  // So this must keep passing: the screen, its renderer and its two pure cores
+  // are still here and test/bo-summary.test.mjs still runs against them. What
+  // changed is that nothing in the sidebar points at it.
   assert.match(APP, /<div class="section" id="sec-bo-summary">/);
+  assert.match(APP, /function renderBackOfficeSummary\(/);
+  assert.equal(OFFICE_OF['bo-summary'], 'back', 'it still declares an office');
+  // Match nav ITEMS, not raw text: the sidebar comment explaining the change
+  // necessarily names nav('bo-summary'), and a substring check on the whole
+  // block cannot tell a note from a navigation target.
+  // class="nav-item active" on the Front Office's Summary, so match the class
+  // loosely — a bare `class="nav-item"` silently skips the default item.
+  const navTargets = [...SIDEBAR.matchAll(/<div class="nav-item[^"]*"[^>]*onclick="nav\('([^']+)'\)"/g)]
+    .map(m => m[1]);
+  assert.ok(!navTargets.includes('bo-summary'),
+    'no sidebar item may point at the retired Back Office Summary');
+  assert.ok(navTargets.filter(t => t === 'summary').length >= 2,
+    "'both' means rendered twice — one Summary item per office, against one #sec-summary");
 });
 
 // ============================================================
@@ -343,10 +368,11 @@ test('the Statements tab is labelled Statements and keyed backoffice', () => {
 test('a fresh session opens in the Front Office, on Summary', () => {
   assert.equal(DEFAULT_OFFICE, 'front');
   assert.equal(OFFICE_HOME.front, 'summary');
-  // Round 2 replaced the 'tracker' placeholder with the real Back Office
-  // Summary. Each office now lands on its own overview screen.
-  assert.equal(OFFICE_HOME.back, 'bo-summary');
-  assert.equal(OFFICE_OF['bo-summary'], 'back');
+  // Round 2 replaced the 'tracker' placeholder with a Back Office Summary of
+  // its own; 2026-08-01 replaced THAT with the Front Office's. Both offices
+  // land on one overview screen, which is why it is filed under 'both'.
+  assert.equal(OFFICE_HOME.back, 'summary');
+  assert.equal(OFFICE_OF.summary, 'both');
 });
 
 test('the office is remembered in sessionStorage, never localStorage', () => {
@@ -514,7 +540,13 @@ test('every static sidebar section with an office is restorable — including th
   // split. Named explicitly so a future sidebar edit cannot quietly drop them.
   assert.ok(isRestorable('carriermail'), 'Carrier Mail must be restorable');
   assert.ok(isRestorable('backoffice'),  'Statements must be restorable');
-  assert.ok(isRestorable('bo-summary'),  'the Back Office landing screen must be restorable');
+  // The retired Back Office Summary is the derived predicate doing its job: it
+  // still declares an office and #sec-bo-summary is still in the markup, but
+  // nothing in the sidebar navigates to it, so a stale cached 'bo-summary'
+  // must fall through to the office home rather than restoring a screen the
+  // agent can no longer reach from anywhere.
+  assert.ok(!isRestorable('bo-summary'),
+    'a section with an office but no sidebar item must not be restorable');
   // And a section nobody navigates to is not restorable just for existing.
   assert.ok(!isRestorable('nope'), 'an unknown id must never be restorable');
   assert.ok(!isRestorable(''),     'an empty id must never be restorable');

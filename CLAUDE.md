@@ -73,9 +73,27 @@
 ### The Back Office Summary (Rounds 2 + 4) — `docs/back-office-summary.md`
 
 - **Read `docs/back-office-summary.md` before touching anything named `bos*`,
-  `bo-summary` or `renderBackOfficeSummary()`.** `OFFICE_HOME.back` is now
-  `'bo-summary'`. Tests: `npm run test:bosummary`
+  `bo-summary` or `renderBackOfficeSummary()`.** Tests: `npm run test:bosummary`
   (`test/bo-summary.test.mjs`).
+- **🔴 THIS SCREEN IS RETIRED FROM THE SIDEBAR (owner, 2026-08-01) — THE CODE
+  IS STILL HERE AND STILL TESTED.** Both offices now land on the ONE Summary:
+  `OFFICE_HOME` is `{front:'summary', back:'summary'}` and `OFFICE_OF.summary`
+  is **`'both'`**, so Summary joins Agency as a section rendered TWICE in the
+  sidebar against one `#sec-summary` — which is why the highlight lookup has to
+  be `querySelectorAll`. The Back Office's Summary item is unchanged in
+  position, label and `gauge` icon; only its `onclick` moved to `nav('summary')`.
+  `OFFICE_OF['bo-summary']` stays `'back'` so the map keeps naming every
+  section that exists, but **`_isRestorableSection('bo-summary')` is now FALSE
+  and that is correct** — it needs a sidebar item too, and a stale cached
+  `bo-summary` must fall through to the shared Summary. Everything below this
+  bullet still describes live, tested code (`npm run test:bosummary`, 71
+  tests); it is simply not reachable from the sidebar. The owner chose to keep
+  it rather than delete ~2,800 lines. **Do not "finish the job" by deleting it,
+  and do not re-point the nav item back, without asking.**
+- **`_applyPlanGating()`'s gated-section redirect no longer calls `setOffice()`.**
+  It used to, because Summary was Front Office only and the redirect out of
+  `bonuses` crossed offices. `OFFICE_OF.summary` is `'both'` now, so there is
+  nothing to move — and passing it the literal string `'both'` is not an office.
 - **🔴 `BOS_ISSUED_STATUSES` IS A THIRD, DELIBERATE AP QUESTION — NEVER
   "RECONCILE" IT WITH THE SALE PREDICATE.** Round 4 rebuilt the top of this
   screen on the POLICY BOOK, because Round 2 read only carrier statements and

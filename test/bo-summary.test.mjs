@@ -492,13 +492,18 @@ test('bo-summary is registered in the ONE place office membership is declared', 
     'with no entry is invisible in BOTH offices');
 });
 
-test('🔴 FLIPPING THE TOGGLE LANDS ON THE SUMMARY, NOT ON THE POLICY LIST', () => {
+test('🔴 FLIPPING THE TOGGLE LANDS ON A SUMMARY, NOT ON THE POLICY LIST', () => {
+  // The rule this test exists for is unchanged: the toggle must land on an
+  // overview, never back on Round 1's Policy Tracker placeholder. WHICH
+  // overview changed on 2026-08-01 — the owner replaced this screen with the
+  // Front Office's, so both offices now land on 'summary'. See
+  // test/office-split.test.mjs, which owns the routing side of this.
   const m = APP.match(/const OFFICE_HOME = \{([^}]*)\}/);
   assert.ok(m, 'app.html must define OFFICE_HOME exactly once');
   assert.match(m[1], /front:\s*'summary'/, 'the Front Office landing screen does not change');
-  assert.match(m[1], /back:\s*'bo-summary'/);
+  assert.match(m[1], /back:\s*'summary'/);
   assert.ok(!/back:\s*'tracker'/.test(m[1]),
-    'Round 1 parked the Back Office on Policy Tracker as a placeholder; Round 2 replaces it');
+    'Round 1 parked the Back Office on Policy Tracker as a placeholder; it must not come back');
   assert.equal((APP.match(/const OFFICE_HOME\b/g) || []).length, 1);
 });
 
@@ -523,16 +528,19 @@ test('the Back Office nav opens with Summary, and Round 1 s five screens follow'
   assert.ok(a > -1 && b > a);
   const backNav = APP.slice(a, b);
   const targets = [...backNav.matchAll(/<div class="nav-item"[^>]*onclick="nav\('([^']+)'\)"/g)].map(m => m[1]);
-  assert.deepEqual(targets, ['bo-summary', 'tracker', 'carriermail', 'backoffice', 'bonuses', 'agency']);
-  assert.equal(targets[0], 'bo-summary', 'Summary must be the FIRST item in the Back Office');
-  // Same icon as the Front Office's Summary — deliberate symmetry.
-  assert.match(backNav, /onclick="nav\('bo-summary'\)"><span class="ico" data-ico="gauge">/);
+  // 'summary', not 'bo-summary', since 2026-08-01: the item is still here, in
+  // the same position, with the same label and icon — it points at the Front
+  // Office's screen now, which is the whole of the change.
+  assert.deepEqual(targets, ['summary', 'tracker', 'carriermail', 'backoffice', 'bonuses', 'agency']);
+  assert.equal(targets[0], 'summary', 'Summary must be the FIRST item in the Back Office');
+  // Same icon as the Front Office's Summary — now necessarily, it IS it.
+  assert.match(backNav, /onclick="nav\('summary'\)"><span class="ico" data-ico="gauge">/);
   // Every item in the wrapper carries its own data-office, as Round 1 requires.
   const items = backNav.match(/<div class="nav-item"[^>]*>/g) || [];
   items.forEach(i => assert.match(i, /data-office="back"/));
 });
 
-test('nav() initialises the screen, and the refresh allow-list can restore it', () => {
+test('nav() still initialises the screen, but nothing navigates to it any more', () => {
   assert.match(APP_CODE, /if \(id === 'bo-summary'\) renderBackOfficeSummary\(\);/);
   // Round 2 hand-added 'bo-summary' to `const valid = {…}` and this test pinned
   // it there. Round 3 deleted that list: having to remember an entry is exactly
@@ -545,10 +553,19 @@ test('nav() initialises the screen, and the refresh allow-list can restore it', 
     "bootDashboard()'s restore must still have a membership test");
   assert.match(APP_CODE, /if \(saved && _isRestorableSection\(saved\)/,
     'and the cached-section restore must be the thing consulting it');
-  assert.match(APP, /onclick="nav\('bo-summary'\)"/,
-    'without a nav item, F5 on the Back Office landing screen drops the agent elsewhere');
-  // The other half — the OFFICE_OF entry — is pinned by the registration test
-  // above, and _isRestorableSection() requires both.
+  // 2026-08-01 REVERSED THE SECOND HALF OF THIS TEST. It used to require a
+  // nav item, because without one an F5 on the Back Office landing screen
+  // dropped the agent elsewhere. The screen is no longer a landing screen and
+  // no longer in the sidebar, so the DERIVED predicate now correctly refuses
+  // it — a stale cached 'bo-summary' falls through to OFFICE_HOME, which is
+  // the shared Summary. That is the behaviour we want, and it needed no code
+  // change to get: _isRestorableSection() requires a nav item AND an
+  // OFFICE_OF entry, and only one of the two went away.
+  const navTargets = [...APP.matchAll(/onclick="nav\('([^']+)'\)"/g)].map(m => m[1]);
+  assert.ok(!navTargets.includes('bo-summary'),
+    'nothing may navigate to the retired Back Office Summary');
+  // The OFFICE_OF entry stays — pinned by the registration test above — so the
+  // screen keeps declaring an office for anything that calls nav() directly.
 });
 
 // ============================================================

@@ -4,6 +4,16 @@
 Office's own dashboard and switched `OFFICE_HOME.back` onto it. The Back Office
 Summary has its own doc: `docs/back-office-summary.md`.
 
+> **SUPERSEDED 2026-08-01 — ONE SUMMARY, BOTH OFFICES.** The owner replaced the
+> Back Office's own Summary with the Front Office's. `OFFICE_HOME` is now
+> `{front:'summary', back:'summary'}` and **`OFFICE_OF.summary` is `'both'`**,
+> so Summary is the second section (after Agency) rendered TWICE in the sidebar
+> against one `#sec-summary`. The Back Office's item keeps its position, its
+> label and its `gauge` icon; only its `onclick` changed to `nav('summary')`.
+> `#sec-bo-summary`, `renderBackOfficeSummary()` and both pure cores are still
+> in `app.html` and still tested — nothing navigates to them. Read every
+> `bo-summary` sentence below as history. See § "What Round 2 changed".
+
 Code: `app.html` (`OFFICE_OF`, `OFFICE_HOME`, `DEFAULT_OFFICE`, `setOffice()`).
 Tests: `npm run test:office` → `test/office-split.test.mjs`.
 
@@ -245,3 +255,36 @@ Done — see `docs/back-office-summary.md` and
   `DEFAULT_OFFICE` did **not** change, and neither did `_applyPlanGating()`.
   `bo-summary` is ungated on purpose: an office's landing screen must always be
   reachable, for the same reason the Agency tab is ungated.
+
+### Undone 2026-08-01 — the two Summaries became one
+
+Owner's decision: *"instead of having different summary pages for front office
+and back office, just have the same summary page."* Routing only — no screen
+was deleted.
+
+* `OFFICE_HOME.back` — `'bo-summary'` became **`'summary'`**. Both offices land
+  on the same overview.
+* `OFFICE_OF.summary` moved from `'front'` to **`'both'`**, joining Agency,
+  Settings and `ds-playground`. That is what stops `nav()` and `setOffice()`
+  flipping the toggle out from under an agent who clicks Summary in the Back
+  Office — a `'both'` section belongs to no office you can leave. It also
+  obliges the section to be rendered **twice**, once per office wrapper, which
+  a test enforces.
+* The Back Office's nav item is otherwise untouched: same Overview group, same
+  first position, same label, same `gauge` icon, now `id="nav-summary-back"`
+  (and the Front Office's is `id="nav-summary-front"`), matching the
+  `#nav-agency-front` / `#nav-agency-back` pair for the same reason.
+* `_applyPlanGating()` **did** change this time. Its redirect out of a gated
+  `bonuses` used to call `setOffice(OFFICE_OF.summary)` to drag the toggle into
+  the Front Office; `OFFICE_OF.summary` is `'both'` now, so there is nothing to
+  move and `setOffice('both')` would be a bug. The agent stays in the office
+  they were in and the nav item they can actually see lights up.
+* `OFFICE_OF['bo-summary']` **stays `'back'`** — the section still exists, so
+  the map still names it. But it has no sidebar item, so
+  `_isRestorableSection('bo-summary')` is now `false`: a stale cached section
+  falls through to `OFFICE_HOME`, which is the shared Summary. The derived
+  predicate got this right with no code change, which is the argument for
+  deriving it.
+* Nothing was deleted. `#sec-bo-summary`, `renderBackOfficeSummary()`, its ~25
+  `bos*` helpers, `// <bo-summary-core>`, `// <bos-chart-core>` and all 71
+  tests in `test/bo-summary.test.mjs` are unchanged and green.
