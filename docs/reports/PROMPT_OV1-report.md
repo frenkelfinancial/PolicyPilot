@@ -8,6 +8,10 @@
 **Applied to the linked project (`cweiaibjigjwspmshcrj`) and every guard proved
 live.** No UI was built. `app.html` is unchanged.
 
+**Commit `664b8b6be8f149a81beffcaaeff94e3612c8f711`**, pushed to `origin/main`
+(`562c460..664b8b6`). Seven files, +1,690/−2; the only edit to an existing code
+file is the two `package.json` script lines. `prompts/` was left untracked.
+
 ---
 
 ## 1. 🔴 What `policies.product` actually stores — Round 2 depends on this
