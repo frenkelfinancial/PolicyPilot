@@ -77,11 +77,39 @@ export function resolveAllowedOrigin(origin: string | null, allowDev = devOrigin
   return "https://producerstackcrm.com";
 }
 
+// ------------------------------------------------------------
+// Access-Control-Allow-Headers — this list must name EVERY custom header any
+// browser call in app.html sends. Not "should": must.
+//
+// A custom request header forces the browser to send a CORS preflight
+// (OPTIONS) asking permission for that specific header by name. If the answer
+// does not list it, the browser BLOCKS THE REQUEST BEFORE SENDING IT — the
+// fetch promise rejects with "Failed to fetch" and the edge function is never
+// invoked, so there is no server log, no error row and nothing to grep. The
+// call is simply dead in every browser, forever, and looks like a network
+// blip to whoever clicked the button.
+//
+// That is exactly what happened to statement-upload: it POSTs the raw bytes
+// with `x-filename-b64` and `x-content-type` (see its header comment for why
+// the filename travels in a header rather than in JSON), neither of which was
+// on this list. Back Office statement upload was therefore blocked at the
+// preflight from the day it shipped and no statement was ever ingested from a
+// browser — commission_rows and statement_files were both empty. Fixed here.
+//
+// The list and its callers used to be connected by nothing but memory, which
+// is how they drifted. test/cors-headers.test.mjs now DERIVES the set of
+// custom headers from app.html and fails if one is missing from this string.
+// Keep the two custom entries below in sync with what the app actually sends;
+// do not widen this to "*", and do not add a header nothing sends.
+// ------------------------------------------------------------
+export const ALLOW_HEADERS =
+  "authorization, x-client-info, apikey, content-type, x-filename-b64, x-content-type";
+
 export function corsHeaders(origin: string | null): Record<string, string> {
   const allowDev = devOriginsEnabled();
   return {
     "Access-Control-Allow-Origin": resolveAllowedOrigin(origin, allowDev),
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Headers": ALLOW_HEADERS,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
     // Makes "is the dev allowlist still switched on in production?" answerable

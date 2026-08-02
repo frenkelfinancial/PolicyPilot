@@ -219,6 +219,69 @@ Two real defects, both fixed and both now covered by a unit test:
    so money is exact. On a table meant to reconcile against a carrier's own
    totals, a cent is not a rounding detail.
 
+### 🔴 What the live runs did NOT find — browser upload never worked at all
+
+**Fixed 2026-08-01 (`PROMPT_FIX1`). Everything in the table above was true and
+none of it touched the browser's CORS preflight, so the one path an agent
+actually uses had never run.**
+
+`boUpload()` in `app.html` POSTs the raw bytes with two custom request headers,
+`x-filename-b64` and `x-content-type` (see the transport note at the top of
+`statement-upload/index.ts` for why the filename travels in a header). A custom
+header forces the browser to send a preflight `OPTIONS` naming it, and
+`Access-Control-Allow-Headers` in `_shared/cors.ts` listed only
+`authorization, x-client-info, apikey, content-type`. So the browser **blocked
+the request before sending it**: the `fetch` rejected with `Failed to fetch`,
+the edge function was never invoked, and there was no log, no error row and
+nothing to grep. Every upload from the Statements screen had failed this way
+since the day the feature shipped.
+
+The corroboration was in the database: `commission_statements`,
+`statement_files`, `statement_extractions` and `commission_rows` were **all
+zero rows** on 2026-08-01, against a book of 26 policies.
+
+The reason the build-time verification missed it is that **every layer in the
+table above reaches the function without a browser origin** — the end-to-end
+runs were server-to-server against the deployed functions, where no preflight
+is ever sent. A test now derives the set of custom headers from `app.html` and
+asserts each one is allowed (`npm run test:cors`,
+`test/cors-headers.test.mjs`), because the list and its callers were previously
+connected by nothing but memory.
+
+**The fix is a redeploy, not a push.** `app.html` is unchanged; what answers the
+preflight is the running bundle of `statement-upload`.
+
+### The end-to-end run after the fix (2026-08-01)
+
+Driven with a real user JWT for the owner's own account, `Origin:
+https://producerstackcrm.com`, and the exact headers `boUpload()` sends — a
+three-line CSV and a three-line PDF of the same statement.
+
+| Step | CSV | PDF |
+|---|---|---|
+| `statement-upload` accepted the bytes | ✅ 200, `queued: 1` | ✅ 200, `queued: 1` |
+| `commission_statements` + `statement_files` row | ✅ | ✅ |
+| `statement_extractions` row (model's verbatim answer) | ✅ `column_mapping` | ✅ `pdf_rows` |
+| `commission_rows` landed | ✅ 3 | ✅ 3 |
+| matched to a policy | ✅ 2 (`policy_number` 1.0, `name` 0.75) | ✅ 2 (same) |
+| `needs_review` with a reason | ✅ 1 | ✅ 1 |
+| status write-back | 0 changes (by design — the matched policies were already `paid`) | 0 changes |
+
+Both parsed on `claude-haiku-4-5`; the CSV cost one call (1,765 in / 151 out),
+the PDF one call (2,563 in / 255 out). Both totalled `309999` cents, exact.
+All rows were deleted afterwards and the four tables verified back at zero.
+
+**One defect found and deliberately NOT fixed in that round** — see
+`docs/reports/PROMPT_FIX1-report.md`: the `transaction_date` fallback recorded
+above as fix (1) lives in `applyMapping()` (the tabular path) and **the PDF
+branch of `statement-parse` has no fallback at all**. It hard-codes
+`effectiveDate: null, paidDate: null` and writes `parseDateISO(r.transaction_date)`
+straight through, so a PDF whose line items carry no per-line date writes
+`transaction_date = null` on every row — and those rows vanish from the trend
+chart, the persistency windows and the debt drill-down exactly as described
+above. `period_start` / `period_end` are resolved correctly and are on the same
+object, unused.
+
 A third change came out of adding the nav item rather than from ingestion:
 `nav()` and `restoreSectionFromCache()` each carried a **positional** nav-item
 index map that had to be hand-corrected whenever the sidebar grew.

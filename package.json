@@ -25,7 +25,7 @@
     "test:persistency": "node --test \"test/persistency.test.mjs\"",
     "test:recon": "node --test \"test/reconciliation.test.mjs\"",
     "test:referrals": "node --test \"test/referrals.test.mjs\"",
-    "test": "npm run test:email && npm run test:messaging && npm run test:ai && npm run test:compliance && npm run test:a2p && npm run test:leadtransfer && npm run test:team && npm run test:backoffice && npm run test:producercodes && npm run test:bob && npm run test:commissions && npm run test:persistency && npm run test:recon && npm run test:referrals && npm run test:leaderboards && npm run test:identity && npm run test:aimeter && npm run test:voicecampaigns && npm run test:defaultcampaigns && npm run test:mission && npm run test:leadfilters && npm run test:dialer && npm run test:auth && npm run test:bonus && npm run test:checkout && npm run test:embedded && npm run test:emailverify && npm run test:smsai && npm run test:smscampaigns && npm run test:defaultsms && npm run test:office && npm run test:bosummary && npm run test:productiondate && npm run test:contractlevels && npm run test:override && npm run check",
+    "test": "npm run test:email && npm run test:messaging && npm run test:ai && npm run test:compliance && npm run test:a2p && npm run test:leadtransfer && npm run test:team && npm run test:backoffice && npm run test:producercodes && npm run test:bob && npm run test:commissions && npm run test:persistency && npm run test:recon && npm run test:referrals && npm run test:leaderboards && npm run test:identity && npm run test:aimeter && npm run test:voicecampaigns && npm run test:defaultcampaigns && npm run test:mission && npm run test:leadfilters && npm run test:dialer && npm run test:auth && npm run test:bonus && npm run test:checkout && npm run test:embedded && npm run test:emailverify && npm run test:smsai && npm run test:smscampaigns && npm run test:defaultsms && npm run test:office && npm run test:bosummary && npm run test:productiondate && npm run test:contractlevels && npm run test:override && npm run test:cors && npm run check",
     "prebuild": "node scripts/prebuild.js",
     "sync:ai-assistant": "node scripts/sync-ai-assistant.mjs",
     "build": "npx cap sync",
@@ -48,7 +48,8 @@
     "test:bosummary": "node --test \"test/bo-summary.test.mjs\"",
     "test:productiondate": "node --test \"test/production-date.test.mjs\"",
     "test:contractlevels": "node --test \"test/contract-levels.test.mjs\"",
-    "test:override": "node --test \"test/override.test.mjs\""
+    "test:override": "node --test \"test/override.test.mjs\"",
+    "test:cors": "node --test \"test/cors-headers.test.mjs\""
   },
   "dependencies": {
     "@capacitor/android": "^6.0.0",

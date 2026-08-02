@@ -26,6 +26,39 @@ seven independently-shippable phases. Started 2026-07-29.
 briefed is complete. What remains is the work the brief explicitly deferred
 (see below) plus the one decision waiting on Jace.
 
+### 🔴 Proven vs unproven — corrected 2026-08-01 (`PROMPT_FIX1`)
+
+Every phase above was verified server-to-server and none of it exercised the
+browser's CORS preflight, so **statement upload from the Statements screen had
+never once worked.** `boUpload()` sends `x-filename-b64` and `x-content-type`;
+`Access-Control-Allow-Headers` in `_shared/cors.ts` did not list them; the
+browser blocked each request before sending it and the agent saw
+`… could not be uploaded — Failed to fetch`. Nothing reached the server, so
+nothing was logged. On 2026-08-01 `commission_statements`, `statement_files`,
+`statement_extractions` and `commission_rows` were **all zero rows** against a
+26-policy book — every Phase 4/5/6/7 screen was therefore rendering its empty
+state, correctly, over an empty table.
+
+Fixed by adding both headers to the allow-list and **redeploying
+`statement-upload` only** (version 11, 2026-08-02 04:37 UTC — no other function
+was deployed). `app.html` is unchanged, so no web deploy was involved: the
+running edge-function bundle is what answers a preflight.
+
+| Path | State |
+|---|---|
+| Server-to-server upload → parse → match | ✅ proven at build time, re-proven 2026-08-01 |
+| **Browser upload (the Statements screen)** | ✅ **preflight now allows it — awaiting Jace's real-carrier PDF** |
+| Inbound commission email (Phase 1b) | ✅ proven end to end (unaffected — no browser, no preflight) |
+
+`npm run test:cors` (`test/cors-headers.test.mjs`) now derives every custom
+header from `app.html` and fails if one is missing from the allow-list.
+
+**One defect found in the post-fix end-to-end run and deliberately NOT fixed
+there:** the PDF branch of `statement-parse` has no `transaction_date`
+fallback, so a PDF with no per-line dates writes null into the column the trend
+chart, persistency windows and debt drill-down all bucket on. Full statement in
+`docs/reports/PROMPT_FIX1-report.md`. It needs its own round.
+
 ## Phase 1b — inbound commission email ✅ PROVEN END TO END
 
 A real carrier-style statement was emailed to a forwarding address and came out
