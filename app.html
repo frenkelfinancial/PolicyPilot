@@ -425,17 +425,22 @@ body[data-office="back"]  .nav-item[data-office="front"]{display:none}
    The office switch is a different kind of control — a segmented choice, not a
    destination — and now looks like one: word-only, filled, obviously clickable.
    The container carries no box of its own; the buttons ARE the control. */
+/* The rail is 224px and its right edge carries a 12px fade mask, so a 12px
+   margin puts a SOLID fill flush against the fade and it reads as running off
+   the toolbar. 16px clears it and lines the control up with the .nav-lbl group
+   headings below it. */
 .office-toggle{
   display:flex;gap:6px;flex-shrink:0;
-  margin:10px 12px 2px;padding:0;
+  margin:9px 16px 2px;padding:0;
   background:transparent;border:0;
   transition:margin .22s cubic-bezier(.4,0,.2,1);
 }
 .office-btn{
   flex:1;min-width:0;display:flex;align-items:center;justify-content:center;
-  padding:9px 8px;border:1px solid var(--border);border-radius:8px;
+  padding:7px 6px;border:1px solid var(--border);border-radius:7px;
   background:var(--bg3);color:var(--text2);cursor:pointer;
-  font:600 11.5px/1 var(--sans);letter-spacing:.01em;white-space:nowrap;
+  font:600 11px/1 var(--sans);letter-spacing:0;white-space:nowrap;
+  overflow:hidden;   /* belt and braces: nothing paints outside its own box */
   transition:color .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease;
 }
 /* --bg3 is all but identical to the sidebar's --card on light; --bg2 is not. */
@@ -448,13 +453,13 @@ body.light .office-btn{background:var(--bg2)}
 .office-btn.is-active{
   color:var(--brand-navy);
   background:var(--accent);border-color:var(--accent);
-  box-shadow:0 4px 14px -8px rgba(91,160,232,.55);
+  box-shadow:0 2px 8px -6px rgba(91,160,232,.5);
 }
 .office-btn.is-active:hover{color:var(--brand-navy);background:var(--accent-2);border-color:var(--accent-2)}
 body.light .office-btn.is-active{
   color:#fff;
   background:var(--brand-navy);border-color:var(--brand-navy);
-  box-shadow:0 4px 14px -8px rgba(11,31,58,.45);
+  box-shadow:0 2px 8px -6px rgba(11,31,58,.4);
 }
 body.light .office-btn.is-active:hover{color:#fff;background:#13335a;border-color:#13335a}
 /* Labels fade with the rest of the rail, same timing as .nav-lbl-text. */
@@ -467,11 +472,11 @@ body.light .office-btn.is-active:hover{color:#fff;background:#13335a;border-colo
    aria-label so the accessible name is the full words in both states.
    Scoped with :not(:hover) exactly like the .nav-item rail rules above, so it
    cannot leak into the mobile drawer (which is never :hover on touch). */
-.office-btn-abbr{display:none;font:700 11px/1 var(--sans);letter-spacing:.06em}
+.office-btn-abbr{display:none;font:700 10.5px/1 var(--sans);letter-spacing:.06em}
 .sidebar:not(:hover) .office-toggle{
-  flex-direction:column;gap:6px;margin:8px 8px 2px;
+  flex-direction:column;gap:5px;margin:8px 10px 2px;
 }
-.sidebar:not(:hover) .office-btn{padding:0;height:40px}
+.sidebar:not(:hover) .office-btn{padding:0;height:34px}
 .sidebar:not(:hover) .office-btn-lbl{display:none!important}
 .sidebar:not(:hover) .office-btn-abbr{display:block}
 
@@ -3405,13 +3410,15 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
      always on. A touch drawer is never :hover, so the rail rule
      (.sidebar:not(:hover) .office-toggle) applies here and has to be undone
      explicitly, the same way .nav-lbl-text is above. */
+  /* 16px on the right for the same reason as the rail: the drawer is 240px and
+     keeps the sidebar's 12px edge fade, so 8px would sit a solid fill in it. */
   .sidebar.mob-open .office-toggle{
     flex-direction:row !important;gap:6px !important;
-    margin:8px !important;padding:0 !important;
+    margin:8px 16px !important;padding:0 !important;
     background:transparent !important;border-color:transparent !important;
   }
   .sidebar.mob-open .office-btn{
-    padding:10px 8px !important;height:auto !important;
+    padding:11px 8px !important;height:auto !important;
   }
   .sidebar.mob-open .office-btn-lbl{
     opacity:1 !important;display:inline !important;pointer-events:auto !important;
