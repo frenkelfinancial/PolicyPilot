@@ -420,47 +420,60 @@ body[data-office="front"] .nav-item[data-office="back"],
 body[data-office="back"]  .nav-item[data-office="front"]{display:none}
 
 /* ---- OFFICE TOGGLE ---- */
+/* TWO SOLID BUTTONS, NO ICONS. Every .nav-item below is icon-led, so an icon
+   here read as a third logo sitting above them and competing at a larger size.
+   The office switch is a different kind of control — a segmented choice, not a
+   destination — and now looks like one: word-only, filled, obviously clickable.
+   The container carries no box of its own; the buttons ARE the control. */
 .office-toggle{
-  display:flex;gap:4px;flex-shrink:0;
-  margin:10px 12px 2px;padding:3px;
-  background:var(--bg3);border:1px solid var(--border);border-radius:10px;
-  transition:margin .22s cubic-bezier(.4,0,.2,1),background .2s ease,border-color .2s ease;
+  display:flex;gap:6px;flex-shrink:0;
+  margin:10px 12px 2px;padding:0;
+  background:transparent;border:0;
+  transition:margin .22s cubic-bezier(.4,0,.2,1);
 }
 .office-btn{
-  flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;
-  padding:7px 8px;border:1px solid transparent;border-radius:8px;
-  background:transparent;color:var(--text2);cursor:pointer;
+  flex:1;min-width:0;display:flex;align-items:center;justify-content:center;
+  padding:9px 8px;border:1px solid var(--border);border-radius:8px;
+  background:var(--bg3);color:var(--text2);cursor:pointer;
   font:600 11.5px/1 var(--sans);letter-spacing:.01em;white-space:nowrap;
   transition:color .16s ease,background .16s ease,border-color .16s ease,box-shadow .16s ease;
 }
-.office-btn:hover{color:var(--text);background:var(--ds-color-info-bg)}
-.office-btn:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--accent)}
-.office-btn .ico{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:currentColor}
-.office-btn .ico svg{width:16px!important;height:16px!important;display:block;stroke:currentColor;color:inherit}
-/* Same accent treatment .nav-item.active already uses — no new colour. */
+/* --bg3 is all but identical to the sidebar's --card on light; --bg2 is not. */
+body.light .office-btn{background:var(--bg2)}
+.office-btn:hover{color:var(--text);border-color:var(--border2)}
+.office-btn:focus-visible{outline:none;box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--accent)}
+/* Selected = a SOLID accent fill, not a wash. --accent is the pastel on dark
+   (dark navy text on it) and the mid blue on light, where the fill flips to
+   the same navy .btn-p uses so the label can stay white. */
 .office-btn.is-active{
-  color:var(--accent-2);
-  background:linear-gradient(180deg,rgba(143,194,247,.18),rgba(91,160,232,.10));
-  box-shadow:inset 0 0 0 1px rgba(143,194,247,.22), 0 4px 14px -8px rgba(91,160,232,.5);
-}
-body.light .office-btn.is-active{
   color:var(--brand-navy);
-  background:linear-gradient(180deg,rgba(91,160,232,.18),rgba(168,205,245,.08));
-  box-shadow:inset 0 0 0 1px rgba(91,160,232,.28), 0 4px 14px -8px rgba(91,160,232,.35);
+  background:var(--accent);border-color:var(--accent);
+  box-shadow:0 4px 14px -8px rgba(91,160,232,.55);
 }
+.office-btn.is-active:hover{color:var(--brand-navy);background:var(--accent-2);border-color:var(--accent-2)}
+body.light .office-btn.is-active{
+  color:#fff;
+  background:var(--brand-navy);border-color:var(--brand-navy);
+  box-shadow:0 4px 14px -8px rgba(11,31,58,.45);
+}
+body.light .office-btn.is-active:hover{color:#fff;background:#13335a;border-color:#13335a}
 /* Labels fade with the rest of the rail, same timing as .nav-lbl-text. */
 .sidebar .office-btn-lbl{opacity:0;transition:opacity .15s ease;pointer-events:none}
 .sidebar:hover .office-btn-lbl{opacity:1;transition:opacity .22s ease .08s;pointer-events:auto}
-/* Rail (64px): the two buttons stack as icon squares. BOTH stay visible — the
-   rail must never hide where you can go, so this is not a single swap button.
+/* Rail (64px): the two buttons stack as squares carrying their INITIALS. BOTH
+   stay visible — the rail must never hide where you can go, so this is not a
+   single swap button — and with the icons gone the initials are the only thing
+   between the collapsed rail and two blank tiles. The button keeps an
+   aria-label so the accessible name is the full words in both states.
    Scoped with :not(:hover) exactly like the .nav-item rail rules above, so it
    cannot leak into the mobile drawer (which is never :hover on touch). */
+.office-btn-abbr{display:none;font:700 11px/1 var(--sans);letter-spacing:.06em}
 .sidebar:not(:hover) .office-toggle{
-  flex-direction:column;gap:4px;margin:8px 8px 2px;padding:0;
-  background:transparent;border-color:transparent;
+  flex-direction:column;gap:6px;margin:8px 8px 2px;
 }
-.sidebar:not(:hover) .office-btn{padding:0;height:40px;gap:0}
+.sidebar:not(:hover) .office-btn{padding:0;height:40px}
 .sidebar:not(:hover) .office-btn-lbl{display:none!important}
+.sidebar:not(:hover) .office-btn-abbr{display:block}
 
 /* ---- Sidebar expand flair (v2 — layered) ---- */
 /* Layer 1: soft vertical wash + faint dot grid that fades in */
@@ -3393,16 +3406,18 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
      (.sidebar:not(:hover) .office-toggle) applies here and has to be undone
      explicitly, the same way .nav-lbl-text is above. */
   .sidebar.mob-open .office-toggle{
-    flex-direction:row !important;gap:4px !important;
-    margin:8px !important;padding:3px !important;
-    background:var(--bg3) !important;border-color:var(--border) !important;
+    flex-direction:row !important;gap:6px !important;
+    margin:8px !important;padding:0 !important;
+    background:transparent !important;border-color:transparent !important;
   }
   .sidebar.mob-open .office-btn{
-    padding:10px 8px !important;height:auto !important;gap:8px !important;
+    padding:10px 8px !important;height:auto !important;
   }
   .sidebar.mob-open .office-btn-lbl{
     opacity:1 !important;display:inline !important;pointer-events:auto !important;
   }
+  /* The drawer shows the words, so the rail's initials must go back off. */
+  .sidebar.mob-open .office-btn-abbr{display:none !important}
 
   /* Main content — full width, no left offset */
   .main{margin-left:0 !important}
@@ -5078,15 +5093,15 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
        office is declared once, in OFFICE_OF; this is only the switch. -->
   <div class="office-toggle" id="office-toggle" role="group" aria-label="Switch office">
     <button type="button" class="office-btn is-active" data-office-btn="front"
-            aria-pressed="true"  title="Front Office — selling"
+            aria-pressed="true"  aria-label="Front Office" title="Front Office — selling"
             onclick="setOffice('front')">
-      <span class="ico" data-ico="megaphone"></span>
+      <span class="office-btn-abbr" aria-hidden="true">FO</span>
       <span class="office-btn-lbl">Front Office</span>
     </button>
     <button type="button" class="office-btn" data-office-btn="back"
-            aria-pressed="false" title="Back Office — money"
+            aria-pressed="false" aria-label="Back Office" title="Back Office — money"
             onclick="setOffice('back')">
-      <span class="ico" data-ico="currency-dollar"></span>
+      <span class="office-btn-abbr" aria-hidden="true">BO</span>
       <span class="office-btn-lbl">Back Office</span>
     </button>
   </div>
