@@ -3938,6 +3938,19 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
   .bos-mix{grid-template-columns:minmax(90px,1.3fr) 44px auto;gap:8px}
   .bos-mix-bar{grid-column:1 / -1}
 }
+/* The graph + carrier mix pair. Two half-width cards on one row, stacking back
+   to a single column on a narrow viewport. `start`, not `stretch`: the two
+   cards hold unrelated amounts of content and forcing them to match height
+   leaves the shorter one with empty background below its own last row. */
+.bos-duo{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media(max-width:980px){ .bos-duo{grid-template-columns:1fr} }
+/* The mix's own columns, tightened for the half-width slot. The @media rule
+   further down is VIEWPORT-based and so never fires here — on a wide screen
+   this card is narrow while the viewport is not, which is exactly the case a
+   media query cannot see.
+   Still FOUR columns, only narrower: the header row has four cells, so dropping
+   to three would push "Share of AP" onto a line of its own. */
+.bos-duo .bos-mix{grid-template-columns:minmax(64px,1.2fr) 40px minmax(58px,auto) minmax(62px,1fr);gap:8px}
 /* Top producers */
 .bos-tp-note{font-size:11.5px;color:var(--lg-caption);line-height:1.5;margin-top:8px}
 /* ---- Estimated override (OV2) ----
@@ -30089,8 +30102,16 @@ function bosShellHTML() {
       '</div>' +
       '<div id="bos-production"></div>' +
     '</div>' +
-    '<div class="bos-strip"><div id="bos-chart"></div></div>' +
-    '<div class="bos-strip"><div id="bos-mix"></div></div>' +
+    // The graph and the carrier mix are a PAIR, side by side at half width
+    // each. The graph is a shape you read in a second and it does not need the
+    // full column; the mix used to sit below the fold under it. `align-items:
+    // start` and not stretch, because a four-carrier mix and a 31-day graph are
+    // different heights and pinning them equal would stretch the shorter card's
+    // background past its own content. Stacks back to one column under 980px.
+    '<div class="bos-strip bos-duo">' +
+      '<div id="bos-chart"></div>' +
+      '<div id="bos-mix"></div>' +
+    '</div>' +
     '<div id="bos-top"></div>' +
     '<div class="bos-strip">' +
       '<div class="bos-strip-h">' +
@@ -30273,8 +30294,17 @@ function bosProductionHTML() {
 // is the idiom this follows — but it is a 200x50 decoration and this is a chart
 // with axes, so it is built rather than stretched.
 
-const BOS_CHART_W = 720;
-const BOS_CHART_H = 240;
+// The viewBox, sized for the HALF-WIDTH slot it now sits in (see .bos-duo).
+//
+// These are not arbitrary: the SVG scales its viewBox to the container, so the
+// ratio between this width and the rendered width is what every font-size in
+// the chart gets multiplied by. At 720 in a half-width column the 10px axis
+// labels rendered at about 7px and were unreadable; 460 keeps the scale near
+// 1:1, so the type comes out the size the stylesheet actually says. Taller
+// relative to its width than before (460x280, was 720x240) because a narrow,
+// squat plot has nowhere to show a trend.
+const BOS_CHART_W = 460;
+const BOS_CHART_H = 280;
 
 function bosChartHTML() {
   const pols = Array.isArray(window.policies) ? window.policies : [];
@@ -30338,11 +30368,24 @@ function bosChartHTML() {
   for (let i = 1; i < n; i++) line += ' L ' + x(i).toFixed(1) + ' ' + y(series.points[i].cumulative).toFixed(1);
   const area = line + ' L ' + x(n - 1).toFixed(1) + ' ' + (H - padB) + ' L ' + x(0).toFixed(1) + ' ' + (H - padB) + ' Z';
 
-  // At most eight x labels, whatever the bucket count, so a 31-day month does
-  // not print a wall of overlapping text.
-  const every = Math.max(1, Math.ceil(n / 8));
+  // At most five x labels, whatever the bucket count, so a 31-day month does
+  // not print a wall of overlapping text. Was eight, which fitted the old
+  // full-width box and collides in the half-width one.
+  //
+  // The last bucket is ALWAYS labelled — it is the figure the eye goes to — so
+  // a stride label landing right beside it is the one that gets dropped. On a
+  // 31-day month the stride is 7 and lands on day 29, two days from the forced
+  // day-31 label: "Aug 29" and "Aug 31" printed on top of each other. That was
+  // true at the old width too (stride 4, day 29 again) and simply had more room
+  // to hide in.
+  const every = Math.max(1, Math.ceil(n / 5));
+  const minGap = Math.max(1, Math.ceil(every / 2));
+  const marks = [0];
+  for (let i = every; i < n - 1; i += every) if ((n - 1 - i) >= minGap) marks.push(i);
+  if (n > 1) marks.push(n - 1);
+  const labelled = new Set(marks);
   const xLabels = series.points.map((p, i) => {
-    if (i !== 0 && i !== n - 1 && i % every !== 0) return '';
+    if (!labelled.has(i)) return '';
     const anchor = i === 0 ? 'start' : (i === n - 1 ? 'end' : 'middle');
     return '<text class="bos-axis-t' + (p.isNow ? ' bos-now' : '') + '" x="' + x(i).toFixed(1) +
       '" y="' + (H - padB + 16) + '" text-anchor="' + anchor + '">' + escHTML(p.label) + '</text>';
