@@ -1189,6 +1189,86 @@ untouched.
   constants a test extracts from both sides, and RAISES outside the range rather
   than clamping.
 
+## The estimated override (OV2, Round 2 of 2) — `docs/override-estimator.md`
+
+Round 2 of the same prompt pair. The arithmetic and two screens; **no
+migration** — `git status --porcelain supabase/` was empty at the end of it.
+One definition: `// <override-core>`. Tests: `npm run test:override`
+(`test/override.test.mjs`).
+
+- **🔴 THE TWO ERRORS. A future session WILL be asked for "5% override" again
+  and must not implement it.** The feature was described as *"if their est
+  advance commission is $500, my est adv override would be 5% of $500"*, and
+  both halves are wrong:
+  **(1) AN OVERRIDE IS A PERCENTAGE OF AP, NOT OF THE AGENT'S COMMISSION.**
+  Commission and override are two slices of the same annual premium, not
+  stacked. On Americo Eagle an agent at 80 earns 75%, so a $500 advance implies
+  ~$889 of AP, and five points of spread advanced is **$33.33** — not the $25
+  that 5% of $500 gives, a third of the figure out.
+  **(2) THE SPREAD BETWEEN TWO CONTRACT LEVELS IS NOT THE DIFFERENCE BETWEEN
+  THE LEVELS.** From 80 → 85 the COMP table pays +5 on `americo_eagle`,
+  `trans_express`, `core_siwl` and `aa_senior`; **+4** on `mutual_fe`; and
+  **ZERO** on `americo_wl`, `aetna_senior`, `core_graded` and `core_giwl`. Only
+  the table knows, so `ovSpreadPct()` asks it TWICE — once per level — and
+  subtracts. A test names each of those four products in its own failure
+  message.
+- **🔴 `getCommPct()` RETURNS THE CONTRACT LEVEL ITSELF FOR A PRODUCT IT HAS NO
+  TABLE FOR**, so subtracting two of those hands back `leaderLevel −
+  agentLevel`: the exact wrong answer wearing the right answer's clothes. That
+  is why `ovSpreadPct()` asks `COMP` whether the key EXISTS before asking what
+  it pays — a different question from computing a percentage, and `getCommPct`
+  is still the only thing that does the latter (a test asserts every
+  `COMP_LEVELS` index lookup in `app.html` is inside it). An unresolved key is
+  then **counted and named**, never folded into a zero: "this business pays no
+  override" and "we could not look this business up" are indistinguishable on
+  screen otherwise, and the second one is a bug report. The two sentences under
+  the box are **two different facts and must not be merged into one number**.
+- **🔴 `cut` IS NOT OPTIONAL.** `getCommPct`'s third argument is the ~40%
+  graded/GI reduction; it scales BOTH sides so the spread scales with it
+  (`americo_eagle` 80→85 is 5 points standard, **3 graded**). It comes off
+  `getActiveCommKey()` beside the key, so there is nothing to choose.
+- **🔴 `ADVANCE_RATE` IS THE ONE ADVANCE RATE.** `0.75` was a bare literal in
+  **ten** expressions including `_lgAdvComm()`; all ten now name the constant,
+  declared once in `// <override-core>`, and a test asserts `/ 100 * 0.75`
+  appears nowhere. An override is advanced on the same terms as the commission
+  it is a spread of.
+- **🔴 "NOT SET" IS NOT A NUMBER, AND IT IS THE LAUNCH STATE.**
+  `level_changed_by_self` / `level_changed_at` are **NULL** when nothing has
+  ever moved that level; reading NULL as `false` prints "changed by you" about a
+  change nobody made. Nothing has gone through the audited path yet, and Round 1
+  measured seven agents at 100 against the owner's 85 — an unset default, not
+  seven real contracts above him — so **every override clamps to zero and the
+  feature reads $0 on day one.** While ANY level is unrecorded both surfaces
+  lead with *"Set your agents' contract levels to see estimated override"* plus
+  the count; when they are ALL unrecorded the box renders **no grid at all**,
+  because a column of $0 is indistinguishable from a broken screen.
+- **A level ABOVE the leader's clamps to ZERO, never negative**, and is reported
+  as its own state — NOT as "the table pays the same", which is a claim about
+  the comp table nobody checked. Both parties may set a level and the most
+  recent wins, so this is reachable by ordinary use, not a corruption.
+- **The product key is `carrier|product|cls`, VERBATIM, and the SQL maps
+  nothing** — `policies.data.product` holds the display category (`Whole Life`)
+  and legacy raw COMP keys (`aa_senior`, `core_siwl`, `trans_express`) in the
+  same column today. `ovSplitProductKey()` → `getActiveCommKey()` →
+  `getCommPct()`; the core never touches `CARRIER_PRODUCTS` or
+  `LEGACY_CLASS_MAP` itself and there is no second key resolver.
+- **The estimate sits BESIDE the actual Override Income, and never redefines
+  it.** Actual still comes from `get_commission_buckets` through `commTotals()`;
+  a dash, never a zero, when no statement exists. They will not agree —
+  statements lag, and the estimate assumes every policy issues — and the card
+  says so, the same arrangement `BOS_ISSUED_STATUSES` has with the sale
+  predicate one strip above.
+- **The level editor is a SEPARATE CARD, not a column on `teamTableHTML()`** —
+  that is the one table renderer and it is shared with the Summary mini-card. It
+  is leader-view only; an agent sees nothing new. `ovLoadMembers()` is the ONE
+  `get_agency_members` loader the feature has and both surfaces read it, so the
+  editor and the box cannot disagree about who is in the downline.
+- **The box is leader-only and ABSENT with no downline** — not empty, not an
+  upsell (the Top Producers rule) — rides `bosPeriod`, and writes neither
+  `pp_team_period` nor `pp_summary_period`. The leader's own rows come back from
+  `get_downline_product_ap` and are excluded: nobody earns an override on their
+  own business.
+
 ## Identity — a person has a name, not an address
 
 - **`pp_display_name()` (SQL, `20260751`) and `ppAgentName()` (browser, in `// <team-core>`) are the ONE identity resolver.** `lb_agent_name`, `get_team_summary` and `get_agency_members` all delegate to the SQL one; every renderer goes through the browser one. Read `docs/agency-leaderboards.md` § "Who an agent is called".

@@ -3940,6 +3940,59 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 }
 /* Top producers */
 .bos-tp-note{font-size:11.5px;color:var(--lg-caption);line-height:1.5;margin-top:8px}
+/* ---- Estimated override (OV2) ----
+   Styled on --tm-* rather than --lg-* so ONE stylesheet serves both surfaces:
+   the level editor sits on the Agency tab (where .tm maps --tm-* to the app
+   palette) and the override box on the Back Office Summary (where .ledger .tm
+   maps the same names to --lg-*). Two copies of these rules, one per palette,
+   is how the same card ends up looking like two different features. */
+.ov-card{background:var(--tm-card);border:1px solid var(--tm-border);border-radius:8px;padding:16px 18px}
+.ov-head{margin-bottom:12px}
+.ov-title{font-size:13px;font-weight:600;color:var(--tm-t1)}
+.ov-sub{font-size:11.5px;color:var(--tm-t3);line-height:1.55;margin-top:3px;max-width:640px}
+.ov-empty{font-size:12px;color:var(--tm-t3);line-height:1.55;padding:6px 0}
+.ov-err{color:var(--ds-color-danger)}
+.ov-prompt{background:var(--tm-blue-soft);border:1px solid var(--tm-blue-border);border-radius:6px;
+  padding:11px 13px;margin-bottom:12px;font-size:12.5px;color:var(--tm-t1);line-height:1.5}
+.ov-prompt-s{font-size:11.5px;color:var(--tm-t2);font-weight:400;margin-top:3px;line-height:1.5}
+.ov-yours{font-size:11.5px;color:var(--tm-t3);line-height:1.5;margin-bottom:10px}
+.ov-row{display:grid;grid-template-columns:minmax(120px,1.5fr) auto;gap:10px 14px;align-items:center;
+  padding:10px 0;border-top:1px solid var(--tm-divider)}
+.ov-nm{font-size:12.5px;font-weight:500;color:var(--tm-t1);min-width:0}
+.ov-chg{font-size:11px;color:var(--tm-t3);margin-top:2px;font-weight:400}
+.ov-chg-unset{font-style:italic;color:var(--tm-faint)}
+.ov-set{display:flex;align-items:center;gap:7px;justify-content:flex-end}
+.ov-input{width:74px;height:28px;padding:0 8px;border:1px solid var(--tm-border);border-radius:6px;
+  background:var(--tm-inner);color:var(--tm-t1);font-size:12.5px;font-weight:600;text-align:center;
+  font-family:'Spline Sans Mono',ui-monospace,monospace;outline:none}
+.ov-input:focus{border-color:var(--tm-blue)}
+.ov-btn{height:28px;padding:0 11px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer;
+  font-family:'Spline Sans',sans-serif;border:1px solid var(--tm-border);background:var(--tm-inner);
+  color:var(--tm-t2);white-space:nowrap;transition:background .14s,border-color .14s}
+.ov-btn:hover{border-color:var(--tm-blue-border);color:var(--tm-t1)}
+.ov-msg{grid-column:1 / -1;font-size:11px;line-height:1.5;min-height:0}
+.ov-msg:empty{display:none}
+.ov-warn{color:var(--ds-color-warning)}
+.ov-ok{color:var(--ds-color-success)}
+.ov-note{color:var(--tm-t3)}
+/* The Back Office Summary's box */
+.ov-cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:10px;margin-bottom:12px}
+.ov-fig{background:var(--tm-inner);border:1px solid var(--tm-border);border-radius:8px;padding:12px 14px}
+.ov-fig-l{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--tm-t3);font-weight:600}
+.ov-fig-v{font-family:'Spline Sans Mono',ui-monospace,monospace;font-size:23px;font-weight:600;
+  line-height:1.2;color:var(--tm-t1);margin-top:5px}
+.ov-fig-v.ov-dash{color:var(--tm-faint)}
+.ov-fig-d{font-size:10.5px;color:var(--tm-t3);line-height:1.45;margin-top:5px}
+.ov-brk{display:grid;grid-template-columns:minmax(110px,1.5fr) minmax(70px,auto) minmax(70px,auto);
+  gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--tm-divider);font-size:12.5px}
+.ov-brk-h{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--tm-t3);
+  font-weight:600;padding-bottom:4px}
+.ov-brk-nm{color:var(--tm-t1);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-brk-n{font-family:'Spline Sans Mono',ui-monospace,monospace;text-align:right;color:var(--tm-t2)}
+.ov-brk-n.ov-dash{color:var(--tm-faint)}
+.ov-brk-s{grid-column:1 / -1;font-size:11px;color:var(--tm-t3);line-height:1.45;margin-top:-3px}
+.ov-caveat{font-size:11.5px;color:var(--tm-t3);line-height:1.55;margin-top:10px}
+.ov-caveat div{margin-top:3px}
 /* ---- Reconciliation (Phase 6) ---- */
 .rc-row{display:grid;grid-template-columns:26px 1.5fr .8fr .8fr .9fr 1.5fr;gap:10px;padding:10px 14px;
   align-items:center;border-bottom:1px solid var(--lg-divider);font-size:12.5px;color:var(--lg-text2)}
@@ -11743,6 +11796,346 @@ function onContractNumberChange() {
   setContractValue(document.getElementById('myContract').value);
   saveContract();
 }
+
+// <override-core>
+// ============================================================
+// ESTIMATED ADVANCE OVERRIDE — the ONE definition. (PROMPT OV2, Round 2 of 2.)
+// Doc: docs/override-estimator.md. Tests: npm run test:override.
+//
+// 🔴 THE TWO THINGS THIS BLOCK EXISTS TO NOT DO. The feature was first
+// described as "if their est advance commission is $500, my est adv override
+// would be 5% of $500". Both halves of that are wrong:
+//
+//   1. AN OVERRIDE IS A PERCENTAGE OF AP, NOT OF THE AGENT'S COMMISSION. On
+//      Americo Eagle an agent at 80 earns 75%, so a $500 advance implies about
+//      $889 of annual premium, and a five-point spread advanced is $33.33 —
+//      not the $25 that 5% of $500 gives.
+//
+//   2. THE SPREAD BETWEEN TWO CONTRACT LEVELS IS NOT THE DIFFERENCE BETWEEN
+//      THE LEVELS. From 80 to 85 the COMP table pays +5 on americo_eagle,
+//      trans_express, core_siwl and aa_senior; +4 on mutual_fe; and ZERO on
+//      americo_wl, aetna_senior, core_graded and core_giwl. The table is the
+//      only thing that knows, so the table is asked — twice, once per level.
+//
+// 🔴 IT COMPUTES NO COMMISSION PERCENTAGE OF ITS OWN. getCommPct() is the app's
+// single COMP lookup and this block calls it; nothing here indexes a COMP row
+// or touches COMP_LEVELS. The only thing it asks COMP directly is whether a key
+// EXISTS, which is a different question and the reason is in ovSpreadPct().
+//
+// STATED DEPENDENCIES, in the manner bo-summary-core states its dependency on
+// comm-core: getCommPct() and COMP (declared above), and getActiveCommKey() /
+// CARRIER_PRODUCTS / LEGACY_CLASS_MAP (declared below — function hoisting and
+// the fact that nothing here runs at parse time make the order irrelevant at
+// runtime, and the test harness lifts all of them). Beyond those it is pure:
+// no DOM, no network, no storage, no app globals.
+// ============================================================
+
+/**
+ * The 9-month advance factor, and the ONE place it is written down.
+ *
+ * It was a bare 0.75 in ten separate expressions, _lgAdvComm() among them. An
+ * override is advanced on exactly the same terms as the commission it is a
+ * spread of, so a second literal here would be an eleventh copy of a number
+ * that has to move together or not at all.
+ */
+const ADVANCE_RATE = 0.75;
+
+/** How the factor is named on screen, so a figure never implies it silently. */
+const OV_ADVANCE_LABEL = '75% advance';
+
+/** Rendered under the headline, always on — this screen's BOS_ISSUED_DEF. */
+const OV_DEF = 'Your comp-table percentage minus theirs on each product, applied to the ' +
+  'annual premium they wrote. Not a share of their commission.';
+
+/** The launch state. See ovSetupPrompt(). */
+const OV_UNSET_PROMPT = 'Set your agents’ contract levels to see estimated override';
+
+/** What a downline row says when no change to its level has ever been recorded. */
+const OV_LEVEL_NOT_SET = 'not set';
+
+/** Said beside an agent contracted above the leader. Never an error, never a block. */
+const OV_ABOVE_LEADER = 'This agent is contracted above you, so no override is estimated on their business.';
+
+/**
+ * Split get_downline_product_ap's `product` back into its three stored parts.
+ *
+ * That column is NOT a COMP key and is not even one key space: production holds
+ * the display category ('Whole Life') for most of the book and a legacy raw COMP
+ * key ('aa_senior', 'core_siwl', 'trans_express') for the rest, in the same
+ * column, today — and `cls` mixes 'std'/'gi' with the legacy 'level'/'standard'.
+ * So the SQL maps nothing and joins the three verbatim in the shape
+ * commPctOverrideKey() already uses. Split from the LEFT twice: the carrier and
+ * the product are the fields that could plausibly grow a separator, and the
+ * health class is a short key that cannot.
+ */
+function ovSplitProductKey(key) {
+  const s = String(key === null || key === undefined ? '' : key);
+  const i = s.indexOf('|');
+  if (i < 0) return null;
+  const j = s.indexOf('|', i + 1);
+  if (j < 0) return null;
+  return { carrier: s.slice(0, i), product: s.slice(i + 1, j), cls: s.slice(j + 1) };
+}
+
+/**
+ * The joined key -> the COMP key and the graded/GI cut flag, through the
+ * resolver that already ships. `mapped` is false when the resolved key has no
+ * COMP row at all, which is the state that must be COUNTED AND REPORTED rather
+ * than priced — see ovPriceRollup().
+ */
+function ovResolveProductKey(key) {
+  const parts = ovSplitProductKey(key);
+  if (!parts) return null;
+  const active = getActiveCommKey(parts.carrier, parts.product, parts.cls);
+  if (!active || !active.key) return null;
+  return {
+    carrier: parts.carrier, product: parts.product, cls: parts.cls,
+    compKey: active.key, cut: !!active.cut,
+    mapped: Object.prototype.hasOwnProperty.call(COMP, active.key),
+  };
+}
+
+/**
+ * Estimated advance override on one product's AP: the spread, in POINTS.
+ *
+ * NOT a percentage of the agent's commission, and NOT the difference between
+ * the two contract levels. It is the difference between what the COMP table
+ * pays the LEADER and what it pays the AGENT on that product, and it is applied
+ * to AP by ovEstAdvance(). From 80 to 85 that is +5 on americo_eagle, +4 on
+ * mutual_fe, and ZERO on americo_wl / aetna_senior / core_graded / core_giwl.
+ *
+ * `cut` is getCommPct()'s third argument — the ~40% reduction for graded and GI
+ * business. It scales BOTH sides, so the spread scales with it; dropping it
+ * overstates the override on every graded and GI policy in the book.
+ *
+ * 🔴 AN UNKNOWN PRODUCT IS ZERO, NOT A GUESS. getCommPct() returns the CONTRACT
+ * LEVEL ITSELF when it has no table for the product, so subtracting two of
+ * those would hand back `leaderLevel - agentLevel` — the exact wrong answer
+ * this block exists to refuse, wearing the right answer's clothes. Asking COMP
+ * whether the key exists is not computing a percentage from a level.
+ *
+ * Clamped at zero: an agent contracted above their leader is a data state (both
+ * parties may set the level, most recent wins), not a debt.
+ */
+function ovSpreadPct(product, leaderLevel, agentLevel, cut) {
+  if (!product || !Object.prototype.hasOwnProperty.call(COMP, product)) return 0;
+  const lead  = Number(getCommPct(product, Number(leaderLevel), !!cut));
+  const agent = Number(getCommPct(product, Number(agentLevel),  !!cut));
+  if (!isFinite(lead) || !isFinite(agent)) return 0;
+  const spread = lead - agent;
+  // toFixed(4) only to kill binary-float noise: 92.5 - 85 is 7.499999999999999
+  // in this table, and a spread is never finer than a tenth of a point.
+  return spread > 0 ? +spread.toFixed(4) : 0;
+}
+
+/**
+ * Points of spread, on this much AP, advanced. The advance rate is a parameter
+ * defaulting to ADVANCE_RATE so a caller can price an unadvanced override
+ * later without a second literal appearing anywhere.
+ */
+function ovEstAdvance(ap, spreadPct, advanceRate) {
+  const a = Number(ap) || 0;
+  const s = Number(spreadPct) || 0;
+  const r = (advanceRate === undefined || advanceRate === null) ? ADVANCE_RATE : Number(advanceRate);
+  if (!(a > 0) || !(s > 0) || !isFinite(r) || !(r > 0)) return 0;
+  return +(a * (s / 100) * r).toFixed(2);
+}
+
+/** Counts off an RPC row. Number('x'||0) is NaN and Math.max(0,NaN) is NaN too. */
+function ovCount(v) {
+  const n = Number(v);
+  return isFinite(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Where a downline row's contract level came from, as a state and not a
+ * boolean.
+ *
+ * 🔴 NULL IS NOT FALSE, AND THIS IS THE LAUNCH STATE. get_agency_members
+ * returns `level_changed_by_self` NULL when contract_level_changes holds no row
+ * for that agent — the level predates the audit trail or has never moved.
+ * Reading that as false would print "changed by you" about a change nobody
+ * made. Today it is null for every downline agent in production, because
+ * nothing has ever gone through the new write path.
+ */
+function ovLevelState(row) {
+  if (!row) return 'unset';
+  if (row.level_changed_at === null || row.level_changed_at === undefined) return 'unset';
+  if (row.level_changed_by_self === null || row.level_changed_by_self === undefined) return 'unset';
+  return row.level_changed_by_self ? 'self' : 'leader';
+}
+
+/** "not set" / "changed by the agent on 4 Aug" / "changed by you on 4 Aug". */
+function ovChangedPhrase(row, fmtDate) {
+  const state = ovLevelState(row);
+  if (state === 'unset') return OV_LEVEL_NOT_SET;
+  const when = typeof fmtDate === 'function' ? fmtDate(row.level_changed_at) : '';
+  const who = state === 'self' ? 'changed by the agent' : 'changed by you';
+  return when ? who + ' on ' + when : who;
+}
+
+/** get_agency_members returns uplines and siblings too; only downlines carry a level. */
+function ovDownlineRows(members) {
+  return (Array.isArray(members) ? members : []).filter(m => m && m.relationship === 'downline');
+}
+
+/**
+ * The prompt an owner meets before any arithmetic.
+ *
+ * 🔴 THIS IS NOT AN EDGE CASE — IT IS DAY ONE. Round 1 measured seven downline
+ * agents sitting at 100 against the owner's 85, which is an unset default and
+ * not seven real contracts above the owner. Every override on those rows
+ * computes negative, clamps to zero, and the whole feature reads $0. A screen
+ * that silently shows nothing is indistinguishable from a broken one, so while
+ * any level is unrecorded the screen leads with this instead of a grid of
+ * zeroes. It disappears on its own the moment the levels are set.
+ */
+function ovSetupPrompt(members) {
+  const rows = ovDownlineRows(members);
+  if (!rows.length) return null;
+  const unset = rows.filter(r => ovLevelState(r) === 'unset');
+  if (!unset.length) return null;
+  return {
+    count: unset.length,
+    total: rows.length,
+    all: unset.length === rows.length,
+    text: OV_UNSET_PROMPT,
+    detail: (unset.length === 1 ? '1 agent has' : unset.length + ' agents have') +
+      ' no recorded contract level yet, so no override is estimated on their business.',
+    agentIds: unset.map(r => r.agent_id),
+  };
+}
+
+/**
+ * Price a whole downline rollup.
+ *
+ *   rows    get_downline_product_ap rows: { agent_id, product, policy_count,
+ *           total_ap }. `product` is the joined carrier|product|cls key.
+ *   opts    { leaderLevel, levelOf(agentId) -> number|null, excludeAgentId }
+ *
+ * The leader's own rows are in that RPC's result by design (it returns their
+ * own aggregates too) and are excluded here — nobody earns an override on their
+ * own business.
+ *
+ * FOUR OUTCOMES PER ROW, AND THEY ARE FOUR DIFFERENT FACTS:
+ *
+ *   priced       a real spread, a real figure.
+ *   unmapped     the product resolves to no COMP row. COUNTED AND NAMED, never
+ *                folded into a zero: "this business pays no override" and "we
+ *                could not look this business up" are indistinguishable on
+ *                screen otherwise, and the second one is a bug report.
+ *   zeroSpread   the table pays the leader and the agent the same. A genuine
+ *                zero and a different sentence.
+ *   unpriceable  the agent's level was never recorded, or the agent sits above
+ *                the leader. Neither is a product fact.
+ */
+function ovPriceRollup(rows, opts) {
+  const o = opts || {};
+  const leaderLevel = Number(o.leaderLevel);
+  const hasLeader = isFinite(leaderLevel) && leaderLevel > 0;
+  const levelOf = typeof o.levelOf === 'function' ? o.levelOf : function () { return null; };
+  const skip = o.excludeAgentId || null;
+
+  const byAgent = new Map();
+  const unmappedKeys = new Map();
+  const out = {
+    agents: [], total: 0, totalAp: 0, totalPolicies: 0,
+    unmapped: { policies: 0, ap: 0, keys: [] },
+    zeroSpread: { policies: 0, ap: 0 },
+    aboveLeader: [], unsetAgents: [],
+    productsSeen: 0, productsMapped: 0,
+    leaderLevel: hasLeader ? leaderLevel : null,
+  };
+
+  const seenKeys = new Set();
+  const mappedKeys = new Set();
+
+  (Array.isArray(rows) ? rows : []).forEach(function (r) {
+    if (!r || !r.agent_id || r.agent_id === skip) return;
+    const ap = Number(r.total_ap) || 0;
+    const n  = ovCount(r.policy_count);
+    const key = String(r.product === null || r.product === undefined ? '' : r.product);
+
+    let a = byAgent.get(r.agent_id);
+    if (!a) {
+      const lvl = levelOf(r.agent_id);
+      const level = (lvl === null || lvl === undefined || !isFinite(Number(lvl))) ? null : Number(lvl);
+      a = {
+        agentId: r.agent_id, level,
+        unset: level === null,
+        aboveLeader: level !== null && hasLeader && level > leaderLevel,
+        ap: 0, policies: 0, override: 0, priced: 0, unmapped: 0, zeroSpread: 0,
+      };
+      byAgent.set(r.agent_id, a);
+    }
+    a.ap += ap; a.policies += n;
+    out.totalAp += ap; out.totalPolicies += n;
+
+    const resolved = ovResolveProductKey(key);
+    if (!seenKeys.has(key)) { seenKeys.add(key); }
+    if (!resolved || !resolved.mapped) {
+      a.unmapped += n;
+      out.unmapped.policies += n; out.unmapped.ap += ap;
+      const cur = unmappedKeys.get(key) || { key, policies: 0, ap: 0 };
+      cur.policies += n; cur.ap += ap;
+      unmappedKeys.set(key, cur);
+      return;
+    }
+    mappedKeys.add(key);
+
+    // Unpriceable for a reason that is about the AGENT, not the product. It
+    // must not be reported as "this product pays the same", which is a claim
+    // about the comp table that nobody has checked.
+    if (a.unset || !hasLeader || a.aboveLeader) return;
+
+    const spread = ovSpreadPct(resolved.compKey, leaderLevel, a.level, resolved.cut);
+    if (spread <= 0) {
+      a.zeroSpread += n;
+      out.zeroSpread.policies += n; out.zeroSpread.ap += ap;
+      return;
+    }
+    const amt = ovEstAdvance(ap, spread, ADVANCE_RATE);
+    a.override = +(a.override + amt).toFixed(2);
+    a.priced += n;
+    out.total = +(out.total + amt).toFixed(2);
+  });
+
+  out.productsSeen = seenKeys.size;
+  out.productsMapped = mappedKeys.size;
+  out.unmapped.keys = Array.from(unmappedKeys.values()).sort(function (x, y) { return y.ap - x.ap; });
+  out.agents = Array.from(byAgent.values()).sort(function (x, y) {
+    return (y.override - x.override) || (y.ap - x.ap);
+  });
+  out.aboveLeader = out.agents.filter(function (a) { return a.aboveLeader; }).map(function (a) { return a.agentId; });
+  out.unsetAgents = out.agents.filter(function (a) { return a.unset; }).map(function (a) { return a.agentId; });
+  out.priceable = out.agents.some(function (a) { return !a.unset && !a.aboveLeader; });
+  return out;
+}
+
+/**
+ * The two honest lines under the box. TWO DIFFERENT FACTS, never merged into
+ * one number: one says a lookup failed, the other says the comp table genuinely
+ * pays the same. Returns [] when neither applies — nothing is said for the sake
+ * of saying something.
+ */
+function ovCaveatLines(priced) {
+  const p = priced || {};
+  const lines = [];
+  const um = (p.unmapped && p.unmapped.policies) || 0;
+  const zs = (p.zeroSpread && p.zeroSpread.policies) || 0;
+  if (um > 0) {
+    lines.push(um + ' polic' + (um === 1 ? 'y is' : 'ies are') +
+      ' on products with no comp-table entry and ' + (um === 1 ? 'is' : 'are') + ' not included.');
+  }
+  if (zs > 0) {
+    lines.push(zs + ' polic' + (zs === 1 ? 'y is' : 'ies are') +
+      ' on products where your level and theirs pay the same, so ' +
+      (zs === 1 ? 'it earns' : 'they earn') + ' no override.');
+  }
+  return lines;
+}
+// </override-core>
+
 function getQuota() {
   const v = parseInt(localStorage.getItem(k('pp_monthly_quota')));
   return Number.isFinite(v) && v > 0 ? v : 10;
@@ -12641,7 +13034,7 @@ function netCommission(pols){
     .filter(p => !excluded.has(p.status))
     .reduce((s, p) => {
       const ap = p.ap || +(( p.monthly || 0) * 12).toFixed(2);
-      const comm = p.advComm || +(ap * (p.commPct || 0) / 100 * 0.75).toFixed(2);
+      const comm = p.advComm || +(ap * (p.commPct || 0) / 100 * ADVANCE_RATE).toFixed(2);
       return s + (Number(comm) || 0);
     }, 0);
   const exposure = (typeof getChargebackExposure === 'function') ? getChargebackExposure().totalAdvanced : 0;
@@ -14197,7 +14590,7 @@ async function submitAsSold() {
   if (!monthly || monthly <= 0) { alert('Please enter the monthly premium.'); return; }
 
   const commPct = parseFloat(document.getElementById('sold-commpct').value) || 0;
-  const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
+  const advComm = +(ap * commPct / 100 * ADVANCE_RATE).toFixed(2);
 
   let payDate = '';
   if (draft) {
@@ -14329,7 +14722,7 @@ async function addPolicy() {
   if (!client || !monthly) { alert('Fill in client name and monthly premium.'); return; }
 
   const commPct = parseFloat(document.getElementById('p-commpct').value) || 0;
-  const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
+  const advComm = +(ap * commPct / 100 * ADVANCE_RATE).toFixed(2);
 
   let payDate = '';
   if (draft) {
@@ -14448,7 +14841,7 @@ async function saveEditPolicy() {
   const termYears = (termYrEl && document.getElementById('ep-term-year-fg')?.style.display !== 'none') ? parseInt(termYrEl.value) || null : null;
   if (!client || !monthly) { alert('Fill in client name and monthly premium.'); return; }
   const commPct = parseFloat(document.getElementById('ep-commpct').value) || 0;
-  const advComm = +(ap * commPct / 100 * 0.75).toFixed(2);
+  const advComm = +(ap * commPct / 100 * ADVANCE_RATE).toFixed(2);
   let payDate = p.payDate || '';
   if (draft) { const d = new Date(draft); d.setDate(d.getDate() + 10); payDate = d.toISOString().split('T')[0]; }
   const policyNumber = (document.getElementById('ep-policyNum')?.value || '').trim();
@@ -14810,7 +15203,7 @@ function _ptComputeView(all, filter, sort, page){
   all.forEach(p => {
     const monthly = p.monthly || +(((p.ap||0)) / 12).toFixed(2);
     const ap = p.ap || +(monthly * 12).toFixed(2);
-    const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
+    const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * ADVANCE_RATE).toFixed(2);
     totAP += ap||0;
     totAdv += advComm||0;
     if (['issued','paid','approved'].includes(p.status)) issued++;
@@ -14869,7 +15262,7 @@ function _ptComputeView(all, filter, sort, page){
 function _ptRowHTML(p){
   const monthly = p.monthly || +(((p.ap||0)) / 12).toFixed(2);
   const ap = p.ap || +(monthly * 12).toFixed(2);
-  const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * 0.75).toFixed(2);
+  const advComm = p.advComm || +(ap * (p.commPct||0) / 100 * ADVANCE_RATE).toFixed(2);
   const st = PT_STATUS_ORDER.includes(p.status) ? p.status : 'pending';
   const cb = st === 'chargeback' ? ' pt-cb' : '';
   const sub = _ptGetSub(p) || '—';
@@ -18384,7 +18777,7 @@ function _lgWhenInRange(iso, range){
   if(range.end   && t>=range.end.getTime())  return false;
   return true;
 }
-function _lgAdvComm(p){ const ap=Number(p.ap)||0; return Number(p.advComm) || +(ap*(Number(p.commPct)||0)/100*0.75); }
+function _lgAdvComm(p){ const ap=Number(p.ap)||0; return Number(p.advComm) || +(ap*(Number(p.commPct)||0)/100*ADVANCE_RATE); }
 
 // ---- controls (global — referenced from inline onclick) ----
 function setLedgerPeriod(p){
@@ -29488,7 +29881,7 @@ const BOS_TTL_MS = 45000;
 let _bosCache = {
   at: 0, rangeKey: null, isLeader: false, empty: false,
   buckets: null, debt: null, recon: null, persist: null, ingest: null,
-  rollup: null, roster: null, agency: null, board: null, err: {},
+  rollup: null, roster: null, agency: null, board: null, prodap: null, members: null, err: {},
 };
 
 /** 'loading' until the call settles, then 'ok' or 'error'. Per key, not global. */
@@ -29586,7 +29979,7 @@ async function renderBackOfficeSummary(force) {
   _bosCache = {
     at: 0, rangeKey, isLeader, empty: false,
     buckets: null, debt: null, recon: null, persist: null, ingest: null,
-    rollup: null, roster: null, agency: null, board: null, err: {},
+    rollup: null, roster: null, agency: null, board: null, prodap: null, members: null, err: {},
   };
   bosPaint();   // frames and skeletons, before a single byte comes back
 
@@ -29616,6 +30009,14 @@ async function renderBackOfficeSummary(force) {
     jobs.push(['rollup', rpc('get_downline_commission_rollup', { p_start: range.start, p_end: range.end })]);
     // Through loadTeamRoster(), never a second get_team_summary call site.
     jobs.push(['roster', loadTeamRoster(_teamPeriod)]);
+    // The estimated override box. Both go through the loaders beside
+    // ovLevelsCardHTML(), the same arrangement lbAgencyState / lbLoadBoards /
+    // loadTeamRoster already use here — ovLoadMembers() is the ONE roster read
+    // this feature has, shared with the Agency tab's level editor, so the two
+    // surfaces cannot disagree about who is in the downline or at what level.
+    // Neither is new backend: both RPCs shipped with 20260810.
+    jobs.push(['prodap',  ovLoadProductAP(range)]);
+    jobs.push(['members', ovLoadMembers()]);
   }
 
   await Promise.allSettled(jobs.map(([key, p]) => p.then(
@@ -29662,6 +30063,7 @@ function bosPaint() {
   set('bos-mix', bosMixHTML());
   set('bos-top', bosTopProducersHTML());
   set('bos-money', bosMoneyHTML());
+  set('bos-override', bosOverrideHTML());
   set('bos-attention', bosAttentionHTML());
   set('bos-health', bosHealthHTML());
   set('bos-team', bosTeamHTML());
@@ -29697,6 +30099,7 @@ function bosShellHTML() {
       '</div>' +
       '<div id="bos-money"></div>' +
     '</div>' +
+    '<div id="bos-override"></div>' +
     '<div class="bos-strip">' +
       '<div class="bos-strip-h"><div class="bos-strip-t">What needs you</div></div>' +
       '<div id="bos-attention"></div>' +
@@ -30043,6 +30446,137 @@ function bosTopProducersHTML() {
       'and approved-not-paid business too, so it will not match your issued figure above. ' +
       'Only the top ' + LB_TOP_N + ' is ever shown.</div>' +
   '</div>';
+}
+
+// ---- strip 1e: estimated override, beside the actual one ----------------
+//
+// 🔴 EXPECTED VS ACTUAL, SIDE BY SIDE, AND THE TWO ARE DIFFERENT QUESTIONS.
+// "Est. advance override" is priced from the COMP table against the AP the
+// downline wrote in this window; "Actual override" is the Override Income
+// figure get_commission_buckets already returns, off carrier statements. They
+// will not agree — statements lag production by weeks, a carrier pays what it
+// pays, and the estimate assumes every policy issues. The card says so rather
+// than reconciling them, the same arrangement BOS_ISSUED_STATUSES has with the
+// sale predicate one strip above.
+//
+// LEADER-ONLY, AND ABSENT WHEN THERE IS NO DOWNLINE — not an empty card and not
+// an upsell, the same rule as the Top Producers card. Nobody earns an override
+// on their own book, so the leader's own rows are excluded from the pricing.
+
+function bosOverrideHTML() {
+  if (!_bosCache.isLeader) return '';
+
+  const mem = _bosCache.members;
+  if (!mem) return '';                       // still in flight — no frame for a card that may not exist
+  if (mem.err || !mem.rows) return '';       // the roster is what decides the card exists at all
+  const downline = ovDownlineRows(mem.rows);
+  if (!downline.length) return '';
+
+  const head = '<div class="bos-strip-h">' +
+    '<div class="bos-strip-t">Estimated override</div>' +
+    '<div class="bos-strip-s">' + escHTML(bosPeriodLabel()) + ' &middot; priced from the comp table, ' +
+      'against what your agents wrote.</div>' +
+  '</div>';
+  const wrap = inner => '<div class="bos-strip"><div class="tm"><div class="ov-card">' + head + inner + '</div></div></div>';
+
+  const prompt = ovSetupPrompt(mem.rows);
+  const myLevel = getContract();
+  const levelById = new Map(downline.map(m => [m.agent_id,
+    (m.contract_level === null || m.contract_level === undefined) ? null : Number(m.contract_level)]));
+  const nameById = new Map(downline.map(m => [m.agent_id, ppAgentName(m)]));
+  // NULL is not false: a level with no recorded change is not a level this
+  // screen will price, whatever number the column happens to hold.
+  const unsetIds = new Set(prompt ? prompt.agentIds : []);
+
+  const pState = bosState('prodap');
+  if (pState === 'loading') return wrap(bosSkel('80%', 96));
+  if (pState === 'error') return wrap('<div class="ov-empty ov-err">' + escHTML(bosLoadError('agency')) + '</div>');
+
+  const priced = ovPriceRollup(Array.isArray(_bosCache.prodap) ? _bosCache.prodap : [], {
+    leaderLevel: myLevel,
+    excludeAgentId: currentAgent && currentAgent.id,
+    levelOf: id => (unsetIds.has(id) ? null : (levelById.has(id) ? levelById.get(id) : null)),
+  });
+
+  // 🔴 THE LAUNCH STATE, AND IT LEADS. Nothing has ever moved a level through
+  // the audited path, so every downline row reads "not set" and every override
+  // computes to zero. A grid of $0 is indistinguishable from a broken screen,
+  // so while ANY level is unrecorded the prompt goes first — and when they are
+  // ALL unrecorded there is no grid at all, because there is nothing to show.
+  let h = '';
+  if (prompt) {
+    h += '<div class="ov-prompt"><strong>' + escHTML(prompt.text) + '</strong>' +
+      '<div class="ov-prompt-s">' + escHTML(prompt.detail) +
+      ' <a href="#" onclick="nav(\'agency\');return false;" style="color:var(--tm-blue)">Set them on the Agency tab</a>.</div></div>';
+    if (prompt.all) return wrap(h);
+  }
+
+  // Actual override, from the statements. A dash and never a zero when no
+  // statement has been uploaded — "$0.00" is a claim that the carriers paid no
+  // override, which is a different and untrue statement.
+  const bState = bosState('buckets');
+  const hasStatements = bosState('ingest') !== 'ok' || !bosIsEmpty(_bosCache.ingest);
+  let actual;
+  if (bState === 'loading') actual = bosSkel('60%', 23);
+  else if (bState === 'error') actual = '<div class="bos-err">' + escHTML(bosLoadError('commissions')) + '</div>';
+  else if (!hasStatements) actual = '<div class="ov-fig-v ov-dash">&mdash;</div>';
+  else {
+    const cents = commTotals(Array.isArray(_bosCache.buckets) ? _bosCache.buckets : []).override;
+    actual = '<div class="ov-fig-v">' + escHTML(boFmtMoney(cents)) + '</div>';
+  }
+
+  const fig = (label, valueHTML, def) => '<div class="ov-fig">' +
+    '<div class="ov-fig-l">' + escHTML(label) + '</div>' + valueHTML +
+    '<div class="ov-fig-d">' + escHTML(def) + '</div></div>';
+
+  h += '<div class="ov-cmp">' +
+    fig('Est. advance override',
+      priced.priceable
+        ? '<div class="ov-fig-v">est. ' + escHTML(bosDollars(priced.total)) + '</div>'
+        : '<div class="ov-fig-v ov-dash">&mdash;</div>',
+      OV_DEF + ' Advanced at ' + OV_ADVANCE_LABEL + '.') +
+    fig('Actual override', actual,
+      hasStatements ? COMM_CARD_DEFS.override
+        : 'Upload a carrier statement and this fills itself in.') +
+  '</div>';
+
+  h += '<div class="ov-brk ov-brk-h"><div>Agent</div><div class="ov-brk-n">Their AP</div>' +
+    '<div class="ov-brk-n">Est. override</div></div>';
+
+  h += priced.agents.map(a => {
+    const nm = nameById.get(a.agentId) || 'Agent';
+    let val, sub = '';
+    if (a.unset) { val = '<div class="ov-brk-n ov-dash">' + escHTML(OV_LEVEL_NOT_SET) + '</div>'; }
+    else if (a.aboveLeader) {
+      val = '<div class="ov-brk-n ov-dash">' + escHTML(bosDollars(0)) + '</div>';
+      sub = '<div class="ov-brk-s ov-warn">' + escHTML(OV_ABOVE_LEADER) + '</div>';
+    } else {
+      val = '<div class="ov-brk-n">' + escHTML(bosDollars(a.override)) + '</div>';
+      if (a.override === 0 && a.policies > 0) {
+        sub = '<div class="ov-brk-s">Contracted at ' + a.level + ' against your ' + myLevel +
+          ' — the comp table pays the same on everything they wrote here.</div>';
+      }
+    }
+    return '<div class="ov-brk">' +
+      '<div class="ov-brk-nm" title="' + escHTML(nm) + '">' + escHTML(nm) + '</div>' +
+      '<div class="ov-brk-n">' + escHTML(bosDollars(a.ap)) + '</div>' + val + sub +
+    '</div>';
+  }).join('');
+
+  if (!priced.agents.length) {
+    h += '<div class="ov-empty">No downline production in this window.</div>';
+  }
+
+  // TWO DIFFERENT FACTS, never merged into one number: a lookup that failed and
+  // a comp table that genuinely pays the same. See ovCaveatLines().
+  const caveats = ovCaveatLines(priced);
+  if (caveats.length) {
+    h += '<div class="ov-caveat">' + caveats.map(l => '<div>' + escHTML(l) + '</div>').join('') + '</div>';
+  }
+  h += '<div class="ov-caveat">An estimate, not a statement. It assumes every policy issues and stays ' +
+    'on the books, and it is priced at today’s contract levels — the carriers pay what they pay.</div>';
+
+  return wrap(h);
 }
 
 // ---- strip 2: what needs you -------------------------------------------
@@ -35717,7 +36251,7 @@ function updateCommTotalPreview(prefix) {
   const monthly = parseFloat(document.getElementById(prefix + '-monthly')?.value) || 0;
   const commPct = parseFloat(document.getElementById(prefix + '-commpct')?.value) || 0;
   const ap = +(monthly * 12).toFixed(2);
-  disp.textContent = (ap > 0 && commPct > 0) ? fmt$(+(ap * commPct / 100 * 0.75).toFixed(2)) : '—';
+  disp.textContent = (ap > 0 && commPct > 0) ? fmt$(+(ap * commPct / 100 * ADVANCE_RATE).toFixed(2)) : '—';
 }
 
 // Carrier Bonuses / My Carriers / FFL VP Bonus tabs are always visible now —
@@ -37927,6 +38461,12 @@ async function _agRenderLeaderView(root) {
     </div>`;
   }
 
+  // Contract levels. A separate card rather than a column on teamTableHTML(),
+  // which is the ONE table renderer and is shared with the Summary mini-card —
+  // an editable field belongs on the tab an owner manages the agency from, not
+  // on a read-only strip inside another screen's summary.
+  h += '<div id="ov-levels" class="tm" style="margin-top:22px">' + ovLevelsCardHTML(null) + '</div>';
+
   // ============================================================
   // 2. Manage roster — invites, code, connections. Collapsed by default;
   //    its open state survives the re-render that every action triggers.
@@ -38016,6 +38556,175 @@ async function _agRenderLeaderView(root) {
   </details>`;
 
   root.innerHTML = h;
+  // Painted after the tab is on screen — the roster RPC is a second round trip
+  // and the numbers above it must not wait on a card that only the owner edits.
+  ovPaintLevels();
+}
+
+// ============================================================
+// CONTRACT LEVELS ON THE AGENCY TAB — the leader's half of "most recent wins"
+//
+// Round 1 (20260810) made a downline agent's level settable and made every
+// change to it auditable. This is where the owner does it, and where the audit
+// trail becomes visible — without which an agent can move the number that
+// prices their upline's override and nothing on any screen would say so.
+//
+// The write goes through set_downline_contract_level(), which re-derives the
+// downline from auth.uid(); there is no parameter naming a leader and the
+// browser cannot update another agent's row directly. Validation is the same
+// clamp setContractValue() applies, so the input box and the RPC agree.
+// ============================================================
+
+/**
+ * The agency roster, for the level editor and the Back Office Summary's
+ * override box. ONE entry point for both, so the two surfaces cannot disagree
+ * about who is in the downline or what they are contracted at.
+ *
+ * 🔴 IT DELEGATES TO loadAgencyMembers() AND MINTS NO QUERY OF ITS OWN. That
+ * function is already the app's cached get_agency_members reader — five call
+ * sites, never throws, returns [] on failure — and a second read of the same
+ * roster is the shape of every bug this codebase has a rule about. Round 1's
+ * three new columns come back on the same rows; they are read BY NAME, which is
+ * what made appending them inert until now.
+ */
+async function ovLoadMembers(force) {
+  if (typeof loadAgencyMembers !== 'function') return { rows: null, err: 'Roster unavailable.' };
+  const rows = await loadAgencyMembers(!!force);
+  return { rows: Array.isArray(rows) ? rows : null, err: null };
+}
+
+/** Drop the shared cache so the next read sees a level this browser just wrote. */
+function ovInvalidateMembers() {
+  if (typeof _agencyMembers !== 'undefined') _agencyMembers = null;
+}
+
+/**
+ * The downline's AP per agent per product, over the Back Office Summary's own
+ * window. AGGREGATES ONLY — the RPC returns no client, no insured, no policy
+ * number, enforced by what its RETURNS TABLE declares. Not cached here: the
+ * figure is window-dependent and _bosCache already owns the window.
+ *
+ * `product` comes back as the VERBATIM `carrier|product|cls` triple, because
+ * policies.data.product is not a COMP key and is not even one key space —
+ * ovResolveProductKey() is what turns it into one.
+ */
+async function ovLoadProductAP(range) {
+  const { data, error } = await sb.rpc('get_downline_product_ap',
+    { p_start: (range && range.start) || null, p_end: (range && range.end) || null });
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+/** A recorded change, in the reader's own zone. Dates come back as timestamptz. */
+function ovFmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+async function ovPaintLevels(force) {
+  const host = document.getElementById('ov-levels');
+  if (!host) return;
+  const res = await ovLoadMembers(force);
+  const el = document.getElementById('ov-levels');
+  if (!el) return;   // the tab moved on while we were away
+  el.innerHTML = ovLevelsCardHTML(res);
+}
+
+/**
+ * `res` is ovLoadMembers()'s cache entry, or null for the loading frame.
+ *
+ * 🔴 THE LAUNCH-STATE PROMPT LEADS. Today every downline row comes back with
+ * level_changed_at NULL — nothing has ever moved a level through the audited
+ * path — and seven agents sit at 100 against the owner's 85. Rendering a
+ * confident number over that would be a claim the data cannot support, so the
+ * prompt goes above the rows and stays until they are set.
+ */
+function ovLevelsCardHTML(res) {
+  const head = '<div class="ov-head">' +
+    '<div class="ov-title">Contract levels</div>' +
+    '<div class="ov-sub">What each agent is contracted at, and what pays your override. ' +
+      'You and the agent can both set this — the most recent change wins, and every change is recorded.</div>' +
+  '</div>';
+  const wrap = inner => '<div class="ov-card">' + head + inner + '</div>';
+
+  if (!res) return wrap('<div class="ov-empty">Loading…</div>');
+  if (res.err || !res.rows) {
+    return wrap('<div class="ov-empty ov-err">' + escHTML(res.err || 'Could not load your roster.') + '</div>');
+  }
+
+  const rows = ovDownlineRows(res.rows);
+  if (!rows.length) {
+    return wrap('<div class="ov-empty">No connected agents yet. Invite one below and their contract level ' +
+      'appears here.</div>');
+  }
+
+  const myLevel = getContract();
+  const prompt = ovSetupPrompt(res.rows);
+  let h = '';
+  if (prompt) {
+    h += '<div class="ov-prompt"><strong>' + escHTML(prompt.text) + '</strong>' +
+      '<div class="ov-prompt-s">' + escHTML(prompt.detail) + '</div></div>';
+  }
+
+  h += '<div class="ov-yours">Your own level is <strong>' + myLevel + '</strong>. ' +
+    'An agent below you at ' + myLevel + ' or above earns you nothing on their business.</div>';
+
+  h += rows.map(function (m) {
+    const id = String(m.agent_id || '');
+    const lvl = (m.contract_level === null || m.contract_level === undefined) ? '' : String(Math.round(Number(m.contract_level)));
+    const above = lvl !== '' && Number(lvl) > myLevel;
+    const state = ovLevelState(m);
+    return '<div class="ov-row" id="ov-row-' + escHTML(id) + '">' +
+      '<div class="ov-nm">' + escHTML(ppAgentName(m)) +
+        '<div class="ov-chg' + (state === 'unset' ? ' ov-chg-unset' : '') + '">' +
+          escHTML(ovChangedPhrase(m, ovFmtDate)) + '</div>' +
+      '</div>' +
+      '<div class="ov-set">' +
+        '<input class="ov-input" type="number" min="70" max="145" step="5" value="' + escHTML(lvl) + '" ' +
+          'id="ov-lvl-' + escHTML(id) + '" aria-label="Contract level" ' +
+          'onkeydown="if(event.key===\'Enter\')ovSaveLevel(\'' + escHTML(id) + '\')">' +
+        '<button class="ov-btn" onclick="ovSaveLevel(\'' + escHTML(id) + '\')">Save</button>' +
+      '</div>' +
+      '<div class="ov-msg" id="ov-msg-' + escHTML(id) + '">' +
+        (above ? '<span class="ov-warn">' + escHTML(OV_ABOVE_LEADER) + '</span>' : '') +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  return wrap(h);
+}
+
+/**
+ * Save one agent's level. The RPC rounds to the nearest 5 and RAISES outside
+ * 70..145 rather than clamping, so what comes back is what was stored and the
+ * box is corrected to it.
+ */
+async function ovSaveLevel(agentId) {
+  const input = document.getElementById('ov-lvl-' + agentId);
+  const msg = document.getElementById('ov-msg-' + agentId);
+  if (!input) return;
+  const say = (text, cls) => { if (msg) msg.innerHTML = '<span class="' + (cls || 'ov-ok') + '">' + escHTML(text) + '</span>'; };
+  const raw = parseInt(input.value, 10);
+  if (!isFinite(raw)) { say('Enter a contract level between 70 and 145.', 'ov-warn'); return; }
+  if (raw < 70 || raw > 145) { say('Contract level must be between 70 and 145.', 'ov-warn'); return; }
+  say('Saving…', 'ov-note');
+  try {
+    const { data, error } = await sb.rpc('set_downline_contract_level', { p_agent_id: agentId, p_level: raw });
+    if (error) throw error;
+    const stored = Number(Array.isArray(data) ? data[0] : data);
+    if (isFinite(stored)) input.value = String(Math.round(stored));
+    // The roster carries the audit stamp this write just created, and the Back
+    // Office Summary prices its box off the same cache — both are dropped so
+    // neither can keep showing what was true a moment ago.
+    ovInvalidateMembers();
+    if (typeof _bosCache === 'object' && _bosCache) _bosCache.at = 0;
+    await ovPaintLevels(true);
+    showToast('Contract level saved', '#10b981');
+  } catch (e) {
+    say((e && e.message) || 'Could not save that level.', 'ov-warn');
+  }
 }
 
 async function _agRenderAgentView(root) {
@@ -41721,7 +42430,7 @@ function aqEstimateCommission(company, annual) {
   if (typeof pct !== 'number' || !isFinite(pct)) return null;
   const ann = aqNum(annual);
   if (!ann) return null;
-  return +(ann * pct / 100 * 0.75).toFixed(2);
+  return +(ann * pct / 100 * ADVANCE_RATE).toFixed(2);
 }
 
 function aqDobChanged() {
@@ -42513,7 +43222,7 @@ function markCardLive(card, q) {
   // Recompute commission from the live yearly value using the carrier's stashed comm pct.
   const commPct = Number(card.dataset.commPct);
   if (isFinite(commPct) && isFinite(yearlyN)) {
-    const advComm = +(yearlyN * commPct / 100 * 0.75).toFixed(2);
+    const advComm = +(yearlyN * commPct / 100 * ADVANCE_RATE).toFixed(2);
     const amtEl = card.querySelector('.comm-box .comm-amt');
     if (amtEl) amtEl.textContent = fmt$(advComm);
   }

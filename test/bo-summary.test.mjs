@@ -92,6 +92,10 @@ function loadCore() {
   const src = [
     block('comm-core'), block('persist-core'), block('recon-core'), block('bo-summary-core'),
     block('bos-chart-core'),
+    // OV2: _lgAdvComm's 0.75 became ADVANCE_RATE, declared once in
+    // override-core. Lifted rather than re-typed, for exactly the reason
+    // everything else on this list is.
+    block('override-core'),
     topLevelFn('ppParsePeriodKey'), topLevelFn('ppDay'), topLevelFn('ppIsDynamicPeriod'),
     topLevelFn('ppDynamicRange'), topLevelFn('ppPeriodLabel'), topLevelFn('summaryPeriodRange'),
     // FO5: bos-chart-core's third declared dependency — the app's one
@@ -1292,13 +1296,17 @@ test('the window is captioned by what it IS, not by the comparison it enables', 
     APP_CODE.indexOf('function boRefresh('));
   assert.ok(!/win\.label/.test(screen) && !/bosRange\(\)\.label/.test(screen),
     'the comparison label must not reach the screen');
-  // All three surfaces that name the window use the one helper: the chip row's
-  // caption, the graph's header, and the top-producers board.
+  // Every surface that names the window uses the one helper: the chip row's
+  // caption, the graph's header, the top-producers board, and — OV2 — the
+  // estimated override strip. The census below is what stops a FIFTH surface
+  // inventing its own caption; it grows only when a new surface goes through
+  // bosPeriodLabel(), which is the rule, not an exception to it.
   assert.match(screen, /class="bos-chips-cap">' \+ escHTML\(bosPeriodLabel\(\)\)/);
   assert.match(screen, /Running total &middot; ' \+ escHTML\(bosPeriodLabel\(\)\)/);
   assert.match(screen, /lbBoardHTML\(entry\.boards\[def\.key\], def, bosPeriodLabel\(\)\)/);
-  // One definition, three uses — nothing else may name the window.
-  assert.equal((screen.match(/bosPeriodLabel\(\)/g) || []).length, 4);
+  assert.match(screen, /class="bos-strip-s">' \+ escHTML\(bosPeriodLabel\(\)\)/);
+  // One definition, four uses — nothing else may name the window.
+  assert.equal((screen.match(/bosPeriodLabel\(\)/g) || []).length, 5);
 });
 
 test('🔴 THE MONEY STRIP SAYS SO WHEN THERE ARE NO STATEMENTS — never four $0.00s', () => {
