@@ -22,7 +22,9 @@
 //
 // Re-running is safe. `commission_rows` carries UNIQUE (agent_id, dedupe_key),
 // so a second pass over the same statement inserts nothing new, and a failed
-// statement can be retried from the UI as many times as it takes.
+// statement can be retried from the UI as many times as it takes — as long as
+// the lines still fingerprint the same. `replace: true` is for when they do
+// not: see the block on it below, and docs/back-office-ingestion.md.
 //
 // Callers: the browser with a user JWT (scoped to that agent), or the service
 // role for an unattended sweep. verify_jwt stays TRUE — the service-role key
@@ -48,9 +50,12 @@ import {
   planStatementStatusChanges,
   normalizePdfRows,
   sniffCarrier,
+  carryStatementHandWork,
   MAX_ROWS_PER_STATEMENT,
 } from "../_shared/statement-core.ts";
-import type { NormalizedRow, PolicyCandidate, Sheet } from "../_shared/statement-core.ts";
+import type {
+  ExistingRowFacts, HandWorkCarry, NormalizedRow, PolicyCandidate, Sheet,
+} from "../_shared/statement-core.ts";
 import { deriveColumnMapping, extractPdfRows } from "../_shared/statement-ai.ts";
 
 const STATEMENTS_PER_RUN = 3;   // wall-clock guard, not a capability limit
@@ -106,8 +111,30 @@ serve(async (req) => {
   if (user) scopeAgentId = user.id;
   else if (!token || token !== SERVICE_KEY) return json({ error: "unauthorized" }, 401);
 
-  let body: { statement_id?: string; retry?: boolean } = {};
+  let body: { statement_id?: string; retry?: boolean; replace?: boolean } = {};
   try { body = await req.json(); } catch { /* no body is fine */ }
+
+  // ------------------------------------------------------------
+  // 🔴 RE-READ REPLACES. It used to append, and the reason is the dedupe key.
+  //
+  // `commission_rows` is UNIQUE (agent_id, dedupe_key) and the key carries the
+  // transaction DATE, the amount and an occurrence ordinal. The upsert below
+  // uses ignoreDuplicates, so re-reading a statement whose lines still
+  // fingerprint identically writes nothing — which is what made re-reading
+  // look safe. The moment a parser fix changes a date (FIX2 turned nine nulls
+  // into real July dates) every fingerprint changes, nothing collides, and the
+  // second read lands a complete second set of rows BESIDE the first. The
+  // owner's $262.45 statement would have re-read to $524.90.
+  //
+  // The key is right and is not changing — the ordinal is what keeps a carrier's
+  // two legitimately identical lines from collapsing into one. What was missing
+  // is this: a re-read that puts the statement's rows back the way the parse
+  // now reads them, rather than adding to them.
+  //
+  // Only ever for ONE named statement. A sweep must not silently rewrite
+  // everybody's book.
+  // ------------------------------------------------------------
+  const replaceMode = !!(body.replace && body.statement_id);
 
   // ------------------------------------------------------------
   // Pick up work.
@@ -150,6 +177,24 @@ serve(async (req) => {
 
     try {
       await setStatus("parsing", { attempts: (st.attempts ?? 0) + 1, error: null, status_detail: "Reading the file" });
+
+      // ---- replace: photograph the rows before anything moves ----
+      //
+      // Taken FIRST, and as whole rows rather than just the hand-work columns,
+      // because this snapshot does two jobs: it is what the carry-over reads,
+      // and it is what goes back if the insert below fails. Ordered by
+      // row_index — the statement's own line order — because the carry-over is
+      // positional within a group of identical lines and a different order
+      // would hand one twin's approval to the other.
+      let priorRows: Record<string, unknown>[] | null = null;
+      if (replaceMode) {
+        const { data: prior, error: priorErr } = await sb
+          .from("commission_rows").select("*")
+          .eq("statement_id", st.id).eq("agent_id", st.agent_id)
+          .order("row_index", { ascending: true });
+        if (priorErr) { await fail(`The existing lines could not be read back: ${priorErr.message}`); continue; }
+        priorRows = prior ?? [];
+      }
 
       // ---- bytes ----
       const fileRes = await sb
@@ -325,15 +370,50 @@ serve(async (req) => {
         };
       });
 
+      // ---- replace: carry the hand work, then swap ----
+      //
+      // 🔴 THE ORDER IS THE SAFETY PROPERTY. The parse — the slow step, the one
+      // that calls a model over the network and the only one that realistically
+      // fails — has already finished by the time anything is deleted. PostgREST
+      // has no transaction across calls, so the choice was "do it all in one
+      // transaction" or "re-parse first and swap only on success"; this is the
+      // second. The remaining window is the milliseconds between the delete and
+      // the insert, and `priorRows` closes even that: the catch below puts the
+      // original rows back, ids and all. A statement left with ZERO rows is
+      // worse than the doubling this change exists to fix, so it must not be
+      // reachable from any path.
+      let carry: HandWorkCarry | null = null;
+      if (replaceMode && priorRows) {
+        carry = carryStatementHandWork(priorRows as unknown as ExistingRowFacts[], payload);
+        carry.carried.forEach((c, i) => { if (c) Object.assign(payload[i], c); });
+        await setStatus("persisting", { status_detail: `Replacing ${priorRows.length} lines with ${payload.length}` });
+        const { error: delErr } = await sb
+          .from("commission_rows").delete()
+          .eq("statement_id", st.id).eq("agent_id", st.agent_id);
+        if (delErr) throw new Error(`replace_delete_failed: ${delErr.message}`);
+      }
+
       let inserted = 0;
-      for (let i = 0; i < payload.length; i += ROW_INSERT_BATCH) {
-        const batch = payload.slice(i, i + ROW_INSERT_BATCH);
-        const { data, error } = await sb
-          .from("commission_rows")
-          .upsert(batch, { onConflict: "agent_id,dedupe_key", ignoreDuplicates: true })
-          .select("id");
-        if (error) throw new Error(`row_insert_failed: ${error.message}`);
-        inserted += (data ?? []).length;
+      try {
+        for (let i = 0; i < payload.length; i += ROW_INSERT_BATCH) {
+          const batch = payload.slice(i, i + ROW_INSERT_BATCH);
+          const { data, error } = await sb
+            .from("commission_rows")
+            .upsert(batch, { onConflict: "agent_id,dedupe_key", ignoreDuplicates: true })
+            .select("id");
+          if (error) throw new Error(`row_insert_failed: ${error.message}`);
+          inserted += (data ?? []).length;
+        }
+      } catch (insErr) {
+        // Put the statement back exactly as it was. Clear whatever part of the
+        // new set landed first — otherwise the restore collides with it on the
+        // dedupe key and silently restores nothing.
+        if (replaceMode && priorRows) {
+          await sb.from("commission_rows").delete()
+            .eq("statement_id", st.id).eq("agent_id", st.agent_id);
+          if (priorRows.length) await sb.from("commission_rows").insert(priorRows);
+        }
+        throw insErr;
       }
 
       // ---- apply what the statement is authoritative about ----
@@ -411,6 +491,17 @@ serve(async (req) => {
         // A re-run reports 0 new rows rather than pretending to have done work.
         already_present: payload.length - inserted,
         status_changes: statusChanges,
+        // What the replace did, in the terms the screen reports it in. Hand
+        // work that did NOT survive is counted and shown rather than quietly
+        // absorbed — a line whose amount the fix corrected genuinely is a
+        // different line, and the agent needs to know their approval went with
+        // the old reading of it.
+        replaced: replaceMode,
+        lines_before: replaceMode && priorRows ? priorRows.length : null,
+        lines_after: replaceMode ? payload.length : null,
+        hand_work_before: carry ? carry.handWorkBefore : null,
+        hand_work_carried: carry ? carry.carriedCount : null,
+        hand_work_lost: carry ? carry.lostCount : null,
       });
     } catch (e) {
       await fail(String((e as Error).message || e));

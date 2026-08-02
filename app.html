@@ -4107,6 +4107,29 @@ body:not(.light) .auth-plan-card-name{color:#e2eaf4}
 }
 .bo-link:hover{color:var(--lg-blue-deep)}
 .bo-link[disabled]{opacity:.45;cursor:default;text-decoration:none}
+.bo-link-danger{color:var(--lg-red)}
+.bo-link-danger:hover{color:var(--lg-red)}
+/* The Back Office modals sit outside .ledger, so the .ledger .pt-btn family
+   does not reach them. Scoped to this modal rather than adding a global
+   .overlay copy, which would restyle the Reconciliation debt modal too. */
+#boDeleteModal .pt-btn{
+  height:32px;border-radius:6px;padding:0 12px;font-size:12.5px;font-weight:600;
+  cursor:pointer;font-family:'Spline Sans',sans-serif;white-space:nowrap;border:none;
+}
+#boDeleteModal .pt-btn-ghost{background:var(--lg-card);border:1px solid var(--lg-border);color:var(--lg-text2);font-weight:500}
+#boDeleteModal .pt-btn-primary{background:var(--lg-blue);color:#FFFFFF}
+#boDeleteModal .pt-btn-danger{background:var(--lg-red);color:#FFFFFF}
+#boDeleteModal .pt-btn-danger:disabled{opacity:.45;cursor:not-allowed}
+#boDeleteModal .pt-input{
+  height:32px;border-radius:6px;padding:0 10px;font-size:12.5px;
+  background:var(--lg-inner);border:1px solid var(--lg-border);color:var(--lg-text1);
+}
+.bo-del-warn{
+  background:var(--lg-red-soft);border-radius:8px;padding:10px 12px;
+  font-size:12px;line-height:1.55;color:var(--lg-text2);margin-top:10px;
+}
+.bo-del-pol{font-size:11.5px;line-height:1.6;margin-top:6px}
+.bo-del-pol b{font-weight:600}
 .bo-empty{padding:34px 20px;text-align:center;color:var(--lg-caption);font-size:12.5px}
 .bo-rgrid{display:grid;grid-template-columns:1.4fr 1.6fr 1fr 1fr .9fr 1.4fr;gap:10px;padding:9px 12px;align-items:center}
 .bo-review{background:var(--lg-red-soft)}
@@ -6091,6 +6114,25 @@ body:not(.light) input.pp-pick[type=date]::-webkit-calendar-picker-indicator{fil
           <button class="mclose" onclick="boCloseRows()" data-ico="x" data-size="14" aria-label="Close"></button>
         </div>
         <div id="bo-rows-body"></div>
+      </div>
+    </div>
+
+    <!--
+      Removing a statement, and re-reading one. Both are irreversible and both
+      are about money records, so both are confirmed here rather than with a
+      browser confirm() — a one-line dialog cannot show which policies the
+      statement moved, and that list is the point.
+    -->
+    <div class="overlay" id="boDeleteModal">
+      <div class="modal">
+        <div class="mhdr">
+          <div>
+            <div class="mtitle" id="bo-del-title">Remove this statement?</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:3px" id="bo-del-sub"></div>
+          </div>
+          <button class="mclose" onclick="boCloseDelete()" data-ico="x" data-size="14" aria-label="Close"></button>
+        </div>
+        <div id="bo-del-body"></div>
       </div>
     </div>
 
@@ -27457,6 +27499,66 @@ function boFilenameHeader(name) {
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   return btoa(bin);
 }
+
+// ------------------------------------------------------------
+// Removing a statement, and re-reading one (FIX3)
+//
+// The wording lives here rather than inline in the renderer because these two
+// sentences are the entire safety mechanism for two irreversible actions. A
+// confirmation that undercounts what it is about to delete is worse than no
+// confirmation, so the counting is tested.
+// ------------------------------------------------------------
+
+/**
+ * "9 commission lines totalling $262.45" — what a delete is about to remove.
+ * ZIP members cascade with their archive, so they are counted here too: they
+ * are invisible from the row the agent clicked.
+ */
+function boDeleteSummaryLine(impact) {
+  const i = impact || {};
+  const lines = Number(i.line_count || 0);
+  const kids = Number(i.child_count || 0);
+  const a = lines === 1 ? '1 commission line' : lines.toLocaleString('en-US') + ' commission lines';
+  const b = ' totalling ' + boFmtMoney(i.net_amount_cents);
+  const c = kids ? (kids === 1
+    ? ', plus 1 statement that came out of this archive'
+    : ', plus ' + kids + ' statements that came out of this archive') : '';
+  return a + b + c + '.';
+}
+
+/**
+ * 🔴 THE SENTENCE THAT SAYS THE BOOK IS NOT REWOUND (decision 1).
+ *
+ * Deleting a statement removes the statement, not what the carrier said. Any
+ * policy this statement moved KEEPS its current status — so the confirmation
+ * names them and says plainly that they are worth checking. Returning '' when
+ * a statement moved nothing keeps the modal quiet in the ordinary case.
+ */
+function boDeleteStatusNote(impact) {
+  const moved = (impact && impact.moved_policies) || [];
+  if (moved.length === 0) return '';
+  const n = moved.length === 1 ? 'One policy was' : moved.length + ' policies were';
+  return n + ' moved by this statement. They will KEEP the status it set — ' +
+    'deleting the statement does not put them back — so they are worth checking.';
+}
+
+/** "9 lines replaced by 9. 2 approvals carried over, 1 could not be." */
+function boReplaceResultLine(res) {
+  const r = res || {};
+  const before = Number(r.lines_before || 0);
+  const after = Number(r.lines_after || 0);
+  const carried = Number(r.hand_work_carried || 0);
+  const lost = Number(r.hand_work_lost || 0);
+  let s = before + (before === 1 ? ' line replaced by ' : ' lines replaced by ') + after + '.';
+  if (carried || lost) {
+    s += ' ' + (carried === 1 ? '1 approval or manual match carried over' : carried + ' approvals or manual matches carried over');
+    // A lost decision is stated, never absorbed: a line whose amount the parser
+    // corrected is genuinely a different line, and the agent has to know their
+    // approval went with the old reading of it.
+    s += lost ? (lost === 1 ? ', 1 could not be.' : ', ' + lost + ' could not be.') : '.';
+  }
+  return s;
+}
 // </backoffice-core>
 
 // <comm-core>
@@ -30881,7 +30983,10 @@ function boPaint() {
     '<div style="font-size:11.5px;color:var(--lg-caption);margin-top:9px;line-height:1.6">' +
       'Every uploaded file is kept exactly as it arrived, alongside the raw extraction — a parse is never the only ' +
       'surviving record of your statement. Lines that could not be matched to a policy are held for review rather ' +
-      'than discarded.' +
+      'than discarded.<br>' +
+      '<b>Re-read</b> reads the original file again and <b>replaces</b> that statement’s lines with the result — it ' +
+      'does not add to them. Approvals and manual matches carry over on any line that comes back unchanged. ' +
+      '<b>Remove</b> deletes a statement, its file and its commission lines; policies it moved keep the status it set.' +
     '</div>';
 }
 
@@ -30904,7 +31009,17 @@ function boStatementRowHTML(st, isMember) {
     actions.push('<button class="bo-link" onclick="boParseNow(\'' + st.id + '\',this)">' +
       (st.status === 'failed' ? 'Try again' : 'Parse now') + '</button>');
   }
+  // The label says what the button does. A re-read no longer adds to the
+  // statement's lines, it REPLACES them — and an agent who reads "Re-read" as
+  // "check it again" has been told the opposite of what will happen to their
+  // approvals. The title attribute and the confirmation both repeat it.
+  if (st.status === 'ingested' && !isArchive) {
+    actions.push('<button class="bo-link" onclick="boReReadConfirm(\'' + st.id + '\')" ' +
+      'title="Reads the original file again and replaces this statement’s lines with the result.">' +
+      'Re-read (replaces lines)</button>');
+  }
   actions.push('<button class="bo-link" onclick="boDownload(\'' + st.id + '\',this)">Original</button>');
+  actions.push('<button class="bo-link bo-link-danger" onclick="boConfirmDelete(\'' + st.id + '\')">Remove</button>');
 
   return '<div class="bo-grid bo-row">' +
     '<div>' +
@@ -31038,7 +31153,15 @@ async function boUpload(files) {
 // Parse
 // ------------------------------------------------------------
 
-async function boParseNow(statementId, btn) {
+/**
+ * The ONE statement-parse call site. `replace` asks the worker to swap the
+ * statement's lines for the new reading rather than add to them; everything
+ * else about the call is unchanged, which is why this stayed one function
+ * instead of gaining a sibling that would drift on the session header, the
+ * retry flag and the failure reporting.
+ */
+async function boParseNow(statementId, btn, replace) {
+  const label = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Working…'; }
   try {
     const { data: sess } = await sb.auth.getSession();
@@ -31047,7 +31170,9 @@ async function boParseNow(statementId, btn) {
     const res = await fetch(SUPABASE_URL + '/functions/v1/statement-parse', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(statementId ? { statement_id: statementId, retry: true } : { retry: false }),
+      body: JSON.stringify(statementId
+        ? { statement_id: statementId, retry: true, replace: !!replace }
+        : { retry: false }),
     });
     const json = await res.json();
     if (!res.ok || json.error) throw new Error(json.detail || json.error || ('HTTP ' + res.status));
@@ -31055,12 +31180,182 @@ async function boParseNow(statementId, btn) {
     if (failed.length) {
       boLog(failed.map(r => ({ kind: 'err', text: r.filename + ' — ' + r.error })), true);
     }
+    // A replace reports what it did to the agent's own work. Saying nothing
+    // after silently dropping an approval is how a screen loses trust.
+    (json.results || []).filter(r => r.replaced && r.status === 'ingested').forEach(r => {
+      boLog([{ kind: r.hand_work_lost ? 'warn' : 'ok', text: r.filename + ' — ' + boReplaceResultLine(r) }], true);
+    });
   } catch (e) {
     boLog([{ kind: 'err', text: 'Parsing could not be started: ' + ((e && e.message) || e) }], true);
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
+    if (btn) { btn.disabled = false; btn.textContent = label || 'Try again'; }
     await boRefresh(false);
   }
+}
+
+// ------------------------------------------------------------
+// Re-read, and remove
+//
+// Both are irreversible and both act on money records, so both are confirmed
+// in #boDeleteModal rather than with confirm(). The delete additionally
+// requires the filename to be typed: the confirmation carries a list of
+// policies the statement moved, and a dialog somebody can dismiss with the
+// Enter key is not a place to put a list nobody reads.
+// ------------------------------------------------------------
+
+let _boDel = { id: null, impact: null, mode: 'delete' };
+
+function boCloseDelete() {
+  const m = document.getElementById('boDeleteModal');
+  if (m) m.classList.remove('open');
+  _boDel = { id: null, impact: null, mode: 'delete' };
+}
+
+function boOpenDeleteModal(title, sub, bodyHTML) {
+  const modal = document.getElementById('boDeleteModal');
+  const t = document.getElementById('bo-del-title');
+  const s = document.getElementById('bo-del-sub');
+  const b = document.getElementById('bo-del-body');
+  if (!modal || !b) return;
+  if (t) t.textContent = title;
+  if (s) s.textContent = sub;
+  b.innerHTML = bodyHTML;
+  modal.classList.add('open');
+  if (typeof mountIcons === 'function') { try { mountIcons(b); } catch (_e) {} }
+}
+
+/** The list of policies a statement moved — rendered in both confirmations. */
+function boMovedPoliciesHTML(impact) {
+  const moved = (impact && impact.moved_policies) || [];
+  if (!moved.length) return '';
+  return '<div class="bo-del-pol">' + moved.map(p =>
+    '<div>• <b>' + escHTML(p.insured_name || 'Unnamed policy') + '</b>' +
+    (p.policy_number ? ' · ' + escHTML(p.policy_number) : '') +
+    ' — set to <b>' + escHTML(p.to_status || '?') + '</b>' +
+    (p.from_status ? ' (was ' + escHTML(p.from_status) + ')' : '') + '</div>'
+  ).join('') + '</div>';
+}
+
+/**
+ * Ask the server what a delete would remove, then show it. The preview and the
+ * delete are the same call with one flag, so what this modal promises is
+ * computed by the code that will carry it out.
+ */
+async function boConfirmDelete(statementId) {
+  const st = (_boCache.statements || []).find(s => s.id === statementId);
+  boOpenDeleteModal('Remove this statement?', st ? st.filename : '',
+    '<div style="font-size:12.5px;color:var(--text3);padding:6px 0">Checking what this would remove…</div>');
+  const res = await boDeleteCall('preview', statementId);
+  if (!res) { boCloseDelete(); return; }
+
+  _boDel = { id: statementId, impact: res.impact, mode: 'delete' };
+  const i = res.impact;
+  const note = boDeleteStatusNote(i);
+
+  boOpenDeleteModal('Remove this statement?', i.filename,
+    '<div style="font-size:12.5px;line-height:1.6;color:var(--text2)">' +
+      'This removes <b>' + escHTML(boDeleteSummaryLine(i)) + '</b>' +
+      ' The original file and everything read out of it go with them.' +
+    '</div>' +
+    (i.child_count
+      ? '<div class="bo-del-pol" style="color:var(--text3)">' +
+          i.child_filenames.map(f => '• ' + escHTML(f)).join('') + '</div>'
+      : '') +
+    (note
+      ? '<div class="bo-del-warn"><b>' + escHTML(note) + '</b>' + boMovedPoliciesHTML(i) + '</div>'
+      : '') +
+    '<div class="bo-del-warn"><b>This cannot be undone.</b> Uploading the same file again will read it from ' +
+      'scratch. To confirm, type the filename below.</div>' +
+    '<div style="margin-top:10px">' +
+      '<input id="bo-del-typed" class="pt-input" style="width:100%" autocomplete="off" spellcheck="false" ' +
+        'placeholder="' + escHTML(i.filename) + '" oninput="boDeleteTypedChanged()">' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
+      '<button class="pt-btn pt-btn-ghost" onclick="boCloseDelete()">Cancel</button>' +
+      '<button class="pt-btn pt-btn-danger" id="bo-del-go" disabled onclick="boDoDelete(this)">Remove statement</button>' +
+    '</div>');
+}
+
+/**
+ * The deliberate act. Typing the filename is what makes this different from a
+ * button somebody hits while scrolling — matched case-insensitively and
+ * trimmed, because the requirement is deliberateness, not transcription.
+ */
+function boDeleteTypedChanged() {
+  const input = document.getElementById('bo-del-typed');
+  const go = document.getElementById('bo-del-go');
+  if (!input || !go || !_boDel.impact) return;
+  const want = String(_boDel.impact.filename || '').trim().toLowerCase();
+  go.disabled = input.value.trim().toLowerCase() !== want;
+}
+
+async function boDoDelete(btn) {
+  const id = _boDel.id;
+  const impact = _boDel.impact;
+  if (!id) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Removing…'; }
+  const res = await boDeleteCall('delete', id);
+  if (!res) { if (btn) { btn.disabled = false; btn.textContent = 'Remove statement'; } return; }
+  boCloseDelete();
+
+  const log = [{ kind: 'ok', text: 'Removed ' + res.impact.filename + ' — ' + boDeleteSummaryLine(res.impact) }];
+  const note = boDeleteStatusNote(impact || res.impact);
+  if (note) log.push({ kind: 'warn', text: note });
+  boLog(log, true);
+  await boRefresh(true);
+}
+
+/** The ONE statement-delete call site — preview and delete both come through it. */
+async function boDeleteCall(action, statementId) {
+  try {
+    const { data: sess } = await sb.auth.getSession();
+    const token = sess && sess.session && sess.session.access_token;
+    if (!token) throw new Error('Your session has expired — sign in again.');
+    const res = await fetch(SUPABASE_URL + '/functions/v1/statement-delete', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, statement_id: statementId }),
+    });
+    const json = await res.json();
+    if (!res.ok || json.error) throw new Error(json.detail || json.error || ('HTTP ' + res.status));
+    return json;
+  } catch (e) {
+    boLog([{ kind: 'err', text: 'That statement could not be removed: ' + ((e && e.message) || e) }], true);
+    return null;
+  }
+}
+
+/**
+ * Re-read, confirmed. The confirmation exists because a re-read REPLACES —
+ * approvals and manual matches on lines the new parse reads differently do not
+ * survive it, and the agent has to know that before the click rather than in a
+ * toast afterwards.
+ */
+function boReReadConfirm(statementId) {
+  const st = (_boCache.statements || []).find(s => s.id === statementId);
+  _boDel = { id: statementId, impact: null, mode: 'reread' };
+  boOpenDeleteModal('Re-read this statement?', st ? st.filename : '',
+    '<div style="font-size:12.5px;line-height:1.6;color:var(--text2)">' +
+      'The original file is read again from scratch, and <b>this statement’s ' +
+      (st && st.row_count ? st.row_count + ' lines are replaced' : 'lines are replaced') +
+      '</b> by whatever it now reads — they are not added to.' +
+    '</div>' +
+    '<div class="bo-del-warn">' +
+      'Approvals and manual policy matches <b>carry over</b> on any line that comes back with the same policy ' +
+      'number, insured and amount. A line the reader now understands differently is a different line, so its ' +
+      'approval does not carry — you will be told how many did and how many did not.' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
+      '<button class="pt-btn pt-btn-ghost" onclick="boCloseDelete()">Cancel</button>' +
+      '<button class="pt-btn pt-btn-primary" onclick="boDoReRead(this)">Re-read and replace</button>' +
+    '</div>');
+}
+
+async function boDoReRead(btn) {
+  const id = _boDel.id;
+  if (!id) return;
+  boCloseDelete();
+  await boParseNow(id, btn, true);
 }
 
 // ------------------------------------------------------------

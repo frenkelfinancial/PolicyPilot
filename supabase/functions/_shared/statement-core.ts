@@ -1735,3 +1735,222 @@ export function planStatementStatusChanges(
   }
   return out;
 }
+
+// ============================================================
+// 13. Removing a statement, and re-reading one in place (FIX3).
+//
+// Two operations that move commission rows around without re-interpreting a
+// single one of them. Nothing here parses, dates or types anything — that is
+// sections 6-8's job and FIX2 settled it.
+//
+// WHY THIS EXISTS. `commission_rows` is UNIQUE (agent_id, dedupe_key) and the
+// key is built (section 8) from carrier|policy|insured|DATE|amount|type plus an
+// occurrence ordinal. The date is in there on purpose and must stay — but it
+// means ANY parser improvement that changes a date, an amount or an ordinal
+// re-fingerprints every line of every statement already ingested. The upsert
+// uses ignoreDuplicates, so a re-read after such a fix does not update the old
+// rows: it inserts a full second set BESIDE them. FIX2 turned nine null dates
+// into real ones, so the owner's $262.45 statement would have re-read to
+// $524.90. The dedupe key is correct. What was missing is a replace path.
+// ============================================================
+
+/**
+ * The fields of an existing `commission_rows` row that a replace has to reason
+ * about: the three that identify the line, and the ones a PERSON decided.
+ */
+export interface ExistingRowFacts {
+  id?: string;
+  policy_number: string | null;
+  insured_name: string | null;
+  amount_cents: number | null;
+  review_status?: string | null;
+  matched_policy_id?: string | null;
+  match_method?: string | null;
+  match_confidence?: number | null;
+  review_reason?: string | null;
+  review_note?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+}
+
+/** What is copied onto a new row when its predecessor is recognised. */
+export interface CarriedHandWork {
+  review_status: string;
+  matched_policy_id: string | null;
+  match_method: string | null;
+  match_confidence: number | null;
+  review_reason: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+}
+
+export interface HandWorkCarry {
+  /** Parallel to the new rows: hand work to apply, or null to leave the parse alone. */
+  carried: (CarriedHandWork | null)[];
+  /** How many resolved lines existed before the re-read. */
+  handWorkBefore: number;
+  carriedCount: number;
+  /** Resolved lines whose replacement did not come back identical. Reported, never guessed at. */
+  lostCount: number;
+}
+
+/**
+ * HAND WORK IS A DECISION A PERSON MADE, not merely a populated column.
+ *
+ * `auto` / `needs_review` carrying a parser-proposed match is the PARSER's
+ * opinion, and copying it forward would freeze a stale verdict on top of a
+ * fresh one — a re-read exists precisely because the new parse knows more.
+ * What carries is an approval, a rejection, or a match the agent chose by hand.
+ */
+export function rowCarriesHandWork(row: ExistingRowFacts): boolean {
+  const st = String(row.review_status || "");
+  return st === "approved" || st === "rejected" || row.match_method === "manual";
+}
+
+/**
+ * The three-field identity a carry-over needs: policy number, insured name,
+ * amount. All three, normalized with the SAME normalizers the dedupe key uses
+ * (section 8) so a re-read that merely reformats a name is still recognised.
+ *
+ * Deliberately NOT the dedupe key: that carries the date and the type, which
+ * are exactly what a parser fix is expected to change. A rule strict enough to
+ * include them would carry nothing forward on the only statements that need it.
+ */
+export function handWorkCarryKey(row: ExistingRowFacts): string {
+  return [
+    normalizePolicyNumber(row.policy_number),
+    normalizeName(row.insured_name),
+    String(Number(row.amount_cents ?? 0)),
+  ].join("|");
+}
+
+/**
+ * Match old rows to new ones and say which decisions survive.
+ *
+ * 🔴 POSITIONAL WITHIN THE DUPLICATE GROUP. A carrier legitimately prints the
+ * same line twice — the owner's own ledger has Browning $36.95 twice and Smith
+ * $90.46 twice, identical on all three fields, which is why the dedupe key
+ * carries an occurrence ordinal at all. First-match-wins would attach one
+ * twin's approval to the other. So old rows are queued IN ORDER per key and
+ * consumed in order.
+ *
+ * Every old row joins its queue, including ones carrying no hand work — the
+ * queue models POSITION, and filtering first would shift an approved second
+ * twin onto an untouched first one.
+ */
+export function carryStatementHandWork(
+  oldRows: ExistingRowFacts[],
+  newRows: ExistingRowFacts[],
+): HandWorkCarry {
+  const queues = new Map<string, ExistingRowFacts[]>();
+  let handWorkBefore = 0;
+  for (const r of oldRows || []) {
+    const k = handWorkCarryKey(r);
+    if (!queues.has(k)) queues.set(k, []);
+    queues.get(k)!.push(r);
+    if (rowCarriesHandWork(r)) handWorkBefore++;
+  }
+
+  const carried = (newRows || []).map((n) => {
+    const q = queues.get(handWorkCarryKey(n));
+    if (!q || q.length === 0) return null;
+    const old = q.shift()!;
+    if (!rowCarriesHandWork(old)) return null;
+    return {
+      review_status: String(old.review_status || "approved"),
+      matched_policy_id: old.matched_policy_id ?? null,
+      match_method: old.match_method ?? null,
+      match_confidence: old.match_confidence ?? null,
+      review_reason: old.review_reason ?? null,
+      review_note: old.review_note ?? null,
+      reviewed_at: old.reviewed_at ?? null,
+      reviewed_by: old.reviewed_by ?? null,
+    } as CarriedHandWork;
+  });
+
+  const carriedCount = carried.filter(Boolean).length;
+  return { carried, handWorkBefore, carriedCount, lostCount: handWorkBefore - carriedCount };
+}
+
+// ------------------------------------------------------------
+// The delete impact
+// ------------------------------------------------------------
+
+/** One policy this statement moved, as recorded in `policy_status_history`. */
+export interface MovedPolicy {
+  policy_id: string | null;
+  policy_client_id: number | null;
+  policy_number: string | null;
+  insured_name: string | null;
+  from_status: string | null;
+  to_status: string | null;
+  changed_at: string | null;
+}
+
+export interface StatementDeleteImpact {
+  statement_id: string;
+  filename: string;
+  /** ZIP members. They cascade with the parent, so the confirmation has to count them. */
+  child_count: number;
+  child_filenames: string[];
+  line_count: number;
+  net_amount_cents: number;
+  moved_policies: MovedPolicy[];
+}
+
+/**
+ * Shape what a delete is about to remove, from rows already read out of the
+ * database. Pure, so the arithmetic and the wording are testable.
+ *
+ * 🔴 `moved_policies` is REPORTED, NOT REVERTED (decision 1). Deleting a
+ * statement removes the statement; it does not rewrite the book. A carrier
+ * saying a policy was charged back stays true after the paperwork proving it is
+ * removed, and `policy_status_history` is append-only by design — nothing here
+ * may rewrite it. What the owner is owed is the LIST, so he can check those
+ * policies himself.
+ */
+export function summarizeStatementDeletion(input: {
+  statement: { id: string; filename?: string | null };
+  children?: { id: string; filename?: string | null }[];
+  rows?: { amount_cents?: number | null }[];
+  /** History rows, oldest first. */
+  history?: MovedPolicy[];
+}): StatementDeleteImpact {
+  const children = input.children || [];
+  const rows = input.rows || [];
+  return {
+    statement_id: input.statement.id,
+    filename: String(input.statement.filename || "this statement"),
+    child_count: children.length,
+    child_filenames: children.map((c) => String(c.filename || "file")),
+    line_count: rows.length,
+    net_amount_cents: rows.reduce((n, r) => n + Number(r.amount_cents || 0), 0),
+    moved_policies: collapseMovedPolicies(input.history || []),
+  };
+}
+
+/**
+ * ONE ENTRY PER POLICY — the question is "which policies did this statement
+ * move, and to what", not "how many rows are in the trail".
+ *
+ * A statement writes at most one history row per policy per parse, but a
+ * re-read can write another if the status moved again in between, and the
+ * confirmation listing the same person twice with the same status reads as a
+ * bug rather than as history. Collapsed to `from` the EARLIEST change and `to`
+ * the LATEST, which is what the statement actually did to that policy end to
+ * end. Input is oldest-first, so the last one wins.
+ *
+ * The trail itself is untouched — this collapses the DISPLAY, not the record.
+ */
+export function collapseMovedPolicies(history: MovedPolicy[]): MovedPolicy[] {
+  const out = new Map<string, MovedPolicy>();
+  for (const h of history || []) {
+    // A history row with no policy id cannot be collapsed against anything, and
+    // dropping it would hide a change. Key it uniquely instead.
+    const key = h.policy_id || `#${out.size}`;
+    const seen = out.get(key);
+    out.set(key, seen ? { ...h, from_status: seen.from_status } : h);
+  }
+  return [...out.values()];
+}

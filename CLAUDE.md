@@ -242,6 +242,52 @@ Autonomy layer (added 07/2026):
 
 - **Read `docs/back-office-ingestion.md` before touching anything named `bo*`, `statement*`, or `commission_*`.** Mission ledger and per-phase decisions: `docs/back-office-progress.md` — that file is the resume point if a Back Office session ends mid-mission.
 - **🔴 `Access-Control-Allow-Headers` IN `_shared/cors.ts` MUST NAME EVERY CUSTOM HEADER ANY BROWSER CALL SENDS, AND A MISSING ONE IS SILENT.** A custom header forces a CORS preflight naming it; if the reply does not list it the browser **blocks the request before sending it** — the `fetch` rejects with `Failed to fetch`, the edge function is never invoked, and there is **no server log, no error row and nothing to grep**. `statement-upload` sends `x-filename-b64` and `x-content-type` and neither was on the list, so **browser statement upload was dead from the day it shipped** and `commission_statements` / `statement_files` / `commission_rows` sat at zero rows while every build-time verification passed — because all of them were server-to-server, where no preflight is ever sent. Fixed 2026-08-01; `ALLOW_HEADERS` is now a named constant and **`npm run test:cors` (`test/cors-headers.test.mjs`) DERIVES the header set from `app.html`** rather than restating it, because the list and its callers drifted with nothing connecting them. Adding a custom header means adding it there **and redeploying the function that receives it** — the commit changes nothing on its own, the running bundle is what answers the preflight. Never widen the list to `*`.
+- **🔴 A RE-READ REPLACES A STATEMENT'S LINES. IT USED TO APPEND, AND THE
+  DEDUPE KEY IS WHY.** The row key carries the transaction **date** (and the
+  amount, and an occurrence ordinal), so **any** parser improvement that moves
+  one of those re-fingerprints every line of every statement already ingested.
+  The upsert is `ignoreDuplicates`, so nothing collides and nothing is updated —
+  a second read lands a complete second set of rows BESIDE the first. FIX2
+  turned nine null dates into real July dates, so the owner's $262.45 statement
+  would have re-read to **$524.90**. **The key is correct and does not change**;
+  what was missing was a replace path. `statement-parse` takes `replace: true`
+  for ONE named statement (never a sweep) and the ORDER is the safety property:
+  the model call finishes **before** anything is deleted, and `priorRows` — a
+  whole-row snapshot taken first — is put back, ids and all, if the insert then
+  fails. A statement left with zero rows is worse than the doubling this fixed.
+- **Hand work carries over on POLICY NUMBER + INSURED + AMOUNT, all three, and
+  POSITIONALLY within a group of identical lines.** `carryStatementHandWork()`
+  in `// statement-core`. Deliberately **not** the dedupe key — that carries the
+  date and the type, which are exactly what a parser fix changes, so it would
+  carry nothing forward on the only statements that need it. Hand work means a
+  decision a PERSON made (`approved`, `rejected`, or `match_method='manual'`);
+  an `auto` match is the parser's opinion and copying it forward would freeze a
+  stale verdict over the fresher one the re-read exists to get. The owner's own
+  ledger prints Browning $36.95 twice and Smith $90.46 twice, so old rows are
+  queued **in order** per key and consumed in order — first-match-wins attaches
+  one twin's approval to the other. **Every** old row joins the queue, hand work
+  or not; filtering first shifts an approved second twin onto an untouched
+  first. What did not carry is **counted and shown**, never absorbed.
+- **`statement-delete` is an EDGE FUNCTION, matching `statement-review`** —
+  agent from the JWT, no agent id in the body, service role, one pattern for the
+  write path onto commission data rather than two. **The four commission tables
+  stay SELECT-only for `authenticated`; this round added no policy to any of
+  them.** `preview` and `delete` are the same call with one flag through one
+  `summarizeStatementDeletion()`, because a preview computed by separate code is
+  a preview that eventually lies. It issues **ONE** delete — the parent row —
+  and lets the cascade do the rest; four foreign keys reference
+  `commission_statements` and all four cascade (verified against the live
+  catalogue, not just the migration text), so a ZIP's members and their rows go
+  with it and the confirmation counts them.
+- **🔴 DELETING A STATEMENT NEVER REWRITES THE BOOK.** Policies keep whatever
+  status it set; `policy_status_history` is append-only and its `source_ref_id`
+  carries no foreign key, so the trail survives the delete **deliberately** — a
+  carrier having said "charged back" stays true after the paperwork proving it
+  is removed. What the agent gets instead is the **list** of policies the
+  statement moved and what it set each to, in the confirmation and in the
+  result, collapsed to **one entry per policy** (`from` the earliest change,
+  `to` the latest). Tests pin that nothing writes `policies`, `policy_events` or
+  `policy_status_history` from that function.
 - **A tabular statement costs ONE Anthropic call per sheet, whatever its row count.** The model derives a *column mapping* from the header row plus a few sample rows; `_shared/statement-core.ts` then applies that mapping to every row deterministically. Do not "improve" this by sending rows to the model — it is still template-free (nobody configures a carrier), and the per-row arithmetic belongs in tested code. PDFs are the exception: no column structure to derive, so the document goes to the model natively.
 - **Nothing is discarded, three ways.** The file exactly as uploaded lives in `statement_files.content`; the model's verbatim answer lands in `statement_extractions` **before** our normalizer runs; and a line that matched no policy is stored with `review_status='needs_review'` plus a plain-English `review_reason`, never dropped.
 - **Idempotency is at two grains.** `UNIQUE (agent_id, sha256)` on the file, and `UNIQUE (agent_id, dedupe_key)` on the row — where the row key carries an **occurrence ordinal**, so a statement legitimately containing two identical lines keeps both while a re-parse still writes nothing new. Removing the ordinal silently deletes real commission lines.

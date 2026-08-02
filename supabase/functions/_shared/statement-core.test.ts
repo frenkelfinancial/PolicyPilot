@@ -45,6 +45,10 @@ import {
   resolvePdfRowDates,
   refineTxnTypeFromText,
   normalizePdfRows,
+  carryStatementHandWork,
+  rowCarriesHandWork,
+  handWorkCarryKey,
+  summarizeStatementDeletion,
   STATEMENT_AUTHORITATIVE_STATUSES,
   MAX_FILE_BYTES,
   type Sheet,
@@ -1448,4 +1452,262 @@ test("normalizePdfRows still drops a line that is padding, and keeps a zero-valu
   ], { carrier: "X", statementDate: "2026-07-31", periodEnd: "2026-07-31" });
   assert.equal(rows.length, 1);
   assert.equal(rows[0].policyNumber, "P9");
+});
+
+// ============================================================
+// FIX3 — a statement you can remove, and a re-read that replaces
+// ============================================================
+
+/** The same nine lines as the fixture, fingerprinted the way the PRE-FIX2 parser left them: no dates at all. */
+const amamRowsUndated = () => amamRows().map(r => ({
+  ...r, transactionDate: null, paidDate: null, effectiveDate: null,
+}));
+
+test("🔴 A PARSER FIX RE-FINGERPRINTS EVERY LINE — which is why re-read had to start replacing", () => {
+  // This is the whole mechanism, stated as a test. The dedupe key carries the
+  // transaction DATE (section 8). FIX2 turned nine null dates into real July
+  // ones, so not one of the nine keys survived the change — and the upsert
+  // uses ignoreDuplicates, so nothing collides and nothing is updated.
+  const before = buildDedupeKeys(amamRowsUndated(), sha);
+  const after = buildDedupeKeys(amamRows(), sha);
+  assert.equal(before.length, 9);
+  assert.equal(after.length, 9);
+
+  const overlap = after.filter(k => before.includes(k));
+  assert.deepEqual(overlap, [],
+    "Every line re-fingerprints after a date fix, so an APPENDING re-read inserts a second full set beside " +
+    "the first: the owner's 9-line $262.45 statement becomes 18 lines and $524.90. This is why the re-read " +
+    "path deletes the statement's rows before inserting.");
+
+  // The arithmetic of the bug this round exists to prevent, spelled out.
+  const net = amamRows().reduce((n, r) => n + r.amountCents, 0);
+  assert.equal(net, 26245);
+  assert.equal(net * 2, 52490, "$262.45 doubled is $524.90");
+});
+
+test("re-reading UNCHANGED lines still fingerprints identically — the dedupe key is not the problem", () => {
+  // The key is correct and this round does not touch it. A re-read of a
+  // statement the parser reads the same way writes nothing new either way.
+  assert.deepEqual(buildDedupeKeys(amamRows(), sha), buildDedupeKeys(amamRows(), sha));
+});
+
+// ---- what counts as hand work ----
+
+test("hand work is a decision a PERSON made, not merely a populated column", () => {
+  assert.equal(rowCarriesHandWork({ policy_number: "1", insured_name: "A", amount_cents: 1, review_status: "approved" }), true);
+  assert.equal(rowCarriesHandWork({ policy_number: "1", insured_name: "A", amount_cents: 1, review_status: "rejected" }), true);
+  assert.equal(rowCarriesHandWork({
+    policy_number: "1", insured_name: "A", amount_cents: 1,
+    review_status: "needs_review", match_method: "manual",
+  }), true, "a match the agent chose by hand is hand work even before it is approved");
+
+  // The parser's own opinion is NOT hand work. Carrying it would freeze a
+  // stale verdict on top of the fresh parse the re-read exists to get.
+  assert.equal(rowCarriesHandWork({
+    policy_number: "1", insured_name: "A", amount_cents: 1,
+    review_status: "auto", matched_policy_id: "p1", match_method: "policy_number",
+  }), false);
+  assert.equal(rowCarriesHandWork({ policy_number: "1", insured_name: "A", amount_cents: 1, review_status: "needs_review" }), false);
+});
+
+test("the carry key is the three fields, normalized — and deliberately NOT the dedupe key", () => {
+  // Same line, reformatted by the new parse: still the same line.
+  assert.equal(
+    handWorkCarryKey({ policy_number: "01-4444-4444", insured_name: "PLACEHOLDER, MAY", amount_cents: 3695 }),
+    handWorkCarryKey({ policy_number: "0144444444", insured_name: "May Placeholder", amount_cents: 3695 }),
+  );
+  // A key including the date or the type would carry nothing forward on
+  // exactly the statements that need it — the ones a parser fix re-dated.
+  const k = handWorkCarryKey({ policy_number: "P1", insured_name: "A B", amount_cents: 100 });
+  assert.equal(k.includes("2026"), false);
+  assert.equal(k.includes("advance"), false);
+});
+
+// ---- carry-over ----
+
+const HW = (o: Record<string, unknown>) => ({
+  policy_number: null, insured_name: null, amount_cents: 0,
+  review_status: "auto", matched_policy_id: null, match_method: null,
+  match_confidence: null, review_reason: null, review_note: null,
+  reviewed_at: null, reviewed_by: null, ...o,
+});
+
+test("an approval carries over onto an identical line, with its match", () => {
+  const before = [HW({
+    policy_number: "0122222222", insured_name: "SAMPLE, ORSON", amount_cents: 9046,
+    review_status: "approved", matched_policy_id: "pol-1", match_method: "manual", match_confidence: 1,
+    reviewed_by: "agent-1", reviewed_at: "2026-08-01T12:00:00Z",
+  })];
+  // Same three fields; the parse now dates and types it differently, which is
+  // the entire point — those are not part of the identity.
+  const after = [HW({ policy_number: "0122222222", insured_name: "Sample, Orson", amount_cents: 9046 })];
+
+  const c = carryStatementHandWork(before, after);
+  assert.equal(c.handWorkBefore, 1);
+  assert.equal(c.carriedCount, 1);
+  assert.equal(c.lostCount, 0);
+  assert.equal(c.carried[0]!.review_status, "approved");
+  assert.equal(c.carried[0]!.matched_policy_id, "pol-1");
+  assert.equal(c.carried[0]!.match_method, "manual", "the match must stay coherent with the id it points at");
+  assert.equal(c.carried[0]!.reviewed_by, "agent-1");
+});
+
+test("hand work does NOT carry when the amount, the insured or the policy number changed", () => {
+  const approved = (o: Record<string, unknown>) => HW({
+    policy_number: "0122222222", insured_name: "SAMPLE, ORSON", amount_cents: 9046,
+    review_status: "approved", matched_policy_id: "pol-1", ...o,
+  });
+  for (const [what, changed] of [
+    ["the amount", HW({ policy_number: "0122222222", insured_name: "SAMPLE, ORSON", amount_cents: 9047 })],
+    ["the insured", HW({ policy_number: "0122222222", insured_name: "OTHER, PERSON", amount_cents: 9046 })],
+    ["the policy number", HW({ policy_number: "0199999999", insured_name: "SAMPLE, ORSON", amount_cents: 9046 })],
+  ] as const) {
+    const c = carryStatementHandWork([approved({})], [changed]);
+    assert.equal(c.carried[0], null, `${what} changed, so this is a different line — do not guess`);
+    assert.equal(c.carriedCount, 0);
+    assert.equal(c.lostCount, 1, "a decision that did not survive is COUNTED, never quietly absorbed");
+  }
+});
+
+test("🔴 THE DUPLICATE GROUP: two identical lines keep their OWN decisions, positionally", () => {
+  // The owner's real ledger carries Browning $36.95 twice and Smith $90.46
+  // twice — identical on policy number, insured and amount, which is exactly
+  // why the dedupe key has an occurrence ordinal. First-match-wins would
+  // attach the first twin's approval to both, or one twin's approval to its
+  // sibling. Names here are the fixture's, not his.
+  const before = [
+    HW({ policy_number: "0144444444", insured_name: "BROWNING, A", amount_cents: 3695, review_status: "approved", matched_policy_id: "pol-brown", match_method: "manual" }),
+    HW({ policy_number: "0144444444", insured_name: "BROWNING, A", amount_cents: 3695, review_status: "rejected" }),
+    HW({ policy_number: "0155555555", insured_name: "SMITH, B", amount_cents: 9046, review_status: "rejected" }),
+    HW({ policy_number: "0155555555", insured_name: "SMITH, B", amount_cents: 9046, review_status: "approved", matched_policy_id: "pol-smith", match_method: "manual" }),
+  ];
+  const after = before.map(r => HW({
+    policy_number: r.policy_number, insured_name: r.insured_name, amount_cents: r.amount_cents,
+  }));
+
+  const c = carryStatementHandWork(before, after);
+  assert.equal(c.carriedCount, 4);
+  assert.equal(c.lostCount, 0);
+  assert.deepEqual(c.carried.map(x => x!.review_status),
+    ["approved", "rejected", "rejected", "approved"],
+    "each twin keeps its OWN decision — first-match-wins would return approved,approved,rejected,rejected");
+  assert.equal(c.carried[0]!.matched_policy_id, "pol-brown");
+  assert.equal(c.carried[1]!.matched_policy_id, null, "the rejected twin never had a match to inherit");
+  assert.equal(c.carried[3]!.matched_policy_id, "pol-smith");
+});
+
+test("position is preserved even when only the SECOND twin was touched", () => {
+  // Every old row joins its queue, hand work or not. Filtering the untouched
+  // first twin out would shift the second twin's approval onto it.
+  const before = [
+    HW({ policy_number: "P", insured_name: "TWIN, A", amount_cents: 3695 }),
+    HW({ policy_number: "P", insured_name: "TWIN, A", amount_cents: 3695, review_status: "approved", matched_policy_id: "pol-2" }),
+  ];
+  const after = before.map(() => HW({ policy_number: "P", insured_name: "TWIN, A", amount_cents: 3695 }));
+  const c = carryStatementHandWork(before, after);
+  assert.equal(c.carried[0], null, "the untouched first twin must stay untouched");
+  assert.equal(c.carried[1]!.review_status, "approved");
+  assert.equal(c.carriedCount, 1);
+  assert.equal(c.lostCount, 0);
+});
+
+test("a re-read that finds FEWER copies of a repeated line reports the lost decision", () => {
+  const before = [
+    HW({ policy_number: "P", insured_name: "TWIN, A", amount_cents: 3695, review_status: "approved" }),
+    HW({ policy_number: "P", insured_name: "TWIN, A", amount_cents: 3695, review_status: "approved" }),
+  ];
+  const c = carryStatementHandWork(before, [HW({ policy_number: "P", insured_name: "TWIN, A", amount_cents: 3695 })]);
+  assert.equal(c.handWorkBefore, 2);
+  assert.equal(c.carriedCount, 1);
+  assert.equal(c.lostCount, 1);
+});
+
+test("the whole nine-line statement carries every decision when nothing but the dates moved", () => {
+  // The owner's case end to end: nine lines re-read after FIX2. Every dedupe
+  // key changed (test above) and every decision survives anyway, because the
+  // carry key is the three fields the fix did not touch.
+  const before = amamRowsUndated().map((r, i) => HW({
+    policy_number: r.policyNumber, insured_name: r.insuredName, amount_cents: r.amountCents,
+    review_status: i % 2 === 0 ? "approved" : "auto",
+    matched_policy_id: i % 2 === 0 ? `pol-${i}` : null,
+  }));
+  const after = amamRows().map(r => HW({
+    policy_number: r.policyNumber, insured_name: r.insuredName, amount_cents: r.amountCents,
+  }));
+  const c = carryStatementHandWork(before, after);
+  assert.equal(after.length, 9, "nine lines in, nine lines out — never eighteen");
+  assert.equal(c.lostCount, 0, "a date fix must not cost the agent a single approval");
+  assert.equal(c.carriedCount, c.handWorkBefore);
+});
+
+// ---- the delete impact ----
+
+test("the delete impact counts the lines, the net and the ZIP members that go with it", () => {
+  const impact = summarizeStatementDeletion({
+    statement: { id: "st-1", filename: "doc.pdf" },
+    children: [{ id: "st-2", filename: "americo.csv" }, { id: "st-3", filename: "trans.xlsx" }],
+    rows: amamRows().map(r => ({ amount_cents: r.amountCents })),
+    history: [],
+  });
+  assert.equal(impact.line_count, 9);
+  assert.equal(impact.net_amount_cents, 26245);
+  assert.equal(impact.child_count, 2, "a ZIP's members cascade with it and are invisible from the row clicked");
+  assert.deepEqual(impact.child_filenames, ["americo.csv", "trans.xlsx"]);
+});
+
+test("🔴 the delete impact NAMES the policies the statement moved, and what it set them to", () => {
+  // Decision 1: deleting a statement does not revert a policy. The agent is
+  // owed the list so they can check them, which means every entry has to carry
+  // the status it was set TO.
+  const impact = summarizeStatementDeletion({
+    statement: { id: "st-1", filename: "doc.pdf" },
+    rows: [{ amount_cents: -4133 }],
+    history: [
+      { policy_id: "p1", policy_client_id: 12, policy_number: "0111111111", insured_name: "Sample Orson", from_status: "issued", to_status: "chargeback", changed_at: "2026-08-01T12:00:00Z" },
+      { policy_id: "p2", policy_client_id: 13, policy_number: null, insured_name: "Fixture Nora", from_status: "approved", to_status: "paid", changed_at: "2026-08-01T12:00:01Z" },
+    ],
+  });
+  assert.equal(impact.moved_policies.length, 2);
+  assert.deepEqual(impact.moved_policies.map(p => p.to_status), ["chargeback", "paid"]);
+  assert.deepEqual(impact.moved_policies.map(p => p.from_status), ["issued", "approved"]);
+  assert.equal(impact.moved_policies[0].insured_name, "Sample Orson");
+  assert.equal(impact.moved_policies[1].policy_number, null, "a policy with no number is still named");
+});
+
+test("🔴 one entry per policy, even when the trail holds several changes for it", () => {
+  // Caught by the live shadow run, not by a unit test: a statement that moved
+  // the same policy twice listed that person twice in the confirmation, which
+  // reads as a bug rather than as history. Collapsed to where the policy
+  // STARTED and where the statement LEFT it.
+  const impact = summarizeStatementDeletion({
+    statement: { id: "st-1", filename: "doc.pdf" },
+    history: [
+      { policy_id: "p1", policy_client_id: 1, policy_number: "A", insured_name: "Sample Orson", from_status: "approved", to_status: "paid", changed_at: "2026-08-01T10:00:00Z" },
+      { policy_id: "p1", policy_client_id: 1, policy_number: "A", insured_name: "Sample Orson", from_status: "paid", to_status: "chargeback", changed_at: "2026-08-01T11:00:00Z" },
+      { policy_id: "p2", policy_client_id: 2, policy_number: "B", insured_name: "Fixture Nora", from_status: "pending", to_status: "paid", changed_at: "2026-08-01T12:00:00Z" },
+    ],
+  });
+  assert.equal(impact.moved_policies.length, 2, "one entry per POLICY, not one per history row");
+  assert.equal(impact.moved_policies[0].from_status, "approved", "where it started");
+  assert.equal(impact.moved_policies[0].to_status, "chargeback", "where the statement left it");
+  assert.equal(impact.moved_policies[1].to_status, "paid");
+});
+
+test("a history row with no policy id is still reported, never collapsed away", () => {
+  const impact = summarizeStatementDeletion({
+    statement: { id: "st-1", filename: "doc.pdf" },
+    history: [
+      { policy_id: null, policy_client_id: 1, policy_number: null, insured_name: null, from_status: "a", to_status: "b", changed_at: null },
+      { policy_id: null, policy_client_id: 2, policy_number: null, insured_name: null, from_status: "c", to_status: "d", changed_at: null },
+    ],
+  });
+  assert.equal(impact.moved_policies.length, 2, 'dropping a change would hide something the statement did');
+});
+
+test("a statement that moved nothing reports an empty list, not a missing one", () => {
+  const impact = summarizeStatementDeletion({ statement: { id: "st-1", filename: "doc.pdf" } });
+  assert.deepEqual(impact.moved_policies, []);
+  assert.equal(impact.line_count, 0);
+  assert.equal(impact.net_amount_cents, 0);
+  assert.equal(impact.child_count, 0);
 });

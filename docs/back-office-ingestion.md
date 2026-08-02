@@ -88,6 +88,145 @@ re-read of an ingested statement reports `inserted=0, already_present=4`.
 
 ---
 
+## Correcting a statement — removing one, and re-reading one (FIX3)
+
+### 🔴 Why a re-read has to REPLACE
+
+The row key above carries the transaction **date**, the **amount** and the
+**occurrence ordinal**. That is correct, and none of it changes. But it means
+**any** parser improvement touching one of them re-fingerprints every line of
+every statement already ingested — and the upsert is `ignoreDuplicates`, so
+nothing collides and nothing is *updated*. A second read lands a complete
+second set of rows **beside** the first.
+
+FIX2 turned nine null dates into real July dates. Re-reading the owner's
+statement would have produced **18 lines and $524.90** for a statement that
+carries nine lines and $262.45. This is not a one-off caused by FIX2: it is the
+shape of every future parser fix.
+
+So `statement-parse` takes **`replace: true`**, for ONE named statement (a
+sweep must never rewrite everybody's book).
+
+**The order is the safety property.**
+
+1. Snapshot the statement's existing rows — **whole rows**, ordered by
+   `row_index`. It does two jobs: it is what the carry-over reads, and it is
+   what goes back if step 4 fails.
+2. **Parse.** The model call — the slow step, the network step, the only one
+   that realistically fails — finishes here, with nothing yet deleted. A failed
+   re-parse therefore leaves the original rows exactly where they were.
+3. Delete the statement's `commission_rows`, scoped to the statement *and* the
+   agent.
+4. Insert the new rows. If this fails, clear whatever part of the new set
+   landed (otherwise the restore collides on the dedupe key and silently
+   restores nothing) and put the snapshot back, ids and all.
+
+PostgREST has no transaction across calls, so the choice was one transaction or
+re-parse-first-and-swap-on-success. This is the second, plus the restore, which
+closes the millisecond window the second option leaves open. **A statement left
+with zero rows is worse than the doubling this fixed**, so it must not be
+reachable from any path.
+
+`statement_extractions` is **not** deleted by a replace. Each parse already
+appends one (tabular appends one per sheet), so accumulating is the existing
+behaviour, and the extraction is the raw evidence — the thing "nothing is
+discarded" protects.
+
+### The hand-work carry-over
+
+`carryStatementHandWork()` in `// statement-core`.
+
+**The identity is policy number + insured name + amount, all three**,
+normalized with the same normalizers the dedupe key uses. Deliberately **not**
+the dedupe key: that carries the date and the type, which are exactly what a
+parser fix changes, so a rule strict enough to include them would carry nothing
+forward on the only statements that need it.
+
+**Hand work is a decision a PERSON made** — `review_status` of `approved` or
+`rejected`, or `match_method = 'manual'`. An `auto` match is the parser's
+opinion; copying it forward would freeze a stale verdict on top of the fresher
+one the re-read exists to get. What carries is `review_status`,
+`matched_policy_id`, `match_method`, `match_confidence`, `review_reason`,
+`review_note`, `reviewed_at`, `reviewed_by` — the decision *and* its
+provenance, so a carried match stays coherent with the id it points at.
+
+**🔴 POSITIONAL WITHIN THE DUPLICATE GROUP.** The owner's own ledger prints
+Browning $36.95 twice and Smith $90.46 twice — identical on all three fields,
+which is why the dedupe key has an ordinal at all. Old rows are queued **in
+order** per key and consumed in order; first-match-wins would attach one twin's
+approval to the other. **Every** old row joins the queue, hand work or not,
+because the queue models POSITION — filtering first would shift an approved
+second twin onto an untouched first one.
+
+Anything not matched on all three is left at whatever the parse produced. What
+did not carry is **counted and reported** (`hand_work_carried`,
+`hand_work_lost`), never quietly absorbed: a line whose amount the fix
+corrected genuinely is a different line, and the agent has to know their
+approval went with the old reading of it.
+
+### Removing a statement — `statement-delete`
+
+An **edge function**, matching `statement-review` rather than introducing a
+second pattern: agent from the JWT, no agent id in the body, service-role
+client, CORS by origin, `OPTIONS` handled, no custom request headers (so
+nothing to add to `ALLOW_HEADERS`), absent from `config.toml` so `verify_jwt`
+stays true.
+
+**The four commission tables remain SELECT-only for `authenticated`.** This
+round added no INSERT/UPDATE/DELETE policy to any of them, and a test now
+sweeps *every* migration for one.
+
+`preview` and `delete` are **the same call with one flag**, through one
+`summarizeStatementDeletion()`. A preview computed by separate code is a
+preview that eventually lies, and this confirmation's whole job is to promise
+what the button will do.
+
+It issues **ONE** delete — the parent statement row — and lets the cascade do
+the rest. Four foreign keys reference `commission_statements` and all four
+cascade (verified against the live catalogue, not just the migration text):
+
+| Child | Column | On delete |
+|---|---|---|
+| `commission_rows` | `statement_id` | CASCADE |
+| `statement_files` | `statement_id` | CASCADE |
+| `statement_extractions` | `statement_id` | CASCADE |
+| `commission_statements` (ZIP members) | `parent_statement_id` | CASCADE |
+
+Nothing else references any of the four tables. Deleting a ZIP therefore
+removes every statement that came out of it and every row those produced — the
+archive **is** the upload — but that is invisible from the row the agent
+clicked, so the confirmation counts and names them.
+
+### 🔴 A delete never rewrites the book
+
+Policies keep whatever status the statement set. `policy_status_history` is
+owner-appendable with no update and no delete policy, and its `source_ref_id`
+carries no foreign key, so those rows **survive the delete deliberately**: a
+carrier having said "charged back" stays true after the paperwork proving it is
+removed, and the trail is not something a delete may rewrite.
+
+What the agent gets instead is the **list** — insured, policy number, and the
+status the statement set — in the confirmation *and* in the result, with the
+plain sentence that those policies keep that status and are worth checking.
+Collapsed to **one entry per policy** (`from` the earliest change, `to` the
+latest); a statement that moved the same policy twice listing that person twice
+reads as a bug rather than as history. That collapse was caught by the live
+shadow run, not by a unit test.
+
+### The confirmations
+
+Neither irreversible action uses `confirm()` — a one-line browser dialog cannot
+show the list of policies, and that list is the point. Both go through
+`#boDeleteModal`. The delete additionally requires the **filename to be typed**
+(trimmed, case-insensitive: the requirement is deliberateness, not
+transcription) and its button starts disabled.
+
+The re-read says what it does **before** the click, in four places: the button
+label (`Re-read (replaces lines)`), its tooltip, the table footer, and the
+confirmation. Not in a toast afterwards.
+
+---
+
 ## Matching
 
 In order, stopping at the first that resolves to exactly one policy:
@@ -223,7 +362,8 @@ This repo imports exactly two external modules across every edge function
 | `supabase/functions/_shared/statement-ai.ts` | The only Anthropic caller — column mapping + PDF rows |
 | `supabase/functions/_shared/statement-ai.test.ts` | 9 tests over the coercion and base64 |
 | `supabase/functions/statement-upload/index.ts` | Bytes in, statement queued |
-| `supabase/functions/statement-parse/index.ts` | The worker |
+| `supabase/functions/statement-parse/index.ts` | The worker — and, with `replace: true`, the re-read that replaces |
+| `supabase/functions/statement-delete/index.ts` | Removing a statement: `preview` / `delete`, agent from the JWT (FIX3) |
 | `app.html` — `// <backoffice-core>` block | Pure UI logic, extracted and executed by the tests |
 | `app.html` — `#sec-backoffice`, `bo*` functions | The screen |
 | `test/back-office.test.mjs` | 36 behaviour + structure tests against `app.html` as source text |
