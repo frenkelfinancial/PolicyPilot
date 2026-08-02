@@ -1119,6 +1119,76 @@ Prompt H. Schema: `20260804_sms_attestation_and_verification.sql`. Docs:
   written only at render time, so a lead's own checkbox never lit its row —
   and the compact views carried a second copy of the same bug.
 
+## Contract levels & the override data (OV1, Round 1 of 2 — added 2026-08-01)
+
+Prompt OV1. Schema: `20260810_contract_levels.sql`. Docs:
+`docs/contract-levels.md`. Tests: `npm run test:contractlevels`. The UI and the
+override arithmetic are Round 2 — this round is backend only and `app.html` is
+untouched.
+
+- **🔴 `policies.data.product` IS NOT A COMP KEY, AND IT IS NOT ONE KEY SPACE.**
+  Production holds the display category (`Whole Life`) for most of the book and
+  a legacy raw COMP key (`trans_express`, `aa_senior`, `core_siwl`) for the
+  rest — in the same column, today; `cls` likewise mixes `std`/`gi` with the
+  legacy `level`/`standard`. Only `getActiveCommKey(carrier, product, cls)` can
+  resolve either, because `CARRIER_PRODUCTS[carrier].products[product]` is what
+  turns `Whole Life` into `americo_eagle` and the graded/GI overrides and the
+  ~40% cut come off the carrier and the health class. So
+  `get_downline_product_ap`'s `product` is the three stored values **VERBATIM**,
+  joined as `carrier|product|cls` — byte-for-byte the shape
+  `commPctOverrideKey()` already uses. **The SQL maps nothing and there is no
+  mapping table.** Two policies differing only in health class are two rows on
+  purpose; they earn different percentages.
+- **🔴 THE SALE PREDICATE, SALE-DATE CHAIN AND AP GUARD IN
+  `get_downline_product_ap` ARE BYTE-IDENTICAL TO `get_team_summary`'s `pol`
+  CTE**, and `test/contract-levels.test.mjs` compares them character for
+  character exactly as `test/leaderboards.test.mjs` does for `lb_agent_metrics`.
+  Verified behaviourally too: summed per agent it equals `lifetime_ap` **to the
+  cent**. A fourth definition of "a sale" is the 8,610× bug with a shorter fuse.
+- **🔴 THE AUDIT LOGGER IS AN *AFTER* TRIGGER, AND THAT IS THE ORDERING
+  ANSWER.** `agents_log_contract_level` sorts alphabetically **ahead of all
+  seven** existing `BEFORE UPDATE` triggers on `public.agents`, and those guards
+  work by silently REVERTING `NEW.col := OLD.col` rather than raising — so a
+  BEFORE logger would record changes a later guard then undid. AFTER reads the
+  row that actually landed. Do not "tidy" it into a BEFORE trigger.
+- **`20260703c` is a DENYLIST, not an allowlist.** It reverts seven privileged
+  columns (`is_admin`, `plan_id`, the two limits, three `stripe_*`) for a
+  non-admin browser caller and names `contract_level` NOWHERE. The four columns
+  in its header comment are an OBSERVATION about what the client writes; do not
+  cite them as enforcement.
+- **`contract_level_changes` is SELECT-only for `authenticated`** and the
+  migration adds no write policy. The trigger owns the write, under
+  `SECURITY DEFINER`. A policy wide enough to let a browser record "the agent
+  raised their own level" is wide enough to let it record one that never
+  happened. **`changed_by` is NULLABLE on purpose** — `auth.uid()` is NULL for
+  every trusted context, and coalescing to the agent would be a lie in the one
+  table that exists to answer who moved it.
+- **🔴 `get_agency_members` RETURNS A CONTRACT LEVEL FOR A `downline` ROW
+  ONLY.** It also returns UPLINES and SIBLINGS — it feeds the lead-transfer
+  picker — so an ungated column shows an agent their sibling's contract and
+  their leader's. All three new columns are gated on `rel = 'downline'`, and a
+  test counts them. The caller's own row is not in the result at all; their own
+  level still comes from `sbLoadContract()`.
+- **The changer is a BOOLEAN, never an identity.** `level_changed_by_self`
+  answers the owner's real question without publishing who else did it. **NULL
+  means there is no recorded change** (the level predates the migration or has
+  never moved) — Round 2 must render that state, not treat it as false.
+- **Most recent wins, whoever made it** (owner's decision). No approval step, no
+  lock, no leader-wins rule, and no gate on the agent's own write. **A level
+  ABOVE the leader's clamps the override to ZERO, never negative** — Round 2's
+  job, and live in the data now: seven agents sit at 100 against the leader's 85.
+- **The opt-out is NOT applied here**, matching `get_downline_commission_rollup`
+  and `get_team_summary`, neither of which applies it. `lb_visible_members()` is
+  the enforcement point for peer-visible RANKINGS; a leader's override estimate
+  silently omitting an agent whose AP the row above it shows is money vanishing
+  from a total with nothing on screen to say so.
+- **No parameter names a leader**, on either new function — `p_agent_id` names
+  the SUBJECT and the leader is `auth.uid()`. `set_downline_contract_level`
+  exists because a leader cannot `update public.agents` at all; validation
+  reuses `setContractValue()`'s real bounds (70–145, nearest 5) as named SQL
+  constants a test extracts from both sides, and RAISES outside the range rather
+  than clamping.
+
 ## Identity — a person has a name, not an address
 
 - **`pp_display_name()` (SQL, `20260751`) and `ppAgentName()` (browser, in `// <team-core>`) are the ONE identity resolver.** `lb_agent_name`, `get_team_summary` and `get_agency_members` all delegate to the SQL one; every renderer goes through the browser one. Read `docs/agency-leaderboards.md` § "Who an agent is called".

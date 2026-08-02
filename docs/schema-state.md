@@ -2898,3 +2898,43 @@ after    216 campaigns (108 voice UNCHANGED + 108 sms, 0 sms active)
 - No `DROP`, no `TRUNCATE`, no `DELETE`, nothing touching `auth.*` or
   `storage.*`. The only `UPDATE` in the seeder is the activate step, keyed on
   the id it just created, and it does not fire for any of the twelve.
+
+## 20260810_contract_levels.sql — APPLIED 2026-08-01
+
+Prompt OV1 (Round 1 of 2, backend only). Dry-run applied inside
+`begin; … ; rollback;` first — verified the table and both functions were
+absent again afterwards — then for real. Verified in-database at apply time:
+
+```
+contract_level_changes   present, 6 columns, RLS ON, 1 policy, cmd = SELECT
+agents_log_contract_level  trigger present on public.agents (AFTER UPDATE OF contract_level)
+set_downline_contract_level / get_downline_product_ap    both present
+get_agency_members       re-created with 8 columns (was 5), grant restated
+```
+
+- **One new table, one index, one SELECT policy, one AFTER trigger, two new
+  functions, one function widened.** No `DROP` of a table, column or row; no
+  `DELETE`, no `TRUNCATE`; nothing in `auth.*` or `storage.*` written. The file
+  is one transaction, because widening `get_agency_members`'s `RETURNS TABLE`
+  needs `DROP` + `CREATE`.
+- **🔴 The logger is an AFTER trigger and that is load-bearing.**
+  `agents_log_contract_level` sorts alphabetically **ahead of all seven**
+  existing `BEFORE UPDATE` triggers on `public.agents`, and those guards work by
+  silently reverting `NEW.col := OLD.col`. A BEFORE logger would record changes
+  a later guard undid. `20260703c` is a **denylist** that names `contract_level`
+  nowhere, so a self-update passes through it and is logged.
+- **`contract_level_changes` is SELECT-only for `authenticated`** and the
+  migration adds no write policy. Proven live: a browser-role `INSERT` answered
+  `42501: permission denied for table contract_level_changes`.
+- **Guards proved live in rolled-back transactions**, impersonating real agents
+  via `set local role authenticated` + `request.jwt.claims`: a non-downline
+  target refused (`42501`), an invented third argument refused (`42883`), levels
+  200 and 65 refused (`22023`), 103 stored as 105 with exactly one audit row
+  carrying the leader as `changed_by`, an agent self-update logged with
+  `changed_by = agent_id`, and a stranger reading the log getting 0 rows.
+- **`get_downline_product_ap`'s AP equals `get_team_summary`'s `lifetime_ap` to
+  the cent** ($15,440.04 and $8,977.80 across the two agents with a book) — the
+  behavioural half of the byte-identical sale predicate.
+- **No production contract level was changed.** Every write in the verification
+  ran inside a transaction that was rolled back; `contract_level_changes` holds
+  0 rows.
