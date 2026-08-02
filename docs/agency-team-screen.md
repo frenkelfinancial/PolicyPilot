@@ -56,7 +56,10 @@ My Agency · 3 connected agents · agency code SMITH2024      [week|month|quarte
 │ Team total …                                                              │
 └──────────────────────────────────────────────────────────────────────────┘
 Downline rows show production and calling totals only — no client names…
-▸ Manage roster   agency code, invites, connected agents
+┌ Contract levels ─────────────┐┌ Manage roster ───────────────────────────┐
+│ …the level editor, one row   ││ agency name & code · invite an agent ·   │
+│  per downline agent…         ││ pending / declined · ▸ Connected Agents  │
+└──────────────────────────────┘└──────────────────────────────────────────┘
 ```
 
 - **Period selector** — this week / this month / this quarter / lifetime.
@@ -65,10 +68,21 @@ Downline rows show production and calling totals only — no client names…
 - **Sortable table**, ten columns, with a totals row. Sorting is client-side
   over the already-fetched view, so it never re-queries.
 - **Row click** opens that agent's profile (below).
-- **Manage roster** is a `<details>` panel, collapsed by default: agency name
-  and code (with Copy and the 30%-discount copy), email invites, pending and
-  declined management, and Remove-with-Stripe-unlink. Its open state survives
-  the re-render that every roster action triggers (`_agRosterOpen`).
+- **Contract levels and Manage roster share one row**, half the width each,
+  in `.ag-split` (a two-column grid that collapses to one column under
+  1100px). They are the same job — set what an agent is contracted at, and
+  see who is on the team — and stacked, the roster started below the fold.
+- **Manage roster is always open.** It was a `<details>` panel collapsed
+  behind a Show link; everything on it except the agent list is an action the
+  owner came here to take, and one of them (the agency code) is the thing a
+  new leader is looking for. It carries agency name and code (with Copy and
+  the 30%-discount copy), email invites, and pending/declined management with
+  Remove-with-Stripe-unlink.
+- **Connected Agents is the one thing left that folds** — a `<details>` inside
+  the roster card, collapsed by default, because it is a list to read rather
+  than an action to take and it is the part that grows without bound. Its open
+  state survives the re-render that every roster action triggers
+  (`_agConnectedOpen`).
 - The **admin-only discount-code card** is unchanged and still at the top.
 
 ### Order of the page

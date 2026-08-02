@@ -3276,6 +3276,28 @@ body.light .btn-danger:hover{ background:#fee2e2; border-color:rgba(220,38,38,.5
 .ag-leader-only{background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.2);border-radius:12px;text-align:center;padding:52px 24px}
 .ag-leader-only h3{font-size:17px;font-weight:600;color:var(--text);margin-bottom:8px}
 .ag-leader-only p{font-size:13px;color:var(--text2);line-height:1.55;max-width:400px;margin:0 auto 20px}
+/* Contract levels beside Manage roster. Two cards an owner uses together —
+   set a level, then look at who is on the roster — so they share the width
+   instead of stacking one under a scroll. Stretch, not fixed heights: either
+   side can be the taller one (a long downline, or several pending invites). */
+#sec-agency .ag-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:stretch;margin-top:22px}
+#sec-agency .ag-split > *{min-width:0}
+#sec-agency .ag-split #ov-levels{display:flex}
+/* Same chrome as the .card beside it — two cards on one row that disagree
+   about their radius and padding read as two different features. */
+#sec-agency .ag-split #ov-levels .ov-card{flex:1;display:flex;flex-direction:column;
+  border-radius:12px;padding:15px 20px 20px}
+#sec-agency .ag-split .ov-title{font-size:13.5px}
+#sec-agency .ag-split .ov-sub{max-width:none}
+#sec-agency .ag-split #ag-roster-panel{margin:0}
+@media (max-width:1100px){#sec-agency .ag-split{grid-template-columns:minmax(0,1fr)}}
+/* Connected agents — the one thing inside the roster card that still opens. */
+#sec-agency .ag-connected{border-top:1px solid var(--border);margin-top:18px}
+#sec-agency .ag-connected > summary{cursor:pointer;list-style:none;padding:14px 0 0;display:flex;align-items:center;gap:10px;user-select:none}
+#sec-agency .ag-connected > summary::-webkit-details-marker{display:none}
+#sec-agency .ag-connected > summary .ag-section-lbl{margin-bottom:0}
+#sec-agency .ag-connected .ag-conn-toggle{margin-left:auto;font-size:11.5px;color:var(--text3)}
+#sec-agency .ag-connected .ag-conn-body{padding-top:12px}
 
 /* ============================================================
    MOBILE / PWA STYLES  (max-width: 767px)
@@ -17666,7 +17688,10 @@ let _teamCardOpen = (function () {
 let _teamSort = { col: 'ap', dir: 'desc' };
 const _teamCache   = {};   // periodKey -> { at, state, range, view }
 const _teamLoading = {};   // periodKey -> true while a fetch is in flight
-let _agRosterOpen  = false;
+// The roster card itself is no longer collapsible — it is always open. What
+// survives the re-render that every roster action triggers is the Connected
+// Agents list's open state, which is the one thing left that folds.
+let _agConnectedOpen = false;
 let _agPendingProfile = null;
 // The leader's raw agency_invites rows, cached by _agRenderLeaderView so the
 // profile view can find the invite id behind a "Remove" without re-querying.
@@ -38504,15 +38529,18 @@ async function _agRenderLeaderView(root) {
     </div>`;
   }
 
-  // Contract levels. A separate card rather than a column on teamTableHTML(),
+  // ============================================================
+  // 2. Contract levels | Manage roster — one strip, two halves.
+  //
+  // Contract levels is a separate card rather than a column on teamTableHTML(),
   // which is the ONE table renderer and is shared with the Summary mini-card —
   // an editable field belongs on the tab an owner manages the agency from, not
-  // on a read-only strip inside another screen's summary.
-  h += '<div id="ov-levels" class="tm" style="margin-top:22px">' + ovLevelsCardHTML(null) + '</div>';
-
-  // ============================================================
-  // 2. Manage roster — invites, code, connections. Collapsed by default;
-  //    its open state survives the re-render that every action triggers.
+  // on a read-only strip inside another screen's summary. It sits BESIDE the
+  // roster because the two are the same job: set what an agent is contracted
+  // at, and see who is on the team. Stacked, the roster was below the fold.
+  //
+  // The roster is always open now. Only Connected Agents folds, and its open
+  // state survives the re-render that every roster action triggers.
   // ============================================================
   let roster = agCodeCard + `
     <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">Invite an agent</div>
@@ -38559,7 +38587,16 @@ async function _agRenderLeaderView(root) {
     // cannot disagree about who is on the team.
     const byId = {};
     if (entry.state === 'ok') entry.view.rows.forEach(r => { if (r.id) byId[r.id] = r; });
-    roster += `<div class="ag-section-lbl" style="margin-top:${(pending.length || declined.length) ? 20 : 18}px">Connected Agents (${accepted.length})</div>`;
+    // The ONE thing on this card that still folds. Everything above it is an
+    // action the owner came here to take; this is a list they came here to
+    // read, and it is the part that grows without bound.
+    roster += `<details class="ag-connected" id="ag-connected-panel" ${_agConnectedOpen ? 'open' : ''}
+            ontoggle="_agConnectedOpen=this.open">
+      <summary>
+        <span class="ag-section-lbl">Connected Agents (${accepted.length})</span>
+        <span class="ag-conn-toggle">${_agConnectedOpen ? 'Hide' : 'Show'}</span>
+      </summary>
+      <div class="ag-conn-body">`;
     accepted.forEach(inv => {
       const r = byId[inv.invitee_id] || {};
       // A CONNECTED agent is a person and is named as one. The email that
@@ -38580,6 +38617,7 @@ async function _agRenderLeaderView(root) {
           style="color:var(--ds-color-danger)">Remove</button>
       </div>`;
     });
+    roster += `</div></details>`;
   } else if (!pending.length && !declined.length) {
     roster += `<div class="ag-empty-state" style="padding:32px 16px">
       <h3>No agents connected yet</h3>
@@ -38588,15 +38626,16 @@ async function _agRenderLeaderView(root) {
   }
 
   const rosterCount = pending.length + declined.length;
-  h += `<details class="card" id="ag-roster-panel" ${_agRosterOpen ? 'open' : ''}
-          ontoggle="_agRosterOpen=this.open" style="margin-top:22px;padding:0;overflow:hidden">
-    <summary style="cursor:pointer;list-style:none;padding:15px 20px;display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--text);user-select:none">
-      <span data-ico="users-three" data-size="15"></span>Manage roster
-      <span style="font-weight:400;font-size:12px;color:var(--text3)">agency code, invites, connected agents${rosterCount ? ` · ${rosterCount} awaiting` : ''}</span>
-      <span style="margin-left:auto;font-size:11.5px;color:var(--text3)">${_agRosterOpen ? 'Hide' : 'Show'}</span>
-    </summary>
-    <div style="padding:0 20px 20px">${roster}</div>
-  </details>`;
+  h += `<div class="ag-split">
+    <div id="ov-levels" class="tm">${ovLevelsCardHTML(null)}</div>
+    <div class="card" id="ag-roster-panel" style="padding:0;overflow:hidden">
+      <div style="padding:15px 20px 0;display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--text);flex-wrap:wrap">
+        <span data-ico="users-three" data-size="15"></span>Manage roster
+        <span style="font-weight:400;font-size:12px;color:var(--text3)">agency code, invites, connected agents${rosterCount ? ` · ${rosterCount} awaiting` : ''}</span>
+      </div>
+      <div style="padding:14px 20px 20px">${roster}</div>
+    </div>
+  </div>`;
 
   root.innerHTML = h;
   // Painted after the tab is on screen — the roster RPC is a second round trip
