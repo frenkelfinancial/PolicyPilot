@@ -970,6 +970,161 @@ export function parseDateISO(input: unknown): string | null {
   }
 }
 
+// ------------------------------------------------------------
+// Partial dates — `MM-DD` with no year at all.
+//
+// American-Amicable's AGENT LEDGER STATEMENT prints its ACCTG DATE and DUE
+// DATE as bare `MM-DD` (`07-09`, `08-13`), sometimes with a marker beside it
+// (`06-15*`). `parseDateISO` cannot read those — it wants three components —
+// so every one of them became null, and a null transaction_date drops the row
+// out of the trend chart, the persistency windows and the debt drill-down.
+//
+// The year has to come from the STATEMENT, never from today: re-reading a
+// July statement next February must not move its lines into next year.
+// ------------------------------------------------------------
+
+/** Milliseconds in a day — only ever used to compare two UTC midnights. */
+const DAY_MS = 86400000;
+
+/** True when (y, m, d) is a real calendar date, so 02-30 is rejected. */
+function isRealDate(y: number, m: number, d: number): boolean {
+  const t = new Date(Date.UTC(y, m - 1, d));
+  return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
+/**
+ * Resolve a bare `MM-DD` against the statement's own date.
+ *
+ * The year is whichever of {anchor-1, anchor, anchor+1} lands NEAREST the
+ * anchor. That single rule covers both directions of the rollover, which a
+ * naive "use the statement's year" gets wrong once a year for every agent:
+ *
+ *   `12-15` on a 2027-01-31 statement -> 2026-12-15 (47 days back), not 2027
+ *   `01-05` on a 2027-01-31 statement -> 2027-01-05 (26 days back)
+ *   `08-13` on a 2026-07-31 statement -> 2026-08-13 (13 days FORWARD)
+ *
+ * That last one is why it is "nearest" and not "on or before": a DUE DATE is
+ * legitimately in the future, and forcing it backwards would silently invent a
+ * date a year early.
+ *
+ * Returns null for anything that is not exactly two numeric components, or
+ * that is not a real date, or when there is no anchor to resolve against — an
+ * unresolvable date must fall through the chain, never be guessed.
+ *
+ * 🔴 NOT applied to an issue/effective date. This carrier prints THOSE as
+ * `MM-YY` (`06-26` = June 2026), which is indistinguishable from `MM-DD`
+ * (June 26th) as a string. Reading one as the other invents a day, so the
+ * caller deliberately only offers this function the slots that carriers print
+ * as `MM-DD` — see `resolvePdfRowDates`.
+ */
+export function resolvePartialDate(input: unknown, anchorISO: string | null | undefined): string | null {
+  if (input === null || input === undefined) return null;
+  // Carriers print markers beside a date ("06-15*", "07-01 †"). Strip anything
+  // that is not part of the number pattern before matching.
+  const s = String(input).trim().replace(/[^0-9\/\-.]+$/, "").trim();
+  if (s === "") return null;
+
+  const m = /^(\d{1,2})[\/\-.](\d{1,2})$/.exec(s);
+  if (!m) return null;
+  const mon = +m[1];
+  const day = +m[2];
+  if (!(mon >= 1 && mon <= 12) || !(day >= 1 && day <= 31)) return null;
+
+  const anchor = parseDateISO(anchorISO);
+  if (!anchor) return null;
+  const [ay, am, ad] = anchor.split("-").map(Number);
+  const anchorMs = Date.UTC(ay, am - 1, ad);
+
+  let best: { iso: string; dist: number } | null = null;
+  for (const y of [ay - 1, ay, ay + 1]) {
+    if (!isRealDate(y, mon, day)) continue;
+    const dist = Math.abs(Date.UTC(y, mon - 1, day) - anchorMs) / DAY_MS;
+    if (!best || dist < best.dist) {
+      best = { iso: `${y}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`, dist };
+    }
+  }
+  return best ? best.iso : null;
+}
+
+/** A full date if the line printed one, else a `MM-DD` resolved against the statement. */
+export function resolveDateWithAnchor(input: unknown, anchorISO: string | null | undefined): string | null {
+  return parseDateISO(input) ?? resolvePartialDate(input, anchorISO);
+}
+
+export interface PdfRowDateInput {
+  /** ACCTG / booked / posted / transaction date — when the carrier booked it. */
+  transactionDate?: unknown;
+  /** When the agent was paid, if the line says. */
+  paidDate?: unknown;
+  /** Policy effective / issue date, if the line says. */
+  effectiveDate?: unknown;
+  /** Premium due date, if the line says. */
+  dueDate?: unknown;
+}
+
+export interface PdfRowDates {
+  transactionDate: string | null;
+  effectiveDate: string | null;
+  paidDate: string | null;
+  /** Which hop of the chain supplied `transactionDate`. For tests and triage. */
+  source: "transaction" | "paid" | "effective" | "due" | "period_end" | "none";
+}
+
+/**
+ * The PDF path's date chain — the counterpart of the one `applyMapping` has
+ * carried since the tabular path shipped.
+ *
+ * WHERE THE TWO AGREE: the first three hops, in the same order —
+ * `transaction ?? paid ?? effective`. That is deliberate; two definitions of
+ * "when did this line happen" one file format apart is the bug class this
+ * repo keeps paying for.
+ *
+ * WHERE THEY DELIBERATELY DIFFER: this one adds `?? due ?? periodEnd`.
+ *   * `due` because a PDF has no column mapping — there is no `-1` to tell us
+ *     a date column is simply absent, so any date the line printed is better
+ *     evidence than none.
+ *   * `periodEnd` as the floor, because it is already sitting on the same
+ *     object and a line the carrier printed on a July statement is July money
+ *     even when the line itself carries no date. The alternative is null, and
+ *     null does not mean "undated" downstream — it means the row silently
+ *     disappears from the trend chart, the persistency windows and the debt
+ *     drill-down while the totals above them still count it.
+ *
+ * The tabular path is NOT given these two extra hops. It shipped working and
+ * its mapping already distinguishes "no such column" from "empty cell".
+ */
+export function resolvePdfRowDates(
+  input: PdfRowDateInput,
+  opts: { anchorDate?: string | null; periodEnd?: string | null },
+): PdfRowDates {
+  // The anchor is the statement's own date, falling back to the period it
+  // covers. Never `new Date()` — re-reading an old statement must not move it.
+  const anchor = parseDateISO(opts.anchorDate) ?? parseDateISO(opts.periodEnd);
+
+  const transaction = resolveDateWithAnchor(input.transactionDate, anchor);
+  const paid = resolveDateWithAnchor(input.paidDate, anchor);
+  const due = resolveDateWithAnchor(input.dueDate, anchor);
+  // Full dates only — see the MM-YY warning on resolvePartialDate.
+  const effective = parseDateISO(input.effectiveDate);
+  const periodEnd = parseDateISO(opts.periodEnd);
+
+  const chain: [string | null, PdfRowDates["source"]][] = [
+    [transaction, "transaction"],
+    [paid, "paid"],
+    [effective, "effective"],
+    [due, "due"],
+    [periodEnd, "period_end"],
+  ];
+  const hit = chain.find(([v]) => v !== null);
+
+  return {
+    transactionDate: hit ? hit[0] : null,
+    effectiveDate: effective,
+    paidDate: paid,
+    source: hit ? hit[1] : "none",
+  };
+}
+
 export type TxnType =
   | "advance" | "renewal" | "chargeback" | "adjustment"
   | "bonus" | "override" | "unknown";
@@ -977,11 +1132,31 @@ export type TxnType =
 export const TXN_TYPES: TxnType[] = ["advance", "renewal", "chargeback", "adjustment", "bonus", "override", "unknown"];
 
 /**
+ * Text meaning "this is first-year money", in the wordings carriers actually
+ * print as a section heading.
+ *
+ * Split out of the advance pattern below because two callers need to ask this
+ * exact question: `normalizeTxnType`, and `refineTxnTypeFromText`, which uses
+ * it to overrule a model that called a first-year line a renewal. They are
+ * mutually exclusive claims — first year is by definition not a renewal — so
+ * the carrier's own printed heading settles it.
+ *
+ * `1st year` was the gap that shipped: an American-Amicable AGENT LEDGER
+ * STATEMENT prints `ORDINARY LIFE - 1ST YEAR`, which matched nothing here, so
+ * five real first-year lines were labelled renewal on a statement whose own
+ * summary read TOTAL RENEWAL .00.
+ */
+export const FIRST_YEAR_RE = /(?:1st|first)\s*(?:year|yr)\b|\binitial\b|new\s*business/;
+
+/**
  * A carrier's own word for what a line is, mapped onto our seven.
  *
  * The amount sign is a tiebreak, not the rule: a negative "commission" line is
  * a chargeback, but a line that already says "adjustment" stays an adjustment
  * whichever way it points.
+ *
+ * Order is load-bearing and unchanged: chargeback wins over everything, and a
+ * negative amount still falls back to chargeback when nothing matched.
  */
 export function normalizeTxnType(raw: unknown, amountCents: number | null = null): TxnType {
   const s = String(raw ?? "").toLowerCase().trim();
@@ -990,7 +1165,7 @@ export function normalizeTxnType(raw: unknown, amountCents: number | null = null
     if (/override|ovr\b|orid|hierarch|differential/.test(s)) return "override";
     if (/bonus|incentive|contest|production\s*credit/.test(s)) return "bonus";
     if (/renew|persist|residual|service\s*fee|trail/.test(s)) return "renewal";
-    if (/advance|adv\b|first\s*year|fy\b|new\s*business|initial/.test(s)) return "advance";
+    if (/advance|adv\b|fy\b/.test(s) || FIRST_YEAR_RE.test(s)) return "advance";
     if (/adjust|adj\b|correct|true\s*-?\s*up|misc|other|debt|balance/.test(s)) return "adjustment";
     if (/commission|comm\b|earned|paid/.test(s)) {
       return amountCents !== null && amountCents < 0 ? "chargeback" : "advance";
@@ -998,6 +1173,66 @@ export function normalizeTxnType(raw: unknown, amountCents: number | null = null
   }
   if (amountCents !== null && amountCents < 0) return "chargeback";
   return "unknown";
+}
+
+/**
+ * Let the carrier's PRINTED wording correct a model's classification.
+ *
+ * The PDF path is the only one that needs this. On the tabular path the model
+ * returns a `type_map` keyed by the values actually printed in the sheet, and
+ * `applyMapping` runs the printed value through `normalizeTxnType` when the
+ * map misses — so the carrier's own words already get a vote. On the PDF path
+ * the model returns nothing but the enum, so a misclassification is final and
+ * silent, and there is no deterministic layer to catch it. This is that layer.
+ *
+ * Deliberately narrow. It does THREE things and nothing else:
+ *
+ *   1. A line the carrier printed under a FIRST-YEAR heading is `advance`,
+ *      even if the model said `renewal`. Those are contradictory claims about
+ *      the same line and the printed heading is the evidence.
+ *   2. When the model gave up (`unknown`), fall back to reading the printed
+ *      text the ordinary way.
+ *   3. 🔴 NEGATIVE COMMISSION IS A CHARGEBACK WHATEVER SECTION IT SITS UNDER.
+ *
+ * Rule 3 is not decoration, it is a regression this round caused and caught.
+ * A section heading is a PRODUCT CATEGORY, not a transaction-type word, and
+ * `normalizeTxnType` deliberately treats the sign as a tiebreak only for lines
+ * that do not name themselves — correct on the tabular path, where the type
+ * column really does carry the carrier's own word and "Adjustment" must stay
+ * an adjustment whichever way it points. On the PDF path the "type" now comes
+ * from a heading like `ORDINARY LIFE - INITIAL`, so once the prompt taught the
+ * model to answer `advance` for that heading, the −$41.33 chargeback on the
+ * real statement stopped being caught by the sign and was booked as money
+ * PAID OUT. The net still reconciled, so nothing would have complained; the
+ * line would simply have left the Debt tab, which counts `chargeback` and
+ * `adjustment` only. An advance that is negative is money coming back.
+ *
+ * It will NOT overrule a confident model answer in any other direction. A
+ * negative `adjustment` stays an adjustment (a fee is not a chargeback, and
+ * both already count as debt), and it never relabels an existing `chargeback`
+ * — a product name containing "renewable" must not be able to undo one. That
+ * last case is why this is not just `normalizeTxnType(printedText)`.
+ */
+export function refineTxnTypeFromText(
+  modelType: unknown,
+  printedText: unknown,
+  amountCents: number | null = null,
+): TxnType {
+  const current = TXN_TYPES.includes(modelType as TxnType) ? modelType as TxnType : "unknown";
+  const text = String(printedText ?? "").toLowerCase().trim();
+
+  // Money taken back is settled by the money, not by a heading.
+  if (current === "chargeback") return current;
+
+  let out = current;
+  if (text !== "") {
+    if (FIRST_YEAR_RE.test(text) && (current === "renewal" || current === "unknown")) out = "advance";
+    else if (current === "unknown") out = normalizeTxnType(text, amountCents);
+  }
+
+  // Rule 3. Commission paid to an agent cannot be negative; that is a reversal.
+  if (amountCents !== null && amountCents < 0 && (out === "advance" || out === "renewal")) return "chargeback";
+  return out;
 }
 
 /** Loose name normalization for fuzzy matching. "SMITH, JOHN A." -> "john a smith". */
@@ -1149,6 +1384,86 @@ export function applyMapping(sheet: Sheet, preview: SheetPreview, mapping: Colum
     });
   }
   return out;
+}
+
+/**
+ * One line as the model returns it from a PDF. Structural on purpose — the
+ * concrete `PdfRow` lives in statement-ai.ts, which imports from here, so
+ * naming it would close a circle.
+ */
+export interface PdfLineInput {
+  policy_number?: string;
+  insured_name?: string;
+  product?: string;
+  transaction_type?: string;
+  transaction_type_text?: string;
+  amount?: string;
+  premium?: string;
+  transaction_date?: string;
+  paid_date?: string;
+  effective_date?: string;
+  due_date?: string;
+  producer_code?: string;
+}
+
+/**
+ * The PDF path's counterpart to `applyMapping` — model rows to NormalizedRow.
+ *
+ * It lives here rather than inline in statement-parse for the reason every
+ * core block in this repo exists: the tests extract and execute this file, so
+ * a projection written in the edge function is a projection no test runs. The
+ * date chain and the type refinement are the two things this round changed and
+ * both are decided here.
+ */
+export function normalizePdfRows(
+  lines: PdfLineInput[],
+  opts: {
+    carrier?: string | null;
+    /** The statement header's own date — the anchor for a `MM-DD` line date. */
+    statementDate?: string | null;
+    periodStart?: string | null;
+    periodEnd?: string | null;
+  },
+): NormalizedRow[] {
+  const periodStart = opts.periodStart ?? null;
+  const periodEnd = opts.periodEnd ?? null;
+  const anchorDate = parseDateISO(opts.statementDate) ?? periodEnd ?? periodStart;
+
+  return (lines || []).map((r, i) => {
+    const amountCents = parseAmountCents(r.amount);
+
+    const dates = resolvePdfRowDates({
+      transactionDate: r.transaction_date,
+      paidDate: r.paid_date,
+      effectiveDate: r.effective_date,
+      dueDate: r.due_date,
+    }, { anchorDate, periodEnd });
+
+    // The model's enum first, then let the carrier's own printed heading
+    // correct a first-year line it called a renewal, or answer for it when it
+    // gave up. See refineTxnTypeFromText for why this is not a free-for-all.
+    const modelType = normalizeTxnType(r.transaction_type, amountCents);
+    const printedType = String(r.transaction_type_text ?? "").trim() || String(r.product ?? "").trim();
+
+    return {
+      rowIndex: i,
+      carrier: opts.carrier ?? null,
+      producerCode: String(r.producer_code ?? "").trim() || null,
+      policyNumber: String(r.policy_number ?? "").trim() || null,
+      insuredName: String(r.insured_name ?? "").trim() || null,
+      product: String(r.product ?? "").trim() || null,
+      transactionType: refineTxnTypeFromText(modelType, printedType, amountCents),
+      amountCents: amountCents ?? 0,
+      premiumCents: parseAmountCents(r.premium),
+      commissionRate: null,
+      transactionDate: dates.transactionDate,
+      effectiveDate: dates.effectiveDate,
+      paidDate: dates.paidDate,
+      periodStart,
+      periodEnd,
+      raw: r as unknown as Record<string, string>,
+    } as NormalizedRow;
+  }).filter((r) => r.policyNumber || r.insuredName || r.amountCents !== 0);
 }
 
 // ============================================================

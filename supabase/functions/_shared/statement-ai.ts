@@ -58,14 +58,22 @@ export interface PdfRow {
   insured_name: string;
   product: string;
   transaction_type: string;
+  /** The carrier's OWN wording for what this line is — usually a section heading. */
+  transaction_type_text: string;
   amount: string;
   premium: string;
+  /** The date the carrier BOOKED it: accounting / acctg / posted / processed. */
   transaction_date: string;
+  paid_date: string;
+  effective_date: string;
+  due_date: string;
   producer_code: string;
 }
 
 export interface PdfResult {
   carrier: string;
+  /** The date printed in the statement header. The anchor for `MM-DD` dates. */
+  statementDate: string;
   periodStart: string;
   periodEnd: string;
   rows: PdfRow[];
@@ -127,12 +135,31 @@ const MAPPING_SCHEMA = {
   },
 } as const;
 
-const PDF_SCHEMA = {
+// A carrier statement routinely prints THREE dates per line and calls none of
+// them "transaction date" — American-Amicable's ledger has ACCTG DATE, DUE
+// DATE and ISSUE DATE. Asking for one unlabelled date meant the model picked a
+// different column on different rows of the SAME statement, which is worse
+// than no date at all because nothing downstream can tell. Each date is now
+// asked for by name, and the deterministic layer decides which one becomes the
+// row's transaction date (`resolvePdfRowDates` in statement-core.ts).
+const PDF_DATE_FORMAT_NOTE =
+  " Reproduce it EXACTLY as printed — the carrier's own format, including a two-part date with no year " +
+  "such as 07-09. Do not convert it, do not add a year, do not infer it from another line. Empty string if " +
+  "this line does not state it.";
+
+export const PDF_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["carrier", "period_start", "period_end", "rows"],
+  required: ["carrier", "statement_date", "period_start", "period_end", "rows"],
   properties: {
     carrier: { type: "string", description: "Carrier name, or empty string if not stated." },
+    statement_date: {
+      type: "string",
+      description:
+        "The date printed in the statement header (often just labelled DATE), as YYYY-MM-DD. This is how a " +
+        "two-part date elsewhere on the page gets its year, so give it whenever the page shows one. Empty " +
+        "string if the statement is genuinely undated.",
+    },
     period_start: { type: "string", description: "YYYY-MM-DD or empty string." },
     period_end: { type: "string", description: "YYYY-MM-DD or empty string." },
     rows: {
@@ -141,21 +168,53 @@ const PDF_SCHEMA = {
         type: "object",
         additionalProperties: false,
         required: [
-          "policy_number", "insured_name", "product", "transaction_type",
-          "amount", "premium", "transaction_date", "producer_code",
+          "policy_number", "insured_name", "product", "transaction_type", "transaction_type_text",
+          "amount", "premium", "transaction_date", "paid_date", "effective_date", "due_date",
+          "producer_code",
         ],
         properties: {
           policy_number: { type: "string" },
-          insured_name: { type: "string" },
+          insured_name: {
+            type: "string",
+            description:
+              "The insured PERSON's name. Empty string if this line names no person — an adjustment, fee or " +
+              "balance line usually does not, and empty is the correct answer there. Never put ledger " +
+              "explanation text, a description or a code in this field.",
+          },
           product: { type: "string" },
           transaction_type: { type: "string", enum: TXN_TYPES },
+          transaction_type_text: {
+            type: "string",
+            description:
+              "The carrier's OWN wording for what this line is, exactly as printed — usually the section " +
+              "heading the line sits under (for example 'ORDINARY LIFE - 1ST YEAR'), otherwise a label on " +
+              "the line itself. Empty string if the statement gives none.",
+          },
           amount: {
             type: "string",
             description:
               "The commission amount EXACTLY as printed, including any $ sign, parentheses, trailing minus or CR marker. Do not convert it.",
           },
           premium: { type: "string", description: "Premium exactly as printed, or empty string." },
-          transaction_date: { type: "string", description: "Date exactly as printed, or empty string." },
+          transaction_date: {
+            type: "string",
+            description:
+              "The date the CARRIER BOOKED this commission. Printed as accounting date, ACCTG DATE, acctg, " +
+              "booked date, posting date, processed date or transaction date." + PDF_DATE_FORMAT_NOTE,
+          },
+          paid_date: {
+            type: "string",
+            description: "The date the AGENT was paid, if the line states one." + PDF_DATE_FORMAT_NOTE,
+          },
+          effective_date: {
+            type: "string",
+            description:
+              "The policy's effective or ISSUE date, if the line states one." + PDF_DATE_FORMAT_NOTE,
+          },
+          due_date: {
+            type: "string",
+            description: "The premium DUE DATE, if the line states one." + PDF_DATE_FORMAT_NOTE,
+          },
           producer_code: { type: "string", description: "Writing/agent number or NPN on the line, or empty string." },
         },
       },
@@ -180,16 +239,51 @@ const MAPPING_SYSTEM =
   "recovery, refund) is `chargeback`. Do not invent values you have not seen. " +
   "Output ONLY JSON matching the schema.";
 
-const PDF_SYSTEM =
+export const PDF_SYSTEM =
   "You read a US life-insurance carrier COMMISSION STATEMENT (PDF) and return one object per commission " +
   "line item. Return EVERY line item you can see, in the order they appear. Do not return summary, subtotal, " +
   "total or page-footer lines. " +
-  "Reproduce `amount`, `premium` and `transaction_date` EXACTLY as printed — keep the dollar sign, the " +
-  "parentheses, a trailing minus, a CR marker, and the carrier's own date format. Converting them is not your " +
+  "Reproduce every amount and every date EXACTLY as printed — keep the dollar sign, the parentheses, a " +
+  "trailing minus, a CR marker, any asterisk, and the carrier's own date format. Converting them is not your " +
   "job and doing it loses information. " +
   "`amount` is the commission paid to the agent, not the policy premium. " +
-  "A line meaning money taken back from the agent (chargeback, reversal, clawback, recovery, refund) is " +
-  "`chargeback`. Use empty string for anything the line does not state. Do not invent policy numbers or names. " +
+  //
+  // DATES. The failure this replaces: one unlabelled `transaction_date` field,
+  // on a statement printing three date columns and calling none of them that.
+  //
+  "DATES: a statement often prints SEVERAL dates per line and may call none of them a transaction date. " +
+  "Put each one in the field that matches what it MEANS, by the column heading it sits under: " +
+  "`transaction_date` is when the CARRIER BOOKED the commission — accounting date, ACCTG DATE, acctg, " +
+  "booked, posting or processed date, as well as a column actually headed transaction date; " +
+  "`paid_date` is when the AGENT was paid; " +
+  "`effective_date` is the policy effective or ISSUE date; " +
+  "`due_date` is the premium due date. " +
+  "A date belongs in exactly one of those. Leave a field empty rather than repeating a date into it or " +
+  "guessing which kind it is, and never infer a date a line does not print. " +
+  "Also return `statement_date` from the page header, because a date printed without a year takes its year " +
+  "from there. " +
+  //
+  // TYPES. The failure this replaces: five ORDINARY LIFE - 1ST YEAR lines
+  // returned as `renewal` on a statement whose own summary read TOTAL
+  // RENEWAL .00, because the prompt defined only `chargeback`.
+  //
+  "TRANSACTION TYPES — these are our categories, not the carrier's, and a SECTION HEADING GOVERNS EVERY " +
+  "LINE BENEATH IT (most statements state the type once in a heading, not on each line): " +
+  "`advance` is commission on a policy in its FIRST YEAR — this includes anything printed as 1st year, " +
+  "first year, initial, new business or an advance; " +
+  "`renewal` is commission on a policy PAST its first year — renewal, residual, persistency, trail, service " +
+  "fee. FIRST-YEAR COMMISSION IS `advance`, NEVER `renewal`; if the heading says 1st year or initial, the " +
+  "answer is `advance` even though the money looks like any other commission. " +
+  "`chargeback` is money taken back from the agent — chargeback, reversal, clawback, recovery, refund; " +
+  "`override` is commission on business written by someone in the agent's downline; " +
+  "`bonus` is a bonus, incentive or contest payment; " +
+  "`adjustment` is a correction, fee, miscellaneous debit or balance movement that is none of the above. " +
+  "Use `unknown` only when the statement genuinely does not say. " +
+  "Whatever you choose, also return the carrier's own wording in `transaction_type_text`. " +
+  //
+  "NAMES: `insured_name` is a person. An adjustment, fee or balance line usually names no one — return an " +
+  "empty string there rather than putting the line's explanation text, a description or a code in it. " +
+  "Use empty string for anything the line does not state. Do not invent policy numbers or names. " +
   "Output ONLY JSON matching the schema.";
 
 // ------------------------------------------------------------
@@ -377,6 +471,7 @@ export async function extractPdfRows(opts: {
   const rows = Array.isArray(parsed?.rows) ? parsed.rows as PdfRow[] : [];
   return {
     carrier: String(parsed?.carrier ?? "").trim() || (opts.carrierHint ?? ""),
+    statementDate: String(parsed?.statement_date ?? "").trim(),
     periodStart: String(parsed?.period_start ?? "").trim(),
     periodEnd: String(parsed?.period_end ?? "").trim(),
     rows,

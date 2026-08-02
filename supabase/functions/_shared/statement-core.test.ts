@@ -40,11 +40,17 @@ import {
   tooLargeMessage,
   nextPolicyStatusFromStatement,
   planStatementStatusChanges,
+  resolvePartialDate,
+  resolveDateWithAnchor,
+  resolvePdfRowDates,
+  refineTxnTypeFromText,
+  normalizePdfRows,
   STATEMENT_AUTHORITATIVE_STATUSES,
   MAX_FILE_BYTES,
   type Sheet,
   type ColumnMapping,
   type NormalizedRow,
+  type PdfLineInput,
 } from "./statement-core.ts";
 
 const enc = (s: string) => new Uint8Array(Buffer.from(s, "utf8"));
@@ -454,7 +460,7 @@ test("readCsvGrid handles quoted commas and doubled quotes", () => {
 });
 
 test("readCsvGrid strips a UTF-8 BOM", () => {
-  assert.equal(readCsvGrid("﻿policy,amount\nBU1,10\n")[0][0], "policy");
+  assert.equal(readCsvGrid("policy,amount\nBU1,10\n")[0][0], "policy");
 });
 
 test("sniffDelimiter picks semicolons and tabs over commas when they are the real delimiter", () => {
@@ -1008,4 +1014,438 @@ test("every planned change carries a plain-English reason", () => {
     assert.ok(p.reason && p.reason.length > 8, "a status change must explain itself");
     assert.ok(!/null|undefined/.test(p.reason));
   });
+});
+
+// ============================================================
+// The American-Amicable AGENT LEDGER STATEMENT — the shape that broke
+//
+// A real one of these was uploaded on 2026-08-02 and came back with all nine
+// amounts exact and NOT ONE DATE, plus five first-year lines labelled renewal
+// on a statement whose own summary read TOTAL RENEWAL .00.
+//
+// 🔴 EVERY NAME AND POLICY NUMBER BELOW IS INVENTED. The layout is the real
+// one; the people are not. Never put the owner's statement, or anything off
+// it, in this repo — it carries real client names and real policy numbers.
+//
+// The layout facts that matter, all reproduced here:
+//   * THREE date columns per line — ACCTG DATE, DUE DATE, ISSUE DATE — and
+//     none of them is called "transaction date".
+//   * ACCTG/DUE are bare `MM-DD` with no year; ISSUE is `MM-YY`.
+//   * Some dates carry a trailing marker: `06-15*`.
+//   * A due date can be AFTER the statement date (`08-13` on a 07-31 run).
+//   * The type lives in a SECTION HEADING, not on the line.
+//   * A chargeback line has a negative premium as well as a negative amount.
+//   * A misc adjustment line names no insured.
+//   * Two lines are legitimately identical and both are real.
+// ============================================================
+
+const AMAM_STATEMENT_DATE = "2026-07-31";
+
+/** The nine lines as the model returns them, in the real statement's order. */
+const AMAM_LINES: PdfLineInput[] = [
+  {
+    // Misc adjustment. No insured — the ledger prints an explanation here and
+    // the model must NOT copy that into insured_name.
+    policy_number: "0009990001", insured_name: "", product: "",
+    transaction_type: "adjustment", transaction_type_text: "MISC ADJUSTMENT",
+    amount: "45.00-", premium: "",
+    transaction_date: "07-27", paid_date: "", effective_date: "", due_date: "",
+    producer_code: "0009990001",
+  },
+  {
+    // Chargeback: negative amount AND negative premium, sitting under an
+    // INITIAL heading — so the model calls it `advance`, which is what the
+    // real one did once the prompt started teaching headings. Only the SIGN
+    // says this is money coming back, and it has to be enough.
+    policy_number: "0111111111", insured_name: "TESTER, ALAN",
+    product: "ORDINARY LIFE - INITIAL",
+    transaction_type: "advance", transaction_type_text: "ORDINARY LIFE - INITIAL",
+    amount: "41.33-", premium: "63.58-",
+    transaction_date: "06-15*", paid_date: "", effective_date: "05-26", due_date: "",
+    producer_code: "0009990001-01",
+  },
+  {
+    // INITIAL, positive. The model gave up; the heading answers for it.
+    policy_number: "0122222222", insured_name: "EXAMPLE, RITA",
+    product: "ORDINARY LIFE - INITIAL",
+    transaction_type: "unknown", transaction_type_text: "ORDINARY LIFE - INITIAL",
+    amount: "90.46", premium: "180.92",
+    transaction_date: "07-01*", paid_date: "", effective_date: "06-26", due_date: "08-01",
+    producer_code: "0009990001-01",
+  },
+  {
+    // 1ST YEAR called a renewal by the model. The printed heading overrules it.
+    policy_number: "0133333333", insured_name: "SAMPLE, DEREK",
+    product: "ORDINARY LIFE - 1ST YEAR",
+    transaction_type: "renewal", transaction_type_text: "ORDINARY LIFE - 1ST YEAR",
+    amount: "30.19", premium: "60.38",
+    transaction_date: "07-05", paid_date: "", effective_date: "06-26", due_date: "08-05",
+    producer_code: "0009990001-01",
+  },
+  {
+    // Repeated line, occurrence 1 of 2 — both are real money.
+    policy_number: "0144444444", insured_name: "PLACEHOLDER, MAY",
+    product: "ORDINARY LIFE - 1ST YEAR",
+    transaction_type: "renewal", transaction_type_text: "ORDINARY LIFE - 1ST YEAR",
+    amount: "36.95", premium: "73.89",
+    transaction_date: "07-13", paid_date: "", effective_date: "06-26", due_date: "08-13",
+    producer_code: "0009990001-01",
+  },
+  {
+    // Repeated line, occurrence 2 of 2.
+    policy_number: "0144444444", insured_name: "PLACEHOLDER, MAY",
+    product: "ORDINARY LIFE - 1ST YEAR",
+    transaction_type: "renewal", transaction_type_text: "ORDINARY LIFE - 1ST YEAR",
+    amount: "36.95", premium: "73.89",
+    transaction_date: "07-13", paid_date: "", effective_date: "06-26", due_date: "08-13",
+    producer_code: "0009990001-01",
+  },
+  {
+    // No accounting date at all — this one has to fall down the chain to the
+    // due date, which is 13 days AFTER the statement date.
+    policy_number: "0155555555", insured_name: "FIXTURE, NORA",
+    product: "ORDINARY LIFE - 1ST YEAR",
+    transaction_type: "renewal", transaction_type_text: "ORDINARY LIFE - 1ST YEAR",
+    amount: "90.46", premium: "180.92",
+    transaction_date: "", paid_date: "", effective_date: "", due_date: "08-13",
+    producer_code: "0009990001-01",
+  },
+  {
+    // No date of any kind. Only `periodEnd` can save it from being invisible.
+    policy_number: "0166666666", insured_name: "SPECIMEN, HUGO",
+    product: "ORDINARY LIFE - 1ST YEAR",
+    transaction_type: "renewal", transaction_type_text: "ORDINARY LIFE - 1ST YEAR",
+    amount: "50.02", premium: "100.04",
+    transaction_date: "", paid_date: "", effective_date: "", due_date: "",
+    producer_code: "0009990001-01",
+  },
+  {
+    // Paid date only.
+    policy_number: "0177777777", insured_name: "DUMMY, IRIS",
+    product: "ORDINARY LIFE - 1ST YEAR",
+    transaction_type: "renewal", transaction_type_text: "ORDINARY LIFE - 1ST YEAR",
+    amount: "13.75", premium: "22.92",
+    transaction_date: "", paid_date: "07-20", effective_date: "", due_date: "08-20",
+    producer_code: "0009990001-01",
+  },
+];
+
+const amamRows = () => normalizePdfRows(AMAM_LINES, {
+  carrier: "American-Amicable",
+  statementDate: AMAM_STATEMENT_DATE,
+  periodStart: null,
+  periodEnd: AMAM_STATEMENT_DATE,
+});
+
+test("🔴 EVERY line off the ledger statement gets a transaction_date", () => {
+  const rows = amamRows();
+  assert.equal(rows.length, 9, "all nine lines survive normalization");
+  const undated = rows.filter(r => r.transactionDate === null);
+  assert.deepEqual(
+    undated.map(r => r.insuredName ?? r.policyNumber),
+    [],
+    "A null transaction_date does NOT read as 'undated' downstream — it removes the row " +
+    "from the trend chart, the persistency windows and the debt drill-down, silently, " +
+    "while the totals above them still count it. That is worse than a slightly wrong date.",
+  );
+});
+
+test("the date chain's precedence, one hop at a time", () => {
+  const opts = { anchorDate: "2026-07-31", periodEnd: "2026-07-31" };
+
+  // 1. Accounting/transaction beats everything below it.
+  assert.deepEqual(
+    resolvePdfRowDates(
+      { transactionDate: "07-05", paidDate: "07-20", effectiveDate: "2026-06-01", dueDate: "08-05" }, opts,
+    ),
+    { transactionDate: "2026-07-05", effectiveDate: "2026-06-01", paidDate: "2026-07-20", source: "transaction" },
+  );
+
+  // 2. Paid beats effective and due.
+  assert.equal(
+    resolvePdfRowDates({ paidDate: "07-20", effectiveDate: "2026-06-01", dueDate: "08-05" }, opts).transactionDate,
+    "2026-07-20",
+  );
+
+  // 3. Effective beats due.
+  assert.equal(
+    resolvePdfRowDates({ effectiveDate: "2026-06-01", dueDate: "08-05" }, opts).transactionDate,
+    "2026-06-01",
+  );
+
+  // 4. Due beats the period end.
+  assert.equal(resolvePdfRowDates({ dueDate: "08-05" }, opts).transactionDate, "2026-08-05");
+
+  // 5. The period end is the floor.
+  assert.equal(resolvePdfRowDates({}, opts).transactionDate, "2026-07-31");
+
+  // 6. Nothing at all, not even a period — null, and it says so.
+  assert.deepEqual(resolvePdfRowDates({}, { anchorDate: null, periodEnd: null }), {
+    transactionDate: null, effectiveDate: null, paidDate: null, source: "none",
+  });
+});
+
+test("the first three hops are the tabular path's chain, in the tabular path's order", () => {
+  // applyMapping has always done `transaction ?? paid ?? effective`. Two
+  // definitions of "when did this line happen" one file format apart is the
+  // bug class this repo keeps paying for, so the overlap must be identical.
+  const sheet: Sheet = {
+    name: "s",
+    rows: [
+      ["Policy", "Insured", "Amount", "Txn Date", "Paid Date", "Eff Date"],
+      ["P1", "A One", "100.00", "", "", "2026-06-01"],
+      ["P2", "B Two", "100.00", "", "07-20-2026", "2026-06-01"],
+      ["P3", "C Three", "100.00", "07-05-2026", "07-20-2026", "2026-06-01"],
+    ],
+  };
+  const mapping: ColumnMapping = {
+    columns: { policy_number: 0, insured_name: 1, amount: 2, transaction_date: 3, paid_date: 4, effective_date: 5 },
+  };
+  const tabular = applyMapping(sheet, previewSheet(sheet), mapping);
+  assert.deepEqual(tabular.map(r => r.transactionDate), ["2026-06-01", "2026-07-20", "2026-07-05"]);
+
+  const pdf = [
+    { transaction_date: "", paid_date: "", effective_date: "2026-06-01" },
+    { transaction_date: "", paid_date: "07-20-2026", effective_date: "2026-06-01" },
+    { transaction_date: "07-05-2026", paid_date: "07-20-2026", effective_date: "2026-06-01" },
+  ].map(l => resolvePdfRowDates({
+    transactionDate: l.transaction_date, paidDate: l.paid_date, effectiveDate: l.effective_date,
+  }, { anchorDate: "2026-07-31", periodEnd: null }));
+  assert.deepEqual(pdf.map(r => r.transactionDate), ["2026-06-01", "2026-07-20", "2026-07-05"]);
+});
+
+// ------------------------------------------------------------
+// The year trap
+// ------------------------------------------------------------
+
+test("🔴 a bare MM-DD takes its year from the STATEMENT, over the December rollover", () => {
+  // December on a January statement is LAST December. A naive "use the
+  // statement's year" is wrong here, once a year, for every agent.
+  assert.equal(resolvePartialDate("12-15", "2027-01-31"), "2026-12-15");
+  assert.equal(resolvePartialDate("11-02", "2027-01-05"), "2026-11-02");
+});
+
+test("🔴 ...and the other direction: January on a January statement is THIS January", () => {
+  assert.equal(resolvePartialDate("01-05", "2027-01-31"), "2027-01-05");
+  assert.equal(resolvePartialDate("01-31", "2027-01-31"), "2027-01-31");
+});
+
+test("a due date a few days in the future stays in the future", () => {
+  // 'Nearest year', not 'on or before'. A premium due date is legitimately
+  // ahead of the statement; forcing it backwards invents a date a year early.
+  assert.equal(resolvePartialDate("08-13", "2026-07-31"), "2026-08-13");
+  assert.equal(resolvePartialDate("08-01", "2026-07-31"), "2026-08-01");
+});
+
+test("the year comes from the statement, never from the clock", () => {
+  // The same string against two different statements must give two different
+  // years — that is the whole property. Re-reading a 2021 statement today
+  // must not drag its lines into this year.
+  assert.equal(resolvePartialDate("07-09", "2021-07-31"), "2021-07-09");
+  assert.equal(resolvePartialDate("07-09", "2026-07-31"), "2026-07-09");
+});
+
+test("a date marker beside the number is stripped, not fatal", () => {
+  assert.equal(resolvePartialDate("06-15*", "2026-07-31"), "2026-06-15");
+  assert.equal(resolvePartialDate("07-01 *", "2026-07-31"), "2026-07-01");
+  assert.equal(resolveDateWithAnchor("07-01*", "2026-07-31"), "2026-07-01");
+});
+
+test("an unresolvable partial date falls through rather than being guessed", () => {
+  assert.equal(resolvePartialDate("07-09", null), null, "no anchor means no answer");
+  assert.equal(resolvePartialDate("13-09", "2026-07-31"), null, "month 13");
+  assert.equal(resolvePartialDate("02-30", "2026-07-31"), null, "February 30th is not a date");
+  assert.equal(resolvePartialDate("", "2026-07-31"), null);
+  assert.equal(resolvePartialDate("Q3", "2026-07-31"), null);
+  // Three components is a whole date; parseDateISO's job, not this one's.
+  assert.equal(resolvePartialDate("07-09-26", "2026-07-31"), null);
+});
+
+test("🔴 an ISSUE date is never partial-resolved, because MM-YY reads as MM-DD", () => {
+  // This carrier prints ISSUE DATE as `06-26` meaning June 2026. As a string
+  // that is indistinguishable from June 26th, so reading it would invent a
+  // day and then bucket the row on it. Falling through is the right answer.
+  const r = resolvePdfRowDates(
+    { effectiveDate: "06-26", dueDate: "08-13" },
+    { anchorDate: "2026-07-31", periodEnd: "2026-07-31" },
+  );
+  assert.equal(r.effectiveDate, null, "a two-part issue date is ambiguous, so it is not read");
+  assert.equal(r.transactionDate, "2026-08-13", "and the chain moves on to the due date");
+  // A full issue date is still read normally.
+  assert.equal(resolvePdfRowDates({ effectiveDate: "06-15-2026" }, {}).effectiveDate, "2026-06-15");
+});
+
+test("resolveDateWithAnchor prefers a real full date and never rewrites one", () => {
+  assert.equal(resolveDateWithAnchor("2026-03-04", "2027-01-31"), "2026-03-04");
+  assert.equal(resolveDateWithAnchor("03/04/2026", "2027-01-31"), "2026-03-04");
+});
+
+// ------------------------------------------------------------
+// First year is not a renewal
+// ------------------------------------------------------------
+
+test("🔴 normalizeTxnType reads '1st year', which is what shipped broken", () => {
+  assert.equal(normalizeTxnType("1st year"), "advance");
+  assert.equal(normalizeTxnType("1ST YEAR"), "advance");
+  assert.equal(normalizeTxnType("ordinary life - 1st year"), "advance");
+  assert.equal(normalizeTxnType("ORDINARY LIFE - 1ST YEAR"), "advance");
+  assert.equal(normalizeTxnType("1st yr"), "advance");
+  assert.equal(normalizeTxnType("1styr"), "advance");
+  assert.equal(normalizeTxnType("first yr"), "advance");
+  // The wordings that already worked must keep working.
+  assert.equal(normalizeTxnType("First Year"), "advance");
+  assert.equal(normalizeTxnType("ORDINARY LIFE - INITIAL"), "advance");
+  assert.equal(normalizeTxnType("New Business"), "advance");
+});
+
+test("a genuine renewal is still a renewal", () => {
+  assert.equal(normalizeTxnType("Renewal"), "renewal");
+  assert.equal(normalizeTxnType("ORDINARY LIFE - RENEWAL"), "renewal");
+  assert.equal(normalizeTxnType("Renewal Commission"), "renewal");
+  assert.equal(normalizeTxnType("Persistency Fee"), "renewal");
+  // Renewal is checked before advance, so a line claiming both stays renewal.
+  assert.equal(normalizeTxnType("2nd year renewal"), "renewal");
+});
+
+test("🔴 the printed heading overrules a model that called first-year money a renewal", () => {
+  assert.equal(refineTxnTypeFromText("renewal", "ORDINARY LIFE - 1ST YEAR", 3019), "advance");
+  assert.equal(refineTxnTypeFromText("unknown", "ORDINARY LIFE - INITIAL", 9046), "advance");
+  // A real renewal heading is left exactly alone.
+  assert.equal(refineTxnTypeFromText("renewal", "ORDINARY LIFE - RENEWAL", 1000), "renewal");
+});
+
+test("🔴 refinement never relabels a chargeback, whatever the heading says", () => {
+  // The money moving backwards establishes a chargeback. A product name with
+  // "renewable" or a section headed "1ST YEAR" must not be able to undo it —
+  // which is why this is not just normalizeTxnType(printedText).
+  assert.equal(refineTxnTypeFromText("chargeback", "ORDINARY LIFE - 1ST YEAR", -4133), "chargeback");
+  assert.equal(refineTxnTypeFromText("chargeback", "RENEWABLE TERM", -4133), "chargeback");
+});
+
+test("🔴 NEGATIVE COMMISSION IS A CHARGEBACK EVEN WHEN THE MODEL SAYS advance", () => {
+  // The regression this round CAUSED and caught, on the owner's real file.
+  // Teaching the prompt that `ORDINARY LIFE - INITIAL` means `advance` made
+  // the model answer confidently for a line whose amount was -41.33 — and a
+  // confident answer switches OFF normalizeTxnType's sign tiebreak. The net
+  // still reconciled to the cent, so nothing would have complained, while the
+  // line quietly left the Debt tab, which counts chargeback and adjustment
+  // only. Commission paid to an agent cannot be negative.
+  assert.equal(refineTxnTypeFromText("advance", "ORDINARY LIFE - INITIAL", -4133), "chargeback");
+  assert.equal(refineTxnTypeFromText("advance", "ORDINARY LIFE - 1ST YEAR", -1), "chargeback");
+  assert.equal(refineTxnTypeFromText("renewal", "ORDINARY LIFE - RENEWAL", -500), "chargeback");
+  // Positive money under the same headings is untouched.
+  assert.equal(refineTxnTypeFromText("advance", "ORDINARY LIFE - INITIAL", 4133), "advance");
+  assert.equal(refineTxnTypeFromText("renewal", "ORDINARY LIFE - RENEWAL", 500), "renewal");
+  // A negative ADJUSTMENT stays an adjustment — a fee is not a reversal, and
+  // both already count as debt. Same for an override or a bonus.
+  assert.equal(refineTxnTypeFromText("adjustment", "MISC ADJUSTMENT", -4500), "adjustment");
+  assert.equal(refineTxnTypeFromText("override", "OVERRIDE", -100), "override");
+});
+
+test("the tabular path's sign rule is deliberately NOT changed", () => {
+  // normalizeTxnType still treats the sign as a tiebreak only. On a sheet the
+  // type column carries the carrier's own transaction word, and "Adjustment"
+  // must stay an adjustment whichever way it points. Only the PDF path, where
+  // the "type" is a product heading, needs the stronger rule above.
+  assert.equal(normalizeTxnType("First Year Advance", -100), "advance");
+  assert.equal(normalizeTxnType("Renewal", -100), "renewal");
+  assert.equal(normalizeTxnType("Adjustment", -5000), "adjustment");
+});
+
+test("refinement does not overrule a confident model answer in any other direction", () => {
+  assert.equal(refineTxnTypeFromText("override", "ORDINARY LIFE - 1ST YEAR", 100), "override");
+  assert.equal(refineTxnTypeFromText("bonus", "ORDINARY LIFE - RENEWAL", 100), "bonus");
+  assert.equal(refineTxnTypeFromText("adjustment", "MISC", -100), "adjustment");
+  // Nothing printed, nothing to say.
+  assert.equal(refineTxnTypeFromText("renewal", "", 100), "renewal");
+  assert.equal(refineTxnTypeFromText("unknown", "", 100), "unknown");
+});
+
+test("🔴 a negative amount is still a chargeback whatever section it sits in", () => {
+  const rows = amamRows();
+  const cb = rows.find(r => r.amountCents === -4133)!;
+  assert.equal(cb.transactionType, "chargeback");
+  assert.equal(cb.premiumCents, -6358, "the negative premium survives too");
+  // And the bare rule underneath it is untouched.
+  assert.equal(normalizeTxnType("", -1), "chargeback");
+  assert.equal(normalizeTxnType("ORDINARY LIFE - 1ST YEAR", -1), "advance",
+    "a named line still keeps its name — the sign is only a tiebreak");
+});
+
+test("🔴 the whole ledger statement types out correctly", () => {
+  const rows = amamRows();
+  assert.deepEqual(rows.map(r => r.transactionType), [
+    "adjustment",   // misc
+    "chargeback",   // negative, under an INITIAL heading
+    "advance",      // INITIAL, model said unknown
+    "advance",      // 1ST YEAR, model said renewal
+    "advance",      // 1ST YEAR, repeated line 1
+    "advance",      // 1ST YEAR, repeated line 2
+    "advance",      // 1ST YEAR
+    "advance",      // 1ST YEAR
+    "advance",      // 1ST YEAR
+  ]);
+  assert.equal(rows.filter(r => r.transactionType === "renewal").length, 0,
+    "this statement's own summary reads TOTAL RENEWAL .00 — not one line here is a renewal");
+  assert.equal(rows.filter(r => r.transactionType === "unknown").length, 0);
+});
+
+test("the ledger statement's dates resolve to the right day, per line", () => {
+  const rows = amamRows();
+  assert.deepEqual(rows.map(r => r.transactionDate), [
+    "2026-07-27",  // acctg 07-27
+    "2026-06-15",  // acctg 06-15* — marker stripped
+    "2026-07-01",  // acctg 07-01*
+    "2026-07-05",  // acctg 07-05
+    "2026-07-13",  // acctg 07-13
+    "2026-07-13",  // acctg 07-13, the repeat
+    "2026-08-13",  // no acctg -> due date, which is after the statement date
+    "2026-07-31",  // nothing at all -> the period end floor
+    "2026-07-20",  // no acctg -> paid date
+  ]);
+  // The specific fields stay as printed alongside, exactly as the tabular
+  // path keeps them. The MM-YY issue dates are correctly not guessed.
+  assert.deepEqual(rows.map(r => r.effectiveDate), [null, null, null, null, null, null, null, null, null]);
+  assert.equal(rows[8].paidDate, "2026-07-20");
+});
+
+test("the misc adjustment line carries no insured name", () => {
+  const rows = amamRows();
+  assert.equal(rows[0].insuredName, null,
+    "ledger explanation text is not a person; an adjustment line names nobody and empty is correct");
+  assert.equal(rows[0].transactionType, "adjustment");
+  assert.equal(rows[0].amountCents, -4500);
+});
+
+test("🔴 the two identical lines both survive — the occurrence ordinal still works", () => {
+  const rows = amamRows();
+  const pair = rows.filter(r => r.amountCents === 3695);
+  assert.equal(pair.length, 2, "both are real money and both must be kept");
+
+  const keys = buildDedupeKeys(rows, sha);
+  assert.equal(new Set(keys).size, keys.length, "nine lines, nine distinct dedupe keys");
+
+  // ...and re-parsing the same statement produces the same nine keys, so the
+  // upsert writes nothing new.
+  assert.deepEqual(buildDedupeKeys(amamRows(), sha), keys);
+});
+
+test("🔴 the money is untouched — the net still reconciles to the carrier's own total", () => {
+  const rows = amamRows();
+  const net = rows.reduce((n, r) => n + r.amountCents, 0);
+  const positives = rows.filter(r => r.amountCents > 0).reduce((n, r) => n + r.amountCents, 0);
+  assert.equal(positives, 34878);
+  assert.equal(net, 34878 - 4500 - 4133, "commission less the chargeback less the misc adjustment");
+  assert.equal(net, 26245);
+  // The amounts themselves, line by line, exactly as printed.
+  assert.deepEqual(rows.map(r => r.amountCents), [-4500, -4133, 9046, 3019, 3695, 3695, 9046, 5002, 1375]);
+});
+
+test("normalizePdfRows still drops a line that is padding, and keeps a zero-value real line", () => {
+  const rows = normalizePdfRows([
+    { policy_number: "", insured_name: "", amount: "", transaction_type: "unknown" },
+    { policy_number: "P9", insured_name: "", amount: "0.00", transaction_type: "adjustment" },
+  ], { carrier: "X", statementDate: "2026-07-31", periodEnd: "2026-07-31" });
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].policyNumber, "P9");
 });

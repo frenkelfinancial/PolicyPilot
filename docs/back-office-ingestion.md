@@ -106,6 +106,53 @@ reason the agent sees on screen (*"2 policies share that insured name"*).
 
 ---
 
+## Known carrier shapes
+
+### American-Amicable — AGENT LEDGER STATEMENT (PDF)
+
+The first real carrier statement put through this pipeline, 2026-08-02. It
+broke two assumptions the PDF reader was built on, and both fixes are in
+`PROMPT_FIX2` (`docs/reports/PROMPT_FIX2-report.md`).
+
+**Three date columns per line, and none of them is called "transaction date":**
+
+| Printed | Format | Example | Maps to | Why |
+|---|---|---|---|---|
+| `ACCTG DATE` | `MM-DD` | `07-09` | **`transaction_date`** | When the carrier BOOKED the commission. On every line, and it keeps a July statement in July. |
+| `DUE DATE` | `MM-DD` | `08-13` | `due_date` | The premium's next due date. Legitimately **after** the statement date. |
+| `ISSUE DATE` | `MM-YY` | `06-26` | `effective_date` | June 2026 — a month, not a day. |
+
+Consequences that generalise beyond this carrier:
+
+- **The year is not printed.** It is resolved against the statement header's
+  own `DATE 07-31-26`, by nearest year, so December on a January statement is
+  *last* December and a due date a fortnight out stays in the future. Never
+  from `new Date()`.
+- **`ISSUE DATE` is never partial-resolved.** `06-26` as a string is
+  indistinguishable from June 26th, so reading it would invent a day and then
+  bucket the row on it. It falls through the chain instead.
+- **Dates carry markers** — `06-15*` — which are stripped, not fatal.
+
+**The transaction type lives in a SECTION HEADING, never on a line.** The
+statement is divided into `ORDINARY LIFE - INITIAL` and
+`ORDINARY LIFE - 1ST YEAR`, plus a `PAYMENT OR MISC NON-INCOME ADJUSTMENT`
+line. **Both life sections are `advance`** — neither is a renewal, and the
+statement's own summary confirms it with `TOTAL RENEWAL .00`. The heading is
+captured verbatim into `transaction_type_text` so the deterministic layer can
+overrule a model that disagrees.
+
+**A negative line under a life heading is a chargeback**, established by the
+sign and not by the heading — see `refineTxnTypeFromText()` rule 3.
+
+**The misc adjustment line names no insured.** Its ledger explanation text is
+not a person and must not be captured as one; empty is the right answer.
+
+A nine-line example of this layout — real structure, **invented names and
+policy numbers** — is the fixture in `statement-core.test.ts`. The owner's
+actual statement is never committed to this repo.
+
+---
+
 ## Where the caps are, and why they are there twice
 
 | Cap | Value | Enforced |
@@ -281,6 +328,12 @@ straight through, so a PDF whose line items carry no per-line date writes
 chart, the persistency windows and the debt drill-down exactly as described
 above. `period_start` / `period_end` are resolved correctly and are on the same
 object, unused.
+
+**FIXED in `PROMPT_FIX2` (2026-08-02)**, together with a second defect the
+owner's first real carrier PDF exposed — first-year commission labelled
+`renewal` — after that statement ingested with all nine amounts exact and not
+one date. See § "Known carrier shapes" below and
+`docs/reports/PROMPT_FIX2-report.md`.
 
 A third change came out of adding the nav item rather than from ingestion:
 `nav()` and `restoreSectionFromCache()` each carried a **positional** nav-item

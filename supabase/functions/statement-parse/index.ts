@@ -44,10 +44,9 @@ import {
   applyMapping,
   buildDedupeKeys,
   matchRowToPolicy,
-  normalizeTxnType,
-  parseAmountCents,
   parseDateISO,
   planStatementStatusChanges,
+  normalizePdfRows,
   sniffCarrier,
   MAX_ROWS_PER_STATEMENT,
 } from "../_shared/statement-core.ts";
@@ -196,26 +195,20 @@ serve(async (req) => {
           continue;
         }
 
-        rows = pdf.rows.map((r, i) => {
-          const amountCents = parseAmountCents(r.amount);
-          return {
-            rowIndex: i,
-            carrier: detectedCarrier,
-            producerCode: r.producer_code?.trim() || null,
-            policyNumber: r.policy_number?.trim() || null,
-            insuredName: r.insured_name?.trim() || null,
-            product: r.product?.trim() || null,
-            transactionType: normalizeTxnType(r.transaction_type, amountCents),
-            amountCents: amountCents ?? 0,
-            premiumCents: parseAmountCents(r.premium),
-            commissionRate: null,
-            transactionDate: parseDateISO(r.transaction_date),
-            effectiveDate: null,
-            paidDate: null,
-            periodStart, periodEnd,
-            raw: r as unknown as Record<string, string>,
-          } as NormalizedRow;
-        }).filter((r) => r.policyNumber || r.insuredName || r.amountCents !== 0);
+        // The projection lives in statement-core so the tests execute the code
+        // that ships. It owns the date chain (transaction -> paid -> effective
+        // -> due -> period end, the first three matching the tabular path byte
+        // for byte) and the type refinement that lets the carrier's own
+        // printed heading correct a first-year line the model called a
+        // renewal. A null transaction_date is not "undated" downstream — it
+        // removes the row from the trend chart, the persistency windows and
+        // the debt drill-down while the totals above them still count it.
+        rows = normalizePdfRows(pdf.rows, {
+          carrier: detectedCarrier,
+          statementDate: pdf.statementDate,
+          periodStart,
+          periodEnd,
+        });
       } else {
         // ---- tabular: one AI call per sheet, mapping applied in code ----
         let sheets: Sheet[];
